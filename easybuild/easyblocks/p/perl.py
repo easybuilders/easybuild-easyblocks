@@ -26,7 +26,10 @@
 EasyBuild support for Perl, implemented as an easyblock
 
 @author: Jens Timmerman (Ghent University)
+@author: Kenneth Hoste (Ghent University)
 """
+
+import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.filetools import run_cmd

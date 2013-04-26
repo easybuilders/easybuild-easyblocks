@@ -26,6 +26,7 @@
 EasyBuild support for Perl module, implemented as an easyblock
 
 @author: Jens Timmerman (Ghent University)
+@author: Kenneth Hoste (Ghent University)
 """
 import os
 
@@ -74,8 +75,8 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
             ConfigureMake.install_step(self)
         elif os.path.exists('Build.PL'):
             run_cmd('perl Build.PL --prefix %s' % self.installdir)
-            out, ec  = run_cmd('./Build test')
-            out, ec  = run_cmd('./Build install')
+            out, ec  = run_cmd('perl Build test')
+            out, ec  = run_cmd('perl Build install')
 
 
 
