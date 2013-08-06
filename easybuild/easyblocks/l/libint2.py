@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing LAPACK, implemented as an easyblock
+EasyBuild support for building and installing libint2, implemented as an easyblock
 
 @author: Toon Verstraelen (Ghent University)
 """
