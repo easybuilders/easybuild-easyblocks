@@ -162,7 +162,7 @@ class PythonPackage(ExtensionEasyBlock):
                 except OSError, err:
                     self.log.error("Failed to create test install dir: %s" % err)
 
-                cmd = "python setup.py install --prefix=%s %s" % (testinstalldir, self.installopts)
+                cmd = "python setup.py install --prefix=%s %s --no-deps" % (testinstalldir, self.installopts)
                 run_cmd(cmd, log_all=True, simple=True)
 
                 run_cmd("python -c 'import sys; print(sys.path)'")  # print Python search path (debug)
