@@ -231,7 +231,7 @@ class EB_numpy(FortranPythonPackage):
         if os.path.isdir(numpy_builddir):
             rmtree2(builddir)
             os.chdir(self.builddir)
-            self.log.debug("Removed build dir %s, moved to %s" % (numpy_builddir, os.getcwd())
+            self.log.debug("Removed build dir %s, moved to %s" % (numpy_builddir, os.getcwd()))
         else:
             self.log.debug("build dir %s already clean" % builddir)
 
