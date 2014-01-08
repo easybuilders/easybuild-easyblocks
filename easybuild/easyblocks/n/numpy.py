@@ -229,11 +229,11 @@ class EB_numpy(FortranPythonPackage):
 
         numpy_builddir = os.path.join(self.builddir, "numpy")
         if os.path.isdir(numpy_builddir):
-            rmtree2(builddir)
+            rmtree2(numpy_builddir)
             os.chdir(self.builddir)
             self.log.debug("Removed build dir %s, moved to %s" % (numpy_builddir, os.getcwd()))
         else:
-            self.log.debug("build dir %s already clean" % builddir)
+            self.log.debug("build dir %s already removed" % numpy_builddir)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
