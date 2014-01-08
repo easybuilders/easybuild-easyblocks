@@ -223,6 +223,18 @@ class EB_numpy(FortranPythonPackage):
         except OSError, err:
             self.log.error("Failed to change back to %s: %s" % (pwd, err))
 
+    def install_step(self):
+        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
+        super(EB_numpy, self).install_step()
+
+        numpy_builddir = os.path.join(self.builddir, "numpy")
+        if os.path.isdir(numpy_builddir):
+            rmtree2(numpy_builddir)
+            os.chdir(self.builddir)
+            self.log.debug("Removed build dir %s, moved to %s" % (numpy_builddir, os.getcwd()))
+        else:
+            self.log.debug("build dir %s already removed" % numpy_builddir)
+
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
@@ -240,13 +252,3 @@ class EB_numpy(FortranPythonPackage):
         os.environ['PYTHONPATH'] = ':'.join([self.pylibdir, pythonpath])
 
         return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def install_step(self):
-        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
-        super(EB_numpy, self).install_step()
-
-        builddir = os.path.join(self.builddir, "numpy")
-        if os.path.isdir(builddir):
-            rmtree2(builddir)
-        else:
-            self.log.debug("build dir %s already clean" % builddir)
