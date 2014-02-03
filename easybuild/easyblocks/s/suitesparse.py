@@ -40,6 +40,7 @@ import sys
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.modules import get_software_root
+from distutils.version import LooseVersion
 
 
 class EB_SuiteSparse(ConfigureMake):
@@ -52,7 +53,11 @@ class EB_SuiteSparse(ConfigureMake):
         if not metis and not parmetis:
             self.log.error("Neither METIS or ParMETIS module loaded.")
 
-        fp = os.path.join("UFconfig","UFconfig.mk")
+        self.loosever = LooseVersion(self.version)
+        if self.loosever < LooseVersion("4.0.0"):
+            fp = os.path.join("UFconfig","UFconfig.mk")
+        else:
+            fp = os.path.join("SuiteSparse_config","SuiteSparse_config.mk")
 
         cfgvars = {
                    'CC': os.getenv('MPICC'),
@@ -142,13 +147,23 @@ class EB_SuiteSparse(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for SuiteSparse."""
+        self.loosever = LooseVersion(self.version)
 
-        custom_paths = {
-                        'files':["%s/lib/lib%s.a" % (x, x.lower()) for x in ["AMD", "BTF", "CAMD", "CCOLAMD", "CHOLMOD",
-                                                                             "COLAMD", "CXSparse", "KLU", "LDL", "RBio",
-                                                                             "SPQR", "UMFPACK"]] +
+        if self.loosever < LooseVersion("4.0.0"):
+            custom_paths = {
+                            'files':["%s/lib/lib%s.a" % (x, x.lower()) for x in ["AMD", "BTF", "CAMD", "CCOLAMD", "CHOLMOD",
+                                                                                 "COLAMD", "CXSparse", "KLU", "LDL", "RBio",
+                                                                                 "SPQR", "UMFPACK"]] +
                                 ["CSparse3/lib/libcsparse.a"],
-                        'dirs':["MATLAB_Tools"]
-                       }
+                            'dirs':["MATLAB_Tools"]
+                           }
+        else:
+            custom_paths = {
+                            'files':["%s/lib/lib%s.a" % (x, x.lower()) for x in ["AMD", "BTF", "CAMD", "CCOLAMD", "CHOLMOD",
+                                                                                 "COLAMD", "CXSparse", "KLU", "LDL", "RBio",
+                                                                                 "SPQR", "UMFPACK"]] +
+                                ["CSparse/lib/libcsparse.a"],
+                            'dirs':["MATLAB_Tools"]
+                           }
 
         super(EB_SuiteSparse, self).sanity_check_step(custom_paths=custom_paths)
