@@ -26,7 +26,7 @@
 EasyBuild support for SPM, implemented as an easyblock
 
 @authors: Stijn De Weirdt (UGent), Dries Verdegem (UGent), Kenneth Hoste (UGent), Pieter De Baets (UGent),
-          Jens Timmerman (UGent)
+          Jens Timmerman (UGent), Georg Rath (Medical University of Vienna)
 """
 import os
 import shutil
@@ -64,8 +64,6 @@ class EB_SPM(EasyBlock):
         """Custom build procedure for SPM"""
 	
 	# MATLAB (mcc) warns if GCC version is not 4.4.x, but it still seems to work
-	
-	# is there a better way to express a dependency on the loaded MATLAB module?
 	matlab_root = get_software_root('MATLAB')
 	if not matlab_root:
 	    self.log.error("MATLAB module not loaded")
