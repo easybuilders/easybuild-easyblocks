@@ -133,9 +133,9 @@ class EB_OpenSees(MakeCp):
     def build_step(self):
         "Build OpenSees using make after sourcing script to set environment."
         if not os.path.exists(os.path.join(self.builddir, 'OpenSees/bin')):
-            os.mkdir(os.path.join(self.builddir, 'OpenSees/bin'))
+            os.makedirs(os.path.join(self.builddir, 'OpenSees/bin'))
         if not os.path.exists(os.path.join(self.builddir, 'OpenSees/lib')):
-            os.mkdir(os.path.join(self.builddir, 'OpenSees/lib'))
+            os.makedirs(os.path.join(self.builddir, 'OpenSees/lib'))
 
         # make directly in install directory
         cmd="make"
