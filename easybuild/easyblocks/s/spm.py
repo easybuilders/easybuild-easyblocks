@@ -43,12 +43,22 @@ class EB_SPM(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for SPM"""
-	
-	# MATLAB (mcc) warns if GCC version is not 4.4.x, but it still seems to work
-	matlab_root = get_software_root('MATLAB')
-	if not matlab_root:
-	    self.log.error("MATLAB module not loaded")
-		
+        deps = self.cfg.dependencies()
+        builddeps = self.cfg.builddependencies()
+
+        # MATLAB (mcc) warns if GCC version is not 4.4.x, but it still seems to work
+        gcc_root = get_software_root('GCC')
+        if not gcc_root:
+            self.log.error("GCC module not loaded")
+        if not get_software_version('GCC') ==  [ dep['version'] for dep in builddeps if dep['name'] == 'GCC' ][0]:
+            self.log.error("GCC module has wrong version")
+
+        matlab_root = get_software_root('MATLAB')
+        if not matlab_root:
+            self.log.error("MATLAB module not loaded")
+        if not get_software_version('MATLAB') == [ dep['version'] for dep in deps if dep['name'] == 'MATLAB' ][0]:
+            self.log.error("MATLAB module has wrong version")
+
 	cmd = "make install"
 	(out, _) = run_cmd(cmd, log_all=True, simple=False)
 
