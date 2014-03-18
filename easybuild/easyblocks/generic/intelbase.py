@@ -305,6 +305,8 @@ class IntelBase(EasyBlock):
             'license_file': self.license_file,
             'install_dir': silent_cfg_names_map.get('install_dir', self.installdir),
         }
+        if silent_cfg_names_map.has_key('components'):
+            silent += '\n{0}=ALL'.format(silent_cfg_names_map.get('components'))
 
         # we should be already in the correct directory
         silentcfg = os.path.join(os.getcwd(), "silent.cfg")

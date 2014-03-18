@@ -80,6 +80,11 @@ class EB_imkl(IntelBase):
                 'license_file_name': LICENSE_FILE_NAME_2012,
             }
 
+        if LooseVersion(self.version) > LooseVersion('11.1.1'):
+            silent_cfg_names_map = {
+                'components': 'COMPONENTS',
+            }
+
         super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
