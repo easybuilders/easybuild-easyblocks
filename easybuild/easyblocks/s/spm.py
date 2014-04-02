@@ -35,13 +35,15 @@ class EB_SPM(ConfigureMake):
         self.build_in_installdir = True
     
         # MATLAB (mcc) warns if GCC version is not 4.4.x, but it still seems to work
-        deps = ['GCC', 'MATLAB']
+        deps = [ 'GCC', 'MATLAB' ]
         for dep in deps:
             if not get_software_root(dep):
                 self.log.error("%s module not loaded" % dep)
-        
-        if which('mcc') is None:
-            self.log.error('mcc not found')
+       
+        matlab_compilers = [ 'mcc', 'mex' ] 
+        for compiler in matlab_compilers:
+            if which(compiler) is None:
+                self.log.error('%s not found' % compiler)
 
     def extract_step(self):
         super(EB_SPM, self).extract_step()
