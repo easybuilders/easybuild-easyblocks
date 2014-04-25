@@ -25,43 +25,41 @@
 """
 EasyBlock for FastQC adapted from Packed Binary
 
-@author: Jens Timmerman (Ghent University), Andreas Panteli (The Cyprus Institute)
+@author: Jens Timmerman (Ghent University)
+@author: Andreas Panteli (The Cyprus Institute)
+
 """
 import os
 import shutil
 
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
+from easybuild.framework.easyblock import EasyBlock
+from easybuild.tools.filetools import rmtree2
 
-
-class EB_FastQC(Binary, EasyBlock):
+class EB_FastQC(Binary):
     """Support for installing packed binary software.
     Just unpack the sources in the install dir and change mod 0755 fastqc
     """
 
     def extract_step(self):
         """Unpack the source"""
-        EasyBlock.extract_step(self)
+	EasyBlock.extract_step(self)
 
     def install_step(self):
-        """Copy all unpacked source directories to install directory, one-by-one."""
-        try:
-            os.chdir(self.builddir)
-            for src in os.listdir(self.builddir):
-                srcpath = os.path.join(self.builddir, src)
-                if os.path.isdir(srcpath):
-                    # copy files to install dir via Binary
-                    self.cfg['start_dir'] = src
-                    Binary.install_step(self)
-                elif os.path.isfile(srcpath):
-                    shutil.copy2(srcpath, self.installdir)
-                else:
-                    self.log.error("Path %s is not a file nor a directory?" % srcpath)
-        except OSError, err:
-            self.log.error("Failed to copy unpacked sources to install directory: %s" % err)
+        """Copy all files in build directory to the install directory"""
+        if self.cfg['install_cmd'] is None:
+            try:
+                # shutil.copytree doesn't allow the target directory to exist already
+                rmtree2(self.installdir)
+                shutil.copytree(self.cfg['start_dir'], self.installdir)
+            except OSError, err:
+                self.log.error("Failed to copy %s to %s: %s" % (self.cfg['start_dir'], self.installdir))
+        else:
+            self.log.info("Installing %s using command '%s'..." % (self.name, self.cfg['install_cmd']))
+            run_cmd(self.cfg['install_cmd'], log_all=True, simple=True)
 	#Change mod 755 fastqc
 	try:
             dst = os.path.join(self.installdir, 'fastqc')
-	    os.chmod(dst, 0755)
+            os.chmod(dst, 0755)
 	except OSError, err:
 	    self.log.error("Failed to chmod fastqc in the install directory: %s" % err)
