@@ -34,7 +34,7 @@ import shutil
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import adjust_permissions, rmtree2
 
 class EB_FastQC(Binary):
     """Support for installing packed binary software.
@@ -60,6 +60,6 @@ class EB_FastQC(Binary):
 	#Change mod 755 fastqc
 	try:
             dst = os.path.join(self.installdir, 'fastqc')
-            os.chmod(dst, 0755)
+	    adjust_permissions(dst, 0755, recursive=False, relative=False)
 	except OSError, err:
 	    self.log.error("Failed to chmod fastqc in the install directory: %s" % err)
