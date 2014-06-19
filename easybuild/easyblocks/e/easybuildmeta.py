@@ -139,6 +139,11 @@ class EB_EasyBuildMeta(PythonPackage):
                            ('eb', '-e ConfigureMake -a')
                           ]
 
+        super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def load_module(self, *args, **kwargs):
+        """Load EasyBuild module, but make sure no other EasyBuild module is loaded at that point."""
         # unload EasyBuild module before sanity check, since two EasyBuild modules can't be loaded at the same time
         modtool = modules_tool()
         modtool.unload(['EasyBuild'])
+        super(EB_EasyBuildMeta, self).load_module(*args, **kwargs)
