@@ -32,6 +32,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.environment import modify_env, unset_env_vars
 from easybuild.tools.modules import get_software_root_env_var_name, modules_tool
 from easybuild.tools.ordereddict import OrderedDict
 from easybuild.tools.utilities import flatten
@@ -45,7 +46,21 @@ class EB_EasyBuildMeta(PythonPackage):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
         super(EB_EasyBuildMeta, self).__init__(*args, **kwargs)
-        self.orig_orig_environ = None
+        # unload EasyBuild module in original environment; required for sanity check,
+        # since two EasyBuild modules can't be loaded at the same time (in general)
+        modtool = modules_tool()
+        # strip off version part of module, to unload any EasyBuild module
+        eb_mod = os.path.dirname(self.cfg.short_mod_name)
+        if eb_mod:
+            modtool.unload([eb_mod])
+        else:
+            self.log.warning("Failed to determine versionless EasyBuild module name, so can't unload the module.")
+
+        # unset $PYTHONPATH to prevent that any other 'easybuild' namespaces are picked up during sanity check
+        unset_env_vars(['PYTHONPATH'])
+
+        # modify copy of original environment, which gets restores later during sanity check
+        self.orig_environ = copy.deepcopy(os.environ)
 
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
@@ -67,7 +82,7 @@ class EB_EasyBuildMeta(PythonPackage):
 
         try:
             subdirs = os.listdir(self.builddir)
-            for pkg in ['easyconfigs', 'easyblocks', 'framework']:
+            for pkg in ['framework', 'easyblocks', 'easyconfigs']:
                 seldirs = [x for x in subdirs if x.startswith('easybuild-%s-' % pkg)]
                 if not len(seldirs) == 1:
                     self.log.error("Failed to find EasyBuild %s package (subdirs: %s, seldirs: %s)" % (pkg, subdirs, seldirs))
@@ -140,10 +155,3 @@ class EB_EasyBuildMeta(PythonPackage):
                           ]
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def load_module(self, *args, **kwargs):
-        """Load EasyBuild module, but make sure no other EasyBuild module is loaded at that point."""
-        # unload EasyBuild module before sanity check, since two EasyBuild modules can't be loaded at the same time
-        modtool = modules_tool()
-        modtool.unload(['EasyBuild'])
-        super(EB_EasyBuildMeta, self).load_module(*args, **kwargs)
