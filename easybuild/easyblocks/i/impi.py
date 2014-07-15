@@ -65,7 +65,7 @@ class EB_impi(IntelBase):
             if LooseVersion(self.version) == LooseVersion('4.1.1.036'):
                 # impi v4.1.1 installer creates impi/<version> subdir itself, so specify parent install dir
                 silent_cfg_names_map.update({
-                    'install_dir': install_path(),
+                    'install_dir': os.path.join(install_path(), self.cfg.mod_subdir),
                 })
 
             super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
