@@ -161,18 +161,27 @@ class EB_PETSc(ConfigureMake):
             # CHOLMOD and UMFPACK are part of SuiteSparse
             suitesparse = get_software_root('SuiteSparse')
             if suitesparse:
-                withdep = "--with-umfpack"
                 # specified order of libs matters!
+                dependencies = ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "KLU"]
                 umfpack_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                for l in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
+                                for l in dependencies]
 
-                self.cfg.update('configopts', ' '.join([(withdep+x) for x in [
-                                                                             "=1",
-                                                                             "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include"),
-                                                                             "-lib=[%s]" % ','.join(umfpack_libs)
-                                                                            ]
-                                                       ])
-                               )
+                if LooseVersion(self.version) < LooseVersion("3.5"):
+                    withdep = "--with-umfpack"
+                    includes = os.path.join(suitesparse, "UMFPACK", "Include")
+                else:
+                    # in 3.5: The option --with-umfpack=1 should probably be --with-suitesparse=1
+                    withdep = "--with-suitesparse"
+                    umfpack_libs.append(os.path.join(suitesparse, 'SuiteSparse_config', 'libsuitesparseconfig.a'))
+                    # BTF is also needed
+                    umfpack_libs.append(os.path.join(suitesparse, 'BTF', 'Lib', 'libbtf.a'))
+                    includes = ','.join(os.path.join(suitesparse, l, "include") for l in dependencies + ['BTF'])
+
+                self.cfg.update('configopts', ' '.join([(withdep + x) for x in [
+                    "=1",
+                    "-include=[%s]" % includes,
+                    "-lib=[%s]" % ','.join(umfpack_libs)
+                ]]))
 
             # set PETSC_DIR for configure (env) and build_step
             env.setvar('PETSC_DIR', self.cfg['start_dir'])
@@ -221,7 +230,7 @@ class EB_PETSc(ConfigureMake):
 
     def install_step(self):
         """
-        Install using make install (for non-source installations), 
+        Install using make install (for non-source installations),
         or by symlinking files (old versions, < 3).
         """
         if LooseVersion(self.version) >= LooseVersion("3"):
