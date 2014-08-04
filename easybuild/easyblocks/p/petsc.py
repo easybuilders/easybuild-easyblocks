@@ -173,6 +173,8 @@ class EB_PETSc(ConfigureMake):
                     # in 3.5: The option --with-umfpack=1 should probably be --with-suitesparse=1
                     withdep = "--with-suitesparse"
                     umfpack_libs.append(os.path.join(suitesparse, 'SuiteSparse_config', 'libsuitesparseconfig.a'))
+                    # BTF is also needed
+                    umfpack_libs.append(os.path.join(suitesparse, 'BTF', 'Lib', 'libbtf.a'))
                     includes = ','.join(os.path.join(suitesparse, l, "include") for l in dependencies + ['BTF'])
 
                 self.cfg.update('configopts', ' '.join([(withdep + x) for x in [
