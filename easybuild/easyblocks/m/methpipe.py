@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2014 the Cyprus Institute
+# Copyright 2009-2013 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -24,33 +24,18 @@
 ##
 """
 EasyBuild support for MethPipe
-
+ 
 @author: Thekla Loizou (The Cyprus Institute)
 """
-import os
-
+  
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.makecp import MakeCp
-from easybuild.tools.filetools import run_cmd, mkdir
-
-class EB_METHPIPE(MakeCp):
-    """Support for building and installing MethPipe."""
-
-    def configure_step(self):
-        """Skip configure step"""
-        pass
-
-    def build_step(self, verbose=False):
-        """Start the actual build"""
-        paracmd = ''
-        if self.cfg['parallel']:
-            paracmd = "-j %s" % self.cfg['parallel']
-
-        bindir = os.path.join(os.getcwd(), "bin")
    
-        cmd = "%s make %s %s" % (self.cfg['premakeopts'], paracmd, self.cfg['makeopts'])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=verbose)
-      
-        cmd = "%s make install %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=verbose)
-
-	return out
+class EB_MethPipe(MakeCp):
+    """Support for building and installing MethPipe."""
+    
+    def install_step(self):
+        """Install the software"""
+    
+        ConfigureMake.install_step(self)
+        super(EB_MethPipe, self).install_step()
