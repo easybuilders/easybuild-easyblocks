@@ -54,7 +54,7 @@ class CMakeMake(ConfigureMake):
         })
         return ConfigureMake.extra_options(extra_vars)
 
-    def configure_step(self, srcdir=None, builddir=None):
+    def configure_step(self, cmd_prefix = '', srcdir=None, builddir=None):
         """Configure build using cmake"""
 
         # Set the search paths for CMake
