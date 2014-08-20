@@ -81,7 +81,7 @@ class EB_CUDA(Binary):
 
         custom_paths = {
             'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
-                     ["%s/lib%s.so" % (x, y) for x in ["lib", "lib64"] for y in ["cublas", "cudart", "cufft",
+                     ["%s/lib%s.so" % (x, y) for x in ["lib64"] for y in ["cublas", "cudart", "cufft",
                                                                                  "curand", "cusparse"]] +
                      ["open64/bin/nvopencc"],
             'dirs': ["include"],
