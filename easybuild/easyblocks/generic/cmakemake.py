@@ -37,7 +37,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import run_cmd
+from vsc.utils.run  import run_async_to_log_no_worries as run_cmd
 from easybuild.tools.modules import ROOT_ENV_VAR_NAME_PREFIX
 
 
@@ -99,6 +99,6 @@ class CMakeMake(ConfigureMake):
         options_string = " ".join(options)
 
         command = "%s cmake %s %s %s" % (self.cfg['preconfigopts'], srcdir, options_string, self.cfg['configopts'])
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        (out, _) = run_cmd(command)
 
         return out
