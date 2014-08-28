@@ -36,7 +36,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import run_cmd
+from vsc.utils.run import run_async_to_log_no_worries as run_cmd
 
 
 class ConfigureMake(EasyBlock):
@@ -87,7 +87,7 @@ class ConfigureMake(EasyBlock):
             'configopts': self.cfg['configopts'],
         }
 
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        (out, _) = run_cmd(cmd)
 
         return out
 
@@ -103,7 +103,7 @@ class ConfigureMake(EasyBlock):
 
         cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
 
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=verbose)
+        (out, _) = run_cmd(cmd)
 
         return out
 
@@ -115,7 +115,7 @@ class ConfigureMake(EasyBlock):
 
         if self.cfg['runtest']:
             cmd = "make %s" % (self.cfg['runtest'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            (out, _) = run_cmd(cmd)
 
             return out
 
@@ -127,6 +127,6 @@ class ConfigureMake(EasyBlock):
 
         cmd = "%s make install %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
 
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        (out, _) = run_cmd(cmd)
 
         return out
