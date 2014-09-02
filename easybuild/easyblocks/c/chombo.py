@@ -62,6 +62,7 @@ class EB_Chombo(EasyBlock):
         self.make_options += 'CFLAGS="%s" ' % (os.getenv('CFLAGS'))
         self.make_options += 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS'))
         self.make_options += 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS'))
+        self.make_options += 'foptflags="%s" ' % (os.getenv('F90FLAGS'))
 
         if self.toolchain.options['pic']:
             self.make_options += "PIC=TRUE "
