@@ -60,7 +60,7 @@ class EB_Chombo(EasyBlock):
 
         self.make_options += "CXX=%s FC=%s " % (os.getenv('CXX'),os.getenv('F90'))
         self.make_options += 'CFLAGS="%s" ' % (os.getenv('CFLAGS'))
-        self.make_options += 'CXXLAGS="%s" ' % (os.getenv('CXXFLAGS'))
+        self.make_options += 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS'))
         self.make_options += 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS'))
 
         if self.toolchain.options['pic']:
