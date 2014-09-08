@@ -38,7 +38,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.tools.filetools import run_cmd
-from easybuild.tools.config import install_path
+
 
 class EB_impi(IntelBase):
     """
@@ -66,7 +66,7 @@ class EB_impi(IntelBase):
             if LooseVersion(self.version) == LooseVersion('4.1.1.036'):
                 # impi v4.1.1 installer creates impi/<version> subdir itself, so specify parent install dir
                 silent_cfg_names_map.update({
-                    'install_dir': os.path.join(install_path(), self.cfg.mod_subdir),
+                    'install_dir': os.path.dirname(self.installdir),
                 })
 
             super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
@@ -114,7 +114,7 @@ PROCEED_WITHOUT_PYTHON=yes
 AUTOMOUNTED_CLUSTER=yes
 EULA=accept
 
-""" % {'lic':self.license_file, 'ins':self.installdir}
+""" % {'lic': self.license_file, 'ins': self.installdir}
 
             # already in correct directory
             silentcfg = os.path.join(os.getcwd(), "silent.cfg")
@@ -148,9 +148,9 @@ EULA=accept
 
         custom_paths = {
             'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
-                     ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
-                     ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
-                     ["lib%s/libmpi.so" % suff, "lib%s/libmpi.a" % suff],
+            ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
+            ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
+            ["lib%s/libmpi.so" % suff, "lib%s/libmpi.a" % suff],
             'dirs': [],
         }
 
