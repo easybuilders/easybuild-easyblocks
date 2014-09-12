@@ -174,14 +174,12 @@ class EB_numpy(FortranPythonPackage):
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
-        cmd = "python setup.py install --prefix=%s %s" % (tmpdir, self.installopts)
-        run_cmd(cmd, log_all=True, simple=True)
-
+        self.python_safe_install(prefix=tmpdir, installopts=self.installopts)
         try:
             pwd = os.getcwd()
             os.chdir(tmpdir)
         except OSError, err:
-            self.log.error("Faild to change to %s: %s" % (tmpdir, err))
+            self.log.error("Failed to change to %s: %s" % (tmpdir, err))
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
         size = 1000

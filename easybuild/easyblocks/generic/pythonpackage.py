@@ -32,6 +32,8 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 import os
+import re
+import shutil
 import tempfile
 from os.path import expanduser
 from vsc import fancylogger
@@ -40,8 +42,35 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.filetools import mkdir, rmtree2, run_cmd
+from easybuild.tools.filetools import mkdir, rmtree2, run_cmd, write_file
 from easybuild.tools.modules import get_software_version
+
+
+# test setup.py script for PythonPackage.python_safe_install
+TEST_SETUP_PY = """#!/usr/bin/env python
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+
+setup(
+    name='%(pkg)s',
+    version='1.0',
+    scripts=['%(pkg)s.py'],
+    packages=['%(pkg)s'],
+    data_files=['%(pkg)s.txt'],
+    provides=['%(pkg)s.py', '%(pkg)s'],
+    zip_safe=False,
+)
+"""
+TEST_SCRIPT_PY = """#!/usr/bin/env python
+import os, sys
+sys.stdout.write(os.path.dirname(os.path.abspath(__file__)))
+"""
+TEST_INIT_PY = """import os, sys
+def where():
+   sys.stdout.write(os.path.dirname(os.path.abspath(__file__)))
+"""
 
 
 def det_pylibdir():
@@ -153,6 +182,124 @@ class PythonPackage(ExtensionEasyBlock):
         cmd = "python setup.py build %s" % self.cfg['buildopts']
         run_cmd(cmd, log_all=True, simple=True)
 
+    def python_install(self, prefix=None, preinstallopts=None, installopts=None):
+        """Install using 'python setup.py install --prefix'."""
+        if prefix is None:
+            prefix = self.installdir
+        if preinstallopts is None:
+            preinstallopts = self.cfg['preinstallopts']
+        if installopts is None:
+            installopts = self.cfg['installopts']
+
+        if not self.pylibdir:
+            self.pylibdir = det_pylibdir()
+
+        # create expected directories
+        abs_pylibdir = os.path.join(prefix, self.pylibdir)
+        mkdir(abs_pylibdir, parents=True)
+
+        # set PYTHONPATH as expected
+        pythonpath = os.getenv('PYTHONPATH')
+        env.setvar('PYTHONPATH', ":".join([x for x in [abs_pylibdir, pythonpath] if x is not None]))
+
+        # install using setup.py
+        install_cmd_template = "%(preinstallopts)s python setup.py install --prefix=%(prefix)s %(installopts)s"
+        cmd = install_cmd_template % {
+            'preinstallopts': preinstallopts,
+            'prefix': prefix,
+            'installopts': installopts,
+        }
+        run_cmd(cmd, log_all=True, simple=True)
+
+        # setuptools stubbornly replaces the shebang line in scripts with
+        # the full path to the Python interpreter used to install;
+        # we change it (back) to '#!/usr/bin/env python' here
+        shebang_re = re.compile("^#!/.*python")
+        bindir = os.path.join(prefix, 'bin')
+        if os.path.exists(bindir):
+            for script in os.listdir(bindir):
+                script = os.path.join(bindir, script)
+                if os.path.isfile(script):
+                    try:
+                        txt = open(script, 'r').read()
+                        if shebang_re.search(txt):
+                            new_shebang = "#!/usr/bin/env python"
+                            self.log.debug("Patching shebang header line in %s to '%s'" % (script, new_shebang))
+                            txt = shebang_re.sub(new_shebang, txt)
+                            open(script, 'w').write(txt)
+                    except IOError, err:
+                        self.log.error("Failed to patch shebang header line in %s: %s" % (script, err))
+
+        # restore PYTHONPATH if it was set
+        if pythonpath is not None:
+            env.setvar('PYTHONPATH', pythonpath)
+
+    def python_safe_install(self, **kwargs):
+        """Install using 'python setup.py install --prefix', after verifying it does the right thing."""
+        cwd = os.getcwd()
+
+        # create dummy Python package to verify whether 'python setup.py install --prefix' does the right thing
+        tmpdir = tempfile.mkdtemp()
+        pkg = 'easybuild_pyinstalltest'
+        mkdir(os.path.join(tmpdir, pkg))
+        write_file(os.path.join(tmpdir, 'setup.py'), TEST_SETUP_PY % {'pkg': pkg})
+        test_py_script = '%s.py' % pkg
+        write_file(os.path.join(tmpdir, test_py_script), TEST_SCRIPT_PY)
+        test_data_file = '%s.txt' % pkg
+        write_file(os.path.join(tmpdir, test_data_file), 'data')
+        write_file(os.path.join(tmpdir, pkg, '__init__.py'), TEST_INIT_PY)
+
+        # install dummy Python package
+        try:
+            os.chdir(tmpdir)
+            testinstalldir = tempfile.mkdtemp()
+            self.python_install(prefix=testinstalldir)
+            os.chdir(cwd)
+        except OSError, err:
+            self.log.error("Failed to move to %s: %s" % (tmpdir, err))
+
+        # verify installation of dummy Python package
+        verified = True
+        full_pylibdir = os.path.join(testinstalldir, self.pylibdir)
+        cmds = [
+            ("python -c 'from %s import where; where()'" % pkg, full_pylibdir),
+            (test_py_script, testinstalldir),
+        ]
+        for cmd, out_prefix in cmds:
+            precmd = "PYTHONPATH=%s:$PYTHONPATH PATH=%s:$PATH" % (full_pylibdir, os.path.join(testinstalldir, 'bin'))
+            fullcmd = ' '.join([precmd, cmd])
+            (out, ec) = run_cmd(fullcmd, simple=False)
+            tup = (out_prefix, fullcmd)
+            if out.startswith(out_prefix):
+                self.log.debug("Found %s in output of '%s' during verification of dummy Python installation" % tup)
+            else:
+                tup = (tup[0], tup[1], ec, out)
+                self.log.warning("%s not found in output of '%s' (exit code: %s, output: %s)" % tup)
+                verified = False
+        pyver = get_software_version('Python')
+        if not pyver:
+            self.log.error("Python module not loaded.")
+        pyver = '.'.join(pyver.split('.')[:2])
+        datainstalldir = os.path.join(full_pylibdir, '%s-1.0-py%s.egg' % (pkg, pyver))
+        tup = (test_data_file, datainstalldir)
+        if os.path.exists(os.path.join(datainstalldir, test_data_file)):
+            self.log.debug("Found file %s in %s during verification of dummy Python installation" % tup)
+        else:
+            self.log.warning("Failed to find file %s in %s during verification of dummy Python installation" % tup)
+            verified = False
+
+        if verified:
+            self.log.debug("Verification of dummy Python installation OK.")
+        else:
+            self.log.error("Verification of dummy Python installation failed, setuptools not honoring --prefix?")
+
+        # cleanup
+        shutil.rmtree(testinstalldir)
+        shutil.rmtree(tmpdir)
+
+        # actually run install command
+        self.python_install(**kwargs)
+
     def test_step(self):
         """Test the built Python package."""
 
@@ -160,21 +307,17 @@ class PythonPackage(ExtensionEasyBlock):
             self.testcmd = self.cfg['runtest']
 
         if self.cfg['runtest'] and not self.testcmd is None:
-            extrapath = ""
+            extrapath = ''
             testinstalldir = None
 
             if self.testinstall:
-                # install in test directory and export PYTHONPATH
-
+                # install in test directory and export PYTHONPATH for running tests
                 try:
                     testinstalldir = tempfile.mkdtemp()
-                    mkdir(os.path.join(testinstalldir, self.pylibdir), parents=True)
                 except OSError, err:
                     self.log.error("Failed to create test install dir: %s" % err)
 
-                tup = (self.cfg['preinstallopts'], testinstalldir, self.cfg['installopts'])
-                cmd = "%s python setup.py install --prefix=%s %s" % tup
-                run_cmd(cmd, log_all=True, simple=True)
+                self.python_safe_install(prefix=testinstalldir)
 
                 run_cmd("python -c 'import sys; print(sys.path)'")  # print Python search path (debug)
                 extrapath = "export PYTHONPATH=%s:$PYTHONPATH && " % os.path.join(testinstalldir, self.pylibdir)
@@ -191,23 +334,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
-
-        # create expected directories
-        abs_pylibdir = os.path.join(self.installdir, self.pylibdir)
-        mkdir(abs_pylibdir, parents=True)
-
-        # set PYTHONPATH as expected
-        pythonpath = os.getenv('PYTHONPATH')
-        env.setvar('PYTHONPATH', ":".join([x for x in [abs_pylibdir, pythonpath] if x is not None]))
-
-        # actually install Python package
-        tup = (self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
-        cmd = "%s python setup.py install --prefix=%s %s" % tup
-        run_cmd(cmd, log_all=True, simple=True)
-
-        # restore PYTHONPATH if it was set
-        if pythonpath is not None:
-            env.setvar('PYTHONPATH', pythonpath)
+        self.python_safe_install()
 
     def run(self):
         """Perform the actual Python package build/installation procedure"""
@@ -233,6 +360,5 @@ class PythonPackage(ExtensionEasyBlock):
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH"""
-
         txt = self.moduleGenerator.prepend_paths("PYTHONPATH", [self.pylibdir])
         return super(PythonPackage, self).make_module_extra(txt)

@@ -40,20 +40,13 @@ class EB_VSC_minus_tools(PythonPackage):
 
     def build_step(self):
         """No build procedure for VSC-tools."""
-
         pass
 
     def install_step(self):
         """Custom install procedure for VSC-tools."""
 
-        args = "install --prefix=%(path)s --install-lib=%(path)s/lib" % {'path': self.installdir}
-
-        pylibdir = os.path.join(self.installdir, 'lib')
-        env.setvar('PYTHONPATH', '%s:%s' % (pylibdir, os.getenv('PYTHONPATH')))
-
+        self.pylibdir = 'lib'
         try:
-            os.mkdir(pylibdir)
-
             pwd = os.getcwd()
 
             pkg_list = ['-'.join(src['name'].split('-')[0:-1]) for src in self.src if src['name'].startswith('vsc')]
@@ -64,8 +57,7 @@ class EB_VSC_minus_tools(PythonPackage):
                     self.log.error("Found none or more than one %s dir in %s: %s" % (pkg, self.builddir, sel_dirs))
 
                 os.chdir(os.path.join(self.builddir, sel_dirs[0]))
-                cmd = "python setup.py %s" % args
-                run_cmd(cmd, log_all=True, simple=True, log_output=True)
+                self.python_safe_install(installopts='--install-lib=%s/lib' % self.installdir)
 
             os.chdir(pwd)
 
@@ -74,21 +66,18 @@ class EB_VSC_minus_tools(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for VSC-tools."""
-
         custom_paths = {
-                        'files': ['bin/%s' % x for x in ['ihmpirun', 'impirun', 'logdaemon', 'm2hmpirun',
-                                                         'm2mpirun', 'mhmpirun', 'mmmpirun', 'mmpirun',
-                                                         'mympirun', 'mympisanity', 'myscoop', 'ompirun',
-                                                         'pbsssh', 'qmpirun', 'sshsleep', 'startlogdaemon',
-                                                         'fake/mpirun']],
-                        'dirs': ['lib'],
-                       }
-
+            'files': ['bin/%s' % x for x in ['ihmpirun', 'impirun', 'logdaemon', 'm2hmpirun',
+                                             'm2mpirun', 'mhmpirun', 'mmmpirun', 'mmpirun',
+                                             'mympirun', 'mympisanity', 'myscoop', 'ompirun',
+                                             'pbsssh', 'qmpirun', 'sshsleep', 'startlogdaemon',
+                                             'fake/mpirun']],
+            'dirs': ['lib'],
+        }
         super(EB_VSC_minus_tools, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH"""
-
         txt = super(EB_VSC_minus_tools, self).make_module_extra()
 
         txt += self.moduleGenerator.prepend_paths('PATH', ["bin/fake"])
