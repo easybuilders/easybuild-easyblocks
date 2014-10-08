@@ -30,6 +30,8 @@ EasyBuild support for building and installing WIEN2k, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Michael Sluydts (Ghent University)
+
 """
 import fileinput
 import os
@@ -43,7 +45,7 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import extract_file, rmtree2, run_cmd, run_cmd_qa
+from easybuild.tools.filetools import extract_file, rmtree2, run_cmd, run_cmd_qa, read_file
 from easybuild.tools.modules import get_software_version
 
 
@@ -53,20 +55,24 @@ class EB_WIEN2k(EasyBlock):
     def __init__(self,*args,**kwargs):
         """Enable building in install dir."""
         super(EB_WIEN2k, self).__init__(*args, **kwargs)
-
-        self.build_in_installdir = True
+        self.build_in_installdir = True 
 
     @staticmethod
     def extra_options():
         testdata_urls = ["http://www.wien2k.at/reg_user/benchmark/test_case.tar.gz",
                          "http://www.wien2k.at/reg_user/benchmark/mpi-benchmark.tar.gz"]
 
-        extra_vars = {
-            'runtest': [True, "Run WIEN2k tests", CUSTOM],
-            'testdata': [testdata_urls, "test data URL for WIEN2k benchmark test", CUSTOM],
-            'wien_mpirun': [None, "MPI wrapper comand to use", CUSTOM],
-            'remote': [None, "Remote command to use (e.g. pbsssh, ...)", CUSTOM],
-        }
+        extra_vars = [
+            ('runtest', [True, "Run WIEN2k tests", CUSTOM]),
+            ('testdata', [testdata_urls, "test data URL for WIEN2k benchmark test", CUSTOM]),
+            ('wien_mpirun', [None, "MPI wrapper command to use", CUSTOM]),
+            ('remote', [None, "Remote command to use (e.g. pbsssh, ...)", CUSTOM]),
+            ('USE_REMOTE', [1,"Whether to remotely login to initiate the k-point parallellization calls",CUSTOM]),
+            ('MPI_REMOTE', [0,"Whether to initiate MPI calls locally or remotely",CUSTOM]),
+            ('WIEN_GRANULARITY', [1,"Granularity for parallel execution (see manual)",CUSTOM]),
+            ('taskset', ['no','specifies an optional command for binding a process to a specific core',CUSTOM]),
+            ('SCRATCH', [None,'In this path a temporary directory will be created to serve as SCRATCH',CUSTOM])
+        ]
         return EasyBlock.extra_options(extra_vars)
 
     def extract_step(self):
@@ -161,7 +167,31 @@ class EB_WIEN2k(EasyBlock):
         self.log.debug('%s part I (configure)' % self.cfgscript)
 
         cmd = "./%s" % self.cfgscript
-        qanda = {
+        if LooseVersion(self.version[0:2]) >= LooseVersion("13"):
+            qanda = {                             
+                 'Press RETURN to continue': '',                   
+                 '(not updated) Selection:': comp_answer,                               
+                 'Your compiler:': '',                                                               
+                 'Hit Enter to continue': '',                                                                         
+                 'Shared Memory Architecture? (y/N):': 'N',                                                                            
+                 'Remote shell (default is ssh) =': '',
+                 'and you need to know details about your installed  mpi ..) (y/n)': 'y',                                                               
+                 'Recommended setting for parallel f90 compiler: mpif90 ' \
+                        'Current selection: Your compiler:': os.getenv('MPIF90'),                                                                                                       
+                 'Q to quit Selection:': 'Q',
+                 'A Compile all programs (suggested) Q Quit Selection:': 'Q',
+                 ' Please enter the full path of the perl program: ': '',
+                 'continue or stop (c/s)': 'c',
+                 '(like taskset -c). Enter N / your_specific_command:': 'N',
+                 'Set MPI_REMOTE to  0 / 1:': '0',
+                 'You need to KNOW details about your installed  MPI and FFTW ) (y/n)': 'y',
+                 'Please specify whether you want to use FFTW3 (default) or FFTW2  (FFTW3 / FFTW2):' : 'FFTW3',
+                 'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3):' : '/apps/gent/SL5/nehalem/software/FFTW/3.3.1-ictce-4.0.10',
+                 'is this correct? enter Y (default) or n:' : 'Y',
+                 }   
+       
+        else:   
+            qanda = {
                  'Press RETURN to continue': '',
                  'compiler) Selection:': comp_answer,
                  'Your compiler:': '',
@@ -170,7 +200,7 @@ class EB_WIEN2k(EasyBlock):
                  'Remote shell (default is ssh) =': '',
                  'and you need to know details about your installed  mpi ..) (y/n)': 'y',
                  'Recommended setting for parallel f90 compiler: mpiifort ' \
-                        'Current selection: Your compiler:': os.getenv('MPIF90'),
+                    'Current selection: Your compiler:': os.getenv('MPIF90'),
                  'Q to quit Selection:': 'Q',
                  'A Compile all programs (suggested) Q Quit Selection:': 'Q',
                  ' Please enter the full path of the perl program: ': '',
@@ -201,26 +231,59 @@ class EB_WIEN2k(EasyBlock):
         # post-configure patches
         fn = os.path.join(self.cfg['start_dir'], 'parallel_options')
         remote = self.cfg['remote']
+        wien_mpirun = self.cfg['wien_mpirun']
+        USE_REMOTE = self.cfg['USE_REMOTE']
+        MPI_REMOTE = self.cfg['MPI_REMOTE']
+        WIEN_GRANULARITY = self.cfg['WIEN_GRANULARITY']
+        taskset = self.cfg['taskset']
+        f= open(fn, 'w')
+        extra = "";
+
         try:
-            for line in fileinput.input(fn, inplace=1, backup='.orig.eb'):
-                if self.cfg['wien_mpirun']:
-                    line = re.sub("(setenv WIEN_MPIRUN\s*).*", r'\1 "%s"' % self.cfg['wien_mpirun'], line)
-                sys.stdout.write(line)
-
+            if wien_mpirun:
+                extra += 'setenv WIEN_MPIRUN "' + wien_mpirun + '"\n'
+    
             if remote:
-                f = open(fn, "a")
-
                 if remote == 'pbsssh':
-                    extra = "set remote = pbsssh\n"
+                    extra += "set remote = pbsssh\n"
                     extra += "setenv PBSSSHENV 'LD_LIBRARY_PATH PATH'\n"
                 else:
                     self.log.error("Don't know how to patch %s for remote %s" % (fn, remote))
 
-                f.write(extra)
-                f.close()
+            
+            #due to defaults there may be some redundancy here
+            
+            extra += "setenv TASKSET "
+            
+            if taskset:
+                extra += str(taskset)
+            else:
+                extra += 'no'
+            extra += "\nsetenv USE_REMOTE "
+            
+            if USE_REMOTE:
+                extra += str(USE_REMOTE)
+            else:
+                extra += '1'
+            
+            extra += "\nsetenv MPI_REMOTE "
+            if MPI_REMOTE:
+                extra += str(MPI_REMOTE)
+            else:
+                extra += '0'
+            
+            extra += "\nsetenv WIEN_GRANULARITY "
 
-            self.log.debug("Patched file %s: %s" % (fn, open(fn, 'r').read()))
+            if WIEN_GRANULARITY:
+                extra += str(WIEN_GRANULARITY)
+            else:
+                extra += '1'
+            extra += "\n"
 
+            f.write(extra)
+            f.close()
+
+            self.log.debug("Patched file %s: %s" % (fn, read_file(fn)))
         except IOError, err:
             self.log.error("Failed to patch %s: %s" % (fn, err))
 
@@ -273,9 +336,18 @@ class EB_WIEN2k(EasyBlock):
             if not self.cfg['testdata']:
                 self.log.error("List of URLs for testdata not provided.")
 
-            path = os.getenv('PATH')
-            env.setvar('PATH', "%s:%s" % (self.installdir, path))
-
+            self.cfg['unwanted_env_vars'] = env.unset_env_vars(['PATH','SCRATCH'])
+            
+            env.setvar('PATH', "%s:%s" % (self.installdir, self.cfg['unwanted_env_vars']['PATH']))
+            
+            #Create a temp dir in the scratch directory and set the var, ignoring any existing environment $SCRATCH
+            if self.cfg['SCRATCH']:
+                scratchdir = tempfile.mkdtemp(dir=self.cfg('SCRATCH'))
+            else:
+                scratchdir = tempfile.mkdtemp()
+                
+            env.setvar('SCRATCH',scratchdir)
+            
             try:
                 cwd = os.getcwd()
 
@@ -311,17 +383,23 @@ class EB_WIEN2k(EasyBlock):
 
                 os.chdir(cwd)
                 rmtree2(tmpdir)
+                rmtree2(os.getenv('SCRATCH'))
 
             except OSError, err:
                 self.log.error("Failed to run WIEN2k benchmark tests: %s" % err)
 
-            # reset original path
-            env.setvar('PATH', path)
+            # reset original path and SCRATCH
+            restore_env_vars(self.cfg['unwanted_env_vars'])
 
             self.log.debug("Current dir: %s" % os.getcwd())
 
     def test_cases_step(self):
         """Run test cases, if specified."""
+        
+        self.cfg['unwanted_env_vars'] = env.unset_env_vars(['PATH','SCRATCH'])
+            
+        env.setvar('PATH', "%s:%s" % (self.installdir, self.cfg['unwanted_env_vars']['PATH']))
+            
         for test in self.cfg['tests']:
 
             # check expected format
@@ -339,8 +417,15 @@ class EB_WIEN2k(EasyBlock):
                 tmpdir = os.path.join(tempfile.mkdtemp(), test_name)
                 os.mkdir(tmpdir)
                 os.chdir(tmpdir)
+                
+                if self.cfg['SCRATCH']:
+                    scratchdir = tempfile.mkdtemp(dir=self.cfg('SCRATCH'))
+                else:
+                    scratchdir = tempfile.mkdtemp()
+                
+                env.setvar('SCRATCH',scratchdir)
             except OSError, err:
-                self.log.error("Failed to create temporary directory for test %s: %s" % (test_name, err))
+                self.log.error("Failed to create temporary directories for test %s: %s" % (test_name, err))
 
             # try and find struct file for test
             test_fp = self.obtain_file("%s.struct" % test_name)
@@ -377,8 +462,10 @@ class EB_WIEN2k(EasyBlock):
             try:
                 os.chdir(cwd)
                 rmtree2(tmpdir)
+                rmtree2(os.getenv('SCRATCH'))
             except OSError, err:
                 self.log.error("Failed to clean up temporary test dir: %s" % err)
+        restore_env_vars(self.cfg['unwanted_env_vars'])
 
     def install_step(self):
         """Fix broken symlinks after build/installation."""
