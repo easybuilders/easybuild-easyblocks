@@ -4,6 +4,12 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 import os
 
 class Amber(ConfigureMake):
+    """Easyblock for building and installing Amber"""
+
+
+    def __init__(self, *args, **kwargs):
+        super(Amber, self).__init__(*args, **kwargs)
+        self.already_extracted = False
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -15,29 +21,45 @@ class Amber(ConfigureMake):
             'patchlevels': ["latest", "(AmberTools, Amber) updates to be applied", CUSTOM],
         })
         # Don't include the ConfigureMake extra options since this configure_step doesn't handle them
-        return supersuperclass.extra_options(extra_vars)        
+        return supersuperclass.extra_options(extra_vars)
+
+    def extract_step(self):
+        """Only extract from the tarball if this has not already been done."""
+        if (self.already_extracted == True):
+            cmd = '%(prebuildopts)s make clean' % {
+                'prebuildopts': self.cfg['prebuildopts']
+            }
+            run_cmd(cmd, log_all=True, simple=False)
+        else:
+            super(Amber, self).extract_step()
+            self.already_extracted = True
 
     def configure_step(self):
         #cmd = '%(preconfigopts)s AMBERHOME="%(installdir)s" ./configure --no-updates %(configopts)s' % {
-        cmd = '%(preconfigopts)s AMBERHOME=`pwd` ./configure --no-updates %(configopts)s' % {
+        cmd = '%(preconfigopts)s %(prebuildopts)s ./configure --no-updates %(configopts)s' % {
+            'prebuildopts': self.cfg['prebuildopts'],
             'preconfigopts': self.cfg['preconfigopts'],
             'installdir': self.installdir,
-            'configopts': self.cfg['configopts'],
+            'configopts': self.cfg['configopts']
         }
         run_cmd(cmd, log_all=True, simple=False)
 
     def patch_step(self, **kw):
         if self.cfg['patchlevels'] == "latest":
-            run_cmd("AMBERHOME=`pwd` ./update_amber --update", log_all=True)
+            cmd = "%(prebuildopts)s ./update_amber --update" % {
+                'prebuildopts': self.cfg['prebuildopts']
+            }
+            run_cmd(cmd, log_all=True)
         else:
             for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
                 if patch_level == 0: continue
-                cmd = "AMBERHOME=`pwd` ./update_amber --update-to %s/%s" % (tree, patch_level) 
+                cmd = "%s ./update_amber --update-to %s/%s" % (self.cfg['prebuildopts'], tree, patch_level) 
                 run_cmd(cmd, log_all=True)
         return super(Amber, self).patch_step(**kw)
 
     def test_step(self):
-        run_cmd("AMBERHOME=`pwd` make test", log_all=True)
+        cmd = "%s make test" % (self.cfg['prebuildopts'])
+        run_cmd(cmd, log_all=True)
 
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
@@ -46,20 +68,9 @@ class Amber(ConfigureMake):
         #(out, _) = run_cmd(cmd, log_all=True, simple=False)
         #txt += self.moduleGenerator.set_environment('AMBER_VERSION', out)
         return txt
+        
 
-        
-        
-    #def install_step(self):
-    #    """
-    #    Create the installation in correct location
-    #    - typical: make install
-    #    """
-    #
-    #    cmd = "%s AMBERHOME=%s make install %s" % (
-    #        self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
-    #
-    #    (out, _) = run_cmd(cmd, log_all=True, simple=False)
-    #    return out
-    
-    
-# MPI_HOME=$EBROOTIMPI MKL_HOME=$EBROOTIMKL 
+    def install_step(self):
+        """In Amber, installation is conflated with building,
+        so that 'make install' is done during the build step."""
+        pass
