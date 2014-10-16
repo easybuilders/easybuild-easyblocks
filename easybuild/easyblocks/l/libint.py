@@ -35,12 +35,12 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
 
 class EB_Libint(ConfigureMake):
-    libint_maj_ver = version.split('.')[0]
 
     def configure_step(self):
         """Add some extra configure options for Libint 2.x.x."""
 
-        if libint_maj_ver = '2':
+        libint_maj_ver = self.version.split('.')[0]
+        if libint_maj_ver == '2':
             if self.toolchain.options['pic']:
                 # Enforce consistency.
                 self.cfg.update('configopts', "--with-pic")
@@ -54,13 +54,14 @@ class EB_Libint(ConfigureMake):
 
             super(EB_Libint, self).configure_step()
 
-         else:
+        else:
             ConfigureMake.configure_step(self)
 
     def sanity_check_step(self):
         """Custom sanity check for Libint v2.x.x."""
 
-        if libint_maj_ver = '2':
+        libint_maj_ver = self.version.split('.')[0]
+        if libint_maj_ver == '2':
             custom_paths = {
                 'files': ['lib/libint2.a', 'lib/libint2.so', 'include/libint2/libint2.h'],
                 'dirs': [],
@@ -68,17 +69,19 @@ class EB_Libint(ConfigureMake):
             super(EB_Libint, self).sanity_check_step(custom_paths=custom_paths)
 
         else:
-            ConfigureMake.sanity_check_step(self):
+            super(EB_Libint, self).sanity_check_step(self)
 
     def make_module_req_guess(self):
         """Specify correct CPATH for Libint v2.x.x installation."""
         
-        if libint_maj_ver = '2':
-            guesses = super(EB_Libint, self).make_module_req_guess()
+        libint_maj_ver = self.version.split('.')[0]
+        guesses = super(EB_Libint, self).make_module_req_guess()
+        if libint_maj_ver == '1':
+            guesses.update({
+                'CPATH': ["include", os.path.join("include", "libint"), os.path.join("include", "libderiv"), os.path.join("include", "libr12")],
+            })
+        if libint_maj_ver == '2':
             guesses.update({
                 'CPATH': ["include", os.path.join("include", "libint2")],
             })
-            return guesses
-
-        else:
-            ConfigureMake.make_module_req_guess(self)
+        return guesses
