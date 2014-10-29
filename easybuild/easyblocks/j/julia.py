@@ -5,15 +5,14 @@ from easybuild.tools.config import source_paths
 from easybuild.tools.filetools import mkdir
 import os, os.path
 
-class Julia(ConfigureMake):
+class EB_Julia(ConfigureMake):
 
     def configure_step(self):
-        
+        # Writing a Make.user file, as recommended in the Julia documentation
         srcpath = os.path.join(source_paths()[0], self.name[0].lower(), self.name, 'deps')
-	#mkdir(srcpath, parents=True)
         prefix = self.installdir
+        assert not self.cfg['preconfigopts'], "preconfigopts not supported for Julia"
         configopts = self.cfg['configopts']
-
         f = open('Make.user', 'a')
         f.write("""
 prefix=%(prefix)s
@@ -24,6 +23,3 @@ prefix=%(prefix)s
 
 """ % vars())
         f.close()
-        # check no self.cfg['preconfigopts'] etc are set
-
-EB_Julia = Julia
