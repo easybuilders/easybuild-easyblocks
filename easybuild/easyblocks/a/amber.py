@@ -22,7 +22,7 @@ class EB_Amber(ConfigureMake):
     def __init__(self, *args, **kwargs):
         super(EB_Amber, self).__init__(*args, **kwargs)
         self.already_extracted = False
-        self.amberhome = os.path.join(self.installdir, 'amber%s' % self.version)
+        #self.amberhome = os.path.join(self.installdir, 'amber%s' % self.version)
         self.build_in_installdir = True
 
     def extract_step(self):
@@ -30,11 +30,12 @@ class EB_Amber(ConfigureMake):
         if (self.already_extracted == True):
             pass
         else:
+            self.cfg['unpack_options'] = "--strip-components=1"
             super(EB_Amber, self).extract_step()
             self.already_extracted = True
 
     def patch_step(self, **kw):
-        env.setvar('AMBERHOME', self.amberhome)
+        env.setvar('AMBERHOME', self.installdir)
         if self.cfg['patchlevels'] == "latest":
             cmd = "./update_amber --update"
             # This needs to be run multiple times, more's the pity.
@@ -61,11 +62,11 @@ class EB_Amber(ConfigureMake):
     def build_step(self):
 
         # Set the AMBERHOME environment variable
-        env.setvar('AMBERHOME', self.amberhome)
+        env.setvar('AMBERHOME', self.installdir)
         try:
-            os.chdir(self.amberhome)
+            os.chdir(self.installdir)
         except OSError, err:
-            self.log.error("Could not chdir to %(amberhome)s: %(error)s" % { 'amberhome': self.amberhome, 'error': err })
+            self.log.error("Could not chdir to %(amberhome)s: %(error)s" % { 'amberhome': self.installdir, 'error': err })
 
         # Kenneth Hoste recommends making sure the LIBS env var is unset
         if 'LIBS' in os.environ:
@@ -144,15 +145,13 @@ class EB_Amber(ConfigureMake):
         files = ["tleap", "sander", "sander.MPI", "pmemd", "pmemd.MPI", "pmemd.cuda"]
         dirs = ["."]
         custom_paths = {
-            'files': [os.path.join(self.amberhome, "bin", file) for file in files],
-            'dirs': [os.path.join(self.amberhome, dir) for dir in dirs]
+            'files': [os.path.join(self.installdir, "bin", file) for file in files],
+            'dirs': [os.path.join(self.installdir, dir) for dir in dirs]
         }
         super(EB_Amber, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
         txt = super(EB_Amber, self).make_module_extra()
-        #cmd = "AMBERHOME=`pwd` ./update_amber -v"
-        #(out, _) = run_cmd(cmd, log_all=True, simple=False)
-        #txt += self.moduleGenerator.set_environment('AMBER_VERSION', out)
+        txt += self.moduleGenerator.set_environment('AMBERHOME', self.installdir)
         return txt
