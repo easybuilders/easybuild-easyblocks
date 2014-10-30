@@ -75,7 +75,7 @@ class CMakeMake(ConfigureMake):
 
         if srcdir is None:
             if self.cfg.get('srcdir', None) is not None:
-                srcdir = self.cfg['srcdir']
+                srcdir = '%s/%s' % (default_srcdir,  self.cfg['srcdir'])
             elif builddir is not None:
                 self.log.deprecated("CMakeMake.configure_step: named argument 'builddir' (should be 'srcdir')", "2.0")
                 srcdir = builddir
