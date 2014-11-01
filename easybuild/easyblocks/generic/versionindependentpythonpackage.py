@@ -54,35 +54,6 @@ class VersionIndependentPythonPackage(PythonPackage):
     def install_step(self):
         """Custom install procedure to skip selection of python package versions."""
         full_pylibdir = os.path.join(self.installdir, self.pylibdir)
-
-        env.setvar('PYTHONPATH', '%s:%s' % (full_pylibdir, os.getenv('PYTHONPATH')))
-
-        try:
-            os.mkdir(full_pylibdir)
-        except OSError, err:
-            # this will raise an error and not return
-            self.log.error("Failed to install: %s" % err)
-
-        args = "--prefix=%s --install-lib=%s " % (self.installdir, full_pylibdir)
+        args = "--install-lib=%s " % full_pylibdir
         args += "--single-version-externally-managed --record %s --no-compile" % os.path.join(self.builddir, 'record')
-        cmd = "python setup.py install %s" % args
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
-
-        # setuptools stubbornly replaces the shebang line in scripts with
-        # the full path to the Python interpreter used to install;
-        # we change it (back) to '#!/usr/bin/env python' here
-        shebang_re = re.compile("^#!/.*python")
-        bindir = os.path.join(self.installdir, 'bin')
-        if os.path.exists(bindir):
-            for script in os.listdir(bindir):
-                script = os.path.join(bindir, script)
-                if os.path.isfile(script):
-                    try:
-                        txt = open(script, 'r').read()
-                        if shebang_re.search(txt):
-                            new_shebang = "#!/usr/bin/env python"
-                            self.log.debug("Patching shebang header line in %s to '%s'" % (script, new_shebang))
-                            txt = shebang_re.sub(new_shebang, txt)
-                            open(script, 'w').write(txt)
-                    except IOError, err:
-                        self.log.error("Failed to patch shebang header line in %s: %s" % (script, err))
+        self.python_safe_install(installopts=args)

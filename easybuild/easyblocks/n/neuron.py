@@ -31,13 +31,13 @@ import os
 import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir, PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import run_cmd, adjust_permissions
 from easybuild.tools.modules import get_software_root
 
 
-class EB_NEURON(ConfigureMake):
+class EB_NEURON(ConfigureMake, PythonPackage):
     """Support for building/installing NEURON."""
 
     def __init__(self, *args, **kwargs):
@@ -103,8 +103,7 @@ class EB_NEURON(ConfigureMake):
             except OSError, err:
                 self.log.error("Failed to change to %s: %s" % (pypath, err))
 
-            cmd = "python setup.py install --prefix=%s" % self.installdir
-            run_cmd(cmd, simple=True, log_all=True, log_ok=True)
+            PythonPackage.python_safe_install(self, preinstallopts='', installopts='')
 
             try:
                 os.chdir(pwd)
