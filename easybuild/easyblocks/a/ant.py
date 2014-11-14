@@ -54,15 +54,28 @@ class EB_ant(EasyBlock):
         if not junit_root:
             self.log.error("JUnit module not loaded!")
 
-        junit_ver = get_software_version('JUnit')
+        deps = [('JUnit', junit_root, 'junit-%s.jar')]
 
-        # copy JUnit jar to where it's expected
-        try:
-            shutil.copy(os.path.join(junit_root, 'junit-%s.jar' % junit_ver),
-                        os.path.join(os.getcwd(), "lib", "optional"))
-        except OSError, err:
-            self.log.error("Failed to copy JUnit jar: %s" % err)
+        hamcrest_root = get_software_root('hamcrest')
+        if hamcrest_root:
+            deps.append(('hamcrest', hamcrest_root, 'hamcrest-all-%s.jar'))
+
+        # copy jars for build deps to lib/optional
+        for dep, deproot, depjar in deps:
+            depver = get_software_version(dep)
+            try:
+                shutil.copy(os.path.join(deproot, depjar % depver),
+                            os.path.join(self.cfg['start_dir'], "lib", "optional"))
+            except OSError, err:
+                self.log.error("Failed to copy %s jar: %s" % (dep, err))
 
         cmd = "sh build.sh -Ddist.dir=%s dist" % self.installdir
-
         run_cmd(cmd, log_all=True, simple=True)
+
+    def sanity_check_step(self):
+        """Custom sanity check for ant."""
+        custom_paths = {
+            'files': ['bin/ant', 'lib/ant.jar'],
+            'dirs': [],
+        }
+        super(EB_ant, self).sanity_check_step(custom_paths=custom_paths)
