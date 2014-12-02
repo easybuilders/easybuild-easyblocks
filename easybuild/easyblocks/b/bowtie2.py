@@ -20,6 +20,7 @@ EasyBuild support for building and installing Bowtie2, implemented as an easyblo
 import os
 import shutil
 
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
 
@@ -45,7 +46,13 @@ class EB_Bowtie2(ConfigureMake):
         srcfile = None
         try:
             os.makedirs(destdir)
-            for filename in ["bowtie2", "bowtie2-align", "bowtie2-build", "bowtie2-inspect"]:
+
+            if LooseVersion(self.version) < LooseVersion('2.2.4'):
+                filenames = ["bowtie2", "bowtie2-align", "bowtie2-build", "bowtie2-inspect"]
+            else:
+                filenames = ["bowtie2", "bowtie2-align-l", "bowtie2-align-s", "bowtie2-build", "bowtie2-build-l", "bowtie2-build-s", "bowtie2-inspect", "bowtie2-inspect-l", "bowtie2-inspect-s"]
+
+            for filename in filenames:
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
         except OSError, err:
@@ -54,8 +61,13 @@ class EB_Bowtie2(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for Bowtie2."""
 
+        if LooseVersion(self.version) < LooseVersion('2.2.4'):
+            filenames = ["bowtie2", "bowtie2-align", "bowtie2-build", "bowtie2-inspect"]
+        else:
+            filenames = ["bowtie2", "bowtie2-align-l", "bowtie2-align-s", "bowtie2-build", "bowtie2-build-l", "bowtie2-build-s", "bowtie2-inspect", "bowtie2-inspect-l", "bowtie2-inspect-s"]
+
         custom_paths = {
-                        'files': ['bin/bowtie2', 'bin/bowtie2-align', 'bin/bowtie2-build', 'bin/bowtie2-inspect' ],
+                        'files': ['bin/%s' % (file) for file in filenames],
                         'dirs': ['.']
                        }
 
