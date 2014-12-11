@@ -42,71 +42,80 @@ class EB_Chombo(EasyBlock):
         """Initialisation of custom class variables for Chombo."""
         super(EB_Chombo, self).__init__(*args, **kwargs)
 
-        self.make_options = None
-
     def configure_step(self):
         """No configure step for Chombo."""
-        pass
+        pass 
 
-    def build_step(self):
-        """Build Chombo."""
-        run_cmd("make setup")
-       
-        self.make_options = "DEBUG=FALSE OPT=TRUE PRECISION=DOUBLE USE_COMPLEX=TRUE "
-        self.make_options += "USE_TIMER=TRUE USE_CCSE=TRUE USE_MT=TRUE "
-        self.make_options += "USE_HDF=TRUE USE_64=TRUE "
-        self.make_options += 'HDFINCFLAGS="-I%s/include" ' % os.getenv('EBROOTHDF5') 
-        self.make_options += 'HDFLIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (os.getenv('EBROOTHDF5'),get_software_libdir('HDF5'))
+    def build_Chombo_BISICLES(self):
+        """Common part of configure step for Chombo and BISICLES."""
 
-        self.make_options += "CXX=%s FC=%s " % (os.getenv('CXX'),os.getenv('F90'))
-        self.make_options += 'CFLAGS="%s" ' % (os.getenv('CFLAGS'))
-        self.make_options += 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS'))
-        self.make_options += 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS'))
-        self.make_options += 'foptflags="%s" ' % (os.getenv('F90FLAGS'))
+        self.cfg.update('buildopts', "DEBUG=FALSE OPT=TRUE PRECISION=DOUBLE USE_COMPLEX=TRUE ")
+        self.cfg.update('buildopts', "USE_TIMER=TRUE USE_MT=TRUE USE_HDF=TRUE USE_64=TRUE ")
+        self.cfg.update('buildopts', "CXX=%s FC=%s " % (os.getenv('CXX'), os.getenv('F90')))
+        self.cfg.update('buildopts', 'CFLAGS="%s" ' % (os.getenv('CFLAGS')))
+        self.cfg.update('buildopts', 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS')))
+        self.cfg.update('buildopts', 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS')))
+        self.cfg.update('buildopts', 'foptflags="%s" ' % (os.getenv('F90FLAGS')))
 
         if self.toolchain.options['pic']:
-            self.make_options += "PIC=TRUE "
+            self.cfg.update('buildopts', "PIC=TRUE ")
         
         if self.toolchain.options.get('usempi', None):
-            self.make_options += "MPI=TRUE MPICXX=%s MPICC=%s " % (os.getenv('MPICXX'),os.getenv('MPICC'))
-            self.make_options += 'HDFMPIINCFLAGS="-I%s/include" ' % os.getenv('EBROOTHDF5')
-            self.make_options += 'HDFMPILIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (os.getenv('EBROOTHDF5'),get_software_libdir('HDF5'))
+            self.cfg.update('buildopts', "MPI=TRUE MPICXX=%s MPICC=%s " % (os.getenv('MPICXX'),os.getenv('MPICC')))
+            if get_software_root("HDF5"):
+                self.cfg.update('buildopts', 'HDFMPIINCFLAGS="-I%s/include" ' % get_software_root('HDF5'))
+                self.cfg.update('buildopts', 'HDFMPILIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
             
+        if get_software_root("NETCDF"):
+            self.cfg.update('buildopts', "NETCDF_HOME=%s " % get_software_root('NETCDF'))
+
+        if get_software_root("HDF5"):
+            self.cfg.update('buildopts', 'HDFINCFLAGS="-I%s/include" ' % get_software_root('HDF5') )
+            self.cfg.update('buildopts', 'HDFLIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
+
         if get_software_root("Python"):
-            self.make_options += "USE_PYTHON=TRUE "
+            self.cfg.update('buildopts', "USE_PYTHON=TRUE ")
 
         if get_software_root("PETSc"):
-            self.make_options += "USE_PETSC=TRUE "
+            self.cfg.update('buildopts', "USE_PETSC=TRUE ")
 
         if self.cfg['parallel']:
            paropts = "-j %s" % self.cfg['parallel']
 
+    def build_step(self):
+        """Build Chombo."""
+
+        self.build_Chombo_BISICLES()
+        self.cfg.update('buildopts', "USE_CCSE=TRUE ")
+
+        run_cmd("make setup")
         for dim in range(1,7):
             if (dim==2 or dim==3):
                 seteb = "USE_EB=TRUE"
             else:
                 seteb = ""
-            cmd = "make %s DIM=%s %s %s all" % (paropts, dim, seteb, self.make_options)
+            cmd = "make %s DIM=%s %s %s all" % (paropts, dim, seteb, self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=False)
  
     def test_step(self):
         """Run the testsuite"""
 
-# test with dim=6 requires about 120Gb RAM so, it is switched off
-# test with dim=5 takes a good one hour, so maybe it has to be switched off.
+        # test with dim=6 requires about 120Gb RAM so, it is switched off
+        # test with dim=5 takes a good one hour, so maybe it has to be switched off.
         for dim in range(1,6):
             if (dim==2 or dim==3):
+                # Use Embedded Boundary code (available for dim={2,3})
                 seteb = "USE_EB=TRUE"
             else:
                 seteb = ""
-# test does not pass if make run parallel
-            cmd = "make DIM=%s %s %s run" % (dim, seteb, self.make_options)
+            # test does not pass if make run parallel
+            cmd = "make DIM=%s %s %s run" % (dim, seteb, self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=False)
 
     def install_step(self):
         """Custom install procedure for Chombo."""
 
-        cmd = "mkdir {0}/lib && mv lib* {0}/lib && mv include {0}".format(self.installdir)
+        cmd = "mkdir %(inst)s/lib && mv lib* %(inst)s/lib && mv include %(inst)s" % {'inst': self.installdir}
 
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -136,3 +145,4 @@ class EB_Chombo(EasyBlock):
             'files': ['lib/lib%s%s' % (libs, libsuff) for libs in checklibs],
             'dirs': ['include'],
         }
+        super(EB_Chombo, self).sanity_check_step(custom_paths=sanity_check_paths)

@@ -42,55 +42,31 @@ class EB_BISICLES(EasyBlock):
         """Initialisation of custom class variables for BISICLES."""
         super(EB_BISICLES, self).__init__(*args, **kwargs)
 
-        self.make_options = None
-
     def configure_step(self):
         """No configure step for BISICLES."""
-        pass
+        pass 
+
+    def build_Chombo_BISICLES(self):
+        """Common build part from Chombo EasyBlock"""
+        super(EB_Chombo, self).build_Chombo_BISICLES()
 
     def build_step(self):
         """Build BISICLES."""
-        self.make_options = "DEBUG=FALSE OPT=TRUE PRECISION=DOUBLE USE_COMPLEX=TRUE "
-        self.make_options += "USE_TIMER=TRUE USE_MT=TRUE "
-        self.make_options += "USE_HDF=TRUE USE_64=TRUE "
-#Ugly but no better idea:
+
+        self.build_Chombo_BISICLES()
+        # Ugly but no better idea:
         for file in os.listdir(self.builddir):
             if file.startswith("Chombo-"):
-                chombo_home = self.builddir + "/" + file
-        self.make_options += "CHOMBO_HOME=%s/lib " % chombo_home
-        self.make_options += "BISICLES_HOME=%s/BISICLES-%s " % (self.builddir,self.version)
-        self.make_options += "NETCDF_HOME=%s " % os.getenv('EBROOTNETCDF')
-        self.make_options += 'HDFINCFLAGS="-I%s/include" ' % os.getenv('EBROOTHDF5') 
-        self.make_options += 'HDFLIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (os.getenv('EBROOTHDF5'),get_software_libdir('HDF5'))
-
-        self.make_options += "CXX=%s FC=%s " % (os.getenv('CXX'),os.getenv('F90'))
-        self.make_options += 'CFLAGS="%s" ' % (os.getenv('CFLAGS'))
-        self.make_options += 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS'))
-        self.make_options += 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS'))
-        self.make_options += 'foptflags="%s" ' % (os.getenv('F90FLAGS'))
-
-        if self.toolchain.options['pic']:
-            self.make_options += "PIC=TRUE "
-        
-        if self.toolchain.options.get('usempi', None):
-            self.make_options += "MPI=TRUE MPICXX=%s MPICC=%s " % (os.getenv('MPICXX'),os.getenv('MPICC'))
-            self.make_options += 'HDFMPIINCFLAGS="-I%s/include" ' % os.getenv('EBROOTHDF5')
-            self.make_options += 'HDFMPILIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (os.getenv('EBROOTHDF5'),get_software_libdir('HDF5'))
-            
-        if get_software_root("Python"):
-            self.make_options += "USE_PYTHON=TRUE "
-
-        if get_software_root("PETSc"):
-            self.make_options += "USE_PETSC=TRUE "
+                chombo_home = glob.glob(os.path.join(self.builddir, 'Chombo-*'))
 
         cmd = "cd %s/lib && make setup" % chombo_home
         run_cmd(cmd, log_all=True, simple=False)
-        
-        if self.cfg['parallel']:
-           paropts = "-j %s" % self.cfg['parallel']
+
+        self.cfg.update('buildopts', "CHOMBO_HOME=%s/lib " % chombo_home)
+        self.cfg.update('buildopts', "BISICLES_HOME=%s/BISICLES-%s " % (self.builddir, self.version))
 
         for programbuild in ['exec2D', 'filetools', 'controlproblem']:
-            cmd = "cd %s/BISICLES-%s/code/%s && make %s DIM=2 %s all" % (self.builddir,self.version,programbuild,paropts,self.make_options)
+            cmd = "cd %s/BISICLES-%s/code/%s && make %s DIM=2 %s all" % (self.builddir, self.version, programbuild, paropts, self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=False)
 
     def test_step(self):
@@ -100,10 +76,10 @@ class EB_BISICLES(EasyBlock):
     def install_step(self):
         """Custom install procedure for BISICLES."""
 
-        cmd = "mkdir {0}/bin && mv code/{{exec2D,filetools}}/*.ex {0}/bin ".format(self.installdir)
+        cmd = "mkdir %(inst)s/bin && mv code/{{exec2D,filetools}}/*.ex %(inst)s/bin " % {'inst': self.installdir}
         run_cmd(cmd, log_all=True, simple=True)
 
-        cmd = "mv code/controlproblem/c*.ex {0}/bin ".format(self.installdir)
+        cmd = "mv code/controlproblem/c*.ex %s/bin " % (self.installdir)
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
@@ -129,3 +105,5 @@ class EB_BISICLES(EasyBlock):
             'files': ['bin/%s%s' % (execs, libsuff) for execs in checkexecs],
             'dirs': [],
         }
+
+        super(EB_BISICLES, self).sanity_check_step(custom_paths=sanity_check_paths)
