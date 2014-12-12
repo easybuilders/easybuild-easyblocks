@@ -134,7 +134,7 @@ class EB_Chombo(EasyBlock):
 
         libsuff += ".a"
 
-        checklibs = ['%s%s' % ('armelliptic', dims) for dims in range(1,4)]
+        checklibs = ['%s%s' % ('amrelliptic', dims) for dims in range(1,4)]
         checklibs += ['%s%s' % ('amrtimedependent', dims) for dims in range(1,7)]
         checklibs += ['%s%s' % ('amrtools', dims) for dims in range(1,7)]
         checklibs += ['%s%s' % ('basetools', dims) for dims in range(1,7)]
