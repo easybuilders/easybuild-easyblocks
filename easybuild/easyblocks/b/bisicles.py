@@ -66,7 +66,7 @@ class EB_BISICLES(EasyBlock):
         self.cfg.update('buildopts', "BISICLES_HOME=%s/BISICLES-%s " % (self.builddir, self.version))
 
         for programbuild in ['exec2D', 'filetools', 'controlproblem']:
-            cmd = "cd %s/BISICLES-%s/code/%s && make %s DIM=2 %s all" % (self.builddir, self.version, programbuild, paropts, self.cfg['buildopts'])
+            cmd = "cd %s/BISICLES-%s/code/%s && make %s DIM=2 %s all" % (self.builddir, self.version, programbuild, self.paropts, self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=False)
 
     def test_step(self):

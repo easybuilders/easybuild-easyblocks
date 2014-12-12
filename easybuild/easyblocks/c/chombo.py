@@ -80,7 +80,7 @@ class EB_Chombo(EasyBlock):
             self.cfg.update('buildopts', "USE_PETSC=TRUE ")
 
         if self.cfg['parallel']:
-           paropts = "-j %s" % self.cfg['parallel']
+           self.paropts = "-j %s" % self.cfg['parallel']
 
     def build_step(self):
         """Build Chombo."""
@@ -94,7 +94,7 @@ class EB_Chombo(EasyBlock):
                 seteb = "USE_EB=TRUE"
             else:
                 seteb = ""
-            cmd = "make %s DIM=%s %s %s all" % (paropts, dim, seteb, self.cfg['buildopts'])
+            cmd = "make %s DIM=%s %s %s all" % (self.paropts, dim, seteb, self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=False)
  
     def test_step(self):
