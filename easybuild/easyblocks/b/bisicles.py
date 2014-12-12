@@ -31,6 +31,7 @@ import os
 import easybuild.tools.toolchain as toolchain
 
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.chombo import build_Chombo_BISICLES
 from easybuild.tools.modules import get_software_root, get_software_libdir
 from easybuild.tools.filetools import run_cmd
 
@@ -46,18 +47,15 @@ class EB_BISICLES(EasyBlock):
         """No configure step for BISICLES."""
         pass 
 
-    def build_Chombo_BISICLES(self):
-        """Common build part from Chombo EasyBlock"""
-        super(EB_Chombo, self).build_Chombo_BISICLES()
-
     def build_step(self):
         """Build BISICLES."""
 
-        self.build_Chombo_BISICLES()
+        build_Chombo_BISICLES(self)
+
         # Ugly but no better idea:
         for file in os.listdir(self.builddir):
             if file.startswith("Chombo-"):
-                chombo_home = glob.glob(os.path.join(self.builddir, 'Chombo-*'))
+                chombo_home = os.path.join(self.builddir, file)
 
         cmd = "cd %s/lib && make setup" % chombo_home
         run_cmd(cmd, log_all=True, simple=False)
@@ -76,7 +74,7 @@ class EB_BISICLES(EasyBlock):
     def install_step(self):
         """Custom install procedure for BISICLES."""
 
-        cmd = "mkdir %(inst)s/bin && mv code/{{exec2D,filetools}}/*.ex %(inst)s/bin " % {'inst': self.installdir}
+        cmd = "mkdir %(inst)s/bin && mv code/{exec2D,filetools}/*.ex %(inst)s/bin " % {'inst': self.installdir}
         run_cmd(cmd, log_all=True, simple=True)
 
         cmd = "mv code/controlproblem/c*.ex %s/bin " % (self.installdir)
@@ -95,10 +93,11 @@ class EB_BISICLES(EasyBlock):
         if self.toolchain.options['pic']:
             libsuff += ".pic"
 
+        libsuff += ".ex"
+
         checkexecs = ['driver', 'nctoamr', 'amrtotxt', 'amrtoplot', 'flatten',
                       'extract', 'merge', 'addbox', 'amrtocf', 'stats',
-                      'glfaces', 'faces', 'rescale', 'sum', 'pythonf', 
-                      'control', 
+                      'glfaces', 'faces', 'rescale', 'sum', 'control', 
                      ]
 
         sanity_check_paths = {

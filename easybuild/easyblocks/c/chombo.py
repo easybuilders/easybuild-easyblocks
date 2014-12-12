@@ -34,6 +34,42 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.modules import get_software_root, get_software_libdir
 from easybuild.tools.filetools import run_cmd
 
+#Also used by BISICLES
+def build_Chombo_BISICLES(self):
+    """Common part of configure step for Chombo and BISICLES."""
+
+    self.cfg.update('buildopts', "DEBUG=FALSE OPT=TRUE PRECISION=DOUBLE USE_COMPLEX=TRUE ")
+    self.cfg.update('buildopts', "USE_TIMER=TRUE USE_MT=TRUE USE_HDF=TRUE USE_64=TRUE ")
+    self.cfg.update('buildopts', "CXX=%s FC=%s " % (os.getenv('CXX'), os.getenv('F90')))
+    self.cfg.update('buildopts', 'CFLAGS="%s" ' % (os.getenv('CFLAGS')))
+    self.cfg.update('buildopts', 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS')))
+    self.cfg.update('buildopts', 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS')))
+    self.cfg.update('buildopts', 'foptflags="%s" ' % (os.getenv('F90FLAGS')))
+
+    if self.toolchain.options['pic']:
+        self.cfg.update('buildopts', "PIC=TRUE ")
+    
+    if self.toolchain.options.get('usempi', None):
+        self.cfg.update('buildopts', "MPI=TRUE MPICXX=%s MPICC=%s " % (os.getenv('MPICXX'),os.getenv('MPICC')))
+        if get_software_root("HDF5"):
+            self.cfg.update('buildopts', 'HDFMPIINCFLAGS="-I%s/include" ' % get_software_root('HDF5'))
+            self.cfg.update('buildopts', 'HDFMPILIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
+        
+    if get_software_root("NETCDF"):
+        self.cfg.update('buildopts', "NETCDF_HOME=%s " % get_software_root('NETCDF'))
+
+    if get_software_root("HDF5"):
+        self.cfg.update('buildopts', 'HDFINCFLAGS="-I%s/include" ' % get_software_root('HDF5') )
+        self.cfg.update('buildopts', 'HDFLIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
+
+    if get_software_root("Python"):
+        self.cfg.update('buildopts', "USE_PYTHON=TRUE ")
+
+    if get_software_root("PETSc"):
+        self.cfg.update('buildopts', "USE_PETSC=TRUE ")
+
+    if self.cfg['parallel']:
+       self.paropts = "-j %s" % self.cfg['parallel']
 
 class EB_Chombo(EasyBlock):
     """Support for building and installing Chombo."""
@@ -46,46 +82,10 @@ class EB_Chombo(EasyBlock):
         """No configure step for Chombo."""
         pass 
 
-    def build_Chombo_BISICLES(self):
-        """Common part of configure step for Chombo and BISICLES."""
-
-        self.cfg.update('buildopts', "DEBUG=FALSE OPT=TRUE PRECISION=DOUBLE USE_COMPLEX=TRUE ")
-        self.cfg.update('buildopts', "USE_TIMER=TRUE USE_MT=TRUE USE_HDF=TRUE USE_64=TRUE ")
-        self.cfg.update('buildopts', "CXX=%s FC=%s " % (os.getenv('CXX'), os.getenv('F90')))
-        self.cfg.update('buildopts', 'CFLAGS="%s" ' % (os.getenv('CFLAGS')))
-        self.cfg.update('buildopts', 'CXXFLAGS="%s" ' % (os.getenv('CXXFLAGS')))
-        self.cfg.update('buildopts', 'FCFLAGS="%s" ' % (os.getenv('F90FLAGS')))
-        self.cfg.update('buildopts', 'foptflags="%s" ' % (os.getenv('F90FLAGS')))
-
-        if self.toolchain.options['pic']:
-            self.cfg.update('buildopts', "PIC=TRUE ")
-        
-        if self.toolchain.options.get('usempi', None):
-            self.cfg.update('buildopts', "MPI=TRUE MPICXX=%s MPICC=%s " % (os.getenv('MPICXX'),os.getenv('MPICC')))
-            if get_software_root("HDF5"):
-                self.cfg.update('buildopts', 'HDFMPIINCFLAGS="-I%s/include" ' % get_software_root('HDF5'))
-                self.cfg.update('buildopts', 'HDFMPILIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
-            
-        if get_software_root("NETCDF"):
-            self.cfg.update('buildopts', "NETCDF_HOME=%s " % get_software_root('NETCDF'))
-
-        if get_software_root("HDF5"):
-            self.cfg.update('buildopts', 'HDFINCFLAGS="-I%s/include" ' % get_software_root('HDF5') )
-            self.cfg.update('buildopts', 'HDFLIBFLAGS="-L%s/%s -lhdf5 -lz" ' % (get_software_root('HDF5'),get_software_libdir('HDF5')))
-
-        if get_software_root("Python"):
-            self.cfg.update('buildopts', "USE_PYTHON=TRUE ")
-
-        if get_software_root("PETSc"):
-            self.cfg.update('buildopts', "USE_PETSC=TRUE ")
-
-        if self.cfg['parallel']:
-           self.paropts = "-j %s" % self.cfg['parallel']
-
     def build_step(self):
         """Build Chombo."""
 
-        self.build_Chombo_BISICLES()
+        build_Chombo_BISICLES(self)
         self.cfg.update('buildopts', "USE_CCSE=TRUE ")
 
         run_cmd("make setup")
@@ -131,6 +131,8 @@ class EB_Chombo(EasyBlock):
 
         if self.toolchain.options['pic']:
             libsuff += ".pic"
+
+        libsuff += ".a"
 
         checklibs = ['%s%s' % ('armelliptic', dims) for dims in range(1,4)]
         checklibs += ['%s%s' % ('amrtimedependent', dims) for dims in range(1,7)]
