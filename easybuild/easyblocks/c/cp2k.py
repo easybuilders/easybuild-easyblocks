@@ -309,7 +309,7 @@ class EB_CP2K(EasyBlock):
             'FCFLAGSOPT2': '-O1 $(FREE) $(SAFE) $(FPIC) $(DEBUG)'
         }
 
-        libint = get_software_root('LibInt')
+        libint = get_software_root('Libint')
         if libint:
             options['DFLAGS'] += ' -D__LIBINT'
 
