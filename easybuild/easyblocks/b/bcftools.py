@@ -34,36 +34,12 @@ class EB_BCFtools(ConfigureMake):
         """Define lists of files to install."""
         super(EB_BCFtools, self).__init__(*args, **kwargs)
 
-        self.bin_files = ["vcfutils.pl", "bcftools",
-                          "plot-vcfstats"]
 
     def configure_step(self):
         """
         No configure
         """
         pass
-
-    def install_step(self):
-        """
-        Install by copying files to install dir
-        """
-
-        for (srcdir, dest, files) in [
-                                      (self.cfg['start_dir'], 'bin', self.bin_files),
-                                     ]:
-
-            destdir = os.path.join(self.installdir, dest)
-            srcfile = None
-            try:
-                os.makedirs(destdir)
-                for filename in files:
-                    srcfile = os.path.join(srcdir, filename)
-                    shutil.copy2(srcfile, destdir)
-            except OSError, err:
-                self.log.error("Copying %s to installation dir %s failed: %s" % (srcfile, destdir, err))
-
-        # fix permissions so ownwer group and others have R-X
-        adjust_permissions(self.installdir, stat.S_IRGRP|stat.S_IXGRP|stat.S_IROTH|stat.S_IXOTH, add=True, recursive=True)
 
     def sanity_check_step(self):
         """Custom sanity check for BCFtools."""
