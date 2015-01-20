@@ -47,27 +47,34 @@ class EB_Maple(Binary):
 
         cmd = "%s/Maple%sLinuxX86_64Installer.bin" % (self.builddir, self.cfg['version'])
 
+        license_option = None
+        if self.cfg['license_server'] is not None:
+            # Network License
+            license_option = '2'
+        else:
+            self.log.error("A license server should be specified.")
+
         choose_number = "ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::"
         qa = {
-            'PRESS <ENTER> TO CONTINUE:': '',
-            'DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):': 'Y',
-            'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
-            'IS THIS CORRECT? (Y/N):': 'Y',
-            'Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No ' + choose_number: '2',
-            '->1- Single User License 2- Network License ' + choose_number: '2',
-            'PRESS <ENTER> TO EXIT THE INSTALLER:': '',
-            'License server (DEFAULT: ):': self.cfg['license_server'],
-            'Port number (optional) (DEFAULT: ):': '',
-            '->1- Configure toolbox for Matlab 2- Do not configure at this time ' + choose_number: '2',
-            '->1- Configure toolbox for MATLAB 2- Do not configure at this time ' + choose_number: '2',
+            "PRESS <ENTER> TO CONTINUE:": '',
+            "DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):": 'Y',
+            "ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :": self.installdir,
+            "IS THIS CORRECT? (Y/N):": 'Y',
+            "Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No " + choose_number: '2',
+            "->1- Single User License 2- Network License " + choose_number: license_option,
+            "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
+            "License server (DEFAULT: ):": self.cfg['license_server'],
+            "Port number (optional) (DEFAULT: ):": '',
+            "->1- Configure toolbox for Matlab 2- Do not configure at this time " + choose_number: '2',
+            "->1- Configure toolbox for MATLAB 2- Do not configure at this time " + choose_number: '2',
         }
 
         no_qa = [
-            'Graphical installers are not supported by the VM. The console mode will be used instead...',
-            'Extracting the JRE from the installer archive...',
-            'Launching installer...',
+            "Graphical installers are not supported by the VM. The console mode will be used instead...",
+            "Extracting the JRE from the installer archive...",
+            "Launching installer...",
             "Configuring the installer for this system's environment...",
-            'Unpacking the JRE...',
+            "Unpacking the JRE...",
             '\[[-|]*',
         ]
 
@@ -76,7 +83,7 @@ class EB_Maple(Binary):
     def sanity_check_step(self):
         """Custom sanity check for Maple."""
         custom_paths =  {
-            'files': ['bin/maple', 'lib/maple.mla'] ,
+            'files': ['bin/maple', 'bin/xmaple', 'lib/maple.mla'],
             'dirs': [],
         }
         super(EB_Maple, self).sanity_check_step(custom_paths=custom_paths)
