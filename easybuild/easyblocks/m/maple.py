@@ -45,7 +45,7 @@ class EB_Maple(Binary):
     def install_step(self):
         """Interactive install of Maple."""
 
-        cmd = "%s/Maple%sLinuxX86_64Installer.bin" % (self.builddir, self.cfg['version'])
+        cmd = os.path.join(self.builddir, self.cfg[0]['name'])
 
         license_option = None
         if self.cfg['license_server'] is not None:
