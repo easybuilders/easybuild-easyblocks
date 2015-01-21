@@ -80,12 +80,12 @@ class EB_Maple(Binary):
             license_server_port = ''
 
         stdqa = {
-            r"Choose Install Folder [.*]:": self.installdir,  # Maple 18
-            r"Do you wish to have a shortcut installed on your desktop?.*[Y/n]:": 'n',  # Maple 18
-            r"[1] Single User License: .*[2] Network License: .*Please choose an option [1] :": license_option,  # Maple 18
-            r"[1] Single Server: .*[2] Redundant Server: .*Please choose an option [1] :": '1',  # Maple 18
+            "Choose Install Folder .*:": self.installdir,  # Maple 18
+            "Do you wish to have a shortcut installed on your desktop?.*[Y/n]:": 'n',  # Maple 18
+            "[1] Single User License: .*[2] Network License: .*Please choose an option [1] :": license_option,  # Maple 18
+            "[1] Single Server: .*[2] Redundant Server: .*Please choose an option [1] :": '1',  # Maple 18
             "License server .*:": self.cfg['license_server'],  # Maple 15, 17, 18
-            r"Port number [.*]:": license_server_port,
+            "Port number [.*]:": license_server_port,
         }
 
         no_qa = [
@@ -98,7 +98,7 @@ class EB_Maple(Binary):
             '\s*#+\s*',
         ]
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True)
+        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=stdqa, log_all=True, simple=True)
 
     def sanity_check_step(self):
         """Custom sanity check for Maple."""
