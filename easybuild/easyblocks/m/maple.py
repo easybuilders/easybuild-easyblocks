@@ -56,17 +56,36 @@ class EB_Maple(Binary):
 
         choose_number = "ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::"
         qa = {
-            "PRESS <ENTER> TO CONTINUE:": '',
-            "DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):": 'Y',
-            "ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :": self.installdir,
+            "PRESS <ENTER> TO CONTINUE:": '',  # Maple 15, 17
+            "Press [Enter] to continue:": '',  # Maple 18
+            "DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):": 'Y',  # Maple 15, 17
+            "Do you accept this license? [y/n]:": 'y',  # Maple 18
+            "ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :": self.installdir,  # Maple 15, 17
             "IS THIS CORRECT? (Y/N):": 'Y',
-            "Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No " + choose_number: '2',
+            "Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No " + choose_number: '2',  # Maple 15, 17
             "->1- Single User License 2- Network License " + choose_number: license_option,
             "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
-            "License server (DEFAULT: ):": self.cfg['license_server'],
             "Port number (optional) (DEFAULT: ):": '',
-            "->1- Configure toolbox for Matlab 2- Do not configure at this time " + choose_number: '2',
-            "->1- Configure toolbox for MATLAB 2- Do not configure at this time " + choose_number: '2',
+            "->1- Configure toolbox for Matlab 2- Do not configure at this time " + choose_number: '2',  # Maple 15
+            "->1- Configure toolbox for MATLAB 2- Do not configure at this time " + choose_number: '2',  # Maple 17
+            "MATLAB Configuration [y/N]:": 'n',  # Maple 18
+            "Enable periodic checking for Maple 18 updates after installation [Y/n]:": 'n',  # Maple 18
+            "Check for updates now [Y/n]:": 'n',  # Maple 18
+            "Use proxy server when checking for updates [y/N]:": 'n',  # Maple 18
+            "Downloads & Service Packs. [Y/n]: ": 'n',  # Maple 18
+        }
+
+        license_server_port = self.cfg['license_server_port']
+        if license_server_port is None:
+            license_server_port = ''
+
+        stdqa = {
+            r"Choose Install Folder [.*]:": self.installdir,  # Maple 18
+            r"Do you wish to have a shortcut installed on your desktop?.*[Y/n]:": 'n',  # Maple 18
+            r"[1] Single User License: .*[2] Network License: .*Please choose an option [1] :": license_option,  # Maple 18
+            r"[1] Single Server: .*[2] Redundant Server: .*Please choose an option [1] :": '1',  # Maple 18
+            "License server .*:": self.cfg['license_server'],  # Maple 15, 17, 18
+            r"Port number [.*]:": license_server_port,
         }
 
         no_qa = [
@@ -76,6 +95,7 @@ class EB_Maple(Binary):
             "Configuring the installer for this system's environment...",
             "Unpacking the JRE...",
             '\[[-|]*',
+            '\s*#+\s*',
         ]
 
         run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True)
