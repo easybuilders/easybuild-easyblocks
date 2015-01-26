@@ -36,12 +36,13 @@ class EB_ncurses(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ncurses."""
 
-        libs = ["form", "form", "menu", "menu_g", "ncurses", "ncurses++", "ncurses_g", "panel", "panel_g"]
+        libs = ["form", "menu", "ncurses", "panel"]
 
         custom_paths = {
             'files': ['bin/%s' % x for x in ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config",
                                              "reset", "tabs", "tic", "toe", "tput", "tset"]] +
-                     ['lib/lib%s.a' % x for x in libs] + ['lib/lib%sw.a' % x for x in libs],
+                     ['lib/lib%s%s.%s' % (x, y, z) for x in libs for y in ['', '_g', 'w', 'w_g'] for z in ['a', 'so']] +
+                     ['lib/libncurses++%s.a' % x for x in ['', 'w']],
             'dirs': ['include', 'include/ncursesw']
         }
 
