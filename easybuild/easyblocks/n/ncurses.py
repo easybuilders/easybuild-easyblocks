@@ -15,9 +15,11 @@ Easybuild support for building ncurses, implemented as an easyblock
 @author: Cedric Laczny (Uni.Lu)
 @author: Fotis Georgatos (Uni.Lu)
 @author: Kenneth Hoste (Ghent University)
+@author: Ward Poelmans (Ghent University)
 """
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+
 
 class EB_ncurses(ConfigureMake):
     """
@@ -34,18 +36,19 @@ class EB_ncurses(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ncurses."""
 
+        libs = ["form", "form", "menu", "menu_g", "ncurses", "ncurses++", "ncurses_g", "panel", "panel_g"]
+
         custom_paths = {
-                        'files' : ['bin/%s' % x for x in ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config",
-                                                          "reset", "tabs", "tic", "toe", "tput", "tset"]] +
-                                  ['lib/lib%s.a' % x for x in ["form", "form", "menu", "menu_g", "ncurses", "ncurses++",
-                                                               "ncurses_g", "panel", "panel_g"]],
-                        'dirs' : ['include']
-                       }
+            'files': ['bin/%s' % x for x in ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config",
+                                             "reset", "tabs", "tic", "toe", "tput", "tset"]] +
+                     ['lib/lib%s.a' % x for x in libs] + ['lib/lib%sw.a' % x for x in libs],
+            'dirs': ['include', 'include/ncursesw']
+        }
 
         super(EB_ncurses, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
-        """  
+        """
         Set correct CPLUS path.
         """
         guesses = super(EB_ncurses, self).make_module_req_guess()
