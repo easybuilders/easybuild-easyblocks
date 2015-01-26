@@ -41,7 +41,8 @@ class EB_ncurses(ConfigureMake):
         custom_paths = {
             'files': ['bin/%s' % x for x in ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config",
                                              "reset", "tabs", "tic", "toe", "tput", "tset"]] +
-                     ['lib/lib%s%s.%s' % (x, y, z) for x in libs for y in ['', '_g', 'w', 'w_g'] for z in ['a', 'so']] +
+                     ['lib/lib%s%s.a' % (x, y) for x in libs for y in ['', '_g', 'w', 'w_g']] +
+                     ['lib/lib%s%s.so' % (x, y) for x in libs for y in ['', 'w']] +
                      ['lib/libncurses++%s.a' % x for x in ['', 'w']],
             'dirs': ['include', 'include/ncursesw']
         }
