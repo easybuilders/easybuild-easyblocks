@@ -26,5 +26,6 @@ class EB_ncurses(ConfigureMake):
     Old easyblock for ncurses, superseded by easyconfigs
     """
     def __init__(self, *args, **kwargs):
+        super(EB_ncurses, self).__init__(*args, **kwargs)
         url = "https://github.com/hpcugent/easybuild-easyconfigs/tree/develop/easybuild/easyconfigs/n/ncurses"
         self.log.error("EB_ncurses: easyblock has been removed in favor of new easyconfigs: %s" % url)
