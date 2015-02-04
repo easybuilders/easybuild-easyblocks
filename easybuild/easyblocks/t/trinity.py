@@ -294,7 +294,7 @@ class EB_Trinity(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for Trinity."""
 
-        path = 'trinityrnaseq_r%s' % self.version
+        path = os.path.basename(self.cfg['start_dir'].strip('/'))
 
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
