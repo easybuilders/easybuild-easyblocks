@@ -54,7 +54,7 @@ class EB_Trinity(EasyBlock):
         EasyBlock.__init__(self, *args, **kwargs)
 
         self.build_in_installdir = True
-        self.path = ''
+        self.trinity_subdir = ''
 
     @staticmethod
     def extra_options():
@@ -212,8 +212,8 @@ class EB_Trinity(EasyBlock):
         self.log.info("End %s plugin" % plugindir)
 
     def configure_step(self):
-        """Configure self.path to the basename of the start_dir"""
-        self.path = os.path.basename(self.cfg['start_dir'].strip('/'))
+        """Configure self.trinity_subdir to the basename of the start_dir"""
+        self.trinity_subdir = os.path.basename(self.cfg['start_dir'].strip('/'))
 
     def build_step(self):
         """No building for Trinity."""
@@ -287,8 +287,8 @@ class EB_Trinity(EasyBlock):
         """Custom sanity check for Trinity."""
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(self.path, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
-            'dirs': [os.path.join(self.path, x) for x in ['Butterfly/src/bin', 'util']]
+            'files': [os.path.join(self.trinity_subdir, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
+            'dirs': [os.path.join(self.trinity_subdir, x) for x in ['Butterfly/src/bin', 'util']]
         }
 
         super(EB_Trinity, self).sanity_check_step(custom_paths=custom_paths)
@@ -298,7 +298,7 @@ class EB_Trinity(EasyBlock):
         guesses = super(EB_Trinity, self).make_module_req_guess()
 
         guesses.update({
-            'PATH': [self.path],
+            'PATH': [self.trinity_subdir],
         })
 
         return guesses
