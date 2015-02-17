@@ -53,15 +53,25 @@ class EB_ant(EasyBlock):
         junit_root = get_software_root('JUnit')
         if not junit_root:
             self.log.error("JUnit module not loaded!")
-
         junit_ver = get_software_version('JUnit')
 
-        # copy JUnit jar to where it's expected
+        hamcrest_root = get_software_root('Java-Hamcrest')
+        if not hamcrest_root:
+            self.log.error("Java-Hamcrest module not loaded!")
+        hamcrest_ver = get_software_version('Java-Hamcrest')
+
+        # copy JUnit jar and hamcrest-all-1.3.jar to where it's expected
         try:
             shutil.copy(os.path.join(junit_root, 'junit-%s.jar' % junit_ver),
                         os.path.join(os.getcwd(), "lib", "optional"))
         except OSError, err:
             self.log.error("Failed to copy JUnit jar: %s" % err)
+
+        try:
+            shutil.copy(os.path.join(hamcrest_root, 'hamcrest-all-%s.jar' % hamcrest_ver),
+                        os.path.join(os.getcwd(), "lib", "optional"))
+        except OSError, err:
+            self.log.error("Failed to copy Java-Hamcrest jar: %s" % err)
 
         cmd = "sh build.sh -Ddist.dir=%s dist" % self.installdir
 
