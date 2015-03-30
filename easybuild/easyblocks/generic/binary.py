@@ -71,10 +71,7 @@ class Binary(EasyBlock):
             self.log.info("Performing staged installation via %s" % self.installdir)
 
     def extract_step(self):
-        """Move all source files to the build directory"""
-
-        self.src[0]['finalpath'] = self.builddir
-
+        """Copy all source files to the build directory"""
         # copy source to build dir.
         for source in self.src:
             src = source['path']
@@ -83,7 +80,8 @@ class Binary(EasyBlock):
                 shutil.copy2(src, self.builddir)
                 os.chmod(dst, stat.S_IRWXU)
             except (OSError, IOError), err:
-                self.log.exception("Couldn't copy %s to %s: %s" % (src, self.builddir, err))
+                self.log.error("Couldn't copy %s to %s: %s" % (src, self.builddir, err))
+            source['finalpath'] = self.builddir
 
     def configure_step(self):
         """No configuration, this is binary software"""

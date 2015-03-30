@@ -35,61 +35,75 @@ EasyBuild support for installing Maple, implemented as an easyblock
 import os
 import shutil
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.run import run_cmd_qa
 
 
-class EB_Maple(EasyBlock):
+class EB_Maple(Binary):
     """Support for installing Maple."""
-
-    def extract_step(self):
-        """Unpacking of files is just copying Maple binary installer to build dir."""
-
-        for f in self.src:
-            shutil.copy(f['path'], os.path.join(self.builddir, f['name']))
-            f['finalpath'] = self.builddir
-
-    def configure_step(self):
-        """No configuration needed, binary installer"""
-        pass
-
-    def build_step(self):
-        """No compilation needed, binary installer"""
-        pass
 
     def install_step(self):
         """Interactive install of Maple."""
 
-        cmd = "%s/Maple%sLinuxX86_64Installer.bin" % (self.builddir, self.cfg['version'])
+        cmd = os.path.join(self.builddir, self.src[0]['name'])
 
+        license_option = None
+        if self.cfg['license_server'] is not None:
+            # Network License
+            license_option = '2'
+        else:
+            self.log.error("A license server should be specified.")
+
+        choose_number = "ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::"
         qa = {
-              'PRESS <ENTER> TO CONTINUE:': '',
-              'DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):': 'Y',
-              'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
-              'IS THIS CORRECT? (Y/N):': 'Y',
-              'Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2',
-              '->1- Single User License 2- Network License ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2',
-              'PRESS <ENTER> TO EXIT THE INSTALLER:': '',
-              'License server (DEFAULT: ):': self.cfg['license_server'],
-              'Port number (optional) (DEFAULT: ):': '',
-              '->1- Configure toolbox for Matlab 2- Do not configure at this time ENTER THE NUMBER FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2'
-             }
+            "PRESS <ENTER> TO CONTINUE:": '',  # Maple 15, 17
+            "Press [Enter] to continue:": '',  # Maple 18
+            "DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):": 'Y',  # Maple 15, 17
+            "Do you accept this license? [y/n]:": 'y',  # Maple 18
+            "ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :": self.installdir,  # Maple 15, 17
+            "IS THIS CORRECT? (Y/N):": 'Y',
+            "Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No " + choose_number: '2',  # Maple 15, 17
+            "->1- Single User License 2- Network License " + choose_number: license_option,
+            "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
+            "Port number (optional) (DEFAULT: ):": '',
+            "->1- Configure toolbox for Matlab 2- Do not configure at this time " + choose_number: '2',  # Maple 15
+            "->1- Configure toolbox for MATLAB 2- Do not configure at this time " + choose_number: '2',  # Maple 17
+            "MATLAB Configuration [y/N]:": 'n',  # Maple 18
+            "Enable periodic checking for Maple 18 updates after installation [Y/n]:": 'n',  # Maple 18
+            "Check for updates now [Y/n]:": 'n',  # Maple 18
+            "Use proxy server when checking for updates [y/N]:": 'n',  # Maple 18
+            "Downloads & Service Packs. [Y/n]: ": 'n',  # Maple 18
+        }
 
-        no_qa = ['Graphical installers are not supported by the VM. The console mode will be used instead...',
-                 'Extracting the JRE from the installer archive...',
-                 'Launching installer...',
-                 "Configuring the installer for this system's environment...",
-                 'Unpacking the JRE...',
-                 '\[[-|]*']
+        license_server_port = self.cfg['license_server_port']
+        if license_server_port is None:
+            license_server_port = ''
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True)
+        stdqa = {
+            "Choose Install Folder .*:": self.installdir,  # Maple 18
+            "Do you wish to have a shortcut installed on your desktop\?[\s\n]*\[Y/n\]:": 'n',  # Maple 18
+            "\[1\] Single User License: .*\n\[2\] Network License: .*\nPlease choose an option .*:": license_option,  # Maple 18
+            "\[1\] Single Server: .*\n\[2\] Redundant Server: .*\nPlease choose an option \[1\] :": '1',  # Maple 18
+            "License server .*:": self.cfg['license_server'],  # Maple 15, 17, 18
+            "Port number \[.*\]:": license_server_port,
+        }
+
+        no_qa = [
+            "Graphical installers are not supported by the VM. The console mode will be used instead...",
+            "Extracting the JRE from the installer archive...",
+            "Launching installer...",
+            "Configuring the installer for this system's environment...",
+            "Unpacking the JRE...",
+            '\[[-|]*',
+            '\s*#+\s*',
+        ]
+
+        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=stdqa, log_all=True, simple=True)
 
     def sanity_check_step(self):
         """Custom sanity check for Maple."""
-
         custom_paths =  {
-                         'files': ['bin/maple', 'lib/maple.mla'] ,
-                         'dirs':[]
-                        }
-
+            'files': ['bin/maple', 'bin/xmaple', 'lib/maple.mla'],
+            'dirs': [],
+        }
         super(EB_Maple, self).sanity_check_step(custom_paths=custom_paths)
