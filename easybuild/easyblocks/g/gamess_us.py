@@ -259,15 +259,14 @@ class EB_GAMESS_minus_US(EasyBlock):
             success_regex = re.compile("^All %d test results are correct" % n_tests, re.M)
             if success_regex.search(out):
                 self.log.info("All tests ran successfully!")
+                # cleanup
+                os.chdir(cwd)
+                try:
+                    shutil.rmtree(self.testdir)
+                except OSError, err:
+                    self.log.error("Failed to remove test directory %s: %s" % (self.testdir, err))
             else:
                 self.log.error("Not all tests ran successfully...")
-
-            # cleanup
-            os.chdir(cwd)
-            try:
-                shutil.rmtree(self.testdir)
-            except OSError, err:
-                self.log.error("Failed to remove test directory %s: %s" % (self.testdir, err))
 
     def install_step(self):
         """Skip install step, since we're building in the install directory."""
