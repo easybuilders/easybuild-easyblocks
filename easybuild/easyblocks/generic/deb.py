@@ -77,10 +77,10 @@ class deb(Binary):
 
         for deb in self.src:
        
-            cmd = "dpkg-deb -x %(deb) %(inst)" % {
-                'inst': self.installdir,
-                'deb': deb['path'],
-            }
+            cmd = "dpkg-deb -x %s %s" % (
+                deb['path'],
+                self.installdir,
+            )
             run_cmd(cmd, log_all=True, simple=True)
 
         for path in self.cfg['makesymlinks']:
@@ -93,8 +93,12 @@ class deb(Binary):
                 os.symlink(realdirs[0], os.path.join(self.installdir, os.path.basename(path)))
             else:
                 self.log.debug("No match found for symlink glob %s." % path)
+
         for path in self.cfg['flattenpaths']:
             cmd = "mv %s %s" % (os.path.join(self.installdir, path) + "/*", self.installdir)
+            run_cmd(cmd, log_all=True, simple=True)
+            cmd = "rmdir -p --ignore-fail-on-non-empty %s" % (os.path.join(self.installdir, path))
+            run_cmd(cmd, log_all=False, log_ok=False, simple=True)
 
     def make_module_req_guess(self):
         """Add common PATH/LD_LIBRARY_PATH paths found in RPMs to list of guesses."""
