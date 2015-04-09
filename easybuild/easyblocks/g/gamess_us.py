@@ -60,6 +60,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         """Define custom easyconfig parameters for GAMESS-US."""
         extra_vars = {
             'ddi_comm': ['mpi', "DDI communication layer to use", CUSTOM],
+            'userdma': [False, "Use RDMA rather than RSH/SSH between nodes", CUSTOM],
             'maxcpus': [None, "Maximum number of cores per node", MANDATORY],
             'maxnodes': [None, "Maximum number of nodes", MANDATORY],
             'runtest': [True, "Run GAMESS-US tests", CUSTOM],
@@ -184,11 +185,12 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # patch hardcoded settings in rungms to use values specified in easyconfig file
         rungms = os.path.join(self.builddir, 'rungms')
-        extra_gmspath_lines = "set ERICFMT=$GMSPATH/auxdata/ericfmt.dat\nset MCPPATH=$GMSPATH/auxdata/MCP\n"
+        extra_gmspath_lines = "set ERICFMT=$GMSPATH/auxdata/ericfmt.dat\nset MCPPATH=$GMSPATH/auxdata/MCP"
+        extra_rdma_line = "set USE_RDMA"
         try:
             for line in fileinput.input(rungms, inplace=1, backup='.orig'):
                 line = re.sub(r"^(\s*set\s*TARGET)=.*", r"\1=%s" % self.cfg['ddi_comm'], line)
-                line = re.sub(r"^(\s*set\s*GMSPATH)=.*", r"\1=%s\n%s" % (self.installdir, extra_gmspath_lines), line)
+                line = re.sub(r"^(\s*set\s*GMSPATH)=.*", r"\1=%s\n%s\n%s=%s\n" % (self.installdir, extra_gmspath_lines, extra_rdma_line, self.cfg['userdma']), line)
                 line = re.sub(r"(null\) set VERNO)=.*", r"\1=%s" % self.version, line)
                 line = re.sub(r"^(\s*set DDI_MPI_CHOICE)=.*", r"\1=%s" % mpilib, line)
                 line = re.sub(r"^(\s*set DDI_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path, line)
