@@ -250,25 +250,32 @@ class EB_GAMESS_minus_US(EasyBlock):
                 ])
 
             # run all exam<id> tests, dump output to exam<id>.log
-            n_tests = 47
-            for i in range(1, n_tests+1):
+            total_num_tests = 47
+            badtests = []
+            if self.cfg['ddi_comm'] == 'mpi':
+                badtests = [ 5, 32, 39, 42, 45, 46, 47 ]
+            for i in range(1, total_num_tests+1):
+                runthistest = True
                 if self.cfg['ddi_comm'] == 'mpi':
                     # Not all tests can run in parallel. Skip those that can't.
-                    for j in [ 5, 32, 39, 42, 45, 46, 47 ]:
-                        if i == j:
-                            break
-                        else:
-                            ncpus = '2'
+                    if i in badtests:
+                        runthistest = False
+                    else:
+                        ncpus = '2'
                 else:
                     ncpus = '1'
-                test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, ncpus, '2'])
-                (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
-                write_file('exam%02d.log' % i, out)
+                if runthistest:
+                    test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, ncpus, '2'])
+                    (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
+                    write_file('exam%02d.log' % i, out)
 
             # verify output of tests
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
             (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
-            success_regex = re.compile("^All %d test results are correct" % n_tests, re.M)
+            if len(badtests) == 0:
+                success_regex = re.compile("^All %d test results are correct" % total_num_tests, re.M)
+            else:
+                success_regex = re.compile("^%d job\(s\) got incorrect numerical results\. Please examine why\." % len(badtests), re.M)
             if success_regex.search(out):
                 self.log.info("All tests ran successfully!")
                 # cleanup
