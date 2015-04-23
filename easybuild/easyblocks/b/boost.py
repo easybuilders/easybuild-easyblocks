@@ -121,8 +121,30 @@ class EB_Boost(EasyBlock):
             # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
             # let Boost.Build know to look here for the config file
             f = open('user-config.jam', 'a')
-            f.write("using mpi : %s ;" % os.getenv("MPICXX"))
             f.close()
+
+            if self.toolchain.comp_family() == toolchain.CRAYPEWRAPPER:
+                craympichdir=os.getenv['CRAY_MPICH2_DIR']
+                f = open('user-config.jam','a')
+                f.write("""
+
+                import os ;
+                local CRAY_MPICH2_DIR =  %(craympichdir)s ;
+                using gcc
+                : CC
+                : <compileflags>-I$(CRAY_MPICH2_DIR)/include
+                : <linkflags>-L$(CRAY_MPICH2_DIR)/lib \
+                ;
+                using mpi
+                : CC
+                : <find-shared-library>mpich
+                : aprun -n \
+                ;""")
+	    else:
+	        f.write("using mpi : %s ;" % os.getenv("MPICXX"))
+
+	    f.close()
+
 
     def build_step(self):
         """Build Boost with bjam tool."""
