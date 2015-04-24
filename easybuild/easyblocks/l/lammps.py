@@ -24,7 +24,7 @@
 ##
 """
 EasyBuild support for building and installing LAMMPS, implemented as an easyblock
- 
+
 @author: Kenneth Hoste (Ghent University)
 @author: Alexander Schnurpfeil (Juelich Supercomputer Centre)
 """
