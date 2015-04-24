@@ -32,7 +32,7 @@ import os
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig import MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
@@ -50,7 +50,7 @@ class EB_LAMMPS(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for LAMMPS."""
         extra_vars = {
-            'packages': [[], "LAMMPS packages to install", CUSTOM],
+            'packages': [[], "LAMMPS packages to install", MANDATORY],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -98,7 +98,8 @@ class EB_LAMMPS(EasyBlock):
         # * gpu
         # * kim (requires external dep, see https://openkim.org)
         # * 
-        for pkg in [p for p in os.listdir(libdir) if p not in ['README', 'cuda', 'gpu', 'kim', 'kokkos']]:
+        for pkg in [p for p in os.listdir(libdir) if p not in ['README', 'cuda', 'gpu', 'kim', 'kokkos', 'molfile',
+                                                               'voronoi', 'linalg']]:
 
             pkglibdir = os.path.join(libdir, pkg)
             if os.path.exists(pkglibdir):
@@ -129,8 +130,9 @@ class EB_LAMMPS(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Failed to change to %s: %s", srcdir, err)
 
-            self.log.info("Building %s package", pkg)
-            run_cmd("make yes-%s" % pkg, log_output=True)
+        for p in self.cfg['packages']:
+            self.log.info("Building %s package", p)
+            run_cmd("make yes-%s" % p, log_output=True)
 
         # build LAMMPS itself
         run_cmd("make mpi", log_output=True)
