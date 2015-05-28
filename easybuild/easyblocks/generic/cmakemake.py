@@ -50,7 +50,7 @@ class CMakeMake(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
 
