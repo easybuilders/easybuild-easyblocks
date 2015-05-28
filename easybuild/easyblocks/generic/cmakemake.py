@@ -47,12 +47,15 @@ class CMakeMake(ConfigureMake):
     @staticmethod
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters specific to CMakeMake."""
-        extra_vars = ConfigureMake.extra_options(extra_vars)
-        extra_vars.update({
+        extra = {
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
-        })
-        return extra_vars
+            'separate_build_dir': [None, "Perform build in a separate directory", CUSTOM],
+        }
+
+        if extra_vars is not None:
+            extra.update(extra_vars)
+
+        return ConfigureMake.extra_options(extra)
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -67,7 +70,14 @@ class CMakeMake(ConfigureMake):
         setvar("CMAKE_LIBRARY_PATH", library_paths)
 
         default_srcdir = '.'
-        if self.cfg.get('separate_build_dir', False):
+
+        separate_build_dir = self.cfg['separate_build_dir']
+        if self.cfg['separate_build_dir'] is None:
+            msg = "Easyconfig parameter 'separate_build_dir' (custom to CMakeMake easyblock) has not set explicitely "
+            msg += "to True or False; default value in the future will be True"
+            self.log.deprecated(msg, '3.0')
+
+        if separate_build_dir:
             objdir = os.path.join(self.builddir, 'easybuild_obj')
             try:
                 os.mkdir(objdir)

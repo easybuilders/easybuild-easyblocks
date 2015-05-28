@@ -56,6 +56,9 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
 
         PythonPackage.configure_step(self, *args, **kwargs)
 
+        # enable out-of-source build (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
+
         return CMakeMake.configure_step(self, *args, **kwargs)
 
     def build_step(self, *args, **kwargs):

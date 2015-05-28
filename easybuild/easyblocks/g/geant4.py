@@ -79,9 +79,10 @@ class EB_Geant4(CMakeMake):
 
         # Geant4 switched to a CMake build system in version 9.4
         if LooseVersion(self.version) >= LooseVersion("9.4"):
-            mkdir('configdir')
-            os.chdir('configdir')
-            super(EB_Geant4, self).configure_step(srcdir="..")
+            # enable out-of-source build
+            self.cfg['separate_build_dir'] = True
+
+            super(EB_Geant4, self).configure_step()
 
         else:
             pwd = self.cfg['start_dir']

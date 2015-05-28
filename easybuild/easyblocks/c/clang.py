@@ -194,6 +194,9 @@ class EB_Clang(CMakeMake):
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
 
+        # disable regular out-of-source build, too simplistic for Clang to work
+        self.cfg['separate_build_dir'] = False
+
         self.log.info("Configuring")
         super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
 

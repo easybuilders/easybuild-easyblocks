@@ -69,6 +69,9 @@ class EB_netCDF(CMakeMake):
             if hdf5:
                 env.setvar('HDF5_ROOT', hdf5)
 
+            # enable out-of-source build (until it becomes the default)
+            self.cfg['separate_build_dir'] = True
+
             CMakeMake.configure_step(self)
 
     def sanity_check_step(self):

@@ -42,14 +42,8 @@ class EB_BamTools(MakeCp, CMakeMake):
 
     def configure_step(self):
         """Configure BamTools build."""
-        # BamTools requires an out of source build.
-        builddir = os.path.join(self.cfg['start_dir'], 'build')
-        try:
-            mkdir(builddir)
-            os.chdir(builddir)
-        except OSError, err:
-            raise EasyBuildError("Failed to move to %s: %s", builddir, err)
-
+        # BamTools requires an out of source build, so enable it (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
         CMakeMake.configure_step(self, srcdir='..')
 
     def sanity_check_step(self):
