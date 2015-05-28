@@ -112,6 +112,9 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_GSL=OFF")
 
+        # enable out-of-source build (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
+
         # complete configuration with configure_method of parent
         out = super(EB_GROMACS, self).configure_step()
 

@@ -58,7 +58,6 @@ class EB_PSI(CMakeMake):
     @staticmethod
     def extra_options():
         """Extra easyconfig parameters specific to PSI."""
-
         extra_vars = {
             # always include running PSI unit tests (takes about 2h or less)
             'runtest': ["tests TESTFLAGS='-u -q'", "Run tests included with PSI, without interruption.", BUILD],
@@ -144,6 +143,8 @@ class EB_PSI(CMakeMake):
             if get_software_root('impi'):
                 self.cfg['configopts'] += "-DENABLE_CSR=ON -DBLAS_TYPE=MKL "
 
+            # make sure out-of-source build is disabled (already done here)
+            self.cfg['separate_build_dir'] = False
             CMakeMake.configure_step(self, srcdir=self.cfg['start_dir'])
 
     def install_step(self):

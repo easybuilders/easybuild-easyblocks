@@ -68,6 +68,10 @@ class EB_GATE(CMakeMake):
         """Custom configure procedure for GATE: CMake for versions 6.2 or more recent."""
 
         if LooseVersion(self.version) >= '6.2':
+
+            # enable out-of-source build (until it becomes the default)
+            self.cfg['separate_build_dir'] = True
+
             super(EB_GATE, self).configure_step()
 
     def build_step(self):

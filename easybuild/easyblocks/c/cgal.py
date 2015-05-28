@@ -52,6 +52,9 @@ class EB_CGAL(CMakeMake):
 
         os.environ['BOOST_ROOT'] = get_software_root("Boost")
 
+        # enable out-of-source build (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
+
         super(EB_CGAL, self).configure_step()
 
     def sanity_check_step(self):

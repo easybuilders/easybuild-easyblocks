@@ -51,6 +51,9 @@ class EB_Armadillo(CMakeMake):
         self.cfg.update('configopts', '-DBLAS_LIBRARY:PATH="%s"' % os.getenv('LIBBLAS'))
         self.cfg.update('configopts', '-DLAPACK_LIBRARY:PATH="%s"' % os.getenv('LIBLAPACK'))
 
+        # enable out-of-source build (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
+
         super(EB_Armadillo, self).configure_step()
 
     def sanity_check_step(self):

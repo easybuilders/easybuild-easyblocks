@@ -201,13 +201,8 @@ class EB_Trilinos(CMakeMake):
             for ext in skip_exts:
                 self.cfg.update('configopts', "-DTrilinos_ENABLE_%s:BOOL=OFF" % ext)
 
-        # building in source dir not supported
-        try:
-            build_dir = "BUILD"
-            os.mkdir(build_dir)
-            os.chdir(build_dir)
-        except OSError, err:
-            raise EasyBuildError("Failed to create and move into build directory: %s", err)
+        # building in source dir not supported, so enable out-of-source build (until it becomes the default)
+        self.cfg['separate_build_dir'] = True
 
         # configure using cmake
         super(EB_Trilinos, self).configure_step(srcdir="..")

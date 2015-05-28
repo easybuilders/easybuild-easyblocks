@@ -36,8 +36,7 @@ class EB_OpenBabel(CMakeMake):
     """Support for installing the OpenBabel package."""
 
     def configure_step(self):
-        # Use separate build directory
-        self.cfg['separate_build_dir'] = True
+        """Custom configure procedure for OpenBabel."""
 
         self.cfg['configopts'] += "-DENABLE_TESTS=ON "
         # Needs wxWidgets
@@ -59,6 +58,9 @@ class EB_OpenBabel(CMakeMake):
             self.cfg['configopts'] += "-DEIGEN3_INCLUDE_DIR='%s/include' " % root_eigen
         else:
             self.log.info("Not using Eigen")
+
+        # enable out-of-source build
+        self.cfg['separate_build_dir'] = True
 
         super(EB_OpenBabel, self).configure_step()
 
