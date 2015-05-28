@@ -81,7 +81,7 @@ class CMakeMake(ConfigureMake):
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
 
@@ -118,7 +118,7 @@ class CMakeMake(ConfigureMake):
 
         setup_cmake_env(self.toolchain)
 
-        if builddir is None and self.cfg.get('separate_build_dir', False):
+        if builddir is None and self.cfg.get('separate_build_dir', True):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
 
         if builddir:
