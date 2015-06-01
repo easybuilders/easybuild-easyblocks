@@ -40,6 +40,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class EB_QuantumESPRESSO(ConfigureMake):
@@ -61,6 +62,59 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self.build_in_installdir = True
 
         self.install_subdir = "espresso-%s" % self.version
+
+    def obtain_file(self, *args, **kwargs):
+        """Custom implementation of obtain_file, to deal with problematic downloads from qe-forge.org."""
+        filename = args[0]
+        source_urls = self.cfg['source_urls']
+
+        # check whether file is already there, by running obtain_file without providing any source_urls
+        path = None
+        self.cfg['source_urls'] = []
+        try:
+            path = super(EB_QuantumESPRESSO, self).obtain_file(*args, **kwargs)
+        except EasyBuildError, err:
+            self.log.debug("Ignoring expected download error: %s", err)
+
+        # restore source_urls value
+        self.cfg['source_urls'] = source_urls
+
+        if path:
+            self.log.info("Source file %s already there at %s, assuming it's OK.", filename, path)
+
+        elif filename.endswith('tar.gz') or filename.endswith('.tgz'):
+            # put copy of provided source_urls in place to play around with
+            kwargs.update({'urls': source_urls[:]})
+
+            # if source is not available yet, try to download it
+            path = super(EB_QuantumESPRESSO, self).obtain_file(*args, **kwargs)
+
+            # check whether downloaded tarball can be unpacked
+            _, ec = run_cmd("tar tfz %s" % path, simple=False, log_ok=False, log_all=False)
+
+            # download may result in an HTML page when wrong source URL was used (rather than a proper 404 HTML code)
+            # retry download if unpacking downloaded tarball fails, until it works or we run out of source URLs to try
+            while ec and kwargs['urls']:
+                self.log.warning("Faulty download for %s (not a valid tarball), retrying with other source URLs...",
+                                 filename)
+
+                # clean up faulty download to try again
+                try:
+                    os.remove(path)
+                except OSError, err:
+                    raise EasyBuildError("Failed to remove faulty download for %s: %s", filename, err)
+
+                # retry download with tail of source URLs
+                kwargs['urls'].pop(0)
+                path = super(EB_QuantumESPRESSO, self).obtain_file(*args, **kwargs)
+
+                # retest unpacking
+                _, ec = run_cmd("tar tfz %s" % path, simple=False, log_ok=False, log_all=False)
+
+        else:
+            self.log.debug("Don't know how to retry downloading for filetype of %s...", filename)
+
+        return path
 
     def patch_step(self):
         """Patch files from build dir (not start dir)."""
