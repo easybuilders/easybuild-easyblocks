@@ -32,7 +32,7 @@ import easybuild.tools.toolchain as toolchain
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.modules import get_software_root, get_software_libdir
-from easybuild.tools.filetools import run_cmd
+from easybuild.tools.run import run_cmd
 
 #Also used by BISICLES
 def build_Chombo_BISICLES(self):
