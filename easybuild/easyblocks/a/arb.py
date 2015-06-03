@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2013 Ghent University
+# Copyright 2009-2015 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ class EB_ARB(ConfigureMake):
         super(EB_ARB, self).__init__(*args, **kwargs)
 
         self.build_in_installdir = True
-        self.subdir = None
+        self.subdir = 'UNKNOWN'
 
     def configure_step(self):
         """No separate configure step for ARB."""
