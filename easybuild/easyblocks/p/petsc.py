@@ -55,6 +55,7 @@ class EB_PETSc(ConfigureMake):
     def extra_options():
         """Add extra config options specific to PETSc."""
         extra_vars = {
+            'with_complex': [False, "Build Complex version of PETSc", CUSTOM],
             'sourceinstall': [False, "Indicates whether a source installation should be performed", CUSTOM],
             'shared_libs': [False, "Build shared libraries", CUSTOM],
             'with_papi': [False, "Enable PAPI support", CUSTOM],
@@ -121,6 +122,10 @@ class EB_PETSc(ConfigureMake):
                 else:
                     raise EasyBuildError("PAPI header (%s) and/or lib (%s) not found, can not enable PAPI support?",
                                          papi_inc_file, papi_lib)
+
+            # Complex number suppport
+            if self.cfg['with_complex']:
+                    self.cfg.update('configopts', '--with-scalar-type=complex')
 
             # Python extensions_step
             if get_software_root('Python'):
