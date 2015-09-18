@@ -59,8 +59,8 @@ class EB_GROMACS(CMakeMake):
             # build a release build
             self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
-            # prefer static libraries, if available
-            self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
+#            # prefer static libraries, if available
+#            self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
 
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
@@ -76,7 +76,7 @@ class EB_GROMACS(CMakeMake):
 
             # enable MPI support if desired
             if self.toolchain.options.get('usempi', None):
-                self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF")
+                self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=ON")
             else:
                 self.cfg.update('configopts', "-DGMX_MPI=OFF")
 
@@ -147,11 +147,11 @@ class EB_GROMACS(CMakeMake):
         # rather than trying to replicate the logic, we just figure out where the library was placed
 
         if LooseVersion(self.version) < LooseVersion('5.0'):
-            # libgmx.a or libgmx_mpi.a
-            libname = 'libgmx*.a'
+            # libgmx.[a|so] or libgmx_mpi.[a|so]
+            libname = 'libgmx*.*'
         else:
-            # libgromacs.a or libgromacs_mpi.a
-            libname = 'libgromacs*.a'
+            # libgromacs.[a|so] or libgromacs_mpi.[a|so]
+            libname = 'libgromacs*.*'
 
         for libdir in ['lib', 'lib64']:
             if os.path.exists(os.path.join(self.installdir, libdir)):
@@ -190,13 +190,34 @@ class EB_GROMACS(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('5.0'):
             binaries.append('gmx')
 
+        if LooseVersion(self.version) < LooseVersion('5.0'):
+            # libgmx.[a|so] or libgmx_mpi.[a|so]
+            libname = 'libgmx*.*'
+        else:
+            # libgromacs.[a|so] or libgromacs_mpi.[a|so]
+            libname = 'libgromacs*.*'
+
+        for libdir in ['lib', 'lib64']:
+            if os.path.exists(os.path.join(self.installdir, libdir)):
+                for subdir in [libdir, os.path.join(libdir, '*')]:
+                    libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
+                    if libpaths:
+                        self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir)+1:]
+                        self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
+                        break
+
+        if not self.lib_subdir:
+            raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
+
         # check for a handful of binaries/libraries that should be there
         if LooseVersion(self.version) < LooseVersion('5.0'):
             libnames = ['gmxana', 'gmx', 'gmxpreprocess', 'md']
         else:
             libnames = ['gromacs']
 
-        libs = ['lib%s%s.a' % (libname, suff) for libname in libnames]
+        libs = ['lib%s%s.so' % (libname, suff) for libname in libnames]
+        print "libdir: %s" % self.lib_subdir
+        print libs
 
         custom_paths = {
             'files': ['bin/%s%s' % (binary, suff) for binary in binaries] +
