@@ -66,6 +66,7 @@ class EB_Qt(ConfigureMake):
             "Project MESSAGE:.*",
             "rm -f .*",
             'Creating qmake...',
+            'Running configuration tests...',
         ]
         run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True)
 
@@ -85,3 +86,15 @@ class EB_Qt(ConfigureMake):
         }
 
         super(EB_Qt, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Set correct QT* environment variables."""
+
+        txt = super(EB_Qt, self).make_module_extra()
+
+        txt += self.module_generator.set_environment('QTDIR', "$root" )
+        txt += self.module_generator.set_environment('QTLIB', "$root/lib" )
+        txt += self.module_generator.set_environment('QTINC', "$root/include" )
+
+        return txt
+
