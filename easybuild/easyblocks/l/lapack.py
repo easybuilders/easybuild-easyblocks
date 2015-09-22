@@ -143,6 +143,10 @@ class EB_LAPACK(ConfigureMake):
             self.log.info('No BLAS library provided, so only building LAPACK library (no testing).')
             self.cfg.update('buildopts', 'lib')
 
+
+        if os.path.exists(os.path.join(self.cfg['start_dir'], 'lapacke')):
+            self.cfg.update('buildopts', 'lapackelib')
+
     # don't create a module if we're only testing
     def build_step(self):
         """
