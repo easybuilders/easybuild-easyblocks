@@ -1,10 +1,41 @@
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY, BUILD
-from easybuild.tools.filetools import run_cmd
+##
+# Copyright 2009-2015 Ghent University
+#
+# This file is part of EasyBuild,
+# originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
+# with support of Ghent University (http://ugent.be/hpc),
+# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
+#
+# http://github.com/hpcugent/easybuild
+#
+# EasyBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation v2.
+#
+# EasyBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
+##
+"""
+EasyBuild support for Amber, implemented as an easyblock
+
+@author: Benjamin Roberts (The University of Auckland)
+@author: Kenneth Hoste (Ghent University)
+"""
+import os
+
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM, MANDATORY, BUILD
 import easybuild.tools.environment as env
+from easybuild.tools.filetools import run_cmd
 from easybuild.tools.modules import get_software_root
 import easybuild.tools.toolchain as toolchain
-import os
 
 class EB_Amber(ConfigureMake):
     """Easyblock for building and installing Amber"""
@@ -22,7 +53,6 @@ class EB_Amber(ConfigureMake):
     def __init__(self, *args, **kwargs):
         super(EB_Amber, self).__init__(*args, **kwargs)
         self.already_extracted = False
-        #self.amberhome = os.path.join(self.installdir, 'amber%s' % self.version)
         self.build_in_installdir = True
 
     def extract_step(self):
