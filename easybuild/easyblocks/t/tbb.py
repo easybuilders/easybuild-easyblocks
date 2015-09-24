@@ -44,6 +44,11 @@ from easybuild.tools.build_log import EasyBuildError
 class EB_tbb(IntelBase):
     """EasyBlock for tbb, threading building blocks"""
 
+    def __init__(self, *args, **kwargs):
+        """Initialisation of custom class variables for tbb"""
+        super(EB_tbb, self).__init__(*args, **kwargs)
+        self.libpath = 'UNKNOWN'
+
     def install_step(self):
         """Custom install step, to add extra symlinks"""
         silent_cfg_names_map = None
@@ -62,7 +67,7 @@ class EB_tbb(IntelBase):
             libglob = 'tbb/lib/intel64/cc*libc*_kernel*'
         else:
             libglob = 'tbb/lib/intel64/gcc*'
-        libs = glob.glob(libglob)
+        libs = sorted(glob.glob(libglob), key=LooseVersion)
         if len(libs):
             libdir = libs[-1]  # take the last one, should be ordered by cc get_version.
             # we're only interested in the last bit
@@ -81,16 +86,17 @@ class EB_tbb(IntelBase):
         os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
 
     def sanity_check_step(self):
-
         custom_paths = {
-                        'files':[],
-                        'dirs':["tbb/bin", "tbb/lib/", "tbb/libs/"]
-                       }
-
+            'files': [],
+            'dirs': ['tbb/bin', 'tbb/lib', 'tbb/libs'],
+        }
         super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add correct path to lib to LD_LIBRARY_PATH. and intel license file"""
         txt = super(EB_tbb, self).make_module_extra()
         txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [self.libpath])
+        txt += self.module_generator.prepend_paths('LIBRARY_PATH', [self.libpath])
+        txt += self.module_generator.prepend_paths('CPATH', [os.path.join('tbb', 'include')])
+        txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, 'tbb'))
         return txt
