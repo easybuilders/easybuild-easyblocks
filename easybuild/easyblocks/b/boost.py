@@ -89,6 +89,8 @@ class EB_Boost(EasyBlock):
     def configure_step(self):
         """Configure Boost build using custom tools"""
 
+        configopts = "--prefix=%s" % self.objdir
+
         # mpi sanity check
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
@@ -111,11 +113,15 @@ class EB_Boost(EasyBlock):
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
-        cmd = "./bootstrap.sh --with-toolset=%s --prefix=%s %s" % (toolset, self.objdir, self.cfg['configopts'])
+        configopts += " --with-toolset=%s" % toolset
+
+        if not self.cfg['boost_mpi']:
+            configopts += " --without-libraries=mpi"
+
+        cmd = "./bootstrap.sh %s %s" % (configopts, self.cfg['configopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['boost_mpi']:
-
             self.toolchain.options['usempi'] = True
             # configure the boost mpi module
             # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
@@ -128,6 +134,9 @@ class EB_Boost(EasyBlock):
         """Build Boost with bjam tool."""
 
         bjamoptions = " --prefix=%s" % self.objdir
+
+        if self.cfg['parallel']:
+            bjamoptions += " -j%s" % self.cfg['parallel']
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
