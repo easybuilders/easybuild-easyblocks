@@ -183,5 +183,5 @@ class EB_Amber(ConfigureMake):
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
         txt = super(EB_Amber, self).make_module_extra()
-        txt += self.moduleGenerator.set_environment('AMBERHOME', self.installdir)
+        txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
         return txt
