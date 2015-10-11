@@ -80,15 +80,6 @@ class EB_Amber(ConfigureMake):
                 run_cmd(cmd, log_all=True)
         return super(EB_Amber, self).patch_step(**kw)
 
-    def configure_step(self):
-        cmd = "%(preconfigopts)s ./configure %(configopts)s" % {
-            'preconfigopts': self.cfg['preconfigopts'],
-            'configopts': self.cfg['configopts']
-        }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        
-        return out
-
     def build_step(self):
 
         # Set the AMBERHOME environment variable
@@ -146,7 +137,7 @@ class EB_Amber(ConfigureMake):
         for flag, testrule in buildtargets:
             # Configure
             self.cfg['configopts'] = ' '.join(common_configopts + [flag, compilerstring])
-            self.configure_step()
+            super(EB_Amber, self).configure_step()
 
             # Build in situ using 'make install'
             # Note: not "build"
