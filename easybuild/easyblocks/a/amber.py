@@ -32,6 +32,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY, BUILD
+from easybuild.tools.build_log import EasyBuildError
 import easybuild.tools.environment as env
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
