@@ -60,7 +60,7 @@ class EB_Amber(ConfigureMake):
         if (self.already_extracted == True):
             pass
         else:
-            self.cfg['unpack_options'] = "--strip-components=1"
+            self.cfg['unpack_options'].append("--strip-components=1")
             super(EB_Amber, self).extract_step()
             self.already_extracted = True
 
