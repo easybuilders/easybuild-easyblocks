@@ -96,7 +96,7 @@ class EB_Amber(ConfigureMake):
         try:
             os.chdir(self.installdir)
         except OSError, err:
-            self.log.error("Could not chdir to %(amberhome)s: %(error)s" % { 'amberhome': self.installdir, 'error': err })
+            raise EasyBuildError("Could not chdir to {0}: {1}".format(self.installdir, err))
 
         # Kenneth Hoste recommends making sure the LIBS env var is unset
         if 'LIBS' in os.environ:
@@ -132,7 +132,7 @@ class EB_Amber(ConfigureMake):
         elif self.toolchain.comp_family() == toolchain.GCC:
             compilerstring = 'gnu'
         else:
-            self.log.error("Don't know how to compile with compiler family %s -- check EasyBlock?" % self.toolchain.comp_family())
+            raise EasyBuildError("Don't know how to compile with compiler family {0} -- check EasyBlock?".format(self.toolchain.comp_family()))
         
         buildtargets = [('', 'test')]
         if self.toolchain.options.get('usempi', None):
