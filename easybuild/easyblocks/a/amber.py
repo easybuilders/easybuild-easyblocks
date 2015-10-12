@@ -26,7 +26,6 @@
 EasyBuild support for Amber, implemented as an easyblock
 
 @author: Benjamin Roberts (The University of Auckland)
-@author: Kenneth Hoste (Ghent University)
 """
 import os
 
@@ -48,6 +47,11 @@ class EB_Amber(ConfigureMake):
         extra_vars.update({
             # 'Amber': [True, "Build Amber in addition to AmberTools", CUSTOM],
             'patchlevels': ["latest", "(AmberTools, Amber) updates to be applied", CUSTOM],
+            # The following is necessary because some patches to the Amber update
+            # script update the update script itself, in which case it will quit
+            # and insist on being run again. We don't know how many times will
+            # be needed, but the number of times is patchlevel specific.
+            'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
         })
         return ConfigureMake.extra_options(extra_vars)
 
@@ -58,9 +62,7 @@ class EB_Amber(ConfigureMake):
 
     def extract_step(self):
         """Only extract from the tarball if this has not already been done."""
-        if (self.already_extracted == True):
-            pass
-        else:
+        if not self.already_extracted:
             # unpack_options is a string, not an array; can't use append
             self.cfg['unpack_options'] += " --strip-components=1"
             super(EB_Amber, self).extract_step()
@@ -70,16 +72,21 @@ class EB_Amber(ConfigureMake):
         env.setvar('AMBERHOME', self.installdir)
         if self.cfg['patchlevels'] == "latest":
             cmd = "./update_amber --update"
-            # This needs to be run multiple times, more's the pity.
-            run_cmd(cmd, log_all=True)
-            run_cmd(cmd, log_all=True)
+            # Run as many times as specified. It is the responsibility
+            # of the easyconfig author to get this right, especially if
+            # he or she selects "latest". (Note: "latest" is not
+            # recommended for this reason and others.)
+            for i in range(self.cfg['patchruns']):
+                run_cmd(cmd, log_all=True)
         else:
             for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
-                if patch_level == 0: continue
+                if patch_level == 0:
+                    continue
                 cmd = "./update_amber --update-to %s/%s" % (tree, patch_level)
-                # This needs to be run multiple times, more's the pity.
-                run_cmd(cmd, log_all=True)
-                run_cmd(cmd, log_all=True)
+                # Run as many times as specified. It is the responsibility
+                # of the easyconfig author to get this right.
+                for i in range(self.cfg['patchruns']):
+                    run_cmd(cmd, log_all=True)
         return super(EB_Amber, self).patch_step(**kw)
 
     def configure_step(self):
@@ -101,8 +108,7 @@ class EB_Amber(ConfigureMake):
             raise EasyBuildError("Could not chdir to {0}: {1}".format(self.installdir, err))
 
         # Kenneth Hoste recommends making sure the LIBS env var is unset
-        if 'LIBS' in os.environ:
-            del os.environ['LIBS']
+        env.unset_env_vars(['LIBS'])
 
         # Set some other environment variables
         for mathlib in ['imkl']:
