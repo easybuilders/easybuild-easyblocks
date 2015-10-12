@@ -148,7 +148,7 @@ class EB_Amber(ConfigureMake):
         for flag, testrule in buildtargets:
             # Configure
             self.cfg['configopts'] = ' '.join(common_configopts + [flag, compilerstring])
-            super(EB_Amber, self).configure_step()
+            self.configure_step()
 
             # Build in situ using 'make install'
             # Note: not "build"
