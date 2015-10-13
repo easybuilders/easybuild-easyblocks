@@ -141,7 +141,7 @@ class EB_Amber(ConfigureMake):
             compilerstring = 'gnu'
         else:
             raise EasyBuildError("Don't know how to compile with compiler family {0} -- check EasyBlock?".format(self.toolchain.comp_family()))
-        
+
         buildtargets = [('', 'test')]
         if self.toolchain.options.get('usempi', None):
             buildtargets.append(('-mpi', 'test.parallel'))
