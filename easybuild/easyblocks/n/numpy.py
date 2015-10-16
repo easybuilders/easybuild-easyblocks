@@ -127,13 +127,14 @@ class EB_numpy(FortranPythonPackage):
             # not fool-proof, but better than enforcing a particular patch filename
             patch_found = False
             patch_wl_regex = re.compile(r"replace\(':',\s*','\)")
-            for patch in self.patches:
-                # patches are either strings (extension) or dicts (easyblock)
-                if isinstance(patch, dict):
-                    patch = patch['path']
-                if patch_wl_regex.search(open(patch, 'r').read()):
-                    patch_found = True
-                    break
+            if self.patches:
+                for patch in self.patches:
+                    # patches are either strings (extension) or dicts (easyblock)
+                    if isinstance(patch, dict):
+                        patch = patch['path']
+                    if patch_wl_regex.search(open(patch, 'r').read()):
+                        patch_found = True
+                        break
             if not patch_found:
                 raise EasyBuildError("Building numpy on top of Intel MKL requires a patch to "
                                      "handle -Wl linker flags correctly, which doesn't seem to be there.")
