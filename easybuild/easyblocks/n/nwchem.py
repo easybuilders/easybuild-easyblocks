@@ -43,6 +43,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, mkdir, write_file
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_avail_core_count
 
 
 class EB_NWChem(ConfigureMake):
@@ -73,6 +74,8 @@ class EB_NWChem(ConfigureMake):
             'msg_comms': ["MPI", "Type of message communication", CUSTOM],
             'modules': ["all", "NWChem modules to build", CUSTOM],
             'lib_defines': ["", "Additional defines for C preprocessor", CUSTOM],
+            # This value will be consulted if lib_defines does not include a "-DDFLT_TOT_MEM" option.
+            'osmem_per_core': [None, "Per-core memory (MB) reserved to the OS", CUSTOM],
             'tests': [True, "Run example test cases", CUSTOM],
             # lots of tests fail, so allow a certain fail ratio
             'max_fail_ratio': [0.5, "Maximum test case fail ratio", CUSTOM],
@@ -256,6 +259,18 @@ class EB_NWChem(ConfigureMake):
             os.unsetenv(var)
             os.environ.pop(var)
 
+        # Determine total amount of memory and number of cores
+        mem_avail = 0
+        memtotal = get_total_memory()
+        corecount = get_avail_core_count()
+        if self.cfg['osmem_per_core']:
+            mem_avail = memtotal - (corecount * self.cfg['osmem_per_core'])
+        else:
+            # Let's assume 2 GB for the operating system unless otherwise advised.
+            mem_avail = memtotal - 2048
+        # Set ARMCI_DEFAULT_SHMMAX_UBOUND
+        self.cfg.update('buildopts', ' MAYBE_FFLAGS="ARMCI_DEFAULT_SHMMAX_UBOUND={0}"'.format(mem_avail))
+
         super(EB_NWChem, self).build_step(verbose=True)
 
         # build version info
@@ -282,7 +297,10 @@ class EB_NWChem(ConfigureMake):
         if not 'DDFLT_TOT_MEM' in self.cfg['lib_defines']:
             try:
                 os.chdir(os.path.join(self.cfg['start_dir'], 'contrib'))
-                run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
+                getmem_cmd = "./getmem.nwchem"
+                if self.cfg['osmem_per_core']:
+                    getmem_cmd = "{0} {1}".format(getmem_cmd, self.cfg['osmem_per_core']
+                run_cmd(getmem_cmd, simple=True, log_all=True, log_ok=True, log_output=True)
                 os.chdir(self.cfg['start_dir'])
             except OSError, err:
                 raise EasyBuildError("Failed to run getmem.nwchem script: %s", err)
