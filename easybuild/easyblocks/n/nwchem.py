@@ -43,7 +43,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, mkdir, write_file
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_avail_core_count
+from easybuild.tools.systemtools import get_avail_core_count, get_total_memory
 
 
 class EB_NWChem(ConfigureMake):
@@ -299,7 +299,7 @@ class EB_NWChem(ConfigureMake):
                 os.chdir(os.path.join(self.cfg['start_dir'], 'contrib'))
                 getmem_cmd = "./getmem.nwchem"
                 if self.cfg['osmem_per_core']:
-                    getmem_cmd = "{0} {1}".format(getmem_cmd, self.cfg['osmem_per_core']
+                    getmem_cmd = "{0} {1}".format(getmem_cmd, self.cfg['osmem_per_core'])
                 run_cmd(getmem_cmd, simple=True, log_all=True, log_ok=True, log_output=True)
                 os.chdir(self.cfg['start_dir'])
             except OSError, err:
