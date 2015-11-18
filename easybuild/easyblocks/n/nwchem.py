@@ -269,7 +269,7 @@ class EB_NWChem(ConfigureMake):
             # Let's assume 2 GB for the operating system unless otherwise advised.
             mem_avail = memtotal - 2048
         # Set ARMCI_DEFAULT_SHMMAX_UBOUND
-        self.cfg.update('buildopts', ' MAYBE_FFLAGS="ARMCI_DEFAULT_SHMMAX_UBOUND={0}"'.format(mem_avail))
+        self.cfg.update('buildopts', ' MAYBE_SYSVSHMEM="ARMCI_DEFAULT_SHMMAX_UBOUND={0}"'.format(mem_avail))
 
         super(EB_NWChem, self).build_step(verbose=True)
 
