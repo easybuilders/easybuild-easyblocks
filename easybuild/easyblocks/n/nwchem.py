@@ -147,7 +147,7 @@ class EB_NWChem(ConfigureMake):
         if self.cfg['armci_network'] in ["OPENIB"]:
             env.setvar('IB_INCLUDE', "/usr/include")
             env.setvar('IB_LIB', "/usr/lib64")
-            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
+            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread -lrt")
 
         if 'python' in self.cfg['modules']:
             python_root = get_software_root('Python')
@@ -156,6 +156,8 @@ class EB_NWChem(ConfigureMake):
             env.setvar('PYTHONHOME', python_root)
             pyver = '.'.join(get_software_version('Python').split('.')[0:2])
             env.setvar('PYTHONVERSION', pyver)
+            if LooseVersion(self.version) >= LooseVersion("6.6"):
+                env.setvar('USE_PYTHONCONFIG', 'Y')
             # if libreadline is loaded, assume it was a dependency for Python
             # pass -lreadline to avoid linking issues (libpython2.7.a doesn't include readline symbols)
             libreadline = get_software_root('libreadline')
@@ -197,7 +199,11 @@ class EB_NWChem(ConfigureMake):
             if self.cfg['armci_network'] in ["MPI-MT"]:
                 libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi_mt"
             else:
-                libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi"
+                #libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi"
+                # Needed for our version of the Intel compilers, perhaps.
+                # Is there an approach that could be generalised, like consulting the output
+                # of mpiifort -show and processing it via a regular expression?
+                libmpi = "-lmpifort -lmpi -lmpigi -ldl -lrt -lpthread"
         elif mpi_family in [toolchain.MPICH, toolchain.MPICH2]:
             libmpi = "-lmpichf90 -lmpich -lopa -lmpl -lrt -lpthread"
         else:
