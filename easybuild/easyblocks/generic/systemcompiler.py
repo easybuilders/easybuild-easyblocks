@@ -53,6 +53,7 @@ class SystemCompiler(Bundle):
         # look for 3-4 digit version number, surrounded by spaces
         # examples:
         # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
+        # IBM XL C/C++ for Linux, V13.1\nVersion: 13.01.0000.0000
         # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
         version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
         res = version_regex.search(txt)
@@ -68,7 +69,7 @@ class SystemCompiler(Bundle):
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
         # Determine compiler path (real path, with resolved symlinks)
-        compiler_name = self.cfg['name'].lower()
+        compiler_name = self.cfg['name'].lower().replace('base','')  # allow for 'base' install that can be further refined (e.g. w/GCCvX)
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
             path_to_compiler = os.path.realpath(path_to_compiler)
@@ -83,6 +84,14 @@ class SystemCompiler(Bundle):
 
             # strip off 'bin/gcc'
             self.compiler_prefix = os.path.dirname(os.path.dirname(path_to_compiler))
+
+        elif compiler_name in ['xlc', 'xlf']:
+            out, _ = run_cmd("%s -qversion" % compiler_name[0:3], simple=False)
+            self.extract_compiler_version(out)
+
+            # strip off 'bin/xlc'
+            self.compiler_prefix = os.path.dirname(os.path.dirname(path_to_compiler))
+           
 
         elif compiler_name in ['icc', 'ifort']:
             out, _ = run_cmd("%s -V" % compiler_name, simple=False)
@@ -113,7 +122,7 @@ class SystemCompiler(Bundle):
         if self.cfg['version'] == 'system':
             self.log.info("Found specified version '%s', going with derived compiler version '%s'",
                           self.cfg['version'], self.compiler_version)
-        elif self.cfg['version'] != self.compiler_version:
+        elif self.cfg['version'] not in self.compiler_version:
             raise EasyBuildError("Specified version (%s) does not match version reported by compiler (%s)" %
                                  (self.cfg['version'], self.compiler_version))
 
