@@ -35,6 +35,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 """
 
 import stat
+import os
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
@@ -82,7 +83,8 @@ class ConfigureMake(EasyBlock):
                 self.cfg.update('preconfigopts', "%s='%s'" % (key, val))
 
          # Ensure that configure has the excutable bit set, needed if a patch created configure itself
-        adjust_permissions('configure', stat.S_IXUSR, add=True)
+         if os.path.exists('configure'):
+             adjust_permissions('configure', stat.S_IXUSR, add=True)
         cmd = "%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(configopts)s" % {
             'preconfigopts': self.cfg['preconfigopts'],
             'cmd_prefix': cmd_prefix,
