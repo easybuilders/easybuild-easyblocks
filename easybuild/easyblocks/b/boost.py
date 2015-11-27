@@ -89,7 +89,7 @@ class EB_Boost(EasyBlock):
     def configure_step(self):
         """Configure Boost build using custom tools"""
 
-        configopts = "--prefix=%s" % self.objdir
+        self.cfg.update('configopts', "--prefix=%s" % self.objdir)
 
         # mpi sanity check
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
@@ -113,12 +113,12 @@ class EB_Boost(EasyBlock):
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
-        configopts += " --with-toolset=%s" % toolset
+        self.cfg.update('configopts', "--with-toolset=%s" % toolset)
 
         if not self.cfg['boost_mpi']:
-            configopts += " --without-libraries=mpi"
+            self.cfg.update('configopts', "--without-libraries=mpi")
 
-        cmd = "./bootstrap.sh %s %s" % (configopts, self.cfg['configopts'])
+        cmd = "%s ./bootstrap.sh %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['boost_mpi']:
@@ -133,34 +133,34 @@ class EB_Boost(EasyBlock):
     def build_step(self):
         """Build Boost with bjam tool."""
 
-        bjamoptions = " --prefix=%s" % self.objdir
+        self.cfg.update('buildopts', "--prefix=%s" % self.objdir)
 
         if self.cfg['parallel']:
-            bjamoptions += " -j%s" % self.cfg['parallel']
+            self.cfg.update('buildopts', "-j%s" % self.cfg['parallel'])
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
             libroot = get_software_root(lib)
             if libroot:
-                bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
-                bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
+                self.cfg.update('buildopts', "-s%s_INCLUDE=%s/include" % (lib.upper(), libroot))
+                self.cfg.update('buildopts', "-s%s_LIBPATH=%s/lib" % (lib.upper(), libroot))
 
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
 
-            bjammpioptions = "%s --user-config=user-config.jam --with-mpi" % bjamoptions
+            bjam_mpi_options = "%s --user-config=user-config.jam --with-mpi" % self.cfg['buildopts']
 
             # build mpi lib first
             # let bjam know about the user-config.jam file we created in the configure step
-            run_cmd("./bjam %s" % bjammpioptions, log_all=True, simple=True)
+            run_cmd("./bjam %s" % bjam_mpi_options, log_all=True, simple=True)
 
             # boost.mpi was built, let's 'install' it now
-            run_cmd("./bjam %s  install" % bjammpioptions, log_all=True, simple=True)
+            run_cmd("./bjam %s  install" % bjam_mpi_options, log_all=True, simple=True)
 
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "./bjam %s install" % bjamoptions
+        cmd = "./bjam %s install" % self.cfg['buildopts']
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
