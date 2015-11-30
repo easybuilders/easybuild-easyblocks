@@ -253,7 +253,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             total_num_tests = 47
             badtests = []
             if self.cfg['ddi_comm'] == 'mpi':
-                badtests = [ 5, 32, 39, 42, 45, 46, 47 ]
+                badtests = [5, 32, 39, 42, 45, 46, 47]
             for i in range(1, total_num_tests+1):
                 runthistest = True
                 if self.cfg['ddi_comm'] == 'mpi':
