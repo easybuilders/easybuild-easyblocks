@@ -283,7 +283,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                 try:
                     shutil.rmtree(self.testdir)
                 except OSError, err:
-                    self.log.error("Failed to remove test directory %s: %s" % (self.testdir, err))
+                    raise EasyBuildError("Failed to remove test directory %s: %s" % (self.testdir, err))
             else:
                 raise EasyBuildError("Not all tests ran successfully...")
 
