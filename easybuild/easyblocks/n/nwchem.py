@@ -101,13 +101,19 @@ class EB_NWChem(ConfigureMake):
                 self.log.debug("Contents of %s: %s", os.path.dirname(self.local_nwchemrc),
                                os.listdir(os.path.dirname(self.local_nwchemrc)))
 
-                if os.path.islink(self.home_nwchemrc) and not os.path.samefile(self.home_nwchemrc, self.local_nwchemrc):
-                    raise EasyBuildError("Found %s, but it's not a symlink to %s. "
-                                         "Please (re)move %s while installing NWChem; it can be restored later",
-                                         self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
+                if os.path.islink(self.home_nwchemrc):
+                    # If the symbolic link is dangling, we can probably remove it.
+                    if not os.path.exists(self.home_nwchemrc):
+                        self.log.info("Removing dangling symbolic link: %s", self.home_nwchemrc)
+                        os.remove(self.home_nwchemrc)
+                    elif not os.path.samefile(self.home_nwchemrc, self.local_nwchemrc):
+                        raise EasyBuildError("Found %s, but it's not a symlink to %s. "
+                                             "Please (re)move %s while installing NWChem; it can be restored later",
+                                             self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
                 # ok to remove, we'll recreate it anyway
                 os.remove(self.local_nwchemrc)
         except (IOError, OSError), err:
+            # Fall down here if an error of a different type occurs concerning self.home_nwchemrc
             raise EasyBuildError("Failed to validate %s symlink: %s", self.home_nwchemrc, err)
 
         # building NWChem in a long path name is an issue, so let's try to make sure we have a short one
