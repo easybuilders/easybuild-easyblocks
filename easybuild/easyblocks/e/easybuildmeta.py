@@ -107,7 +107,8 @@ class EB_EasyBuildMeta(PythonPackage):
         easy_install_pth = os.path.join(self.installdir, det_pylibdir(), 'easy-install.pth')
         if os.path.exists(easy_install_pth):
             easy_install_pth_txt = read_file(easy_install_pth)
-            for pkg in self.easybuild_pkgs:
+            #for pkg in self.easybuild_pkgs:
+            for pkg in [pkg for pkg in self.easybuild_pkgs if 'vsc-base' != pkg]:
                 if pkg == 'vsc-base':
                     # don't include strict version check for vsc-base
                     pkg_regex = re.compile(r"^\./%s" % pkg.replace('-', '_'), re.M)
