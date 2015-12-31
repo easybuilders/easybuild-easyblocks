@@ -73,12 +73,6 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def install_step(self):
         """Install EasyBuild packages one by one."""
-
-        # unset $PYTHONPATH to try and avoid that current EasyBuild is picked up, and ends up in easy-install.pth
-        orig_pythonpath = os.getenv('PYTHONPATH')
-        self.log.debug("Original $PYTHONPATH: %s", orig_pythonpath)
-        env.setvar('PYTHONPATH', '')
-
         try:
             subdirs = os.listdir(self.builddir)
             for pkg in self.easybuild_pkgs:
@@ -96,10 +90,6 @@ class EB_EasyBuildMeta(PythonPackage):
 
         except OSError, err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
-
-        # restore $PYTHONPATH, if it was defined
-        if orig_pythonpath is not None:
-            env.setvar('PYTHONPATH', orig_pythonpath)
 
     def sanity_check_step(self):
         """Custom sanity check for EasyBuild."""
