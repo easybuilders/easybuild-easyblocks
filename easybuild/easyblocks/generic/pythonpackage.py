@@ -42,13 +42,12 @@ from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, rmtree2, which
 from easybuild.tools.run import run_cmd
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
-EASY_INSTALL_CMD = "python setup.py easy_install"
+EASY_INSTALL_CMD = "python %(python_opts)s setup.py easy_install"
 UNKNOWN = 'UNKNOWN'
 
 
@@ -88,7 +87,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
-            'use_easy_install': [False, "Install using '%s'" % EASY_INSTALL_CMD, CUSTOM],
+            'use_easy_install': [False, "Install using 'easy_install'", CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
@@ -127,8 +126,21 @@ class PythonPackage(ExtensionEasyBlock):
             self.install_cmd_extra = '.'
 
         else:
-            self.install_cmd = "python setup.py install"
+            self.install_cmd = "python %(python_opts)s setup.py install"
             self.install_cmd_extra = None
+
+        self.python_opts = []
+
+    def set_python_opts(self):
+        """Set options to pass to 'python'."""
+        # use python -S when using system Python, to avoid that Python packages installed system-wide are picked up
+        if 'python' not in [dep['name'] for dep in self.toolchain.dependencies]:
+            self.python_opts.append('-S')
+
+        # don't add user site directory to sys.path (equivalent to setting $PYTHONNOUSERSITE)
+        # see https://www.python.org/dev/peps/pep-0370/
+        self.python_opts.append('-s')
+        run_cmd("python %s -c 'import sys; print(sys.path)'" % ' '.join(self.python_opts), verbose=False)
 
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
@@ -154,22 +166,28 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        cmd.extend([self.cfg['preinstallopts'], self.install_cmd, '--prefix=%s' % prefix, self.cfg['installopts']])
+        pycmd = self.install_cmd % {'python_opts': ' '.join(self.python_opts)}
+        cmd.extend([self.cfg['preinstallopts'], pycmd, '--prefix=%s' % prefix, self.cfg['installopts']])
 
         if self.install_cmd_extra:
             cmd.append(self.install_cmd_extra)
 
         return ' '.join(cmd)
 
+    def prepare_step(self):
+        """Prepare to execute build procedure"""
+        super(PythonPackage, self).prepare_step()
+        self.set_python_opts()
+        self.set_pylibdirs()
+
     def prerun(self):
-        """Prepare extension by determining Python site lib dir."""
+        """Prepare for installing extension"""
         super(PythonPackage, self).prerun()
+        self.set_python_opts()
         self.set_pylibdirs()
 
     def configure_step(self):
         """Configure Python package build."""
-        # prepare easyblock by determining Python site lib dir(s)
-        self.set_pylibdirs()
 
         if self.sitecfg is not None:
             # used by some extensions, like numpy, to find certain libs
@@ -199,15 +217,14 @@ class PythonPackage(ExtensionEasyBlock):
         run_cmd("which python", verbose=False)
         run_cmd("python -c 'import sys; print(sys.executable)'", verbose=False)
 
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        run_cmd("python -c 'import sys; print(sys.path)'", verbose=False)
-
     def build_step(self):
         """Build Python package using setup.py"""
         if not self.cfg.get('use_easy_install', False):
-            cmd = "%s python setup.py build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts'])
+            cmd = "%(prebuildopts)s python %(python_opts)s setup.py build %(buildopts)s" % {
+                'buildopts': self.cfg['buildopts'],
+                'prebuildopts': self.cfg['prebuildopts'],
+                'python_opts': ' '.join(self.python_opts),
+            }
             run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
@@ -230,7 +247,8 @@ class PythonPackage(ExtensionEasyBlock):
                 except OSError, err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
-                run_cmd("python -c 'import sys; print(sys.path)'", verbose=False)  # print Python search path (debug)
+                cmd = "python %s -c 'import sys; print(sys.path)'" % ' '.join(self.python_opts)
+                run_cmd(cmd, verbose=False)  # print Python search path (debug)
                 abs_pylibdirs = [os.path.join(testinstalldir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
@@ -292,7 +310,9 @@ class PythonPackage(ExtensionEasyBlock):
         Custom sanity check for Python packages
         """
         if not 'exts_filter' in kwargs:
-            kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
+            python_cmd = 'python %s ' % ' '.join(self.python_opts)
+            py_exts_filter_cmd = EXTS_FILTER_PYTHON_PACKAGES[0].replace('python ', python_cmd)
+            kwargs.update({'exts_filter': (py_exts_filter_cmd, EXTS_FILTER_PYTHON_PACKAGES[1])})
         return super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 
     def make_module_req_guess(self):
