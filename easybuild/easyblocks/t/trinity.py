@@ -55,6 +55,7 @@ class EB_Trinity(EasyBlock):
         EasyBlock.__init__(self, *args, **kwargs)
 
         self.build_in_installdir = True
+        self.trinity_subdir = ''
 
     @staticmethod
     def extra_options():
@@ -68,7 +69,6 @@ class EB_Trinity(EasyBlock):
 
     def butterfly(self):
         """Install procedure for Butterfly."""
-
         self.log.info("Begin Butterfly")
 
         dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
@@ -84,7 +84,6 @@ class EB_Trinity(EasyBlock):
 
     def chrysalis(self, run=True):
         """Install procedure for Chrysalis."""
-
         make_flags = "COMPILER='%s' CPLUSPLUS='%s' CC='%s' " % (os.getenv('CXX'),
                                                                 os.getenv('CXX'),
                                                                 os.getenv('CC'))
@@ -106,13 +105,11 @@ class EB_Trinity(EasyBlock):
             run_cmd("make %s" % make_flags)
 
             self.log.info("End Chrysalis")
-
         else:
             return make_flags
 
     def inchworm(self, run=True):
         """Install procedure for Inchworm."""
-
         make_flags = 'CXXFLAGS="%s %s"' % (os.getenv('CXXFLAGS'), self.toolchain.get_flag('openmp'))
 
         if run:
@@ -128,7 +125,6 @@ class EB_Trinity(EasyBlock):
             run_cmd("make install %s" % make_flags)
 
             self.log.info("End Inchworm")
-
         else:
             return make_flags
 
@@ -178,7 +174,6 @@ class EB_Trinity(EasyBlock):
 
     def kmer(self):
         """Install procedure for kmer (Meryl)."""
-
         self.log.info("Begin Meryl")
 
         dst = os.path.join(self.cfg['start_dir'], 'trinity-plugins', 'kmer')
@@ -218,18 +213,15 @@ class EB_Trinity(EasyBlock):
         self.log.info("End %s plugin" % plugindir)
 
     def configure_step(self):
-        """No configuration for Trinity."""
-
-        pass
+        """Configure self.trinity_subdir to the basename of the start_dir"""
+        self.trinity_subdir = os.path.basename(self.cfg['start_dir'].strip('/'))
 
     def build_step(self):
         """No building for Trinity."""
-
         pass
 
     def install_step(self):
         """Custom install procedure for Trinity."""
-
         if LooseVersion(self.version) < LooseVersion('2012-10-05'):
             self.inchworm()
             self.chrysalis()
@@ -294,24 +286,20 @@ class EB_Trinity(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for Trinity."""
-
-        path = 'trinityrnaseq_r%s' % self.version
-
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
-            'dirs': [os.path.join(path, x) for x in ['Butterfly/src/bin', 'util']]
+            'files': [os.path.join(self.trinity_subdir, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
+            'dirs': [os.path.join(self.trinity_subdir, x) for x in ['Butterfly/src/bin', 'util']]
         }
 
         super(EB_Trinity, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
         """Custom tweaks for PATH variable for Trinity."""
-
         guesses = super(EB_Trinity, self).make_module_req_guess()
 
         guesses.update({
-            'PATH': [os.path.basename(self.cfg['start_dir'].strip('/'))],
+            'PATH': [self.trinity_subdir],
         })
 
         return guesses
