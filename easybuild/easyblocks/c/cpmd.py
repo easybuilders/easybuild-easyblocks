@@ -130,8 +130,7 @@ class EB_CPMD(ConfigureMake):
                 if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
                     ar_exe = "xiar -ruv"
                     line = re.sub(r"^(\s*AR)=.*", r"\1='%s'" % ar_exe, line)
-                # Better to get CC and FC from the EasyBuild environment
-                # in this instance
+                # Better to get CC and FC from the EasyBuild environment in this instance
                 line = re.sub(r"^(\s*CC=.*)",     r"#\1",        line)
                 line = re.sub(r"^(\s*FC=.*)",     r"#\1",        line)
                 #line = re.sub(r"^(\s*CFLAGS=)'?((?!\W-g\W)[^']*)'?\s*$", r"\1'{0}\2 '".format(os.getenv('CFLAGS')), line)
@@ -183,6 +182,24 @@ class EB_CPMD(ConfigureMake):
     def build_step(self):
 
         os.chdir(self.installdir)
+        """
+        Make some changes to files in order to make the build process more EasyBuild-friendly
+        """
+        # Master configure script
+        makefile = os.path.join(self.installdir, "Makefile")
+        try:
+            for line in fileinput.input(makefile, inplace=1, backup='.orig'):
+                # Better to get CC and FC from the EasyBuild environment in this instance
+                line = re.sub(r"^(\s*CC\s*=.*)",       r"#\1",                                  line)
+                line = re.sub(r"^(\s*FC\s*=.*)",       r"#\1",                                  line)
+                line = re.sub(r"^(\s*CPPFLAGS\s*=.*)", r"\1 {0}".format(os.getenv('CPPFLAGS')), line)
+                line = re.sub(r"^(\s*CFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('CFLAGS')),   line)
+                line = re.sub(r"^(\s*FFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('FFLAGS')),   line)
+                line = re.sub(r"^(\s*LFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('LDFLAGS')),  line)
+                sys.stdout.write(line)
+        except IOError, err:
+            raise EasyBuildError("Failed to patch %s: %s", makefile, err)
+
         super(EB_CPMD, self).build_step()
 
     # No need for a separate install step as the software is built in situ.
