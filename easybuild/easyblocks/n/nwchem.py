@@ -180,6 +180,9 @@ class EB_NWChem(ConfigureMake):
                 extra_libs = os.environ.get('EXTRA_LIBS', '')
                 env.setvar('EXTRA_LIBS', ' '.join([extra_libs, readline_libs]))
 
+        if self.toolchain.options.get('openmp', None):
+            env.setvar('USE_OPENMP', 'TRUE')
+
         env.setvar('LARGE_FILES', 'TRUE')
         env.setvar('USE_NOFSCHECK', 'TRUE')
         env.setvar('CCSDTLR', 'y')  # enable CCSDTLR 
