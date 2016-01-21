@@ -29,11 +29,11 @@ EasyBuild support for building and installing CHARMM, implemented as an easybloc
 """
 # TODO: add support for more QC software (q-chem, gamess, ...)
 
-import shutil
-
+import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_files
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 import easybuild.tools.toolchain as toolchain
@@ -76,6 +76,9 @@ class EB_CHARMM(EasyBlock):
         """Start the actual build"""
         if self.cfg['system_size'] not in KNOWN_SYSTEM_SIZES:
             raise EasyBuildError("Unknown system size '%s' specified, known: %s", self.cfg['system_size'], KNOWN_SYSTEM_SIZES)
+
+        if self.cfg['parallel']:
+            env.setvar('MAKE_COMMAND', "make -j %s" % self.cfg['parallel'])
 
         self.log.info("Building for size: %s" % self.cfg['system_size'])
         self.log.info("Build options from the easyconfig: %s" % self.cfg['build_options'])
@@ -137,10 +140,7 @@ class EB_CHARMM(EasyBlock):
     def install_step(self):
         """Copy the build directory to the install path"""
         self.log.info("Copying CHARMM dir %s to %s" % (self.cfg['start_dir'], self.installdir))
-        try:
-            shutil.copytree(self.cfg['start_dir'], self.installdir)
-        except OSError, err:
-            raise EasyBuildError("Failed to copy CHARMM dir to install dir: %s", err)
+        copy_files(self.cfg['start_dir'], self.installdir)
 
     def make_module_req_guess(self):
         """Custom guesses for environment variable PATH for CHARMM."""
