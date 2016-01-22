@@ -122,7 +122,11 @@ class EB_CHARMM(EasyBlock):
             cmd = "cd test && ./test.com M %s %s" % (self.cfg['parallel'], self.arch)
         else:
             cmd = "cd test && ./test.com %s" % self.arch
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+        out = None
+        if self.cfg['runtest']:
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
         return out
 
     def sanity_check_step(self):
