@@ -53,6 +53,7 @@ class EB_CHARMM(EasyBlock):
         extra_vars = {
             'build_options': ["FULL", "Specify the options to the build script", CUSTOM],
             'system_size': ["medium", "Specify the supported systemsize: %s" % ', '.join(KNOWN_SYSTEM_SIZES), CUSTOM],
+            'runtest': [True, "Run tests.", CUSTOM],  # overrides default
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -123,10 +124,7 @@ class EB_CHARMM(EasyBlock):
         else:
             cmd = "cd test && ./test.com %s" % self.arch
 
-        out = None
-        if self.cfg['runtest']:
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
-
+        (out, _) = run_cmd(cmd, log_all=True, simple=False)
         return out
 
     def sanity_check_step(self):
