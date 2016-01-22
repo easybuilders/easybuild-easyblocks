@@ -38,6 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.ordereddict import OrderedDict
+from easybuild.tools.run import run_cmd
 from easybuild.tools.utilities import flatten
 
 
@@ -72,12 +73,6 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def install_step(self):
         """Install EasyBuild packages one by one."""
-
-        # unset $PYTHONPATH to try and avoid that current EasyBuild is picked up, and ends up in easy-install.pth
-        orig_pythonpath = os.getenv('PYTHONPATH')
-        self.log.debug("Original $PYTHONPATH: %s", orig_pythonpath)
-        env.setvar('PYTHONPATH', '')
-
         try:
             subdirs = os.listdir(self.builddir)
             for pkg in self.easybuild_pkgs:
@@ -95,10 +90,6 @@ class EB_EasyBuildMeta(PythonPackage):
 
         except OSError, err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
-
-        # restore $PYTHONPATH, if it was defined
-        if orig_pythonpath is not None:
-            env.setvar('PYTHONPATH', orig_pythonpath)
 
     def sanity_check_step(self):
         """Custom sanity check for EasyBuild."""
@@ -141,14 +132,15 @@ class EB_EasyBuildMeta(PythonPackage):
         setup_tool = None
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
-            try:
-                exec "from %s import setup" % tool
-                del setup
+            cmd = "python %s -c 'from %s import setup'" % (' '.join(self.python_opts), tool)
+            _, ec = run_cmd(cmd, simple=False, log_all=False, log_ok=False)
+            if ec == 0:
                 setup_tool = tool
                 break
-            except ImportError:
-                pass
-        self.log.debug('setup_tool: %s' % setup_tool)
+        if setup_tool:
+            self.log.debug('setup_tool: %s' % setup_tool)
+        else:
+            raise EasyBuildError("Failed to determine setup tool used, considered: %s", ' '.join(eb_dirs.keys()))
 
         # for a setuptools installation, we need to figure out the egg dirs since we don't know the individual package versions
         if setup_tool == 'setuptools':
