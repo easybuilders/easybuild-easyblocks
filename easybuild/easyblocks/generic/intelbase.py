@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2013 Ghent University
+# Copyright 2009-2015 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ Generic EasyBuild support for installing Intel tools, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Lumir Jasiok (IT4Innovations)
 """
 
 import os
@@ -42,11 +43,11 @@ import glob
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import rmtree2, run_cmd
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import read_file
+from easybuild.tools.run import run_cmd
 
-# required for deprecated log in static function (ie no self)
-from easybuild.framework.easyconfig.licenses import License
-from vsc import fancylogger
+from vsc.utils import fancylogger
 _log = fancylogger.getLogger('generic.intelbase')
 
 
@@ -69,9 +70,20 @@ ACTIVATION_NAME = 'ACTIVATION_TYPE'  # since icc/ifort v2013_sp1, impi v4.1.1, i
 ACTIVATION_NAME_2012 = 'ACTIVATION'  # previous activation type parameter used in older versions
 # silent.cfg parameter name for install prefix
 INSTALL_DIR_NAME = 'PSET_INSTALL_DIR'
+# silent.cfg parameter name for install mode
+INSTALL_MODE_NAME = 'PSET_MODE'
+# Older (2015 and previous) silent.cfg parameter name for install mode
+INSTALL_MODE_NAME_2015 = 'INSTALL_MODE'
+# Install mode for 2016 version
+INSTALL_MODE = 'install'
+# Install mode for 2015 and older versions
+INSTALL_MODE_2015 = 'NONRPM'
 # silent.cfg parameter name for license file/server specification
 LICENSE_FILE_NAME = 'ACTIVATION_LICENSE_FILE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
 LICENSE_FILE_NAME_2012 = 'PSET_LICENSE_FILE'  # previous license file parameter used in older versions
+
+COMP_ALL = 'ALL'
+COMP_DEFAULTS = 'DEFAULTS'
 
 
 class IntelBase(EasyBlock):
@@ -83,22 +95,20 @@ class IntelBase(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor, adds extra config options"""
-        self.license_file = None
-        self.license_env_var = None
+        super(IntelBase, self).__init__(*args, **kwargs)
+
+        self.license_file = 'UNKNOWN'
+        self.license_env_var = 'UNKNOWN'
 
         self.home_subdir = os.path.join(os.getenv('HOME'), 'intel')
         common_tmp_dir = os.path.dirname(tempfile.gettempdir())  # common tmp directory, same across nodes
         self.home_subdir_local = os.path.join(common_tmp_dir, os.getenv('USER'), 'easybuild_intel')
 
-        super(IntelBase, self).__init__(*args, **kwargs)
-
-        # prepare (local) 'intel' home subdir
-        self.setup_local_home_subdir()
-        self.clean_home_subdir()
+        self.install_components = None
 
     @staticmethod
     def extra_options(extra_vars=None):
-        extra_vars = dict(EasyBlock.extra_options(extra_vars))
+        extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
             'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
             # 'usetmppath':
@@ -107,13 +117,37 @@ class IntelBase(EasyBlock):
             # disables TMP_PATH env and command line option
             'usetmppath': [False, "Use temporary path for installation", CUSTOM],
             'm32': [False, "Enable 32-bit toolchain", CUSTOM],
+            'components': [None, "List of components to install", CUSTOM],
         })
 
-        # Support for old easyconfigs with license parameter
-        _log.deprecated('No old style license parameter, use license_file', '2.0')
-        extra_vars.update({'license': [None, "License file", CUSTOM]})
+        return extra_vars
 
-        return EasyBlock.extra_options(extra_vars)
+    def parse_components_list(self):
+        """parse the regex in the components extra_options and select the matching components
+        from the mediaconfig.xml file in the install dir"""
+
+        mediaconfigpath = os.path.join(self.cfg['start_dir'], 'pset', 'mediaconfig.xml')
+        if not os.path.isfile(mediaconfigpath):
+            raise EasyBuildError("Could not find %s to find list of components." % mediaconfigpath)
+
+        mediaconfig = read_file(mediaconfigpath)
+        available_components = re.findall("<Abbr>(?P<component>[^<]+)</Abbr>", mediaconfig, re.M)
+        self.log.debug("Intel components found: %s" % available_components)
+        self.log.debug("Using regex list: %s" % self.cfg['components'])
+
+        if COMP_ALL in self.cfg['components'] or COMP_DEFAULTS in self.cfg['components']:
+            if len(self.cfg['components']) == 1:
+                self.install_components = self.cfg['components']
+            else:
+                raise EasyBuildError("If you specify %s as components, you cannot specify anything else: %s",
+                                     ' or '.join([COMP_ALL, COMP_DEFAULTS]), self.cfg['components'])
+        else:
+            self.install_components = []
+            for comp_regex in self.cfg['components']:
+                comps = [comp for comp in available_components if re.match(comp_regex, comp)]
+                self.install_components.extend(comps)
+
+        self.log.debug("Components to install: %s" % self.install_components)
 
     def clean_home_subdir(self):
         """Remove contents of (local) 'intel' directory home subdir, where stuff is cached."""
@@ -128,7 +162,7 @@ class IntelBase(EasyBlock):
                 else:
                     shutil.rmtree(path)
         except OSError, err:
-            self.log.error("Cleaning up intel dir %s failed: %s" % (self.home_subdir_local, err))
+            raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
 
     def setup_local_home_subdir(self):
         """
@@ -165,10 +199,14 @@ class IntelBase(EasyBlock):
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
         except OSError, err:
-            self.log.error("Failed to symlink %s to %s: %s" % (self.home_subdir_local, self.home_subdir, err))
+            raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_subdir_local, self.home_subdir, err)
 
     def configure_step(self):
         """Configure: handle license file and clean home dir."""
+
+        # prepare (local) 'intel' home subdir
+        self.setup_local_home_subdir()
+        self.clean_home_subdir()
 
         lic_env_var = None  # environment variable that will be used
         default_lic_env_var = 'INTEL_LICENSE_FILE'
@@ -180,32 +218,17 @@ class IntelBase(EasyBlock):
         if not license_specs:
             self.log.debug("No env var from %s set, trying 'license_file' easyconfig parameter..." % lic_env_vars)
             # obtain license path
-            try:
-                self.license_file = self.cfg['license_file']
-            except:
-                # the default should exist
-                self.log.deprecated('No new style license_file parameter, license_file is now mandatory', '2.0')
-                self.license_file = None
-
-            if self.license_file is None:
-                self.log.deprecated('Checking for old style license', '2.0')
-                self.cfg.enable_templating = False
-                lic = self.cfg['license']
-                # old style license is a path (type string)
-                if isinstance(lic, License) and isinstance(lic, str):
-                    self.log.deprecated('No old style license parameter, license has to be pure License subclass', '2.0')
-                    self.license_file = lic
-                self.cfg.enable_templating = True
+            self.license_file = self.cfg['license_file']
 
             if self.license_file:
                 self.log.info("Using license file %s" % self.license_file)
             else:
-                self.log.error("No license file defined, maybe set one these env vars: %s" % env_var_names)
+                raise EasyBuildError("No license file defined, maybe set one these env vars: %s", env_var_names)
 
             # verify license path
             if not os.path.exists(self.license_file):
-                tup = (self.license_file, env_var_names)
-                self.log.error("%s not found; correct 'license_file', or define one of the these env vars: %s" % tup)
+                raise EasyBuildError("%s not found; correct 'license_file', or define one of the these env vars: %s",
+                                     self.license_file, env_var_names)
 
             # set default environment variable for license specification
             env.setvar(default_lic_env_var, self.license_file)
@@ -240,7 +263,7 @@ class IntelBase(EasyBlock):
                     self.log.info('Picked the first *.lic file from $%s: %s' % (lic_env_var, lic_files[0]))
 
             if not valid_license_specs:
-                self.log.error("Cannot find a valid license specification in %s" % license_specs)
+                raise EasyBuildError("Cannot find a valid license specification in %s", license_specs)
 
             # only retain one environment variable (by order of preference), retain all valid matches for that env var
             for lic_env_var in lic_env_vars:
@@ -255,14 +278,21 @@ class IntelBase(EasyBlock):
                         env.setvar(default_lic_env_var, self.license_file)
                     break
             if self.license_file is None or self.license_env_var is None:
-                self.log.error("self.license_file or self.license_env_var still None, something went horribly wrong...")
+                raise EasyBuildError("self.license_file or self.license_env_var still None, "
+                                     "something went horribly wrong...")
 
             self.cfg['license_file'] = self.license_file
             env.setvar(self.license_env_var, self.license_file)
-            self.log.info("Using Intel license specifications from $%s: %s" % (self.license_env_var, self.license_file))
+            self.log.info("Using Intel license specifications from $%s: %s", self.license_env_var, self.license_file)
 
         # clean home directory
         self.clean_home_subdir()
+
+        # determine list of components, based on 'components' easyconfig parameter (if specified)
+        if self.cfg['components']:
+            self.parse_components_list()
+        else:
+            self.log.debug("No components specified")
 
     def build_step(self):
         """Binary installation files, so no building."""
@@ -282,19 +312,20 @@ class IntelBase(EasyBlock):
         # also check whether specified activation type makes sense
         lic_activation = self.cfg['license_activation']
         lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
-        other_activations = [act for act in ACTIVATION_TYPES if not act in lic_file_server_activations]
+        other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
         lic_file_entry = ""
         if lic_activation in lic_file_server_activations:
             lic_file_entry = "%(license_file_name)s=%(license_file)s"
         elif not self.cfg['license_activation'] in other_activations:
-            self.log.error("Unknown type of activation specified: %s (known :%s)" % (lic_activation, ACTIVATION_TYPES))
+            raise EasyBuildError("Unknown type of activation specified: %s (known :%s)",
+                                 lic_activation, ACTIVATION_TYPES)
 
         silent = '\n'.join([
             "%(activation_name)s=%(activation)s",
             lic_file_entry,
             "%(install_dir_name)s=%(install_dir)s",
             "ACCEPT_EULA=accept",
-            "INSTALL_MODE=NONRPM",
+            "%(install_mode_name)s=%(install_mode)s",
             "CONTINUE_WITH_OPTIONAL_ERROR=yes",
             ""  # Add a newline at the end, so we can easily append if needed
         ]) % {
@@ -304,13 +335,25 @@ class IntelBase(EasyBlock):
             'activation': self.cfg['license_activation'],
             'license_file': self.license_file,
             'install_dir': silent_cfg_names_map.get('install_dir', self.installdir),
+            'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE_2015),
+            'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME_2015),
         }
+
+        if self.install_components is not None:
+            if len(self.install_components) == 1 and self.install_components[0] in [COMP_ALL, COMP_DEFAULTS]:
+                # no quotes should be used for ALL or DEFAULTS
+                silent += 'COMPONENTS=%s\n' % self.install_components[0]
+            elif self.install_components:
+                # a list of components is specified (needs quotes)
+                silent += 'COMPONENTS="' + ';'.join(self.install_components) + '"\n'
+            else:
+                raise EasyBuildError("Empty list of matching components obtained via %s", self.cfg['components'])
 
         if silent_cfg_extras is not None:
             if isinstance(silent_cfg_extras, dict):
                 silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.iteritems())
             else:
-                self.log.error("silent_cfg_extras needs to be a dict")
+                raise EasyBuildError("silent_cfg_extras needs to be a dict")
 
         # we should be already in the correct directory
         silentcfg = os.path.join(os.getcwd(), "silent.cfg")
@@ -319,7 +362,7 @@ class IntelBase(EasyBlock):
             f.write(silent)
             f.close()
         except:
-            self.log.exception("Writing silent cfg % failed" % silent)
+            raise EasyBuildError("Writing silent cfg, failed", silent)
         self.log.debug("Contents of %s:\n%s" % (silentcfg, silent))
 
         # workaround for mktmp: create tmp dir and use it
@@ -327,7 +370,7 @@ class IntelBase(EasyBlock):
         try:
             os.makedirs(tmpdir)
         except:
-            self.log.exception("Directory %s can't be created" % (tmpdir))
+            raise EasyBuildError("Directory %s can't be created", tmpdir)
         tmppathopt = ''
         if self.cfg['usetmppath']:
             env.setvar('TMP_PATH', tmpdir)
@@ -342,6 +385,42 @@ class IntelBase(EasyBlock):
         # perform installation
         cmd = "./install.sh %s -s %s" % (tmppathopt, silentcfg)
         return run_cmd(cmd, log_all=True, simple=True)
+
+    def move_after_install(self):
+        """Move installed files to correct location after installation."""
+        subdir = os.path.join(self.installdir, self.name, self.version)
+        self.log.debug("Moving contents of %s to %s" % (subdir, self.installdir))
+        try:
+            # remove senseless symlinks, e.g. impi_5.0.1 and impi_latest
+            majver = '.'.join(self.version.split('.')[:-1])
+            for symlink in ['%s_%s' % (self.name, majver), '%s_latest' % self.name]:
+                symlink_fp = os.path.join(self.installdir, symlink)
+                if os.path.exists(symlink_fp):
+                    os.remove(symlink_fp)
+            # move contents of 'impi/<version>' dir to installdir
+            for fil in os.listdir(subdir):
+                source = os.path.join(subdir, fil)
+                target = os.path.join(self.installdir, fil)
+                self.log.debug("Moving %s to %s" % (source, target))
+                shutil.move(source, target)
+            shutil.rmtree(os.path.join(self.installdir, self.name))
+        except OSError, err:
+            raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
+
+    def make_module_extra(self):
+        """Custom variable definitions in module file."""
+        txt = super(IntelBase, self).make_module_extra()
+
+        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                   allow_abs=True, expand_relpaths=False)
+
+        if self.cfg['m32']:
+            nlspath = os.path.join('idb', '32', 'locale', '%l_%t', '%N')
+        else:
+            nlspath = os.path.join('idb', 'intel64', 'locale', '%l_%t', '%N')
+        txt += self.module_generator.prepend_paths('NLSPATH', nlspath)
+
+        return txt
 
     def cleanup_step(self):
         """Cleanup leftover mess

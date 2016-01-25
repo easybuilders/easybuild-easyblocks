@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2015 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,9 +47,11 @@ rc_regexp = re.compile("^.*(rc[0-9]*)$")
 res = rc_regexp.search(str(VERSION))
 if res:
     suff = res.group(1)
-dev_regexp = re.compile("^.*[0-9]dev$")
-if dev_regexp.match(str(VERSION)):
-    suff = 'dev'
+
+dev_regexp = re.compile("^.*[0-9](.?dev[0-9])$")
+res = dev_regexp.search(str(VERSION))
+if res:
+    suff = res.group(1)
 
 API_VERSION += suff
 
