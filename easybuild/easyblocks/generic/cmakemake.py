@@ -51,6 +51,7 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
+            'create_installdir_before_configure': [False, "Create or clean the install directory prior to running cmake", CUSTOM],
         })
         return extra_vars
 
@@ -59,6 +60,11 @@ class CMakeMake(ConfigureMake):
 
         if builddir is not None:
             self.log.nosupport("CMakeMake.configure_step: named argument 'builddir' (should be 'srcdir')", "2.0")
+
+        if self.cfg['create_installdir_before_configure']:
+            self.log.info("Cleaning and creating the install directory. Setting keeppreviousinstall to True.")
+            self.make_installdir()
+            self.cfg['keeppreviousinstall'] = True
 
         # Set the search paths for CMake
         include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
