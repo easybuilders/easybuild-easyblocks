@@ -32,7 +32,6 @@ import glob
 import shutil
 import sys, os
 from easybuild.easyblocks.generic.makecp import MakeCp
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
@@ -48,7 +47,7 @@ class EB_LAMMPS(MakeCp):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to ConfigureMake."""
-        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        extra_vars = MakeCp.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'with_png': [False, "Support export of PNG files (only valid with MPI)", CUSTOM],
             'with_jpeg': [False, "Support export of JPEG files (only valid with MPI)", CUSTOM],
