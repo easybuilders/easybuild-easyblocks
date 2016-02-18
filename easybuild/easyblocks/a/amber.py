@@ -90,7 +90,8 @@ class EB_Amber(ConfigureMake):
         return super(EB_Amber, self).patch_step(**kw)
 
     def configure_step(self):
-        # We need a special configure_step as Amber does not recognise --prefix
+        """Pre-build configuration of Amber and AmberTools, using a special
+        method to avoid an unrecognised --prefix option"""
         cmd = "%(preconfigopts)s ./configure %(configopts)s" % {
                 'preconfigopts': self.cfg['preconfigopts'],
                 'configopts': self.cfg['configopts']
@@ -99,6 +100,7 @@ class EB_Amber(ConfigureMake):
         return out
 
     def build_step(self):
+        """Building and in-situ installation of Amber using a custom procedure"""
 
         # Set the AMBERHOME environment variable
         env.setvar('AMBERHOME', self.installdir)
