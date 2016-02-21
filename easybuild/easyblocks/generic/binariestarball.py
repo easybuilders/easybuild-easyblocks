@@ -52,7 +52,7 @@ class BinariesTarball(Tarball):
         # directories, etc.) in start_dir will be copied with their
         # current names.
         extra_vars.update({
-            'files_to_copy': [[], "List of optional (source_file, destination_file) tuples", CUSTOM,]
+            'files_to_copy': [None, "List of optional (source_file, destination_file) tuples", CUSTOM,]
         })
         return extra_vars
 
@@ -63,7 +63,7 @@ class BinariesTarball(Tarball):
         items_to_copy = []
         try:
             os.makedirs(bindir)
-            if len(self.cfg['files_to_copy']) == 0:
+            if self.cfg['files_to_copy'] is None:
                 for item in os.listdir(self.cfg['start_dir']):
                     items_to_copy.append((os.path.join(self.cfg['start_dir'], item), item))
             else:
