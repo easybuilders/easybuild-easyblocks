@@ -37,7 +37,7 @@ import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
-from easybuild.tools.filetools import extract_file
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -50,7 +50,7 @@ class EB_QIIME(PythonPackage):
         # run included tests, unless instructed otherwise
         if not self.cfg['runtest'] or isinstance(self.cfg['runtest'], bool):
             self.cfg['runtest'] = "cd tests && python all_tests.py"
-            self.log.info("No tests defined, so running '%s' for testing QIIME." % self.cfg['runtest'])
+            self.log.info("No tests defined, so running '%s' for testing QIIME", self.cfg['runtest'])
 
         # create QIIME config file for tests
         tmpdir = tempfile.mkdtemp()
@@ -71,9 +71,9 @@ class EB_QIIME(PythonPackage):
             f = open(qiime_cfg_file, 'w')
             f.write(txt)
             f.close()
-            self.log.debug("Successfully created test QIIME config file %s" % qiime_cfg_file)
+            self.log.debug("Successfully created test QIIME config file %s", qiime_cfg_file)
         except IOError, err:
-            self.log.error("Failed to create QIIME config file %s for tests: %s" % (qiime_cfg_file, err))
+            raise EasyBuildError("Failed to create QIIME config file %s for tests: %s", qiime_cfg_file, err)
 
         # install QIIME to tmpdir for testing
         pylibdir = os.path.join(tmpdir, det_pylibdir())
@@ -99,13 +99,13 @@ class EB_QIIME(PythonPackage):
         (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, log_output=True)
         ok_regex = re.compile("^OK$", re.M)
         if not ok_regex.search(out):
-            self.log.error("Output of '%s' indicates unresolved problems: %s" % (cmd, out))
+            raise EasyBuildError("Output of '%s' indicates unresolved problems: %s", cmd, out)
 
         # run actual tests, prepend PATH/PYTHONPATH manipulation to test command
         cmd = "%s && %s" % (cmd_setup, self.cfg['runtest'])
         # allow failing tests for now
         #(out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, log_output=True)
-        #self.log.debug("Output of %s (exit code %s): %s" % (cmd, ec, out))
+        #self.log.debug("Output of %s (exit code %s): %s", cmd, ec, out)
         run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_extra(self):
@@ -119,9 +119,9 @@ class EB_QIIME(PythonPackage):
             f = open(qiime_cfg, 'w')
             f.write(qiime_cfg_txt)
             f.close()
-            self.log.debug("Successfully created QIIME config file at: %s" % qiime_cfg)
+            self.log.debug("Successfully created QIIME config file at: %s", qiime_cfg)
         except IOError, err:
-            self.log.error("Failed to create QIIME config file at: %s (%s)" % (qiime_cfg, err))
+            raise EasyBuildError("Failed to create QIIME config file at: %s (%s)", qiime_cfg, err)
 
         txt += self.moduleGenerator.prepend_paths('QIIME_CONFIG_FP', [qiime_cfg_fn])
 
