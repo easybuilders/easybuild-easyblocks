@@ -1,11 +1,11 @@
 ##
-# Copyright 2009-2013 Ghent University
+# Copyright 2009-2016 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
 # the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
 # http://github.com/hpcugent/easybuild
@@ -32,7 +32,8 @@ import os
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.filetools import run_cmd
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.run import run_cmd
 
 
 class EB_VSC_minus_tools(PythonPackage):
@@ -59,9 +60,9 @@ class EB_VSC_minus_tools(PythonPackage):
             pkg_list = ['-'.join(src['name'].split('-')[0:-1]) for src in self.src if src['name'].startswith('vsc')]
             for pkg in pkg_list:
                 os.chdir(self.builddir)
-                sel_dirs = [d for d in glob.glob("%s-[0-9][0-9.]*" % pkg)]
+                sel_dirs = [d for d in glob.glob("*%s-[0-9][0-9.]*" % pkg)]
                 if not len(sel_dirs) == 1:
-                    self.log.error("Found none or more than one %s dir in %s: %s" % (pkg, self.builddir, sel_dirs))
+                    raise EasyBuildError("Found none or more than one %s dir in %s: %s", pkg, self.builddir, sel_dirs)
 
                 os.chdir(os.path.join(self.builddir, sel_dirs[0]))
                 cmd = "python setup.py %s" % args
@@ -70,7 +71,7 @@ class EB_VSC_minus_tools(PythonPackage):
             os.chdir(pwd)
 
         except OSError, err:
-            self.log.error("Failed to install: %s" % err)
+            raise EasyBuildError("Failed to install: %s", err)
 
     def sanity_check_step(self):
         """Custom sanity check for VSC-tools."""
