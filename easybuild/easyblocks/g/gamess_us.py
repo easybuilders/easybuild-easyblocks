@@ -34,7 +34,6 @@ EasyBuild support for building and installing GAMESS-US, implemented as an easyb
 @author: Pablo Escobar (sciCORE, SIB, University of Basel)
 @author: Benjamin Roberts (The University of Auckland)
 """
-import fileinput
 import glob
 import os
 import re
@@ -46,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, read_file, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, read_file, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_platform_name
@@ -188,20 +187,23 @@ class EB_GAMESS_minus_US(EasyBlock):
         rungms = os.path.join(self.builddir, 'rungms')
         extra_gmspath_lines = "set ERICFMT=$GMSPATH/auxdata/ericfmt.dat\nset MCPPATH=$GMSPATH/auxdata/MCP"
         extra_rdma_line = "set USE_RDMA"
+        newgmspath = r"\1=%s\n%s\n%s=%s\n" % (self.installdir, extra_gmspath_lines, extra_rdma_line, self.cfg['userdma'])
         try:
-            for line in fileinput.input(rungms, inplace=1, backup='.orig'):
-                line = re.sub(r"^(\s*set\s*TARGET)=.*", r"\1=%s" % self.cfg['ddi_comm'], line)
-                line = re.sub(r"^(\s*set\s*GMSPATH)=.*", r"\1=%s\n%s\n%s=%s\n" % (self.installdir, extra_gmspath_lines, extra_rdma_line, self.cfg['userdma']), line)
-                line = re.sub(r"(null\) set VERNO)=.*", r"\1=%s" % self.version, line)
-                line = re.sub(r"^(\s*set DDI_MPI_CHOICE)=.*", r"\1=%s" % mpilib, line)
-                line = re.sub(r"^(\s*set DDI_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path, line)
-                line = re.sub(r"^(\s*set GA_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path, line)
-                # comment out all adjustments to $LD_LIBRARY_PATH that involves hardcoded paths
-                line = re.sub(r"^(\s*)(setenv\s*LD_LIBRARY_PATH\s*/.*)", r"\1#\2", line)
-                if self.cfg['scratch_dir']:
-                    line = re.sub(r"^(\s*set\s*SCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
-                    line = re.sub(r"^(\s*set\s*USERSCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
-                sys.stdout.write(line)
+            apply_regex_substitutions(rungms, [
+                # Among other things, comment out all adjustments to $LD_LIBRARY_PATH that involves hardcoded paths
+                (r"^(\s*set\s*TARGET)=.*", r"\1=%s" % self.cfg['ddi_comm']),
+                (r"^(\s*set\s*GMSPATH)=.*", newgmspath),
+                (r"(null\) set VERNO)=.*", r"\1=%s" % self.version),
+                (r"^(\s*set DDI_MPI_CHOICE)=.*", r"\1=%s" % mpilib),
+                (r"^(\s*set DDI_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path),
+                (r"^(\s*set GA_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path),
+                (r"^(\s*)(setenv\s*LD_LIBRARY_PATH\s*/.*)", r"\1#\2"),
+                ])
+            if self.cfg['scratch_dir']:
+                apply_regex_substitutions(rungms, [
+                    (r"^(\s*set\s*SCR)=.*", r"\1=%s" % self.cfg['scratch_dir']),
+                    (r"^(\s*set\s*USERSCR)=.*", r"\1=%s" % self.cfg['scratch_dir']),
+                    ])
         except IOError, err:
             raise EasyBuildError("Failed to patch %s: %s", rungms, err)
 
@@ -251,31 +253,31 @@ class EB_GAMESS_minus_US(EasyBlock):
 
             # run all exam<id> tests, dump output to exam<id>.log
             total_num_tests = 47
-            badtests = []
-            if self.cfg['ddi_comm'] == 'mpi':
-                badtests = [5, 32, 39, 42, 45, 46, 47]
+            skipped_tests = 0
+            serial_only_tests = [5, 32, 39, 42, 45, 46, 47]
+            ncpus = '1'
             for i in range(1, total_num_tests+1):
-                runthistest = True
                 if self.cfg['ddi_comm'] == 'mpi':
-                    # Not all tests can run in parallel. Skip those that can't.
-                    if i in badtests:
-                        runthistest = False
-                    else:
-                        ncpus = '2'
-                else:
-                    ncpus = '1'
-                if runthistest:
-                    test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, ncpus, '2'])
-                    (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
-                    write_file('exam%02d.log' % i, out)
+                    # Can't test serial tests without modifying rungms so that
+                    # its TARGET is set to something other than "mpi"; the value
+                    # of TARGET is hard-coded
+                    if i in serial_only_tests:
+                        skipped_tests += 1
+                        continue
+                    ncpus = '2'
+                test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, ncpus, '2'])
+                (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
+                write_file('exam%02d.log' % i, out)
 
             # verify output of tests
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
             (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
-            if len(badtests) == 0:
+            if skipped_tests == 0:
                 success_regex = re.compile("^All %d test results are correct" % total_num_tests, re.M)
             else:
-                success_regex = re.compile("^%d job\(s\) got incorrect numerical results\. Please examine why\." % len(badtests), re.M)
+                # Account for skipped tests
+                success_regex = re.compile("^%d job\(s\) got incorrect numerical results\. Please examine why\." % skipped_tests, re.M)
+            # Only clean up if all attempted tests completed successfully with correct output
             if success_regex.search(out):
                 self.log.info("All tests ran successfully!")
                 # cleanup
