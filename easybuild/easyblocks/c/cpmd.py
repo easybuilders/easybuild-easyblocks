@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2016 Landcare Research NZ Ltd
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -82,9 +82,9 @@ class EB_CPMD(ConfigureMake):
             config_file_base = self.cfg['base_configuration']
         else:
             os_type_mappings = {
-                                "LINUX"  : "LINUX",
-                                "DARWIN" : "MACOSX",
-                                }
+                "LINUX"  : "LINUX",
+                "DARWIN" : "MACOSX",
+            }
             os_type = os_type_mappings[get_os_type().upper()]
             machine = ""
             if os_type != "MACOSX":
@@ -181,10 +181,10 @@ class EB_CPMD(ConfigureMake):
 
     def build_step(self):
 
-        os.chdir(self.installdir)
         """
         Make some changes to files in order to make the build process more EasyBuild-friendly
         """
+        os.chdir(self.installdir)
         # Master configure script
         makefile = os.path.join(self.installdir, "Makefile")
         try:
