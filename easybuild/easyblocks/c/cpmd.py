@@ -29,7 +29,6 @@ EasyBuild support for building and installing CPMD, implemented as an easyblock
 """
 
 from distutils.version import LooseVersion
-import fileinput
 import glob
 import os
 import platform
@@ -41,6 +40,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 import easybuild.tools.environment as env
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_type
@@ -126,16 +126,17 @@ class EB_CPMD(ConfigureMake):
             raise EasyBuildError("Base configuration file does not exist. Please edit base_configuration or review the CPMD easyblock.")
 
         try:
-            for line in fileinput.input(selected_full_config, inplace=1, backup='.orig'):
-                if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
-                    ar_exe = "xiar -ruv"
-                    line = re.sub(r"^(\s*AR)=.*", r"\1='%s'" % ar_exe, line)
+            if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
+                ar_exe = "xiar -ruv"
+                apply_regex_substitutions(selected_full_config, [
+                    (r"^(\s*AR)=.*", r"\1='%s'" % ar_exe)
+                ]
+            apply_regex_substitutions(selected_full_config, [
                 # Better to get CC and FC from the EasyBuild environment in this instance
-                line = re.sub(r"^(\s*CC=.*)",     r"#\1",        line)
-                line = re.sub(r"^(\s*FC=.*)",     r"#\1",        line)
-                #line = re.sub(r"^(\s*CFLAGS=)'?((?!\W-g\W)[^']*)'?\s*$", r"\1'{0}\2 '".format(os.getenv('CFLAGS')), line)
-                line = re.sub(r"^(\s*LD)=.*",     r"\1='$(FC)'", line)
-                sys.stdout.write(line)
+                (r"^(\s*CC=.*)", r"#\1"),
+                (r"^(\s*FC=.*)", r"#\1"),
+                (r"^(\s*LD)=.*", r"\1='$(FC)'"),
+            ]
         except IOError, err:
             raise EasyBuildError("Failed to patch %s: %s", selected_base_config, err)
 
@@ -188,15 +189,14 @@ class EB_CPMD(ConfigureMake):
         # Master configure script
         makefile = os.path.join(self.installdir, "Makefile")
         try:
-            for line in fileinput.input(makefile, inplace=1, backup='.orig'):
-                # Better to get CC and FC from the EasyBuild environment in this instance
-                line = re.sub(r"^(\s*CC\s*=.*)",       r"#\1",                                  line)
-                line = re.sub(r"^(\s*FC\s*=.*)",       r"#\1",                                  line)
-                line = re.sub(r"^(\s*CPPFLAGS\s*=.*)", r"\1 {0}".format(os.getenv('CPPFLAGS')), line)
-                line = re.sub(r"^(\s*CFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('CFLAGS')),   line)
-                line = re.sub(r"^(\s*FFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('FFLAGS')),   line)
-                line = re.sub(r"^(\s*LFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('LDFLAGS')),  line)
-                sys.stdout.write(line)
+            apply_regex_substitutions(makefile, [
+                (r"^(\s*CC\s*=.*)",       r"#\1"),
+                (r"^(\s*FC\s*=.*)",       r"#\1"),
+                (r"^(\s*CPPFLAGS\s*=.*)", r"\1 {0}".format(os.getenv('CPPFLAGS'))),
+                (r"^(\s*CFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('CFLAGS'))),
+                (r"^(\s*FFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('FFLAGS'))),
+                (r"^(\s*LFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('LDFLAGS'))),
+            ]
         except IOError, err:
             raise EasyBuildError("Failed to patch %s: %s", makefile, err)
 
