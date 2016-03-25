@@ -32,6 +32,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -44,6 +45,7 @@ class EB_Qt(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
+             # platform = 'foo'
              'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -83,7 +85,7 @@ class EB_Qt(ConfigureMake):
         }
         no_qa = [
             "for .*pro",
-            r"%s.*" % os.getenv('CXX').replace('+', '\\+'),  # need to escape + in 'g++'
+            r"%s.*" % os.getenv('CXX', '').replace('+', '\\+'),  # need to escape + in 'g++'
             "Reading .*",
             "WARNING .*",
             "Project MESSAGE:.*",
