@@ -45,7 +45,6 @@ class EB_Qt(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-             # platform = 'foo'
              'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -69,14 +68,6 @@ class EB_Qt(ConfigureMake):
                 self.cfg.update('configopts', "-platform %s" % platform)
         else:
                 raise EasyBuildError("Don't know which platform to set based on compiler family.")
-
-#        comp_fam = self.toolchain.comp_family()
-#        if comp_fam in [toolchain.GCC]:  #@UndefinedVariable
-#            self.cfg.update('configopts', '-platform linux-g++-64')
-#        elif comp_fam in [toolchain.INTELCOMP]:  #@UndefinedVariable
-#            self.cfg.update('configopts', '-platform linux-icc-64')
-#        else:
-#            raise EasyBuildError("Don't know which platform to set based on compiler family.")
 
         cmd = "%s ./configure --prefix=%s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
