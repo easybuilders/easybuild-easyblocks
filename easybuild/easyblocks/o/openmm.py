@@ -32,22 +32,16 @@ import os
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY
-from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import mkdir
+from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_OpenMM(CMakeMake):
     """Support for building/installing OpenMM."""
-
-    def __init__(self, *args, **kwargs):
-        """Initialisation of custom class variables for OpenMM."""
-        super(EB_OpenMM, self).__init__(*args, **kwargs)
-
-        self.example = None
 
     def configure_step(self):
         """Custom configuration procedure for OpenMM."""
@@ -61,20 +55,13 @@ class EB_OpenMM(CMakeMake):
         #self.cfg.update('configopts', "-DOPENMM_BUILD_SHARED_LIB=OFF")
         #self.cfg.update('configopts', "-DOPENMM_BUILD_STATIC_LIB=ON")
 
-        # CUDA is required
-        cuda = get_software_root('CUDA')
-        if cuda:
-            self.cfg.update('configopts', "-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
-        else:
-            raise EasyBuildError("CUDA not found")
+        # check for required dependencies
+        for dep in ['CUDA', 'Doxygen', 'SWIG']:
+            deproot = get_software_root(dep)
+            if not deproot:
+                raise EasyBuildError("%s not found", dep)
 
-        doxygen = get_software_root('Doxygen')
-        if not doxygen:
-            raise EasyBuildError("Doxygen not found")
-
-        doxygen = get_software_root('SWIG')
-        if not doxygen:
-            raise EasyBuildError("SWIG not found")
+        self.cfg.update('configopts', "-DCUDA_TOOLKIT_ROOT_DIR=%s" % get_software_root('CUDA'))
 
         # complete configuration with configure_method of parent
         out = super(EB_OpenMM, self).configure_step()
@@ -89,9 +76,9 @@ class EB_OpenMM(CMakeMake):
         (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False)
         if ec:
             # just provide output in log file, but ignore things if it fails
-            self.log.warning("OpenMM tests failed (exit code: %s): %s" % (ec, out))
+            self.log.warning("OpenMM tests failed (exit code: %s): %s", ec, out)
         else:
-            self.log.info("Successful OpenMM tests completed: %s" % out)
+            self.log.info("Successful OpenMM tests completed: %s", out)
 
     def install_step(self):
         """Custom install procedure for OpenMM."""
@@ -101,11 +88,9 @@ class EB_OpenMM(CMakeMake):
         env.setvar('OPENMM_LIB_PATH', os.path.join(self.installdir, 'lib'))
 
         pyinstalldir = os.path.join(self.installdir, 'python-wrappers')
+        mkdir(pyinstalldir)
+
         args = "install --prefix=%(path)s --install-lib=%(path)s/lib" % {'path': pyinstalldir}
-        try:
-            os.mkdir(pyinstalldir)
-        except OSError, err:
-            raise EasyBuildError("Failed to create python-wrappers dir %s: %s", pyinstalldir, err)
 
         cmd = "cd python; python setup.py build && python setup.py install %s" % args
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
@@ -113,11 +98,11 @@ class EB_OpenMM(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenMM."""
 
+        shlib_ext = get_shared_lib_ext()
         custom_paths = {
-                        'files': ['lib/libOpenMM.so', 'lib/plugins/libOpenMMCUDA.so'],
-                        'dirs': ['lib', 'lib/plugins', 'include/openmm'],
-                       }
-
+            'files': ['lib/libOpenMM.%s' % shlib_ext, 'lib/plugins/libOpenMMCUDA.%s' % shlib_ext],
+            'dirs': ['lib', 'lib/plugins', 'include/openmm'],
+        }
         super(EB_OpenMM, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
@@ -126,7 +111,6 @@ class EB_OpenMM(CMakeMake):
         txt = super(EB_OpenMM, self).make_module_extra()
 
         txt += self.module_generator.set_environment("OPENMM_CUDA_COMPILER", "nvcc")
-        txt += self.module_generator.load_module("CUDA/%s" % get_software_version("CUDA"))
         txt += self.module_generator.prepend_paths('PYTHONPATH', ["python-wrappers/lib"])
 
         return txt
