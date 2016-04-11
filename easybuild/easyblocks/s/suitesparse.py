@@ -167,8 +167,8 @@ class EB_SuiteSparse(ConfigureMake):
         """
         guesses = super(EB_SuiteSparse, self).make_module_req_guess()
         guesses.update({
-            'CPATH': [self.config_name],
-            'LD_LIBRARY_PATH': ['UMFPACK/Lib', 'AMD/Lib'],
+            'CPATH': ['include', self.config_name],
+            'LD_LIBRARY_PATH': ['lib', 'UMFPACK/Lib', 'AMD/Lib'],
         })
 
         return guesses
