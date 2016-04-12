@@ -166,10 +166,11 @@ class EB_SuiteSparse(ConfigureMake):
         * add UMFPACK and AMD library dirs to $LD_LIBRARY_PATH
         """
         guesses = super(EB_SuiteSparse, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': ['include', self.config_name],
-            'LD_LIBRARY_PATH': ['lib', 'UMFPACK/Lib', 'AMD/Lib'],
-        })
+        
+        guesses['CPATH'].append(self.config_name)
+        extra_libs = ['AMD/Lib', 'UMFPACK/Lib']
+        guesses['LD_LIBRARY_PATH'].extend(extra_libs)
+        guesses['LIBRARY_PATH'].extend(extra_libs)
 
         return guesses
 
