@@ -51,6 +51,7 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
+            'releasebuild': [True, "Build with a Release version", CUSTOM],
         })
         return extra_vars
 
@@ -83,6 +84,10 @@ class CMakeMake(ConfigureMake):
                 srcdir = default_srcdir
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+
+        if self.cfg.get('releasebuild', True):
+            options.append("-DCMAKE_BUILD_TYPE=Release")
+
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
             'CFLAGS': 'CMAKE_C_FLAGS',
