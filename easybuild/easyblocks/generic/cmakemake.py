@@ -40,6 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 
+CMAKE_BUILD_TARGETS = ['', 'Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
@@ -51,9 +52,19 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
-            'releasebuild': [True, "Build with a Release version", CUSTOM],
+            'buildtype': ['Release', "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TARGETS),
+                          CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize generic CMake easyblock."""
+
+        super(EB_Clang, self).__init__(*args, **kwargs)
+
+        if self.cfg['buildtypes'] not in CMAKE_BUILD_TARGETS:
+            raise EasyBuildError("The specified build type for CMake is not known. Accepted values: " \
+                                 + ', '.join(CMAKE_BUILD_TARGETS))
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -85,8 +96,8 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if self.cfg.get('releasebuild', True):
-            options.append("-DCMAKE_BUILD_TYPE=Release")
+        if '-DCMAKE_BUILD_TYPE' not in self.cfg['configopts']:
+            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['buildtypes'])
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
