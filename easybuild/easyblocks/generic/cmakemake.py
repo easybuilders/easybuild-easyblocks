@@ -41,7 +41,7 @@ from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 
 # Reference: https://cmake.org/cmake/help/v3.0/variable/CMAKE_BUILD_TYPE.html
-CMAKE_BUILD_TYPES = ['Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
+CMAKE_BUILD_TYPES = ['Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel']
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
@@ -53,7 +53,7 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
-            'buildtype': ['Release', "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TYPES),
+            'buildtype': [CMAKE_BUILD_TYPES[0], "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TYPES),
                           CUSTOM],
         })
         return extra_vars
