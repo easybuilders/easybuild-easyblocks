@@ -40,7 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 
-CMAKE_BUILD_TARGETS = ['', 'Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
+CMAKE_BUILD_TARGETS = ['Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""

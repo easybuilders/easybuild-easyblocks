@@ -40,6 +40,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_BamTools(MakeCp, CMakeMake):
     """Support for building and installing BamTools."""
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to BamTools."""
+        extra_vars = MakeCp.extra_options()
+        return CMakeMake.extra_options(extra_vars=extra_vars)
+
     def configure_step(self):
         """Configure BamTools build."""
         # BamTools requires an out of source build.
