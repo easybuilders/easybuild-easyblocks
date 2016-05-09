@@ -97,7 +97,7 @@ class CMakeMake(ConfigureMake):
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
         if '-DCMAKE_BUILD_TYPE' not in self.cfg['configopts']:
-            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['buildtypes'])
+            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['buildtype'])
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
