@@ -64,8 +64,8 @@ class CMakeMake(ConfigureMake):
         super(CMakeMake, self).__init__(*args, **kwargs)
 
         if self.cfg['buildtype'] not in CMAKE_BUILD_TYPES:
-            raise EasyBuildError("The specified build type for CMake is not known. Accepted values: " \
-                                 + ', '.join(CMAKE_BUILD_TYPES))
+            raise EasyBuildError("The specified build type for CMake is not known. Accepted values: %s",
+                                 ', '.join(CMAKE_BUILD_TYPES))
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
