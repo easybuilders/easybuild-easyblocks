@@ -40,7 +40,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 
-CMAKE_BUILD_TARGETS = ['Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
+# Reference: https://cmake.org/cmake/help/v3.0/variable/CMAKE_BUILD_TYPE.html
+CMAKE_BUILD_TYPES = ['Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel']
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
@@ -52,7 +53,7 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
-            'buildtype': ['Release', "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TARGETS),
+            'buildtype': ['Release', "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TYPES),
                           CUSTOM],
         })
         return extra_vars
@@ -62,9 +63,9 @@ class CMakeMake(ConfigureMake):
 
         super(CMakeMake, self).__init__(*args, **kwargs)
 
-        if self.cfg['buildtype'] not in CMAKE_BUILD_TARGETS:
+        if self.cfg['buildtype'] not in CMAKE_BUILD_TYPES:
             raise EasyBuildError("The specified build type for CMake is not known. Accepted values: " \
-                                 + ', '.join(CMAKE_BUILD_TARGETS))
+                                 + ', '.join(CMAKE_BUILD_TYPES))
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
