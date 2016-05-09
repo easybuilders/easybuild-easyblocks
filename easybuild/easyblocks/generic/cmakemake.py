@@ -62,7 +62,7 @@ class CMakeMake(ConfigureMake):
 
         super(CMakeMake, self).__init__(*args, **kwargs)
 
-        if self.cfg['buildtypes'] not in CMAKE_BUILD_TARGETS:
+        if self.cfg['buildtype'] not in CMAKE_BUILD_TARGETS:
             raise EasyBuildError("The specified build type for CMake is not known. Accepted values: " \
                                  + ', '.join(CMAKE_BUILD_TARGETS))
 
