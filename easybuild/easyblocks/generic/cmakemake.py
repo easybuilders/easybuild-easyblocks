@@ -40,9 +40,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 
-# Reference: https://cmake.org/cmake/help/v3.0/variable/CMAKE_BUILD_TYPE.html
-CMAKE_BUILD_TYPES = ['Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel']
-
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
 
@@ -53,19 +50,9 @@ class CMakeMake(ConfigureMake):
         extra_vars.update({
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
-            'buildtype': [CMAKE_BUILD_TYPES[0], "Build type for CMake. Accepted values: " + ', '.join(CMAKE_BUILD_TYPES),
-                          CUSTOM],
+            'buildtype': ['Release', "Build type for CMake; use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
         })
         return extra_vars
-
-    def __init__(self, *args, **kwargs):
-        """Initialize generic CMake easyblock."""
-
-        super(CMakeMake, self).__init__(*args, **kwargs)
-
-        if self.cfg['buildtype'] not in CMAKE_BUILD_TYPES:
-            raise EasyBuildError("The specified build type for CMake is not known. Accepted values: %s",
-                                 ', '.join(CMAKE_BUILD_TYPES))
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -97,7 +84,11 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if '-DCMAKE_BUILD_TYPE' not in self.cfg['configopts']:
+        if '-DCMAKE_BUILD_TYPE' in self.cfg['configopts']:
+            self.log.info("Build type included in specified configure options: %s", self.cfg['configopts'])
+        elif self.cfg['buildtype'] is None:
+            self.log.info("Not specifying any build type, found None for 'buildtype' easyconfig parameter")
+        else:
             options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['buildtype'])
 
         env_to_options = {
