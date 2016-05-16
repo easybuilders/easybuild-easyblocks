@@ -75,7 +75,13 @@ class EB_CPMD(ConfigureMake):
         """
 
         config_file_candidates = []
-        config_file_prefix = os.path.join(self.builddir, "CPMD", "configure")
+
+        for confdirname in ["configure", "CONFIGURE"]:
+            config_file_prefix = os.path.join(self.builddir, "CPMD", confdirname)
+            if os.path.isdir(config_file_prefix):
+                break
+        else:
+            raise EasyBuildError("No directory containing configuration files. Please review source tarball contents, and amend the EasyBlock if necessary")
 
         # Work out a starting configuration file if one is not supplied in the easyconfig
         if self.cfg['base_configuration']:
@@ -126,17 +132,12 @@ class EB_CPMD(ConfigureMake):
             raise EasyBuildError("Base configuration file does not exist. Please edit base_configuration or review the CPMD easyblock.")
 
         try:
-            if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
-                ar_exe = "xiar -ruv"
-                apply_regex_substitutions(selected_full_config, [
-                    (r"^(\s*AR)=.*", r"\1='%s'" % ar_exe)
-                ]
             apply_regex_substitutions(selected_full_config, [
                 # Better to get CC and FC from the EasyBuild environment in this instance
                 (r"^(\s*CC=.*)", r"#\1"),
                 (r"^(\s*FC=.*)", r"#\1"),
                 (r"^(\s*LD)=.*", r"\1='$(FC)'"),
-            ]
+            ])
         except IOError, err:
             raise EasyBuildError("Failed to patch %s: %s", selected_base_config, err)
 
@@ -161,19 +162,30 @@ class EB_CPMD(ConfigureMake):
         options = [self.cfg['configopts']]
 
         # enable OpenMP support if desired
-        if self.toolchain.options.get('openmp', None):
+        if self.toolchain.options.get('openmp', None) and LooseVersion(self.version) >= LooseVersion('4.0'):
             options.append("-omp")
 
         # This "option" has to come last as it's the chief argument, coming after
         # all flags and so forth.
         options.append(selected_base_config)
 
-        cmd = "%(preconfigopts)s %(cmd_prefix)s./configure.sh %(prefix_opt)s%(installdir)s %(configopts)s" % {
+        # I'm not sure when mkconfig.sh changed to configure.sh. Assuming 4.0
+        # for the sake of the argument.
+        if LooseVersion(self.version) >= LooseVersion('4.0'):
+            config_exe = 'configure.sh'
+        else:
+            config_exe = 'mkconfig.sh'
+            options.append('-BIN={0}'.format(os.path.join(self.installdir, "bin")))
+            options.append('>')
+            options.append(os.path.join(self.installdir, "Makefile"))
+
+        cmd = "%(preconfigopts)s %(cmd_prefix)s./%(config_exe)s %(prefix_opt)s%(installdir)s %(configopts)s" % {
             'preconfigopts': self.cfg['preconfigopts'],
             'cmd_prefix': cmd_prefix,
+            'config_exe': config_exe,
             'prefix_opt': self.cfg['prefix_opt'],
             'installdir': self.installdir,
-            'configopts': ' '.join(options)
+            'configopts': ' '.join(options),
         }
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
@@ -186,17 +198,59 @@ class EB_CPMD(ConfigureMake):
         Make some changes to files in order to make the build process more EasyBuild-friendly
         """
         os.chdir(self.installdir)
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            os.mkdir("bin")
         # Master configure script
         makefile = os.path.join(self.installdir, "Makefile")
         try:
             apply_regex_substitutions(makefile, [
-                (r"^(\s*CC\s*=.*)",       r"#\1"),
-                (r"^(\s*FC\s*=.*)",       r"#\1"),
+                (r"^(\s*LFLAGS\s*=.*[^\w-])-L/usr/lib64/atlas/([^\w-].*)$", r"\1\2"),
+                (r"^(\s*LFLAGS\s*=.*[^\w-])-llapack([^\w-].*)$", r"\1\2"),
+                (r"^(\s*LFLAGS\s*=.*[^\w-])-lblas([^\w-].*)$", r"\1\2"),
+                (r"^(\s*LFLAGS\s*=.*[^\w-])-lfftw([^\w-].*)$", r"\1\2"),
+            ])
+            if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
+                ar_exe = "xiar -ruv"
+                apply_regex_substitutions(makefile, [
+                    (r"^(\s*AR\s*=).*", r"\1 {0}".format(ar_exe))
+                ])
+                if LooseVersion(self.version) < LooseVersion('4.0'):
+                    apply_regex_substitutions(makefile, [
+                        (r"^(\s*CFLAGS\s*=.*[^\w-])-O2([^\w-].*)$", r"\1\2"),
+                        (r"^(\s*CFLAGS\s*=.*[^\w-])-Wall([^\w-].*)$", r"\1\2"),
+                        (r"^(\s*CPPFLAGS\s*=.*[^\w-])-D__PGI([^\w-].*)$", r"\1\2"),
+                        (r"^(\s*CPPFLAGS\s*=.*[^\w-])-D__GNU([^\w-].*)$", r"\1\2"),
+                        (r"^(\s*FFLAGS\s*=.*[^\w-])-O2([^\w-].*)$", r"\1\2"),
+                        (r"^(\s*FFLAGS\s*=.*[^\w-])-fcray-pointer([^\w-].*)$", r"\1\2"),
+                    ])
+            apply_regex_substitutions(makefile, [
                 (r"^(\s*CPPFLAGS\s*=.*)", r"\1 {0}".format(os.getenv('CPPFLAGS'))),
                 (r"^(\s*CFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('CFLAGS'))),
                 (r"^(\s*FFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('FFLAGS'))),
                 (r"^(\s*LFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('LDFLAGS'))),
-            ]
+            ])
+            if self.toolchain.options.get('openmp', None):
+                apply_regex_substitutions(makefile, [
+                    (r"^(\s*LFLAGS\s*=.*)",   r"\1 {0} {1}".format(os.getenv('LIBLAPACK_MT'), os.getenv('LIBBLAS_MT')))
+                ])
+            else:
+                apply_regex_substitutions(makefile, [
+                    (r"^(\s*LFLAGS\s*=.*)",   r"\1 {0} {1}".format(os.getenv('LIBLAPACK'), os.getenv('LIBBLAS')))
+                ])
+            apply_regex_substitutions(makefile, [
+                (r"^(\s*LFLAGS\s*=.*)",   r"\1 {0}".format(os.getenv('LIBFFT'))),
+            ])
+
+            if get_software_root('imkl'):
+                if LooseVersion(self.version) < LooseVersion('4.0'):
+                    apply_regex_substitutions(makefile, [
+                        (r"(\s+)-DFFT_FFTW(\s+)", r"\1-DFFT_DEFAULT -DINTEL_MKL\2"),
+                    ])
+            if LooseVersion(self.version) >= LooseVersion('4.0'):
+                apply_regex_substitutions(makefile, [
+                    (r"^(\s*CC\s*=.*)",       r"#\1"),
+                    (r"^(\s*FC\s*=.*)",       r"#\1"),
+                ])
         except IOError, err:
             raise EasyBuildError("Failed to patch %s: %s", makefile, err)
 
