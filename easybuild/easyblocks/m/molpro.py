@@ -220,7 +220,7 @@ class EB_Molpro(ConfigureMake, Binary):
                 }
                 run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
 
-            molpro_path = os.path.join(self.install_dir, 'bin', 'molpro')
+            molpro_path = os.path.join(self.installdir, 'bin', 'molpro')
         else:
             if os.path.isfile(self.license_token):
                 run_cmd("make tuning")
