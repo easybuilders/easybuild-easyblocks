@@ -53,7 +53,7 @@ class EB_Molpro(ConfigureMake, Binary):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'precompiled_binaries': [False, "Are we installing precompiled binaries?", CUSTOM],
-            'parallel_launcher': [None, "Custom parallel launcher string", CUSTOM],
+            'parallel_launcher': [None, "Custom parallel launcher string (must contain %x for the molpro executable)", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
 
@@ -66,6 +66,12 @@ class EB_Molpro(ConfigureMake, Binary):
 
         self.cleanup_token_symlink = False
         self.license_token = os.path.join(os.path.expanduser('~'), '.molpro', 'token')
+
+    def check_readiness_step(self):
+        """Fail early if parallel_launcher is defined but does not contain %x"""
+        super(EB_Molpro, self).check_readiness_step()
+        if self.cfg['parallel_launcher'] is not None and "%x" not in self.cfg['parallel_launcher']:
+            raise EasyBuildError("%x placeholder for Molpro executable is not in parallel_launcher -- please fix!")
 
     def extract_step(self):
         """Extract Molpro source files, or just copy in case of binary install."""
@@ -232,9 +238,9 @@ class EB_Molpro(ConfigureMake, Binary):
             molpro_path = os.path.join(self.full_prefix, 'bin', 'molpro')
 
         if self.cfg['parallel_launcher'] is not None:
-            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % self.cfg['parallel_launcher'])])
+            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r'\1"%s"' % self.cfg['parallel_launcher'])])
         elif self.orig_launcher is not None:
-            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % self.orig_launcher)])
+            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1%s" % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
             try:
