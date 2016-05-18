@@ -28,6 +28,7 @@ EasyBuild support for Siesta, implemented as an easyblock
 @author: Miguel Dias Costa (National university of Singapore)
 """
 
+import os
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -52,89 +53,74 @@ class EB_Siesta(MakeCp):
         extra.update(extra_vars)
         return ConfigureMake.extra_options(extra_vars=extra)
 
-    def __init__(self, *args, **kwargs):
-        super(EB_Siesta, self).__init__(*args, **kwargs)
-
+    def build_step(self):
+        """Custom build procedure for Siesta."""
         cfg_cmd = '../Src/obj_setup.sh && ../Src/configure'
 
         if self.toolchain.options.get('usempi', None):
             cfg_cmd += ' --enable-mpi '
 
-        build_vars = "COMP_LIBS='' "
-        build_vars += 'BLAS_LIBS="$LIBBLAS" LAPACK_LIBS="$LIBLAPACK" '
-        build_vars += 'BLACS_LIBS="$LIBBLACS" SCALAPACK_LIBS="$LIBSCALAPACK"'
+        self.cfg.update('prebuildopts', 'cd Obj && ' + cfg_cmd + ' && ')
 
-        self.cfg['prebuildopts'] = 'cd Obj && ' + cfg_cmd + ' && '
-        self.cfg['buildopts'] = build_vars
+        build_vars = 'COMP_LIBS="" '
+        build_vars += 'BLAS_LIBS="' + os.environ['LIBBLAS'] + '" '
+        build_vars += 'LAPACK_LIBS="' + os.environ['LIBLAPACK'] + '" '
+        build_vars += 'BLACS_LIBS="' + os.environ['LIBBLACS'] + '" '
+        build_vars += 'SCALAPACK_LIBS="' + os.environ['LIBSCALAPACK'] + '"'
+
+        self.cfg.update('buildopts', build_vars)
+
+        if self.cfg['with_transiesta']:
+            self.cfg.update('buildopts', ' && cd .. && mkdir Obj2 && cd Obj2 && ')
+            self.cfg.update('buildopts', cfg_cmd + ' && make transiesta ' + build_vars)
+
+        if self.cfg['with_utils']:
+            self.cfg.update('buildopts', ' && cd ../Util && sh ./build_all.sh')
+
+        super(EB_Siesta, self).build_step()
+
+    def install_step(self):
+        """Custom install procedure for Siesta."""
 
         bins = ['Obj/siesta']
 
         if self.cfg['with_transiesta']:
-            self.cfg['buildopts'] += ' && cd .. && mkdir Obj2 && cd Obj2 && '
-            self.cfg['buildopts'] += cfg_cmd + ' && make transiesta ' + build_vars
-
             bins.extend(['Obj2/transiesta'])
 
         if self.cfg['with_utils']:
-            self.cfg['buildopts'] += ' && cd ../Util && sh ./build_all.sh'
+            utils = [os.path.join('Bands', b) for b in ['eigfat2plot', 'new.gnubands']]
+            utils.append(os.path.join('CMLComp', 'ccViz'))
+            utils.extend(os.path.join('COOP', b) for b in ['dm_creator', 'fat', 'mprop'])
+            utils.extend(os.path.join('Contrib/APostnikov', b) for b in ['eig2bxsf', 'fmpdos', 'md2axsf',
+                                                                         'rho2xsf', 'vib2xsf', 'xv2xsf'])
+            utils.extend(os.path.join('Denchar', b) for b in ['Examples/2dplot.py', 'Examples/surf.py', 'Src/denchar'])
+            utils.extend(os.path.join('DensityMatrix', b) for b in ['cdf2dm', 'dm2cdf'])
+            utils.append(os.path.join('Eig2DOS', 'Eig2DOS'))
+            utils.extend(os.path.join('Gen-basis', b) for b in ['gen-basis', 'ioncat', 'ionplot.sh'])
+            utils.extend(os.path.join('Grid', b) for b in ['cdf2grid', 'cdf2xsf', 'grid2cdf', 'grid2cube', 'grid2val'])
+            utils.extend(os.path.join('HSX', b) for b in ['hs2hsx', 'hsx2hs'])
+            utils.append(os.path.join('Helpers', 'get_chem_labels'))
+            utils.append(os.path.join('MPI_test', 'pi3'))
+            utils.append(os.path.join('Macroave', 'Src/macroave'))
+            utils.append(os.path.join('ON', 'lwf2cdf'))
+            utils.extend(os.path.join('Optimizer', b) for b in ['simplex', 'swarm'])
+            utils.append(os.path.join('Projections', 'orbmol_proj'))
+            utils.append(os.path.join('STM', 'simple-stm/plstm'))
+            utils.extend(os.path.join('SiestaSubroutine/FmixMD/Src', b) for b in ['driver', 'para', 'simple'])
+            utils.append(os.path.join('TBTrans', 'tbtrans'))
+            utils.extend(os.path.join('VCA', b) for b in ['fractional', 'mixps'])
+            utils.extend(os.path.join('Vibra/Src', b) for b in ['fcbuild', 'vibrator'])
+            utils.extend(os.path.join('WFS', b) for b in ['info_wfsx', 'readwf', 'readwfx', 'wfs2wfsx', 'wfsnc2wfsx',
+                                                          'wfsx2wfs'])
+            utils.append(os.path.join('pdosxml', 'pdosxml'))
+            utils.append(os.path.join('pseudo-xml', 'xml2psf'))
+            utils.append(os.path.join('test-xml', 'test-xml'))
 
-            bins.extend(['Util/Bands/eigfat2plot', 'Util/Bands/new.gnubands', 'Util/Bands/gnubands'])
-
-            bins.extend(['Util/CMLComp/ccViz'])
-
-            bins.extend(['Util/COOP/mprop', 'Util/COOP/dm_creator', 'Util/COOP/fat'])
-
-            bins.extend(['Util/Contrib/APostnikov/eig2bxsf', 'Util/Contrib/APostnikov/xv2xsf',
-                         'Util/Contrib/APostnikov/md2axsf', 'Util/Contrib/APostnikov/rho2xsf',
-                         'Util/Contrib/APostnikov/vib2xsf', 'Util/Contrib/APostnikov/fmpdos'])
-
-            bins.extend(['Util/Denchar/Examples/2dplot.py', 'Util/Denchar/Examples/surf.py',
-                         'Util/Denchar/Src/denchar'])
-
-            bins.extend(['Util/DensityMatrix/dm2cdf', 'Util/DensityMatrix/cdf2dm'])
-
-            bins.extend(['Util/Eig2DOS/Eig2DOS'])
-
-            bins.extend(['Util/Gen-basis/ionplot.sh', 'Util/Gen-basis/gen-basis', 'Util/Gen-basis/ioncat'])
-
-            bins.extend(['Util/Grid/grid2cdf', 'Util/Grid/cdf2xsf', 'Util/Grid/cdf2grid', 'Util/Grid/grid2val',
-                         'Util/Grid/grid2cube'])
-
-            bins.extend(['Util/HSX/hsx2hs', 'Util/HSX/hs2hsx'])
-
-            bins.extend(['Util/Helpers/get_chem_labels'])
-
-            bins.extend(['Util/MPI_test/pi3'])
-
-            bins.extend(['Util/Macroave/Src/macroave'])
-
-            bins.extend(['Util/ON/lwf2cdf'])
-
-            bins.extend(['Util/Optimizer/swarm', 'Util/Optimizer/simplex'])
-
-            bins.extend(['Util/Projections/orbmol_proj'])
-
-            bins.extend(['Util/STM/simple-stm/plstm'])
-
-            bins.extend(['Util/SiestaSubroutine/FmixMD/Src/simple', 'Util/SiestaSubroutine/FmixMD/Src/driver',
-                         'Util/SiestaSubroutine/FmixMD/Src/para'])
-
-            bins.extend(['Util/TBTrans/tbtrans'])
-
-            bins.extend(['Util/VCA/mixps', 'Util/VCA/fractional'])
-
-            bins.extend(['Util/Vibra/Src/fcbuild', 'Util/Vibra/Src/vibrator'])
-
-            bins.extend(['Util/WFS/readwf', 'Util/WFS/readwfx', 'Util/WFS/info_wfsx', 'Util/WFS/wfs2wfsx',
-                         'Util/WFS/wfsx2wfs', 'Util/WFS/wfsnc2wfsx'])
-
-            bins.extend(['Util/pdosxml/pdosxml'])
-
-            bins.extend(['Util/pseudo-xml/xml2psf'])
-
-            bins.extend(['Util/test-xml/test-xml'])
+            bins.extend([os.path.join('Util', u) for u in utils])
 
         self.cfg['files_to_copy'] = [(bins, 'bin')]
+
+        super(EB_Siesta, self).install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Siesta."""
@@ -145,18 +131,18 @@ class EB_Siesta(MakeCp):
             bins.extend(['bin/transiesta'])
 
         if self.cfg['with_utils']:
-            bins.extend(['bin/' + util for util in 'eigfat2plot', 'new.gnubands', 'gnubands', 'ccViz', 'mprop',
-                         'dm_creator', 'fat', 'eig2bxsf', 'xv2xsf', 'md2axsf', 'rho2xsf', 'vib2xsf', 'fmpdos',
-                         '2dplot.py', 'surf.py', 'denchar', 'dm2cdf', 'cdf2dm', 'Eig2DOS', 'ionplot.sh', 'gen-basis',
-                         'ioncat', 'grid2cdf', 'cdf2xsf', 'cdf2grid', 'grid2val', 'grid2cube', 'hsx2hs', 'hs2hsx',
-                         'get_chem_labels', 'pi3', 'macroave', 'lwf2cdf', 'swarm', 'simplex', 'orbmol_proj', 'plstm',
-                         'simple', 'driver', 'para', 'tbtrans', 'mixps', 'fractional', 'fcbuild', 'vibrator', 'readwf',
-                         'readwfx', 'info_wfsx', 'wfs2wfsx', 'wfsx2wfs', 'wfsnc2wfsx', 'pdosxml', 'xml2psf', 'test-xml'
-                         ])
+            bins.extend([os.path.join('bin', util) for util in '2dplot.py', 'Eig2DOS', 'ccViz', 'cdf2dm', 'cdf2grid',
+                         'cdf2xsf', 'denchar', 'dm2cdf', 'dm_creator', 'driver', 'eig2bxsf', 'eigfat2plot', 'fat',
+                         'fcbuild', 'fmpdos', 'fractional', 'gen-basis', 'get_chem_labels', 'grid2cdf',
+                         'grid2cube', 'grid2val', 'hs2hsx', 'hsx2hs', 'info_wfsx', 'ioncat', 'ionplot.sh', 'lwf2cdf',
+                         'macroave', 'md2axsf', 'mixps', 'mprop', 'new.gnubands', 'orbmol_proj', 'para', 'pdosxml',
+                         'pi3', 'plstm', 'readwf', 'readwfx', 'rho2xsf', 'simple', 'simplex', 'surf.py', 'swarm',
+                         'tbtrans', 'test-xml', 'vib2xsf', 'vibrator', 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf',
+                         'xv2xsf'])
 
         custom_paths = {
             'files': bins,
             'dirs': []
-            }
+        }
 
         super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths)
