@@ -237,10 +237,13 @@ class EB_Molpro(ConfigureMake, Binary):
             # since the value used during installation point to temporary files
             molpro_path = os.path.join(self.full_prefix, 'bin', 'molpro')
 
+        # Make sure that the launcher text we replace (where this is done) is not
+        # the instance of setting LAUNCHER that contains the eval.
+        launchertext = r"^(LAUNCHER\s*=\s*)((?!\"`eval echo \$LAUNCHER` \$MOLPRO_OPTIONS\").)*$"
         if self.cfg['parallel_launcher'] is not None:
-            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r'\1"%s"' % self.cfg['parallel_launcher'])])
+            apply_regex_substitutions(molpro_path, [(launchertext, r'\1"%s"' % self.cfg['parallel_launcher'])])
         elif self.orig_launcher is not None:
-            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1%s" % self.orig_launcher)])
+            apply_regex_substitutions(molpro_path, [(launchertext, r"\1%s" % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
             try:
