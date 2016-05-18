@@ -60,19 +60,16 @@ class EB_Siesta(MakeCp):
         if self.toolchain.options.get('usempi', None):
             cfg_cmd += ' --enable-mpi '
 
+        cfg_cmd += '--with-blas="' + os.environ['LIBBLAS'] + '" '
+        cfg_cmd += '--with-lapack="' + os.environ['LIBLAPACK'] + '" '
+        cfg_cmd += '--with-blacs="' + os.environ['LIBBLACS'] + '" '
+        cfg_cmd += '--with-scalapack="' + os.environ['LIBSCALAPACK'] + '"'
+
         self.cfg.update('prebuildopts', 'cd Obj && ' + cfg_cmd + ' && ')
-
-        build_vars = 'COMP_LIBS="" '
-        build_vars += 'BLAS_LIBS="' + os.environ['LIBBLAS'] + '" '
-        build_vars += 'LAPACK_LIBS="' + os.environ['LIBLAPACK'] + '" '
-        build_vars += 'BLACS_LIBS="' + os.environ['LIBBLACS'] + '" '
-        build_vars += 'SCALAPACK_LIBS="' + os.environ['LIBSCALAPACK'] + '"'
-
-        self.cfg.update('buildopts', build_vars)
 
         if self.cfg['with_transiesta']:
             self.cfg.update('buildopts', ' && cd .. && mkdir Obj2 && cd Obj2 && ')
-            self.cfg.update('buildopts', cfg_cmd + ' && make transiesta ' + build_vars)
+            self.cfg.update('buildopts', cfg_cmd + ' && make transiesta ')
 
         if self.cfg['with_utils']:
             self.cfg.update('buildopts', ' && cd ../Util && sh ./build_all.sh')
