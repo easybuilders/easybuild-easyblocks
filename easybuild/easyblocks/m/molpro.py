@@ -53,6 +53,7 @@ class EB_Molpro(ConfigureMake, Binary):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'precompiled_binaries': [False, "Are we installing precompiled binaries?", CUSTOM],
+            'parallel_launcher': [None, "Custom parallel launcher string", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
 
@@ -218,6 +219,8 @@ class EB_Molpro(ConfigureMake, Binary):
                     r"directory .* does not exist, try to create [Y]/n\n": '',
                 }
                 run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
+
+            molpro_path = os.path.join(self.install_dir, 'bin', 'molpro')
         else:
             if os.path.isfile(self.license_token):
                 run_cmd("make tuning")
@@ -227,6 +230,10 @@ class EB_Molpro(ConfigureMake, Binary):
             # put original LAUNCHER definition back in place in bin/molpro that got installed,
             # since the value used during installation point to temporary files
             molpro_path = os.path.join(self.full_prefix, 'bin', 'molpro')
+
+        if self.cfg['parallel_launcher'] is not None:
+            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % self.cfg['parallel_launcher'])])
+        elif self.orig_launcher is not None:
             apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
