@@ -30,6 +30,7 @@ EasyBuild support for Siesta, implemented as an easyblock
 
 import os
 import easybuild.tools.toolchain as toolchain
+from distutils.version import LooseVersion
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.makecp import MakeCp
@@ -37,6 +38,13 @@ from easybuild.easyblocks.generic.makecp import MakeCp
 
 class EB_Siesta(MakeCp):
     """Support for building and installing Siesta."""
+
+    def __init__(self, *args, **kwargs):
+        super(EB_Siesta, self).__init__(*args, **kwargs)
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            self.vibra_filename = 'vibrator'
+        else:
+            self.vibra_filename = 'vibra'
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -106,7 +114,7 @@ class EB_Siesta(MakeCp):
             utils.extend(os.path.join('SiestaSubroutine/FmixMD/Src', b) for b in ['driver', 'para', 'simple'])
             utils.append(os.path.join('TBTrans', 'tbtrans'))
             utils.extend(os.path.join('VCA', b) for b in ['fractional', 'mixps'])
-            utils.extend(os.path.join('Vibra/Src', b) for b in ['fcbuild', 'vibrator'])
+            utils.extend(os.path.join('Vibra/Src', b) for b in ['fcbuild', self.vibra_filename])
             utils.extend(os.path.join('WFS', b) for b in ['info_wfsx', 'readwf', 'readwfx', 'wfs2wfsx', 'wfsnc2wfsx',
                                                           'wfsx2wfs'])
             utils.append(os.path.join('pdosxml', 'pdosxml'))
@@ -134,8 +142,8 @@ class EB_Siesta(MakeCp):
                          'grid2cube', 'grid2val', 'hs2hsx', 'hsx2hs', 'info_wfsx', 'ioncat', 'ionplot.sh', 'lwf2cdf',
                          'macroave', 'md2axsf', 'mixps', 'mprop', 'new.gnubands', 'orbmol_proj', 'para', 'pdosxml',
                          'pi3', 'plstm', 'readwf', 'readwfx', 'rho2xsf', 'simple', 'simplex', 'surf.py', 'swarm',
-                         'tbtrans', 'test-xml', 'vib2xsf', 'vibrator', 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf',
-                         'xv2xsf'])
+                         'tbtrans', 'test-xml', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs',
+                         'xml2psf', 'xv2xsf'])
 
         custom_paths = {
             'files': bins,
