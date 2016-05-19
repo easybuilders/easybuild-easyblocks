@@ -119,7 +119,6 @@ class EB_Siesta(MakeCp):
                                                           'wfsx2wfs'])
             utils.append(os.path.join('pdosxml', 'pdosxml'))
             utils.append(os.path.join('pseudo-xml', 'xml2psf'))
-            utils.append(os.path.join('test-xml', 'test-xml'))
 
             bins.extend([os.path.join('Util', u) for u in utils])
 
@@ -142,8 +141,8 @@ class EB_Siesta(MakeCp):
                          'grid2cube', 'grid2val', 'hs2hsx', 'hsx2hs', 'info_wfsx', 'ioncat', 'ionplot.sh', 'lwf2cdf',
                          'macroave', 'md2axsf', 'mixps', 'mprop', 'new.gnubands', 'orbmol_proj', 'para', 'pdosxml',
                          'pi3', 'plstm', 'readwf', 'readwfx', 'rho2xsf', 'simple', 'simplex', 'surf.py', 'swarm',
-                         'tbtrans', 'test-xml', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs',
-                         'xml2psf', 'xv2xsf'])
+                         'tbtrans', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf', 
+                         'xv2xsf'])
 
         custom_paths = {
             'files': bins,
