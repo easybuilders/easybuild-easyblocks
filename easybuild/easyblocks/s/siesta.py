@@ -55,11 +55,8 @@ class EB_Siesta(MakeCp):
             'files_to_copy': [[], "List of files or dirs to copy", CUSTOM],
             'with_transiesta': [True, "Build transiesta", CUSTOM],
             'with_utils': [True, "Build all utils", CUSTOM],
-        }
-        if extra_vars is None:
-            extra_vars = {}
-        extra.update(extra_vars)
-        return ConfigureMake.extra_options(extra_vars=extra)
+            }
+        return MakeCp.extra_options(extra_vars=extra)
 
     def build_step(self):
         """Custom build procedure for Siesta."""
@@ -141,7 +138,7 @@ class EB_Siesta(MakeCp):
                          'grid2cube', 'grid2val', 'hs2hsx', 'hsx2hs', 'info_wfsx', 'ioncat', 'ionplot.sh', 'lwf2cdf',
                          'macroave', 'md2axsf', 'mixps', 'mprop', 'new.gnubands', 'orbmol_proj', 'para', 'pdosxml',
                          'pi3', 'plstm', 'readwf', 'readwfx', 'rho2xsf', 'simple', 'simplex', 'surf.py', 'swarm',
-                         'tbtrans', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf', 
+                         'tbtrans', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf',
                          'xv2xsf'])
 
         custom_paths = {
