@@ -4,7 +4,7 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
@@ -224,7 +224,10 @@ class IntelBase(EasyBlock):
 
             # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
             if len(lic_specs) > 1:
+                self.log.debug("More than one license specs found, using '%s' license activation instead of '%s'",
+                               ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
                 self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
+
                 # $INTEL_LICENSE_FILE should always be set during installation with existing license
                 env.setvar(default_lic_env_var, self.license_file)
         else:
