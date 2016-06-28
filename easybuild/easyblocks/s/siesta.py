@@ -32,7 +32,6 @@ import os
 import easybuild.tools.toolchain as toolchain
 from distutils.version import LooseVersion
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.makecp import MakeCp
 
 
@@ -40,17 +39,19 @@ class EB_Siesta(MakeCp):
     """Support for building and installing Siesta."""
 
     def __init__(self, *args, **kwargs):
+        """Initialisation of custom class variables for Siesta."""
         super(EB_Siesta, self).__init__(*args, **kwargs)
-        if LooseVersion(self.version) < LooseVersion('4.0'):
-            self.vibra_filename = 'vibrator'
-        else:
-            self.vibra_filename = 'vibra'
+        self.build_in_installdir = True
+
+    def extract_step(self):
+        """Extract sources."""
+        # strip off 'siesta-<version>' part to avoid having everything in a subdirectory
+        self.cfg['unpack_options'] = "--strip-components=1"
+        super(EB_Siesta, self).extract_step()
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """
-        Define list of files or directories to be copied after make
-        """
+        """Define extra options for Siesta."""
         extra = {
             'files_to_copy': [[], "List of files or dirs to copy", CUSTOM],
             'with_transiesta': [True, "Build transiesta", CUSTOM],
@@ -89,36 +90,6 @@ class EB_Siesta(MakeCp):
         if self.cfg['with_transiesta']:
             bins.extend(['Obj2/transiesta'])
 
-        if self.cfg['with_utils']:
-            utils = [os.path.join('Bands', b) for b in ['eigfat2plot', 'new.gnubands']]
-            utils.append(os.path.join('CMLComp', 'ccViz'))
-            utils.extend(os.path.join('COOP', b) for b in ['dm_creator', 'fat', 'mprop'])
-            utils.extend(os.path.join('Contrib/APostnikov', b) for b in ['eig2bxsf', 'fmpdos', 'md2axsf',
-                                                                         'rho2xsf', 'vib2xsf', 'xv2xsf'])
-            utils.extend(os.path.join('Denchar', b) for b in ['Examples/2dplot.py', 'Examples/surf.py', 'Src/denchar'])
-            utils.extend(os.path.join('DensityMatrix', b) for b in ['cdf2dm', 'dm2cdf'])
-            utils.append(os.path.join('Eig2DOS', 'Eig2DOS'))
-            utils.extend(os.path.join('Gen-basis', b) for b in ['gen-basis', 'ioncat', 'ionplot.sh'])
-            utils.extend(os.path.join('Grid', b) for b in ['cdf2grid', 'cdf2xsf', 'grid2cdf', 'grid2cube', 'grid2val'])
-            utils.extend(os.path.join('HSX', b) for b in ['hs2hsx', 'hsx2hs'])
-            utils.append(os.path.join('Helpers', 'get_chem_labels'))
-            utils.append(os.path.join('MPI_test', 'pi3'))
-            utils.append(os.path.join('Macroave', 'Src/macroave'))
-            utils.append(os.path.join('ON', 'lwf2cdf'))
-            utils.extend(os.path.join('Optimizer', b) for b in ['simplex', 'swarm'])
-            utils.append(os.path.join('Projections', 'orbmol_proj'))
-            utils.append(os.path.join('STM', 'simple-stm/plstm'))
-            utils.extend(os.path.join('SiestaSubroutine/FmixMD/Src', b) for b in ['driver', 'para', 'simple'])
-            utils.append(os.path.join('TBTrans', 'tbtrans'))
-            utils.extend(os.path.join('VCA', b) for b in ['fractional', 'mixps'])
-            utils.extend(os.path.join('Vibra/Src', b) for b in ['fcbuild', self.vibra_filename])
-            utils.extend(os.path.join('WFS', b) for b in ['info_wfsx', 'readwf', 'readwfx', 'wfs2wfsx', 'wfsnc2wfsx',
-                                                          'wfsx2wfs'])
-            utils.append(os.path.join('pdosxml', 'pdosxml'))
-            utils.append(os.path.join('pseudo-xml', 'xml2psf'))
-
-            bins.extend([os.path.join('Util', u) for u in utils])
-
         self.cfg['files_to_copy'] = [(bins, 'bin')]
 
         super(EB_Siesta, self).install_step()
@@ -130,16 +101,6 @@ class EB_Siesta(MakeCp):
 
         if self.cfg['with_transiesta']:
             bins.extend(['bin/transiesta'])
-
-        if self.cfg['with_utils']:
-            bins.extend([os.path.join('bin', util) for util in '2dplot.py', 'Eig2DOS', 'ccViz', 'cdf2dm', 'cdf2grid',
-                         'cdf2xsf', 'denchar', 'dm2cdf', 'dm_creator', 'driver', 'eig2bxsf', 'eigfat2plot', 'fat',
-                         'fcbuild', 'fmpdos', 'fractional', 'gen-basis', 'get_chem_labels', 'grid2cdf',
-                         'grid2cube', 'grid2val', 'hs2hsx', 'hsx2hs', 'info_wfsx', 'ioncat', 'ionplot.sh', 'lwf2cdf',
-                         'macroave', 'md2axsf', 'mixps', 'mprop', 'new.gnubands', 'orbmol_proj', 'para', 'pdosxml',
-                         'pi3', 'plstm', 'readwf', 'readwfx', 'rho2xsf', 'simple', 'simplex', 'surf.py', 'swarm',
-                         'tbtrans', 'vib2xsf', self.vibra_filename, 'wfs2wfsx', 'wfsnc2wfsx', 'wfsx2wfs', 'xml2psf',
-                         'xv2xsf'])
 
         custom_paths = {
             'files': bins,
