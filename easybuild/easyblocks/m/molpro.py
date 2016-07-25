@@ -200,6 +200,8 @@ class EB_Molpro(ConfigureMake, Binary):
 
         if self.cfg['precompiled_binaries']:
             """Build by running the command with the inputfiles"""
+
+            destroot = self.installdir
             try:
                 os.chdir(self.cfg['start_dir'])
             except OSError, err:
@@ -208,10 +210,10 @@ class EB_Molpro(ConfigureMake, Binary):
             for src in self.src:
                 if LooseVersion(self.version) >= LooseVersion('2015'):
                     # install dir must be non-existent
-                    shutil.rmtree(self.installdir)
-                    cmd = "./{0} -batch -prefix {1}".format(src['name'], self.installdir)
+                    shutil.rmtree(destroot)
+                    cmd = "./{0} -batch -prefix {1}".format(src['name'], destroot)
                 else:
-                    cmd = "./{0} -batch -instbin {1}/bin -instlib {1}/lib".format(src['name'], self.installdir)
+                    cmd = "./{0} -batch -instbin {1}/bin -instlib {1}/lib".format(src['name'], destroot)
 
                 # questions whose text must match exactly as asked
                 qa = {
@@ -226,24 +228,23 @@ class EB_Molpro(ConfigureMake, Binary):
                 }
                 run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
 
-            molpro_path = os.path.join(self.installdir, 'bin', 'molpro')
         else:
             if os.path.isfile(self.license_token):
                 run_cmd("make tuning")
 
             super(EB_Molpro, self).install_step()
 
-            # put original LAUNCHER definition back in place in bin/molpro that got installed,
-            # since the value used during installation point to temporary files
-            molpro_path = os.path.join(self.full_prefix, 'bin', 'molpro')
+            destroot = self.full_prefix
+
+        molpro_exe = os.path.join(destroot, 'bin', 'molpro')
 
         # Make sure that the launcher text we replace (where this is done) is not
         # the instance of setting LAUNCHER that contains the eval.
         launchertext = r"^(LAUNCHER\s*=\s*)((?!\"`eval echo \$LAUNCHER` \$MOLPRO_OPTIONS\").)*$"
         if self.cfg['parallel_launcher'] is not None:
-            apply_regex_substitutions(molpro_path, [(launchertext, r'\1"%s"' % self.cfg['parallel_launcher'])])
+            apply_regex_substitutions(molpro_exe, [(launchertext, r'\1 "%s"' % self.cfg['parallel_launcher'])])
         elif self.orig_launcher is not None:
-            apply_regex_substitutions(molpro_path, [(launchertext, r"\1%s" % self.orig_launcher)])
+            apply_regex_substitutions(molpro_exe, [(launchertext, r"\1 %s" % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
             try:
