@@ -166,6 +166,7 @@ class EB_LAMMPS(MakeCp):
 
         makedir = os.path.join(src_dir, 'MAKE')
         makearg = 'serial'
+        makesubs = []
 
         if self.toolchain.options.get('usempi', None):
             makearg = 'mpi'
