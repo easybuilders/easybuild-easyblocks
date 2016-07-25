@@ -96,6 +96,7 @@ class EB_LAMMPS(MakeCp):
                     apply_regex_substitutions(self.cfg['gpu_base_makefile'], [
                         (r'\$\(CUDA_HOME\)', cudaroot),
                         (r'^(CUDA_ARCH\s*=\s*-arch=).*$', r'\1%s' % self.cfg['gpu_arch_string']),
+                        (r'^(CUDA_LIB\s*=\s*)(-L\S*)(.*)$', r'\1\2 \2/stubs\3'),
                         (r'^(CUDA_PRECISION\s*=\s*-D_).*$', r'\1%s' % precstring),
                     ])
                 else:
