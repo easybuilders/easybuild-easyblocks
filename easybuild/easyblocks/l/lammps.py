@@ -73,6 +73,7 @@ class EB_LAMMPS(MakeCp):
         # Can't be None as needs to be appended to
         out = ''
         src_dir = os.path.join(self.cfg['start_dir'], 'src')
+        cudaroot = get_software_root('CUDA')
 
         if self.toolchain.options.get('openmp', None):
             self.cfg['user_packages'].append('omp')
@@ -91,7 +92,6 @@ class EB_LAMMPS(MakeCp):
                 elif self.cfg['gpu_prec_string'] != 'mixed':
                     raise EasyBuildError("Don't know how to handle GPU precision style: %s" % self.cfg['gpu_prec_string'])
 
-                cudaroot = get_software_root('CUDA')
                 if cudaroot:
                     apply_regex_substitutions(self.cfg['gpu_base_makefile'], [
                         (r'^(CUDA_HOME\s*=\s*).*$', r'\1%s' % cudaroot),
@@ -196,10 +196,12 @@ class EB_LAMMPS(MakeCp):
             elif self.cfg['with_jpeg'] and self.cfg['with_png']:
                 raise EasyBuildError("Use either with_jpeg or with_png, but not both.")
         
-        makesubs.extend([
-            (r'^(CCFLAGS\s*=\s*)(.*)$', r'\1%s \2' % os.getenv('CFLAGS')),
-            (r'^(LINKFLAGS\s*=\s*)(.*)$', r'\1%s \2' % os.getenv('LDFLAGS')),
-        ])
+        makesubs.extend([(r'^(CCFLAGS\s*=\s*)(.*)$', r'\1%s \2' % os.getenv('CFLAGS'))])
+        if cudaroot:
+            makesubs.extend([(r'^(LINKFLAGS\s*=\s*)(.*)$', r'\1%s -L%s/lib64/stubs \2' % (os.getenv('LDFLAGS'), cudaroot))])
+        else:
+            makesubs.extend([(r'^(LINKFLAGS\s*=\s*)(.*)$', r'\1%s \2' % os.getenv('LDFLAGS'))])
+
         apply_regex_substitutions(os.path.join(makedir, 'Makefile.{0}'.format(makearg)), makesubs)
 
         os.chdir(src_dir)
