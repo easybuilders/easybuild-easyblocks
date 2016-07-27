@@ -67,8 +67,8 @@ class EB_WPS(EasyBlock):
     @staticmethod
     def extra_options():
         testdata_urls = [
-            "http://www.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz",
-            "http://www.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz",  # 697MB download, 16GB unpacked!
+            "http://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz",
+            "http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2",  # 2.3GB download!
         ]
         extra_vars = {
             'buildtype': [None, "Specify the type of build (smpar: OpenMP, dmpar: MPI).", MANDATORY],
@@ -309,8 +309,13 @@ class EB_WPS(EasyBlock):
                     sys.stdout.write(line)
 
                 # copy correct Vtable
-                shutil.copy2(os.path.join(wpsdir, "ungrib", "Variable_Tables", "Vtable.ARW"),
-                             os.path.join(tmpdir, "Vtable"))
+                try:
+                    shutil.copy2(os.path.join(wpsdir, "ungrib", "Variable_Tables", "Vtable.ARW"),
+                                 os.path.join(tmpdir, "Vtable"))
+                except IOError:
+                    shutil.copy2(os.path.join(wpsdir, "ungrib", "Variable_Tables", "Vtable.ARW.UPP"),
+                                 os.path.join(tmpdir, "Vtable"))
+
 
                 # run link_grib.csh script
                 cmd = "%s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
