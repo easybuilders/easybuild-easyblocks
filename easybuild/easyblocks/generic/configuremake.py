@@ -34,12 +34,12 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Toon Willems (Ghent University)
 """
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
 
 
-class ConfigureMake(EasyBlock):
+class ConfigureMake(ExtensionEasyBlock):
     """
     Support for building and installing applications with configure/make/make install
     """
@@ -47,7 +47,7 @@ class ConfigureMake(EasyBlock):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to ConfigureMake."""
-        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
@@ -134,3 +134,16 @@ class ConfigureMake(EasyBlock):
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
         return out
+
+    def run(self, *args, **kwargs):
+        """Perform the full configure/build/test/install procedure (only used for extensions)"""
+        if not self.src:
+            raise EasyBuildError("No source found for %s, required for installation. (src: %s)", self.name, self.src)
+
+        kwargs.update({'unpack_src': True})
+        super(ConfigureMake, self).run(*args, **kwargs)
+
+        self.configure_step()
+        self.build_step()
+        self.test_step()
+        self.install_step()
