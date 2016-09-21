@@ -240,11 +240,11 @@ class EB_Molpro(ConfigureMake, Binary):
 
         # Make sure that the launcher text we replace (where this is done) is not
         # the instance of setting LAUNCHER that contains the eval.
-        launchertext = r"^(LAUNCHER\s*=\s*)((?!\"`eval echo \$LAUNCHER` \$MOLPRO_OPTIONS\").)*$"
+        launchertext = r"^(LAUNCHER\s*=)\s*((?!\"`eval echo \$LAUNCHER` \$MOLPRO_OPTIONS\").)*$"
         if self.cfg['parallel_launcher'] is not None:
-            apply_regex_substitutions(molpro_exe, [(launchertext, r'\1 "%s"' % self.cfg['parallel_launcher'])])
+            apply_regex_substitutions(molpro_exe, [(launchertext, r'\1"%s"' % self.cfg['parallel_launcher'])])
         elif self.orig_launcher is not None:
-            apply_regex_substitutions(molpro_exe, [(launchertext, r"\1 %s" % self.orig_launcher)])
+            apply_regex_substitutions(molpro_exe, [(launchertext, r'\1"%s"' % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
             try:
