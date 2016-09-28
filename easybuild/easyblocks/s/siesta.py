@@ -71,11 +71,14 @@ class EB_Siesta(MakeCp):
         cfg_cmd += '--with-blacs="' + os.environ['LIBBLACS'] + '" '
         cfg_cmd += '--with-scalapack="' + os.environ['LIBSCALAPACK'] + '"'
 
-        self.cfg.update('prebuildopts', 'cd Obj && ' + cfg_cmd + ' && ')
+        # make sure packaged lapack is not on generated arch.make
+        sed_cmd = "sed -i 's/COMP_LIBS=dc_lapack.a/COMP_LIBS=/' arch.make"
+
+        self.cfg.update('prebuildopts', 'cd Obj && ' + cfg_cmd + ' && ' + sed_cmd + ' && ')
 
         if self.cfg['with_transiesta']:
             self.cfg.update('buildopts', ' && cd .. && mkdir Obj2 && cd Obj2 && ')
-            self.cfg.update('buildopts', cfg_cmd + ' && make transiesta ')
+            self.cfg.update('buildopts', cfg_cmd + ' && ' + sed_cmd + ' && make transiesta ')
 
         if self.cfg['with_utils']:
             self.cfg.update('buildopts', ' && cd ../Util && sh ./build_all.sh')
