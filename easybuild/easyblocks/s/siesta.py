@@ -46,7 +46,7 @@ class EB_Siesta(MakeCp):
     def extract_step(self):
         """Extract sources."""
         # strip off 'siesta-<version>' part to avoid having everything in a subdirectory
-        self.cfg['unpack_options'] = "--strip-components=1"
+        self.cfg.update('unpack_options', "--strip-components=1")
         super(EB_Siesta, self).extract_step()
 
     @staticmethod
