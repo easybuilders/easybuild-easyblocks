@@ -29,10 +29,13 @@ EasyBuild support for Siesta, implemented as an easyblock
 """
 
 import os
+import shutil
 import easybuild.tools.toolchain as toolchain
+from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.makecp import MakeCp
+from easybuild.tools.filetools import apply_regex_substitutions
 
 
 class EB_Siesta(MakeCp):
@@ -71,19 +74,37 @@ class EB_Siesta(MakeCp):
         cfg_cmd += '--with-blacs="' + os.environ['LIBBLACS'] + '" '
         cfg_cmd += '--with-scalapack="' + os.environ['LIBSCALAPACK'] + '"'
 
-        # make sure packaged lapack is not on generated arch.make
-        sed_cmd = "sed -i 's/COMP_LIBS=dc_lapack.a/COMP_LIBS=/' arch.make"
+        try:
+            os.chdir('Obj')
+        except OSError, err:
+            raise EasyBuildError("Failed to move into build dir: %s", err)
 
-        self.cfg.update('prebuildopts', 'cd Obj && ' + cfg_cmd + ' && ' + sed_cmd + ' && ')
+        run_cmd(cfg_cmd, log_all=True, simple=True, log_output=True)
+
+        # make sure packaged lapack is not on generated arch.make
+        apply_regex_substitutions('arch.make', [('dc_lapack.a', ''), ('libsiestaLAPACK.a', '')])
 
         if self.cfg['with_transiesta']:
-            self.cfg.update('buildopts', ' && cd .. && mkdir Obj2 && cd Obj2 && ')
-            self.cfg.update('buildopts', cfg_cmd + ' && ' + sed_cmd + ' && make transiesta ')
+            try:
+                shutil.copytree('../Obj', '../Obj2')
+            except OSError, err:
+                raise EasyBuildError("Failed to copy build dir: %s", err)
+
+        run_cmd("make", log_all=True, simple=True, log_output=True)
+
+        if self.cfg['with_transiesta']:
+            try:
+                os.chdir('../Obj2')
+            except OSError, err:
+                raise EasyBuildError("Failed to move to transiesta build dir: %s", err)
+            run_cmd("make transiesta", log_all=True, simple=True, log_output=True)
 
         if self.cfg['with_utils']:
-            self.cfg.update('buildopts', ' && cd ../Util && sh ./build_all.sh')
-
-        super(EB_Siesta, self).build_step()
+            try:
+                os.chdir('../Util')
+            except OSError, err:
+                raise EasyBuildError("Failed to move to Util dir: %s", err)
+            run_cmd("./build_all.sh", log_all=True, simple=True, log_output=True)
 
     def install_step(self):
         """Custom install procedure for Siesta."""
