@@ -34,6 +34,7 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Petar Forai (IMP/IMBA)
 @author: Luca Marsella (CSCS)
 @author: Guilherme Peretti-Pezzi (CSCS)
+@author: Joachim Hein (Lund University)
 """
 from distutils.version import LooseVersion
 import fileinput
@@ -166,6 +167,10 @@ class EB_Boost(EasyBlock):
                 bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
                 bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
 
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
+
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
 
@@ -176,12 +181,12 @@ class EB_Boost(EasyBlock):
             run_cmd("./bjam %s" % bjammpioptions, log_all=True, simple=True)
 
             # boost.mpi was built, let's 'install' it now
-            run_cmd("./bjam %s  install" % bjammpioptions, log_all=True, simple=True)
+            run_cmd("./bjam %s  install %s" % (bjammpioptions, paracmd), log_all=True, simple=True)
 
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "./bjam %s install" % bjamoptions
+        cmd = "./bjam %s install %s" % (bjamoptions, paracmd)
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
@@ -215,3 +220,10 @@ class EB_Boost(EasyBlock):
             custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
+        txt = super(EB_Boost, self).make_module_extra()
+        txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
+        return txt
+    
