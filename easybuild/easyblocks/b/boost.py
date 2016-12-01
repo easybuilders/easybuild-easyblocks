@@ -70,6 +70,7 @@ class EB_Boost(EasyBlock):
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
+            'b2': [False, "Use b2 to build Boost", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -99,13 +100,18 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
 
-        # create build directory (Boost doesn't like being built in source dir)
-        try:
-            self.objdir = os.path.join(self.builddir, 'obj')
-            os.mkdir(self.objdir)
-            self.log.debug("Succesfully created directory %s" % self.objdir)
-        except OSError, err:
-            raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
+        if self.cfg['b2']:
+            #  Boost >1.47 b2 creates "stage" directory as build target; No need to create build directory
+            self.objdir = os.path.join(self.builddir, 'stage')
+            pass
+        else:
+            # create build directory (Boost doesn't like being built in source dir)
+            try:
+                self.objdir = os.path.join(self.builddir, 'obj')
+                os.mkdir(self.objdir)
+                self.log.debug("Succesfully created directory %s" % self.objdir)
+            except OSError, err:
+                raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
 
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
@@ -150,12 +156,34 @@ class EB_Boost(EasyBlock):
                     ])
                 else: 
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
+            elif self.cfg['b2']:
+                # use MPI from EB toolchain
+                mpilibs = [os.getenv('EBROOTMPIC'),os.getenv("EBROOTOPENMPI"),os.getenv("EBROOTGOMPI")]
+                if len(mpilibs):
+                    for mpi in mpilibs:
+                        if mpi is not None:
+                            self.log.info('found: MPI libraries from environement: %s'% mpi)
+                            txt += 'using mpi : %s ;\n' % mpi
+                            break
+                else:
+                    raise EasyBuildError("Failed to find MPI in toolchain")
             else:
-                txt = "using mpi : %s ;" % os.getenv("MPICXX")
+                txt = "using mpi : %s ;\n" % os.getenv("MPICXX")
 
             write_file('user-config.jam', txt, append=True)
  
-    def build_step(self):
+    def build_boost_b2(self):
+        """as of Boost 1.47.0, the Boost build tool has changed from bjam t0o b2
+           All cconfiguration should be done in <configure> step. ( bootstrap and user-config.jam)
+        """
+
+        cmd = "./b2 --user-config=user-config.jam"
+        self.log.info('Building Boost with b2; cmd=%s' % cmd )
+        (out, ec) = run_cmd(cmd, log_all=True, log_ok=False, simple=False )
+        if ec == 1: 
+            raise EasyBuildError("Boost built to completion, but not libraries were built. Check your Boost configuration")
+
+    def build_boost_bjam(self):
         """Build Boost with bjam tool."""
 
         bjamoptions = " --prefix=%s" % self.objdir
@@ -189,21 +217,38 @@ class EB_Boost(EasyBlock):
         cmd = "./bjam %s install %s" % (bjamoptions, paracmd)
         run_cmd(cmd, log_all=True, simple=True)
 
+    def build_step(self):
+        """Originally, the Boost build tool was bjam, and as of Boost 1.47.0,
+        the official name of the executable was changed to b2. Boost recommends
+        that all builds use b2. bjam will continue to be the default for Easybuild in order to ensure
+        repeatable builds of Boost.
+        b2 = True must be set in the Boost easyconfig, to enable the new build feature.
+        """
+        if self.cfg['b2']:
+            self.build_boost_b2()
+        else:
+            self.build_boost_bjam()
+
     def install_step(self):
-        """Install Boost by copying file to install dir."""
+        """Install Boost. b2 install installs to prefix. Else by copying file to install dir."""
 
-        self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
-
-        try:
-            for f in os.listdir(self.objdir):
-                src = os.path.join(self.objdir, f)
-                dst = os.path.join(self.installdir, f)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-        except OSError, err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", self.objdir, self.installdir, err)
+        if self.cfg['b2']:
+            cmd = './b2 --user-config=user-config.jam --prefix=%s install' % self.installdir
+            self.log.info('Install with b2; cmd=%s' % cmd )
+            (out, ec) = run_cmd(cmd, log_ok=False, log_all=True )
+        else:
+            self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
+        
+            try:
+                for f in os.listdir(self.objdir):
+                    src = os.path.join(self.objdir, f)
+                    dst = os.path.join(self.installdir, f)
+                    if os.path.isdir(src):
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+            except OSError, err:
+                raise EasyBuildError("Copying %s to installation dir %s failed: %s", self.objdir, self.installdir, err)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
@@ -226,4 +271,3 @@ class EB_Boost(EasyBlock):
         txt = super(EB_Boost, self).make_module_extra()
         txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt
-    
