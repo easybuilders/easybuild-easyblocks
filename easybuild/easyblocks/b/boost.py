@@ -157,16 +157,8 @@ class EB_Boost(EasyBlock):
                 else: 
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
             elif self.cfg['b2']:
-                # use MPI from EB toolchain
-                mpilibs = [os.getenv('EBROOTMPIC'),os.getenv("EBROOTOPENMPI"),os.getenv("EBROOTGOMPI")]
-                if len(mpilibs):
-                    for mpi in mpilibs:
-                        if mpi is not None:
-                            self.log.info('found: MPI libraries from environement: %s'% mpi)
-                            txt += 'using mpi : %s ;\n' % mpi
-                            break
-                else:
-                    raise EasyBuildError("Failed to find MPI in toolchain")
+                # b2 will find MPI libraries; Be sure that your EB toolchain contains MPI support
+                txt = 'using mpi ;\n'
             else:
                 txt = "using mpi : %s ;\n" % os.getenv("MPICXX")
 
