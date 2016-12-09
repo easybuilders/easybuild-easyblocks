@@ -103,7 +103,6 @@ class EB_Boost(EasyBlock):
         if self.cfg['b2']:
             #  Boost >1.47 b2 creates "stage" directory as build target; No need to create build directory
             self.objdir = os.path.join(self.builddir, 'stage')
-            pass
         else:
             # create build directory (Boost doesn't like being built in source dir)
             try:
@@ -165,15 +164,13 @@ class EB_Boost(EasyBlock):
             write_file('user-config.jam', txt, append=True)
  
     def build_boost_b2(self):
-        """as of Boost 1.47.0, the Boost build tool has changed from bjam t0o b2
+        """as of Boost 1.47.0, the Boost build tool has changed from bjam too b2
            All cconfiguration should be done in <configure> step. ( bootstrap and user-config.jam)
         """
 
         cmd = "./b2 --user-config=user-config.jam"
-        self.log.info('Building Boost with b2; cmd=%s' % cmd )
-        (out, ec) = run_cmd(cmd, log_all=True, log_ok=False, simple=False )
-        if ec == 1: 
-            raise EasyBuildError("Boost built to completion, but not libraries were built. Check your Boost configuration")
+        self.log.info('Building Boost with b2; cmd=%s' % cmd)
+        run_cmd(cmd, log_all=True, log_ok=False, simple=False)
 
     def build_boost_bjam(self):
         """Build Boost with bjam tool."""
@@ -226,8 +223,8 @@ class EB_Boost(EasyBlock):
 
         if self.cfg['b2']:
             cmd = './b2 --user-config=user-config.jam --prefix=%s install' % self.installdir
-            self.log.info('Install with b2; cmd=%s' % cmd )
-            (out, ec) = run_cmd(cmd, log_ok=False, log_all=True )
+            self.log.info('Install with b2; cmd=%s' % cmd)
+            (out, ec) = run_cmd(cmd, log_ok=False, log_all=True)
         else:
             self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
         
