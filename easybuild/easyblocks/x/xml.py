@@ -44,9 +44,7 @@ class EB_XML(RPackage):
         libs = os.getenv('LIBS', '')
         zlib = get_software_root('zlib')
 
-        if not zlib:
-            raise EasyBuildError("zlib module not loaded (required)")
-
-        env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
+        if zlib:
+            env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
 
         super(EB_XML, self).install_R_package(cmd, inp)
