@@ -100,10 +100,12 @@ class EB_Python(ConfigureMake):
                 ncurses_static_lib = os.path.join(ncurses, ncurses_libdir, 'libncurses.a')
                 tinfo_static_lib = os.path.join(ncurses, ncurses_libdir, 'libtinfo.a')
 
-                if os.path.isfile(tinfo_static_lib):
-                    readline = "readline readline.c %s %s %s" % (readline_static_lib, ncurses_static_lib, tinfo_static_lib)
-                else:
-                    readline = "readline readline.c %s %s" % (readline_static_lib, ncurses_static_lib)
+                # If ncurses has been built with separate terminfo library,
+                # we need to link libtinfo.a to resolve all symbols
+                if os.path.exists(tinfo_static_lib):
+                    ncurses_static_lib += ' ' + tinfo_static_lib
+                    
+                readline = "readline readline.c %s %s" % (readline_static_lib, ncurses_static_lib)
 
                 for line in fileinput.input(modules_setup_dist, inplace='1', backup='.readline'):
                     line = re.sub(r"^#readline readline.c.*", readline, line)
