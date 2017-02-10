@@ -56,7 +56,7 @@ class EB_GROMACS(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'double_precision': [False, "Build with double precision enabled (-DGMX_DOUBLE=ON)", CUSTOM],
+            'double_precision': [False, "Additional build(s) with double precision enabled (-DGMX_DOUBLE=ON)", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -114,8 +114,8 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
 
-            if self.cfg['double_precision']:
-                self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
+            # at this point force sp build; the DP and MPI builds are done later
+            self.cfg.update('configopts', "-DGMX_DOUBLE=OFF")
 
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
@@ -248,21 +248,63 @@ class EB_GROMACS(CMakeMake):
         if not self.lib_subdir:
             raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
-        # Install a version with the MPI suffix
+        # Build and install a DP version without MPI
+        if self.cfg['double_precision'] :
+            if LooseVersion(self.version) < LooseVersion('4.6'):
+
+                cmd = "make distclean"
+                (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+                self.cfg.update('configopts', "--enable-double --program-suffix={0}".format('_d'))
+                ConfigureMake.configure_step(self)
+
+                super(EB_GROMACS, self).build_step()
+                super(EB_GROMACS, self).install_step()
+
+            else:
+                self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
+
+                # clean up obj dir before reconfiguring
+                shutil.rmtree(os.path.join(self.builddir, 'easybuild_obj'))
+
+                # rebuild/test/install with MPI options
+                super(EB_GROMACS, self).configure_step()
+                super(EB_GROMACS, self).build_step()
+                super(EB_GROMACS, self).test_step()
+                super(EB_GROMACS, self).install_step()
+
+                self.log.info("A full regression test suite is available from the GROMACS web site")
+
+
+        # Build and install version(s) with MPI
         if self.toolchain.options.get('usempi', None):
             if LooseVersion(self.version) < LooseVersion('4.6'):
 
                 cmd = "make distclean"
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
+                # Build and install a SP version with MPI
+                self.cfg['configopts'] = re.sub(r'(--enable-double|--enable-mpi|--program-suffix=[^\s]+)', r'', self.cfg['configopts'])
                 self.cfg.update('configopts', "--enable-mpi --program-suffix={0}".format(self.cfg['mpisuffix']))
                 ConfigureMake.configure_step(self)
 
                 super(EB_GROMACS, self).build_step()
-
                 super(EB_GROMACS, self).install_step()
 
+                # Build and install a DP version with MPI
+                if self.cfg['double_precision']:
+                    cmd = "make distclean"
+                    (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+                    self.cfg.update('configopts', "--enable-double --enable-mpi --program-suffix={0}".format(self.cfg['mpisuffix']+'_d'))
+                    ConfigureMake.configure_step(self)
+
+                    super(EB_GROMACS, self).build_step()
+                    super(EB_GROMACS, self).install_step()
+
             else:
+                # Build and install a DP version with MPI
+                self.cfg['configopts'] = re.sub(r'-DGMX_DOUBLE=ON', r'-DGMX_DOUBLE=OFF', self.cfg['configopts'])
                 self.cfg['configopts'] = re.sub(r'-DGMX_MPI=OFF', r'', self.cfg['configopts'])
 
                 if self.cfg['mpi_numprocs'] == 0:
@@ -283,7 +325,6 @@ class EB_GROMACS(CMakeMake):
                 elif self.cfg['runtest']:
                     raise EasyBuildError("'%s' not found in $PATH", self.cfg['mpiexec'])
 
-
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
                               self.cfg['mpiexec'], self.cfg['mpiexec_numproc_flag'], self.cfg['mpi_numprocs'])
 
@@ -295,6 +336,25 @@ class EB_GROMACS(CMakeMake):
                 super(EB_GROMACS, self).build_step()
                 super(EB_GROMACS, self).test_step()
                 super(EB_GROMACS, self).install_step()
+
+                # Build and install a DP version with MP
+                if self.cfg['double_precision']:
+                    self.cfg['configopts'] = re.sub(r'-DGMX_DOUBLE=OFF', r'-DGMX_DOUBLE=ON', self.cfg['configopts'])
+                    self.cfg['configopts'] = re.sub(r'-DGMX_MPI=OFF', r'', self.cfg['configopts'])
+
+                    self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF")
+
+                    self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
+                                  self.cfg['mpiexec'], self.cfg['mpiexec_numproc_flag'], self.cfg['mpi_numprocs'])
+
+                    # clean up obj dir before reconfiguring
+                    shutil.rmtree(os.path.join(self.builddir, 'easybuild_obj'))
+
+                    # rebuild/test/install with MPI options
+                    super(EB_GROMACS, self).configure_step()
+                    super(EB_GROMACS, self).build_step()
+                    super(EB_GROMACS, self).test_step()
+                    super(EB_GROMACS, self).install_step()
 
                 self.log.info("A full regression test suite is available from the GROMACS web site")
 
@@ -341,19 +401,19 @@ class EB_GROMACS(CMakeMake):
             bins.extend([binary + mpisuff for binary in bins])
             libnames.extend([libname + mpisuff for libname in libnames])
 
-        suff = ''
         # add the _d suffix to the suffix, in case of the double precission
         if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg['configopts'], re.I):
-            suff = '_d'
+            bins.extend([binary + '_d' for binary in bins])
+            libnames.extend([libname + '_d' for libname in libnames])
 
-        libs = ['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames]
+        libs = ['lib%s.%s' % (libname, self.libext) for libname in libnames]
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
             dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
 
         custom_paths = {
-            'files': [os.path.join('bin', b + suff) for b in bins] + [os.path.join(self.lib_subdir, l) for l in libs],
+            'files': [os.path.join('bin', b ) for b in bins] + [os.path.join(self.lib_subdir, l) for l in libs],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
