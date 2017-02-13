@@ -4,7 +4,7 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
@@ -23,111 +23,172 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for Siesta, implemented as an easyblock
+EasyBuild support for building and installing Siesta, implemented as an easyblock
 
-@author: Miguel Dias Costa (National university of Singapore)
+@author: Ake Sandgren (Umea University)
 """
-
 import os
+import re
 import shutil
+import stat
+import tempfile
+
+import easybuild.tools.config as config
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.easyblocks.generic.makecp import MakeCp
-from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import adjust_permissions, mkdir, write_file
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
 
 
-class EB_Siesta(MakeCp):
-    """Support for building and installing Siesta."""
+class EB_Siesta(ConfigureMake):
+    """
+    Support for building/installing Siesta.
+    - avoid parallel build, doesn't work
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for Siesta."""
         super(EB_Siesta, self).__init__(*args, **kwargs)
-        self.build_in_installdir = True
 
-    def extract_step(self):
-        """Extract sources."""
-        # strip off 'siesta-<version>' part to avoid having everything in a subdirectory
-        self.cfg.update('unpack_options', "--strip-components=1")
-        super(EB_Siesta, self).extract_step()
+    def configure_step(self):
+        """
+        Custom configure and build procedure for Siesta.
+        - There are two main builds to do, siesta and transiesta
+        - In addition there are multiple support tools to build
+        """
 
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Define extra options for Siesta."""
-        extra = {
-            'files_to_copy': [[], "List of files or dirs to copy", CUSTOM],
-            'with_transiesta': [True, "Build transiesta", CUSTOM],
-            'with_utils': [True, "Build all utils", CUSTOM],
-            }
-        return MakeCp.extra_options(extra_vars=extra)
+        # Make a temp installdir during the build of the various parts
+        bindir = os.path.join(self.cfg['start_dir'], 'bin')
+        try:
+            mkdir(bindir)
+        except OSError, err:
+            raise EasyBuildError("Failed to create temp installdir %s: %s", bindir, err)
 
-    def build_step(self):
-        """Custom build procedure for Siesta."""
-        cfg_cmd = '../Src/obj_setup.sh && ../Src/configure'
-
-        if self.toolchain.options.get('usempi', None):
-            cfg_cmd += ' --enable-mpi '
-            cfg_cmd += "%(configopts)s" % {
-            'configopts': self.cfg['configopts'],
-}
-
-
+        # change to actual build dir
         try:
             os.chdir('Obj')
         except OSError, err:
-            raise EasyBuildError("Failed to move into build dir: %s", err)
+            raise EasyBuildError("Failed to change to build dir: %s", err)
 
-        run_cmd(cfg_cmd, log_all=True, simple=True, log_output=True)
+        # Populate start_dir with makefiles
+        run_cmd('../Src/obj_setup.sh', log_all=True, simple=True, log_output=True)
 
-        # make sure packaged lapack is not on generated arch.make
-        apply_regex_substitutions('arch.make', [('dc_lapack.a', ''), ('libsiestaLAPACK.a', '')])
+        # MPI?
+        if self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', '--enable-mpi')
 
-        if self.cfg['with_transiesta']:
-            try:
-                shutil.copytree('../Obj', '../Obj2')
-            except OSError, err:
-                raise EasyBuildError("Failed to copy build dir: %s", err)
+        # BLAS and LAPACK
+        self.cfg.update('configopts', '--with-blas="$LIBBLAS"')
+        self.cfg.update('configopts', '--with-lapack="$LIBLAPACK"')
 
-        run_cmd("make", log_all=True, simple=True, log_output=True)
+        # ScaLAPACK (and BLACS)
+        self.cfg.update('configopts', '--with-scalapack="$LIBSCALAPACK"')
+        self.cfg.update('configopts', '--with-blacs="$LIBSCALAPACK"')
 
-        if self.cfg['with_transiesta']:
-            try:
-                os.chdir('../Obj2')
-            except OSError, err:
-                raise EasyBuildError("Failed to move to transiesta build dir: %s", err)
-            run_cmd("make transiesta", log_all=True, simple=True, log_output=True)
+        # NetCDF-Fortran
+        netcdff_loc = get_software_root('NetCDF-Fortran')
+        if netcdff_loc:
+            self.cfg.update('configopts', '--with-netcdf=-lnetcdff')
 
-        if self.cfg['with_utils']:
-            try:
-                os.chdir('../Util')
-            except OSError, err:
-                raise EasyBuildError("Failed to move to Util dir: %s", err)
-            run_cmd("./build_all.sh", log_all=True, simple=True, log_output=True)
+        super(EB_Siesta, self).configure_step(cmd_prefix='../Src/')
+
+        run_cmd('make', log_all=True, simple=True, log_output=True)
+
+        # Put binary in temporary install dir
+        shutil.copy(os.path.join(self.cfg['start_dir'], 'Obj', 'siesta'),
+                    bindir)
+
+        # Make the utils
+        try:
+            os.chdir('../Util')
+        except OSError, err:
+            raise EasyBuildError("Failed to change to Util dir: %s", err)
+
+        # clean_all.sh is missing executable bit...
+        adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
+        run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
+        run_cmd('./build_all.sh', log_all=True, simple=True, log_output=True)
+
+        # Now move all the built utils to the temp installdir
+        expected_utils = [
+            'Eig2DOS/Eig2DOS',
+            'TBTrans/tbtrans',
+            'Vibra/Src/vibra', 'Vibra/Src/fcbuild',
+            'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+            'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
+            'SiestaSubroutine/ProtoNEB/Src/protoNEB',
+            'SiestaSubroutine/FmixMD/Src/para',
+            'SiestaSubroutine/FmixMD/Src/driver',
+            'SiestaSubroutine/FmixMD/Src/simple',
+            'Denchar/Src/denchar',
+            'pdosxml/pdosxml',
+            'WFS/readwfx', 'WFS/wfsnc2wfsx', 'WFS/readwf', 'WFS/wfs2wfsx',
+            'WFS/info_wfsx', 'WFS/wfsx2wfs',
+            'HSX/hs2hsx', 'HSX/hsx2hs',
+            'Optimizer/simplex', 'Optimizer/swarm',
+            'ON/lwf2cdf',
+            'DensityMatrix/dm2cdf', 'DensityMatrix/cdf2dm',
+            'Helpers/get_chem_labels',
+            'Grid/cdf2grid', 'Grid/cdf_laplacian', 'Grid/cdf2xsf',
+            'Grid/grid_rotate', 'Grid/g2c_ng', 'Grid/grid2cdf', 'Grid/grid2val',
+            'Grid/grid2cube',
+            'Bands/new.gnubands', 'Bands/eigfat2plot',
+            'Contrib/APostnikov/xv2xsf', 'Contrib/APostnikov/md2axsf',
+            'Contrib/APostnikov/vib2xsf', 'Contrib/APostnikov/fmpdos',
+            'Contrib/APostnikov/eig2bxsf', 'Contrib/APostnikov/rho2xsf',
+            'JobList/Src/getResults', 'JobList/Src/countJobs',
+            'JobList/Src/runJobs', 'JobList/Src/horizontal',
+            'Projections/orbmol_proj',
+            'COOP/mprop', 'COOP/dm_creator', 'COOP/fat',
+            'TBTrans_rep/tbtrans',
+            'Macroave/Src/macroave',
+            'Gen-basis/ioncat', 'Gen-basis/gen-basis',
+            'STM/simple-stm/plstm', 'STM/ol-stm/Src/stm',
+            'VCA/mixps', 'VCA/fractional',
+        ]
+        for f in expected_utils:
+            shutil.copy(os.path.join(self.cfg['start_dir'], 'Util', f),
+                    bindir)
+
+        # Build transiesta
+        try:
+            os.chdir('../Obj')
+        except OSError, err:
+            raise EasyBuildError("Failed to change back to Obj dir: %s", err)
+
+        run_cmd('make clean', log_all=True, simple=True, log_output=True)
+        run_cmd('make transiesta', log_all=True, simple=True, log_output=True)
+
+        shutil.copy(os.path.join(self.cfg['start_dir'], 'Obj', 'transiesta'),
+                    bindir)
+
+    def build_step(self):
+        """No build step for Siesta."""
+        pass
 
     def install_step(self):
         """Custom install procedure for Siesta."""
 
-        bins = ['Obj/siesta']
+        try:
+            # binary
+            bindir = os.path.join(self.installdir, 'bin')
+            shutil.copytree(os.path.join(self.cfg['start_dir'], 'bin'),
+                        bindir)
 
-        if self.cfg['with_transiesta']:
-            bins.extend(['Obj2/transiesta'])
-
-        self.cfg['files_to_copy'] = [(bins, 'bin')]
-
-        super(EB_Siesta, self).install_step()
+        except OSError, err:
+            raise EasyBuildError("Failed to install Siesta: %s", err)
 
     def sanity_check_step(self):
         """Custom sanity check for Siesta."""
 
-        bins = ['bin/siesta']
-
-        if self.cfg['with_transiesta']:
-            bins.extend(['bin/transiesta'])
-
         custom_paths = {
-            'files': bins,
-            'dirs': []
+            'files': ['bin/siesta', 'bin/transiesta', 'bin/denchar'],
+            'dirs': [],
         }
 
         super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths)
