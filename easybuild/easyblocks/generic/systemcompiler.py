@@ -69,6 +69,8 @@ class SystemCompiler(Bundle):
 
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
+        if compiler_name == 'gcccore':
+            compiler_name = 'gcc'
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
             path_to_compiler = os.path.realpath(path_to_compiler)
