@@ -38,6 +38,29 @@ from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.tools.build_log import EasyBuildError
 
 
+def extract_compiler_version(compiler_name):
+    """Extract compiler version from provided string."""
+    # look for 3-4 digit version number, surrounded by spaces
+    # examples:
+    # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
+    # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
+    if compiler_name == 'gcc':
+        out, _ = run_cmd("gcc --version", simple=False)
+    elif compiler_name in ['icc', 'ifort']:
+        out, _ = run_cmd("%s -V" % compiler_name, simple=False)
+    else:
+        raise EasyBuildError("Unknown compiler %s" % compiler_name)
+
+    version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
+    res = version_regex.search(out)
+    if res:
+        compiler_version = res.group(1)
+        debug_msg = "Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out
+        return compiler_version, debug_msg
+    else:
+        raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
+                             compiler_version, version_regex.pattern, txt)
+
 class SystemCompiler(Bundle):
     """
     Support for generating a module file for the system compiler with specified name.
@@ -48,20 +71,6 @@ class SystemCompiler(Bundle):
     if an actual version is specified, it is checked against the derived version of the system compiler that was found.
     """
 
-    def extract_compiler_version(self, txt):
-        """Extract compiler version from provided string."""
-        # look for 3-4 digit version number, surrounded by spaces
-        # examples:
-        # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
-        # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
-        version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
-        res = version_regex.search(txt)
-        if res:
-            self.compiler_version = res.group(1)
-            self.log.debug("Extracted compiler version '%s' from: %s", self.compiler_version, txt)
-        else:
-            raise EasyBuildError("Failed to extract compiler version using regex pattern '%s' from: %s",
-                                 version_regex.pattern, txt)
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: determine system compiler version and prefix."""
@@ -78,18 +87,16 @@ class SystemCompiler(Bundle):
         else:
             raise EasyBuildError("%s not found in $PATH", compiler_name)
 
-        # Determine compiler version and installation prefix
-        if compiler_name == 'gcc':
-            out, _ = run_cmd("gcc --version", simple=False)
-            self.extract_compiler_version(out)
+        # Determine compiler version
+        self.compiler_version, debug_msg = extract_compiler_version(compiler_name)
+        self.log.debug(debug_msg)
 
+        # Determine installation prefix
+        if compiler_name == 'gcc':
             # strip off 'bin/gcc'
             self.compiler_prefix = os.path.dirname(os.path.dirname(path_to_compiler))
 
         elif compiler_name in ['icc', 'ifort']:
-            out, _ = run_cmd("%s -V" % compiler_name, simple=False)
-            self.extract_compiler_version(out)
-
             intelvars_fn = path_to_compiler + 'vars.sh'
             if os.path.isfile(intelvars_fn):
                 self.log.debug("Trying to determine compiler install prefix from %s", intelvars_fn)
