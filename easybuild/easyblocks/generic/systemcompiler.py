@@ -59,7 +59,7 @@ def extract_compiler_version(compiler_name):
         return compiler_version, debug_msg
     else:
         raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
-                             compiler_version, version_regex.pattern, txt)
+                             compiler_name, version_regex.pattern, txt)
 
 class SystemCompiler(Bundle):
     """
