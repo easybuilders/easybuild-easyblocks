@@ -50,11 +50,8 @@ class SystemMPI(Bundle):
     """
 
     def extract_ompi_setting(self, search, txt):
-        """Extract MPI version from provided string."""
-        # look for 3-4 digit version number, surrounded by spaces
-        # examples:
-        # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
-        # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
+        """Extract a particular OpenMPI setting from provided string."""
+
         version_regex = re.compile(r'^\s+%s: (.*)$' % search, re.M)
         res = version_regex.search(txt)
         if res:
@@ -62,8 +59,8 @@ class SystemMPI(Bundle):
             self.log.debug("Extracted OpenMPI setting %s: '%s' from search text", search, setting)
             return setting
         else:
-            raise EasyBuildError("Failed to extract OpenMPI setting using regex pattern '%s' from: %s",
-                                 version_regex.pattern, txt)
+            raise EasyBuildError("Failed to extract OpenMPI setting '%s' using regex pattern '%s' from: %s",
+                                 search, version_regex.pattern, txt)
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: determine system MPI version, prefix and any associated envvars."""

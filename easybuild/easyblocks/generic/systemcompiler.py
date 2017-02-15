@@ -39,7 +39,7 @@ from easybuild.tools.build_log import EasyBuildError
 
 
 def extract_compiler_version(compiler_name):
-    """Extract compiler version from provided string."""
+    """Extract compiler version for provided compiler_name."""
     # look for 3-4 digit version number, surrounded by spaces
     # examples:
     # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
