@@ -94,7 +94,7 @@ class SystemMPI(Bundle):
             # Extract any OpenMPI environment variables in the current environment and ensure they are added to the
             # final module
             raw_env = os.environ
-            self.mpi_envvars = dict({(k, v) for k, v in raw_env.iteritems() if k.startswith("OMPI_")})
+            self.mpi_envvars = dict((key, value) for key, value in raw_env.iteritems() if key.startswith("OMPI_"))
 
             # Extract the C compiler used underneath OpenMPI, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
