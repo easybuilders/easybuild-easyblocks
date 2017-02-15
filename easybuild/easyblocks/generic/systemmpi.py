@@ -107,14 +107,14 @@ class SystemMPI(Bundle):
                        mpi_name, self.mpi_version, self.mpi_prefix)
 
         # For the version of the underlying C compiler need to explicitly extract (to be certain)
-        self.compiler_version, debug_msg = extract_compiler_version(self.mpi_c_compiler)
+        self.c_compiler_version, debug_msg = extract_compiler_version(self.mpi_c_compiler)
         self.log.debug(debug_msg)
         self.log.debug("Derived compiler/version for C compiler underneath system MPI %s: %s, %s",
-                       mpi_name, self.mpi_c_compiler, self.compiler_version)
+                       mpi_name, self.mpi_c_compiler, self.c_compiler_version)
 
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
-            self.log.info("Found specified version '%s', going with derived compiler version '%s'",
+            self.log.info("Found specified version '%s', going with derived MPI version '%s'",
                           self.cfg['version'], self.mpi_version)
         elif self.cfg['version'] != self.mpi_version:
             raise EasyBuildError("Specified version (%s) does not match version reported by MPI (%s)" %
@@ -149,9 +149,9 @@ class SystemMPI(Bundle):
         c_compiler_name = self.toolchain.COMPILER_CC
         compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
 
-        if self.mpi_c_compiler != c_compiler_name and self.compiler_version != compiler_version:
+        if self.mpi_c_compiler != c_compiler_name and self.c_compiler_version != compiler_version:
             raise EasyBuildError("C compiler for toolchain (%s/%s) and underneath MPI (%s/%s) do not match!",
-                                 c_compiler_name, compiler_version, self.mpi_c_compiler, self.compiler_version)
+                                 c_compiler_name, compiler_version, self.mpi_c_compiler, self.c_compiler_version)
 
         # For module file generation: temporarily set version and installdir to system compiler values
         self.cfg['version'] = self.mpi_version
@@ -176,8 +176,8 @@ class SystemMPI(Bundle):
         # Retrieve module path extensions
         res = super(SystemMPI, self).make_module_extend_modpath()
 
-        # Reset to actual compiler version (e.g., "4.8.2")
-        self.cfg['version'] = self.compiler_version
+        # Reset to actual MPI version (e.g., "4.8.2")
+        self.cfg['version'] = self.mpi_version
         return res
 
     def make_module_extra(self):
