@@ -146,7 +146,13 @@ class SystemCompiler(Bundle):
         """
         A dictionary of possible directories to look for.  Return empty dict for a system compiler.
         """
-        return {}
+        if self.cfg['name'] in ['icc', 'ifort']:
+            # TODO Need some extra directories for Intel compilers, assuming 64bit here
+
+        else:
+            return_dict = {}
+
+        return return_dict
 
     def make_module_step(self, fake=False):
         """
