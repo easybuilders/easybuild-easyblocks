@@ -103,34 +103,32 @@ class SystemMPI(Bundle):
         elif mpi_name == 'impi':
             # Extract the version of IntelMPI
             # The prefix in the the mpiicc script can be used to extract the explicit version
-            contents_of_mpiicc, _ = read_file(path_to_mpi_c_wrapper)
+            contents_of_mpiicc = read_file(path_to_mpi_c_wrapper)
             prefix_regex = re.compile(r'(?<=compilers_and_libraries_)(.*)(?=/linux/mpi)', re.M)
-            self.mpi_version = prefix_regex.search(contents_of_mpiicc)
+            self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1)
             if self.mpi_version is not None:
                 self.log.info("Found Intel MPI version %s for system MPI" % self.mpi_version)
             else:
                 raise EasyBuildError("No version found for system Intel MPI")
 
             # Extract the installation prefix, if I_MPI_ROOT is defined, let's use that
-            if os.environ['I_MPI_ROOT']:
+            if os.environ.get('I_MPI_ROOT'):
                 self.mpi_prefix = os.environ['I_MPI_ROOT']
             else:
                 # Else just go up two directories from where mpiicc is found
-                self.mpi_prefix = os.path.dirname(os.path.dirname(mpi_c_wrapper))
-
-            if not os.path.exists(self.mpi_prefix):
-                raise EasyBuildError("Path derived for Intel MPI (%s) does not exist!", self.mpi_prefix)
-
+                self.mpi_prefix = os.path.dirname(os.path.dirname(path_to_mpi_c_wrapper))
 
             # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
             # final module
             self.mpi_envvars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("I_MPI_"))
-            self.mpi_envvars += dict((key, value) for key, value in os.environ.iteritems() if key.startswith("MPICH_"))
-            self.mpi_envvars += dict((key, value) for key, value in os.environ.iteritems()
-                                     if key.startswith("MPI") and key.endswith("PROFILE"))
+            self.mpi_envvars.update(dict((key, value) for key, value in os.environ.iteritems() if key.startswith("MPICH_")))
+            self.mpi_envvars.update(
+                dict((key, value) for key, value in os.environ.iteritems()
+                     if key.startswith("MPI") and key.endswith("PROFILE"))
+            )
 
             # Extract the C compiler used underneath Intel MPI
-            compile_info, _ = run_cmd("%s -compile-info", simple=False)
+            compile_info, _ = run_cmd("%s -compile-info" % mpi_c_wrapper, simple=False)
             self.mpi_c_compiler = compile_info.split(' ', 1)[0]
 
         else:
