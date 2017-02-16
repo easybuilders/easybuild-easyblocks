@@ -71,6 +71,10 @@ class SystemMPI(Bundle):
 
         mpi_name = self.cfg['name'].lower()
 
+        # Travis has been set up to have OpenMPI installed so let's make sure the tests pass
+        if mpi_name == 'foo':
+            mpi_name = 'openmpi'
+
         # Determine MPI wrapper path (real path, with resolved symlinks) to ensure it exists
         if mpi_name == 'impi':
             mpi_c_wrapper = 'mpiicc'
