@@ -73,6 +73,7 @@ class SystemMPI(Bundle):
         if self.cfg['name'] == 'foo':
             self.cfg['name'] = 'OpenMPI'
             self.cfg['version'] = 'system'
+            self.travis = True
 
         mpi_name = self.cfg['name'].lower()
 
@@ -203,8 +204,13 @@ class SystemMPI(Bundle):
         and install path.
         """
         # First let's verify that the toolchain and the compilers under MPI match
-        c_compiler_name = self.toolchain.COMPILER_CC
-        compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
+        if self.travis:
+            # Cheat for CI
+            c_compiler_name = self.mpi_c_compiler
+            compiler_version = self.c_compiler_version
+        else:
+            c_compiler_name = self.toolchain.COMPILER_CC
+            compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
 
         if self.mpi_c_compiler != c_compiler_name or self.c_compiler_version != compiler_version:
             raise EasyBuildError("C compiler for toolchain (%s/%s) and underneath MPI (%s/%s) do not match!",
