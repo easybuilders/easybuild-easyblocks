@@ -30,6 +30,7 @@ EasyBuild support for using (already installed/existing) system compiler instead
 """
 import os
 import re
+from vsc.utils import fancylogger
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.tools.filetools import read_file, which
@@ -37,6 +38,7 @@ from easybuild.tools.run import run_cmd
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.tools.build_log import EasyBuildError
 
+_log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
 
 def extract_compiler_version(compiler_name):
     """Extract compiler version for provided compiler_name."""
@@ -55,11 +57,12 @@ def extract_compiler_version(compiler_name):
     res = version_regex.search(out)
     if res:
         compiler_version = res.group(1)
-        debug_msg = "Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out
-        return compiler_version, debug_msg
+        _log.debug("Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out)
     else:
         raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
                              compiler_name, version_regex.pattern, txt)
+
+    return compiler_version
 
 class SystemCompiler(Bundle):
     """
@@ -88,8 +91,7 @@ class SystemCompiler(Bundle):
             raise EasyBuildError("%s not found in $PATH", compiler_name)
 
         # Determine compiler version
-        self.compiler_version, debug_msg = extract_compiler_version(compiler_name)
-        self.log.debug(debug_msg)
+        self.compiler_version = extract_compiler_version(compiler_name)
 
         # Determine installation prefix
         if compiler_name == 'gcc':
