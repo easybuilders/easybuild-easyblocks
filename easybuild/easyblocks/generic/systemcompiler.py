@@ -148,7 +148,7 @@ class SystemCompiler(Bundle):
         """
         if self.cfg['name'] in ['icc', 'ifort']:
             # TODO Need some extra directories for Intel compilers, assuming 64bit here
-
+            pass
         else:
             return_dict = {}
 
