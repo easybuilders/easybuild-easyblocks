@@ -99,9 +99,36 @@ class SystemMPI(Bundle):
             # Extract the C compiler used underneath OpenMPI, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
 
-        # TODO :Add support for impi
+        elif mpi_name == 'impi':
+            # Extract the version of IntelMPI
+            # The prefix in the the mpiicc script can be used to extract the explicit version
+            contents_of_mpiicc, _ = read_file(path_to_mpi_c_wrapper)
+            prefix_regex = re.compile(r'(?<=compilers_and_libraries_)(.*)(?=/linux/mpi)', re.M)
+            self.mpi_version = prefix_regex.search(contents_of_mpiicc)
+
+            # Extract the installation prefix
+            # If I_MPI_ROOT is defined, let's use that
+            raw_env = os.environ
+            if raw_env['I_MPI_ROOT']:
+                self.mpi_prefix = raw_env['I_MPI_ROOT']
+            else:
+                # Else just go up two directories from where mpiicc is found
+                self.mpi_prefix = os.path.dirname(os.path.dirname(mpi_c_wrapper))
+
+            # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
+            # final module
+            raw_env = os.environ
+            self.mpi_envvars = dict((key, value) for key, value in raw_env.iteritems() if key.startswith("I_MPI_"))
+            self.mpi_envvars += dict((key, value) for key, value in raw_env.iteritems() if key.startswith("MPICH_"))
+            self.mpi_envvars += dict((key, value) for key, value in raw_env.iteritems()
+                                     if key.startswith("MPI") and key.endswith("PROFILE"))
+
+            # Extract the C compiler used underneath OpenMPI
+            compile_info, _ = run_cmd("%s -compile-info", simple=False)
+            self.mpi_c_compiler = compile_info.group(0)
+
         else:
-            raise EasyBuildError("Unknown system MPI implementation %s", mpi_name)
+            raise EasyBuildError("Unrecognised system MPI implementation %s", mpi_name)
 
         self.log.debug("Derived version/install prefix for system MPI %s: %s, %s",
                        mpi_name, self.mpi_version, self.mpi_prefix)
@@ -131,14 +158,26 @@ class SystemMPI(Bundle):
         self.orig_installdir = self.installdir
 
     def make_installdir(self, dontcreate=None):
-        """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
+        """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
         pass
 
     def make_module_req_guess(self):
         """
-        A dictionary of possible directories to look for.  Return empty dict for a system compiler.
+        A dictionary of possible directories to look for.  Return empty dict appropriate dict for system MPI.
         """
-        return {}
+        if self.cfg['name'] ==  "impi":
+            # Need some extra directories for Intel MPI, assuming 64bit here
+            lib_dirs = ['lib/em64t', 'lib64']
+            include_dirs = ['include64']
+            return {
+                'PATH': ['bin/intel64', 'bin64'],
+                'LD_LIBRARY_PATH': lib_dirs,
+                'LIBRARY_PATH': lib_dirs,
+                'CPATH': include_dirs,
+                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
+            }
+        else:
+            return{}
 
     def make_module_step(self, fake=False):
         """
