@@ -115,8 +115,9 @@ class SystemMPI(Bundle):
             if os.environ.get('I_MPI_ROOT'):
                 self.mpi_prefix = os.environ['I_MPI_ROOT']
             else:
-                # Else just go up two directories from where mpiicc is found
-                self.mpi_prefix = os.path.dirname(os.path.dirname(path_to_mpi_c_wrapper))
+                # Else just go up three directories from where mpiicc is found
+                # (it's 3 because bin64 is a symlink to intel64/bin and we are assuming 64 bit)
+                self.mpi_prefix = os.path.dirname(os.path.dirname(os.path.dirname(path_to_mpi_c_wrapper)))
 
             # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
             # final module
