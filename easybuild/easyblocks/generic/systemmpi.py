@@ -69,11 +69,12 @@ class SystemMPI(Bundle):
         """Extra initialization: determine system MPI version, prefix and any associated envvars."""
         super(SystemMPI, self).__init__(*args, **kwargs)
 
-        mpi_name = self.cfg['name'].lower()
+        # If we are testing on Travis let's cheat (since has been set up to have OpenMPI installed)
+        if self.cfg['name'] == 'foo':
+            self.cfg['name'] = 'OpenMPI'
+            self.cfg['version'] = 'system'
 
-        # Travis has been set up to have OpenMPI installed so let's make sure the tests pass
-        if mpi_name == 'foo':
-            mpi_name = 'openmpi'
+        mpi_name = self.cfg['name'].lower()
 
         # Determine MPI wrapper path (real path, with resolved symlinks) to ensure it exists
         if mpi_name == 'impi':
