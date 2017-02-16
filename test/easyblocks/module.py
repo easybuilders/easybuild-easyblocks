@@ -315,6 +315,10 @@ def suite():
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
             exec("def innertest(self): template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock)
+        elif os.path.basename(easyblock) == 'systemmpi.py':
+            # use OpenMPI as name when testing SystemCompiler easyblock
+            exec("def innertest(self): template_module_only_test(self, '%s', name='OpenMPI', version='system')" %
+                 easyblock)
         elif os.path.basename(easyblock) == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
