@@ -63,8 +63,7 @@ class InitTest(TestCase):
     set_tmpdir()
     del eb_go
 
-    def writeEC(self, easyblock, name='foo', version='1.3.2', toolchain_name='dummy', toolchain_version='dummy',
-                extratxt=''):
+    def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt=''):
         """ create temporary easyconfig file """
         txt = '\n'.join([
             'easyblock = "%s"',
@@ -72,7 +71,7 @@ class InitTest(TestCase):
             'version = "%s"' % version,
             'homepage = "http://example.com"',
             'description = "Dummy easyconfig file."',
-            'toolchain = {"name": "%s", "version": "%s"}' % (toolchain_name, toolchain_version),
+            'toolchain = {"name": "dummy", "version": "dummy"}',
             'sources = []',
             extratxt,
         ])
@@ -187,8 +186,7 @@ def suite():
             exec("def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock)
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemCompiler easyblock
-            exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system', "
-                 "toolchain_name='GCC', toolchain_version='system')" % easyblock)
+            exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock)
         else:
             exec("def innertest(self): template_init_test(self, '%s')" % easyblock)
 

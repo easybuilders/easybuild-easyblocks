@@ -199,7 +199,14 @@ class SystemMPI(Bundle):
         """
         # First let's verify that the toolchain and the compilers under MPI match
         c_compiler_name = self.toolchain.COMPILER_CC
-        compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
+        if c_compiler_name == 'DUMMYCC':
+            # If someone is using dummy as the MPI toolchain lets assume that gcc is the compiler underneath MPI
+            c_compiler_name = 'gcc'
+            # Also need to fake the compiler version
+            compiler_version = self.c_compiler_version
+            self.log.info("Found dummy toolchain so assuming GCC as compiler underneath MPI and faking the version")
+        else:
+            compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
 
         if self.mpi_c_compiler != c_compiler_name or self.c_compiler_version != compiler_version:
             raise EasyBuildError("C compiler for toolchain (%s/%s) and underneath MPI (%s/%s) do not match!",
