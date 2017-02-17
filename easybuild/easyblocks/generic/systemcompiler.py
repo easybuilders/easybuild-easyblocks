@@ -33,9 +33,12 @@ import re
 from vsc.utils import fancylogger
 
 from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.easyblocks.g.gcc import EB_GCC
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 
 _log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
@@ -60,11 +63,11 @@ def extract_compiler_version(compiler_name):
         _log.debug("Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out)
     else:
         raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
-                             compiler_name, version_regex.pattern, txt)
+                             compiler_name, version_regex.pattern, out)
 
     return compiler_version
 
-class SystemCompiler(Bundle):
+class SystemCompiler(EB_GCC, IntelBase, Bundle):
     """
     Support for generating a module file for the system compiler with specified name.
 
@@ -74,6 +77,18 @@ class SystemCompiler(Bundle):
     if an actual version is specified, it is checked against the derived version of the system compiler that was found.
     """
 
+    @staticmethod
+    def extra_options():
+        # Gather extra_vars from inherited classes
+        extra_vars = IntelBase.extra_options()
+        extra_vars.update(EB_GCC.extra_options())
+        extra_vars.update(Bundle.extra_options())
+        # Add an option to add all module path extensions to the resultant easyconfig
+        # This is useful if you are importing a compiler from a non-default path
+        extra_vars.update({
+            'add_path_information': [False, "Add known path extensions for the compiler to the final module", CUSTOM],
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: determine system compiler version and prefix."""
@@ -138,21 +153,40 @@ class SystemCompiler(Bundle):
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
+    def prepare_step(self):
+        """Do nothing."""
+        pass
+
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
         pass
 
+    def configure_step(self):
+        """Do nothing."""
+        pass
+
+    def build_step(self):
+        """Do nothing."""
+        pass
+
+    def install_step(self):
+        """Do nothing."""
+        pass
+
     def make_module_req_guess(self):
         """
-        A dictionary of possible directories to look for.  Return empty dict for a system compiler.
+        A dictionary of possible directories to look for.  Return known dict for the system compiler.
         """
-        if self.cfg['name'] in ['icc', 'ifort']:
-            # TODO Need some extra directories for Intel compilers, assuming 64bit here
-
+        if self.cfg['add_path_information']:
+            if self.cfg['name'] in ['GCC','GCCcore']:
+                guesses = EB_GCC.make_module_req_guess(self)
+            elif self.cfg['name'] in ['icc', 'ifort']:
+                guesses = IntelBase.make_module_req_guess(self)
+            else:
+                raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
         else:
-            return_dict = {}
-
-        return return_dict
+            guesses = {}
+        return guesses
 
     def make_module_step(self, fake=False):
         """
@@ -185,3 +219,33 @@ class SystemCompiler(Bundle):
         # Reset to actual compiler version (e.g., "4.8.2")
         self.cfg['version'] = self.compiler_version
         return res
+
+    def make_module_extra(self):
+        """Add any additional module text."""
+        if self.cfg['add_path_information']:
+            if self.cfg['name'] in ['GCC','GCCcore']:
+                extras = EB_GCC.make_module_extra(self)
+            elif self.cfg['name'] in ['icc', 'ifort']:
+                extras = IntelBase.make_module_extra(self)
+            else:
+                raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
+        else:
+            extras= Bundle.make_module_extra(self)
+        return extras
+
+    def sanity_check_step(self, *args, **kwargs):
+        """
+        Nothing is being installed, so just being able to load the (fake) module is sufficient
+        """
+        self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
+        fake_mod_data = self.load_fake_module(purge=True)
+        self.log.debug("Cleaning up after testing loading of module")
+        self.clean_up_fake_module(fake_mod_data)
+
+    def cleanup_step(self):
+        """Do nothing."""
+        pass
+
+    def permissions_step(self):
+        """Do nothing."""
+        pass
