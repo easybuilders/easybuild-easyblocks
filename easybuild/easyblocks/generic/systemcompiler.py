@@ -129,10 +129,16 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
             else:
                 # strip off 'bin/intel*/icc'
                 self.compiler_prefix = os.path.dirname(os.path.dirname(os.path.dirname(path_to_compiler)))
+            # For versions 2016+ of Intel compilers they changed the installation path
+            if self.compiler_version.split('.')[0] >= 2016:
+                self.compiler_prefix = os.path.dirname(os.path.dirname(self.compiler_prefix))
 
         else:
             raise EasyBuildError("Unknown system compiler %s" % self.cfg['name'])
 
+        if not os.path.exists(self.compiler_prefix):
+            raise EasyBuildError("Path derived for system compiler (%s) does not exist: %s!",
+                                 compiler_name, self.compiler_prefix)
         self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
                        compiler_name, self.compiler_version, self.compiler_prefix)
 
