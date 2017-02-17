@@ -216,7 +216,7 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
 
     def make_module_req_guess(self):
         """
-        A dictionary of possible directories to look for.  Return known dict for the system compiler.
+        A dictionary of possible directories to look for.  Return known dict for the system MPI.
         """
         if self.cfg['add_path_information']:
             if self.cfg['name'] in ['OpenMPI']:
