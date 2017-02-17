@@ -172,8 +172,18 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
         self.orig_installdir = self.installdir
 
     def prepare_step(self):
-        """Do the bundle prepare step to ensure any deps are loaded."""
-        Bundle.prepare_step(self)
+        """Do the bundle prepare step to ensure any deps are loaded at a minimum."""
+        if self.cfg['add_path_information']:
+            if self.cfg['name'] in ['GCC', 'GCCcore']:
+                EB_GCC.prepare_step(self)
+            elif self.cfg['name'] in ['icc']:
+                EB_icc.prepare_step(self)
+            elif self.cfg['name'] in ['ifort']:
+                EB_ifort.prepare_step(self)
+            else:
+                raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
+        else:
+            Bundle.prepare_step(self)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
