@@ -136,6 +136,11 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
         self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
                        compiler_name, self.compiler_version, self.compiler_prefix)
 
+        if self.compiler_prefix in ['/usr']:
+            # Force off adding paths to module since unloading such a module would be a shell killer
+            self.cfg['add_path_information'] = False
+            self.log.info("Disabling option 'add_path_information' since installation prefix is %s",
+                          self.compiler_prefix)
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
             self.log.info("Found specified version '%s', going with derived compiler version '%s'",
@@ -155,8 +160,8 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
         self.orig_installdir = self.installdir
 
     def prepare_step(self):
-        """Do nothing."""
-        pass
+        """Do the bundle prepare step to ensure any deps are loaded."""
+        Bundle.prepare_step(self)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""

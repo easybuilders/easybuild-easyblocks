@@ -32,16 +32,19 @@ import re
 from vsc.utils import fancylogger
 
 from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
+from easybuild.easyblocks.i.impi import EB_impi
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 
 _log = fancylogger.getLogger('easyblocks.generic.systemmpi')
 
-class SystemMPI(Bundle):
+class SystemMPI(ConfigureMake, EB_impi, Bundle):
     """
     Support for generating a module file for the system mpi with specified name.
 
@@ -50,6 +53,20 @@ class SystemMPI(Bundle):
     Specifying 'system' as a version leads to using the derived mpi version in the generated module;
     if an actual version is specified, it is checked against the derived version of the system mpi that was found.
     """
+
+    @staticmethod
+    def extra_options():
+        # Gather extra_vars from inherited classes
+        extra_vars = ConfigureMake.extra_options()
+        extra_vars.update(EB_impi.extra_options())
+        extra_vars.update(Bundle.extra_options())
+        # Add an option to add all module path extensions to the resultant easyconfig
+        # This is useful if you are importing the MPI installation from a non-default path
+        extra_vars.update({
+            'add_path_information': [False, "Add known path extensions and environment variables for the MPI "
+                                            "installation to the final module", CUSTOM],
+        })
+        return extra_vars
 
     def extract_ompi_setting(self, pattern, txt):
         """Extract a particular OpenMPI setting from provided string."""
@@ -139,6 +156,12 @@ class SystemMPI(Bundle):
         if not os.path.exists(self.mpi_prefix):
             raise EasyBuildError("Path derived for system MPI (%s) does not exist: %s!", mpi_name, self.mpi_prefix)
 
+        if self.mpi_prefix in ['/usr']:
+            # Force off adding paths to module since unloading such a module would be a shell killer
+            self.cfg['add_path_information'] = False
+            self.log.info("Disabling option 'add_path_information' since installation prefix is %s",
+                          self.mpi_prefix)
+
         self.log.debug("Derived version/install prefix for system MPI %s: %s, %s",
                        mpi_name, self.mpi_version, self.mpi_prefix)
 
@@ -167,29 +190,44 @@ class SystemMPI(Bundle):
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
+    def prepare_step(self):
+        """Do the bundle prepare step to ensure any deps are loaded."""
+        Bundle.prepare_step(self)
+
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
         pass
 
+    def configure_step(self):
+        """Do nothing."""
+        pass
+
+    def build_step(self):
+        """Do nothing."""
+        pass
+
+    def install_step(self):
+        """Do nothing."""
+        pass
+
+    def post_install_step(self):
+        """Do nothing."""
+        pass
+
     def make_module_req_guess(self):
         """
-        A dictionary of possible directories to look for.  Return appropriate dict for system MPI.
+        A dictionary of possible directories to look for.  Return known dict for the system compiler.
         """
-        if self.cfg['name'] ==  "impi":
-            # Need some extra directories for Intel MPI, assuming 64bit here
-            lib_dirs = ['lib/em64t', 'lib64']
-            include_dirs = ['include64']
-            return_dict = {
-                'PATH': ['bin/intel64', 'bin64'],
-                'LD_LIBRARY_PATH': lib_dirs,
-                'LIBRARY_PATH': lib_dirs,
-                'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
-            }
+        if self.cfg['add_path_information']:
+            if self.cfg['name'] in ['OpenMPI']:
+                guesses = ConfigureMake.make_module_req_guess(self)
+            elif self.cfg['name'] in ['impi']:
+                guesses = EB_impi.make_module_req_guess(self)
+            else:
+                raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
         else:
-            return_dict = {}
-
-        return return_dict
+            guesses = {}
+        return guesses
 
     def make_module_step(self, fake=False):
         """
@@ -202,14 +240,14 @@ class SystemMPI(Bundle):
             # If someone is using dummy as the MPI toolchain lets assume that gcc is the compiler underneath MPI
             c_compiler_name = 'gcc'
             # Also need to fake the compiler version
-            compiler_version = self.c_compiler_version
+            c_compiler_version = self.c_compiler_version
             self.log.info("Found dummy toolchain so assuming GCC as compiler underneath MPI and faking the version")
         else:
-            compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
+            c_compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
 
-        if self.mpi_c_compiler != c_compiler_name or self.c_compiler_version != compiler_version:
+        if self.mpi_c_compiler != c_compiler_name or self.c_compiler_version != c_compiler_version:
             raise EasyBuildError("C compiler for toolchain (%s/%s) and underneath MPI (%s/%s) do not match!",
-                                 c_compiler_name, compiler_version, self.mpi_c_compiler, self.c_compiler_version)
+                                 c_compiler_name, c_compiler_version, self.mpi_c_compiler, self.c_compiler_version)
 
         # For module file generation: temporarily set version and installdir to system compiler values
         self.cfg['version'] = self.mpi_version
@@ -228,7 +266,7 @@ class SystemMPI(Bundle):
         Custom prepend-path statements for extending $MODULEPATH: use version specified in easyconfig file (e.g.,
         "system") rather than the actual version (e.g., "4.8.2").
         """
-        # temporarly set switch back to version specified in easyconfig file (e.g., "system")
+        # temporarily set switch back to version specified in easyconfig file (e.g., "system")
         self.cfg['version'] = self.orig_version
 
         # Retrieve module path extensions
@@ -239,12 +277,35 @@ class SystemMPI(Bundle):
         return res
 
     def make_module_extra(self):
-        """Add all the extra environment variables we found."""
-        txt = super(SystemMPI, self).make_module_extra()
+        """Add any additional module text."""
+        if self.cfg['add_path_information']:
+            if self.cfg['name'] in ['OpenMPI']:
+                extras = ConfigureMake.make_module_extra(self)
+            elif self.cfg['name'] in ['impi']:
+                extras = EB_impi.make_module_extra(self)
+            else:
+                raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
+            # include environment variables defined for MPI implementation
+            for key, val in sorted(self.mpi_envvars.items()):
+                extras += self.module_generator.set_environment(key, val)
+            self.log.debug("make_module_extra added this: %s" % extras)
+        else:
+            extras= Bundle.make_module_extra(self)
+        return extras
 
-        # include environment variables defined for MPI implementation
-        for key, val in sorted(self.mpi_envvars.items()):
-            txt += self.module_generator.set_environment(key, val)
+    def sanity_check_step(self, *args, **kwargs):
+        """
+        Nothing is being installed, so just being able to load the (fake) module is sufficient
+        """
+        self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
+        fake_mod_data = self.load_fake_module(purge=True)
+        self.log.debug("Cleaning up after testing loading of module")
+        self.clean_up_fake_module(fake_mod_data)
 
-        self.log.debug("make_module_extra added this: %s" % txt)
-        return txt
+    def cleanup_step(self):
+        """Do nothing."""
+        pass
+
+    def permissions_step(self):
+        """Do nothing."""
+        pass
