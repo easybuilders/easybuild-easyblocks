@@ -34,7 +34,8 @@ import re
 from vsc.utils import fancylogger
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.easyblocks.i.icc import EB_icc
+from easybuild.easyblocks.i.ifort import EB_ifort
 from easybuild.easyblocks.g.gcc import EB_GCC
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd
@@ -58,9 +59,10 @@ def extract_compiler_version(compiler_name):
     elif compiler_name in ['icc', 'ifort']:
         # A fully resolved icc/ifort (without symlinks) includes the version in the path
         # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
-        out = (os.path.realpath(which(compiler_name)).split("/")).split("_")
-        # Match the last incidence since we don't know what might be in the path
-        compiler_version = version_regex.findall(out)[-1]
+        print os.path.realpath(which(compiler_name))
+        # Match the last incidence of _ since we don't know what might be in the path, then split it up
+        out = (os.path.realpath(which(compiler_name)).split("_")[-1]).split("/")
+        compiler_version = out[0]
     else:
         raise EasyBuildError("Unknown compiler %s" % compiler_name)
 
@@ -72,7 +74,7 @@ def extract_compiler_version(compiler_name):
 
     return compiler_version
 
-class SystemCompiler(EB_GCC, IntelBase, Bundle):
+class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
     """
     Support for generating a module file for the system compiler with specified name.
 
@@ -85,7 +87,8 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
     @staticmethod
     def extra_options():
         # Gather extra_vars from inherited classes
-        extra_vars = IntelBase.extra_options()
+        extra_vars = EB_icc.extra_options()
+        extra_vars.update(EB_ifort.extra_options())
         extra_vars.update(EB_GCC.extra_options())
         extra_vars.update(Bundle.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
@@ -196,8 +199,10 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
         if self.cfg['add_path_information']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 guesses = EB_GCC.make_module_req_guess(self)
-            elif self.cfg['name'] in ['icc', 'ifort']:
-                guesses = IntelBase.make_module_req_guess(self)
+            elif self.cfg['name'] in ['icc']:
+                guesses = EB_icc.make_module_req_guess(self)
+            elif self.cfg['name'] in ['ifort']:
+                guesses = EB_ifort.make_module_req_guess(self)
             else:
                 raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
         else:
@@ -241,8 +246,10 @@ class SystemCompiler(EB_GCC, IntelBase, Bundle):
         if self.cfg['add_path_information']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 extras = EB_GCC.make_module_extra(self)
-            elif self.cfg['name'] in ['icc', 'ifort']:
-                extras = IntelBase.make_module_extra(self)
+            elif self.cfg['name'] in ['icc']:
+                guesses = EB_icc.make_module_extra(self)
+            elif self.cfg['name'] in ['ifort']:
+                guesses = EB_ifort.make_module_extra(self)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
         else:
