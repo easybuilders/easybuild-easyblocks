@@ -27,6 +27,7 @@ EasyBuild support for using (already installed/existing) system compiler instead
 
 @author Bernd Mohr (Juelich Supercomputing Centre)
 @author Kenneth Hoste (Ghent University)
+@author Alan O'Cais (Juelich Supercomputing Centre)
 """
 import os
 import re
