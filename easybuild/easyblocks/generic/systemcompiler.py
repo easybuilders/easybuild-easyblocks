@@ -50,17 +50,21 @@ def extract_compiler_version(compiler_name):
     # examples:
     # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
     # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
+    version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
     if compiler_name == 'gcc':
         out, _ = run_cmd("gcc --version", simple=False)
+        res = version_regex.search(out)
+        compiler_version = res.group(1)
     elif compiler_name in ['icc', 'ifort']:
-        out, _ = run_cmd("%s -V" % compiler_name, simple=False)
+        # A fully resolved icc/ifort (without symlinks) includes the version in the path
+        # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
+        out = (os.path.realpath(which(compiler_name)).split("/")).split("_")
+        # Match the last incidence since we don't know what might be in the path
+        compiler_version = version_regex.findall(out)[-1]
     else:
         raise EasyBuildError("Unknown compiler %s" % compiler_name)
 
-    version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
-    res = version_regex.search(out)
-    if res:
-        compiler_version = res.group(1)
+    if compiler_version:
         _log.debug("Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out)
     else:
         raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
