@@ -59,7 +59,6 @@ def extract_compiler_version(compiler_name):
     elif compiler_name in ['icc', 'ifort']:
         # A fully resolved icc/ifort (without symlinks) includes the version in the path
         # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
-        print os.path.realpath(which(compiler_name))
         # Match the last incidence of _ since we don't know what might be in the path, then split it up
         out = (os.path.realpath(which(compiler_name)).split("_")[-1]).split("/")
         compiler_version = out[0]
@@ -247,9 +246,9 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
             if self.cfg['name'] in ['GCC','GCCcore']:
                 extras = EB_GCC.make_module_extra(self)
             elif self.cfg['name'] in ['icc']:
-                guesses = EB_icc.make_module_extra(self)
+                extras = EB_icc.make_module_extra(self)
             elif self.cfg['name'] in ['ifort']:
-                guesses = EB_ifort.make_module_extra(self)
+                extras = EB_ifort.make_module_extra(self)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
         else:
