@@ -73,7 +73,7 @@ class EB_Clang(CMakeMake):
     def extra_options():
         extra_vars = {
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [None, "Build targets for LLVM (default: build host architecture). Possible values: " +
+            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
