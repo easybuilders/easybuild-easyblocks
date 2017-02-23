@@ -122,7 +122,13 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
             # The prefix in the the mpiicc script can be used to extract the explicit version
             contents_of_mpiicc = read_file(path_to_mpi_c_wrapper)
             prefix_regex = re.compile(r'(?<=compilers_and_libraries_)(.*)(?=/linux/mpi)', re.M)
-            self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1)
+            if not prefix_regex.search(contents_of_mpiicc):
+                # We've got an old version of iimpi:
+                prefix_regex = re.compile(r'^prefix=(.*)$', re.M)
+                # In this case the version is the last part of the prefix
+                self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1).split("/")[-1]
+            else:
+                self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1)
             if self.mpi_version is not None:
                 self.log.info("Found Intel MPI version %s for system MPI" % self.mpi_version)
             else:
