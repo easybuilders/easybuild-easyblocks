@@ -269,9 +269,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
         else:
             # Need some additional variables for the Bundle make_module_extra to work
-            self.altroot = None
-            self.altversion = None
-            extras= Bundle.make_module_extra(self)
+            extras= super(SystemCompiler, self).make_module_extra(altroot=self.altroot, altversion=self.altversion)
         return extras
 
     def sanity_check_step(self, *args, **kwargs):
