@@ -94,11 +94,11 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
 
     @staticmethod
     def extra_options():
-        # Gather extra_vars from inherited classes
-        extra_vars = Bundle.extra_options()
-        extra_vars.update(EB_GCC.extra_options())
+        # Gather extra_vars from inherited classes, order matters here to make this work without problems in __init__
+        extra_vars = EB_GCC.extra_options()
         extra_vars.update(EB_icc.extra_options())
         extra_vars.update(EB_ifort.extra_options())
+        extra_vars.update(Bundle.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
         # This is useful if you are importing a compiler from a non-default path
         extra_vars.update({
@@ -112,7 +112,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: determine system compiler version and prefix."""
-        EB_GCC.__init__(self, *args, **kwargs)
+        super(SystemCompiler, self).__init__(*args, **kwargs)
 
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
