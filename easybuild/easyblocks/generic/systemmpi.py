@@ -291,7 +291,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
+            extras = super(SystemMPI, self).make_module_extra(*args, **kwargs)
         return extras
 
     def sanity_check_step(self, *args, **kwargs):
