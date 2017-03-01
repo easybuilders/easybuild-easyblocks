@@ -277,13 +277,13 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.cfg['version'] = self.mpi_version
         return res
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['OpenMPI']:
-                extras = ConfigureMake.make_module_extra(self)
+                extras = ConfigureMake.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['impi']:
-                extras = EB_impi.make_module_extra(self)
+                extras = EB_impi.make_module_extra(self, *args, **kwargs)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
             # include environment variables defined for MPI implementation
@@ -291,7 +291,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras= Bundle.make_module_extra(self)
+            extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
         return extras
 
     def sanity_check_step(self, *args, **kwargs):

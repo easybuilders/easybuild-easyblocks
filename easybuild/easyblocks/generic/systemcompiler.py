@@ -256,20 +256,19 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         self.cfg['version'] = self.compiler_version
         return res
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
-                extras = EB_GCC.make_module_extra(self)
+                extras = EB_GCC.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['icc']:
-                extras = EB_icc.make_module_extra(self)
+                extras = EB_icc.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['ifort']:
-                extras = EB_ifort.make_module_extra(self)
+                extras = EB_ifort.make_module_extra(self, *args, **kwargs)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
         else:
-            # Need some additional variables for the Bundle make_module_extra to work
-            extras= super(SystemCompiler, self).make_module_extra(altroot=self.altroot, altversion=self.altversion)
+            extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
         return extras
 
     def sanity_check_step(self, *args, **kwargs):
