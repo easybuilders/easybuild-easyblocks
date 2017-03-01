@@ -32,6 +32,7 @@ EasyBuild support for using (already installed/existing) system compiler instead
 import os
 import re
 from vsc.utils import fancylogger
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.i.icc import EB_icc
