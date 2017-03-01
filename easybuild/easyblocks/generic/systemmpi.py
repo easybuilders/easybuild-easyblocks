@@ -113,7 +113,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
             # Extract any OpenMPI environment variables in the current environment and ensure they are added to the
             # final module
-            self.mpi_envvars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("OMPI_"))
+            self.mpi_env_vars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("OMPI_"))
 
             # Extract the C compiler used underneath OpenMPI, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
@@ -291,7 +291,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
             # include environment variables defined for MPI implementation
-            for key, val in sorted(self.mpi_envvars.items()):
+            for key, val in sorted(self.mpi_env_vars.items()):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
