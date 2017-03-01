@@ -112,7 +112,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: determine system compiler version and prefix."""
-        super(SystemCompiler, self).__init__(*args, **kwargs)
+        EB_GCC.__init__(self, *args, **kwargs)
 
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
