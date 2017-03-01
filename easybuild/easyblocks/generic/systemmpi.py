@@ -215,6 +215,10 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
         pass
 
+    def post_install_step(self):
+        """Do nothing."""
+        pass
+
     def make_module_req_guess(self):
         """
         A dictionary of possible directories to look for.  Return known dict for the system MPI.
@@ -277,13 +281,13 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.cfg['version'] = self.mpi_version
         return res
 
-    def make_module_extra(self, *args, **kwargs):
+    def make_module_extra(self):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['OpenMPI']:
-                extras = ConfigureMake.make_module_extra(self, *args, **kwargs)
+                extras = ConfigureMake.make_module_extra(self)
             elif self.cfg['name'] in ['impi']:
-                extras = EB_impi.make_module_extra(self, *args, **kwargs)
+                extras = EB_impi.make_module_extra(self)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
             # include environment variables defined for MPI implementation
@@ -291,8 +295,16 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras = Bundle.make_module_extra(self, *args, **kwargs)
+            extras = super(SystemMPI, self).make_module_extra()
         return extras
+
+    def cleanup_step(self):
+        """Do nothing."""
+        pass
+
+    def permissions_step(self):
+        """Do nothing."""
+        pass
 
     def sanity_check_step(self, *args, **kwargs):
         """

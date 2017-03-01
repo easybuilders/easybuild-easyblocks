@@ -158,7 +158,7 @@ class Bundle(EasyBlock):
 
     def make_module_extra(self):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
-        return super(Bundle, self).make_module_extra(altroot=self.altroot, altversion=self.altversion)
+        return EasyBlock.make_module_extra(self, altroot=self.altroot, altversion=self.altversion)
 
     def sanity_check_step(self, *args, **kwargs):
         """
