@@ -21,7 +21,8 @@ addons:
     packages:
       - tcl8.5
 before_install:
-    - sudo apt-get update && sudo apt-get install -y python-dev torque-server libtorque2-dev libopenmpi-dev openmpi-bin
+    # For testing systemmpi easyblock we need an OpenMPI instance
+    - sudo apt-get update && sudo apt-get install -y libopenmpi-dev openmpi-bin
 install:
     # install easybuild-framework (and dependencies)
     # prefer clone & easy_install over easy_install directly in order to obtain information of what was installed exactly

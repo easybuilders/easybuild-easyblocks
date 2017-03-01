@@ -38,13 +38,14 @@ from easybuild.easyblocks.i.impi import EB_impi
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd
+from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 
 _log = fancylogger.getLogger('easyblocks.generic.systemmpi')
 
-class SystemMPI(ConfigureMake, EB_impi, Bundle):
+class SystemMPI(Bundle, ConfigureMake, EB_impi):
     """
     Support for generating a module file for the system mpi with specified name.
 
@@ -57,14 +58,14 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
     @staticmethod
     def extra_options():
         # Gather extra_vars from inherited classes
-        extra_vars = ConfigureMake.extra_options()
+        extra_vars = Bundle.extra_options()
+        extra_vars.update(ConfigureMake.extra_options())
         extra_vars.update(EB_impi.extra_options())
-        extra_vars.update(Bundle.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
         # This is useful if you are importing the MPI installation from a non-default path
         extra_vars.update({
-            'add_path_information': [False, "Add known path extensions and environment variables for the MPI "
-                                            "installation to the final module", CUSTOM],
+            'generate_standalone_module': [False, "Add known path extensions and environment variables for the MPI "
+                                                  "installation to the final module", CUSTOM],
         })
         return extra_vars
 
@@ -122,21 +123,27 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
             # The prefix in the the mpiicc script can be used to extract the explicit version
             contents_of_mpiicc = read_file(path_to_mpi_c_wrapper)
             prefix_regex = re.compile(r'(?<=compilers_and_libraries_)(.*)(?=/linux/mpi)', re.M)
-            if not prefix_regex.search(contents_of_mpiicc):
-                # We've got an old version of iimpi:
+
+            self.mpi_version = None
+            res = prefix_regex.search(contents_of_mpiicc)
+            if res:
+                self.mpi_version = res.group(1)
+            else:
+                # old iimpi version
                 prefix_regex = re.compile(r'^prefix=(.*)$', re.M)
-                # In this case the version is the last part of the prefix
-                self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1).split("/")[-1]
-            else:
-                self.mpi_version = prefix_regex.search(contents_of_mpiicc).group(1)
-            if self.mpi_version is not None:
-                self.log.info("Found Intel MPI version %s for system MPI" % self.mpi_version)
-            else:
+                res = prefix_regex.search(contents_of_mpiicc)
+                if res:
+                    self.mpi_version = res.group(1).split('/')[-1]
+
+            if self.mpi_version is None:
                 raise EasyBuildError("No version found for system Intel MPI")
+            else:
+                self.log.info("Found Intel MPI version %s for system MPI" % self.mpi_version)
 
             # Extract the installation prefix, if I_MPI_ROOT is defined, let's use that
-            if os.environ.get('I_MPI_ROOT'):
-                self.mpi_prefix = os.environ['I_MPI_ROOT']
+            i_mpi_root = os.environ.get('I_MPI_ROOT')
+            if i_mpi_root:
+                self.mpi_prefix = i_mpi_root
             else:
                 # Else just go up three directories from where mpiicc is found
                 # (it's 3 because bin64 is a symlink to intel64/bin and we are assuming 64 bit)
@@ -144,16 +151,19 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
 
             # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
             # final module
-            self.mpi_envvars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("I_MPI_"))
-            self.mpi_envvars.update(dict((key, value) for key, value in os.environ.iteritems() if key.startswith("MPICH_")))
-            self.mpi_envvars.update(
-                dict((key, value) for key, value in os.environ.iteritems()
-                     if key.startswith("MPI") and key.endswith("PROFILE"))
-            )
+            self.mpi_env_vars = {}
+            for key, value in os.environ.iteritems():
+                if any(key.startswith(x) for x in ['I_MPI_', 'MPICH_']) or (key.startswith('MPI') and
+                                                                                key.endswith('PROFILE')):
+                    self.mpi_env_vars[key] = value
 
             # Extract the C compiler used underneath Intel MPI
-            compile_info, _ = run_cmd("%s -compile-info" % mpi_c_wrapper, simple=False)
-            self.mpi_c_compiler = compile_info.split(' ', 1)[0]
+            compile_info, exit_code = run_cmd("%s -compile-info" % mpi_c_wrapper, simple=False)
+            if exit_code == 0:
+                self.mpi_c_compiler = compile_info.split(' ', 1)[0]
+            else:
+                raise EasyBuildError("Could not determine C compiler underneath Intel MPI, '%s -compiler-info' "
+                                     "returned %s", mpi_c_wrapper, compile_info)
 
         else:
             raise EasyBuildError("Unrecognised system MPI implementation %s", mpi_name)
@@ -162,11 +172,12 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         if not os.path.exists(self.mpi_prefix):
             raise EasyBuildError("Path derived for system MPI (%s) does not exist: %s!", mpi_name, self.mpi_prefix)
 
-        if self.mpi_prefix in ['/usr']:
-            # Force off adding paths to module since unloading such a module would be a shell killer
-            self.cfg['add_path_information'] = False
-            self.log.info("Disabling option 'add_path_information' since installation prefix is %s",
-                          self.mpi_prefix)
+        if self.mpi_prefix in ['/usr', '/usr/local']:
+            if self.cfg['generate_standalone_module']:
+                # Force off adding paths to module since unloading such a module would be a potential shell killer
+                self.cfg['generate_standalone_module'] = False
+                self.log.warning("Disabling option 'generate_standalone_module' since installation prefix is %s",
+                                 self.compiler_prefix)
 
         self.log.debug("Derived version/install prefix for system MPI %s: %s, %s",
                        mpi_name, self.mpi_version, self.mpi_prefix)
@@ -183,8 +194,8 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         elif self.cfg['version'] == self.mpi_version:
             self.log.info("Specified MPI version %s matches found version" % self.mpi_version)
         else:
-            raise EasyBuildError("Specified version (%s) does not match version reported by MPI (%s)" %
-                                 (self.cfg['version'], self.mpi_version))
+            raise EasyBuildError("Specified version (%s) does not match version reported by MPI (%s)",
+                                 self.cfg['version'], self.mpi_version)
 
         # fix installdir and module names (may differ because of changes to version)
         mns = ActiveMNS()
@@ -196,35 +207,15 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
-    def prepare_step(self):
-        """Do the bundle prepare step to ensure any deps are loaded."""
-        Bundle.prepare_step(self)
-
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
-        pass
-
-    def configure_step(self):
-        """Do nothing."""
-        pass
-
-    def build_step(self):
-        """Do nothing."""
-        pass
-
-    def install_step(self):
-        """Do nothing."""
-        pass
-
-    def post_install_step(self):
-        """Do nothing."""
         pass
 
     def make_module_req_guess(self):
         """
         A dictionary of possible directories to look for.  Return known dict for the system MPI.
         """
-        if self.cfg['add_path_information']:
+        if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['OpenMPI']:
                 guesses = ConfigureMake.make_module_req_guess(self)
             elif self.cfg['name'] in ['impi']:
@@ -241,21 +232,21 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         and install path.
         """
         # First let's verify that the toolchain and the compilers under MPI match
-        c_compiler_name = self.toolchain.COMPILER_CC
-        if c_compiler_name == 'DUMMYCC':
+        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
             # If someone is using dummy as the MPI toolchain lets assume that gcc is the compiler underneath MPI
             c_compiler_name = 'gcc'
             # Also need to fake the compiler version
             c_compiler_version = self.c_compiler_version
             self.log.info("Found dummy toolchain so assuming GCC as compiler underneath MPI and faking the version")
         else:
+            c_compiler_name = self.toolchain.COMPILER_CC
             c_compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
 
         if self.mpi_c_compiler != c_compiler_name or self.c_compiler_version != c_compiler_version:
             raise EasyBuildError("C compiler for toolchain (%s/%s) and underneath MPI (%s/%s) do not match!",
                                  c_compiler_name, c_compiler_version, self.mpi_c_compiler, self.c_compiler_version)
 
-        # For module file generation: temporarily set version and installdir to system compiler values
+        # For module file generation: temporarily set version and installdir to system MPI values
         self.cfg['version'] = self.mpi_version
         self.installdir = self.mpi_prefix
 
@@ -270,7 +261,7 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
     def make_module_extend_modpath(self):
         """
         Custom prepend-path statements for extending $MODULEPATH: use version specified in easyconfig file (e.g.,
-        "system") rather than the actual version (e.g., "4.8.2").
+        "system") rather than the actual version (e.g., "2.0.2").
         """
         # temporarily set switch back to version specified in easyconfig file (e.g., "system")
         self.cfg['version'] = self.orig_version
@@ -278,13 +269,13 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         # Retrieve module path extensions
         res = super(SystemMPI, self).make_module_extend_modpath()
 
-        # Reset to actual MPI version (e.g., "4.8.2")
+        # Reset to actual MPI version (e.g., "2.0.2")
         self.cfg['version'] = self.mpi_version
         return res
 
     def make_module_extra(self):
         """Add any additional module text."""
-        if self.cfg['add_path_information']:
+        if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['OpenMPI']:
                 extras = ConfigureMake.make_module_extra(self)
             elif self.cfg['name'] in ['impi']:
@@ -307,11 +298,3 @@ class SystemMPI(ConfigureMake, EB_impi, Bundle):
         fake_mod_data = self.load_fake_module(purge=True)
         self.log.debug("Cleaning up after testing loading of module")
         self.clean_up_fake_module(fake_mod_data)
-
-    def cleanup_step(self):
-        """Do nothing."""
-        pass
-
-    def permissions_step(self):
-        """Do nothing."""
-        pass

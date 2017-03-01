@@ -185,7 +185,7 @@ def suite():
             # use GCC as name when testing SystemCompiler easyblock
             exec("def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock)
         elif os.path.basename(easyblock) == 'systemmpi.py':
-            # use OpenMPI as name when testing SystemCompiler easyblock
+            # use OpenMPI as name when testing SystemMPI easyblock
             exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock)
         else:
             exec("def innertest(self): template_init_test(self, '%s')" % easyblock)

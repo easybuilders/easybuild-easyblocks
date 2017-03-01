@@ -55,15 +55,24 @@ def extract_compiler_version(compiler_name):
     if compiler_name == 'gcc':
         out, _ = run_cmd("gcc --version", simple=False)
         res = version_regex.search(out)
+        if res is None:
+            raise EasyBuildError("Could not extract GCC version from %s", out)
         compiler_version = res.group(1)
     elif compiler_name in ['icc', 'ifort']:
-        # A fully resolved icc/ifort (without symlinks) includes the version in the path
+        # A fully resolved icc/ifort (without symlinks) includes the release version in the path
         # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
-        # Match the last incidence of _ since we don't know what might be in the path, then split it up
+        # Match the last incidence of _ since we don't know what might be in the path, then split it up on /
         out = (os.path.realpath(which(compiler_name)).split("_")[-1]).split("/")
         compiler_version = out[0]
+        # Check what we have looks like a version number (the regex we use requires spaces around the version number)
+        if version_regex.search(" " + compiler_version + " ") is None:
+            typical_install_path = '.../composer_xe_2015.3.187/bin/intel64/icc'
+            raise EasyBuildError(
+                "Derived Intel compiler version %s doesn't look correct, is compiler installed in a path like %s?",
+                typical_install_path, compiler_version
+            )
     else:
-        raise EasyBuildError("Unknown compiler %s" % compiler_name)
+        raise EasyBuildError("Unknown compiler %s", compiler_name)
 
     if compiler_version:
         _log.debug("Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out)
@@ -73,7 +82,7 @@ def extract_compiler_version(compiler_name):
 
     return compiler_version
 
-class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
+class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
     """
     Support for generating a module file for the system compiler with specified name.
 
@@ -86,14 +95,18 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
     @staticmethod
     def extra_options():
         # Gather extra_vars from inherited classes
-        extra_vars = EB_icc.extra_options()
-        extra_vars.update(EB_ifort.extra_options())
+        extra_vars = Bundle.extra_options()
         extra_vars.update(EB_GCC.extra_options())
-        extra_vars.update(Bundle.extra_options())
+        extra_vars.update(EB_icc.extra_options())
+        extra_vars.update(EB_ifort.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
         # This is useful if you are importing a compiler from a non-default path
         extra_vars.update({
-            'add_path_information': [False, "Add known path extensions for the compiler to the final module", CUSTOM],
+            'generate_standalone_module': [
+                False,
+                "Add known path/library extensions and environment variables for the compiler to the final module",
+                CUSTOM
+            ],
         })
         return extra_vars
 
@@ -135,8 +148,10 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
             else:
                 # strip off 'bin/intel*/icc'
                 self.compiler_prefix = os.path.dirname(os.path.dirname(os.path.dirname(path_to_compiler)))
-            # For versions 2016+ of Intel compilers they changed the installation path
-            if int(self.compiler_version.split('.')[0]) >= 2016:
+
+            # For versions 2016+ of Intel compilers they changed the installation path so must shave off 2 more
+            # directories from result of the above
+            if LooseVersion(self.compiler_version) >= LooseVersion('2016'):
                 self.compiler_prefix = os.path.dirname(os.path.dirname(self.compiler_prefix))
 
         else:
@@ -148,11 +163,13 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
         self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
                        compiler_name, self.compiler_version, self.compiler_prefix)
 
-        if self.compiler_prefix in ['/usr']:
-            # Force off adding paths to module since unloading such a module would be a shell killer
-            self.cfg['add_path_information'] = False
-            self.log.info("Disabling option 'add_path_information' since installation prefix is %s",
-                          self.compiler_prefix)
+        if self.compiler_prefix in ['/usr', '/usr/local']:
+            if self.cfg['generate_standalone_module']:
+                # Force off adding paths to module since unloading such a module would be a potential shell killer
+                self.cfg['generate_standalone_module'] = False
+                self.log.warning("Disabling option 'generate_standalone_module' since installation prefix is %s",
+                                 self.compiler_prefix)
+
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
             self.log.info("Found specified version '%s', going with derived compiler version '%s'",
@@ -173,7 +190,7 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
 
     def prepare_step(self):
         """Do the bundle prepare step to ensure any deps are loaded at a minimum."""
-        if self.cfg['add_path_information']:
+        if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC', 'GCCcore']:
                 EB_GCC.prepare_step(self)
             elif self.cfg['name'] in ['icc']:
@@ -189,23 +206,12 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
         pass
 
-    def configure_step(self):
-        """Do nothing."""
-        pass
-
-    def build_step(self):
-        """Do nothing."""
-        pass
-
-    def install_step(self):
-        """Do nothing."""
-        pass
-
     def make_module_req_guess(self):
         """
-        A dictionary of possible directories to look for.  Return known dict for the system compiler.
+        A dictionary of possible directories to look for.  Return known dict for the system compiler, or empty dict if
+        generate_standalone_module parameter is False
         """
-        if self.cfg['add_path_information']:
+        if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 guesses = EB_GCC.make_module_req_guess(self)
             elif self.cfg['name'] in ['icc']:
@@ -252,7 +258,7 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
 
     def make_module_extra(self):
         """Add any additional module text."""
-        if self.cfg['add_path_information']:
+        if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 extras = EB_GCC.make_module_extra(self)
             elif self.cfg['name'] in ['icc']:
@@ -273,11 +279,3 @@ class SystemCompiler(EB_GCC, EB_icc, EB_ifort, Bundle):
         fake_mod_data = self.load_fake_module(purge=True)
         self.log.debug("Cleaning up after testing loading of module")
         self.clean_up_fake_module(fake_mod_data)
-
-    def cleanup_step(self):
-        """Do nothing."""
-        pass
-
-    def permissions_step(self):
-        """Do nothing."""
-        pass
