@@ -57,10 +57,10 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
     @staticmethod
     def extra_options():
-        # Gather extra_vars from inherited classes
-        extra_vars = Bundle.extra_options()
-        extra_vars.update(ConfigureMake.extra_options())
+        # Gather extra_vars from inherited classes, order matters to make sure bundle initialises correctly
+        extra_vars = ConfigureMake.extra_options()
         extra_vars.update(EB_impi.extra_options())
+        extra_vars.update(Bundle.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
         # This is useful if you are importing the MPI installation from a non-default path
         extra_vars.update({
