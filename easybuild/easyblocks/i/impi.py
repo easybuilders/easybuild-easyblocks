@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,6 +57,12 @@ class EB_impi(IntelBase):
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
+
+    def prepare_step(self):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            super(EB_impi, self).prepare_step(requires_runtime_license=False)
+        else:
+            super(EB_impi, self).prepare_step()
 
     def install_step(self):
         """
