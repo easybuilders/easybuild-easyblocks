@@ -223,3 +223,13 @@ class EB_EasyBuildMeta(PythonPackage):
             self.log.debug("Restored copy of original environment")
 
         return modpath
+
+    def make_module_extra(self):
+        """Add EASYBUILD_ROBOT_PATH if exists"""
+
+        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+
+        if os.environ.get('EASYBUILD_ROBOT_PATHS'):
+           txt += self.module_generator.set_environment('EASYBUILD_ROBOT_PATHS', os.environ.get('EASYBUILD_ROBOT_PATHS'))
+
+        return txt
