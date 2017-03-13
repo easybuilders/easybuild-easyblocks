@@ -67,11 +67,13 @@ class SystemCompiler(Bundle):
         """Extra initialization: determine system compiler version and prefix."""
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
-        # Determine compiler path (real path, with resolved symlinks)
+        # Determine compiler path (real path, without resolved symlinks)
         compiler_name = self.cfg['name'].lower()
+        if compiler_name == 'gcccore':
+            compiler_name = 'gcc'
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
-            path_to_compiler = os.path.realpath(path_to_compiler)
+            #path_to_compiler = os.path.realpath(path_to_compiler) # no symlinks
             self.log.info("Found path to compiler '%s' (with symlinks resolved): %s", compiler_name, path_to_compiler)
         else:
             raise EasyBuildError("%s not found in $PATH", compiler_name)
