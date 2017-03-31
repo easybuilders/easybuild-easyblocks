@@ -98,6 +98,11 @@ class Binary(EasyBlock):
         """Copy all files in build directory to the install directory"""
         if self.cfg['install_cmd'] is None:
             try:
+                cmd = self.cfg['preinstallopts']
+                if cmd:
+                    self.log.info("Running preinstallopts of %s using command '%s'..." % (self.name, cmd))
+                    run_cmd(cmd, log_all=True, simple=True)
+                self.log.info("Copying %s into '%s'..." % (self.cfg['start_dir'], self.installdir))
                 # shutil.copytree doesn't allow the target directory to exist already
                 rmtree2(self.installdir)
                 shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
