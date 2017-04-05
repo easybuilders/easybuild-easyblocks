@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,14 +34,14 @@ from easybuild.tools.config import build_option
 import urllib2
 import json
 
-class OpenKIM(ConfigureMake):
+class EB_OpenKIM(ConfigureMake):
     def build_step(self, verbose=False, path=None):
         """
         Start the actual build
         """
         # Build the API.
         self.log.info("Building the OpenKIM API")
-        out1 = ConfigureMake.build_step(self, verbose=verbose, path=path)
+        out1 = super(EB_OpenKIM, self).build_step(verbose=verbose, path=path)
         
         # Download all models
         self.log.info("Downloading all OpenKIM models")
@@ -49,7 +49,7 @@ class OpenKIM(ConfigureMake):
 
         # Build the models
         self.log.info("Building the OpenKIM models")
-        out3 = ConfigureMake.build_step(self, verbose=verbose, path=path)
+        out3 = super(EB_OpenKIM, self).build_step(verbose=verbose, path=path)
         
         return out1+out2+out3
 
