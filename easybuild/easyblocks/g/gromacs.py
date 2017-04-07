@@ -44,6 +44,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
@@ -122,6 +123,13 @@ class EB_GROMACS(CMakeMake):
 
             # disable GUI tools
             self.cfg.update('configopts', "-DGMX_X11=OFF")
+
+            # convince to build for an older architecture then present on the build node by setting GMX_SIMD CMake flag.
+            if build_option('optarch', default=None) and self.toolchain.comp_family() in build_option('optarch'):
+                build_arch = build_option('optarch')[self.toolchain.comp_family()]
+                gmx_simd = self.get_gromacs_arch(build_arch)
+                if gmx_simd:
+                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'
@@ -417,3 +425,26 @@ class EB_GROMACS(CMakeMake):
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
+
+    @staticmethod
+    def get_gromacs_arch(build_arch):
+        """Determine value of GMX_SIMD CMake flag based on optarch string.
+
+        Refs:
+        [0] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#typical-installation
+        [1] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#simd-support
+        [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
+        """
+        build_arch = build_arch.upper()
+        if build_arch.endswith(("AVX2")):
+            return "AVX2_256"
+        elif build_arch.endswith(("AVX")):
+            return "AVX_256"
+        elif build_arch.endswith(("SSE3" ,"SSE2") or build_arch.contains("MARCH=NOCONA")):
+            # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
+            # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
+            # and SSE4.1 is not supported by AMD Magny-Cours[1].
+            return "SSE2"
+        else:
+            # fall back on autodetection
+            return None
