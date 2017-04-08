@@ -44,7 +44,7 @@ class EB_CGAL(CMakeMake):
 
         # define only if present because dependencies may be made available via OS (e.g. due to --filter-deps)
         for lib in ["GMP", "MPFR"]:
-            if get_software_root(dep):
+            if get_software_root(lib):
                 os.environ['%s_INC_DIR' % lib] = "%s%s" % (get_software_root(lib), "/include/")
 
         if get_software_root("Boost"):
