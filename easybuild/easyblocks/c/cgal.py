@@ -42,16 +42,13 @@ class EB_CGAL(CMakeMake):
     def configure_step(self):
         """Set some extra environment variables before configuring."""
 
-        deps = ["Boost", "GMP", "MPFR"]
-        for dep in deps:
-            if not get_software_root(dep):
-                raise EasyBuildError("Dependency module %s not loaded?", dep)
-
+        # define only if present because dependencies may be made available via OS (e.g. due to --filter-deps)
         for lib in ["GMP", "MPFR"]:
-            os.environ['%s_INC_DIR' % lib] = "%s%s" % (get_software_root(lib), "/include/")
-            os.environ['%s_LIB_DIR' % lib] = "%s%s" % (get_software_root(lib), "/lib/")
+            if get_software_root(dep):
+                os.environ['%s_INC_DIR' % lib] = "%s%s" % (get_software_root(lib), "/include/")
 
-        os.environ['BOOST_ROOT'] = get_software_root("Boost")
+        if get_software_root("Boost"):
+            os.environ['BOOST_ROOT'] = get_software_root("Boost")
 
         super(EB_CGAL, self).configure_step()
 
