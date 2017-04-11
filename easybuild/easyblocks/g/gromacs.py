@@ -129,7 +129,10 @@ class EB_GROMACS(CMakeMake):
                 build_arch = build_option('optarch')[self.toolchain.comp_family()]
                 gmx_simd = self.get_gromacs_arch(build_arch)
                 if gmx_simd:
-                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
+                    if LooseVersion(self.version) < LooseVersion('5.0'):
+                        self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                    else:
+                        self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'
@@ -366,8 +369,7 @@ class EB_GROMACS(CMakeMake):
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
 
-    @staticmethod
-    def get_gromacs_arch(build_arch):
+    def get_gromacs_arch(self, build_arch):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
 
         Refs:
@@ -376,7 +378,7 @@ class EB_GROMACS(CMakeMake):
         [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
         """
         build_arch = build_arch.upper()
-        if build_arch.endswith(("AVX2")):
+        if build_arch.endswith(("AVX2")) and not LooseVersion(self.version) < LooseVersion('5.0'):
             return "AVX2_256"
         elif build_arch.endswith(("AVX")):
             return "AVX_256"
