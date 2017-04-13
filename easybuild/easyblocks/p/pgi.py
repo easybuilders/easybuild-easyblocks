@@ -77,6 +77,8 @@ class EB_PGI(PackedBinary):
             'install_java': [True, "Install Java JRE for graphical debugger",  CUSTOM],
             'install_managed': [True, "Install OpenACC Unified Memory Evaluation package", CUSTOM],
             'install_nvidia': [True, "Install CUDA Toolkit Components", CUSTOM],
+            'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
+                                         CUSTOM],
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -87,29 +89,34 @@ class EB_PGI(PackedBinary):
         self.license_file = 'UNKNOWN'
         self.license_env_var = 'UNKNOWN' # Probably not really necessary for PGI
 
+        # Initialise whether we need a runtime licence or not
+        self.requires_runtime_license = True
+
         self.pgi_install_subdir = os.path.join('linux86-64', self.version)
 
     def configure_step(self):
         """
         Handle license file.
         """
-        default_lic_env_var = 'PGROUPD_LICENSE_FILE'
-        lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
-                                                              lic_specs=[self.cfg['license_file']])
+        self.requires_runtime_license = self.cfg['requires_runtime_license']
+        if self.requires_runtime_license:
+            default_lic_env_var = 'PGROUPD_LICENSE_FILE'
+            lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
+                                                                  lic_specs=[self.cfg['license_file']])
 
-        if lic_specs:
-            if self.license_env_var is None:
-                self.log.info("Using PGI license specifications from 'license_file': %s", lic_specs)
-                self.license_env_var = default_lic_env_var
+            if lic_specs:
+                if self.license_env_var is None:
+                    self.log.info("Using PGI license specifications from 'license_file': %s", lic_specs)
+                    self.license_env_var = default_lic_env_var
+                else:
+                    self.log.info("Using PGI license specifications from %s: %s", self.license_env_var, lic_specs)
+
+                self.license_file = os.pathsep.join(lic_specs)
+                env.setvar(self.license_env_var, self.license_file)
+
             else:
-                self.log.info("Using PGI license specifications from %s: %s", self.license_env_var, lic_specs)
-
-            self.license_file = os.pathsep.join(lic_specs)
-            env.setvar(self.license_env_var, self.license_file)
-
-        else:
-            raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
-                                 "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
+                raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
+                                     "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
 
     def install_step(self):
         """Install by running install command."""
@@ -177,7 +184,8 @@ class EB_PGI(PackedBinary):
     def make_module_extra(self):
         """Add environment variables LM_LICENSE_FILE and PGI for license file and PGI location"""
         txt = super(EB_PGI, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
-                                                   allow_abs=True, expand_relpaths=False)
+        if self.requires_runtime_license:
+            txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                       allow_abs=True, expand_relpaths=False)
         txt += self.module_generator.set_environment('PGI', self.installdir)
         return txt
