@@ -128,6 +128,13 @@ class EB_PGI(PackedBinary):
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(pgi_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
 
+    def post_install_step(self):
+        """Correct localrc file to use EB GCC"""
+        super(EB_PGI, self).post_install_step()
+
+        # reload the dependencies
+        self.load_dependency_modules()
+
         # make sure localrc uses GCC in PATH, not always the system GCC, and does not use a system g77 but gfortran
         install_abs_subdir = os.path.join(self.installdir, self.pgi_install_subdir)
         filename = os.path.join(install_abs_subdir, "bin", "makelocalrc")
