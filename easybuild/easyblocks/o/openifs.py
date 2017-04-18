@@ -36,6 +36,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from distutils.version import LooseVersion
 
 
 class EB_OpenIFS(EasyBlock):
@@ -81,13 +82,22 @@ class EB_OpenIFS(EasyBlock):
 
         # enable parallel build
         par = self.cfg['parallel']
-        cmd = "fcm make -v -j %s -f fcmcfg/oifs.cfg" % par
+        if LooseVersion(self.version) == LooseVersion('38r1v01'):
+            cmd = "fcm make -v -j %s -f fcmcfg/oifs.cfg" % par
+        elif LooseVersion(self.version) == LooseVersion('38r1v02'):
+            cmd = "fcm make -v -j %s -f cfg/oifs.cfg" % par
+        else:
+            cmd = "fcm make -v -j %s -f oifs.cfg" % par
+        
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for OpenIFS: copy bin and include files."""
         try:
-            srcdir = os.path.join(self.cfg['start_dir'], 'make', os.getenv('OIFS_BUILD'), 'oifs')
+            if LooseVersion(self.version) <= LooseVersion('38r1v02'):
+                srcdir = os.path.join(self.cfg['start_dir'], 'make', os.getenv('OIFS_BUILD'), 'oifs')
+            else:
+                srcdir = os.path.join(self.cfg['start_dir'], 'make', os.getenv('OIFS_COMP') + '-' + os.getenv('OIFS_BUILD'), 'oifs')
             bindir = os.path.join(self.installdir, 'bin')
             os.makedirs(bindir)
             shutil.copy2(os.path.join(srcdir, 'bin', 'master.exe'), bindir)
