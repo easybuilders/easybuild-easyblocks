@@ -162,7 +162,7 @@ class EB_Molpro(ConfigureMake, Binary):
             launcher = launcher.replace(' %s' % self.cfg['parallel'], ' %n')
 
             # patch CONFIG file to change LAUNCHER definition, in order to avoid having to start mpd
-            apply_regex_substitutions(cfgfile, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % launcher)])
+            apply_regex_substitutions(cfgfile, [(r"^(LAUNCHER\s*=\s*).*$", r"LAUNCHER=%s" % launcher)])
 
             # reread CONFIG and log contents
             cfgtxt = read_file(cfgfile)
