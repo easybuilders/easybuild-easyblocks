@@ -12,7 +12,7 @@
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation v2.
+# the Free Software Foundation v2.bo
 #
 # EasyBuild is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -466,6 +466,10 @@ class EB_GCC(ConfigureMake):
 
             # enable bootstrapping for self-containment
             configopts += " --enable-bootstrap "
+            # Use 'bootstrap-debug' build configuration to force stripping of object
+            # files prior to comparison during bootstrap (broken by Xcode 6.3).
+            # see https://github.com/Homebrew/homebrew/issues/38501
+            configopts += "--with-build-config=bootstrap-debug "
 
             # PPL config options
             if self.cfg['withppl']:
