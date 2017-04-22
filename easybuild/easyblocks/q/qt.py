@@ -26,6 +26,7 @@
 EasyBuild support for building and installing Qt, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Luca Marsella (CSCS)
 """
 import os
 from distutils.version import LooseVersion
@@ -47,6 +48,7 @@ class EB_Qt(ConfigureMake):
     def extra_options():
         extra_vars = {
              'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
+             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
         }
         extra_vars = ConfigureMake.extra_options(extra_vars)
 
@@ -81,7 +83,13 @@ class EB_Qt(ConfigureMake):
         else:
             raise EasyBuildError("Don't know which platform to set based on compiler family.")
 
-        cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
+        if self.cfg['prefix_opt']:
+           cmd = "%s ./configure %s%s %s" % (self.cfg['preconfigopts'], self.cfg['prefix_opt'], self.installdir, self.cfg['configopts'])
+        elif LooseVersion(self.version) >= LooseVersion('5.8'):
+           cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
+        else:
+           cmd = "%s ./configure --prefix=%s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
+
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
             "Do you accept the terms of either license?": 'yes',
