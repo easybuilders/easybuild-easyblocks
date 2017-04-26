@@ -39,6 +39,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import install_path
 from easybuild.tools.run import run_cmd
 
 class EB_itac(IntelBase):
@@ -62,11 +63,18 @@ class EB_itac(IntelBase):
         """
 
         if LooseVersion(self.version) >= LooseVersion('8.1'):
-            super(EB_itac, self).install_step(silent_cfg_names_map=None)
+            silent_cfg_names_map = {}
+            if LooseVersion(self.version) >= LooseVersion('9.0'):
+                # To generate the correct itacvars.sh (called by traceanalyzer) we need to change the default install dir
+                silent_cfg_names_map = {
+                    'install_dir': install_path(),
+                }
+
+            super(EB_itac, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
             # itac v9.0.1 installer create itac/<version> subdir, so stuff needs to be moved afterwards
-            if LooseVersion(self.version) >= LooseVersion('9.0'):
-                super(EB_itac, self).move_after_install()
+            #if LooseVersion(self.version) >= LooseVersion('9.0'):
+            #    super(EB_itac, self).move_after_install()
         else:
             silent = \
 """
