@@ -38,7 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
 
-class PerlModule(ExtensionEasyBlock, ConfigureMake):
+class PerlModule(ConfigureMake):
     """Builds and installs a Perl module, and can provide a dedicated module file."""
 
     @staticmethod
