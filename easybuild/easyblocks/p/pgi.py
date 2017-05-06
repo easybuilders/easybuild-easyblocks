@@ -40,6 +40,7 @@ import sys
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license, write_file
 from easybuild.tools.run import run_cmd
@@ -102,8 +103,9 @@ class EB_PGI(PackedBinary):
         self.requires_runtime_license = self.cfg['requires_runtime_license']
         if self.requires_runtime_license:
             default_lic_env_var = 'PGROUPD_LICENSE_FILE'
+            license_specs = ensure_iterable_license_specs(self.cfg['license_file'])            
             lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
-                                                                  lic_specs=[self.cfg['license_file']])
+                                                                  lic_specs=license_specs)
 
             if lic_specs:
                 if self.license_env_var is None:
@@ -114,7 +116,6 @@ class EB_PGI(PackedBinary):
 
                 self.license_file = os.pathsep.join(lic_specs)
                 env.setvar(self.license_env_var, self.license_file)
-
             else:
                 raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
                                      "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
