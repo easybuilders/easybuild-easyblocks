@@ -28,6 +28,7 @@ EasyBuild support for VMD, implemented as an easyblock
 
 @author: Stephane Thiell (Stanford University)
 @author: Kenneth Hoste (HPC-UGent)
+@author: Pawel Pomorski (Compute Canada)
 """
 import os
 import shutil
@@ -51,7 +52,8 @@ class EB_VMD(ConfigureMake):
         """
         # make sure required dependencies are available
         deps = {}
-        for dep in ['FLTK', 'Mesa', 'netCDF', 'Python', 'Tcl', 'Tk']:
+
+        for dep in ['Python']:
             deps[dep] = get_software_root(dep)
             if deps[dep] is None:
                 raise EasyBuildError("Required dependency %s is missing", dep)
@@ -60,16 +62,19 @@ class EB_VMD(ConfigureMake):
         for dep in ['ACTC', 'CUDA', 'OptiX']:
             deps[dep] = get_software_root(dep)
 
-        # specify Tcl/Tk locations & libraries
-        tclinc = os.path.join(deps['Tcl'], 'include')
-        tcllib = os.path.join(deps['Tcl'], 'lib')
+        # specify Tcl/Tk locations & libraries in nix
+
+        tclinc = os.path.join(os.getenv('NIXUSER_PROFILE'),'include')
+        tcllib = os.path.join(os.getenv('NIXUSER_PROFILE'),'lib')
+
         env.setvar('TCL_INCLUDE_DIR', tclinc)
         env.setvar('TCL_LIBRARY_DIR', tcllib)
 
-        env.setvar('TK_INCLUDE_DIR', os.path.join(deps['Tk'], 'include'))
-        env.setvar('TK_LIBRARY_DIR', os.path.join(deps['Tk'], 'lib'))
+        env.setvar('TK_INCLUDE_DIR', tclinc)
+        env.setvar('TK_LIBRARY_DIR', tcllib) 
 
-        tclshortver = '.'.join(get_software_version('Tcl').split('.')[:2])
+        tclshortver = 8.6
+
         self.cfg.update('buildopts', 'TCLLDFLAGS="-ltcl%s"' % tclshortver)
 
         # Python locations
@@ -121,16 +126,18 @@ class EB_VMD(ConfigureMake):
         # PTHREADS: enable support for POSIX threads
         # COLVARS: enable support for collective variables (related to NAMD/LAMMPS)
         # NOSILENT: verbose build command
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT")
+        # OPENGL - nix install 
+        # MESA - nix install
+        # FLTK - nix install
+        # NETCDF - from easybuild
+        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS FLTK TK COLVARS NOSILENT TCL OPENGL MESA NETCDF")
 
         # add additional configopts based on available dependencies
         for key in deps:
             if deps[key]:
-                if key == 'Mesa':
-                    self.cfg.update('configopts', "OPENGL MESA")
-                elif key == 'OptiX':
+                if key == 'OptiX':
                     self.cfg.update('configopts', "LIBOPTIX")
-                elif key == 'Python':
+                elif key == 'Python27-SciPy-Stack':
                     self.cfg.update('configopts', "PYTHON NUMPY")
                 else:
                     self.cfg.update('configopts', key.upper())
