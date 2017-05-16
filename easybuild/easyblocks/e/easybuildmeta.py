@@ -225,11 +225,11 @@ class EB_EasyBuildMeta(PythonPackage):
         return modpath
 
     def make_module_extra(self):
-        """Add EASYBUILD_ROBOT_PATH if exists"""
+        """Add EASYBUILD_* if exists"""
 
         txt = super(EB_EasyBuildMeta, self).make_module_extra()
 
-        if os.environ.get('EASYBUILD_ROBOT_PATHS'):
-           txt += self.module_generator.set_environment('EASYBUILD_ROBOT_PATHS', os.environ.get('EASYBUILD_ROBOT_PATHS'))
+	for item in filter(lambda x: re.search(r'EASYBUILD_', x), os.environ):
+	    txt += self.module_generator.set_environment(item, os.environ.get(item))
 
         return txt
