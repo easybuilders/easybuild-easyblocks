@@ -33,6 +33,7 @@ import re
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -117,13 +118,16 @@ class EB_Torch(CMakeMake):
                     { "dir": "extra/cudnn", "spec": "cudnn-scm-1.rockspec" }
                     ]
                 magma_root = get_software_root("magma", with_env_var=False)
-                # we need to modify the FindMAGMA.cmake to find the right path
+                # we need to modify the FindMAGMA.cmake to find the right path because it otherwise searches in /usr/local
                 cmd = """sed -i "s;/usr/local/magma/;%s;g" %s/torch/extra/cutorch/lib/THC/cmake/FindMAGMA.cmake""" % (magma_root, self.builddir)
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
 
+            # the extensions use cmake to build, and won't find libraries unless we define CMAKE_xxx_PATH.
+            env.setvar('CMAKE_INCLUDE_PATH',os.getenv('CPATH'))
+            env.setvar('CMAKE_LIBRARY_PATH',os.getenv('LIBRARY_PATH'))
             for item in ext_list:
-                cmd = "cd %(builddir)s/torch/%(directory)s; %(installdir)s/bin/luarocks make %(spec)s" % {
+                cmd = """cd %(builddir)s/torch/%(directory)s; %(installdir)s/bin/luarocks make %(spec)s""" % {
                         'builddir': self.builddir,
                         'installdir': self.installdir,
                         'directory': item["dir"],
@@ -136,10 +140,10 @@ class EB_Torch(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Torch."""
-
+        libs = [ 'luajit', 'luaT', 'THC', 'TH' ]
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.a' % x.lower()) for x in libs],
-            'dirs': ['bin', 'include']
+            'files': [os.path.join('lib', 'lib%s.so' % x) for x in libs],
+            'dirs': ['bin', 'etc', 'include', 'lib', 'share', 'include/TH', 'include/THC', 'share/cmake']
         }
 
         super(EB_Torch, self).sanity_check_step(custom_paths=custom_paths)
