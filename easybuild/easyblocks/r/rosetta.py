@@ -127,33 +127,15 @@ class EB_Rosetta(EasyBlock):
         flags = [str(f).strip('-') for f in self.toolchain.variables['CXXFLAGS'].copy()]
 
         txt = '\n'.join([
+            "import os",
             "settings = {",
             "   'user': {",
             "       'prepends': {",
-            "           'library_path': %s," % str(ld_library_paths),
-            "           'include_path': %s," % str(cpaths),
             "       },",
             "       'appends': {",
-            "           'program_path': %s," % str(paths),
-            "           'flags': {",
-            "               'compile': %s," % str(flags),
-            #"              'mode': %s," % str(o_flags),
-            "           },",
-            "           'defines': %s," % str(defines),
             "       },",
             "       'overrides': {",
-            "           'cc': '%s'," % os.getenv('CC'),
-            "           'cxx': '%s'," % os.getenv('CXX'),
-            "           'ENV': {",
-            "               'INTEL_LICENSE_FILE': '%s'," % os.getenv('INTEL_LICENSE_FILE'),  # Intel license file
-            "               'PATH': %s," % str(paths),
-            "               'LD_LIBRARY_PATH': %s," % str(ld_library_paths),
-        ])
-        txt += '\n'
-        for (key, val) in env_vars.items():
-            txt += "               '%s': '%s',\n" % (key, val)
-        txt += '\n'.join([
-            "           },",
+            "           'ENV': os.environ,",
             "       },",
             "       'removes': {",
             "       },",
