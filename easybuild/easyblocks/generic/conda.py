@@ -35,6 +35,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 import easybuild.tools.environment as env
 from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import rmtree2
 
 
 class Conda(Binary):
@@ -70,6 +71,9 @@ class Conda(Binary):
         cmd = "conda config --add create_default_packages setuptools"
         run_cmd(cmd, log_all=True, simple=True)
 
+        # conda requires that the installdir is empty
+        rmtree2(self.installdir)
+
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
 
             if self.cfg['environment_file']:
@@ -79,12 +83,11 @@ class Conda(Binary):
 
             self.set_conda_env()
 
-            # use --force to ignore existing installation directory
-            cmd = "%s conda env create --force %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
+            cmd = "%s conda env create %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
-            cmd = "%s conda create --force -y -p %s" % (self.cfg['preinstallopts'], self.installdir)
+            cmd = "%s conda create -y -p %s" % (self.cfg['preinstallopts'], self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
             if self.cfg['requirements']:
