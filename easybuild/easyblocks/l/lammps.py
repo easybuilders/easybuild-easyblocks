@@ -57,6 +57,7 @@ class EB_LAMMPS(EasyBlock):
             'packaged_libraries': [[], "Libraries to package with LAMMPS", MANDATORY],
             'build_shared_libs': [True, "Build shared libraries" , CUSTOM],
             'build_static_libs': [True, "Build static libraries", CUSTOM],
+            'build_type': ["", 'Argument passed to "make" for building LAMMPS itself', CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -161,26 +162,30 @@ class EB_LAMMPS(EasyBlock):
         run_cmd("make package-update")
 
         # build LAMMPS itself
-        run_cmd("make mpi", log_all=True)
+        build_type = self.cfg["build_type"]
+        run_cmd("make %s" % build_type, log_all=True)
 
         # build shared libraries
         if self.cfg["build_shared_libs"]:
-            run_cmd("make mode=shlib mpi", log_all=True)
+            run_cmd("make mode=shlib %s" % build_type, log_all=True)
 
         # build static libraries
         if self.cfg["build_static_libs"]:
-            run_cmd("make mode=lib mpi", log_all=True)
+            run_cmd("make mode=lib %s" % build_type, log_all=True)
 
     def install_step(self):
         """Copying files in the right directory"""
-        run_cmd("mkdir -p ../bin; pwd; cp lmp_mpi ../bin")
+        build_type = self.cfg["build_type"]
+        run_cmd("mkdir -p ../bin; pwd; cp lmp_%s ../bin" % build_type)
+        run_cmd("ln -s lmp_%s ../bin/lmp" % build_type)
         run_cmd("mkdir -p ../lib; cp liblammps* ../lib")
         run_cmd("cp list-packages.txt ..")
 
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
+        build_type = self.cfg["build_type"]
         custom_paths = {
-            'files': ['src/list-packages.txt','list-packages.txt','bin/lmp_mpi'],
+            'files': ['src/list-packages.txt','list-packages.txt','bin/lmp_%s' % build_type ],
             'dirs': ['bin', 'lib'],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
