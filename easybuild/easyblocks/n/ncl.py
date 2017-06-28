@@ -132,10 +132,9 @@ class EB_NCL(EasyBlock):
         includes = ''
         for dep in deps:
             root = get_software_root(dep)
-            if not root:
-                raise EasyBuildError("%s not available", dep)
-            libs += ' -L%s/lib ' % root
-            includes += ' -I%s/include ' % root
+            if root:
+                libs += ' -L%s/lib ' % root
+                includes += ' -I%s/include ' % root
 
         opt_deps = ["netCDF-Fortran", "GDAL"]
         libs_map = {
