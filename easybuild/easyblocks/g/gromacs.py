@@ -124,9 +124,11 @@ class EB_GROMACS(CMakeMake):
             # disable GUI tools
             self.cfg.update('configopts', "-DGMX_X11=OFF")
 
-            # convince to build for an older architecture then present on the build node by setting GMX_SIMD CMake flag.
-            if build_option('optarch', default=None) and self.toolchain.comp_family() in build_option('optarch'):
-                build_arch = build_option('optarch')[self.toolchain.comp_family()]
+            # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag.
+            optarch = build_option('optarch', default=None)
+            comp_fam = self.toolchain.comp_family()
+            if isinstance(optarch, dict) and comp_fam in build_option('optarch'):
+                build_arch = optarch[comp_fam]
                 gmx_simd = self.get_gromacs_arch(build_arch)
                 if gmx_simd:
                     if LooseVersion(self.version) < LooseVersion('5.0'):
@@ -378,11 +380,11 @@ class EB_GROMACS(CMakeMake):
         [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
         """
         build_arch = build_arch.upper()
-        if build_arch.endswith(("AVX2")) and not LooseVersion(self.version) < LooseVersion('5.0'):
+        if 'AVX2' in build_arch and LooseVersion(self.version) >= LooseVersion('5.0'):
             return "AVX2_256"
-        elif build_arch.endswith(("AVX")):
+        elif 'AVX' in build_arch:
             return "AVX_256"
-        elif build_arch.endswith(("SSE3" ,"SSE2") or build_arch.contains("MARCH=NOCONA")):
+        elif 'SSE3' in build_arch  or  'SSE2' in build_arch  or  'MARCH=NOCONA' in build_arch:
             # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
