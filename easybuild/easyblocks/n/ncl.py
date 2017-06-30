@@ -78,10 +78,7 @@ class EB_NCL(EasyBlock):
         ctof_libs = ''
         ifort = get_software_root('ifort')
         if ifort:
-            if LooseVersion(get_software_version('ifort')) < LooseVersion('2011.4'):
-                ctof_libs = '-lm -L%s/lib/intel64 -lifcore -lifport' % ifort
-            else:
-                ctof_libs = '-lm -L%s/compiler/lib/intel64 -lifcore -lifport' % ifort
+            ctof_libs = '-lm -L%s/lib/intel64 -lifcore -lifport' % ifort
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
         macrodict = {
