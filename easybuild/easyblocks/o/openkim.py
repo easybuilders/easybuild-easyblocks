@@ -45,25 +45,27 @@ class EB_OpenKIM(ConfigureMake):
         """
         driverdir = ('src', 'model_drivers')
         modeldir = ('src', 'models')
-        main_unpack_dir = None
-        for src in self.src:
+        self.log.info("Unpacking main source %s to %s",
+                      self.src[0]['name'], self.builddir)
+        main_unpack_dir = extract_file(self.src[0]['path'], self.builddir, 
+            cmd=self.src[0]['cmd'], extra_options=self.cfg['unpack_options'])
+        if not main_unpack_dir:
+            raise EasyBuildError("Failed to unpack %s", self.src[0]['name'])
+        self.src[0]['finalpath'] = main_unpack_dir
+
+        # Now unpack the models and model drivers.
+        for idx, src in enumerate(self.src[1:]):
             if src['name'].startswith('MD_'):
-                assert main_unpack_dir is not None
                 targetdir = os.path.join(main_unpack_dir, *driverdir)
             elif src['name'].startswith('MO_'):
-                assert main_unpack_dir is not None
                 targetdir = os.path.join(main_unpack_dir, *modeldir)
             else:
-                targetdir = self.builddir
-            self.log.info("Unpacking source %s to %s" % (src['name'],
-                                                         targetdir))
+                raise EasyBuildError("Don't know where to unpack unrecognized source file %s" % (src['name'],))
+
+            self.log.info("Unpacking source %s to %s" % (src['name'], targetdir))
             srcdir = extract_file(src['path'], targetdir, cmd=src['cmd'],
                                   extra_options=self.cfg['unpack_options'])
             if srcdir:
-                self.src[self.src.index(src)]['finalpath'] = srcdir
-                if main_unpack_dir is None:
-                    main_unpack_dir = srcdir
-                    self.log.info("Detected main unpacking path: %s" 
-                                  % (main_unpack_dir,))
+                self.src[idx+1]['finalpath'] = srcdir
             else:
                 raise EasyBuildError("Unpacking source %s failed", src['name'])
