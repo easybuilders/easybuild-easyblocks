@@ -191,7 +191,7 @@ class RPackage(ExtensionEasyBlock):
             try:
                 os.mkdir(lib_install_prefix)
             except OSError, err:
-                if err.errno == errno.EEXIST and os.path.isdir(lib_install_prefix):
+                if os.path.isdir(lib_install_prefix):
                     pass
                 else:
                     raise EasyBuildError("Failed to create library directory for R packages: %s", err)
@@ -219,5 +219,5 @@ class RPackage(ExtensionEasyBlock):
 
     def make_module_extra(self):
         """Add install path to R_LIBS"""
-        extra = self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
+        extra = self.module_generator.prepend_paths("R_LIBS", ['library'])  # prepend R_LIBS with install path
         return super(RPackage, self).make_module_extra(extra)
