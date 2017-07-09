@@ -35,3 +35,9 @@ install:
 script:
     - export PYTHONPATH=$TRAVIS_BUILD_DIR
     - python -O -m test.easyblocks.suite
+notifications:
+  email:
+    recipients:
+      - easybuild-maintainers@lists.ugent.be
+    on_success: change
+    on_failure: always
