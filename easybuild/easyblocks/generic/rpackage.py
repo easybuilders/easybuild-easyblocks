@@ -187,7 +187,7 @@ class RPackage(ExtensionEasyBlock):
             lib_install_prefix = os.path.join(rhome, 'library')
         else:
             # extension is being installed in a separate installation prefix
-            lib_install_prefix = self.installdir
+            lib_install_prefix = os.path.join(self.installdir, 'library')
 
         if self.patches:
             super(RPackage, self).run(unpack_src=True)
