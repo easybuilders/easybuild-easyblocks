@@ -78,14 +78,14 @@ class EB_GROMACS(CMakeMake):
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 
-            (out, _) = run_cmd("plumed patch -l", log_all=True, simple=False)
+            (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
             if not re.search(engine, out):
                 raise EasyBuildError("There is no support in PLUMED version %s for GROMACS %s: %s",
                                      get_software_version('PLUMED'), self.version, out)
 
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
-            plumed_cmd = "plumed patch -p -e %s" % engine
+            plumed_cmd = "plumeds- patch -p -e %s" % engine
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
@@ -126,7 +126,7 @@ class EB_GROMACS(CMakeMake):
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
                 if LooseVersion(self.version) >= LooseVersion('5.1'):
-                    # Use shared or static patch depending on 
+                    # Use shared or static patch depending on
                     # setting of self.toolchain.options.get('dynamic')
                     # and adapt cmake flags accordingly as per instructions
                     # from "plumed patch -i"
