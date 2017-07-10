@@ -85,7 +85,7 @@ class EB_GROMACS(CMakeMake):
 
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
-            plumed_cmd = "plumeds- patch -p -e %s" % engine
+            plumed_cmd = "plumed-patch -p -e %s" % engine
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
