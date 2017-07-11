@@ -144,7 +144,7 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('configopts', '--with-mpi4py=1')
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
-            deps = ["FFTW", "ScaLAPACK"]
+            deps = ["ScaLAPACK"]
             if LooseVersion(self.version) < LooseVersion("3.5"):
                 deps.append("BLACS")
             for dep in deps:
@@ -169,7 +169,7 @@ class EB_PETSc(ConfigureMake):
 
             # additional dependencies
             # filter out deps handled seperately
-            depfilter = self.cfg.builddependencies() + ["BLACS", "BLAS", "CMake", "FFTW", "LAPACK", "numpy",
+            depfilter = self.cfg.builddependencies() + ["BLACS", "BLAS", "CMake", "LAPACK", "numpy",
                                                         "mpi4py", "papi", "ScaLAPACK", "SuiteSparse"]
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
