@@ -94,7 +94,6 @@ setup(
         "Topic :: Software Development :: Build Tools",
     ],
     platforms = "Linux",
-    provides = ["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
     install_requires = [
         'setuptools >= 0.6',
         "easybuild-framework >= %s" % API_VERSION,
