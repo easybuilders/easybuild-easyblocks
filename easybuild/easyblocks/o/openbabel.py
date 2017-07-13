@@ -26,12 +26,13 @@
 EasyBuild support for OpenBabel, implemented as an easyblock
 
 @author: Ward Poelmans (Ghent University)
+@author: Oliver Stueker (Compute Canada/ACENET)
 """
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
-
+from distutils.version import LooseVersion
 
 class EB_OpenBabel(CMakeMake):
     """Support for installing the OpenBabel package."""
@@ -75,8 +76,15 @@ class EB_OpenBabel(CMakeMake):
 
     def make_module_extra(self):
         """Custom variables for OpenBabel module."""
+        if LooseVersion(self.version) >= LooseVersion('2.4'):
+            # since OpenBabel 2.4.0 the Python bindings under 
+            # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
+            shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
+            ob_pythonpath = 'lib/python%s/site-packages/' % (shortpyver)
+        else:
+            ob_pythonpath = 'lib'
         txt = super(EB_OpenBabel, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', ['lib'])
+        txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
         babel_libdir = os.path.join(self.installdir, 'lib', 'openbabel', self.version)
         txt += self.module_generator.set_environment('BABEL_LIBDIR', babel_libdir)
         babel_datadir = os.path.join(self.installdir, 'share', 'openbabel', self.version)
