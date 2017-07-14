@@ -30,12 +30,20 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 """
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 from distutils.version import LooseVersion
 
 class EB_OpenBabel(CMakeMake):
     """Support for installing the OpenBabel package."""
+
+    @staticmethod
+    def extra_options():
+        extra_vars = {
+            'try_python': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
+        }
+        return CMakeMake.extra_options(extra_vars)
 
     def configure_step(self):
 
@@ -47,8 +55,9 @@ class EB_OpenBabel(CMakeMake):
         self.cfg['configopts'] += "-DBUILD_GUI=OFF "
 
         root_python = get_software_root('Python')
-        if root_python:
+        if root_python and self.cfg['try_python']:
             self.log.info("Enabling Python bindings")
+            self.with_python = True
             shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
             self.cfg['configopts'] += "-DPYTHON_BINDINGS=ON "
             shlib_ext = get_shared_lib_ext()
@@ -56,6 +65,7 @@ class EB_OpenBabel(CMakeMake):
             self.cfg['configopts'] += "-DPYTHON_INCLUDE_DIR=%s/include/python%s " % (root_python, shortpyver)
         else:
             self.log.info("Not enabling Python bindings")
+            self.with_python = False
 
         root_eigen = get_software_root("Eigen")
         if root_eigen:
@@ -76,15 +86,16 @@ class EB_OpenBabel(CMakeMake):
 
     def make_module_extra(self):
         """Custom variables for OpenBabel module."""
-        if LooseVersion(self.version) >= LooseVersion('2.4'):
-            # since OpenBabel 2.4.0 the Python bindings under 
-            # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
-            shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
-            ob_pythonpath = 'lib/python%s/site-packages/' % (shortpyver)
-        else:
-            ob_pythonpath = 'lib'
         txt = super(EB_OpenBabel, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
+        if self.with_python:
+            if LooseVersion(self.version) >= LooseVersion('2.4'):
+                # since OpenBabel 2.4.0 the Python bindings under 
+                # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
+                shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
+                ob_pythonpath = 'lib/python%s/site-packages/' % (shortpyver)
+            else:
+                ob_pythonpath = 'lib'
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
         babel_libdir = os.path.join(self.installdir, 'lib', 'openbabel', self.version)
         txt += self.module_generator.set_environment('BABEL_LIBDIR', babel_libdir)
         babel_datadir = os.path.join(self.installdir, 'share', 'openbabel', self.version)
