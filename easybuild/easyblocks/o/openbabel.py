@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# https://github.com/easybuilders/easybuild
+# http://github.com/hpcugent/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,6 +44,11 @@ class EB_OpenBabel(CMakeMake):
             'try_python': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize OpenBabel-specific variables."""
+        super(EB_OpenBabel, self).__init__(*args, **kwargs)
+        self.with_python = False
 
     def configure_step(self):
 
