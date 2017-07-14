@@ -35,8 +35,16 @@ import sys
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
 
+def get_library_root(libname):
+    """ Find directory for liblibname.so or liblibname.a in $LIBRARY_PATH """
+    library_path = os.getenv('LIBRARY_PATH').split(':')
+    for path in library_path:
+        if (os.path.exists(os.path.join(path, 'lib%s.so'%libname)) or
+            os.path.exists(os.path.join(path, 'lib%s.a'%libname))):
+            return path
+    return ""
 
 class EB_XCrySDen(ConfigureMake):
     """Support for building/installing XCrySDen."""
@@ -52,11 +60,16 @@ class EB_XCrySDen(ConfigureMake):
         and set make target and installation prefix.
         """
 
+        # figure out tcl/tk version
+        out, err = run_cmd("echo 'puts $tcl_version;exit 0' | tclsh", log_all=True, simple=False)
+        self.tclver = out.strip()
+        self.tkver = self.tclver
+
         # check dependencies
-        deps = ["Mesa", "Tcl", "Tk"]
+        deps = ["GL", "tcl%s" % self.tclver, "tk%s" % self.tkver]
         for dep in deps:
-            if not get_software_root(dep):
-                raise EasyBuildError("Module for dependency %s not loaded.", dep)
+            if not get_library_root(dep):
+                raise EasyBuildError("Module for dependency with lib%s not loaded.", dep)
 
         # copy template Make.sys to apply_patch
         makesys_tpl_file = os.path.join("system", "Make.sys-shared")
@@ -66,10 +79,8 @@ class EB_XCrySDen(ConfigureMake):
         except OSError, err:
             raise EasyBuildError("Failed to copy %s: %s", makesys_tpl_file, err)
 
-        self.tclroot = get_software_root("Tcl")
-        self.tclver = '.'.join(get_software_version("Tcl").split('.')[0:2])
-        self.tkroot = get_software_root("Tk")
-        self.tkver = '.'.join(get_software_version("Tk").split('.')[0:2])
+        self.tclroot = get_library_root("tcl%s" % self.tclver)
+        self.tkroot = get_library_root("tk%s" % self.tkver)
 
         # patch Make.sys
         settings = {
@@ -77,13 +88,13 @@ class EB_XCrySDen(ConfigureMake):
                     'CC': os.getenv('CC'),
                     'FFLAGS': os.getenv('F90FLAGS'),
                     'FC': os.getenv('F90'),
-                    'TCL_LIB': "-L%s/lib -ltcl%s" % (self.tclroot, self.tclver),
-                    'TCL_INCDIR': "-I%s/include" % self.tclroot,
-                    'TK_LIB': "-L%s/lib -ltk%s" % (self.tkroot, self.tkver),
-                    'TK_INCDIR': "-I%s/include" % self.tkroot,
-                    'GLU_LIB': "-L%s/lib -lGLU" % get_software_root("Mesa"),
-                    'GL_LIB': "-L%s/lib -lGL" % get_software_root("Mesa"),
-                    'GL_INCDIR': "-I%s/include" % get_software_root("Mesa"),
+                    'TCL_LIB': "-ltcl%s" % self.tclver,
+                    'TCL_INCDIR': "",
+                    'TK_LIB': "-ltk%s" % self.tkver,
+                    'TK_INCDIR': "",
+                    'GLU_LIB': "-lGLU",
+                    'GL_LIB': "-lGL",
+                    'GL_INCDIR': "",
                     'FFTW3_LIB': "-L%s %s -L%s %s" % (os.getenv('FFTW_LIB_DIR'), os.getenv('LIBFFT'),
                                                       os.getenv('LAPACK_LIB_DIR'), os.getenv('LIBLAPACK_MT')),
                     'FFTW3_INCDIR': "-I%s" % os.getenv('FFTW_INC_DIR'),
@@ -92,6 +103,10 @@ class EB_XCrySDen(ConfigureMake):
                     'COMPILE_FFTW': 'no',
                     'COMPILE_MESCHACH': 'no'
                    }
+
+        # compatibility flag for tcl8.6
+        if self.tclver == '8.6':
+            settings['CFLAGS'] += ' -DUSE_INTERP_RESULT'
 
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
@@ -138,9 +153,9 @@ class EB_XCrySDen(ConfigureMake):
         """Set extra environment variables in module file."""
         txt = super(EB_XCrySDen, self).make_module_extra()
 
-        tclpath = os.path.join(self.tclroot, 'lib', "tcl%s" % self.tclver)
+        tclpath = os.path.join(self.tclroot, "tcl%s" % self.tclver)
         txt += self.module_generator.set_environment('TCL_LIBRARY', tclpath)
-        tkpath = os.path.join(self.tkroot, 'lib', "tk%s" % self.tkver)
+        tkpath = os.path.join(self.tkroot, "tk%s" % self.tkver)
         txt += self.module_generator.set_environment('TK_LIBRARY', tkpath)
 
         return txt
