@@ -60,6 +60,7 @@ class EB_MATLAB(PackedBinary):
     def extra_options():
         extra_vars = {
             'java_options': ['-Xmx256m', "$_JAVA_OPTIONS value set for install and in module file.", CUSTOM],
+            'no_mcc': [False, "Configure so that it does not fail if mcc is not present", CUSTOM],
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -137,11 +138,18 @@ class EB_MATLAB(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
-        custom_paths = {
-            'files': ["bin/matlab", "bin/mcc", "bin/glnxa64/MATLAB", "bin/glnxa64/mcc",
-                      "runtime/glnxa64/libmwmclmcrrt.%s" % get_shared_lib_ext(), "toolbox/local/classpath.txt"],
-            'dirs': ["java/jar", "toolbox/compiler"],
-        }
+        if self.cfg['no_mcc']:
+            custom_paths = {
+                'files': ["bin/matlab", "bin/glnxa64/MATLAB", 
+                          "runtime/glnxa64/libmwmclmcrrt.%s" % get_shared_lib_ext(), "toolbox/local/classpath.txt"],
+                'dirs': ["java/jar", "toolbox/compiler"],
+            }
+        else:
+            custom_paths = {
+                'files': ["bin/matlab", "bin/mcc", "bin/glnxa64/MATLAB", "bin/glnxa64/mcc",
+                          "runtime/glnxa64/libmwmclmcrrt.%s" % get_shared_lib_ext(), "toolbox/local/classpath.txt"],
+                'dirs': ["java/jar", "toolbox/compiler"],
+            }
         super(EB_MATLAB, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
