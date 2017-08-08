@@ -101,9 +101,12 @@ class IntelBase(EasyBlock):
 
         self.license_file = 'UNKNOWN'
         self.license_env_var = 'UNKNOWN'
-
         # Initialise whether we need a runtime licence or not
         self.requires_runtime_license = True
+
+        # Initialise whether we skip putting it in the module file
+        self.skip_license_file_in_module = False
+
 
         self.home_subdir = os.path.join(os.getenv('HOME'), 'intel')
         common_tmp_dir = os.path.dirname(tempfile.gettempdir())  # common tmp directory, same across nodes
@@ -117,6 +120,8 @@ class IntelBase(EasyBlock):
         extra_vars.update({
             'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
             'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
+                                         CUSTOM],
+            'skip_license_file_in_module': [False, "Boolean indicating whether or not the license should be added to the module",
                                          CUSTOM],
             # 'usetmppath':
             # workaround for older SL5 version (5.5 and earlier)
@@ -390,8 +395,9 @@ class IntelBase(EasyBlock):
     def make_module_extra(self):
         """Custom variable definitions in module file."""
         txt = super(IntelBase, self).make_module_extra()
+        self.skip_license_file_in_module = self.cfg['skip_license_file_in_module'] or self.skip_license_file_in_module
 
-        if self.requires_runtime_license:
+        if self.requires_runtime_license and not self.skip_license_file_in_module:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
                                                        allow_abs=True, expand_relpaths=False)
 
