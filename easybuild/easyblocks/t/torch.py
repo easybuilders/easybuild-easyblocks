@@ -48,7 +48,8 @@ class EB_Torch(CMakeMake):
     def extra_options():
         """Add extra config options specific to Torch."""
         extra_vars = {
-            'with_magma' : [False, "Builds with Magma support", CUSTOM]
+            'with_magma' : [False, "Builds with Magma support", CUSTOM],
+            'extra_ext' : [None, "Build with these extra extensions", CUSTOM]
         }
         return CMakeMake.extra_options(extra_vars)
 
@@ -134,6 +135,14 @@ class EB_Torch(CMakeMake):
                         'spec': item["spec"]
                     }
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+            if self.cfg["extra_ext"]:
+                for ext in self.cfg["extra_ext"]:
+                    cmd = """%(installdir)s/bin/luarocks install %(ext)s""" % {
+                            'installdir': self.installdir,
+                            'ext': ext
+                            }
+                    (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
         super(EB_Torch, self).extensions_step()
 

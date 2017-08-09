@@ -44,29 +44,48 @@ from easybuild.tools.build_log import EasyBuildError
 class EB_picard(Tarball):
     """Support for building and installing picard."""
 
+    def extract_step(self):
+        if LooseVersion(self.version) >= LooseVersion('2.9'):
+            return
+        else:
+            super(EB_picard, self).extract_step()
+
     def install_step(self):
         """Install picard by copying required files"""
-        # recent version may contain more than just the picard-tools subdirectory
-        picard_tools_dir = 'picard-tools-%s' % self.version
-        if not re.search("%s/?$" % picard_tools_dir, self.cfg['start_dir']):
-            self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], picard_tools_dir)
-            if not os.path.exists(self.cfg['start_dir']):
-                raise EasyBuildError("Path %s to copy files from doesn't exist.", self.cfg['start_dir'])
-
-        for jar in os.listdir(self.cfg['start_dir']):
-            src = os.path.join(self.cfg['start_dir'], jar)
-            dst = os.path.join(self.installdir, jar)
+        if LooseVersion(self.version) >= LooseVersion('2.9'):
+            src = self.src[0]['path']
+            dst = os.path.join(self.installdir, 'picard.jar')
             try:
                 shutil.copy2(src, dst)
                 self.log.info("Successfully copied %s to %s" % (src, dst))
             except OSError, err:
                 raise EasyBuildError("Failed to copy %s to %s (%s)", src, dst, err)
+        else:
+            # recent version may contain more than just the picard-tools subdirectory
+            picard_tools_dir = 'picard-tools-%s' % self.version
+            if not re.search("%s/?$" % picard_tools_dir, self.cfg['start_dir']):
+                self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], picard_tools_dir)
+                if not os.path.exists(self.cfg['start_dir']):
+                    raise EasyBuildError("Path %s to copy files from doesn't exist.", self.cfg['start_dir'])
+
+            for jar in os.listdir(self.cfg['start_dir']):
+                src = os.path.join(self.cfg['start_dir'], jar)
+                dst = os.path.join(self.installdir, jar)
+                try:
+                    shutil.copy2(src, dst)
+                    self.log.info("Successfully copied %s to %s" % (src, dst))
+                except OSError, err:
+                    raise EasyBuildError("Failed to copy %s to %s (%s)", src, dst, err)
 
     def sanity_check_step(self):
         """Custom sanity check for picard"""
         # All versions prior to 1.124 have this jar file
         if LooseVersion(self.version) < LooseVersion('1.124'):
             jar_files = ['picard-%s' % self.version]
+        # Version 2.9 and 2.10 (and maybe some lower versions) have a single jar available, and the tarball
+        # contain docker rather than jar files.
+        elif LooseVersion(self.version) >= LooseVersion('2.9'):
+            jar_files = ['picard']
         else:
             # Starting with v1.124 a major structural change was made to picard
             # All versions >= 1.124 now only have these jar files
