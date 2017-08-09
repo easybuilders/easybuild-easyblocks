@@ -162,7 +162,7 @@ class EB_Siesta(ConfigureMake):
                 complibs = lapack
 
             regex_subs.extend([
-                (r"^(LIBS\s*=\s).*$", r"\1 %s" % complibs),
+                (r"^(LIBS\s*=).*$", r"\1 %s" % complibs),
                 # Needed for a couple of the utils
                 (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s" % os.environ['FCFLAGS']),
             ])
@@ -222,6 +222,13 @@ class EB_Siesta(ConfigureMake):
             apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
             makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
             apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
+
+            # remove clean at the end of default target
+            if self.version == '4.0.1' or self.version == '4.1-b3':
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
 
             run_cmd('./build_all.sh', log_all=True, simple=True, log_output=True)
 
