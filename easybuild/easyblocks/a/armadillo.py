@@ -28,7 +28,7 @@ EasyBuild support for Armadillo, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
@@ -56,8 +56,13 @@ class EB_Armadillo(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Armadillo."""
+        if LooseVersion(self.version) < LooseVersion('7.950.1'):
+            libdir = 'lib'
+        else:
+            libdir = 'lib64'
+
         custom_paths = {
-            'files': ['include/armadillo', 'lib/libarmadillo.%s' % get_shared_lib_ext()],
+            'files': ['include/armadillo', os.path.join(libdir,'libarmadillo.%s' % get_shared_lib_ext())],
             'dirs': ['include/armadillo_bits'],
         }
         super(EB_Armadillo, self).sanity_check_step(custom_paths=custom_paths)
