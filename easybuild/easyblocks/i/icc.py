@@ -150,6 +150,7 @@ class EB_icc(IntelBase):
         if self.cfg['m32']:
             # 32-bit toolchain
             guesses['PATH'].extend(['bin/ia32', 'tbb/bin/ia32'])
+            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
             guesses['LD_LIBRARY_PATH'].append('lib/ia32')
 
         else:
@@ -163,6 +164,7 @@ class EB_icc(IntelBase):
                 'tbb/bin/intel64',
             ])
 
+            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
             guesses['LD_LIBRARY_PATH'].extend([
                 'compiler/lib/intel64',
                 'debugger/ipt/intel64/lib',
@@ -193,6 +195,8 @@ class EB_icc(IntelBase):
 
             # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
             guesses['LD_LIBRARY_PATH'].append('lib/intel64')
+
+        guesses['LIBRARY_PATH'] = guesses['LD_LIBRARY_PATH']
 
         # set debugger path
         if self.debuggerpath:
