@@ -113,6 +113,8 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
+        super(EB_CUDA, self).post_install_step()
+
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
         shlib_ext = get_shared_lib_ext()
