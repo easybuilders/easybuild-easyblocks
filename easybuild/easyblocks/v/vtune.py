@@ -26,6 +26,7 @@
 EasyBuild support for installing Intel VTune, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 import os
 from distutils.version import LooseVersion
@@ -73,24 +74,25 @@ class EB_VTune(IntelBase):
         """
 
         guesses = super(EB_VTune, self).make_module_req_guess()
+        # List of environment variables that the module shouldn't set
+        do_not_set = ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']
 
         if self.cfg['m32']:
             guesses.update({
                 'PATH': [os.path.join(self.subdir, 'bin32')],
-                'LD_LIBRARY_PATH': [os.path.join(self.subdir, 'lib32')],
-                'LIBRARY_PATH': [os.path.join(self.subdir, 'lib32')],
             })
         else:
             guesses.update({
                 'PATH': [os.path.join(self.subdir, 'bin64')],
-                'LD_LIBRARY_PATH': [os.path.join(self.subdir, 'lib64')],
-                'LIBRARY_PATH': [os.path.join(self.subdir, 'lib64')],
             })
 
         guesses.update({
-            'CPATH': [os.path.join(self.subdir, 'include')],
             'MANPATH': [os.path.join(self.subdir, 'man')],
         })
+
+        for ev in do_not_set:
+            if ev in guesses:
+                del guesses[ev]
 
         return guesses
 
