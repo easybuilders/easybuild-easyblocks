@@ -111,12 +111,6 @@ class EB_MCR(PackedBinary):
         cmd = "%s ./install -v -inputFile %s %s" % (self.cfg['preinstallopts'], configfile, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
-        # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-        subdirs = os.listdir(self.installdir)
-        if len(subdirs) == 1:
-            self.subdir = subdirs[0]
-        else:
-            raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
 
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
@@ -136,6 +130,17 @@ class EB_MCR(PackedBinary):
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MCR, self).make_module_extra()
+
+        # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
+        subdirs = os.listdir(self.installdir)
+        # skip the easybuild folder if it exists
+        if "easybuild" in subdirs:
+            i = subdirs.index("easybuild")
+            del subdirs[i]
+        if len(subdirs) == 1:
+            self.subdir = subdirs[0]
+        else:
+            raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
         txt += self.module_generator.set_environment('XAPPLRESDIR', xapplresdir)
