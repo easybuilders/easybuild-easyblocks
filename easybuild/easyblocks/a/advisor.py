@@ -61,16 +61,18 @@ class EB_Advisor(IntelBase):
         A dictionary of possible directories to look for
         """
         guesses = super(EB_Advisor, self).make_module_req_guess()
+        # List of environment variables that the module shouldn't set
+        do_not_set = ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']
 
         lib_path = '%s/lib64' % self.base_path
         include_path = '%s/include' % self.base_path
  
         guesses.update({
-            'CPATH': [include_path],
-            'INCLUDE': [include_path],
-            'LD_LIBRARY_PATH': [lib_path],
-            'LIBRARY_PATH': [lib_path],
             'PATH': ['%s/bin64' % self.base_path],
         })
+
+        for ev in do_not_set:
+            if ev in guesses:
+                del guesses[ev]
 
         return guesses
