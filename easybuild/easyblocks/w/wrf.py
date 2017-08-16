@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -238,7 +238,7 @@ class EB_WRF(EasyBlock):
 
             if self.cfg['buildtype'] in self.parallel_build_types and not build_option('mpi_tests'):
                 self.log.info("Skipping testing of WRF with build type '%s' since MPI testing is disabled",
-                              self.cfg['build_type'])
+                              self.cfg['buildtype'])
                 return
 
             # get list of WRF test cases
