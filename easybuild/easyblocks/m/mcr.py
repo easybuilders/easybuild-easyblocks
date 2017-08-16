@@ -114,10 +114,12 @@ class EB_MCR(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
+        if not self.subdir: self.find_subdir()
         custom_paths = {
             'files': [],
             'dirs': [os.path.join(self.subdir, 'bin', 'glnxa64')],
         }
+
         if LooseVersion(self.version) >= LooseVersion('R2016b'):
             custom_paths['dirs'].append(os.path.join(self.subdir, 'cefclient', 'sys', 'os', 'glnxa64'))
         else:
@@ -131,16 +133,7 @@ class EB_MCR(PackedBinary):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MCR, self).make_module_extra()
 
-        # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-        subdirs = os.listdir(self.installdir)
-        # skip the easybuild folder if it exists
-        if "easybuild" in subdirs:
-            i = subdirs.index("easybuild")
-            del subdirs[i]
-        if len(subdirs) == 1:
-            self.subdir = subdirs[0]
-        else:
-            raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
+        if not self.subdir: self.find_subdir()
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
         txt += self.module_generator.set_environment('XAPPLRESDIR', xapplresdir)
@@ -152,3 +145,13 @@ class EB_MCR(PackedBinary):
         txt += self.module_generator.set_environment('MCRROOT', os.path.join(self.installdir, self.subdir))
 
         return txt
+
+    def find_subdir(self):
+        # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
+        import glob
+        subdirs = glob.glob(os.path.join(self.installdir,'v[0-9][0-9]*'))
+        if len(subdirs) == 1:
+            self.subdir = subdirs[0]
+        else:
+            raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
+
