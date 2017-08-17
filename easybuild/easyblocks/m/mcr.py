@@ -137,6 +137,9 @@ class EB_MCR(PackedBinary):
         txt = super(EB_MCR, self).make_module_extra()
 
         self.set_subdir()
+        # if it is not a string, set it to NOTFOUND.
+        if not isinstance(self.subdir,basestring):
+            self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
         txt += self.module_generator.set_environment('XAPPLRESDIR', xapplresdir)
