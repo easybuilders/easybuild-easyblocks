@@ -33,8 +33,9 @@ EasyBuild support for installing MCR, implemented as an easyblock
 @author: Fotis Georgatos (Uni.Lu, NTUA)
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 """
-import re
+import glob
 import os
+import re
 import shutil
 import stat
 from distutils.version import LooseVersion
@@ -54,7 +55,7 @@ class EB_MCR(PackedBinary):
         super(EB_MCR, self).__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfilename = "my_installer_input.txt"
-        self.subdir = ''
+        self.subdir = None
 
     @staticmethod
     def extra_options():
@@ -114,7 +115,9 @@ class EB_MCR(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
-        if not self.subdir: self.find_subdir()
+        self.set_subdir()
+        if not isinstance(self.subdir,basestring):
+            raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
         custom_paths = {
             'files': [],
             'dirs': [os.path.join(self.subdir, 'bin', 'glnxa64')],
@@ -133,7 +136,7 @@ class EB_MCR(PackedBinary):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MCR, self).make_module_extra()
 
-        if not self.subdir: self.find_subdir()
+        self.set_subdir()
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
         txt += self.module_generator.set_environment('XAPPLRESDIR', xapplresdir)
@@ -146,12 +149,11 @@ class EB_MCR(PackedBinary):
 
         return txt
 
-    def find_subdir(self):
+    def set_subdir(self):
+        if self.subdir: return
         # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-        import glob
         subdirs = glob.glob(os.path.join(self.installdir,'v[0-9][0-9]*'))
         if len(subdirs) == 1:
             self.subdir = subdirs[0]
         else:
-            raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
-
+            self.subdir = subdirs
