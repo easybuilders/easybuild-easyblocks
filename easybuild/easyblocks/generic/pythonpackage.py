@@ -45,7 +45,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, rmtree2, which
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -293,6 +293,24 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             raise EasyBuildError("Failed to pick Python command to use")
 
+        if self.cfg.get('use_pip'):
+            self.pip_cmd = 'pip'
+            python_ver = get_software_version('Python')
+            if python_ver:
+                if LooseVersion(python_ver) >= LooseVersion('3'):
+                    self.log.info("Python3 detected.  Will use pip3.")
+                    self.install_cmd = self.install_cmd.replace('pip', 'pip3')
+                    self.pip_cmd = 'pip3'
+                    self.log.debug("Setting 'install_cmd' to '%s'", self.install_cmd)
+            else:
+                # Apparently we're using system Python.  Find out version and modify pip command if needed
+                out, _ = run_cmd("%s -V" % (python), simple=False)
+                if LooseVersion(out.split()[1]) >= LooseVersion('3'):
+                    self.log.info("Using system Python, which is Python3.  Will use pip3.")
+                    self.install_cmd = self.install_cmd.replace('pip', 'pip3')
+                    self.pip_cmd = 'pip3'
+                    self.log.debug("Setting 'install_cmd' to '%s'", self.install_cmd)
+
         # set Python lib directories
         self.set_pylibdirs()
 
@@ -303,7 +321,7 @@ class PythonPackage(ExtensionEasyBlock):
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False)
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
-            out, _ = run_cmd("pip --version", verbose=False, simple=False)
+            out, _ = run_cmd("%s --version" % self.pip_cmd, verbose=False, simple=False)
 
             # pip 8.x or newer required, because of --prefix option being used
             pip_version_regex = re.compile('^pip ([0-9.]+)')
