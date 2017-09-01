@@ -52,7 +52,7 @@ class EB_ROOT(CMakeMake):
         """Custom configuration for ROOT, add configure options."""
 
         # using ./configure is deprecated/broken in recent versions, need to use CMake instead
-        if LooseVersion(self.version) >= LooseVersion('6.10'):
+        if LooseVersion(self.version.lstrip('v')) >= LooseVersion('6.10'):
             if self.cfg['arch']:
                 raise EasyBuildError("Specified value '%s' for 'arch' is not used, should not be set", self.cfg['arch'])
 
@@ -106,7 +106,7 @@ class EB_ROOT(CMakeMake):
             'files': ['bin/root.exe'],
             'dirs': ['include', 'lib'],
         }
-        if LooseVersion(self.version) >= LooseVersion('6'):
+        if LooseVersion(self.version.lstrip('v')) >= LooseVersion('6'):
             custom_paths['files'].append('bin/root')
 
         custom_commands = []
