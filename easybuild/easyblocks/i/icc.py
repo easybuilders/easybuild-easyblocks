@@ -44,9 +44,6 @@ from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
-# location system header files on Debian/Ubuntu that Intel compilers must consider
-USR_INC_X86_64 = '/usr/include/x86_64-linux-gnu'
-
 
 def get_icc_version():
     """Obtain icc version string via 'icc --version'."""
@@ -228,11 +225,5 @@ class EB_icc(IntelBase):
             intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
             if os.path.isdir(intel_pythonhome):
                 txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
-
-        # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
-        if os.path.exists(USR_INC_X86_64):
-            cpath_update_statements = self.module_generator.prepend_paths('CPATH', [USR_INC_X86_64], allow_abs=True)
-            # system location must be appended at the end, so use append[-_]path statement
-            txt += cpath_update_statements.replace('prepend', 'append')
 
         return txt
