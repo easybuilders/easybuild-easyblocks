@@ -71,7 +71,7 @@ class EB_ROOT(CMakeMake):
             mesa_root = get_software_root('Mesa')
             if mesa_root:
                 self.cfg.update('configopts', '-DDOPENGL_INCLUDE_DIR=%s' % os.path.join(mesa_root, 'include'))
-                self.cfg.update('configopts', '-DDOPENGL_INCLUDE_DIR=%s' % os.path.join(mesa_root, 'lib', 'libGL.so'))
+                self.cfg.update('configopts', '-DOPENGL_gl_LIBRARY=%s' % os.path.join(mesa_root, 'lib', 'libGL.so'))
 
             python_root = get_software_root('Python')
             if python_root:
