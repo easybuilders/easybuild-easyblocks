@@ -227,7 +227,7 @@ class EB_icc(IntelBase):
                 txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
 
         # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
-        out, ec = run_cmd("gcc -print-multiarch", simple=True)
+        out, ec = run_cmd("gcc -print-multiarch", simple=False)
         if ec == 0 and out:
             multiarch_inc_dir = os.path.join('/usr', 'include', out.strip())
             self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
