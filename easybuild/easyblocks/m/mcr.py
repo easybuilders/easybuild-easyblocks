@@ -116,8 +116,9 @@ class EB_MCR(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
         self.set_subdir()
-        if not isinstance(self.subdir,basestring):
+        if not isinstance(self.subdir, basestring):
             raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
+
         custom_paths = {
             'files': [],
             'dirs': [os.path.join(self.subdir, 'bin', 'glnxa64')],
@@ -137,8 +138,9 @@ class EB_MCR(PackedBinary):
         txt = super(EB_MCR, self).make_module_extra()
 
         self.set_subdir()
-        # if it is not a string, set it to NOTFOUND.
-        if not isinstance(self.subdir,basestring):
+        # if no subdir was selected, set it to NOTFOUND
+        # this is done to enable the use of --module-only without having an actual MCR installation
+        if not isinstance(self.subdir, basestring):
             self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
@@ -153,10 +155,12 @@ class EB_MCR(PackedBinary):
         return txt
 
     def set_subdir(self):
-        if self.subdir: return
-        # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-        subdirs = glob.glob(os.path.join(self.installdir,'v[0-9][0-9]*'))
-        if len(subdirs) == 1:
-            self.subdir = subdirs[0]
-        else:
-            self.subdir = subdirs
+        """Determine subdirectory in installation directory"""
+        # no-op is self.subdir is already set
+        if self.subdir is None:
+            # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
+            subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
+            if len(subdirs) == 1:
+                self.subdir = os.path.basename(subdirs[0])
+            else:
+                self.subdir = subdirs
