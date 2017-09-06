@@ -161,6 +161,6 @@ class EB_MCR(PackedBinary):
             # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
             subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
             if len(subdirs) == 1:
-                self.subdir = subdirs[0]
+                self.subdir = os.path.basename(subdirs[0])
             else:
                 self.subdir = subdirs
