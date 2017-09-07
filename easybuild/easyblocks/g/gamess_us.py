@@ -182,7 +182,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             r"GAMESS build directory\? \[.*\] ": self.installdir,  # building in install directory
             r"Enter only the main version number, such as .*\nVersion\? ": fortran_ver,
             r".+gfortran version.\n( \n)?Please enter only the first decimal place, such as .*:": fortran_ver,
-            "Enter your choice of 'mkl' or .* 'none': ": mathlib,
+            r"Enter your choice of 'mkl' or .* 'none': ": mathlib,
         }
         run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
 
