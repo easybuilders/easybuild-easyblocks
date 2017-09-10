@@ -36,11 +36,12 @@ import re
 import os
 import shutil
 import sys
+import stat
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, write_file
+from easybuild.tools.filetools import mkdir, write_file, adjust_permissions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.modules import get_software_libdir
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -142,6 +143,9 @@ class EB_SuiteSparse(ConfigureMake):
                         ndst = os.path.join(dst, c.lower())
                         if os.path.exists(nsrc):
                             os.symlink(nsrc, ndst)
+                    # enable r-x permissions for group/others
+                    perms = stat.S_IRGRP|stat.S_IXGRP|stat.S_IROTH|stat.S_IXOTH
+                    adjust_permissions(dst, perms, add=True, recursive=True, onlydirs=True)
                 else:
                     shutil.copy2(src, dst)
             except OSError, err:

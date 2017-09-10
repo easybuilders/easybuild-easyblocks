@@ -5,6 +5,26 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 187 software-specific easyblocks and 29 generic easyblocks.
 
+v3.4.0 (September 10th 2017)
+----------------------------
+
+feature release
+- minor enhancements, including:
+  - update Siesta easyblock for versions 4.0.1 and 4.1-b3 (#1218)
+  - updates GAMESS-US easyblock for version 20170420R1 + move ddikick.x when ddi_comm is set to sockets (#1221)
+  - update MRtrix easyblock for 3.0 & beyond + use copy function (#1230)
+  - update ROOT easyblock to support recent versions that require using CMake, add sanity check, clean up/enhance make_module* (#1236)
+  - enhance icc easyblock to inlude multipath include dir in $CPATH (#1237, #1242)
+- various bug fixes, including:
+  - use plumed-patch command rather than 'plumed patch' in GROMACS easyblock (#1212)
+  - remove 'provides' line from setup.py (#1217)
+  - fixed wrong use of build_type in self.cfg in WRF easyblock that resulted in an raised exception (#1220)
+  - added a call to super post_install_step in CUDA easyblock (#1226)
+  - fix $MCRROOT definition in generated module file under --module-only in MCR easyblock (#1228)
+  - fix permissions for directories in SuiteSparse (#1238)
+  - fix function signature for fetch_extension_sources in OCaml easyblock (#1240)
+
+
 v3.3.1 (July 12th 2017)
 -----------------------
 
