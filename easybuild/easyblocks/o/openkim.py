@@ -36,6 +36,8 @@ from easybuild.tools.build_log import EasyBuildError
 import os
 
 class EB_OpenKIM(ConfigureMake):
+    """Custom easyblock for OpenKIM"""
+
     def extract_step(self):
         """
         Unpack the source files.
@@ -43,29 +45,33 @@ class EB_OpenKIM(ConfigureMake):
         The main file is unpacked as usual, all model files are
         unpacked into the right subdirectories.
         """
-        driverdir = ('src', 'model_drivers')
-        modeldir = ('src', 'models')
-        self.log.info("Unpacking main source %s to %s",
-                      self.src[0]['name'], self.builddir)
-        main_unpack_dir = extract_file(self.src[0]['path'], self.builddir, 
-            cmd=self.src[0]['cmd'], extra_options=self.cfg['unpack_options'])
-        if not main_unpack_dir:
-            raise EasyBuildError("Failed to unpack %s", self.src[0]['name'])
-        self.src[0]['finalpath'] = main_unpack_dir
+        main_src = self.src[0]
+        self.log.info("Unpacking main source %s to %s", main_src['name'], self.builddir)
+        main_unpack_dir = extract_file(main_src['path'], self.builddir, cmd=main_src['cmd'],
+                                       extra_options=self.cfg['unpack_options'])
+        if main_unpack_dir:
+            main_src['finalpath'] = main_unpack_dir
+        else:
+            raise EasyBuildError("Failed to unpack %s", main_src['name'])
 
         # Now unpack the models and model drivers.
         for idx, src in enumerate(self.src[1:]):
             if src['name'].startswith('MD_'):
-                targetdir = os.path.join(main_unpack_dir, *driverdir)
+                targetdir = os.path.join(main_unpack_dir, 'src', 'model_drivers')
             elif src['name'].startswith('MO_'):
-                targetdir = os.path.join(main_unpack_dir, *modeldir)
+                targetdir = os.path.join(main_unpack_dir, 'src', 'models')
             else:
-                raise EasyBuildError("Don't know where to unpack unrecognized source file %s" % (src['name'],))
+                raise EasyBuildError("Don't know where to unpack unrecognized source file %s", src['name'])
 
             self.log.info("Unpacking source %s to %s" % (src['name'], targetdir))
-            srcdir = extract_file(src['path'], targetdir, cmd=src['cmd'],
-                                  extra_options=self.cfg['unpack_options'])
+            srcdir = extract_file(src['path'], targetdir, cmd=src['cmd'], extra_options=self.cfg['unpack_options'])
             if srcdir:
                 self.src[idx+1]['finalpath'] = srcdir
             else:
                 raise EasyBuildError("Unpacking source %s failed", src['name'])
+
+    def make_module_extra(self):
+        """Also define $KIM_HOME in generated module."""
+        txt = super(EB_OpenKIM, self).make_module_extra()
+        txt += self.module_generator.set_environment('KIM_HOME', self.installdir)
+        return txt
