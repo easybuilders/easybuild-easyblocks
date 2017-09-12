@@ -25,13 +25,13 @@
 """
 EasyBuild support for building and installing MRtrix, implemented as an easyblock
 """
+import glob
 import os
-import shutil
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy, symlink
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -77,17 +77,15 @@ class EB_MRtrix(EasyBlock):
             cmd = "python build -verbose install=%s linkto=" % self.installdir
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
+        elif LooseVersion(self.version) >= LooseVersion('3.0'):
+            copy(os.path.join(self.builddir, 'bin'), self.installdir)
+            copy(os.path.join(self.builddir, 'lib'), self.installdir)
+
         elif LooseVersion(self.version) >= LooseVersion('0.3.14'):
-            release_dir = os.path.join(self.builddir, 'release')
-            scripts_dir = os.path.join(self.builddir, 'scripts')
-            try:
-                os.rmdir(self.installdir)
-                shutil.copytree(release_dir, self.installdir)
-                shutil.copytree(scripts_dir, os.path.join(self.installdir, 'scripts'))
-                # some scripts expect 'release/bin' to be there, so we put a symlink in place
-                os.symlink(self.installdir, os.path.join(self.installdir, 'release'))
-            except OSError as err:
-                raise EasyBuildError("Failed to copy %s & %s to %s: %s", release_dir, scripts_dir, self.installdir, err)
+            copy(glob.glob(os.path.join(self.builddir, 'release', '*')), self.installdir)
+            copy(os.path.join(self.builddir, 'scripts'), self.installdir)
+            # some scripts expect 'release/bin' to be there, so we put a symlink in place
+            symlink(self.installdir, os.path.join(self.installdir, 'release'))
 
     def make_module_req_guess(self):
         """
