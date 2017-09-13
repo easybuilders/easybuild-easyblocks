@@ -1,14 +1,14 @@
 ##
-# Copyright 2013-2016 Ghent University
+# Copyright 2013-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -123,6 +123,14 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     ]
     for regex in log_method_regexes:
         self.assertFalse(regex.search(txt), "No match for '%s' in %s" % (regex.pattern, easyblock))
+
+    # make sure that (named) arguments get passed down for prepare_step
+    if re.search('def prepare_step', txt):
+        regex = re.compile(r"def prepare_step\(self, \*args, \*\*kwargs\):")
+        self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
+    if re.search('\.prepare_step\(', txt):
+        regex = re.compile(r"\.prepare_step\(.*\*args,.*\*\*kwargs\.*\)")
+        self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
 
     # obtain easyblock class name using regex
     res = class_regex.search(txt)

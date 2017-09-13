@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,12 +31,12 @@ EasyBuild support for installing ANSYS, implemented as an easyblock
 import os
 import stat
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.run import run_cmd
 from easybuild.tools.filetools import adjust_permissions
 
 
-class EB_ANSYS(EasyBlock):
+class EB_ANSYS(PackedBinary):
     """Support for installing ANSYS."""
 
     def __init__(self, *args, **kwargs):
@@ -44,18 +44,14 @@ class EB_ANSYS(EasyBlock):
         super(EB_ANSYS, self).__init__(*args, **kwargs)
         self.ansysver = "v%s" % ''.join(self.version.split('.')[0:2])
 
-    def configure_step(self):
-        """No configuration for ANSYS."""
-        pass
-
-    def build_step(self):
-        """No building for ANSYS."""
-        pass
-
     def install_step(self):
         """Custom install procedure for ANSYS."""
         licserv = self.cfg['license_server']
+        if licserv is None:
+            licserv = os.getenv('EB_ANSYS_LICENSE_SERVER', 'license.example.com')
         licport = self.cfg['license_server_port']
+        if licport is None:
+            licport = os.getenv('EB_ANSYS_LICENSE_SERVER_PORT', '2325:1055')
 
         cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
         run_cmd(cmd, log_all=True, simple=True)

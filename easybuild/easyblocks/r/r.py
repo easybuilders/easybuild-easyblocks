@@ -1,14 +1,14 @@
 ##
-# Copyright 2012-2016 Ghent University
+# Copyright 2012-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import environment
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -56,7 +57,15 @@ class EB_R(ConfigureMake):
     def configure_step(self):
         """Configuration step, we set FC, F77 is already set by EasyBuild to the right compiler,
         FC is used for Fortan90"""
-        environment.setvar("FC", self.toolchain.get_variable('F90'))
+        environment.setvar('FC', self.toolchain.get_variable('F90'))
+
+        # make sure correct config script is used for Tcl/Tk
+        for dep in ['Tcl', 'Tk']:
+            root = get_software_root(dep)
+            if root:
+                dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
+                self.cfg.update('configopts', '-with-%s-config=%s' % (dep.lower(), dep_config))
+
         ConfigureMake.configure_step(self)
     
     def make_module_req_guess(self):

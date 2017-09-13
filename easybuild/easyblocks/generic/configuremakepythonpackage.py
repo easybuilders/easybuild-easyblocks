@@ -1,14 +1,14 @@
 ##
-# Copyright 2015-2016 Ghent University
+# Copyright 2015-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
     def configure_step(self, *args, **kwargs):
         """Configure build using 'python configure'."""
         PythonPackage.configure_step(self, *args, **kwargs)
-        cmd = "%s python %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
+        cmd = ' '.join([self.cfg['preconfigopts'], self.python_cmd, self.cfg['configopts']])
         run_cmd(cmd, log_all=True)
 
     def build_step(self, *args, **kwargs):

@@ -3,7 +3,349 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 159 software-specific easyblocks and 29 generic easyblocks.
+The latest version of easybuild-easyblocks provides 187 software-specific easyblocks and 29 generic easyblocks.
+
+v3.4.0 (September 10th 2017)
+----------------------------
+
+feature release
+- minor enhancements, including:
+  - update Siesta easyblock for versions 4.0.1 and 4.1-b3 (#1218)
+  - updates GAMESS-US easyblock for version 20170420R1 + move ddikick.x when ddi_comm is set to sockets (#1221)
+  - update MRtrix easyblock for 3.0 & beyond + use copy function (#1230)
+  - update ROOT easyblock to support recent versions that require using CMake, add sanity check, clean up/enhance make_module* (#1236)
+  - enhance icc easyblock to inlude multipath include dir in $CPATH (#1237, #1242)
+- various bug fixes, including:
+  - use plumed-patch command rather than 'plumed patch' in GROMACS easyblock (#1212)
+  - remove 'provides' line from setup.py (#1217)
+  - fixed wrong use of build_type in self.cfg in WRF easyblock that resulted in an raised exception (#1220)
+  - added a call to super post_install_step in CUDA easyblock (#1226)
+  - fix $MCRROOT definition in generated module file under --module-only in MCR easyblock (#1228)
+  - fix permissions for directories in SuiteSparse (#1238)
+  - fix function signature for fetch_extension_sources in OCaml easyblock (#1240)
+
+
+v3.3.1 (July 12th 2017)
+-----------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - enhance HDF5 easyblock: define $HDF5_DIR & include -DMPICH_IGNORE_CXX_SEEK in $CXXFLAGS (#1200)
+  - consistently pass down (named) arguments in prepare_step, and check for it in the tests (#1202)
+  - remove no longer supported VersionIndependentPythonPackage generic easyblock (#1202)
+  - update ABAQUS easyblock for recent versions, incl. support for installing hotfixes (#1203)
+  - get rid of references to 'hpcugent' organisation after move to github.com/easybuilders (#1206)
+  - make Boost easyblock fully aware of (pre)configopts, (pre)buildopts and (pre)installopts (#1207)
+  - drop check for 'ipython' in sanity check of Anaconda easyblock, to also support Miniconda (#1210)
+
+
+v3.3.0 (June 26th 2017)
+-----------------------
+
+feature release
+- added easyblocks for MXNet (#1135), Tkinter(#1184)
+- minor enhancements, including:
+  - enhance sanity check for NCL (#1169, #1179)
+  - enable building of shared FFTW libraries (#1180)
+  - include update statements for $CPATH and $*LIBRARY_PATH in generated module in numpy easyblock (#1183)
+  - stop using deprecated 'copytree' function from easybuild.tools.filetools (#1185)
+  - update SAMtools easyblock for v0.1.17 (#1189)
+  - update MATLAB easyblock for 2016b & 2017a versions (adjust permissions and change dir) (#1182, #1197)
+  - consider $EB_*_LICENSE_SERVER(_PORT) in MATLAB and ANSYS easyblocks (#1195)
+  - add omp_num_threads custom parameter in CP2K easyblock to allow defining $OMP_NUM_THREADS during testing (#1196)
+- various bug fixes, including:
+  - fix Siesta easyblock to enable and verify parallel build (#1186)
+  - fix bug in alias definition in impi easyblock for mpigxx, mpiicpc and mpiifort (#1192)
+
+
+v3.2.1 (May 12th 2017)
+----------------------
+
+bugfix/update release
+- added easyblock for Siesta (#1105)
+- minor enhancements, including:
+  - enhance GROMACS easyblock to build with PLUMED support (#1121)
+  - enhance NAMD easyblock: add OpenMP support, update for recent NAMD versions (2.12), fix compatibility with Tcl versions other than 8.5 (#1173)
+
+
+v3.2.0 (May 5th 2017)
+---------------------
+
+feature release
+- added easyblocks for Doris (#1154, #1161), VMD (#1148) and WRF-Fire (#1153, #1159)
+- minor enhancements, including:
+  - update IntelBase, PGI and TotalView easyblocks to allow list of license files/servers via 'license_file' easyconfig parameter (#1129)
+  - update Bowtie2 easyblock to set correct build options, copy more files, extend sanity check (#1146)
+  - added the option to build Boost with multi-threading support (#1147)
+  - allow libpng as OS dependency for WPS (#1150)
+  - extend Boost TIME_UTC patch to Boost versions <= 1.49.0 (#1152)
+  - enhance Python sanity check to check for Tkinter support if Tk is included as a dependency (#1156, #1158)
+  - add support to install Python extensions without unpacking (#1166)
+  - enhance TBB easyblock to also support building open source versions (#1168)
+- various bug fixes, including:
+  - update FFTW easyblock: --enable-avx-128-fma depends on the fma4 CPU feature (AMD), not fma (#1142)
+  - fix problems when usempi not defined in toolchain in NAMD easyblock (#1162)
+
+
+v3.1.2 (March 20th 2017)
+------------------------
+
+bugfix/update release
+- add easyblock for QScintilla (#1127)
+- minor enhancements, including:
+  - auto-disable quad precision on POWER and ARM in FFTW (#1102, #1138)
+  - allow "download install" for PETSc (#1114)
+  - modify Trinity sanity check for versions 2.3 and above (#1133)
+  - make unpacking Python extensions optional (#1134)
+  - update SAMtools easyblock for version 1.4 (#1139)
+- various bug fixes, including:
+  - reduce number of environment variables in icc and ifort modules (#1126, #1143)
+  - also run tests with Tcl module syntax, Lua is the default in EasyBuild v3.x (#1128)
+  - rename member variable to avoid conflict with member of base class in PGI (#1137)
+  - don't set $FPATH environment variable in multiple easyblocks (#1140)
+
+
+v3.1.1 (March 7th 2017)
+-----------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - change the sanity check for MCR 2016b since the directory structure has changed (#1096)
+  - update NWChem easyblock for version 6.6.x and to handle different versions of OpenMPI for older versions (#1104)
+  - allow per-component source_urls with templating in Bundle easyblock (#1108)
+  - add slib to $LD_LIBRARY_PATH for itac (#1112)
+  - consider both lib and lib64 in CGAL sanity check (#1113)
+  - add support for installing Intel tools that do not require license at installation time (#1117)
+    - required for Intel MPI and Intel MKL version 2017.2.174
+  - remove prefix_opt as custom easyconfig paramter for Qt easyblock (#1120)
+- various bug fixes, including:
+  - use '-prefix <path>' rather than '--prefix=<path>' for configure in Qt (#1109)
+  - fix indentation problem in PETSc easyblock (#1111)
+
+
+v3.1.0 (February 3rd 2017)
+--------------------------
+
+feature release
+- new easyblock for FFTW (#1083)
+- various enhancements, including:
+  - update sanity check for flex 2.6.3, no more libfl_pic.a library (#1077)
+  - cleanup build before proceeding with full Boost (#1080)
+  - update CP2K easyblock: copy data dir, support version 4.1, support ELPA, fix psmp build with foss toolchain (#996, #1020, #1043, #1084)
+  - add sanity check support for OpenSSL 1.1 (#1087)
+  - support the latest changes in Inspector 2017 (#1047)
+  - update NEURON easyblock to support the lack of hoc_ed in 7.4 (#987)
+  - add support for WPS 3.8 (#1079)
+  - also consider setuptools in EasyBuildMeta easyblock (#1093)
+- various bug fixes, including:
+  - (correctly) define $ROSETTA3_DB in Rosetta easyblock (#1092)
+
+
+v3.0.2 (December 22nd 2016)
+---------------------------
+
+bugfix release
+- various enhancements, including:
+  - enhance DL_POLY_Classic easyblock to support building with Plumed support (REVIEW) (#829)
+  - make the Allinea easyblock search for the templates in the easyconfig paths (#1025)
+  - make FortranPythonPackage aware of (pre)buildopts (#1065)
+  - update sanity check for Mono to support recent versions (#1069)
+  - fix Eigen sanity check for latest version 3.3.1 (#1074)
+- various bug fixes, including:
+  - skip RPATH sanity check for binary installations (#1056)
+  - pass CXXFLAGS and LDFLAGS to Boost bjam (#1064)
+  - make pip ignore already installed versions of the package being installed (#1066)
+  - don't pass empty string as custom installopts for numpy in test_step (#1067)
+  - make the Rosetta EasyBlock work in --module-only mode (#1073)
+
+
+v3.0.1 (November 30th 2016)
+---------------------------
+
+bugfix release
+- various enhancements, including:
+  - update SAMtools easyblock for recent versions (#1048)
+- various bugfixes, including:
+  - fix QuantumESPRESSO easyblock to handle gipaw correctly (#1041)
+  - always specify name of serial Fortran compiler to ALADIN, it already knows to use MPI wrapper commands (#1050)
+
+
+v3.0.0 (November 16th 2016)
+---------------------------
+
+feature release
+- backwards incompatible changes:
+  - remove deprecated GenomeAnalysisTK/GATK easyblock (#1001)
+  - remove deprecated 'get_netcdf_module_set_cmds' function from netCDF easyblock (#1015)
+  - remove deprecated 'get_blas_lib' function from LAPACK easyblock (#1016)
+  - remove QLogicMPI easyblock (#1023)
+- new easyblock for installing Anaconda (#950)
+- add generic easyblock for Conda installations (#950)
+- various enhancements, including:
+  - enable use of GCCcore as toolchain for Clang, fail if no GCC prefix is found (#1002)
+  - also build Boost MPI library in parallel (#1005, #1038)
+  - enhance g2clib easyblock to allow to install 1.6.0 or higher (#1006)
+  - update QuantumESPRESSO easyblock to support packaging changes in 6.0 (#1007)
+  - add support to Scons generic easyblock to provide argument to specify installation prefix (#1008)
+  - update IntelBase and imkl easyblocks to handle the 2017 versions of compilers/imkl (#1012)
+  - leverage toolchain.linalg functionality in ScaLAPACK easyblock, use copy_file (#1014)
+  - allow netCDF-C++4 to be used with ESMF (#1019)
+  - update Advisor easyblock to support latest versions (#1021)
+  - update CBLAS easyblock to build with foss toolchain (#1024)
+  - update Gurobi easyblock to use copy_file (#1028)
+  - add support for giving /lib preference over /lib64 & co in GCC installation (#1030, #1035)
+  - enable installation of libiberty by default for binutils (#1030)
+  - avoid CMake fiddling with the RPATHs injected by EasyBuild via --rpath in CMakeMake and METIS easyblocks (#1031, #1034)
+  - simplify scipy sanity check to make it more robust w.r.t. version updates (#1037)
+- various bug fixes, including:
+  - make sure 'None' doesn't appear in modules generated with --module-only (#998)
+  - fix ATLAS easyblock for non-x86 systems (#1003)
+  - fix 'usempi' and 'with_mpi' usage to allow for a serial build of Amber 16 (#1013)
+  - add both lib/python2.7/site-packages/{,wx-3.0-gtk2} to $PYTHONPATH for wxPython (#1018)
+  - only hard inject RPATH for /usr/lib* directories when building binutils with dummy toolchain (#1026)
+  - make HDF5 easyblock handle --filter-deps correctly (#1027)
+  - update Travis config w.r.t. changes framework config defaults and required Lmod version (#1029)
+  - be more patient when running Mathematica Q&A installer (#1036)
+
+
+v2.9.0 (September 23rd 2016)
+----------------------------
+
+feature release
+- new easyblocks for 6 software packages that require customized support:
+    cppcheck (#983), HEALPix (#982), IMOD (#847), IronPython (#321), Mono (#321), MyMediaLite (#321)
+- various enhancements, including:
+    - extend OpenFoam-Extend sanity check for decomp libaries (#784)
+    - enhance Java easyblock to support installing Java 6.x (#940)
+    - make QuantumESPRESSO easyblock aware of multithreaded FFT (#954)
+    - extend PSI easyblock to use PCMSolver and CheMPS2 (#967)
+    - make Boost easyblock add definition for $BOOST_ROOT to generated module file (#976)
+    - add support to Bundle easyblock to install list of components (#980)
+    - enhance & clean up libxml2 easyblock to also enable installing without Python bindings (#984)
+    - update Libint easyblock for Libint 2.1.x (#985)
+    - update sanity check for OpenFOAM to support OpenFOAM 4.x (#986)
+    - make easyblocks that run MPI tests aware of 'mpi_tests' build option (#993)
+- various bug fixes, including:
+    - fix compatibility of OpenFOAM easyblock with --module-only (#784)
+    - fix testing of --module-only compatibility for OpenFOAM and IMOD easyblocks (#784)
+    - add 'include/libxml2' to $CPATH in libxml2 easyblock (#981)
+    - fix compatiblity of IntelBase generic easyblock with --module-only (#994)
+    - make sure correct config script is used for Tcl/Tk deps of R (#995)
+
+
+
+v2.8.2 (July 13th 2016)
+-----------------------
+
+bugfix release
+- new easyblocks for 5 software packages that require customized support:
+    Amber (#958), Extrae (#955), Gurobi (#962), Paraver (#956), Tau (#887)
+- various enhancements, including:
+    - add support for building & installing old GROMACS versions (#569, #960)
+    - add support for building Boost with Cray toolchain (#849)
+    - libxsmm support for CP2K (#942)
+    - pick up specified components for imkl (#943)
+    - add support for building GROMACS with double precision (#946, #960)
+    - add support for building GROMACS with CUDA support and using dynamic libraries using Craytoolchains (#951, #960)
+    - also install vsc-install in EasyBuildMeta easyblock, if tarball is provided (#957)
+    - enhance PSI easyblock to support PSI4 1.0 (#965)
+- various bug fixes, including:
+    - also install scripts with MRtrix 0.3.14 (#941)
+    - enhance Qt easyblock to support Qt3 (#944)
+    - create 'release' symlink in MRtrix install dir (#947)
+    - fix make_installdir in Inspector & VTune easyblocks (#952)
+    - make Binary and MakeCp easyblocks aware of 'keepsymlinks' (#959)
+    - correctly define $G4* environment variables in Geant4 easyblock (#961, #970)
+    - prepend tmp install path to $PYTHONPATH in numpy test step, move to build dir when removing 'numpy' subdir (#963)
+    - correct full path to ALADIN config file & patch it to use right Fortran compiler flags (#964)
+    - ensure correct compiler command/flags are used for SAMtools (#966)
+
+
+v2.8.1 (May 30th 2016)
+----------------------
+
+- various enhancements, including:
+    - update MRtrix easyblock for version 0.3.14 (#932)
+    - update Inspector easyblock for recent versions (#934)
+    - update VTune easyblock for recent versions (#935)
+    - add debug message to IntelBase easyblock w.r.t. switching to 'exist_lic' (#936)
+
+
+v2.8.0 (May 18th 2016)
+----------------------
+
+feature + bugfix release
+- add test configuration for Travis (#895, #897, #900, #926)
+- new easyblocks for 4 software packages that require customized support:
+    - binutils (#907), libQGLViewer (#890), SuperLU (#860), wxPython (#883)
+- various other enhancements, including:
+    - update SuiteSparse easyblock for version >= 4.5 (#863)
+    - enhance imkl easyblock to install on top of PGI (#866, #916)
+    - enable runtime logging of install cmd in IntelBase (#874)
+    - enhance Qt easyblock to support installing with dummy toolchain (#881)
+    - delete libnuma symbolic links in PGI installation directory (#888)
+    - enhance PDT easyblock to support installing with dummy toolchain (#894)
+    - add support for building Clang with OpenMP support (#898)
+    - update Score-P easyblock for additional compilers, MPI libraries & dependencies (#889)
+    - drop deprecated 'testrb' from sanity check in Ruby easyblock (#901)
+    - enhance WRF easyblock to support versions >= 3.7 (#902)
+    - update QuantumESPRESSO easyblock for version 5.3.0 (#904)
+    - add support in PythonPackage easyblock to use 'setup.py develop' (#905)
+    - update Qt easyblock for Qt 5.6.0 (#908)
+    - extend bzip2 easyblock to also build dynamic libraries (#910)
+    - make threading an explicit option rather than relying on MPI library in SCOTCH easyblock (#914)
+    - update PGI easyblock to install siterc file so PGI picks up $LIBRARY_PATH (#919)
+    - enhance sanity check paths for compiler commands in PGI easyblock (#919)
+    - also filter out -ldl from $LIBBLAS & co for Intel MKL in numpy easyblock (#920)
+    - define $MIC_LD_LIBRARY_PATH for impi (#925)
+- various bug fixes, including:
+    - don't hardcode Python version in test_make_module_pythonpackage (#876)
+    - make PythonPackage easyblock compatible with --module-only (#884, #906)
+    - remove check whether 'easybuild' is being imported from dir that contains easybuild/__init__.py (#891)
+    - fix passing compiler configure option in PDT easyblock (#894)
+    - fix bug in Score-P easyblock w.r.t. --with-libbfd (#889)
+    - fix extension filter for Ruby (#901)
+    - fix ACTIVATION_TYPES list in IntelBase + minor style change (#913)
+    - correctly define $MIC_LD_LIBRARY_PATH in imkl 11.3.x and newer (#915)
+    - fix broken link to VSC website in license headers (#927)
+
+
+v2.7.0 (March 20th 2016)
+------------------------
+
+feature + bugfix release
+- new easyblocks for 6 software packages that require customized support:
+    ADF (#826), MPICH (#844, #852, #868), mutil (#859), pplacer (#835), psmpi (#852), SNPhylo (#865)
+- various other enhancements, including:
+    - implement support for 'use_pip' in PythonPackage easyblock (#719, #831)
+    - add support in CUDA easyblock to install wrappers for host compilers (#758)
+    - update sanity check for picard version 1.124 and above (#796)
+    - use 'module swap' for all components in CrayToolchain (#823)
+    - update PSI4 easyblock to cope with changed name of PSI4 data dir (#824)
+    - use find_flexlm_license function and avoid defining $CPATH in PGI easyblock (#837)
+    - use find_flexlm_license function in IntelBase generic easyblock (#839)
+    - add unit test to check module file generated by PythonPackage easyblock (#841)
+    - rework MVAPICH2 easyblock on top of new MPICH easyblock (#844)
+    - add CUDA support in CP2K easyblock (#850)
+    - also define $LD in buildopts for GATE (#855)
+    - use find_flexlm_license function in TotalView easyblock (#839)
+    - enhance MakeCp easyblock to also support renaming of files while copying them (#859)
+    - hunt for usable 'python' command in PythonPackage easyblock when system Python is used (#861)
+    - add sanity check in easybuild/__init__.py w.r.t. current working dir (#869)
+    - change suffix of original file to .easybuild when using fileinput in impi easyblock (#870)
+- various bug fixes, including:
+    - make sure Python unicode settings match that of the system Python (#817)
+    - remove FFTW related statements in HPL easyblock, since HPL doesn't require FFTW at all (#822)
+    - use pkg_resources.declare_namespace rather than pkgutil.extend_path to declare 'easybuild' namespaces (#827)
+    - fix license headers: Hercules foundation is now FWO (#836)
+    - fix check for non-empty lib dirs in PythonPackage easyblock (#840)
+    - consider all Python lib dirs in sanity check for libxml2 (#842)
+    - correctly handle deprecated configure options (--with-hwloc/--enable-mpe) in MVAPICH2 easyblock (#853)
+    - use correct configure option for checkpoint/restart in MVAPICH2 easyblock (#854)
+    - ensure list of Python lib dirs always has a 'lib/...' entry (#858)
+    - check whether rpm/rpmrebuild commands are available using 'which', rather than checking for OS deps (#864)
+    - fix test_step in UFC easyblock (#872)
+
 
 v2.6.0 (January 26th 2016)
 --------------------------
@@ -184,7 +526,7 @@ feature + bugfix release
     - minor update to GCC easyblock to support GCC v5.x (#598)
     - update sanity check in R easyblock for version 3.2.0 (#602)
 - various bug fixes, including:
-    - fix Score-P easyblock for compiler-only toolchains, include Qt as optional dependecy (#552)
+    - fix Score-P easyblock for compiler-only toolchains, include Qt as optional dependency (#552)
     - fix definition of $MKLROOT, should be set to 'mkl' subdir of install dir (#576)
     - add -libmpichf90 to list of MPI libraries in NWChem easyblock (#584)
     - stop using $root to make easyblocks compatible with module files in Lua syntax (#590)
@@ -562,7 +904,7 @@ feature + bugfix release
 - added support for 2 new software packages that require customized support:
     - CUDA (#145), Ferret (#160, #163)
 - remove 'license' easyconfig parameter from IntelBase, since it clashes with generic 'license' parameter (#153, #158)
-    - 'license_file' should be used instead (see https://github.com/hpcugent/easybuild-framework/pull/569/files)
+    - 'license_file' should be used instead (see https://github.com/easybuilders/easybuild-framework/pull/569/files)
     - using 'license' instead of 'license_file' will be supported until v2.x for legacy purposes
 - various enhancements, including:
     - stop hardcoding Python site-packages library dir, obtain it via distutils.sysconfig instead (#141, #156, #159, #161)
@@ -651,7 +993,7 @@ v1.0 (November 13th 2012)
 
 - split up EasyBuild across three repositories: framework, easyblocks and easyconfigs
 - packaged EasyBuild, different parts can now be installed easily using easy_install
-- implement class name encoding scheme, see wiki http://github.com/hpcugent/easybuild/wiki/Encode-class-names
+- implement class name encoding scheme, see wiki https://github.com/easybuilders/easybuild/wiki/Encode-class-names
     - (non-generic) easyblock class names are now prefixed with EB and non-alphanumeric characters are escaped
 - split off generic easyblocks into separate package easyblocks.generic
 - added custom support for 39 software packages:
@@ -664,7 +1006,7 @@ v0.8 (June 29th 2012)
 ---------------------
 
 - added support for building/installing 17 additional software packages:
-    - BEAGLE, Doxygen, g2clib, g2lib, HDF, HDF5, JasPer, libpng, Maple, 
+    - BEAGLE, Doxygen, g2clib, g2lib, HDF, HDF5, JasPer, libpng, Maple,
       MrBayes, NCL, netCDF, netCDF-Fortran, Szip, WPS, WRF, zlib
 - the build procedure for WRF and WPS includes running the tests available for these packages
 - various bug fixes and enhancements:

@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -260,7 +260,7 @@ class EB_DOLFIN(CMakePythonPackage):
 
             # exclude Python tests for now, because they 'hang' sometimes (unclear why)
             # they can be reinstated once run_cmd (or its equivalent) has support for timeouts
-            # see https://github.com/hpcugent/easybuild-framework/issues/581
+            # see https://github.com/easybuilders/easybuild-framework/issues/581
             #for (tmpl, subdir) in [(cmd_template_python, 'python'), (cmd_template_cpp, 'cpp')]]
 
             # subdomains-poisson has no C++ get_version, only Python
@@ -308,7 +308,9 @@ class EB_DOLFIN(CMakePythonPackage):
         txt = super(EB_DOLFIN, self).make_module_extra()
 
         # Dolfin needs to find Boost
-        txt += self.module_generator.set_environment('BOOST_DIR', self.boost_dir)
+        # check whether boost_dir is defined for compatibility with --module-only
+        if self.boost_dir:
+            txt += self.module_generator.set_environment('BOOST_DIR', self.boost_dir)
 
         envvars = ['I_MPI_CXX', 'I_MPI_CC']
         for envvar in envvars:

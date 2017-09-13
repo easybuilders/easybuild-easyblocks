@@ -1,8 +1,10 @@
 ##
-# This file is an EasyBuild reciPY as per https://github.com/hpcugent/easybuild
+# This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2016 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2017 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2016-2017 Forschungszentrum Juelich
 # Authors::   Fotis Georgatos <fotis@cern.ch>
+# Authors::   Damian Alvarez  <d.alvarez@fz-juelich.de>
 # License::   MIT/GPL
 # $Id$
 #
@@ -16,29 +18,47 @@ EasyBuild support for installing Totalview, implemented as an easyblock
 """
 import os
 
-from easybuild.framework.easyblock import EasyBlock
+import easybuild.tools.environment as env
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import find_flexlm_license
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
-class EB_TotalView(EasyBlock):
+class EB_TotalView(PackedBinary):
     """EasyBlock for TotalView"""
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for Totalview"""
         super(EB_TotalView, self).__init__(*args, **kwargs)
-        if not self.cfg['license_file']:
-            self.cfg['license_file'] = 'UNKNOWN'
+
+        self.license_file = 'UNKNOWN'
+        self.license_env_var = 'UNKNOWN'
 
     def configure_step(self):
-        """No configuration for TotalView."""
-        if not os.path.exists(self.cfg['license_file']):
-            raise EasyBuildError("Non-existing license file specified: %s", self.cfg['license_file'])
+        """
+        Handle of license
+        """
+        default_lic_env_var = 'LM_LICENSE_FILE'
+        license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
+        lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
+                                                              lic_specs=license_specs)
 
-    def build_step(self):
-        """No building for TotalView."""
-        pass
+        if lic_specs:
+            if self.license_env_var is None:
+                self.log.info("Using Totalview license specifications from 'license_file': %s", lic_specs)
+                self.license_env_var = default_lic_env_var
+            else:
+                self.log.info("Using Totalview license specifications from %s: %s", self.license_env_var, lic_specs)
+
+            self.license_file = os.pathsep.join(lic_specs)
+            env.setvar(self.license_env_var, self.license_file)
+
+        else:
+            raise EasyBuildError("No viable license specifications found; specify 'license_file' or "+
+                                 "define $LM_LICENSE_FILE")
 
     def install_step(self):
         """Custom install procedure for TotalView."""
@@ -73,5 +93,5 @@ class EB_TotalView(EasyBlock):
     def make_module_extra(self):
         """Add extra environment variables for license file and anything else."""
         txt = super(EB_TotalView, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('LM_LICENSE_FILE', [self.cfg['license_file']], allow_abs=True)
+        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file], allow_abs=True, expand_relpaths=False)
         return txt

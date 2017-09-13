@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,11 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Petar Forai (IMP/IMBA)
+@author: Luca Marsella (CSCS)
+@author: Guilherme Peretti-Pezzi (CSCS)
+@author: Joachim Hein (Lund University)
+@author: Michele Dolfi (ETH Zurich)
 """
 from distutils.version import LooseVersion
 import fileinput
@@ -44,6 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import UNKNOWN, get_glibc_version, get_shared_lib_ext
@@ -63,7 +69,9 @@ class EB_Boost(EasyBlock):
         """Add extra easyconfig parameters for Boost."""
         extra_vars = {
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
+            'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
+            'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -71,10 +79,10 @@ class EB_Boost(EasyBlock):
         """Patch Boost source code before building."""
         super(EB_Boost, self).patch_step()
 
-        # TIME_UTC is also defined in recent glibc versions, so we need to rename it for old Boost versions (<= 1.47)
+        # TIME_UTC is also defined in recent glibc versions, so we need to rename it for old Boost versions (<= 1.49)
         glibc_version = get_glibc_version()
         old_glibc = glibc_version is not UNKNOWN and LooseVersion(glibc_version) > LooseVersion("2.15")
-        if old_glibc and LooseVersion(self.version) <= LooseVersion("1.47.0"):
+        if old_glibc and LooseVersion(self.version) <= LooseVersion("1.49.0"):
             self.log.info("Patching because the glibc version is too new")
             files_to_patch = ["boost/thread/xtime.hpp"] + glob.glob("libs/interprocess/test/*.hpp")
             files_to_patch += glob.glob("libs/spirit/classic/test/*.cpp") + glob.glob("libs/spirit/classic/test/*.inl")
@@ -111,8 +119,9 @@ class EB_Boost(EasyBlock):
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
-        cmd = "./bootstrap.sh --with-toolset=%s --prefix=%s %s" % (toolset, self.objdir, self.cfg['configopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        cmd = "%s ./bootstrap.sh --with-toolset=%s --prefix=%s %s"
+        tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
+        run_cmd(cmd % tup, log_all=True, simple=True)
 
         if self.cfg['boost_mpi']:
 
@@ -120,14 +129,57 @@ class EB_Boost(EasyBlock):
             # configure the boost mpi module
             # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
             # let Boost.Build know to look here for the config file
-            f = open('user-config.jam', 'a')
-            f.write("using mpi : %s ;" % os.getenv("MPICXX"))
-            f.close()
+
+            txt = ''
+            # Check if using a Cray toolchain and configure MPI accordingly
+            if self.toolchain.toolchain_family() == toolchain.CRAYPE:
+                if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
+                    craympichdir = os.getenv('CRAY_MPICH2_DIR')
+                    craygccversion = os.getenv('GCC_VERSION')
+                    txt = '\n'.join([    
+                        'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
+                        'using gcc ',
+                        ': %s' % craygccversion,
+                        ': CC ',
+                        ': <compileflags>-I$(CRAY_MPICH2_DIR)/include ',
+                        '  <linkflags>-L$(CRAY_MPICH2_DIR)/lib \ ',
+                        '; ',
+                        'using mpi ',
+                        ': CC ',
+                        ': <find-shared-library>mpich ',
+                        ': %s' % self.cfg['mpi_launcher'],
+                        ';',
+                        '',
+                    ])
+                else: 
+                    raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
+            else:
+                txt = "using mpi : %s ;" % os.getenv("MPICXX")
+
+            write_file('user-config.jam', txt, append=True)
+
+    def build_boost_variant(self, bjamoptions, paracmd):
+        """Build Boost library with specified options for bjam."""
+        # build with specified options
+        cmd = "%s ./bjam %s %s %s" % (self.cfg['prebuildopts'], bjamoptions, paracmd, self.cfg['buildopts'])
+        run_cmd(cmd, log_all=True, simple=True)
+        # install built Boost library
+        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        run_cmd(cmd, log_all=True, simple=True)
+        # clean up before proceeding with next build    
+        run_cmd("./bjam --clean-all", log_all=True, simple=True)
 
     def build_step(self):
         """Build Boost with bjam tool."""
 
         bjamoptions = " --prefix=%s" % self.objdir
+
+        cxxflags = os.getenv('CXXFLAGS')
+        if cxxflags is not None:
+            bjamoptions += " cxxflags='%s'" % cxxflags 
+        ldflags = os.getenv('LDFLAGS')
+        if ldflags is not None:
+            bjamoptions += " linkflags='%s'" % ldflags 
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
@@ -136,22 +188,28 @@ class EB_Boost(EasyBlock):
                 bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
                 bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
 
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
+
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
+            self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
+        
+        if self.cfg['boost_multi_thread']:
+            self.log.info("Building boost with multi threading")
+            self.build_boost_variant(bjamoptions + " threading=multi --layout=tagged", paracmd)
 
-            bjammpioptions = "%s --user-config=user-config.jam --with-mpi" % bjamoptions
-
-            # build mpi lib first
-            # let bjam know about the user-config.jam file we created in the configure step
-            run_cmd("./bjam %s" % bjammpioptions, log_all=True, simple=True)
-
-            # boost.mpi was built, let's 'install' it now
-            run_cmd("./bjam %s  install" % bjammpioptions, log_all=True, simple=True)
+        # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
+        if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
+            self.log.info("Building boost_mpi with multi threading")
+            extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
+            self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
 
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "./bjam %s install" % bjamoptions
+        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
@@ -183,5 +241,16 @@ class EB_Boost(EasyBlock):
             custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
         if get_software_root('Python'):
             custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
+        if self.cfg['boost_multi_thread']:
+            custom_paths["files"].append('lib/libboost_thread-mt.%s' % shlib_ext)
+        if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
+            custom_paths["files"].append('lib/libboost_mpi-mt.%s' % shlib_ext)
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
+        txt = super(EB_Boost, self).make_module_extra()
+        txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
+        return txt
+    

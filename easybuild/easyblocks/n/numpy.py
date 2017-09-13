@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ EasyBuild support for building and installing numpy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import glob
 import os
 import re
 import tempfile
@@ -40,7 +41,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import change_dir, mkdir, rmtree2
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
@@ -63,20 +64,19 @@ class EB_numpy(FortranPythonPackage):
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
-        self.installopts = ''
         self.testinstall = True
-        self.testcmd = "cd .. && python -c 'import numpy; numpy.test(verbose=2)'"
+        self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
 
         # see e.g. https://github.com/numpy/numpy/pull/2809/files
         self.sitecfg = '\n'.join([
-                "[DEFAULT]",
-                "library_dirs = %(libs)s",
-                "include_dirs= %(includes)s",
-                "search_static_first=True",
-            ])
+            "[DEFAULT]",
+            "library_dirs = %(libs)s",
+            "include_dirs= %(includes)s",
+            "search_static_first=True",
+        ])
 
         if get_software_root("imkl"):
 
@@ -117,7 +117,7 @@ class EB_numpy(FortranPythonPackage):
             def get_libs_for_mkl(varname):
                 """Get list of libraries as required for MKL patch file."""
                 libs = self.toolchain.variables['LIB%s' % varname].copy()
-                libs.try_remove(['pthread'])
+                libs.try_remove(['pthread', 'dl'])
                 tweaks = {
                     'prefix': '',
                     'prefix_begin_end': '-Wl:',
@@ -208,7 +208,7 @@ class EB_numpy(FortranPythonPackage):
         super(EB_numpy, self).configure_step()
 
         # check configuration (for debugging purposes)
-        cmd = "python setup.py config"
+        cmd = "%s setup.py config" % self.python_cmd
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
@@ -217,7 +217,11 @@ class EB_numpy(FortranPythonPackage):
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
-        cmd = "python setup.py install --prefix=%s %s" % (tmpdir, self.installopts)
+        abs_pylibdirs = [os.path.join(tmpdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        for pylibdir in abs_pylibdirs:
+            mkdir(pylibdir, parents=True)
+        pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
+        cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
         run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
         try:
@@ -229,8 +233,8 @@ class EB_numpy(FortranPythonPackage):
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
         size = 1000
         cmd = ' '.join([
-            'export PYTHONPATH=%s:$PYTHONPATH &&' % os.path.join(tmpdir, self.pylibdir),
-            'python -m timeit -n 3 -r 3',
+            pythonpath,
+            '%s -m timeit -n 3 -r 3' % self.python_cmd,
             '-s "import numpy; x = numpy.random.random((%(size)d, %(size)d))"' % {'size': size},
             '"numpy.dot(x, x.T)"',
         ])
@@ -269,12 +273,33 @@ class EB_numpy(FortranPythonPackage):
         except OSError, err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
+    def install_step(self):
+        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
+        super(EB_numpy, self).install_step()
+
+        builddir = os.path.join(self.builddir, "numpy")
+        try:
+            if os.path.isdir(builddir):
+                os.chdir(self.builddir)
+                rmtree2(builddir)
+            else:
+                self.log.debug("build dir %s already clean" % builddir)
+
+        except OSError as err:
+            raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
+
+    def run(self):
+        """Install numpy as an extension"""
+        super(EB_numpy, self).run()
+
+        return self.make_module_extra_numpy_include()
+
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
         custom_paths = {
-            'files': [os.path.join(self.pylibdir, 'numpy', '__init__.py')],
-            'dirs': [],
+            'files': [],
+            'dirs': [self.pylibdir],
         }
         custom_commands = [
             ('python', '-c "import numpy"'),
@@ -299,12 +324,30 @@ class EB_numpy(FortranPythonPackage):
 
         return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def install_step(self):
-        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
-        super(EB_numpy, self).install_step()
+    def make_module_extra_numpy_include(self):
+        """
+        Return update statements for $CPATH specifically for numpy
+        """
+        numpy_core_subdir = os.path.join('numpy', 'core')
+        numpy_core_dirs = []
+        cwd = change_dir(self.installdir)
+        for pylibdir in self.all_pylibdirs:
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, numpy_core_subdir)))
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, 'numpy*.egg', numpy_core_subdir)))
+        change_dir(cwd)
 
-        builddir = os.path.join(self.builddir, "numpy")
-        if os.path.isdir(builddir):
-            rmtree2(builddir)
-        else:
-            self.log.debug("build dir %s already clean" % builddir)
+        txt = ''
+        for numpy_core_dir in numpy_core_dirs:
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join(numpy_core_dir, 'include'))
+            for lib_env_var in ('LD_LIBRARY_PATH', 'LIBRARY_PATH'):
+                txt += self.module_generator.prepend_paths(lib_env_var, os.path.join(numpy_core_dir, 'lib'))
+
+        return txt
+
+    def make_module_extra(self):
+        """
+        Add additional update statements in module file specific to numpy
+        """
+        txt = super(EB_numpy, self).make_module_extra()
+        txt += self.make_module_extra_numpy_include()
+        return txt

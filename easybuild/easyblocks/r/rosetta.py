@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -67,11 +67,12 @@ class EB_Rosetta(EasyBlock):
             if len(subdirs) == 1:
                 prefix = os.path.join(self.builddir, subdirs[0])
             else:
-                raise EasyBuildError("Found multiple subdirectories, don't know which one to pick: %s", subdirs)
+                raise EasyBuildError("Found no or multiple subdirectories, expected exactly one: %s", subdirs)
+
             self.srcdir = os.path.join(prefix, 'rosetta_source')
             if not os.path.exists(self.srcdir):
                 self.srcdir = os.path.join(prefix, 'main', 'source')
-            if not os.path.exists(self.srcdir): 
+            if not os.path.exists(self.srcdir):
                 src_tarball = os.path.join(prefix, 'rosetta%s_source.tgz' % self.version)
                 if os.path.isfile(src_tarball):
                     self.srcdir = extract_file(src_tarball, prefix)
@@ -81,6 +82,14 @@ class EB_Rosetta(EasyBlock):
         except OSError, err:
             raise EasyBuildError("Getting Rosetta sources dir ready failed: %s", err)
 
+    def detect_cxx(self):
+        """Detect compiler name"""
+        # 'cxx' configure option excepts compiler name like 'gcc', 'icc', 'clang'; i.e. actually the C compiler command
+        # see also main/source/tools/build/basic.settings in Rosetta sources
+        self.cxx = os.getenv('CC_SEQ')
+        if self.cxx is None:
+            self.cxx = os.getenv('CC')
+
     def configure_step(self):
         """
         Configure build by creating tools/build/user.settings from configure options.
@@ -89,9 +98,7 @@ class EB_Rosetta(EasyBlock):
         defines = ['NDEBUG']
         self.cfg.update('buildopts', "mode=release")
 
-        self.cxx = os.getenv('CC_SEQ')
-        if self.cxx is None:
-            self.cxx = os.getenv('CC')
+        self.detect_cxx()
         cxx_ver = None
         if self.toolchain.comp_family() in [toolchain.GCC]:  #@UndefinedVariable
             cxx_ver = '.'.join(get_software_version('GCC').split('.')[:2])
@@ -255,8 +262,19 @@ class EB_Rosetta(EasyBlock):
         else:
             extract_and_copy('rosetta_tools%s', optional=True)
 
+    def make_module_extra(self):
+        """Define extra environment variables specific to Rosetta."""
+        txt = super(EB_Rosetta, self).make_module_extra()
+        txt += self.module_generator.set_environment('ROSETTA3_DB', os.path.join(self.installdir, 'database'))
+        return txt
+
     def sanity_check_step(self):
         """Custom sanity check for Rosetta."""
+
+        # self.cxx is usually set by the configure step, but if configure is
+        # not executed (e.g. with --module-only), we need to set it here.
+        if self.cxx is None:
+            self.detect_cxx()
 
         infix = ''
         if self.toolchain.options.get('usempi', None):
@@ -269,4 +287,3 @@ class EB_Rosetta(EasyBlock):
             'dirs':[],
         }
         super(EB_Rosetta, self).sanity_check_step(custom_paths=custom_paths)
-

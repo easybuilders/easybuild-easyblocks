@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,15 +37,17 @@ import os
 import shutil
 import stat
 
-from easybuild.framework.easyblock import EasyBlock
+from distutils.version import LooseVersion
+
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, read_file, write_file
+from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
-class EB_MATLAB(EasyBlock):
+class EB_MATLAB(PackedBinary):
     """Support for installing MATLAB."""
 
     def __init__(self, *args, **kwargs):
@@ -59,14 +61,23 @@ class EB_MATLAB(EasyBlock):
         extra_vars = {
             'java_options': ['-Xmx256m', "$_JAVA_OPTIONS value set for install and in module file.", CUSTOM],
         }
-        return EasyBlock.extra_options(extra_vars)
+        return PackedBinary.extra_options(extra_vars)
 
     def configure_step(self):
         """Configure MATLAB installation: create license file."""
 
-        # create license file
         licserv = self.cfg['license_server']
+        if licserv is None:
+            licserv = os.getenv('EB_MATLAB_LICENSE_SERVER', 'license.example.com')
         licport = self.cfg['license_server_port']
+        if licport is None:
+            licport = os.getenv('EB_MATLAB_LICENSE_SERVER_PORT', '00000')
+
+        key = self.cfg['key']
+        if key is None:
+            key = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
+
+        # create license file
         lictxt = '\n'.join([
             "SERVER %s 000000000000 %s" % (licserv, licport),
             "USE_SERVER",
@@ -86,7 +97,6 @@ class EB_MATLAB(EasyBlock):
             reglicpath = re.compile(r"^# licensePath=.*", re.M)
 
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
-            key = self.cfg['key']
             config = regkey.sub("fileInstallationKey=%s" % key, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
@@ -99,10 +109,6 @@ class EB_MATLAB(EasyBlock):
 
         self.log.debug('configuration file written to %s:\n %s', self.configfile, config)
 
-    def build_step(self):
-        """No building of MATLAB, no sources available."""
-        pass
-
     def install_step(self):
         """MATLAB install procedure using 'install' command."""
 
@@ -111,6 +117,11 @@ class EB_MATLAB(EasyBlock):
         # make sure install script is executable
         adjust_permissions(src, stat.S_IXUSR)
 
+        if LooseVersion(self.version) >= LooseVersion('2016b'):
+            jdir = os.path.join(self.cfg['start_dir'], 'sys', 'java', 'jre', 'glnxa64', 'jre', 'bin')
+            for perm_dir in [os.path.join(self.cfg['start_dir'], 'bin', 'glnxa64'), jdir]:
+                adjust_permissions(perm_dir, stat.S_IXUSR)
+
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
         # this is a workaround for not being able to specify --nodisplay to the install scripts
         if 'DISPLAY' in os.environ:
@@ -118,7 +129,10 @@ class EB_MATLAB(EasyBlock):
 
         if not '_JAVA_OPTIONS' in self.cfg['preinstallopts']:
             self.cfg['preinstallopts'] = ('export _JAVA_OPTIONS="%s" && ' % self.cfg['java_options']) + self.cfg['preinstallopts']
-        cmd = "%s ./install -v -inputFile %s %s" % (self.cfg['preinstallopts'], self.configfile, self.cfg['installopts'])
+        if LooseVersion(self.version) >= LooseVersion('2016b'):
+            change_dir(self.builddir)
+
+        cmd = "%s %s -v -inputFile %s %s" % (self.cfg['preinstallopts'], src, self.configfile, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):

@@ -1,14 +1,14 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,12 +39,14 @@ import re
 import shutil
 import tempfile
 import glob
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import read_file
+from easybuild.tools.filetools import find_flexlm_license, read_file
 from easybuild.tools.run import run_cmd
 
 from vsc.utils import fancylogger
@@ -59,7 +61,7 @@ ACTIVATION_SERIAL = 'serial_number'  # use a serial number
 ACTIVATION_TRIAL = 'trial_lic'  # use trial activation
 ACTIVATION_TYPES = [
     ACTIVATION_EXIST_LIC,
-    ACTIVATION_EXIST_LIC,
+    ACTIVATION_LIC_FILE,
     ACTIVATION_LIC_SERVER,
     ACTIVATION_SERIAL,
     ACTIVATION_TRIAL,
@@ -100,6 +102,9 @@ class IntelBase(EasyBlock):
         self.license_file = 'UNKNOWN'
         self.license_env_var = 'UNKNOWN'
 
+        # Initialise whether we need a runtime licence or not
+        self.requires_runtime_license = True
+
         self.home_subdir = os.path.join(os.getenv('HOME'), 'intel')
         common_tmp_dir = os.path.dirname(tempfile.gettempdir())  # common tmp directory, same across nodes
         self.home_subdir_local = os.path.join(common_tmp_dir, os.getenv('USER'), 'easybuild_intel')
@@ -111,6 +116,8 @@ class IntelBase(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
             'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
+            'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
+                                         CUSTOM],
             # 'usetmppath':
             # workaround for older SL5 version (5.5 and earlier)
             # used to be True, but False since SL5.6/SL6
@@ -201,91 +208,49 @@ class IntelBase(EasyBlock):
         except OSError, err:
             raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_subdir_local, self.home_subdir, err)
 
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for IntelBase. Set up the license"""
+        requires_runtime_license = kwargs.pop('requires_runtime_license', True)
+
+        super(IntelBase, self).prepare_step(*args, **kwargs)
+
+        # Decide if we need a license or not (default is True because of defaults of individual Booleans)
+        self.requires_runtime_license = self.cfg['requires_runtime_license'] and requires_runtime_license
+
+        if self.requires_runtime_license:
+            default_lic_env_var = 'INTEL_LICENSE_FILE'
+            license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
+            lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
+                                                                  lic_specs=license_specs)
+
+            if lic_specs:
+                if self.license_env_var is None:
+                    self.log.info("Using Intel license specifications from 'license_file': %s", lic_specs)
+                    self.license_env_var = default_lic_env_var
+                else:
+                    self.log.info("Using Intel license specifications from $%s: %s", self.license_env_var, lic_specs)
+
+                self.license_file = os.pathsep.join(lic_specs)
+                env.setvar(self.license_env_var, self.license_file)
+
+                # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
+                if len(lic_specs) > 1:
+                    self.log.debug("More than one license specs found, using '%s' license activation instead of '%s'",
+                                   ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
+                    self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
+
+                    # $INTEL_LICENSE_FILE should always be set during installation with existing license
+                    env.setvar(default_lic_env_var, self.license_file)
+            else:
+                msg = "No viable license specifications found; "
+                msg += "specify 'license_file', or define $INTEL_LICENSE_FILE or $LM_LICENSE_FILE"
+                raise EasyBuildError(msg)
+
     def configure_step(self):
         """Configure: handle license file and clean home dir."""
 
         # prepare (local) 'intel' home subdir
         self.setup_local_home_subdir()
-        self.clean_home_subdir()
-
-        lic_env_var = None  # environment variable that will be used
-        default_lic_env_var = 'INTEL_LICENSE_FILE'
-        lic_env_vars = [default_lic_env_var, 'LM_LICENSE_FILE']
-        env_var_names = ', '.join(['$%s' % x for x in lic_env_vars])
-        lic_env_var_vals = [(var, os.getenv(var)) for var in lic_env_vars]
-        license_specs = [(var, e) for (var, val) in lic_env_var_vals if val is not None for e in val.split(os.pathsep)]
-
-        if not license_specs:
-            self.log.debug("No env var from %s set, trying 'license_file' easyconfig parameter..." % lic_env_vars)
-            # obtain license path
-            self.license_file = self.cfg['license_file']
-
-            if self.license_file:
-                self.log.info("Using license file %s" % self.license_file)
-            else:
-                raise EasyBuildError("No license file defined, maybe set one these env vars: %s", env_var_names)
-
-            # verify license path
-            if not os.path.exists(self.license_file):
-                raise EasyBuildError("%s not found; correct 'license_file', or define one of the these env vars: %s",
-                                     self.license_file, env_var_names)
-
-            # set default environment variable for license specification
-            env.setvar(default_lic_env_var, self.license_file)
-            self.license_env_var = default_lic_env_var
-        else:
-            valid_license_specs = {}
-            # iterate through entries in environment variables until a valid license specification is found
-            # valid options are:
-            # * an (existing) license file
-            # * a directory containing atleast one file named *.lic (only one is used, first listed alphabetically)
-            # * a license server, format: <port>@<server>
-            server_port_regex = re.compile('^[0-9]+@\S+$')
-            for (lic_env_var, license_spec) in license_specs:
-                # a value that seems to match a license server specification
-                if server_port_regex.match(license_spec):
-                    self.log.info("Found license server spec %s in $%s, retaining it" % (license_spec, lic_env_var))
-                    valid_license_specs.setdefault(lic_env_var, set()).add(license_spec)
-
-                # an (existing) license file
-                elif os.path.isfile(license_spec):
-                    self.log.info("Found existing license file %s via $%s, retaining it" % (license_spec, lic_env_var))
-                    valid_license_specs.setdefault(lic_env_var, set()).add(license_spec)
-
-                # a directory, should contain at least one *.lic file (use only the first one)
-                elif os.path.isdir(license_spec):
-                    lic_files = glob.glob("%s/*.lic" % license_spec)
-                    if not lic_files:
-                        self.log.debug("Found no license files (*.lic) in %s" % license_spec)
-                        continue
-                    # just pick the first .lic, if it's not correct, $INTEL_LICENSE_FILE should be adjusted instead
-                    valid_license_specs.setdefault(lic_env_var, set()).add(lic_files[0])
-                    self.log.info('Picked the first *.lic file from $%s: %s' % (lic_env_var, lic_files[0]))
-
-            if not valid_license_specs:
-                raise EasyBuildError("Cannot find a valid license specification in %s", license_specs)
-
-            # only retain one environment variable (by order of preference), retain all valid matches for that env var
-            for lic_env_var in lic_env_vars:
-                if lic_env_var in valid_license_specs:
-                    self.license_env_var = lic_env_var
-                    retained = valid_license_specs[self.license_env_var]
-                    self.license_file = os.pathsep.join(retained)
-                    # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
-                    if len(retained) > 1:
-                        self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
-                        # $INTEL_LICENSE_FILE should always be set during installation with existing license
-                        env.setvar(default_lic_env_var, self.license_file)
-                    break
-            if self.license_file is None or self.license_env_var is None:
-                raise EasyBuildError("self.license_file or self.license_env_var still None, "
-                                     "something went horribly wrong...")
-
-            self.cfg['license_file'] = self.license_file
-            env.setvar(self.license_env_var, self.license_file)
-            self.log.info("Using Intel license specifications from $%s: %s", self.license_env_var, self.license_file)
-
-        # clean home directory
         self.clean_home_subdir()
 
         # determine list of components, based on 'components' easyconfig parameter (if specified)
@@ -308,32 +273,39 @@ class IntelBase(EasyBlock):
         if silent_cfg_names_map is None:
             silent_cfg_names_map = {}
 
-        # license file entry is only applicable with license file or server type of activation
-        # also check whether specified activation type makes sense
-        lic_activation = self.cfg['license_activation']
-        lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
-        other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
-        lic_file_entry = ""
-        if lic_activation in lic_file_server_activations:
-            lic_file_entry = "%(license_file_name)s=%(license_file)s"
-        elif not self.cfg['license_activation'] in other_activations:
-            raise EasyBuildError("Unknown type of activation specified: %s (known :%s)",
-                                 lic_activation, ACTIVATION_TYPES)
+        if self.requires_runtime_license:
+            # license file entry is only applicable with license file or server type of activation
+            # also check whether specified activation type makes sense
+            lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
+            other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
+            lic_file_entry = ""
+            if self.cfg['license_activation'] in lic_file_server_activations:
+                lic_file_entry = "%(license_file_name)s=%(license_file)s"
+            elif not self.cfg['license_activation'] in other_activations:
+                raise EasyBuildError("Unknown type of activation specified: %s (known :%s)",
+                                     self.cfg['license_activation'], ACTIVATION_TYPES)
+            silent = '\n'.join([
+                "%(activation_name)s=%(activation)s",
+                lic_file_entry,
+                ""  # Add a newline at the end, so we can easily append if needed
+            ]) % {
+                'activation_name': silent_cfg_names_map.get('activation_name', ACTIVATION_NAME),
+                'license_file_name': silent_cfg_names_map.get('license_file_name', LICENSE_FILE_NAME),
+                'activation': self.cfg['license_activation'],
+                'license_file': self.license_file,
+            }
+        else:
+            self.log.debug("No license required, so not including license specifications in silent.cfg")
+            silent = ''
 
-        silent = '\n'.join([
-            "%(activation_name)s=%(activation)s",
-            lic_file_entry,
+        silent += '\n'.join([
             "%(install_dir_name)s=%(install_dir)s",
             "ACCEPT_EULA=accept",
             "%(install_mode_name)s=%(install_mode)s",
             "CONTINUE_WITH_OPTIONAL_ERROR=yes",
             ""  # Add a newline at the end, so we can easily append if needed
         ]) % {
-            'activation_name': silent_cfg_names_map.get('activation_name', ACTIVATION_NAME),
-            'license_file_name': silent_cfg_names_map.get('license_file_name', LICENSE_FILE_NAME),
             'install_dir_name': silent_cfg_names_map.get('install_dir_name', INSTALL_DIR_NAME),
-            'activation': self.cfg['license_activation'],
-            'license_file': self.license_file,
             'install_dir': silent_cfg_names_map.get('install_dir', self.installdir),
             'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE_2015),
             'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME_2015),
@@ -345,7 +317,12 @@ class IntelBase(EasyBlock):
                 silent += 'COMPONENTS=%s\n' % self.install_components[0]
             elif self.install_components:
                 # a list of components is specified (needs quotes)
-                silent += 'COMPONENTS="' + ';'.join(self.install_components) + '"\n'
+                components = ';'.join(self.install_components)
+                if LooseVersion(self.version) >= LooseVersion('2017'):
+                    # for versions 2017.x and newer, double quotes should not be there...
+                    silent += 'COMPONENTS=%s\n' % components
+                else:
+                    silent += 'COMPONENTS="%s"\n' % components
             else:
                 raise EasyBuildError("Empty list of matching components obtained via %s", self.cfg['components'])
 
@@ -384,7 +361,7 @@ class IntelBase(EasyBlock):
 
         # perform installation
         cmd = "./install.sh %s -s %s" % (tmppathopt, silentcfg)
-        return run_cmd(cmd, log_all=True, simple=True)
+        return run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def move_after_install(self):
         """Move installed files to correct location after installation."""
@@ -406,13 +383,19 @@ class IntelBase(EasyBlock):
             shutil.rmtree(os.path.join(self.installdir, self.name))
         except OSError, err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
+    
+    def sanity_check_rpath(self):
+        """Skip the rpath sanity check, this is binary software"""
+        self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from IntelBase)",
+                      self.__class__.__name__)
 
     def make_module_extra(self):
         """Custom variable definitions in module file."""
         txt = super(IntelBase, self).make_module_extra()
 
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
-                                                   allow_abs=True, expand_relpaths=False)
+        if self.requires_runtime_license:
+            txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                       allow_abs=True, expand_relpaths=False)
 
         if self.cfg['m32']:
             nlspath = os.path.join('idb', '32', 'locale', '%l_%t', '%N')

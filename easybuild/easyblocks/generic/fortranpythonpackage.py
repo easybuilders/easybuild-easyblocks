@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,10 +48,10 @@ class FortranPythonPackage(PythonPackage):
         comp_fam = self.toolchain.comp_family()
 
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            cmd = "python setup.py build --compiler=intel --fcompiler=intelem"
+            self.cfg.update('buildopts', "--compiler=intel --fcompiler=intelem")
+            cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
 
         elif comp_fam in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
-            cmdprefix = ""
             ldflags = os.getenv('LDFLAGS')
             if ldflags:
                 # LDFLAGS should not be set when building numpy/scipy, because it overwrites whatever numpy/scipy sets
@@ -62,10 +62,12 @@ class FortranPythonPackage(PythonPackage):
                 self.log.debug("LDFLAGS was %s, will be cleared before %s build with '%s'" % (self.name,
                                                                                               ldflags,
                                                                                               cmdprefix))
+                self.cfg.update('prebuildopts', cmdprefix)
 
-            cmd = "%s python setup.py build --fcompiler=gnu95" % cmdprefix
+            self.cfg.update('buildopts', "--fcompiler=gnu95")
 
         else:
             raise EasyBuildError("Unknown family of compilers being used: %s", comp_fam)
 
+        cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)

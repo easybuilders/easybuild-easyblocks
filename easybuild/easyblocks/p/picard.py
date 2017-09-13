@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,22 +35,14 @@ Support for building and installing picard, implemented as an easyblock.
 import os
 import re
 import shutil
-
 from distutils.version import LooseVersion
-from easybuild.framework.easyblock import EasyBlock
+
+from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 
 
-class EB_picard(EasyBlock):
+class EB_picard(Tarball):
     """Support for building and installing picard."""
-
-    def configure_step(self):
-        """No configure step for picard"""
-        pass
-
-    def build_step(self):
-        """No build step for picard"""
-        pass
 
     def install_step(self):
         """Install picard by copying required files"""
@@ -83,7 +75,7 @@ class EB_picard(EasyBlock):
                 'picard',
                 'picard-lib'
             ]
-        
+
         custom_paths = {
             'files': ["%s.jar" % x for x in jar_files],
             'dirs': [],
