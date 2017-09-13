@@ -238,7 +238,7 @@ class EB_WRF(EasyBlock):
 
             if self.cfg['buildtype'] in self.parallel_build_types and not build_option('mpi_tests'):
                 self.log.info("Skipping testing of WRF with build type '%s' since MPI testing is disabled",
-                              self.cfg['build_type'])
+                              self.cfg['buildtype'])
                 return
 
             # get list of WRF test cases
