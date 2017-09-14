@@ -32,10 +32,11 @@ import os
 import re
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.filetools import read_file, which
-from easybuild.tools.run import run_cmd
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import read_file, which
+from easybuild.tools.run import run_cmd
 
 
 class SystemCompiler(Bundle):
@@ -47,6 +48,16 @@ class SystemCompiler(Bundle):
     Specifying 'system' as a version leads to using the derived compiler version in the generated module;
     if an actual version is specified, it is checked against the derived version of the system compiler that was found.
     """
+
+    @staticmethod
+    def extra_options():
+        """Additional custom easyconfig parameters for SystemCompiler easyblock."""
+        extra_vars = Bundle.extra_options()
+        extra_vars.update({
+            'compiler_cmd': [None, "Compiler command of system compiler (default: lowercase value of 'name' parameter)",
+                             CUSTOM],
+        })
+        return extra_vars
 
     def extract_compiler_version(self, txt):
         """Extract compiler version from provided string."""
@@ -68,24 +79,29 @@ class SystemCompiler(Bundle):
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
         # Determine compiler path (real path, with resolved symlinks)
-        compiler_name = self.cfg['name'].lower()
-        path_to_compiler = which(compiler_name)
+        compiler_cmd = self.cfg['compiler_cmd']
+        if compiler_cmd is None:
+            compiler_cmd = self.name.lower()
+            self.log.info("compiler_cmd is not specified, falling back to '%s' (derived from name '%s')",
+                          compiler_cmd, self.name)
+
+        path_to_compiler = which(compiler_cmd)
         if path_to_compiler:
             path_to_compiler = os.path.realpath(path_to_compiler)
-            self.log.info("Found path to compiler '%s' (with symlinks resolved): %s", compiler_name, path_to_compiler)
+            self.log.info("Found path to compiler '%s' (with symlinks resolved): %s", compiler_cmd, path_to_compiler)
         else:
-            raise EasyBuildError("%s not found in $PATH", compiler_name)
+            raise EasyBuildError("%s not found in $PATH", compiler_cmd)
 
         # Determine compiler version and installation prefix
-        if compiler_name == 'gcc':
+        if compiler_cmd == 'gcc':
             out, _ = run_cmd("gcc --version", simple=False)
             self.extract_compiler_version(out)
 
             # strip off 'bin/gcc'
             self.compiler_prefix = os.path.dirname(os.path.dirname(path_to_compiler))
 
-        elif compiler_name in ['icc', 'ifort']:
-            out, _ = run_cmd("%s -V" % compiler_name, simple=False)
+        elif compiler_cmd in ['icc', 'ifort']:
+            out, _ = run_cmd("%s -V" % compiler_cmd, simple=False)
             self.extract_compiler_version(out)
 
             intelvars_fn = path_to_compiler + 'vars.sh'
@@ -98,7 +114,7 @@ class SystemCompiler(Bundle):
                     self.compiler_prefix = res.group(1)
                 else:
                     raise EasyBuildError("Failed to determine %s installation prefix from %s",
-                                          compiler_name, intelvars_fn)
+                                          compiler_cmd, intelvars_fn)
             else:
                 # strip off 'bin/intel*/icc'
                 self.compiler_prefix = os.path.dirname(os.path.dirname(os.path.dirname(path_to_compiler)))
@@ -107,7 +123,7 @@ class SystemCompiler(Bundle):
             raise EasyBuildError("Unknown system compiler %s" % self.cfg['name'])
 
         self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
-                       compiler_name, self.compiler_version, self.compiler_prefix)
+                       compiler_cmd, self.compiler_version, self.compiler_prefix)
 
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
