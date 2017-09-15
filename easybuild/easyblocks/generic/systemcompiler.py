@@ -190,7 +190,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Do the bundle prepare step to ensure any deps are loaded at a minimum."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC', 'GCCcore']:

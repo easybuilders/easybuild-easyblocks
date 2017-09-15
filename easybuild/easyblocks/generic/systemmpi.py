@@ -216,7 +216,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Do the bundle prepare step to ensure any deps are loaded. No need to worry about licences for Intel MPI"""
         Bundle.prepare_step(self)
 
