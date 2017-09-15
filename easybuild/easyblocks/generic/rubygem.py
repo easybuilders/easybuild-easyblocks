@@ -29,7 +29,6 @@ EasyBuild support for Ruby Gems, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import re
 import shutil
 
 import easybuild.tools.environment as env
