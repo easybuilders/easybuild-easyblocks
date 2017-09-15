@@ -29,6 +29,7 @@ EasyBuild support for Ruby Gems, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
+import re
 import shutil
 
 import easybuild.tools.environment as env
@@ -90,7 +91,7 @@ class RubyGem(ExtensionEasyBlock):
             raise EasyBuildError("Ruby module not loaded?")
 
         # this is the 'proper' way to specify a custom installation prefix: set $GEM_HOME
-        if not self.is_extension:
+        if self.cfg.__dict__.get('software_name') != 'Ruby':
             env.setvar('GEM_HOME', self.installdir)
 
         bindir = os.path.join(self.installdir, 'bin')
@@ -100,6 +101,6 @@ class RubyGem(ExtensionEasyBlock):
         """Extend $GEM_PATH in module file."""
         txt = super(RubyGem, self).make_module_extra()
         # for stand-alone Ruby gem installs, $GEM_PATH needs to be updated
-        if not self.is_extension:
+        if self.cfg.__dict__.get('software_name') != 'Ruby':
             txt += self.module_generator.prepend_paths('GEM_PATH', [''])
-        return txt
+        return super(RubyGem, self).make_module_extra(txt)
