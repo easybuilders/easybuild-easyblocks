@@ -35,7 +35,6 @@ from vsc.utils import fancylogger
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
@@ -83,7 +82,8 @@ def extract_compiler_version(compiler_name):
 
     return compiler_version
 
-class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
+# No need to inherit from EB_icc since EB_ifort already inherits from that
+class SystemCompiler(Bundle, EB_GCC, EB_ifort):
     """
     Support for generating a module file for the system compiler with specified name.
 
@@ -98,7 +98,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         """Add custom easyconfig parameters for SystemCompiler easyblock."""
         # Gather extra_vars from inherited classes, order matters here to make this work without problems in __init__
         extra_vars = EB_GCC.extra_options()
-        extra_vars.update(EB_icc.extra_options())
         extra_vars.update(EB_ifort.extra_options())
         extra_vars.update(Bundle.extra_options())
         # Add an option to add all module path extensions to the resultant easyconfig
@@ -195,8 +194,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC', 'GCCcore']:
                 EB_GCC.prepare_step(self, *args, **kwargs)
-            elif self.cfg['name'] in ['icc']:
-                EB_icc.prepare_step(self, *args, **kwargs)
             elif self.cfg['name'] in ['ifort']:
                 EB_ifort.prepare_step(self, *args, **kwargs)
             else:
@@ -216,8 +213,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 guesses = EB_GCC.make_module_req_guess(self)
-            elif self.cfg['name'] in ['icc']:
-                guesses = EB_icc.make_module_req_guess(self)
             elif self.cfg['name'] in ['ifort']:
                 guesses = EB_ifort.make_module_req_guess(self)
             else:
@@ -263,8 +258,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
                 extras = EB_GCC.make_module_extra(self, *args, **kwargs)
-            elif self.cfg['name'] in ['icc']:
-                extras = EB_icc.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['ifort']:
                 extras = EB_ifort.make_module_extra(self, *args, **kwargs)
             else:
