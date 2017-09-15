@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -58,9 +58,10 @@ class EB_CGAL(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for CGAL."""
         shlib_ext = get_shared_lib_ext()
+        libdirs = ('lib', 'lib64')
+        libs = [tuple(os.path.join(d, 'libCGAL%s.%s' % (l, shlib_ext)) for d in libdirs) for l in ['', '_Core']]
         custom_paths = {
-            'files': ['bin/cgal_%s' % x for x in ["create_cmake_script", "make_macosx_app"]] +
-                     ['lib/libCGAL%s.%s' % (x, shlib_ext) for x in ["", "_Core"]],
-            'dirs': ['include/CGAL', 'lib/CGAL'],
+            'files': ['bin/cgal_%s' % x for x in ['create_cmake_script', 'make_macosx_app']] + libs,
+            'dirs': ['include/CGAL', ('lib/CGAL', 'lib64/CGAL')],
         }
         super(EB_CGAL, self).sanity_check_step(custom_paths=custom_paths)

@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -121,7 +121,9 @@ class EB_icc(IntelBase):
             'dirs': [],
         }
 
-        super(EB_icc, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["which icc"]
+
+        super(EB_icc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """
@@ -138,12 +140,10 @@ class EB_icc(IntelBase):
             # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
             'CPATH': ['daal/include', 'ipp/include', 'mkl/include', 'tbb/include'],
             'DAALROOT': ['daal'],
-            'IDB_HOME': ['bin/intel64'],
             'IPPROOT': ['ipp'],
             'LD_LIBRARY_PATH': ['lib'],
-            'LIBRARY_PATH': ['lib'],
-            'MANPATH': ['debugger/gdb/intel64/share/man', 'man', 'man/common', 'man/en_US', 'share/man'],
-            'PATH': ['bin'],
+            'MANPATH': ['debugger/gdb/intel64/share/man', 'man/common', 'man/en_US', 'share/man'],
+            'PATH': [],
             'TBBROOT': ['tbb'],
         }
 
@@ -175,11 +175,11 @@ class EB_icc(IntelBase):
             ])
 
             if LooseVersion(self.version) < LooseVersion('2016'):
-                prefix = 'composer-xe-%s' % self.version
+                prefix = 'composer_xe_%s' % self.version
 
                 # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
                 if LooseVersion(self.version) >= LooseVersion('2015'):
-                    self.debuggerpath = os.path.join('composer-xe-%s' % self.version.split('.')[0], 'debugger')
+                    self.debuggerpath = os.path.join(prefix, 'debugger')
 
             else:
                 # new directory layout for Intel Parallel Studio XE 2016
@@ -205,9 +205,15 @@ class EB_icc(IntelBase):
         # in recent Intel compiler distributions, the actual binaries are
         # in deeper directories, and symlinked in top-level directories
         # however, not all binaries are symlinked (e.g. mcpcom is not)
+        # we only need to include the deeper directories (same as compilervars.sh)
         if prefix and os.path.isdir(os.path.join(self.installdir, prefix)):
             for key, subdirs in guesses.items():
-                guesses[key].extend([os.path.join(prefix, subdir) for subdir in subdirs])
+                guesses[key] = [os.path.join(prefix, subdir) for subdir in subdirs]
+
+        # only set $IDB_HOME if idb exists
+        idb_home_subdir = 'bin/intel64'
+        if os.path.isfile(os.path.join(self.installdir, idb_home_subdir, 'idb')):
+            guesses['IDB_HOME'] = [idb_home_subdir]
 
         return guesses
 
@@ -219,5 +225,14 @@ class EB_icc(IntelBase):
             intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
             if os.path.isdir(intel_pythonhome):
                 txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
+
+        # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
+        out, ec = run_cmd("gcc -print-multiarch", simple=False)
+        multiarch_inc_subdir = out.strip()
+        if ec == 0 and multiarch_inc_subdir:
+            multiarch_inc_dir = os.path.join('/usr', 'include', multiarch_inc_subdir)
+            self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
+            # system location must be appended at the end, so use append_paths
+            txt += self.module_generator.append_paths('CPATH', [multiarch_inc_dir], allow_abs=True)
 
         return txt

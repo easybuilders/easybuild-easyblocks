@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,6 +57,13 @@ class EB_impi(IntelBase):
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
+
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_impi, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_impi, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -211,12 +218,13 @@ EULA=accept
         if self.cfg['set_mpi_wrapper_aliases_gcc'] or self.cfg['set_mpi_wrappers_all']:
             # force mpigcc/mpigxx to use GCC compilers, as would be expected based on their name
             txt += self.module_generator.set_alias('mpigcc', 'mpigcc -cc=gcc')
-            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cc=g++')
+            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cxx=g++')
 
         if self.cfg['set_mpi_wrapper_aliases_intel'] or self.cfg['set_mpi_wrappers_all']:
             # do the same for mpiicc/mpiipc/mpiifort to be consistent, even if they may not exist
             txt += self.module_generator.set_alias('mpiicc', 'mpiicc -cc=icc')
-            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cc=icpc')
-            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -cc=ifort')
+            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cxx=icpc')
+            # -fc also works, but -f90 takes precedence
+            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -f90=ifort')
 
         return txt

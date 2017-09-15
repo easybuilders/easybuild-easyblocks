@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -94,6 +94,10 @@ class Bundle(EasyBlock):
                 self.cfg.update('sources', cfg['sources'])
             else:
                 raise EasyBuildError("No sources specification for component %d v%d", comp_name, comp_version)
+
+            if 'source_urls' in comp_specs:
+                # add per-component source_urls to list of bundle source_urls, expanding templates
+                self.cfg.update('source_urls', cfg['source_urls'])
 
             self.comp_cfgs.append(cfg)
 

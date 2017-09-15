@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2016 Ghent University
+# Copyright 2013-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ import os
 import shutil
 
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file, copytree
+from easybuild.tools.filetools import copy_file, copy_dir
 from easybuild.tools.run import run_cmd
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
@@ -50,9 +50,9 @@ class EB_DL_underscore_POLY_underscore_Classic(ConfigureMake):
 
     # create PLUMED patch in prepare_step rather than patch_step,
     # so we can rely on being in the unpacked source directory
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Generate PLUMED patch if PLUMED is listed as a dependency."""
-        super(EB_DL_underscore_POLY_underscore_Classic, self).prepare_step()
+        super(EB_DL_underscore_POLY_underscore_Classic, self).prepare_step(*args, **kwargs)
 
         if self.with_plumed:
             # see https://groups.google.com/d/msg/plumed-users/cWaIDU5F6Bw/bZUW3J9cCAAJ
@@ -101,7 +101,7 @@ class EB_DL_underscore_POLY_underscore_Classic(ConfigureMake):
         # create a 'bin' subdir, this way we also get $PATH to be set correctly automatically
         install_path = os.path.join(self.cfg['start_dir'], 'execute')
         bin_path = os.path.join(self.installdir, 'bin')
-        copytree(install_path, bin_path)
+        copy_dir(install_path, bin_path)
 
     def sanity_check_step(self):
         """Custom sanity check step for DL_POLY Classic"""

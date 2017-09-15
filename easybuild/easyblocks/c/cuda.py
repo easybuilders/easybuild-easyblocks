@@ -1,7 +1,7 @@
 ##
-# This file is an EasyBuild reciPY as per https://github.com/hpcugent/easybuild
+# This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2016 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
+# Copyright:: Copyright 2012-2017 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste, Damian Alvarez
 # License::   MIT/GPL
 # $Id$
@@ -112,6 +112,8 @@ class EB_CUDA(Binary):
         # Prepare wrappers to handle a default host compiler other than g++
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
+
+        super(EB_CUDA, self).post_install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""

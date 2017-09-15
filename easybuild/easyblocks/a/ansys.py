@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,7 +47,11 @@ class EB_ANSYS(PackedBinary):
     def install_step(self):
         """Custom install procedure for ANSYS."""
         licserv = self.cfg['license_server']
+        if licserv is None:
+            licserv = os.getenv('EB_ANSYS_LICENSE_SERVER', 'license.example.com')
         licport = self.cfg['license_server_port']
+        if licport is None:
+            licport = os.getenv('EB_ANSYS_LICENSE_SERVER_PORT', '2325:1055')
 
         cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
         run_cmd(cmd, log_all=True, simple=True)

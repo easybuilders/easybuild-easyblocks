@@ -1,8 +1,8 @@
 ##
-# This file is an EasyBuild reciPY as per https://github.com/hpcugent/easybuild
+# This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2016 Uni.Lu/LCSB, NTUA
-# Copyright:: Copyright 2016-2016 Forschungszentrum Juelich
+# Copyright:: Copyright 2012-2017 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2016-2017 Forschungszentrum Juelich
 # Authors::   Fotis Georgatos <fotis@cern.ch>
 # Authors::   Damian Alvarez  <d.alvarez@fz-juelich.de>
 # License::   MIT/GPL
@@ -20,6 +20,7 @@ import os
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license
 from easybuild.tools.modules import get_software_root
@@ -41,8 +42,9 @@ class EB_TotalView(PackedBinary):
         Handle of license
         """
         default_lic_env_var = 'LM_LICENSE_FILE'
+        license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
         lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
-                                                              lic_specs=[self.cfg['license_file']])
+                                                              lic_specs=license_specs)
 
         if lic_specs:
             if self.license_env_var is None:

@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,6 +71,13 @@ class EB_imkl(IntelBase):
         # make sure $MKLROOT isn't set, it's known to cause problems with the installation
         self.cfg.update('unwanted_env_vars', ['MKLROOT'])
 
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
+
     def install_step(self):
         """
         Actual installation
@@ -109,7 +116,6 @@ class EB_imkl(IntelBase):
                     'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'MANPATH': ['man', 'man/en_US'],
                     'CPATH': ['mkl/include', 'mkl/include/fftw'],
-                    'FPATH': ['mkl/include', 'mkl/include/fftw'],
                 }
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):
@@ -127,7 +133,6 @@ class EB_imkl(IntelBase):
                     'LIBRARY_PATH': ['lib', 'lib/32'],
                     'MANPATH': ['man', 'share/man', 'man/en_US'],
                     'CPATH': ['include'],
-                    'FPATH': ['include']
                 }
 
             else:
@@ -137,7 +142,6 @@ class EB_imkl(IntelBase):
                     'LIBRARY_PATH': ['lib', 'lib/em64t'],
                     'MANPATH': ['man', 'share/man', 'man/en_US'],
                     'CPATH': ['include'],
-                    'FPATH': ['include'],
                 }
 
     def make_module_extra(self):

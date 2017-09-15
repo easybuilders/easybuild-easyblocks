@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,8 +44,10 @@ class EB_Inspector(IntelBase):
 
         # recent versions of Inspector are installed to a subdirectory
         self.subdir = ''
-        if LooseVersion(self.version) >= LooseVersion('2013_update7'):
+        if LooseVersion(self.version) >= LooseVersion('2013_update7') and LooseVersion(self.version) < LooseVersion('2017'):
             self.subdir = 'inspector_xe'
+        elif LooseVersion(self.version) >= LooseVersion('2017'):
+            self.subdir = 'inspector'
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
@@ -89,7 +91,6 @@ class EB_Inspector(IntelBase):
 
         guesses.update({
             'CPATH': [os.path.join(self.subdir, 'include')],
-            'FPATH': [os.path.join(self.subdir, 'include')],
             'MANPATH': [os.path.join(self.subdir, 'man')],
         })
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,15 +34,14 @@ EasyBuild support for SCOTCH, implemented as an easyblock
 import fileinput
 import os
 import re
-import sys
 import shutil
+import sys
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copytree
 from easybuild.tools.run import run_cmd
 
 
@@ -144,7 +143,7 @@ class EB_SCOTCH(EasyBlock):
                 src = os.path.join(self.cfg['start_dir'], d)
                 dst = os.path.join(self.installdir, d)
                 # we don't need any metis stuff from scotch!
-                copytree(src, dst, ignore=lambda path, files: [x for x in files if regmetis.match(x)])
+                shutil.copytree(src, dst, ignore=lambda path, files: [x for x in files if regmetis.match(x)])
 
         except OSError, err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, dst, err)

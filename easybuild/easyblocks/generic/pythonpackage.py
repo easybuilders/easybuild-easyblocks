@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2017 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -327,8 +327,12 @@ class PythonPackage(ExtensionEasyBlock):
             # specify current directory
             loc = '.'
         else:
-            # specify path to 1st source file
-            loc = self.src[0]['path']
+            # for extensions, self.src specifies the location of the source file
+            # otherwise, self.src is a list of dicts, one element per source file
+            if isinstance(self.src, basestring):
+                loc = self.src
+            else:
+                loc = self.src[0]['path']
 
         if installopts is None:
             installopts = self.cfg['installopts']
@@ -355,9 +359,9 @@ class PythonPackage(ExtensionEasyBlock):
         super(PythonPackage, self).prerun()
         self.prepare_python()
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing this Python package."""
-        super(PythonPackage, self).prepare_step()
+        super(PythonPackage, self).prepare_step(*args, **kwargs)
         self.prepare_python()
 
     def configure_step(self):
@@ -467,7 +471,8 @@ class PythonPackage(ExtensionEasyBlock):
         if not self.src:
             raise EasyBuildError("No source found for Python package %s, required for installation. (src: %s)",
                                  self.name, self.src)
-        kwargs.update({'unpack_src': True})
+        # we unpack unless explicitly told otherwise
+        kwargs.setdefault('unpack_src', self.cfg.get('unpack_sources', True))
         super(PythonPackage, self).run(*args, **kwargs)
 
         # configure, build, test, install
