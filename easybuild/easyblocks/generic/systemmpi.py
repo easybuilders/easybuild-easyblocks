@@ -89,10 +89,20 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
         # Determine MPI wrapper path (real path, with resolved symlinks) to ensure it exists
         if mpi_name == 'impi':
+            # For impi the version information is only found in *some* of the wrappers it ships, in particular it is
+            # not in mpicc
             mpi_c_wrapper = 'mpiicc'
+            path_to_mpi_c_wrapper = which(mpi_c_wrapper)
+            if not path_to_mpi_c_wrapper:
+                mpi_c_wrapper = 'mpigcc'
+                path_to_mpi_c_wrapper = which(mpi_c_wrapper)
+                if not path_to_mpi_c_wrapper:
+                    raise EasyBuildError("Could not find suitable MPI wrapper to extract version for impi",
+                                         mpi_c_wrapper)
         else:
             mpi_c_wrapper = 'mpicc'
-        path_to_mpi_c_wrapper = which(mpi_c_wrapper)
+            path_to_mpi_c_wrapper = which(mpi_c_wrapper)
+
         if path_to_mpi_c_wrapper:
             path_to_mpi_c_wrapper = resolve_path(path_to_mpi_c_wrapper)
             self.log.info("Found path to MPI implementation '%s' %s compiler (with symlinks resolved): %s",
@@ -118,18 +128,18 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
         elif mpi_name == 'impi':
             # Extract the version of IntelMPI
-            # The prefix in the the mpiicc script can be used to extract the explicit version
-            contents_of_mpiicc = read_file(path_to_mpi_c_wrapper)
+            # The prefix in the the mpiicc (or mpigcc) script can be used to extract the explicit version
+            contents_of_mpixcc = read_file(path_to_mpi_c_wrapper)
             prefix_regex = re.compile(r'(?<=compilers_and_libraries_)(.*)(?=/linux/mpi)', re.M)
 
             self.mpi_version = None
-            res = prefix_regex.search(contents_of_mpiicc)
+            res = prefix_regex.search(contents_of_mpixcc)
             if res:
                 self.mpi_version = res.group(1)
             else:
                 # old iimpi version
                 prefix_regex = re.compile(r'^prefix=(.*)$', re.M)
-                res = prefix_regex.search(contents_of_mpiicc)
+                res = prefix_regex.search(contents_of_mpixcc)
                 if res:
                     self.mpi_version = res.group(1).split('/')[-1]
 
