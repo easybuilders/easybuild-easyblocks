@@ -218,7 +218,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
     def prepare_step(self, *args, **kwargs):
         """Do the bundle prepare step to ensure any deps are loaded. No need to worry about licences for Intel MPI"""
-        Bundle.prepare_step(self)
+        Bundle.prepare_step(self, *args, **kwargs)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""

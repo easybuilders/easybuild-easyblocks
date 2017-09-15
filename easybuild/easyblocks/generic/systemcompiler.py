@@ -194,15 +194,15 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         """Do the bundle prepare step to ensure any deps are loaded at a minimum."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC', 'GCCcore']:
-                EB_GCC.prepare_step(self)
+                EB_GCC.prepare_step(self, *args, **kwargs)
             elif self.cfg['name'] in ['icc']:
-                EB_icc.prepare_step(self)
+                EB_icc.prepare_step(self, *args, **kwargs)
             elif self.cfg['name'] in ['ifort']:
-                EB_ifort.prepare_step(self)
+                EB_ifort.prepare_step(self, *args, **kwargs)
             else:
                 raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
         else:
-            Bundle.prepare_step(self)
+            Bundle.prepare_step(self, *args, **kwargs)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
