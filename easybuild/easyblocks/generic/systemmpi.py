@@ -186,7 +186,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 # Force off adding paths to module since unloading such a module would be a potential shell killer
                 self.cfg['generate_standalone_module'] = False
                 self.log.warning("Disabling option 'generate_standalone_module' since installation prefix is %s",
-                                 self.compiler_prefix)
+                                 self.mpi_prefix)
 
         self.log.debug("Derived version/install prefix for system MPI %s: %s, %s",
                        mpi_name, self.mpi_version, self.mpi_prefix)
