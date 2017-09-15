@@ -38,11 +38,11 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 from easybuild.easyblocks.gcc import EB_GCC
-from easybuild.tools.filetools import read_file, which, resolve_path
-from easybuild.tools.run import run_cmd
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import read_file, resolve_path, which
+from easybuild.tools.run import run_cmd
 
 _log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
 

@@ -29,21 +29,18 @@ EasyBuild support for using (already installed/existing) system MPI instead of a
 """
 import os
 import re
-from vsc.utils import fancylogger
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
 from easybuild.easyblocks.impi import EB_impi
-from easybuild.tools.modules import get_software_version
-from easybuild.tools.filetools import read_file, which
-from easybuild.tools.run import run_cmd
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-
-_log = fancylogger.getLogger('easyblocks.generic.systemmpi')
+from easybuild.tools.filetools import read_file, resolve_path, which
+from easybuild.tools.modules import get_software_version
+from easybuild.tools.run import run_cmd
+from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 
 class SystemMPI(Bundle, ConfigureMake, EB_impi):
     """
@@ -57,6 +54,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
     @staticmethod
     def extra_options():
+        """Add custom easyconfig parameters for SystemMPI easyblock."""
         # Gather extra_vars from inherited classes, order matters to make sure bundle initialises correctly
         extra_vars = ConfigureMake.extra_options()
         extra_vars.update(EB_impi.extra_options())
@@ -96,7 +94,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             mpi_c_wrapper = 'mpicc'
         path_to_mpi_c_wrapper = which(mpi_c_wrapper)
         if path_to_mpi_c_wrapper:
-            path_to_mpi_c_wrapper = os.path.realpath(path_to_mpi_c_wrapper)
+            path_to_mpi_c_wrapper = resolve_path(path_to_mpi_c_wrapper)
             self.log.info("Found path to MPI implementation '%s' %s compiler (with symlinks resolved): %s",
                           mpi_name, mpi_c_wrapper, path_to_mpi_c_wrapper)
         else:
@@ -153,8 +151,9 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             # final module
             self.mpi_env_vars = {}
             for key, value in os.environ.iteritems():
-                if any(key.startswith(x) for x in ['I_MPI_', 'MPICH_']) or (key.startswith('MPI') and
-                                                                                key.endswith('PROFILE')):
+                i_mpi_key = key.startswith('I_MPI_') or key.startswith('MPICH_')
+                mpi_profile_key = key.startswith('MPI') and key.endswith('PROFILE')
+                if i_mpi_key or mpi_profile_key:
                     self.mpi_env_vars[key] = value
 
             # Extract the C compiler used underneath Intel MPI
@@ -281,13 +280,13 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.cfg['version'] = self.mpi_version
         return res
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['OpenMPI']:
-                extras = ConfigureMake.make_module_extra(self)
+                extras = ConfigureMake.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['impi']:
-                extras = EB_impi.make_module_extra(self)
+                extras = EB_impi.make_module_extra(self, *args, **kwargs)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
             # include environment variables defined for MPI implementation
@@ -295,7 +294,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras = super(SystemMPI, self).make_module_extra()
+            extras = super(SystemMPI, self).make_module_extra(*args, **kwargs)
         return extras
 
     def cleanup_step(self):
