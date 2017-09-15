@@ -34,7 +34,7 @@ from vsc.utils import fancylogger
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
-from easybuild.easyblocks.i.impi import EB_impi
+from easybuild.easyblocks.impi import EB_impi
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd

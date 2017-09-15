@@ -35,10 +35,10 @@ from vsc.utils import fancylogger
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.i.icc import EB_icc
-from easybuild.easyblocks.i.ifort import EB_ifort
-from easybuild.easyblocks.g.gcc import EB_GCC
-from easybuild.tools.filetools import read_file, which
+from easybuild.easyblocks.icc import EB_icc
+from easybuild.easyblocks.ifort import EB_ifort
+from easybuild.easyblocks.gcc import EB_GCC
+from easybuild.tools.filetools import read_file, which, resolve_path
 from easybuild.tools.run import run_cmd
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
@@ -63,7 +63,7 @@ def extract_compiler_version(compiler_name):
         # A fully resolved icc/ifort (without symlinks) includes the release version in the path
         # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
         # Match the last incidence of _ since we don't know what might be in the path, then split it up on /
-        out = (os.path.realpath(which(compiler_name)).split("_")[-1]).split("/")
+        out = (resolve_path(which(compiler_name)).split("_")[-1]).split("/")
         compiler_version = out[0]
         # Check what we have looks like a version number (the regex we use requires spaces around the version number)
         if version_regex.search(" " + compiler_version + " ") is None:
@@ -95,6 +95,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
 
     @staticmethod
     def extra_options():
+        """Add custom easyconfig parameters for SystemCompiler easyblock."""
         # Gather extra_vars from inherited classes, order matters here to make this work without problems in __init__
         extra_vars = EB_GCC.extra_options()
         extra_vars.update(EB_icc.extra_options())
@@ -121,7 +122,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
             compiler_name = 'gcc'
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
-            path_to_compiler = os.path.realpath(path_to_compiler)
+            path_to_compiler = resolve_path(path_to_compiler)
             self.log.info("Found path to compiler '%s' (with symlinks resolved): %s", compiler_name, path_to_compiler)
         else:
             raise EasyBuildError("%s not found in $PATH", compiler_name)
@@ -257,19 +258,19 @@ class SystemCompiler(Bundle, EB_GCC, EB_icc, EB_ifort):
         self.cfg['version'] = self.compiler_version
         return res
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC','GCCcore']:
-                extras = EB_GCC.make_module_extra(self)
+                extras = EB_GCC.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['icc']:
-                extras = EB_icc.make_module_extra(self)
+                extras = EB_icc.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['ifort']:
-                extras = EB_ifort.make_module_extra(self)
+                extras = EB_ifort.make_module_extra(self, *args, **kwargs)
             else:
                 raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
         else:
-            extras = super(SystemCompiler, self).make_module_extra()
+            extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
         return extras
 
     def cleanup_step(self):
