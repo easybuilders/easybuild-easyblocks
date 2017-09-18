@@ -45,7 +45,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, rmtree2, which
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -514,13 +514,19 @@ class PythonPackage(ExtensionEasyBlock):
         return guesses
 
     def make_module_extra(self, *args, **kwargs):
-        """Add install path to EBPYTHONPATH"""
+        """Add install path to EBPYTHONPREFIXES or PYTHONPATH (for unusual installations)"""
         txt = ''
         self.set_pylibdirs()
-        for path in self.all_pylibdirs:
-            fullpath = os.path.join(self.installdir, path)
-            # only extend $PYTHONPATH with existing, non-empty directories
-            if os.path.exists(fullpath) and os.listdir(fullpath):
-                txt += self.module_generator.prepend_paths('EBPYTHONPATH', path)
+        python_version = get_software_version('Python')
+        if python_version is not None:
+            pyshortver = '.'.join(python_version.split('.')[:2])
+        if python_version is not None and self.all_pylibdirs == ['lib/python%s/site-packages'%pyshortver]:
+            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+        else:
+            for path in self.all_pylibdirs:
+                fullpath = os.path.join(self.installdir, path)
+                # only extend $PYTHONPATH with existing, non-empty directories
+                if os.path.exists(fullpath) and os.listdir(fullpath):
+                    txt += self.module_generator.prepend_paths('PYTHONPATH', path)
 
         return super(PythonPackage, self).make_module_extra(txt, *args, **kwargs)
