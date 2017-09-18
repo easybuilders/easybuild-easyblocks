@@ -176,6 +176,11 @@ class EB_icc(IntelBase):
 
             if LooseVersion(self.version) < LooseVersion('2016'):
                 prefix = 'composer_xe_%s' % self.version
+                # for some older versions, name of subdirectory is slightly different
+                if not os.path.isdir(os.path.join(self.installdir, prefix)):
+                    cand_prefix = 'composerxe-%s' % self.version
+                    if os.path.isdir(os.path.join(self.installdir, cand_prefix)):
+                        prefix = cand_prefix
 
                 # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
                 if LooseVersion(self.version) >= LooseVersion('2015'):
