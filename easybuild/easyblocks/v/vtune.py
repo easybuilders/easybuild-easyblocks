@@ -45,7 +45,8 @@ class EB_VTune(IntelBase):
 
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
-        if LooseVersion(self.version) >= LooseVersion('2013_update12'):
+        if LooseVersion(self.version) >= LooseVersion('2013_update12') and \
+           LooseVersion(self.version) < LooseVersion('2018'):
             self.subdir = 'vtune_amplifier_xe'
         elif LooseVersion(self.version) >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
