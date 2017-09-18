@@ -43,10 +43,12 @@ class EB_VTune(IntelBase):
         """Easyblock constructor; define class variables."""
         super(EB_VTune, self).__init__(*args, **kwargs)
 
-        # recent versions of Inspector are installed to a subdirectory
+        # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         if LooseVersion(self.version) >= LooseVersion('2013_update12'):
             self.subdir = 'vtune_amplifier_xe'
+        elif LooseVersion(self.version) >= LooseVersion('2018'):
+            self.subdir = 'vtune_amplifier'
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
