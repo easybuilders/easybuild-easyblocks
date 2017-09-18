@@ -164,7 +164,7 @@ class IntelBase(EasyBlock):
             for tree in os.listdir(self.home_subdir_local):
                 self.log.debug("... removing %s subtree" % tree)
                 path = os.path.join(self.home_subdir_local, tree)
-                if os.path.isfile(path):
+                if os.path.isfile(path) or os.path.islink(path):
                     os.remove(path)
                 else:
                     shutil.rmtree(path)
