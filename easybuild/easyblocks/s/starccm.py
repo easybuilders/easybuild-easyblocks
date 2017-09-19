@@ -56,13 +56,6 @@ class EB_STARCCM(PackedBinary):
         guesses.update({"PATH": dirs})
         return guesses
 
-#    def make_module_extra(self):
-#        """Define extra environment variables required by STAR-CCM+"""
-#        txt = super(EB_STARCCM, self).make_module_extra()
-#        icem_acn = os.path.join(self.installdir, 'icemcfd', 'linux64_amd')
-#        txt += self.module_generator.set_environment('ICEM_ACN', icem_acn)
-#        return txt
-
     def sanity_check_step(self):
         """Custom sanity check for STAR-CCM+."""
         custom_paths = {
