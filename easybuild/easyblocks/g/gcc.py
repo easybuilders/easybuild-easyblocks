@@ -529,7 +529,7 @@ class EB_GCC(ConfigureMake):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
                               key, bindir, os.path.basename(src))
             elif os.path.exists(src):
-                symlink(os.path.basename(src), key)
+                symlink(os.path.basename(src), key, use_abspath_source=False)
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, src)
         change_dir(cwd)
