@@ -46,7 +46,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, read_file
+from easybuild.tools.filetools import find_flexlm_license, read_file, remove_file
 from easybuild.tools.run import run_cmd
 
 from vsc.utils import fancylogger
@@ -164,8 +164,8 @@ class IntelBase(EasyBlock):
             for tree in os.listdir(self.home_subdir_local):
                 self.log.debug("... removing %s subtree" % tree)
                 path = os.path.join(self.home_subdir_local, tree)
-                if os.path.isfile(path):
-                    os.remove(path)
+                if os.path.isfile(path) or os.path.islink(path):
+                    remove_file(path)
                 else:
                     shutil.rmtree(path)
         except OSError, err:
@@ -201,7 +201,7 @@ class IntelBase(EasyBlock):
             else:
                 # if a broken symlink is present, remove it first
                 if os.path.islink(self.home_subdir):
-                    os.remove(self.home_subdir)
+                    remove_file(self.home_subdir)
                 os.symlink(self.home_subdir_local, self.home_subdir)
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
@@ -373,7 +373,7 @@ class IntelBase(EasyBlock):
             for symlink in ['%s_%s' % (self.name, majver), '%s_latest' % self.name]:
                 symlink_fp = os.path.join(self.installdir, symlink)
                 if os.path.exists(symlink_fp):
-                    os.remove(symlink_fp)
+                    remove_file(symlink_fp)
             # move contents of 'impi/<version>' dir to installdir
             for fil in os.listdir(subdir):
                 source = os.path.join(subdir, fil)
