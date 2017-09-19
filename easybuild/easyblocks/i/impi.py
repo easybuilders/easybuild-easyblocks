@@ -30,16 +30,17 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import fileinput
 import os
-import re
 import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -144,14 +145,12 @@ EULA=accept
             else:
                 script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
             # fix broken env scripts after the move
+            regex_subs = (r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)
             for script in [os.path.join(script_path,'mpivars.csh') for script_path in script_paths]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^setenv I_MPI_ROOT.*", "setenv I_MPI_ROOT %s" % self.installdir, line)
-                    sys.stdout.write(line)
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+            regex_subs = (r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)
             for script in [os.path.join(script_path,'mpivars.sh') for script_path in script_paths]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^I_MPI_ROOT=.*", "I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir, line)
-                    sys.stdout.write(line)
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
