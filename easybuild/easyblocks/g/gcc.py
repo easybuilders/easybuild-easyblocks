@@ -45,7 +45,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, symlink, write_file
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
@@ -521,18 +521,16 @@ class EB_GCC(ConfigureMake):
             'f95': 'gfortran',
         }
         bindir = os.path.join(self.installdir, 'bin')
-        cwd = change_dir(bindir)
         for key in comp_cmd_symlinks:
-            src = os.path.join(bindir, comp_cmd_symlinks[key])
+            src = comp_cmd_symlinks[key]
             target = os.path.join(bindir, key)
             if os.path.exists(target):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
-                              key, bindir, os.path.basename(src))
-            elif os.path.exists(src):
-                symlink(os.path.basename(src), key, use_abspath_source=False)
+                              key, bindir, src)
+            elif os.path.exists(os.path.join(bindir, src)):
+                symlink(src, target, use_abspath_source=False)
             else:
-                raise EasyBuildError("Can't link '%s' to non-existing location %s", target, src)
-        change_dir(cwd)
+                raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
     def sanity_check_step(self):
         """
