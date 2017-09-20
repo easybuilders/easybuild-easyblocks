@@ -52,6 +52,14 @@ from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
+COMP_CMD_SYMLINKS = {
+    'cc': 'gcc',
+    'c++': 'g++',
+    'f77': 'gfortran',
+    'f95': 'gfortran',
+}
+
+
 class EB_GCC(ConfigureMake):
     """
     Self-contained build of GCC.
@@ -514,15 +522,9 @@ class EB_GCC(ConfigureMake):
         """
         super(EB_GCC, self).post_install_step(*args, **kwargs)
 
-        comp_cmd_symlinks = {
-            'cc': 'gcc',
-            'c++': 'g++',
-            'f77': 'gfortran',
-            'f95': 'gfortran',
-        }
         bindir = os.path.join(self.installdir, 'bin')
-        for key in comp_cmd_symlinks:
-            src = comp_cmd_symlinks[key]
+        for key in COMP_CMD_SYMLINKS:
+            src = COMP_CMD_SYMLINKS[key]
             target = os.path.join(bindir, key)
             if os.path.exists(target):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
@@ -595,7 +597,7 @@ class EB_GCC(ConfigureMake):
         libdirs = ['libexec', 'lib']
         libexec_files = [tuple([os.path.join(libdir, common_infix, x) for libdir in libdirs]) for x in libexec_files]
 
-        old_cmds = [os.path.join('bin', x) for x in ['cc', 'c++', 'f77', 'f95']]
+        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
 
         custom_paths = {
             'files': bin_files + lib_files + libexec_files + old_cmds,
