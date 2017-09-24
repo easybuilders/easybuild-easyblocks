@@ -87,14 +87,14 @@ class EB_MXNet(MakeCp):
         # Extract everything into separate directories.
         super(EB_MXNet, self).extract_step()
 
-        mxnet_dirs = glob.glob(os.path.join(self.builddir, 'mxnet-*'))
+        mxnet_dirs = glob.glob(os.path.join(self.builddir, '*mxnet-*'))
         if len(mxnet_dirs) == 1:
             self.mxnet_src_dir = mxnet_dirs[0]
             self.log.debug("MXNet dir is: %s", self.mxnet_src_dir)
         else:
             raise EasyBuildError("Failed to find/isolate MXNet source directory: %s", mxnet_dirs)
 
-        for srcdir in [d for d in os.listdir(self.builddir) if not d.startswith('mxnet-')]:
+        for srcdir in [d for d in os.listdir(self.builddir) if d != os.path.basename(self.mxnet_src_dir)]:
             submodule, _, _ = srcdir.rpartition('-')
             newdir = os.path.join(self.mxnet_src_dir, submodule)
             olddir = os.path.join(self.builddir, srcdir)
