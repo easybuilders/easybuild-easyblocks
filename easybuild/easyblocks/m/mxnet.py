@@ -197,6 +197,7 @@ class EB_MXNet(MakeCp):
         if not self.py_ext.sanity_check_step():
             raise EasyBuildError("The sanity check for the Python bindings failed")
 
+        self.r_ext.options['modulename'] = self.name.lower()
         if not self.r_ext.sanity_check_step():
             raise EasyBuildError("The sanity check for the R bindings failed")
 
