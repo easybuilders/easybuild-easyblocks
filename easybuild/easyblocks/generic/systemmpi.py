@@ -97,8 +97,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 mpi_c_wrapper = 'mpigcc'
                 path_to_mpi_c_wrapper = which(mpi_c_wrapper)
                 if not path_to_mpi_c_wrapper:
-                    raise EasyBuildError("Could not find suitable MPI wrapper to extract version for impi",
-                                         mpi_c_wrapper)
+                    raise EasyBuildError("Could not find suitable MPI wrapper to extract version for impi")
         else:
             mpi_c_wrapper = 'mpicc'
             path_to_mpi_c_wrapper = which(mpi_c_wrapper)
