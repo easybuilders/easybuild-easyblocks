@@ -274,6 +274,10 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
             extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
         return extras
 
+    def post_install_step(self, *args, **kwargs):
+        """Do nothing."""
+        pass
+
     def cleanup_step(self):
         """Do nothing."""
         pass
