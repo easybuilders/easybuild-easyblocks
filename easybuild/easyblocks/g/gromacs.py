@@ -473,7 +473,7 @@ class EB_GROMACS(CMakeMake):
         [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
         """
         build_arch = build_arch.upper()
-        if build_arch.endswith(("AVX512")) and not LooseVersion(self.version) < LooseVersion('5.0'):
+        if build_arch.endswith(("AVX512")) and not LooseVersion(self.version) < LooseVersion('2016'):
             return "AVX_512"
         elif build_arch.endswith(("AVX2")) and not LooseVersion(self.version) < LooseVersion('5.0'):
             return "AVX2_256"
