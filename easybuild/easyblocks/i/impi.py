@@ -195,9 +195,9 @@ EULA=accept
                 'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
-        txt = super(EB_impi, self).make_module_extra()
+        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:

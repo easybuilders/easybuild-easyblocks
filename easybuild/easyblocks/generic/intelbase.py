@@ -389,9 +389,9 @@ class IntelBase(EasyBlock):
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from IntelBase)",
                       self.__class__.__name__)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Custom variable definitions in module file."""
-        txt = super(IntelBase, self).make_module_extra()
+        txt = super(IntelBase, self).make_module_extra(*args, **kwargs)
 
         if self.requires_runtime_license:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
