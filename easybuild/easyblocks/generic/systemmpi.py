@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
 from easybuild.easyblocks.impi import EB_impi
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
@@ -228,8 +228,8 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         if self.cfg['generate_standalone_module']:
             if self.mpi_prefix in ['/usr', '/usr/local']:
                 # Force off adding paths to module since unloading such a module would be a potential shell killer
-                self.print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
-                                   self.mpi_prefix)
+                print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
+                              self.mpi_prefix)
             else:
                 if self.cfg['name'] in ['OpenMPI']:
                     guesses = ConfigureMake.make_module_req_guess(self)
