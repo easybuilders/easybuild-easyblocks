@@ -222,9 +222,9 @@ class EB_icc(IntelBase):
 
         return guesses
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Additional custom variables for icc: $INTEL_PYTHONHOME."""
-        txt = super(EB_icc, self).make_module_extra()
+        txt = super(EB_icc, self).make_module_extra(*args, **kwargs)
 
         if self.debuggerpath:
             intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
