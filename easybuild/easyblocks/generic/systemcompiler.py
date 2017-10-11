@@ -63,20 +63,21 @@ def extract_compiler_version(compiler_name):
         # A fully resolved icc/ifort (without symlinks) includes the release version in the path
         # e.g. .../composer_xe_2015.3.187/bin/intel64/icc
         # Match the last incidence of _ since we don't know what might be in the path, then split it up on /
-        out = (resolve_path(which(compiler_name)).split("_")[-1]).split("/")
-        compiler_version = out[0]
+        compiler_path = which(compiler_name)
+        if compiler_path:
+            compiler_version = resolve_path(compiler_path).split('_')[-1].split('/')[0]
+        else:
+            raise EasyBuildError("Compiler command '%s' not found", compiler_name)
         # Check what we have looks like a version number (the regex we use requires spaces around the version number)
-        if version_regex.search(" " + compiler_version + " ") is None:
-            typical_install_path = '.../composer_xe_2015.3.187/bin/intel64/icc'
-            raise EasyBuildError(
-                "Derived Intel compiler version %s doesn't look correct, is compiler installed in a path like %s?",
-                typical_install_path, compiler_version
-            )
+        if version_regex.search(' ' + compiler_version + ' ') is None:
+            error_msg = "Derived Intel compiler version '%s' doesn't look correct, " % compiler_version
+            error_msg += "is compiler installed in a path like '.../composer_xe_2015.3.187/bin/intel64/icc'?"
+            raise EasyBuildError(error_msg)
     else:
         raise EasyBuildError("Unknown compiler %s", compiler_name)
 
     if compiler_version:
-        _log.debug("Extracted compiler version '%s' for %s from: %s", compiler_version, compiler_name, out)
+        _log.debug("Extracted compiler version '%s' for %s", compiler_version, compiler_name)
     else:
         raise EasyBuildError("Failed to extract compiler version for %s using regex pattern '%s' from: %s",
                              compiler_name, version_regex.pattern, out)
