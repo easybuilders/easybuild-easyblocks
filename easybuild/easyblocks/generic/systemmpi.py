@@ -180,13 +180,6 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         if not os.path.exists(self.mpi_prefix):
             raise EasyBuildError("Path derived for system MPI (%s) does not exist: %s!", mpi_name, self.mpi_prefix)
 
-        if self.mpi_prefix in ['/usr', '/usr/local']:
-            if self.cfg['generate_standalone_module']:
-                # Force off adding paths to module since unloading such a module would be a potential shell killer
-                self.cfg['generate_standalone_module'] = False
-                self.log.warning("Disabling option 'generate_standalone_module' since installation prefix is %s",
-                                 self.mpi_prefix)
-
         self.log.debug("Derived version/install prefix for system MPI %s: %s, %s",
                        mpi_name, self.mpi_version, self.mpi_prefix)
 
@@ -232,12 +225,17 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         A dictionary of possible directories to look for.  Return known dict for the system MPI.
         """
         if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['OpenMPI']:
-                guesses = ConfigureMake.make_module_req_guess(self)
-            elif self.cfg['name'] in ['impi']:
-                guesses = EB_impi.make_module_req_guess(self)
+            if self.mpi_prefix in ['/usr', '/usr/local']:
+                # Force off adding paths to module since unloading such a module would be a potential shell killer
+                self.log.warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
+                                 self.mpi_prefix)
             else:
-                raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
+                if self.cfg['name'] in ['OpenMPI']:
+                    guesses = ConfigureMake.make_module_req_guess(self)
+                elif self.cfg['name'] in ['impi']:
+                    guesses = EB_impi.make_module_req_guess(self)
+                else:
+                    raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
         else:
             guesses = {}
         return guesses

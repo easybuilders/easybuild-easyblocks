@@ -167,13 +167,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
                        compiler_name, self.compiler_version, self.compiler_prefix)
 
-        if self.compiler_prefix in ['/usr', '/usr/local']:
-            if self.cfg['generate_standalone_module']:
-                # Force off adding paths to module since unloading such a module would be a potential shell killer
-                self.cfg['generate_standalone_module'] = False
-                self.log.warning("Disabling option 'generate_standalone_module' since installation prefix is %s",
-                                 self.compiler_prefix)
-
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
             self.log.info("Found specified version '%s', going with derived compiler version '%s'",
@@ -216,14 +209,19 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         generate_standalone_module parameter is False
         """
         if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['GCC','GCCcore']:
-                guesses = EB_GCC.make_module_req_guess(self)
-            elif self.cfg['name'] in ['icc']:
-                guesses = EB_icc.make_module_req_guess(self)
-            elif self.cfg['name'] in ['ifort']:
-                guesses = EB_ifort.make_module_req_guess(self)
+            if self.compiler_prefix in ['/usr', '/usr/local']:
+                # Force off adding paths to module since unloading such a module would be a potential shell killer
+                self.log.warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
+                                 self.compiler_prefix)
             else:
-                raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
+                if self.cfg['name'] in ['GCC','GCCcore']:
+                    guesses = EB_GCC.make_module_req_guess(self)
+                elif self.cfg['name'] in ['icc']:
+                    guesses = EB_icc.make_module_req_guess(self)
+                elif self.cfg['name'] in ['ifort']:
+                    guesses = EB_ifort.make_module_req_guess(self)
+                else:
+                    raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
         else:
             guesses = {}
         return guesses
