@@ -224,11 +224,12 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """
         A dictionary of possible directories to look for.  Return known dict for the system MPI.
         """
+        guesses = {}
         if self.cfg['generate_standalone_module']:
             if self.mpi_prefix in ['/usr', '/usr/local']:
                 # Force off adding paths to module since unloading such a module would be a potential shell killer
-                self.log.warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
-                                 self.mpi_prefix)
+                self.print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
+                                   self.mpi_prefix)
             else:
                 if self.cfg['name'] in ['OpenMPI']:
                     guesses = ConfigureMake.make_module_req_guess(self)
@@ -236,8 +237,6 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                     guesses = EB_impi.make_module_req_guess(self)
                 else:
                     raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
-        else:
-            guesses = {}
         return guesses
 
     def make_module_step(self, fake=False):

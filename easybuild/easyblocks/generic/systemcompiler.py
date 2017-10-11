@@ -208,11 +208,12 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         A dictionary of possible directories to look for.  Return known dict for the system compiler, or empty dict if
         generate_standalone_module parameter is False
         """
+        guesses = {}
         if self.cfg['generate_standalone_module']:
             if self.compiler_prefix in ['/usr', '/usr/local']:
                 # Force off adding paths to module since unloading such a module would be a potential shell killer
-                self.log.warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
-                                 self.compiler_prefix)
+                self.print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
+                                   self.compiler_prefix)
             else:
                 if self.cfg['name'] in ['GCC','GCCcore']:
                     guesses = EB_GCC.make_module_req_guess(self)
@@ -222,8 +223,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                     guesses = EB_ifort.make_module_req_guess(self)
                 else:
                     raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
-        else:
-            guesses = {}
         return guesses
 
     def make_module_step(self, fake=False):
