@@ -628,7 +628,7 @@ class EB_CP2K(EasyBlock):
                 raise EasyBuildError("Can't modify/write Makefile in %s: %s", makefiles, err)
 
         # update make options with MAKE
-        self.cfg.update('buildopts', 'MAKE="make -j %s" all' % self.cfg['parallel'])
+        self.cfg.update('buildopts', 'MAKE="make -j %s"' % self.cfg['parallel'])
 
         # update make options with ARCH and VERSION
         self.cfg.update('buildopts', 'ARCH=%s VERSION=%s' % (self.typearch, self.cfg['type']))
@@ -639,7 +639,7 @@ class EB_CP2K(EasyBlock):
         run_cmd(cmd + " clean", log_all=True, simple=True, log_output=True)
 
         #build_and_install
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_cmd(cmd + " all", log_all=True, simple=True, log_output=True)
 
     def test_step(self):
         """Run regression test."""
