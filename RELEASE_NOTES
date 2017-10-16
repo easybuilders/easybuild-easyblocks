@@ -3,25 +3,27 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 187 software-specific easyblocks and 29 generic easyblocks.
+The latest version of easybuild-easyblocks provides 188 software-specific easyblocks and 30 generic easyblocks.
 
 v3.4.1 (October 16th 2017)
 --------------------------
 
 bugfix/update release
-- add easyblock for SystemMPI (#1106) and SAS (#1263)
+- add generic 'SystemMPI' easyblock (#1106, #1261, #1262)
+- add software-specific easyblock for SAS (#1263)
 - minor enhancements, including:
+  - run 'wcleanAll' or 'wcleanPlatform -all' before building OpenFOAM (#780, #1258)
+  - enhance generic 'SystemCompiler' easyblock (#1106)
   - clean up --trace output for Python & Python packages (#1248)
+  - update Intel MPI easyblock to support 2018.* versions (#1253)
+  - add support for Intel MPI and Intel MKL to ScaLAPACK easyblock (#1255)
+  - enhance GCC easyblock to also put symlinks in place for cc/c++/f77/f95 commands (#1256)
+- various bug fixes, including:
   - allow that 'gcc -print-multiarch' fails in icc easyblock (#1249)
   - fix prefix subdirectory for older versions of icc (in particular 2011.3.174) (#1250)
-  - apply os.remove() also to links, instead of shutil.rmtree (#1251)
-  - fixed impi.py to allow 2018 versions (#1253)
-  - add support for Intel MKL and Intel MPI to scalapack. (#1255)
-  - enhance GCC easyblock to also put symlinks for cc/c++/f77/f95 in place (#1256)
-  - fix for MXNet easyblock (#1257)
-  - use 'wcleanPlatform -all' rather than 'wcleanAll' for recent OpenFOAM versions (#1258)
-  - fix handling of generate_standalone_module in SystemCompiler & SystemMPI easyblocks (#1261)
-  - clean up installing of Open MPI in test environment (#1262)
+  - use remove_file rather than os.remove in generic IntelBase easyblock to correctly deal with broken symlinks (#1251)
+  - fix sanity check for MXNet easyblock + correctly detect unpacked source directory (#1257)
+  - avoid building CP2K twice due to incorrect attempt at running 'make clean' first (#1266)
 
 
 v3.4.0 (September 10th 2017)
