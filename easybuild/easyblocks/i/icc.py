@@ -176,6 +176,11 @@ class EB_icc(IntelBase):
 
             if LooseVersion(self.version) < LooseVersion('2016'):
                 prefix = 'composer_xe_%s' % self.version
+                # for some older versions, name of subdirectory is slightly different
+                if not os.path.isdir(os.path.join(self.installdir, prefix)):
+                    cand_prefix = 'composerxe-%s' % self.version
+                    if os.path.isdir(os.path.join(self.installdir, cand_prefix)):
+                        prefix = cand_prefix
 
                 # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
                 if LooseVersion(self.version) >= LooseVersion('2015'):
@@ -217,9 +222,9 @@ class EB_icc(IntelBase):
 
         return guesses
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Additional custom variables for icc: $INTEL_PYTHONHOME."""
-        txt = super(EB_icc, self).make_module_extra()
+        txt = super(EB_icc, self).make_module_extra(*args, **kwargs)
 
         if self.debuggerpath:
             intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
@@ -227,7 +232,7 @@ class EB_icc(IntelBase):
                 txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
 
         # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
-        out, ec = run_cmd("gcc -print-multiarch", simple=False)
+        out, ec = run_cmd("gcc -print-multiarch", simple=False, log_all=False, log_ok=False)
         multiarch_inc_subdir = out.strip()
         if ec == 0 and multiarch_inc_subdir:
             multiarch_inc_dir = os.path.join('/usr', 'include', multiarch_inc_subdir)

@@ -45,10 +45,19 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_shared_lib_ext, get_platform_name
+from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
+from easybuild.tools.systemtools import get_shared_lib_ext
+
+
+COMP_CMD_SYMLINKS = {
+    'cc': 'gcc',
+    'c++': 'g++',
+    'f77': 'gfortran',
+    'f95': 'gfortran',
+}
 
 
 class EB_GCC(ConfigureMake):
@@ -507,6 +516,24 @@ class EB_GCC(ConfigureMake):
 
     # make install is just standard install_step, nothing special there
 
+    def post_install_step(self, *args, **kwargs):
+        """
+        Post-processing after installation: add symlinks for cc, c++, f77, f95
+        """
+        super(EB_GCC, self).post_install_step(*args, **kwargs)
+
+        bindir = os.path.join(self.installdir, 'bin')
+        for key in COMP_CMD_SYMLINKS:
+            src = COMP_CMD_SYMLINKS[key]
+            target = os.path.join(bindir, key)
+            if os.path.exists(target):
+                self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
+                              key, bindir, src)
+            elif os.path.exists(os.path.join(bindir, src)):
+                symlink(src, target, use_abspath_source=False)
+            else:
+                raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
+
     def sanity_check_step(self):
         """
         Custom sanity check for GCC
@@ -570,8 +597,10 @@ class EB_GCC(ConfigureMake):
         libdirs = ['libexec', 'lib']
         libexec_files = [tuple([os.path.join(libdir, common_infix, x) for libdir in libdirs]) for x in libexec_files]
 
+        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
+
         custom_paths = {
-            'files': bin_files + lib_files + libexec_files,
+            'files': bin_files + lib_files + libexec_files + old_cmds,
             'dirs': dirs,
         }
 

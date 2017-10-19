@@ -93,7 +93,7 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
                 req_majmin_ver = '%s.%s' % (req_maj_ver, req_min_ver)
 
             pycode = 'import sys; print("%s.%s" % sys.version_info[:2])'
-            out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False)
+            out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
             out = out.strip()
 
             # (strict) check for major version
@@ -155,7 +155,7 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
 
     log.debug("Determining Python library directory using command '%s'", cmd)
 
-    out, ec = run_cmd(cmd, simple=False, force_in_dry_run=True)
+    out, ec = run_cmd(cmd, simple=False, force_in_dry_run=True, trace=False)
     txt = out.strip().split('\n')[-1]
 
     # value obtained should start with specified prefix, otherwise something is very wrong
@@ -301,9 +301,9 @@ class PythonPackage(ExtensionEasyBlock):
 
         # mainly for debugging
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
-            run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False)
+            run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
-            out, _ = run_cmd("pip --version", verbose=False, simple=False)
+            out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
             # pip 8.x or newer required, because of --prefix option being used
             pip_version_regex = re.compile('^pip ([0-9.]+)')
@@ -391,13 +391,13 @@ class PythonPackage(ExtensionEasyBlock):
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
 
         # creates log entries for python being used, for debugging
-        run_cmd("%s -V" % self.python_cmd, verbose=False)
-        run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False)
+        run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
+        run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False, trace=False)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False)
+        run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
 
     def build_step(self):
         """Build Python package using setup.py"""
@@ -426,7 +426,7 @@ class PythonPackage(ExtensionEasyBlock):
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
-                run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False)
+                run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
 
                 abs_pylibdirs = [os.path.join(testinstalldir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])

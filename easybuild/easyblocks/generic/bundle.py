@@ -160,9 +160,13 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
-        return super(Bundle, self).make_module_extra(altroot=self.altroot, altversion=self.altversion)
+        if 'altroot' not in kwargs:
+            kwargs['altroot'] = self.altroot
+        if 'altversion' not in kwargs:
+            kwargs['altversion'] = self.altversion
+        return super(Bundle, self).make_module_extra(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
         """
