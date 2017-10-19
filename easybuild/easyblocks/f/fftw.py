@@ -27,6 +27,7 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 
 @author: Kenneth Hoste (HPC-UGent)
 """
+from distutils.version import LooseVersion
 from vsc.utils.missing import nub
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -34,6 +35,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
+from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
@@ -181,8 +183,20 @@ class EB_FFTW(ConfigureMake):
                 if (prec == 'single' and (self.asimd or self.neon)) or (prec == 'double' and self.asimd):
                     prec_configopts.append('--enable-neon')
 
+                # For POWER with GCC 5/6/7 and FFTW/3.3.6 we need to disable some settings for tests to pass
+                # (we do it last so as not to affect previous logic)
+                cpu_arch = get_cpu_architecture()
+                fftw_version = self.version
+                if cpu_arch in [POWER] and self.toolchain.comp_family() in [TC_CONSTANT_GCC] and \
+                        LooseVersion(fftw_version) == LooseVersion("3.3.6"):
+                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5/6/7
+                    if (prec == 'single'):
+                        prec_configopts.append('--disable-altivec')
+                    if (prec == 'double'):
+                        prec_configopts.append('--disable-vsx')
+
                 # append additional configure options (may be empty string, but that's OK)
-                self.cfg.update('configopts', [' '.join(prec_configopts) + common_config_opts])
+                self.cfg.update('configopts', [' '.join(prec_configopts) + ' ' + common_config_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
