@@ -144,7 +144,7 @@ class EB_PSI(CMakeMake):
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', " -DENABLE_MPI=ON")
 
-            if get_software_root('impi'):
+            if get_software_root('imkl'):
                 self.cfg.update('configopts', " -DENABLE_CSR=ON -DBLAS_TYPE=MKL")
 
             if self.name == 'PSI4':
