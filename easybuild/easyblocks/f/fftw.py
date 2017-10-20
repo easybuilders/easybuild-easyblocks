@@ -186,13 +186,16 @@ class EB_FFTW(ConfigureMake):
                 # For POWER with GCC 5/6/7 and FFTW/3.3.6 we need to disable some settings for tests to pass
                 # (we do it last so as not to affect previous logic)
                 cpu_arch = get_cpu_architecture()
-                fftw_version = self.version
-                if cpu_arch in [POWER] and self.toolchain.comp_family() in [TC_CONSTANT_GCC] and \
-                        LooseVersion(fftw_version) == LooseVersion("3.3.6"):
+                comp_fam = self.toolchain.comp_family()
+                fftw_ver = LooseVersion(self.version)
+                if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC and fftw_ver <= LooseVersion('3.3.6'):
                     # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5/6/7
-                    if (prec == 'single'):
+                    if prec == 'single':
+                        self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
+                                      % self.version)
                         prec_configopts.append('--disable-altivec')
-                    if (prec == 'double'):
+                    if prec == 'double':
+                        self.log.info("Disabling vsx for double precision on POWER with GCC for FFTW/%s" % self.version)
                         prec_configopts.append('--disable-vsx')
 
                 # append additional configure options (may be empty string, but that's OK)
