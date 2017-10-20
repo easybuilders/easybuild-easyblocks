@@ -182,7 +182,7 @@ class EB_FFTW(ConfigureMake):
                     prec_configopts.append('--enable-neon')
 
                 # append additional configure options (may be empty string, but that's OK)
-                self.cfg.update('configopts', [' '.join(prec_configopts) + common_config_opts])
+                self.cfg.update('configopts', [' '.join(prec_configopts) + ' ' + common_config_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
