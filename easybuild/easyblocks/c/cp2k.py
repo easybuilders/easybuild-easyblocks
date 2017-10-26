@@ -545,10 +545,7 @@ class EB_CP2K(EasyBlock):
     def configure_MKL(self, options):
         """Configure for Intel Math Kernel Library (MKL)"""
 
-        options.update({
-            'INTEL_INC': '$(MKLROOT)/include',
-        })
-
+        options['INTEL_INC'] = '$(MKLROOT)/include'
         options['DFLAGS'] += ' -D__FFTW3'
 
         extra = ''
@@ -558,17 +555,21 @@ class EB_CP2K(EasyBlock):
 
         options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBSCALAPACK', ''))
 
-        # only use Intel FFTW wrappers if FFTW is not loaded
-        if not get_software_root('FFTW'):
-
-            options.update({
-                'INTEL_INCF': '$(INTEL_INC)/fftw',
-            })
-
-            options['DFLAGS'] += ' -D__FFTMKL'
+        fftw_root = get_software_root('FFTW')
+        if fftw_root:
+            libfft = '-lfftw3'
+            if self.cfg['type'] == 'psmp':
+                libfft += ' -lfftw3_omp'
 
             options['CFLAGS'] += ' -I$(INTEL_INCF)'
+            options['INTEL_INCF'] = os.path.join(fftw_root, 'include')
+            options['LIBS'] += ' -L%s %s' % (os.path.join(fftw_root, 'lib'), libfft)
 
+        else:
+            # only use Intel FFTW wrappers if FFTW is not loaded
+            options['CFLAGS'] += ' -I$(INTEL_INCF)'
+            options['DFLAGS'] += ' -D__FFTMKL'
+            options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
         return options
