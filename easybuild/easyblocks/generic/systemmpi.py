@@ -82,7 +82,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         return setting
 
     def __init__(self, *args, **kwargs):
-        """Extra initialization: determine system MPI version, prefix and any associated envvars."""
+        """Extra initialization: keep track of values that may change due to modifications to the version."""
         super(SystemMPI, self).__init__(*args, **kwargs)
 
         # fix installdir and module names (may differ because of changes to version)
@@ -96,7 +96,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.orig_installdir = self.installdir
 
     def prepare_step(self, *args, **kwargs):
-        """Load all dependencies and prepare any additional parameters"""
+        """Load all dependencies, determine system MPI version, prefix and any associated envvars."""
 
         # Do the bundle prepare step to ensure any deps are loaded (no need to worry about licences for Intel MPI)
         Bundle.prepare_step(self, *args, **kwargs)

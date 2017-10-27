@@ -115,7 +115,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Extra initialization: determine system compiler version and prefix."""
+        """Extra initialization: keep track of values that may change due to modifications to the version."""
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
         # fix installdir and module names (may differ because of changes to version)
@@ -129,7 +129,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         self.orig_installdir = self.installdir
 
     def prepare_step(self, *args, **kwargs):
-        """Do the compiler appropriate prepare step to ensure any deps are loaded at a minimum."""
+        """Do compiler appropriate prepare step, determine system compiler version and prefix."""
         if self.cfg['generate_standalone_module']:
             if self.cfg['name'] in ['GCC', 'GCCcore']:
                 EB_GCC.prepare_step(self, *args, **kwargs)
