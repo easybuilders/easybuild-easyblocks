@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import UNKNOWN, get_glibc_version, get_shared_lib_ext
 
@@ -195,7 +195,7 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
             self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
-        
+
         if self.cfg['boost_multi_thread']:
             self.log.info("Building boost with multi threading")
             self.build_boost_variant(bjamoptions + " threading=multi --layout=tagged", paracmd)
@@ -240,7 +240,11 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi']:
             custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
         if get_software_root('Python'):
-            custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
+            pymajorver = get_software_version('Python').split('.')[0]
+            if pymajorver >= 3:
+                custom_paths["files"].append('lib/libboost_python%s.%s' % (pymajorver, shlib_ext))
+            else:
+                custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
         if self.cfg['boost_multi_thread']:
             custom_paths["files"].append('lib/libboost_thread-mt.%s' % shlib_ext)
         if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
