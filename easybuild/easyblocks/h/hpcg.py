@@ -37,6 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd
+from distutils.version import LooseVersion
 
 
 class EB_HPCG(ConfigureMake):
@@ -48,7 +49,10 @@ class EB_HPCG(ConfigureMake):
         mkdir("obj")
         # configure with most generic configuration available, i.e. hybrid
         # this is not specific to GCC or OpenMP, we take full control over that via $CXX and $CXXFLAGS
-        cmd = "../configure ../setup/Make.MPI_GCC_OMP" 
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            cmd = "../configure MPI_GCC_OMP"
+        else:
+            cmd = "../configure ../setup/Make.MPI_GCC_OMP"
         run_cmd(cmd, log_all=True, simple=True, log_ok=True, path='obj')
 
     def build_step(self):
