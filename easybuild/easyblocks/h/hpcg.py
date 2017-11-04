@@ -50,10 +50,10 @@ class EB_HPCG(ConfigureMake):
         # configure with most generic configuration available, i.e. hybrid
         # this is not specific to GCC or OpenMP, we take full control over that via $CXX and $CXXFLAGS
         if LooseVersion(self.version) >= LooseVersion('3.0'):
-            cmd = "../configure MPI_GCC_OMP"
+            arg = "MPI_GCC_OMP"
         else:
-            cmd = "../configure ../setup/Make.MPI_GCC_OMP"
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True, path='obj')
+            arg = "../setup/Make.MPI_GCC_OMP"
+        run_cmd("../configure %s" % arg, log_all=True, simple=True, log_ok=True, path='obj')
 
     def build_step(self):
         """Run build in build subdirectory."""
