@@ -99,6 +99,10 @@ class Bundle(EasyBlock):
                 # add per-component source_urls to list of bundle source_urls, expanding templates
                 self.cfg.update('source_urls', cfg['source_urls'])
 
+            if 'checksums' in comp_specs:
+                # add per-component checksums for checksums
+                self.cfg.update('checksums', cfg['checksums'])
+
             self.comp_cfgs.append(cfg)
 
         self.cfg.enable_templating = True
