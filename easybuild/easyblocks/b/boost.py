@@ -241,7 +241,7 @@ class EB_Boost(EasyBlock):
             custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
-            if pymajorver >= 3:
+            if int(pymajorver) >= 3:
                 custom_paths["files"].append('lib/libboost_python%s.%s' % (pymajorver, shlib_ext))
             else:
                 custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
