@@ -47,7 +47,7 @@ class EB_Bazel(EasyBlock):
         gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
         # only patch Bazel scripts if binutils & GCC installation prefix could be determined
-        if bintuils_root and gcc_root:
+        if binutils_root and gcc_root:
 
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
