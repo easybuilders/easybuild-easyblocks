@@ -242,9 +242,10 @@ class EB_Boost(EasyBlock):
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
             if int(pymajorver) >= 3:
-                custom_paths["files"].append('lib/libboost_python%s.%s' % (pymajorver, shlib_ext))
+                suffix = pymajorver
             else:
-                custom_paths["files"].append('lib/libboost_python.%s' % shlib_ext)
+                suffix = ''
+            custom_paths["files"].append('lib/libboost_python%s.%s' % (suffix, shlib_ext))
         if self.cfg['boost_multi_thread']:
             custom_paths["files"].append('lib/libboost_thread-mt.%s' % shlib_ext)
         if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
