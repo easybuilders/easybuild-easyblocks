@@ -56,7 +56,6 @@ class EB_TensorFlow(PythonPackage):
         self.prepare_python()
 
         cuda_root = get_software_root('CUDA')
-        cudnn_root = get_software_root('cuDNN')
         jemalloc_root = get_software_root('jemalloc')
         mkl_root = get_software_root('imkl')
         opencl_root = get_software_root('OpenCL')
@@ -151,11 +150,10 @@ class EB_TensorFlow(PythonPackage):
         if get_software_root('CUDA'):
             cmd.append('--config=cuda')
 
-        imkl_root = get_software_root('imkl')
-        if get_software_root('imkl'):
+        mkl_dnn_root = get_software_root('mkl-dnn')
+        if mkl_dnn_root:
             cmd.append('--config=mkl')
-            env.setvar('TF_MKL_ROOT', imkl_root)
-            cmd.append('--action_env=%s' % key)
+            env.setvar('TF_MKL_ROOT', mkl_dnn_root)
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
 
