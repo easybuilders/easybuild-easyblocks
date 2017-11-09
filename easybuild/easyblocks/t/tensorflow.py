@@ -151,10 +151,10 @@ class EB_TensorFlow(PythonPackage):
         if get_software_root('CUDA'):
             cmd.append('--config=cuda')
 
-        mkl_dnn_root = get_software_root('mkl-dnn')
-        if mkl_dnn_root:
+        imkl_root = get_software_root('imkl')
+        if imkl_root:
             cmd.append('--config=mkl')
-            env.setvar('TF_MKL_ROOT', mkl_dnn_root)
+            env.setvar('TF_MKL_ROOT', imkl_root)
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
 
