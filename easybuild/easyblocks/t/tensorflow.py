@@ -167,7 +167,7 @@ class EB_TensorFlow(PythonPackage):
         """Custom built-in test procedure for TensorFlow."""
         if self.cfg['runtest']:
             tmpdir = tempfile.mkdtemp(suffix='-bazel-test')
-            run_cmd("bazel --output_base=%s test --config=opt //tensorflow/...")
+            run_cmd("bazel --output_base=%s test --config=opt //tensorflow/..." % tmpdir)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
