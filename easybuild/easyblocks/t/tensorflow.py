@@ -80,6 +80,7 @@ class EB_TensorFlow(PythonPackage):
             "Please specify the location of python.*": self.python_cmd,
             "Please input the desired Python library path to use.*": os.path.join(self.installdir, self.pylibdir),
             "Please specify optimization flags to use during compilation.*": os.getenv('CXXFLAGS'),
+            "Please specify the MPI toolkit folder.*": '',
         }
         if cuda_root:
             cuda_ver = get_software_version('CUDA')
