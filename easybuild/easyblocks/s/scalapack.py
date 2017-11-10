@@ -47,7 +47,7 @@ from easybuild.toolchains.linalg.lapack import Lapack
 from easybuild.toolchains.linalg.openblas import OpenBLAS
 from easybuild.toolchains.linalg.intelmkl import IntelMKL
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.filetools import copy_file, remove_file
 from easybuild.tools.modules import get_software_root
 
 
@@ -190,8 +190,21 @@ class EB_ScaLAPACK(ConfigureMake):
             extra_makeopts.append('CDEFS="-D%s"' % interface)
 
         # update make opts, and build_step
+        saved_buildopts = self.cfg['buildopts']
+
+        # Only build the library first, that can be done in parallel
+        # But the library itself will be broken
+        self.cfg.update('buildopts', 'lib')
         self.cfg.update('buildopts', ' '.join(extra_makeopts))
 
+        super(EB_ScaLAPACK, self).build_step()
+
+        # Now remake libscalapack.a serially and the tests.
+        self.cfg['buildopts'] = saved_buildopts
+        self.cfg.update('buildopts', ' '.join(extra_makeopts))
+
+        remove_file('libscalapack.a')
+        self.cfg['parallel'] = 1
         super(EB_ScaLAPACK, self).build_step()
 
     def install_step(self):
