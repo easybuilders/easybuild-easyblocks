@@ -44,6 +44,7 @@ class EB_TensorFlow(PythonPackage):
     @staticmethod
     def extra_options():
         extra_vars = {
+            # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
@@ -159,6 +160,7 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
         cmd = ['bazel', '--output_base=%s' % tmpdir, 'build', '-s', '--config=opt', '--verbose_failures']
+        cmd.append(self.cfg['buildopts'])
 
         # pass through environment variables that may specify location of license file for Intel compilers
         for key in ['INTEL_LICENSE_FILE', 'LM_LICENSE_FILE']:#, 'LIBRARY_PATH']:
@@ -190,7 +192,9 @@ class EB_TensorFlow(PythonPackage):
         """Custom install procedure for TensorFlow."""
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % self.version))
         if len(whl_paths) == 1:
-            cmd = "pip install --prefix=%s %s" % (self.installdir, whl_paths[0])
+            # --upgrade is required to ensure *this* wheel is installed
+            # cfr. https://github.com/tensorflow/tensorflow/issues/7449
+            cmd = "pip install --upgrade --prefix=%s %s" % (self.installdir, whl_paths[0])
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
