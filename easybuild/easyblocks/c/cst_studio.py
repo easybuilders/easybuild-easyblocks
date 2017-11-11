@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for cst_studio, implemented as an easyblock
+EasyBuild support for cst-studio, implemented as an easyblock
 
 @author: Stijn De Weirdt (Ghent University)
 @author: Dries Verdegem (Ghent University)
@@ -40,12 +40,12 @@ from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
 
 
-class EB_cst_studio(Binary):
-    """Support for installing cst_studio."""
+class EB_cst(Binary):
+    """Support for installing cst-studio."""
 
     def __init__(self, *args, **kwargs):
-        """Initialisation of custom class variables for cst_studio."""
-        super(EB_cst_studio, self).__init__(*args, **kwargs)
+        """Initialisation of custom class variables for cst-studio."""
+        super(EB_cst, self).__init__(*args, **kwargs)
         self.replayfile = None
 
     def extract_step(self):
@@ -53,7 +53,7 @@ class EB_cst_studio(Binary):
         EasyBlock.extract_step(self)
 
     def configure_step(self):
-        """Configure cst_studio installation."""
+        """Configure cst-studio installation."""
         try:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
             txt = '\n'.join([
@@ -71,17 +71,17 @@ class EB_cst_studio(Binary):
             raise EasyBuildError("Failed to create install properties file used for replaying installation: %s", err)
 
     def install_step(self):
-        """Install cst_studio using 'install.sh'."""
+        """Install cst-studio using 'install.sh'."""
         os.chdir(self.builddir)
         if self.cfg['install_cmd'] is None:
             self.cfg['install_cmd'] = "%s/%s-%s/install.sh" % (self.builddir, self.name, self.version.split('-')[0])
             self.cfg['install_cmd'] += " --replay %s" % self.replayfile
             self.cfg['install_cmd'] += " --nogui "
             self.cfg['install_cmd'] += " --no-pkg-check "
-        super(EB_cst_studio, self).install_step()
+        super(EB_cst, self).install_step()
 
     def sanity_check_step(self):
-        """Custom sanity check for cst_studio."""
+        """Custom sanity check for cst-studio."""
             
         verparts = self.version.split('-')[0].split('.')
         custom_paths = {
@@ -89,12 +89,12 @@ class EB_cst_studio(Binary):
             'dirs': ["%s-%s" % ('.'.join(verparts[0:2]), verparts[2])]
         }
         custom_commands = [('cst_design_environment', 'information=all')]
-        super(EB_cst_studio, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super(EB_cst, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
-        """Update PATH guesses for cst_studio."""
+        """Update PATH guesses for cst-studio."""
 
-        guesses = super(EB_cst_studio, self).make_module_req_guess()
+        guesses = super(EB_cst, self).make_module_req_guess()
         guesses.update({
             'PATH': ['./'],
         })
