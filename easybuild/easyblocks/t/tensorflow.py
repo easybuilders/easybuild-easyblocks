@@ -217,7 +217,7 @@ class EB_TensorFlow(PythonPackage):
         if len(whl_paths) == 1:
             # --upgrade is required to ensure *this* wheel is installed
             # cfr. https://github.com/tensorflow/tensorflow/issues/7449
-            cmd = "pip install --upgrade --prefix=%s %s" % (self.installdir, whl_paths[0])
+            cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
