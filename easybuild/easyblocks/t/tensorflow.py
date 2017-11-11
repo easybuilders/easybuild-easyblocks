@@ -33,7 +33,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, which
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, resolve_path, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -121,12 +121,29 @@ class EB_TensorFlow(PythonPackage):
             raise EasyBuildError("Failed to determine installation prefix for binutils")
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
-        if not gcc_root:
+        if gcc_root:
+            gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
+            if res and len(res) == 1:
+                gcc_lib_inc = res[0]
+            else:
+                raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
+
+            gcc_lib_inc_fixed = os.path.join(os.path.dirname(gcc_lib_inc), 'include-fixed')
+            if not os.path.exists(gcc_lib_inc_fixed):
+                raise EasyBuildError("Derived directory %s does not exist", gcc_lib_inc_fixed)
+
+            gcc_cplusplus_inc = os.path.join(gcc_root, 'include', 'c++', gcc_ver)
+            if not os.path.exists(gcc_cplusplus_inc):
+                raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
+        else:
             raise EasyBuildError("Failed to determine installation prefix for GCC")
 
+        gcc_inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc]
         regex_subs = [
             #(r'-B/usr/bin', '-B%s -L%s' %( os.path.join(binutils_root, 'bin')),
             (r'-B/usr/bin/', '-B%s/ -L%s/' % (os.path.join(binutils_root, 'bin'), os.path.join(gcc_root, 'lib64'))),
+            (r'(cxx_builtin_include_directory:).*', '\n'.join(r'\1 "%s"' % resolve_path(p) for p in gcc_inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
