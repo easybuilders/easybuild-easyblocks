@@ -27,15 +27,24 @@ EasyBuild support for building and installing TensorFlow, implemented as an easy
 """
 import glob
 import os
+import stat
 import tempfile
 
 import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, resolve_path, which
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
+from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
+
+
+INTEL_COMPILER_WRAPPER = """#!/bin/bash
+export INTEL_LICENSE_FILE='%(intel_license_file)s'
+%(compiler_path)s "$@"
+"""
 
 
 class EB_TensorFlow(PythonPackage):
@@ -108,6 +117,19 @@ class EB_TensorFlow(PythonPackage):
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
+        # create wrapper for icc to make sure location of license server is available...
+        # cfr. https://github.com/bazelbuild/bazel/issues/663
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
+                'compiler_path': which('icc'),
+                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+            }
+            icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
+            write_file(icc_wrapper, icc_wrapper_txt)
+            adjust_permissions(icc_wrapper, stat.S_IXUSR)
+            env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
+            self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+
         run_cmd_qa('./configure', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 
     def build_step(self):
@@ -163,7 +185,7 @@ class EB_TensorFlow(PythonPackage):
         cmd.append(self.cfg['buildopts'])
 
         # pass through environment variables that may specify location of license file for Intel compilers
-        for key in ['INTEL_LICENSE_FILE', 'LM_LICENSE_FILE']:#, 'LIBRARY_PATH']:
+        for key in []:
             if os.getenv(key):
                 cmd.append('--action_env=%s' % key)
 
