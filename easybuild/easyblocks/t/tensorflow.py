@@ -140,11 +140,16 @@ class EB_TensorFlow(PythonPackage):
 
         # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
         binutils_root = get_software_root('binutils')
-        if not binutils_root:
+        if binutils_root:
+            binutils_bin = os.path.join(binutils_root, 'bin')
+        else:
             raise EasyBuildError("Failed to determine installation prefix for binutils")
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         if gcc_root:
+
+            gcc_lib64 = os.path.join(gcc_root, 'lib64')
+
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
@@ -162,11 +167,17 @@ class EB_TensorFlow(PythonPackage):
         else:
             raise EasyBuildError("Failed to determine installation prefix for GCC")
 
-        gcc_inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc]
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            cuda_inc = os.path.join(cuda_root, 'include')
+            cuda_lib64 = os.path.join(cuda_root, 'lib64')
+        else:
+            raise EasyBuildError("Failed to determine installation prefix for CUDA")
+
+        inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc, cuda_inc]
         regex_subs = [
-            #(r'-B/usr/bin', '-B%s -L%s' %( os.path.join(binutils_root, 'bin')),
-            (r'-B/usr/bin/', '-B%s/ -L%s/' % (os.path.join(binutils_root, 'bin'), os.path.join(gcc_root, 'lib64'))),
-            (r'(cxx_builtin_include_directory:).*', '\n'.join(r'\1 "%s"' % resolve_path(p) for p in gcc_inc_paths)),
+            (r'-B/usr/bin/', '-B%s/ -L%s/ -L%s/' % (binutils_bin, gcc_lib64, cuda_lib64)),
+            (r'(cxx_builtin_include_directory:).*', '\n'.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
