@@ -71,7 +71,7 @@ class EB_R(ConfigureMake):
             root = get_software_root(dep)
             if root:
                 dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
-                self.cfg.update('configopts', '-with-%s-config=%s' % (dep.lower(), dep_config))
+                self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
 
         out = ConfigureMake.configure_step(self)
 
