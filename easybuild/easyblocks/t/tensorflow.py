@@ -194,8 +194,7 @@ class EB_TensorFlow(PythonPackage):
 
         imkl_root = get_software_root('imkl')
         if imkl_root:
-            cmd.append('--config=mkl')
-            env.setvar('TF_MKL_ROOT', imkl_root)
+            cmd.extend(['--config=mkl'])
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
 
