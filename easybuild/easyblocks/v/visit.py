@@ -47,7 +47,7 @@ class EB_VisIt(PackedBinary):
 
     def install_step(self):
         """Build by running the command with the inputfiles"""
-        run_cmd("chmod +x %s" % self.src[0]['path'])
+#        run_cmd("chmod +x %s" % self.src[0]['path'])
         run_cmd("mkdir -p %s/3rdparty" % self.installdir)
         cmd = '%s yes yes | ./build_visit* --prefix %s --thirdparty-path %s/3rdparty %s' % (self.cfg['prebuildopts'], self.installdir, self.installdir, self.cfg["visit_options"])
         run_cmd(cmd, log_all=True, simple=True)
