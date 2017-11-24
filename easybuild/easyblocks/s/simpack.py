@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,18 +25,16 @@
 """
 EasyBuild support for installing Simpack, implemented as an easyblock
 
-@author: Alexi Rivera (C3SE / Chalmers University of Technology)
+@author: Alexi Rivera (Chalmers University of Technology)
+@author: Mikael Oehman (Chalmers University of Technology)
 """
 
-import re
-import shutil
 import os
-import stat
+import glob
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import read_file, write_file
+from easybuild.tools.filetools import write_file
 from easybuild.tools.run import run_cmd
 
 
@@ -44,29 +42,38 @@ class EB_Simpack(PackedBinary):
     """Support for installing Simpack."""
 
     def __init__(self, *args, **kwargs):
+        """Constructor for Simpack easyblock."""
         super(EB_Simpack, self).__init__(*args, **kwargs)
-	self.license = self.cfg['license_server'] + ':' + self.cfg['license_server_port']
-	self.defaultconf = os.path.join(self.installdir, 'defaults/settings/default.ini')
 
     def install_step(self):
-        run_cmd("./spck-2017-build53-linux64-installer.bin --mode unattended --prefix %s" % self.installdir, log_all=True, simple=True)
+        """Configure Simpack installation."""
+        # Installer changes name:
+        installer = glob.glob('spck-*-linux64-installer.bin')
+        if len(installer) == 0:
+            raise EasyBuildError("Didn't find installer")
+        elif len(installer) > 1:
+            raise EasyBuildError("Found to many installers: %s", installer)
+        cmd = "./%s --mode unattended --prefix %s"
+        run_cmd(cmd % (installer[0], self.installdir), log_all=True, simple=True)
 
     def post_install_step(self):
-	if self.license != "license.example.com:000000":
-	    c = open(self.defaultconf, "a")
-	    print(self.defaultconf)
-	    c.write('[dsls]' + '\n')
-	    c.write('licServer=' + self.license + '\n')
-	    c.close()
+        """Post install (license configuration) for Simpack."""
+        license = os.getenv('EB_SIMPACK_LICENSE_SERVER')
+        if license is not None:
+            defaultconf = os.path.join(self.installdir, 'defaults/settings/default.ini')
+            txt = '[dsls]\nlicserver=%s\n' % license
+            write_file(defaultconf, txt, append=True)
 
     def make_module_extra(self):
+        """Extra module entries for Simpack."""
         txt = super(EB_Simpack, self).make_module_extra()
         txt += self.module_generator.prepend_paths("PATH", ['run/bin/linux64'])
         return txt
 
     def sanity_check_step(self):
+        """Custom sanity check for Simpack."""
         custom_paths = {
-            'files': [],
-            'dirs': ['run/bin','defaults'], 
+            'files': ['run/bin/linux64/simpack-' + ext for ext in ['slv', 'flx', 'gui', 'post']],
+            'dirs': ['run/bin/linux64', 'defaults'],
         }
         super(EB_Simpack, self).sanity_check_step(custom_paths=custom_paths)
