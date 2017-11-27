@@ -167,16 +167,16 @@ class EB_TensorFlow(PythonPackage):
         else:
             raise EasyBuildError("Failed to determine installation prefix for GCC")
 
+        inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc]
+        lib_paths = [gcc_lib64]
+
         cuda_root = get_software_root('CUDA')
         if cuda_root:
-            cuda_inc = os.path.join(cuda_root, 'include')
-            cuda_lib64 = os.path.join(cuda_root, 'lib64')
-        else:
-            raise EasyBuildError("Failed to determine installation prefix for CUDA")
+            inc_paths.append(os.path.join(cuda_root, 'include'))
+            lib_paths.append(os.path.join(cuda_root, 'lib64'))
 
-        inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc, cuda_inc]
         regex_subs = [
-            (r'-B/usr/bin/', '-B%s/ -L%s/ -L%s/' % (binutils_bin, gcc_lib64, cuda_lib64)),
+            (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', '\n'.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
@@ -200,7 +200,7 @@ class EB_TensorFlow(PythonPackage):
             if os.getenv(key):
                 cmd.append('--action_env=%s' % key)
 
-        if get_software_root('CUDA'):
+        if cuda_root:
             cmd.append('--config=cuda')
 
         imkl_root = get_software_root('imkl')
