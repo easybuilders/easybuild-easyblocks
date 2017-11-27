@@ -73,6 +73,18 @@ class EB_R(ConfigureMake):
                 dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
                 self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
 
+        if get_software_root('X11'):
+            self.cfg.update('configopts', '--with-x=yes')
+
+        # enable graphic capabilities for plotting, based on available dependencies
+        for dep in ['Cairo', 'libjpeg-turbo', 'libpng', 'libtiff']:
+            if get_software_root(dep):
+                if dep == 'libjpeg-turbo':
+                    conf_opt = 'jpeglib'
+                else:
+                    conf_opt = dep.lower()
+                self.cfg.update('configopts', '--with-%s' % conf_opt)
+
         out = ConfigureMake.configure_step(self)
 
         # check output of configure command to verify BLAS/LAPACK settings
