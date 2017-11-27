@@ -192,7 +192,16 @@ class EB_TensorFlow(PythonPackage):
                     apply_regex_substitutions(os.path.join(path, filename), regex_subs)
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
-        cmd = ['bazel', '--output_base=%s' % tmpdir, 'build', '-s', '--config=opt', '--verbose_failures']
+
+        cmd = ['bazel', '--output_base=%s' % tmpdir, 'build']
+        # https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
+        cmd.append('--compilation_mode=opt')
+        # https://docs.bazel.build/versions/master/user-manual.html#flag--config
+        cmd.append('--config=opt')
+        # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
+        # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
+        cmd.extend(['--subcommands', '--verbose_failures'])
+
         cmd.append(self.cfg['buildopts'])
 
         # pass through environment variables that may specify location of license file for Intel compilers
