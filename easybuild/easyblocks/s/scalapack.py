@@ -49,6 +49,7 @@ from easybuild.toolchains.linalg.intelmkl import IntelMKL
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, remove_file
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class EB_ScaLAPACK(ConfigureMake):
@@ -192,12 +193,21 @@ class EB_ScaLAPACK(ConfigureMake):
         # update make opts, and build_step
         saved_buildopts = self.cfg['buildopts']
 
-        # Only build the library first, that can be done in parallel
-        # But the library itself will be broken
+        # Only build the library first, that can be done in parallel.
+        # Creating libscalapack.a may fail in parallel, but should work
+        # fine with non-parallel make afterwards
         self.cfg.update('buildopts', 'lib')
         self.cfg.update('buildopts', ' '.join(extra_makeopts))
 
-        super(EB_ScaLAPACK, self).build_step()
+        # Copied from ConfigureMake easyblock
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
+
+        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+
+        # Ignore exit code for parallel run
+        (out, _) = run_cmd(cmd, path=path, log_ok=False, log_all=True, simple=False, log_output=verbose)
 
         # Now remake libscalapack.a serially and the tests.
         self.cfg['buildopts'] = saved_buildopts
