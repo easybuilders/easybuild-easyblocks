@@ -38,7 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_cmd
 
 
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
@@ -67,51 +67,44 @@ class EB_TensorFlow(PythonPackage):
         self.prepare_python()
 
         cuda_root = get_software_root('CUDA')
+        cudnn_root = get_software_root('cuDNN')
         jemalloc_root = get_software_root('jemalloc')
         opencl_root = get_software_root('OpenCL')
 
         use_mpi = self.toolchain.options.get('usempi', False)
 
-        qa = {
-            "Do you wish to build TensorFlow with Amazon S3 File System support? [Y/n]:": 'n',
-            "Do you wish to build TensorFlow with CUDA support? [y/N]:": ('n', 'y')[bool(cuda_root)],
-            "Do you wish to build TensorFlow with GDR support? [y/N]:": 'n',
-            "Do you wish to build TensorFlow with Google Cloud Platform support? [Y/n]:": 'n',
-            "Do you wish to build TensorFlow with Hadoop File System support? [Y/n]:": 'n',
-            "Do you wish to build TensorFlow with jemalloc as malloc support? [Y/n]:": ('n', 'y')[bool(jemalloc_root)],
-            "Do you wish to build TensorFlow with OpenCL support? [y/N]:": ('n', 'y')[bool(opencl_root)],
-            "Do you wish to build TensorFlow with MKL support? [y/N]": ('n', 'y')[self.cfg['with_mkl_dnn']],
-            "Do you wish to build TensorFlow with MPI support? [y/N]:": ('n', 'y')[use_mpi],
-            "Do you wish to build TensorFlow with XLA JIT support? [y/N]:": 'n',
-            "Do you wish to build TensorFlow with VERBS support? [y/N]:": 'n',
-        }
-        no_qa = ["Extracting Bazel installation..."]
-        std_qa = {
-            "Please specify the location of python.*": self.python_cmd,
-            "Please input the desired Python library path to use.*": os.path.join(self.installdir, self.pylibdir),
-            "Please specify optimization flags to use during compilation.*": os.getenv('CXXFLAGS'),
-            "Please specify the MPI toolkit folder.*": '',
+        config_env_vars = {
+            'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
+            'MPI_HOME': '',
+            'PYTHON_BIN_PATH': self.python_cmd,
+            'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
+            'TF_CUDA_CLANG': '0',
+            'TF_ENABLE_XLA': '0',  # XLA JIT support
+            'TF_NEED_CUDA': ('0', '1')[bool(cuda_root)],
+            'TF_NEED_GCP': '0',  # Google Cloud Platform
+            'TF_NEED_GDR': '0',
+            'TF_NEED_HDFS': '0',  # Hadoop File System
+            'TF_NEED_JEMALLOC': ('0', '1')[bool(jemalloc_root)],
+            'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
+            'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
+            'TF_NEED_S3': '0',  # Amazon S3 File System
+            'TF_NEED_VERBS': '0',
         }
         if cuda_root:
-            cuda_ver = get_software_version('CUDA')
-            cuda_majver = '.'.join(cuda_ver.split('.')[:2])
-            cuda_comp_caps = ','.join(self.cfg['cuda_compute_capabilities'])
-            qa.update({
-                "Do you want to use clang as CUDA compiler? [y/N]:": 'n',
+            config_env_vars.update({
+                'CUDA_TOOLKIT_PATH': cuda_root,
+                'GCC_HOST_COMPILER_PATH': which('gcc'),
+                'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
+                'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
-            std_qa.update({
-                "Please specify the CUDA SDK version you want to use.*": cuda_ver,
-                "Please specify the location where CUDA .* toolkit is installed.*": cuda_root,
-                "Please specify which gcc should be used by nvcc as the host compiler.*": which('gcc'),
-                "Please specify a list of comma-separated Cuda compute capabilities.*\n.*\n.*": cuda_comp_caps,
+        if cudnn_root:
+            config_env_vars.update({
+                'CUDNN_INSTALL_PATH': cudnn_root,
+                'TF_CUDNN_VERSION': get_software_version('cuDNN'),
             })
 
-        cudnn_root = get_software_root('cuDNN')
-        if cudnn_root:
-            std_qa.update({
-                "Please specify the location where cuDNN .* library is installed.*": cudnn_root,
-                "Please specify the cuDNN version you want to use.*": get_software_version('cuDNN'),
-            })
+        for (key, val) in sorted(config_env_vars.items()):
+            env.setvar(key, val)
 
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
@@ -130,7 +123,7 @@ class EB_TensorFlow(PythonPackage):
             env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
             self.log.info("Using wrapper script for 'icc': %s", which('icc'))
 
-        run_cmd_qa('./configure', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        run_cmd('./configure', log_all=True, simple=True)
 
     def build_step(self):
         """Custom build procedure for TensorFlow."""
