@@ -210,7 +210,7 @@ class PythonPackage(ExtensionEasyBlock):
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
-        if not 'modulename' in self.options:
+        if 'modulename' not in self.options:
             self.options['modulename'] = self.name.lower()
 
         # determine install command
@@ -403,7 +403,8 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
-            cmd = ' '.join([self.['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'], self.cfg['buildopts'])
+            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
+                            self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
