@@ -63,7 +63,7 @@ class EB_R(ConfigureMake):
         # define $BLAS_LIBS to build R correctly against BLAS/LAPACK library
         # $LAPACK_LIBS should *not* be specified since that may lead to using generic LAPACK
         # see https://github.com/easybuilders/easybuild-easyconfigs/issues/1435
-        env.setvar('BLAS_LIBS', os.getenv('LIBBLAS_MT'))
+        env.setvar('BLAS_LIBS', os.getenv('LIBBLAS'))
         self.cfg.update('configopts', "--with-blas --with-lapack")
 
         # make sure correct config script is used for Tcl/Tk
