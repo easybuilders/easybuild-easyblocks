@@ -34,6 +34,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -48,6 +49,13 @@ class EB_R(ConfigureMake):
     Install specified version of libraries, install hard-coded library version
     or latest library version (in that order of preference)
     """
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameters for R."""
+        extra_vars = {
+            'mt_blas_lapack': [False, "Build R on top of multi-threaded BLAS/LAPACK library.", CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
 
     def prepare_for_extensions(self):
         """
@@ -63,7 +71,11 @@ class EB_R(ConfigureMake):
         # define $BLAS_LIBS to build R correctly against BLAS/LAPACK library
         # $LAPACK_LIBS should *not* be specified since that may lead to using generic LAPACK
         # see https://github.com/easybuilders/easybuild-easyconfigs/issues/1435
-        env.setvar('BLAS_LIBS', os.getenv('LIBBLAS_MT'))
+        if self.cfg['mt_blas_lapack']:
+            env.setvar('BLAS_LIBS', os.getenv('LIBBLAS_MT'))
+        else:
+            env.setvar('BLAS_LIBS', os.getenv('LIBBLAS'))
+
         self.cfg.update('configopts', "--with-blas --with-lapack")
 
         # make sure correct config script is used for Tcl/Tk
