@@ -55,6 +55,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
+            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -67,7 +68,6 @@ class EB_TensorFlow(PythonPackage):
 
         cuda_root = get_software_root('CUDA')
         jemalloc_root = get_software_root('jemalloc')
-        mkl_root = get_software_root('imkl')
         opencl_root = get_software_root('OpenCL')
 
         use_mpi = self.toolchain.options.get('usempi', False)
@@ -80,7 +80,7 @@ class EB_TensorFlow(PythonPackage):
             "Do you wish to build TensorFlow with Hadoop File System support? [Y/n]:": 'n',
             "Do you wish to build TensorFlow with jemalloc as malloc support? [Y/n]:": ('n', 'y')[bool(jemalloc_root)],
             "Do you wish to build TensorFlow with OpenCL support? [y/N]:": ('n', 'y')[bool(opencl_root)],
-            "Do you wish to build TensorFlow with MKL support? [y/N]": ('n', 'y')[bool(mkl_root)],
+            "Do you wish to build TensorFlow with MKL support? [y/N]": ('n', 'y')[self.cfg['with_mkl_dnn']],
             "Do you wish to build TensorFlow with MPI support? [y/N]:": ('n', 'y')[use_mpi],
             "Do you wish to build TensorFlow with XLA JIT support? [y/N]:": 'n',
             "Do you wish to build TensorFlow with VERBS support? [y/N]:": 'n',
@@ -212,8 +212,9 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        imkl_root = get_software_root('imkl')
-        if imkl_root:
+        if self.cfg['with_mkl_dnn']:
+            # this makes TensorFlow download & use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
+            # using the full Intel MKL doesn't work without additional effort...
             cmd.extend(['--config=mkl'])
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
