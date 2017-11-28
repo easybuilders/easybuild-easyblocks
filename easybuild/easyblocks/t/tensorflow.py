@@ -64,6 +64,19 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
+        # create wrapper for icc to make sure location of license server is available...
+        # cfr. https://github.com/bazelbuild/bazel/issues/663
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
+                'compiler_path': which('icc'),
+                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+            }
+            icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
+            write_file(icc_wrapper, icc_wrapper_txt)
+            adjust_permissions(icc_wrapper, stat.S_IXUSR)
+            env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
+            self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+
         self.prepare_python()
 
         cuda_root = get_software_root('CUDA')
@@ -93,7 +106,7 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': which('gcc'),
+                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
@@ -109,19 +122,6 @@ class EB_TensorFlow(PythonPackage):
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
-
-        # create wrapper for icc to make sure location of license server is available...
-        # cfr. https://github.com/bazelbuild/bazel/issues/663
-        if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
-                'compiler_path': which('icc'),
-                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
-            }
-            icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
-            write_file(icc_wrapper, icc_wrapper_txt)
-            adjust_permissions(icc_wrapper, stat.S_IXUSR)
-            env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
-            self.log.info("Using wrapper script for 'icc': %s", which('icc'))
 
         run_cmd('./configure', log_all=True, simple=True)
 
