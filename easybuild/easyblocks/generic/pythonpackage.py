@@ -403,7 +403,7 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
-            cmd = "%s %s setup.py %s %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildcmd'], self.cfg['buildopts'])
+            cmd = ' '.join([self.['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'], self.cfg['buildopts'])
             run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
