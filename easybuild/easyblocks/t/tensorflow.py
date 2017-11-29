@@ -170,7 +170,7 @@ class EB_TensorFlow(PythonPackage):
 
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
-            (r'(cxx_builtin_include_directory:).*', '\n'.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
+            (r'(cxx_builtin_include_directory:).*', '\n  '.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
@@ -179,10 +179,16 @@ class EB_TensorFlow(PythonPackage):
             else:
                 raise EasyBuildError("Failed to determine path to '%s'", tool)
 
+        if self.toolchain.options.get('pic', None):
+            # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE & -pie
+            regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
+
         for path, dirnames, filenames in os.walk(self.cfg['start_dir']):
             for filename in filenames:
                 if filename.startswith('CROSSTOOL'):
-                    apply_regex_substitutions(os.path.join(path, filename), regex_subs)
+                    full_path = os.path.join(path, filename)
+                    self.log.info("Patching %s", full_path)
+                    apply_regex_substitutions(full_path, regex_subs)
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
 
@@ -194,6 +200,9 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
+
+        if self.toolchain.options.get('pic', None):
+            cmd.append('--copt="-fPIC"')
 
         cmd.append(self.cfg['buildopts'])
 
