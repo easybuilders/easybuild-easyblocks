@@ -73,7 +73,7 @@ class EB_Trinity(EasyBlock):
 
         self.log.info("Begin Butterfly")
 
-        setvar("-Dfile.encoding", "UTF8")
+        setvar("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF8")
 
         dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
         try:
