@@ -29,6 +29,8 @@ EasyBuild support for installing the Intel Advisor XE, implemented as an easyblo
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 
+import os
+
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
