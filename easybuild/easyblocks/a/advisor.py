@@ -42,35 +42,16 @@ class EB_Advisor(IntelBase):
         """Constructor, initialize class variables."""
         super(EB_Advisor, self).__init__(*args, **kwargs)
         if LooseVersion(self.version) < LooseVersion('2017'):
-            self.base_path = 'advisor_xe'
+            self.subdir = 'advisor_xe'
         else:
-            self.base_path = 'advisor'
+            self.subdir = 'advisor'
+
+    def make_module_req_guess(self):
+        """Find reasonable paths for Advisor"""
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""
-
-        custom_paths = {
-            'files': [],
-            'dirs': ['%s/bin64' % self.base_path, '%s/lib64' % self.base_path]
-        }
-
+        binaries = ['advixe-cl', 'advixe-feedback', 'advixe-gui', 'advixe-runss', 'advixe-runtrc', 'advixe-runtc']
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_Advisor, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-        guesses = super(EB_Advisor, self).make_module_req_guess()
-
-        lib_path = '%s/lib64' % self.base_path
-        include_path = '%s/include' % self.base_path
- 
-        guesses.update({
-            'CPATH': [include_path],
-            'INCLUDE': [include_path],
-            'LD_LIBRARY_PATH': [lib_path],
-            'LIBRARY_PATH': [lib_path],
-            'PATH': ['%s/bin64' % self.base_path],
-        })
-
-        return guesses
