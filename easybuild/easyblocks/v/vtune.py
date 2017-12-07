@@ -72,41 +72,11 @@ class EB_VTune(IntelBase):
         super(EB_VTune, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-
-        guesses = super(EB_VTune, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
-        else:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-
-        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
-
-        # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
-        # because that leads to problem when the libraries included with VTune are being picked up
-        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            if key in guesses:
-                self.log.debug("Purposely not updating $%s in VTune module file", key)
-                del guesses[key]
-
-        return guesses
+        """Find reasonable paths for VTune"""
+        return _get_guesses_tools(self)
 
     def sanity_check_step(self):
-        """Custom sanity check paths for Intel VTune."""
-
+        """Custom sanity check paths for VTune."""
         binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
-        if self.cfg['m32']:
-            files = ['bin32/%s' % x for x in binaries]
-            dirs = ['lib32', 'include']
-        else:
-            files = ['bin64/%s' % x for x in binaries]
-            dirs = ['lib64', 'include']
-
-        custom_paths = {
-            'files': [os.path.join(self.subdir, f) for f in files],
-            'dirs': [os.path.join(self.subdir, d) for d in dirs],
-        }
+        custom_paths = _get_custom_paths_tools(self, binaries)
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)

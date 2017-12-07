@@ -48,29 +48,12 @@ class EB_Advisor(IntelBase):
         else:
             self.base_path = 'advisor'
 
+    def make_module_req_guess(self):
+        """Find reasonable paths for Advisor"""
+        return _make_module_req_guess_tools(self)
+
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""
-
-        custom_paths = {
-            'files': [],
-            'dirs': ['%s/bin64' % self.base_path, '%s/lib64' % self.base_path]
-        }
-
+        binaries = ['advixe-cl', 'advixe-feedback', 'advixe-gui', 'advixe-runss', 'advixe-runtrc', 'advixe-runtc']
+        custom_paths = _get_custom_paths_tools(self,binaries)
         super(EB_Advisor, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-        guesses = super(EB_Advisor, self).make_module_req_guess()
-
-        guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-
-        # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
-        # because that leads to problem when the libraries included with Advisor are being picked up
-        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            if key in guesses:
-                self.log.debug("Purposely not updating $%s in Advisor module file", key)
-                del guesses[key]
-
-        return guesses

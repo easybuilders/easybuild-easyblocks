@@ -45,7 +45,8 @@ class EB_Inspector(IntelBase):
 
         # recent versions of Inspector are installed to a subdirectory
         self.subdir = ''
-        if LooseVersion(self.version) >= LooseVersion('2013_update7') and LooseVersion(self.version) < LooseVersion('2017'):
+        if LooseVersion(self.version) >= LooseVersion('2013_update7') and \
+           LooseVersion(self.version) < LooseVersion('2017'):
             self.subdir = 'inspector_xe'
         elif LooseVersion(self.version) >= LooseVersion('2017'):
             self.subdir = 'inspector'
@@ -71,41 +72,11 @@ class EB_Inspector(IntelBase):
         super(EB_Inspector, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-
-        guesses = super(EB_Inspector, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
-        else:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-
-        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
-
-        # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
-        # because that leads to problem when the libraries included with Inspector are being picked up
-        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            if key in guesses:
-                self.log.debug("Purposely not updating $%s in Inspector module file", key)
-                del guesses[key]
-
-        return guesses
+        """Find reasonable paths for Inspector"""
+        return _get_guesses_tools(self)
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel Inspector."""
-
         binaries = ['inspxe-cl', 'inspxe-feedback', 'inspxe-gui', 'inspxe-runmc', 'inspxe-runtc']
-        if self.cfg['m32']:
-            files = [os.path.join('bin32', b) for b in binaries]
-            dirs = ['lib32', 'include']
-        else:
-            files = [os.path.join('bin64', b) for b in binaries]
-            dirs = ['lib64', 'include']
-
-        custom_paths = {
-            'files': [os.path.join(self.subdir, f) for f in files],
-            'dirs': [os.path.join(self.subdir, d) for d in dirs],
-        }
+        custom_paths = _get_custom_paths_tools(self, binaries)
         super(EB_Inspector, self).sanity_check_step(custom_paths=custom_paths)
