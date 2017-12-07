@@ -44,10 +44,10 @@ class EB_VTune(IntelBase):
 
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
-        if LooseVersion(self.version) >= LooseVersion('2013_update12') and \
-           LooseVersion(self.version) < LooseVersion('2018'):
+        loosever = LooseVersion(self.version)
+        if loosever >= LooseVersion('2013_update12') and loosever < LooseVersion('2018'):
             self.subdir = 'vtune_amplifier_xe'
-        elif LooseVersion(self.version) >= LooseVersion('2018'):
+        elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
 
     def make_installdir(self):
@@ -72,10 +72,10 @@ class EB_VTune(IntelBase):
 
     def make_module_req_guess(self):
         """Find reasonable paths for VTune"""
-        return _get_guesses_tools(self)
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
         binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
-        custom_paths = _get_custom_paths_tools(self, binaries)
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)

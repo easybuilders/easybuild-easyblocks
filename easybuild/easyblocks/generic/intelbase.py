@@ -112,7 +112,7 @@ class IntelBase(EasyBlock):
 
         self.install_components = None
 
-    def _get_guesses_tools(self):
+    def get_guesses_tools(self):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
 
         guesses = super(IntelBase, self).make_module_req_guess()
@@ -133,7 +133,7 @@ class IntelBase(EasyBlock):
 
         return guesses
 
-    def _get_custom_paths_tools(self, binaries):
+    def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""
         if self.cfg['m32']:
             files = [os.path.join('bin32', b) for b in binaries]
@@ -420,7 +420,7 @@ class IntelBase(EasyBlock):
             shutil.rmtree(os.path.join(self.installdir, self.name))
         except OSError, err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
-    
+
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from IntelBase)",

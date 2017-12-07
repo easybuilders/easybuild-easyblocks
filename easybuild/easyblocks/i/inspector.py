@@ -44,10 +44,10 @@ class EB_Inspector(IntelBase):
 
         # recent versions of Inspector are installed to a subdirectory
         self.subdir = ''
-        if LooseVersion(self.version) >= LooseVersion('2013_update7') and \
-           LooseVersion(self.version) < LooseVersion('2017'):
+        loosever = LooseVersion(self.version)
+        if loosever >= LooseVersion('2013_update7') and loosever < LooseVersion('2017'):
             self.subdir = 'inspector_xe'
-        elif LooseVersion(self.version) >= LooseVersion('2017'):
+        elif loosever >= LooseVersion('2017'):
             self.subdir = 'inspector'
 
     def make_installdir(self):
@@ -72,10 +72,10 @@ class EB_Inspector(IntelBase):
 
     def make_module_req_guess(self):
         """Find reasonable paths for Inspector"""
-        return _get_guesses_tools(self)
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel Inspector."""
         binaries = ['inspxe-cl', 'inspxe-feedback', 'inspxe-gui', 'inspxe-runmc', 'inspxe-runtc']
-        custom_paths = _get_custom_paths_tools(self, binaries)
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_Inspector, self).sanity_check_step(custom_paths=custom_paths)

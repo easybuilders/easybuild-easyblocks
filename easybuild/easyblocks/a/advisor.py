@@ -42,16 +42,16 @@ class EB_Advisor(IntelBase):
         """Constructor, initialize class variables."""
         super(EB_Advisor, self).__init__(*args, **kwargs)
         if LooseVersion(self.version) < LooseVersion('2017'):
-            self.base_path = 'advisor_xe'
+            self.subdir = 'advisor_xe'
         else:
-            self.base_path = 'advisor'
+            self.subdir = 'advisor'
 
     def make_module_req_guess(self):
         """Find reasonable paths for Advisor"""
-        return _make_module_req_guess_tools(self)
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""
         binaries = ['advixe-cl', 'advixe-feedback', 'advixe-gui', 'advixe-runss', 'advixe-runtrc', 'advixe-runtc']
-        custom_paths = _get_custom_paths_tools(self,binaries)
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_Advisor, self).sanity_check_step(custom_paths=custom_paths)
