@@ -230,8 +230,10 @@ class EB_TensorFlow(PythonPackage):
         """Custom built-in test procedure for TensorFlow."""
         if self.cfg['runtest']:
             tmpdir = tempfile.mkdtemp(suffix='-bazel-test')
-            for subsuite in ['core', 'python']:
-                run_cmd("bazel --output_base=%s test --config=opt //tensorflow/%s/..." % (tmpdir, subsuite))
+            # only run 'core' subsuite for now, other subsuites include trouble ones...
+            # exclude grpc tests (for now)
+            cmd = "bazel --output_base=%s test --config=opt --test_tag_filters=-grpc -- //tensorflow/core/..." % tmpdir
+            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
