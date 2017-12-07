@@ -46,10 +46,16 @@ class EB_Octave(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for Octave."""
 
-        self.cfg.update('configopts', '--with-blas="$LIBBLAS" --with-lapack="$LIBLAPACK"')
+        libblas = os.getenv('LIBBLAS')
+        liblapack = os.getenv('LIBLAPACK')
+        if libblas and liblapack:
+            self.cfg.update('configopts', '--with-blas="%s" --with-lapack="%s"' % (libblas, liblapack))
+        else:
+            raise EasyBuildError("$LIBBLAS and/or $LIBLAPACK undefined, use toolchain that includes BLAS/LAPACK")
 
         qt_root = get_software_root('Qt5') or get_software_root('Qt')
         if qt_root:
+            self.log.info("Found Qt included as dependency, updating configure options accordingly...")
             qt_vars = {
                 'LRELEASE': os.path.join(qt_root, 'bin', 'lrelease'),
                 'MOC': os.path.join(qt_root, 'bin', 'moc'),
@@ -58,6 +64,8 @@ class EB_Octave(ConfigureMake):
             }
             for key, val in sorted(qt_vars.items()):
                 self.cfg.update('configopts', "%s=%s" % (key, val))
+        else:
+            self.log.debug("No Qt included as dependency")
 
         super(EB_Octave, self).configure_step()
 
@@ -75,14 +83,11 @@ class EB_Octave(ConfigureMake):
             'dirs': [],
         }
         if self.cfg['exts_list']:
-            custom_paths['dirs'].extend(['share/octave/packages', 'share/octave/packages-arch-dep'])
+            custom_paths['dirs'].extend([
+                os.path.join('share', 'octave', 'packages'),
+                os.path.join('share', 'octave', 'packages-arch-dep'),
+            ])
 
         custom_commands = ["octave --eval '1+2'"]
 
         super(EB_Octave, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Custom extra paths/variables to define in generated module for Octave."""
-        guesses = super(EB_Octave, self).make_module_req_guess()
-        guesses.update({'OCTAVE_LD_LIBRARY_PATH': ['lib']})
-        return guesses
