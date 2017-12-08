@@ -132,8 +132,9 @@ class EB_CUDA(Binary):
         custom_paths = {
             'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] + extra_files +
                      ["%s/lib%s.%s" % (x, y, shlib_ext) for x in chk_libdir for y in ["cublas", "cudart", "cufft",
-                                                                                      "curand", "cusparse"]],
-            'dirs': ["include"],
+                                                                                      "curand", "cusparse"]] +
+                     ["extras/CUPTI/%s/lib%s.%s" % (x, y, shlib_ext) for x in chk_libdir for y in ["cupti"]],
+            'dirs': ["include", "extras/CUPTI/include"],
         }
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
@@ -145,8 +146,8 @@ class EB_CUDA(Binary):
 
         guesses.update({
             'PATH': ['open64/bin', 'bin'],
-            'LD_LIBRARY_PATH': ['lib64'],
-            'CPATH': ['include'],
+            'LD_LIBRARY_PATH': ['lib64', 'extras/CUPTI/lib64'],
+            'CPATH': ['include', 'extras/CUPTI/include'],
             'CUDA_HOME': [''],
             'CUDA_ROOT': [''],
             'CUDA_PATH': [''],
