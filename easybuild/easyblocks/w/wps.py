@@ -162,7 +162,10 @@ class EB_WPS(EasyBlock):
                 build_type_option = " Linux x86_64, Intel compiler"
 
             elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
-                build_type_option = "Linux x86_64 g95 compiler"
+                if LooseVersion(self.version) >= LooseVersion("3.6"):
+                    build_type_option = "Linux x86_64, gfortran"
+                else:
+                    build_type_option = "Linux x86_64 g95"
 
             else:
                 raise EasyBuildError("Don't know how to figure out build type to select.")
@@ -212,10 +215,13 @@ class EB_WPS(EasyBlock):
                  'FC': os.getenv('MPIF90'),
                  'CC': os.getenv('MPICC'),
                 }
+        if self.toolchain.options.get('openmp', None):
+            comps.update({'LDFLAGS': '%s %s' % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])})
+
         fn = 'configure.wps'
         for line in fileinput.input(fn, inplace=1, backup='.orig.comps'):
             for (k, v) in comps.items():
-                line = re.sub(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v, line)
+                line = re.sub(r"^(%s\s*=).*$" % k, r"\1 %s" % v, line)
             sys.stdout.write(line)
 
     def build_step(self):
