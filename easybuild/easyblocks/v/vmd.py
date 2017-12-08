@@ -32,10 +32,11 @@ EasyBuild support for VMD, implemented as an easyblock
 import os
 import shutil
 
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir
+from easybuild.tools.filetools import change_dir, copy_file, extract_file, is_readable
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
 import easybuild.tools.environment as env
@@ -44,6 +45,15 @@ import easybuild.tools.toolchain as toolchain
 
 class EB_VMD(ConfigureMake):
     """Easyblock for building and installing VMD"""
+
+    def extract_step(self):
+        """Custom extract step for VMD."""
+        super(EB_VMD, self).extract_step()
+
+        vmddir = os.path.join(self.src[0]['finalpath'], '%s-%s' % (self.name.lower(), self.version))
+        if LooseVersion(self.version) >= LooseVersion("1.9.3"):
+            change_dir(os.path.join(vmddir, 'lib', 'surf'))
+            extract_file('surf.tar.Z', os.getcwd())
 
     def configure_step(self):
         """
@@ -72,6 +82,10 @@ class EB_VMD(ConfigureMake):
         tclshortver = '.'.join(get_software_version('Tcl').split('.')[:2])
         self.cfg.update('buildopts', 'TCLLDFLAGS="-ltcl%s"' % tclshortver)
 
+        # Netcdf locations
+        netcdfinc = os.path.join(deps['netCDF'], 'include')
+        netcdflib = os.path.join(deps['netCDF'], 'lib')
+
         # Python locations
         pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
         env.setvar('PYTHON_INCLUDE_DIR', os.path.join(deps['Python'], 'include/python%s' % pyshortver))
@@ -95,7 +109,7 @@ class EB_VMD(ConfigureMake):
 
         # plugins need to be built first (see http://www.ks.uiuc.edu/Research/vmd/doxygen/compiling.html)
         change_dir(os.path.join(self.cfg['start_dir'], 'plugins'))
-        cmd = "make LINUXAMD64 TCLLIB='-F%s' TCLINC='-I%s' %s" % (tcllib, tclinc, self.cfg['buildopts'])
+        cmd = "make LINUXAMD64 TCLLIB='-L%s' TCLINC='-I%s' NETCDFLIB='-L%s' NETCDFINC='-I%s' %s" % (tcllib, tclinc, netcdflib, netcdfinc, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=False)
 
         # create plugins distribution
@@ -149,6 +163,38 @@ class EB_VMD(ConfigureMake):
 
         # change to 'src' subdirectory, ready for building
         change_dir(os.path.join(vmddir, 'src'))
+
+    def build_step(self):
+        """Custom build step for VMD."""
+        super(EB_VMD, self).build_step()
+
+        vmddir = os.path.join(self.cfg['start_dir'], '%s-%s' % (self.name.lower(), self.version))
+        self.have_stride = False
+        # Build Surf, which is part of VMD as of VMD version 1.9.3
+        if LooseVersion(self.version) >= LooseVersion("1.9.3"):
+            change_dir(os.path.join(vmddir, 'lib', 'surf'))
+            surf_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
+            run_cmd(surf_cmd)
+            # Build Stride if it was downloaded
+            change_dir(os.path.join(vmddir, 'lib', 'stride'))
+            if is_readable('Makefile'):
+                self.have_stride = True
+                stride_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
+                run_cmd(stride_cmd)
+
+    def install_step(self):
+        """Custom build step for VMD."""
+
+        vmddir = os.path.join(self.cfg['start_dir'], '%s-%s' % (self.name.lower(), self.version))
+
+        # Install must also be done in 'src' subdir
+        change_dir(os.path.join(vmddir, 'src'))
+        super(EB_VMD, self).install_step()
+
+        if LooseVersion(self.version) >= LooseVersion("1.9.3"):
+            copy_file(os.path.join(vmddir, 'lib', 'surf', 'surf'), os.path.join(self.installdir, 'lib', 'surf_LINUXAMD64'))
+            if self.have_stride:
+                copy_file(os.path.join(vmddir, 'lib', 'stride', 'stride'), os.path.join(self.installdir, 'lib', 'stride_LINUXAMD64'))
 
     def sanity_check_step(self):
         """Custom sanity check for VMD."""
