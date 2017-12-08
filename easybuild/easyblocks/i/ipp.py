@@ -96,7 +96,7 @@ class EB_ipp(IntelBase):
             ipp_libs.extend(['ac', 'di', 'j', 'm', 'r', 'sc', 'vc'])
 
         custom_paths = {
-            'files': ['ipp/lib/intel64/libipp%s' % y for x in ipp_libs for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]],
+            'files': ['ipp/lib/%s/libipp%s' % (self.arch, y) for x in ipp_libs for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]],
             'dirs': dirs,
         }
 
@@ -109,12 +109,13 @@ class EB_ipp(IntelBase):
         guesses = super(EB_ipp, self).make_module_req_guess()
 
         if LooseVersion(self.version) >= LooseVersion('9.0'):
+            ipp_lib_path = os.path.join('ipp', 'lib', self.arch)
             lib_path = os.path.join('lib', self.arch)
             include_path = 'ipp/include'
 
             guesses.update({
-                'LD_LIBRARY_PATH': [lib_path],
-                'LIBRARY_PATH': [lib_path],
+                'LD_LIBRARY_PATH': [ipp_lib_path, lib_path],
+                'LIBRARY_PATH': [ipp_lib_path, lib_path],
                 'CPATH': [include_path],
                 'INCLUDE': [include_path],
             })
