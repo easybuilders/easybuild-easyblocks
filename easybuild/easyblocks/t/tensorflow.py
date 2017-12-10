@@ -64,7 +64,8 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
-        # create wrapper for icc to make sure location of license server is available...
+        # Bazel reset environment in which build is performed, so $INTEL_LICENSE_FILE gets unset
+        # so, we create a wrapper for icc to make sure location of license server is available...
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
@@ -206,11 +207,6 @@ class EB_TensorFlow(PythonPackage):
 
         cmd.append(self.cfg['buildopts'])
 
-        # pass through environment variables that may specify location of license file for Intel compilers
-        for key in []:
-            if os.getenv(key):
-                cmd.append('--action_env=%s' % key)
-
         if cuda_root:
             cmd.append('--config=cuda')
 
@@ -227,13 +223,8 @@ class EB_TensorFlow(PythonPackage):
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def test_step(self):
-        """Custom built-in test procedure for TensorFlow."""
-        if self.cfg['runtest']:
-            tmpdir = tempfile.mkdtemp(suffix='-bazel-test')
-            # only run 'core' subsuite for now, other subsuites include trouble ones...
-            # exclude grpc tests (for now)
-            cmd = "bazel --output_base=%s test --config=opt --test_tag_filters=-grpc -- //tensorflow/core/..." % tmpdir
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        """No (reliable) custom test procedure for TensorFlow."""
+        pass
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
@@ -246,15 +237,28 @@ class EB_TensorFlow(PythonPackage):
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
 
+        # test installation using MNIST tutorial examples
+        # (can't be done in sanity check because mnist_deep.py is not part of installation)
+        if self.cfg['runtest']:
+            pythonpath = os.getenv('PYTHONPATH', '')
+            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+
+            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
+                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
+                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
+                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
+                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
         custom_paths = {
             'files': ['bin/tensorboard'],
             'dirs': [self.pylibdir],
         }
+
         custom_commands = [
-            "python -c 'import tensorflow'",
+            "%s -c 'import tensorflow'" % self.python_cmd,
             # tf_should_use importsweakref.finalize, which requires backports.weakref for Python < 3.4
-            "python -c 'from tensorflow.python.util import tf_should_use'",
+            "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
-        super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
