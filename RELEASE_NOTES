@@ -5,6 +5,35 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 188 software-specific easyblocks and 30 generic easyblocks.
 
+v3.5.0 (December 12th 2017)
+---------------------------
+
+feature release
+- add software-specific easyblock for Bazel (#1286)
+- add software-specific easyblock for Octave + generic easyblock for installing Octave packages as extensions (#1304)
+- minor enhancements, including:
+  - remove foamExec & wdot from sanity checks, add blockMesh & checkMesh + enable logging for recent OpenFOAM versions (#1272)
+  - add exceptions for FFTW/3.3.6 on POWER with GCC 5/6/7 (#1274)
+  - add support for Spectrum MPI to the systemmpi easyblock (#1275)
+  - allow skipping of steps for Bundle components + fix issues with templates & formatting of error message (#1278)
+  - changed HPCG configure syntax for v3.0 support (#1284)
+  - make R easyblock set configure options for dependencies (#1297)
+  - allow tuning of build command in PythonPackage (#1299)
+  - set default java encoding to utf8 for Trinity (#1302)
+  - explicitly set --with-x=no if X11 is not included as dependency in R easyblock (#1303)
+  - also define CUDA_ROOT env var pointing to install dir (#1234)
+  - make the scalapack easyblock capable of building in parallel. (#1288)
+- various bug fixes, including:
+  - fix check for Intel MKL in PSI easyblock (#1273)
+  - fix missing space in fftw easyblock (#1277)
+  - fix use of FFTW on top of Intel MKL in CP2K easyblock (#1281)
+  - fix wrong sanity check in boost when using python3 (#1283)
+  - pick up per-component checksums in Bundle generic easyblock (#1285)
+  - correctly configure R for BLAS/LAPACK & check configure output (#1292)
+  - updated VTune easyblock to behave like sourcing the amplxe-vars.sh script (#1229)
+  - maintain backward compatibility in R easyblock by hard linking with $LIBBLAS (for now) (#1300)
+
+
 v3.4.1 (October 17th 2017)
 --------------------------
 
