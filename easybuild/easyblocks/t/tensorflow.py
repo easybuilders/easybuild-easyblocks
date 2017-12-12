@@ -184,7 +184,7 @@ class EB_TensorFlow(PythonPackage):
             # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE & -pie
             regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
 
-        for path, dirnames, filenames in os.walk(self.cfg['start_dir']):
+        for path, dirnames, filenames in os.walk(self.start_dir):
             for filename in filenames:
                 if filename.startswith('CROSSTOOL'):
                     full_path = os.path.join(path, filename)
