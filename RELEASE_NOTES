@@ -10,7 +10,7 @@ v3.5.0 (December 12th 2017)
 
 feature release
 - add software-specific easyblock for Bazel (#1286)
-- add software-specific easyblock for Octave + generic easyblock for installing Octave packages as extensions (#1304)
+- add software-specific easyblock for Octave + generic easyblock for installing Octave packages as extensions (#1304, #1318)
 - minor enhancements, including:
   - remove foamExec & wdot from sanity checks, add blockMesh & checkMesh + enable logging for recent OpenFOAM versions (#1272)
   - add exceptions for FFTW/3.3.6 on POWER with GCC 5/6/7 (#1274)
