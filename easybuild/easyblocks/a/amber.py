@@ -125,7 +125,11 @@ class EB_Amber(ConfigureMake):
         if mklroot:
             env.setvar('MKL_HOME', mklroot)
         elif openblasroot:
-            env.setvar('GOTO', os.environ['LIBLAPACK'])
+	    lapack = os.getenv('LIBLAPACK', 'LIBLAPACK_NOT_SET')
+	    if lapack == 'LIBLAPACK_NOT_SET':
+		raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environement. Not building with a lapack capable toolchain?")
+	    else:
+		env.setvar('GOTO', lapack)
 
         mpiroot = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
         if mpiroot and self.toolchain.options.get('usempi', None):
@@ -172,7 +176,7 @@ class EB_Amber(ConfigureMake):
         build_targets = [('', 'test')]
 
         if self.with_mpi:
-            build_targets.append(('%s' % self.mpi_option, 'test.parallel'))
+            build_targets.append((self.mpi_option, 'test.parallel'))
             # hardcode to 4 MPI processes, minimal required to run all tests
             env.setvar('DO_PARALLEL', 'mpirun -np 4')
 
