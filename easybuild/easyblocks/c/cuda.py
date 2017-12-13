@@ -160,7 +160,7 @@ class EB_CUDA(Binary):
         guesses.update({
             'PATH': bin_path,
             'LD_LIBRARY_PATH': lib_path,
-            'CPATH': inc_path
+            'CPATH': inc_path,
             'CUDA_HOME': [''],
             'CUDA_ROOT': [''],
             'CUDA_PATH': [''],
