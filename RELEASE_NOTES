@@ -22,7 +22,7 @@ feature release
   - allow tuning of build command in PythonPackage via custom 'buildcmd' easyconfig parameter (#1299)
   - set default Java encoding to utf8 when installing Trinity (#1302)
   - also define $CUDA_ROOT in generated module for CUDA (#1234)
-  - make the ScaLAPACK easyblock capable of building in parallel (#1288, #1321)
+  - make the ScaLAPACK easyblock capable of building in parallel (#1288, #1321, #1324)
 - various bug fixes, including:
   - avoid changing $CPATH, $LD_LIBRARY_PATH an $LIBRARY_PATH in generated modules for Intel Advisor, Inspector, and VTune (#1229)
   - fix check for Intel MKL in PSI easyblock (#1273)
