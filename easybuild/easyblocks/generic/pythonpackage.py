@@ -185,6 +185,7 @@ class PythonPackage(ExtensionEasyBlock):
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s'" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -209,7 +210,7 @@ class PythonPackage(ExtensionEasyBlock):
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
-        if not 'modulename' in self.options:
+        if 'modulename' not in self.options:
             self.options['modulename'] = self.name.lower()
 
         # determine install command
@@ -402,7 +403,8 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
-            cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
+            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
+                            self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

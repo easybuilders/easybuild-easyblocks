@@ -109,11 +109,17 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         else:
             raise EasyBuildError("%s not found in $PATH", mpi_c_wrapper)
 
-        # Determine compiler version and installation prefix
-        if mpi_name == 'openmpi':
+        # Determine MPI version, installation prefix and underlying compiler
+        if mpi_name in ('openmpi', 'spectrummpi'):
+            # Spectrum MPI is based on Open MPI so is also covered by this logic
             output_of_ompi_info, _ = run_cmd("ompi_info", simple=False)
-            # Extract the version of OpenMPI
-            self.mpi_version = self.extract_ompi_setting("Open MPI", output_of_ompi_info)
+
+            # Extract the version of the MPI implementation
+            if mpi_name == 'spectrummpi':
+                mpi_version_string = 'Spectrum MPI'
+            else:
+                mpi_version_string = 'Open MPI'
+            self.mpi_version = self.extract_ompi_setting(mpi_version_string, output_of_ompi_info)
 
             # Extract the installation prefix
             self.mpi_prefix = self.extract_ompi_setting("Prefix", output_of_ompi_info)
@@ -122,9 +128,8 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             # final module
             self.mpi_env_vars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("OMPI_"))
 
-            # Extract the C compiler used underneath OpenMPI, check for the definition of OMPI_MPICC
+            # Extract the C compiler used underneath the MPI implementation, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
-
         elif mpi_name == 'impi':
             # Extract the version of IntelMPI
             # The prefix in the the mpiicc (or mpigcc) script can be used to extract the explicit version
@@ -231,7 +236,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
                               self.mpi_prefix)
             else:
-                if self.cfg['name'] in ['OpenMPI']:
+                if self.cfg['name'] in ['OpenMPI', 'SpectrumMPI']:
                     guesses = ConfigureMake.make_module_req_guess(self)
                 elif self.cfg['name'] in ['impi']:
                     guesses = EB_impi.make_module_req_guess(self)
@@ -289,7 +294,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
     def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['OpenMPI']:
+            if self.cfg['name'] in ['OpenMPI', 'SpectrumMPI']:
                 extras = ConfigureMake.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['impi']:
                 extras = EB_impi.make_module_extra(self, *args, **kwargs)

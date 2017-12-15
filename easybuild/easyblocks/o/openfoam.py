@@ -287,7 +287,11 @@ class EB_OpenFOAM(EasyBlock):
             ]
             run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
         else:
-            run_cmd(cmd_tmpl % 'Allwmake', log_all=True, simple=True, log_output=True)
+            cmd = 'Allwmake'
+            if LooseVersion(self.version) >= LooseVersion('1606'):
+                # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
+                cmd += ' -log'
+            run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
     def install_step(self):
         """Building was performed in install dir, so just fix permissions."""
@@ -331,12 +335,12 @@ class EB_OpenFOAM(EasyBlock):
 
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
-        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["foamExec", "paraFoam"]] + \
+        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, "buoyant%sSimpleFoam" % x) for x in ["", "Boussinesq"]] + \
                [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine", "sonic"]] + \
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
-               [os.path.join(toolsdir, x) for x in ["deformedGeom", "engineSwirl", "modifyMesh",
-                                                    "refineMesh", "wdot"]]
+               [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
+                                                    'modifyMesh', 'refineMesh']]
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),
