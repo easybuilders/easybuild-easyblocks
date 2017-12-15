@@ -207,7 +207,7 @@ class EB_ScaLAPACK(ConfigureMake):
         cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
 
         # Ignore exit code for parallel run
-        (out, _) = run_cmd(cmd, log_ok=False, log_all=True, simple=False)
+        (out, _) = run_cmd(cmd, log_ok=False, log_all=False, simple=False)
 
         # Now remake libscalapack.a serially and the tests.
         self.cfg['buildopts'] = saved_buildopts
