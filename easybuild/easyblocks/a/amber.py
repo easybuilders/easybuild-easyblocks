@@ -125,8 +125,8 @@ class EB_Amber(ConfigureMake):
         if mklroot:
             env.setvar('MKL_HOME', mklroot)
         elif openblasroot:
-	    lapack = os.getenv('LIBLAPACK', 'LIBLAPACK_NOT_SET')
-	    if lapack == 'LIBLAPACK_NOT_SET':
+	    lapack = os.getenv('LIBLAPACK')
+	    if lapack is None:
 		raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environement. Not building with a lapack capable toolchain?")
 	    else:
 		env.setvar('GOTO', lapack)
