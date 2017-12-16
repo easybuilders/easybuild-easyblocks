@@ -49,12 +49,21 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_os_name, get_os_version, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
                  "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "Sparc",
                  "SystemZ", "X86", "XCore"]
+
+# Mapping of EasyBuild CPU architecture names to list of default LLVM target names
+DEFAULT_TARGETS_MAP = {
+    AARCH32: ['ARM'],
+    AARCH64: ['AArch64'],
+    POWER: ['PowerPC'],
+    X86_64: ['X86'],
+}
 
 
 class EB_Clang(CMakeMake):
@@ -64,7 +73,8 @@ class EB_Clang(CMakeMake):
     def extra_options():
         extra_vars = {
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [["X86"], "Build targets for LLVM. Possible values: " + ', '.join(CLANG_TARGETS), CUSTOM],
+            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+                                    ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
@@ -84,16 +94,26 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
 
-        unknown_targets = [target for target in self.cfg['build_targets'] if target not in CLANG_TARGETS]
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
 
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in self.cfg['build_targets']:
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
             raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
 
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in self.cfg['build_targets']:
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
             raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
