@@ -125,18 +125,19 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) < LooseVersion("6"):
             chk_libdir += ["lib"]
 
-        extra_files = []
-        if LooseVersion(self.version) < LooseVersion('7'):
-            extra_files.append('open64/bin/nvopencc')
-        if LooseVersion(self.version) >= LooseVersion('7'):
-            extra_files.append("extras/CUPTI/lib64/libcupti.%s" % shlib_ext)
-
         custom_paths = {
-            'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] + extra_files +
+            'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
                      ["%s/lib%s.%s" % (x, y, shlib_ext) for x in chk_libdir for y in ["cublas", "cudart", "cufft",
                                                                                       "curand", "cusparse"]],
-            'dirs': ["include", "extras/CUPTI/include"],
+            'dirs': ["include"],
         }
+
+        if LooseVersion(self.version) < LooseVersion('7'):
+            custom_paths['files'].append('open64/bin/nvopencc')
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            custom_paths['files'].append("extras/CUPTI/lib64/libcupti.%s" % shlib_ext)
+            custom_paths['dirs'].append("extras/CUPTI/include")
+
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
