@@ -96,7 +96,7 @@ class EB_Comsol(PackedBinary):
 
         matlab_root = get_software_root("MATLAB")
         if matlab_root:
-            config_vars.update('matlabdir': matlab_root)
+            config_vars.update({'matlabdir': matlab_root})
 
         for key, val in config_vars.items():
             regex = re.compile(r"^%s\s*=.*" % key, re.M)
