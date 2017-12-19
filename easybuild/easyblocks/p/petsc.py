@@ -252,7 +252,7 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-%s" % dep.lower()
                     self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
 
-            cmd = "./config/configure.py %s" % self.get_cfg('configopts')
+            cmd = "./config/configure.py %s" % self.cfg['configopts']
             run_cmd(cmd, log_all=True, simple=True)
 
         # PETSc > 3.5, make does not accept -j
@@ -266,11 +266,11 @@ class EB_PETSc(ConfigureMake):
         Install using make install (for non-source installations), 
         or by symlinking files (old versions, < 3).
         """
-        if LooseVersion(self.version) >= LooseVersion("3"):
+        if LooseVersion(self.version) >= LooseVersion("2"):
             if not self.cfg['sourceinstall']:
                 super(EB_PETSc, self).install_step()
 
-        else:  # old versions (< 3.x)
+        else:  # old versions (< 2.x)
 
             try:
                 for f in ['petscconf.h', 'petscconfiginfo.h', 'petscfix.h', 'petscmachineinfo.h']:
@@ -331,7 +331,8 @@ class EB_PETSc(ConfigureMake):
                      os.path.join(prefix2, 'include')]
         }
         if LooseVersion(self.version) < LooseVersion('3.6'):
-            custom_paths['dirs'].append(os.path.join(prefix2, 'conf'))
+            custom_paths['dirs'].append(os.path.join(prefix2, ''))
+#            custom_paths['dirs'].append(os.path.join(prefix2, 'conf'))
         else:
             custom_paths['dirs'].append(os.path.join(prefix2, 'lib', 'petsc', 'conf'))
 
