@@ -76,7 +76,7 @@ class EB_Clang(CMakeMake):
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
-            'skip_sanitizer_tests': [False, "Do not run the sanitizer tests", CUSTOM],
+            'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
 
         return CMakeMake.extra_options(extra_vars)
