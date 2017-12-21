@@ -30,6 +30,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Benjamin Roberts (The University of Auckland)
 @author: Luca Marsella (CSCS)
 @author: Guilherme Peretti-Pezzi (CSCS)
+@author: Oliver Stueker (Compute Canada/ACENET)
 """
 import glob
 import os
@@ -69,6 +70,42 @@ class EB_GROMACS(CMakeMake):
         super(EB_GROMACS, self).__init__(*args, **kwargs)
         self.lib_subdir = ''
         self.pre_env = ''
+
+    def get_gromacs_arch(self):
+        """Determine value of GMX_SIMD CMake flag based on optarch string.
+
+        Refs:
+        [0] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#typical-installation
+        [1] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#simd-support
+        [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
+        """
+        # default: fall back on autodetection
+        res = None
+
+        optarch = build_option('optarch', default='')
+        # take into account that optarch value is a dictionary if it is specified by compiler family
+        if isinstance(optarch, dict):
+            comp_fam = self.toolchain.comp_family()
+            optarch = optarch.get(comp_fam, '').upper()
+
+        if 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512'
+        elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
+            res = 'AVX2_256'
+        elif 'AVX' in optarch:
+            res = 'AVX_256'
+        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch:
+            # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
+            # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
+            # and SSE4.1 is not supported by AMD Magny-Cours[1].
+            res = 'SSE2'
+
+        if res:
+            self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
+        else:
+            self.log.info("No target architecture specified based on optarch configuration option ('%s')", optarch)
+
+        return res
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
@@ -159,15 +196,13 @@ class EB_GROMACS(CMakeMake):
             # disable GUI tools
             self.cfg.update('configopts', "-DGMX_X11=OFF")
 
-            # convince to build for an older architecture then present on the build node by setting GMX_SIMD CMake flag.
-            if build_option('optarch', default=None) and self.toolchain.comp_family() in build_option('optarch'):
-                build_arch = build_option('optarch')[self.toolchain.comp_family()]
-                gmx_simd = self.get_gromacs_arch(build_arch)
-                if gmx_simd:
-                    if LooseVersion(self.version) < LooseVersion('5.0'):
-                        self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
-                    else:
-                        self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
+            # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
+            gmx_simd = self.get_gromacs_arch()
+            if gmx_simd:
+                if LooseVersion(self.version) < LooseVersion('5.0'):
+                    self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                else:
+                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'
@@ -464,26 +499,3 @@ class EB_GROMACS(CMakeMake):
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
 
-    def get_gromacs_arch(self, build_arch):
-        """Determine value of GMX_SIMD CMake flag based on optarch string.
-
-        Refs:
-        [0] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#typical-installation
-        [1] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#simd-support
-        [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
-        """
-        build_arch = build_arch.upper()
-        if build_arch.endswith(("AVX512")) and not LooseVersion(self.version) < LooseVersion('2016'):
-            return "AVX_512"
-        elif build_arch.endswith(("AVX2")) and not LooseVersion(self.version) < LooseVersion('5.0'):
-            return "AVX2_256"
-        elif build_arch.endswith(("AVX")):
-            return "AVX_256"
-        elif build_arch.endswith(("SSE3" ,"SSE2") or build_arch.contains("MARCH=NOCONA")):
-            # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
-            # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
-            # and SSE4.1 is not supported by AMD Magny-Cours[1].
-            return "SSE2"
-        else:
-            # fall back on autodetection
-            return None
