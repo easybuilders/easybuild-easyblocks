@@ -83,7 +83,7 @@ class EB_GROMACS(CMakeMake):
         # default: fall back on autodetection
         res = None
 
-        optarch = build_option('optarch', default='')
+        optarch = build_option('optarch') or ''
         # take into account that optarch value is a dictionary if it is specified by compiler family
         if isinstance(optarch, dict):
             comp_fam = self.toolchain.comp_family()
