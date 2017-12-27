@@ -87,7 +87,8 @@ class EB_GROMACS(CMakeMake):
         # take into account that optarch value is a dictionary if it is specified by compiler family
         if isinstance(optarch, dict):
             comp_fam = self.toolchain.comp_family()
-            optarch = optarch.get(comp_fam, '').upper()
+            optarch = optarch.get(comp_fam, '')
+        optarch = optarch.upper()
 
         if 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
