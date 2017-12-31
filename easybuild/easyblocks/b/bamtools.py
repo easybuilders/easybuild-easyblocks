@@ -32,6 +32,7 @@ import os
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.makecp import MakeCp
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -39,6 +40,14 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_BamTools(MakeCp, CMakeMake):
     """Support for building and installing BamTools."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters for BamTools."""
+        extra = MakeCp.extra_options()
+        # files_to_copy is not mandatory here, since we overwrite it in install_step
+        extra['files_to_copy'][2] = CUSTOM
+        return extra
 
     def configure_step(self):
         """Configure BamTools build."""
@@ -52,33 +61,33 @@ class EB_BamTools(MakeCp, CMakeMake):
 
         CMakeMake.configure_step(self, srcdir='..')
 
+    def install_step(self):
+        """Custom installation procedure for BamTools."""
+        if LooseVersion(self.version) < LooseVersion('2.5.0'):
+            self.cfg['files_to_copy'] = ['bin', 'lib', 'include', 'docs', 'LICENSE', 'README']
+            MakeCp.install_step(self)
+        else:
+            CMakeMake.install_step(self)
+
     def sanity_check_step(self):
         """Custom sanity check for BamTools."""
 
-        sharedlib_ext = get_shared_lib_ext()
+        shlib_ext = get_shared_lib_ext()
 
         custom_paths = {
-            'files': [
-                "bin/bamtools",
-                "include/shared/bamtools_global.h",
-                "lib/libbamtools.a",
-                "lib/libbamtools.%s" % sharedlib_ext
-            ],
-            'dirs': [
-                "include/api",
-                "docs"
-            ]
+            'files': ['bin/bamtools'],
+            'dirs': [],
         }
         if LooseVersion(self.version) < LooseVersion('2.3.0'):
-            # Buid environment changed:
-            # https://github.com/pezmaster31/bamtools/commit/9cfa70bfe9cdf1b6adc06beb88246b45fdd6250a
-            custom_paths['files'].extend([
-                "lib/libbamtools-utils.%s" % sharedlib_ext,
-                "lib/libjsoncpp.%s" % sharedlib_ext
-            ])
+            # bamtools-utils & jsoncpp libs now built as static libs by default since v2.3.0
+            custom_paths['files'].extend(['lib/libbamtools-utils.%s' % shlib_ext, 'lib/libjsoncpp.%s' % shlib_ext])
+        elif LooseVersion(self.version) < LooseVersion('2.5.0'):
+            custom_paths['files'].extend(['include/shared/bamtools_global.h', 'lib/libbamtools.a',
+                                          'lib/libbamtools.%s' % shlib_ext, 'lib/libbamtools-utils.a',
+                                          'lib/libjsoncpp.a'])
+            custom_paths['dirs'].extend(['include/api', 'docs'])
         else:
-            custom_paths['files'].extend([
-                "lib/libbamtools-utils.a",
-                "lib/libjsoncpp.a"
-            ])
+            custom_paths['files'].extend(['include/bamtools/shared/bamtools_global.h', 'lib64/libbamtools.a'])
+            custom_paths['dirs'].extend(['include/bamtools/api', 'lib64/pkgconfig'])
+
         super(EB_BamTools, self).sanity_check_step(custom_paths=custom_paths)
