@@ -32,6 +32,7 @@ Generic EasyBuild support for installing Intel tools, implemented as an easybloc
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 
 import os
@@ -113,6 +114,42 @@ class IntelBase(EasyBlock):
         self.home_subdir_local = os.path.join(common_tmp_dir, os.getenv('USER'), 'easybuild_intel')
 
         self.install_components = None
+
+    def get_guesses_tools(self):
+        """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+
+        guesses = super(IntelBase, self).make_module_req_guess()
+
+        if self.cfg['m32']:
+            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
+        else:
+            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
+
+        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
+
+        # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
+        # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
+        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
+            if key in guesses:
+                self.log.debug("Purposely not updating $%s in %s module file", key, self.name)
+                del guesses[key]
+
+        return guesses
+
+    def get_custom_paths_tools(self, binaries):
+        """Custom sanity check paths for certain Intel tools."""
+        if self.cfg['m32']:
+            files = [os.path.join('bin32', b) for b in binaries]
+            dirs = ['lib32', 'include']
+        else:
+            files = [os.path.join('bin64', b) for b in binaries]
+            dirs = ['lib64', 'include']
+
+        custom_paths = {
+            'files': [os.path.join(self.subdir, f) for f in files],
+            'dirs': [os.path.join(self.subdir, d) for d in dirs],
+        }
+        return custom_paths
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -388,7 +425,7 @@ class IntelBase(EasyBlock):
             shutil.rmtree(os.path.join(self.installdir, self.name))
         except OSError, err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
-    
+
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from IntelBase)",

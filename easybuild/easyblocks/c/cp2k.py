@@ -150,7 +150,7 @@ class EB_CP2K(EasyBlock):
         if self.cfg['extracflags']:
             self.log.info("Using extra CFLAGS: %s" % self.cfg['extracflags'])
         if self.cfg['extradflags']:
-            self.log.info("Using extra CFLAGS: %s" % self.cfg['extradflags'])
+            self.log.info("Using extra DFLAGS: %s" % self.cfg['extradflags'])
 
         # lib(x)smm support
         libsmm = get_software_root('libsmm')
@@ -335,13 +335,11 @@ class EB_CP2K(EasyBlock):
         if not mpi2:
             raise EasyBuildError("CP2K needs MPI-2, no known MPI-2 supporting library loaded?")
 
-        # pick up optarch value from toolchain, when optarch toolchain option is enabled or --optarch=GENERIC is used
-        optarch = ''
-        if self.toolchain.options.get('optarch', False) or build_option('optarch') == OPTARCH_GENERIC:
-            # take into account that a '-' is missing for the first compiler flag, but also that optarch may be empty
-            if self.toolchain.options.option('optarch'):
-                optarch = '-%s' % self.toolchain.options.option('optarch')
-
+        cppflags = os.getenv('CPPFLAGS')
+        ldflags = os.getenv('LDFLAGS')
+        cflags = os.getenv('CFLAGS')
+        fflags = os.getenv('FFLAGS')
+        fflags_lowopt = re.sub('-O[0-9]', '-O1', fflags)
         options = {
             'CC': os.getenv('MPICC'),
             'CPP': '',
@@ -356,15 +354,14 @@ class EB_CP2K(EasyBlock):
             'FCFLAGS': '$(FCFLAGS%s)' % optflags,
             'FCFLAGS2': '$(FCFLAGS%s)' % regflags,
 
-            'CFLAGS': ' %s %s $(FPIC) $(DEBUG) %s ' % (os.getenv('CPPFLAGS'), os.getenv('LDFLAGS'),
-                                                       self.cfg['extracflags']),
+            'CFLAGS': ' %s %s %s $(FPIC) $(DEBUG) %s ' % (cflags, cppflags, ldflags, self.cfg['extracflags']),
             'DFLAGS': ' -D__parallel -D__BLACS -D__SCALAPACK -D__FFTSG %s' % self.cfg['extradflags'],
 
             'LIBS': os.getenv('LIBS', ''),
 
             'FCFLAGSNOOPT': '$(DFLAGS) $(CFLAGS) -O0  $(FREE) $(FPIC) $(DEBUG)',
-            'FCFLAGSOPT': '-O2 $(FREE) $(SAFE) $(FPIC) $(DEBUG) %s' % optarch,
-            'FCFLAGSOPT2': '-O1 $(FREE) $(SAFE) $(FPIC) $(DEBUG) %s' % optarch,
+            'FCFLAGSOPT': '%s $(FREE) $(SAFE) $(FPIC) $(DEBUG)' % fflags,
+            'FCFLAGSOPT2': '%s $(FREE) $(SAFE) $(FPIC) $(DEBUG)' % fflags_lowopt,
         }
 
         libint = get_software_root('LibInt')
@@ -545,10 +542,7 @@ class EB_CP2K(EasyBlock):
     def configure_MKL(self, options):
         """Configure for Intel Math Kernel Library (MKL)"""
 
-        options.update({
-            'INTEL_INC': '$(MKLROOT)/include',
-        })
-
+        options['INTEL_INC'] = '$(MKLROOT)/include'
         options['DFLAGS'] += ' -D__FFTW3'
 
         extra = ''
@@ -558,17 +552,21 @@ class EB_CP2K(EasyBlock):
 
         options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBSCALAPACK', ''))
 
-        # only use Intel FFTW wrappers if FFTW is not loaded
-        if not get_software_root('FFTW'):
-
-            options.update({
-                'INTEL_INCF': '$(INTEL_INC)/fftw',
-            })
-
-            options['DFLAGS'] += ' -D__FFTMKL'
+        fftw_root = get_software_root('FFTW')
+        if fftw_root:
+            libfft = '-lfftw3'
+            if self.cfg['type'] == 'psmp':
+                libfft += ' -lfftw3_omp'
 
             options['CFLAGS'] += ' -I$(INTEL_INCF)'
+            options['INTEL_INCF'] = os.path.join(fftw_root, 'include')
+            options['LIBS'] += ' -L%s %s' % (os.path.join(fftw_root, 'lib'), libfft)
 
+        else:
+            # only use Intel FFTW wrappers if FFTW is not loaded
+            options['CFLAGS'] += ' -I$(INTEL_INCF)'
+            options['DFLAGS'] += ' -D__FFTMKL'
+            options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
         return options

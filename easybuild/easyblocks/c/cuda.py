@@ -148,6 +148,7 @@ class EB_CUDA(Binary):
             'LD_LIBRARY_PATH': ['lib64'],
             'CPATH': ['include'],
             'CUDA_HOME': [''],
+            'CUDA_ROOT': [''],
             'CUDA_PATH': [''],
         })
 
