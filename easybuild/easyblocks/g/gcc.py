@@ -380,7 +380,7 @@ class EB_GCC(ConfigureMake):
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
-                        cmd += "--with-pic --disable-shared --enable-cxx"
+                        cmd += "--with-pic --disable-shared --enable-cxx --enable-fat"
                     elif lib == "ppl":
                         self.pplver = LooseVersion(stage2_info['versions']['ppl'])
 
