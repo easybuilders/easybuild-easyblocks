@@ -87,7 +87,8 @@ class EB_BamTools(MakeCp, CMakeMake):
                                           'lib/libjsoncpp.a'])
             custom_paths['dirs'].extend(['include/api', 'docs'])
         else:
-            custom_paths['files'].extend(['include/bamtools/shared/bamtools_global.h', 'lib64/libbamtools.a'])
-            custom_paths['dirs'].extend(['include/bamtools/api', 'lib64/pkgconfig'])
+            custom_paths['files'].extend(['include/bamtools/shared/bamtools_global.h',
+                                          ('lib/libbamtools.a', 'lib64/libbamtools.a')])
+            custom_paths['dirs'].extend(['include/bamtools/api', ('lib.pkgconfig', 'lib64/pkgconfig')])
 
         super(EB_BamTools, self).sanity_check_step(custom_paths=custom_paths)
