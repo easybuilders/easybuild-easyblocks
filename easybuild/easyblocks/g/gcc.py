@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -79,6 +79,8 @@ class EB_GCC(ConfigureMake):
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' & co when linking", CUSTOM],
+            'generic': [False, "Build GCC and support libs such that it runs on all processors of the " \
+                               "target architecture", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -380,7 +382,9 @@ class EB_GCC(ConfigureMake):
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
-                        cmd += "--with-pic --disable-shared --enable-cxx --enable-fat"
+                        cmd += "--with-pic --disable-shared --enable-cxx "
+                        if self.cfg['generic']:
+                            cmd += "--enable-fat "
                     elif lib == "ppl":
                         self.pplver = LooseVersion(stage2_info['versions']['ppl'])
 
@@ -402,6 +406,8 @@ class EB_GCC(ConfigureMake):
                     elif lib == "isl":
                         cmd = "./configure --prefix=%s --with-pic --disable-shared " % stage2prefix
                         cmd += "--with-gmp=system --with-gmp-prefix=%s " % stage2prefix
+                        if self.cfg['generic']:
+                            cmd += "--without-gcc-arch "
                     elif lib == "cloog":
                         self.cloogname = stage2_info['names']['cloog']
                         self.cloogver = LooseVersion(stage2_info['versions']['cloog'])
