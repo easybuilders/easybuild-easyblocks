@@ -37,6 +37,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Trilinos(CMakeMake):
@@ -238,8 +239,14 @@ class EB_Trilinos(CMakeMake):
             libs.remove('Kokkos')
             libs.append('kokkoscore')
 
+        # Get the library extension
+        if self.cfg['shared_libs']:
+            lib_ext = "." + get_shared_lib_ext()
+        else:
+            lib_ext = ".a"
+
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.a' % x.lower()) for x in libs],
+            'files': [os.path.join('lib', 'lib%s' % x.lower()+lib_ext) for x in libs],
             'dirs': ['bin', 'include']
         }
 
