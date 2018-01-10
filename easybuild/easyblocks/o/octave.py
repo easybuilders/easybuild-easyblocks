@@ -32,6 +32,7 @@ import os
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -43,11 +44,21 @@ EXTS_FILTER_OCTAVE_PACKAGES = ("octave --eval 'pkg list' | grep %(ext_name)s", '
 class EB_Octave(ConfigureMake):
     """Support for building/installing Octave."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = {
+            'blas_lapack_mt': [False, "Link with multi-threaded BLAS/LAPACK library", CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
+
     def configure_step(self):
         """Custom configuration procedure for Octave."""
 
-        libblas = os.getenv('LIBBLAS')
-        liblapack = os.getenv('LIBLAPACK')
+        if self.cfg['blas_lapack_mt']:
+            libblas, liblapack = os.getenv('LIBBLAS_MT'), os.getenv('LIBLAPACK_MT')
+        else:
+            libblas, liblapack = os.getenv('LIBBLAS'), os.getenv('LIBLAPACK')
+
         if libblas and liblapack:
             self.cfg.update('configopts', '--with-blas="%s" --with-lapack="%s"' % (libblas, liblapack))
         else:
