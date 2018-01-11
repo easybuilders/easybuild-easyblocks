@@ -141,6 +141,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                 raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
         else:
             Bundle.prepare_step(self, *args, **kwargs)
+            
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
         if compiler_name == 'gcccore':
