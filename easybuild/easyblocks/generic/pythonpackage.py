@@ -53,7 +53,7 @@ from easybuild.tools.run import run_cmd
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py easy_install --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
-SETUP_PY_INSTALL_CMD = "%(python)s setup.py install --prefix=%(prefix)s %(installopts)s"
+SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
@@ -186,6 +186,7 @@ class PythonPackage(ExtensionEasyBlock):
             'use_setup_py_develop': [False, "Install using '%s'" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -342,6 +343,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.cfg['preinstallopts'],
             self.install_cmd % {
                 'installopts': installopts,
+                'install_target': self.cfg['install_target'],
                 'loc': loc,
                 'prefix': prefix,
                 'python': self.python_cmd,
