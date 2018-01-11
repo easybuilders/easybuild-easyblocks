@@ -85,13 +85,9 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """Extra initialization: keep track of values that may change due to modifications to the version."""
         super(SystemMPI, self).__init__(*args, **kwargs)
 
-        # fix installdir and module names (may differ because of changes to version)
-        mns = ActiveMNS()
-        self.cfg.full_mod_name = mns.det_full_module_name(self.cfg)
-        self.cfg.short_mod_name = mns.det_short_module_name(self.cfg)
-        self.cfg.mod_subdir = mns.det_module_subdir(self.cfg)
-
-        # keep track of original values, for restoring later
+        # Keep track of original values of vars that are subject to change, for restoring later.
+        # The version is determined/matched from the installation and the installdir is determined from the system (the original is used
+        # to store the EB logs)
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
