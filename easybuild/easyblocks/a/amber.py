@@ -211,13 +211,18 @@ class EB_Amber(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Amber."""
-        binaries = ['pmemd', 'sander', 'tleap']
-        if self.with_cuda:
-            binaries.append('pmemd.cuda')
-            if self.with_mpi:
-                binaries.append('pmemd.cuda.MPI')
+        binaries = ['sander', 'tleap']
+        if self.name == 'Amber':
+            binaries.append('pmemd')
+            if self.with_cuda:
+                binaries.append('pmemd.cuda')
+                if self.with_mpi:
+                    binaries.append('pmemd.cuda.MPI')
+
         if self.with_mpi:
-            binaries.extend(['pmemd.MPI', 'sander.MPI'])
+            binaries.extend(['sander.MPI'])
+            if self.name == 'Amber':
+                binaries.append('pmemd.MPI')
 
         custom_paths = {
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
