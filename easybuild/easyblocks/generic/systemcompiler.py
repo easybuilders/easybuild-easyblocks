@@ -115,9 +115,29 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Extra initialization: determine system compiler version and prefix."""
+        """Extra initialization: keep track of values that may change due to modifications to the version."""
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
+        # Keep track of original values of vars that are subject to change, for restoring later.
+        # The version is determined/matched from the installation and the installdir is determined from the system
+        # (the original is used to store the EB logs)
+        self.orig_version = self.cfg['version']
+        self.orig_installdir = self.installdir
+
+    def prepare_step(self, *args, **kwargs):
+        """Do compiler appropriate prepare step, determine system compiler version and prefix."""
+        if self.cfg['generate_standalone_module']:
+            if self.cfg['name'] in ['GCC', 'GCCcore']:
+                EB_GCC.prepare_step(self, *args, **kwargs)
+            elif self.cfg['name'] in ['icc']:
+                EB_icc.prepare_step(self, *args, **kwargs)
+            elif self.cfg['name'] in ['ifort']:
+                EB_ifort.prepare_step(self, *args, **kwargs)
+            else:
+                raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
+        else:
+            Bundle.prepare_step(self, *args, **kwargs)
+            
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
         if compiler_name == 'gcccore':
@@ -174,30 +194,6 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         elif self.cfg['version'] != self.compiler_version:
             raise EasyBuildError("Specified version (%s) does not match version reported by compiler (%s)" %
                                  (self.cfg['version'], self.compiler_version))
-
-        # fix installdir and module names (may differ because of changes to version)
-        mns = ActiveMNS()
-        self.cfg.full_mod_name = mns.det_full_module_name(self.cfg)
-        self.cfg.short_mod_name = mns.det_short_module_name(self.cfg)
-        self.cfg.mod_subdir = mns.det_module_subdir(self.cfg)
-
-        # keep track of original values, for restoring later
-        self.orig_version = self.cfg['version']
-        self.orig_installdir = self.installdir
-
-    def prepare_step(self, *args, **kwargs):
-        """Do the bundle prepare step to ensure any deps are loaded at a minimum."""
-        if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['GCC', 'GCCcore']:
-                EB_GCC.prepare_step(self, *args, **kwargs)
-            elif self.cfg['name'] in ['icc']:
-                EB_icc.prepare_step(self, *args, **kwargs)
-            elif self.cfg['name'] in ['ifort']:
-                EB_ifort.prepare_step(self, *args, **kwargs)
-            else:
-                raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
-        else:
-            Bundle.prepare_step(self, *args, **kwargs)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""

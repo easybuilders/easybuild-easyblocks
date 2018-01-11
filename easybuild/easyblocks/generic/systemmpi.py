@@ -82,9 +82,22 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         return setting
 
     def __init__(self, *args, **kwargs):
-        """Extra initialization: determine system MPI version, prefix and any associated envvars."""
+        """Extra initialization: keep track of values that may change due to modifications to the version."""
         super(SystemMPI, self).__init__(*args, **kwargs)
 
+        # Keep track of original values of vars that are subject to change, for restoring later.
+        # The version is determined/matched from the installation and the installdir is determined from the system
+        # (the original is used to store the EB logs)
+        self.orig_version = self.cfg['version']
+        self.orig_installdir = self.installdir
+
+    def prepare_step(self, *args, **kwargs):
+        """Load all dependencies, determine system MPI version, prefix and any associated envvars."""
+
+        # Do the bundle prepare step to ensure any deps are loaded (no need to worry about licences for Intel MPI)
+        Bundle.prepare_step(self, *args, **kwargs)
+
+        # Prepare additional parameters: determine system MPI version, prefix and any associated envvars.
         mpi_name = self.cfg['name'].lower()
 
         # Determine MPI wrapper path (real path, with resolved symlinks) to ensure it exists
@@ -202,20 +215,6 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         else:
             raise EasyBuildError("Specified version (%s) does not match version reported by MPI (%s)",
                                  self.cfg['version'], self.mpi_version)
-
-        # fix installdir and module names (may differ because of changes to version)
-        mns = ActiveMNS()
-        self.cfg.full_mod_name = mns.det_full_module_name(self.cfg)
-        self.cfg.short_mod_name = mns.det_short_module_name(self.cfg)
-        self.cfg.mod_subdir = mns.det_module_subdir(self.cfg)
-
-        # keep track of original values, for restoring later
-        self.orig_version = self.cfg['version']
-        self.orig_installdir = self.installdir
-
-    def prepare_step(self, *args, **kwargs):
-        """Do the bundle prepare step to ensure any deps are loaded. No need to worry about licences for Intel MPI"""
-        Bundle.prepare_step(self, *args, **kwargs)
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
