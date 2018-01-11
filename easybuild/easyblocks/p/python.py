@@ -145,6 +145,9 @@ class EB_Python(ConfigureMake):
         if not os.path.isfile(python_binary_path):
             pyver = '.'.join(self.version.split('.')[:2])
             symlink(python_binary_path + pyver, python_binary_path)
+    
+    def build_step(self):
+        super(EB_Python, self).build_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
