@@ -119,8 +119,8 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         super(SystemCompiler, self).__init__(*args, **kwargs)
 
         # Keep track of original values of vars that are subject to change, for restoring later.
-        # The version is determined/matched from the installation and the installdir is determined from the system (the original is used
-        # to store the EB logs)
+        # The version is determined/matched from the installation and the installdir is determined from the system
+        # (the original is used to store the EB logs)
         self.orig_version = self.cfg['version']
         self.orig_installdir = self.installdir
 
