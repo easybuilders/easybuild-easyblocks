@@ -247,8 +247,13 @@ class PythonPackage(ExtensionEasyBlock):
             else:
                 self.install_cmd = SETUP_PY_INSTALL_CMD
 
+            if self.cfg['install_target'] == 'easy_install':
+                self.cfg.update('installopts', '--no-deps')
             if self.cfg.get('zipped_egg', False):
-                raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
+                if self.cfg['install_target'] == 'easy_install':
+                    self.cfg.update('installopts', '--zip-ok')
+                else:
+                    raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
 
         self.log.debug("Using '%s' as install command", self.install_cmd)
 
