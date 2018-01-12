@@ -217,6 +217,7 @@ class PythonPackage(ExtensionEasyBlock):
         # determine install command
         self.use_setup_py = False
         if self.cfg.get('use_easy_install', False):
+            self.log.deprecated("Use 'install_target' rather than 'use_easy_install'.", '4.0')
             self.install_cmd = EASY_INSTALL_INSTALL_CMD
 
             # don't auto-install dependencies
@@ -241,6 +242,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.use_setup_py = True
 
             if self.cfg.get('use_setup_py_develop', False):
+                self.log.deprecated("Use 'install_target' rather than 'use_setup_py_develop'.", '4.0')
                 self.install_cmd = SETUP_PY_DEVELOP_CMD
             else:
                 self.install_cmd = SETUP_PY_INSTALL_CMD
