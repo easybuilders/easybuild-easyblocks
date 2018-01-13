@@ -249,6 +249,7 @@ class PythonPackage(ExtensionEasyBlock):
                 self.install_cmd = SETUP_PY_INSTALL_CMD
 
             if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+                self.install_cmd += " %(loc)s"
                 self.cfg.update('installopts', '--no-deps')
             if self.cfg.get('zipped_egg', False):
                 if self.cfg['install_target'] == EASY_INSTALL_TARGET:
