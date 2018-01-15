@@ -1,6 +1,7 @@
 ##
 # Copyright 2009-2018 Ghent University
 # Copyright 2015-2018 Stanford University
+# Copyright 2018 Landcare Research New Zealand Ltd
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,6 +60,7 @@ class EB_Amber(ConfigureMake):
             'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
             # enable testing by default
             'runtest': [True, "Run tests after each build", CUSTOM],
+            'static': [True, "Build statically linked executables", CUSTOM],
         })
         return ConfigureMake.extra_options(extra_vars)
 
@@ -141,9 +143,17 @@ class EB_Amber(ConfigureMake):
                 self.mpi_option = '-mpi'
 
         common_configopts = [self.cfg['configopts'], '--no-updates', '-noX11']
-        if self.name == 'Amber':
+        if self.name == 'Amber' and self.cfg['static']:
             common_configopts.append('-static')
 
+        envval = lambda ev: os.getenv(ev) or ''
+        zlibroot = get_software_root('zlib')
+        if zlibroot:
+            env.setvar('AMBERBUILDFLAGS', envval('AMBERBUILDFLAGS') + " -L" + os.path.join(zlibroot, "lib"))
+        bzip2root = get_software_root('bzip2')
+        if bzip2root:
+            env.setvar('AMBERBUILDFLAGS', envval('AMBERBUILDFLAGS') + " -L" + os.path.join(bzip2root, "lib"))
+        
         netcdfroot = get_software_root('netCDF')
         if netcdfroot:
             common_configopts.extend(["--with-netcdf", netcdfroot])
