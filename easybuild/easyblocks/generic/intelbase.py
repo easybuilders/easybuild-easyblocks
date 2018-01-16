@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ Generic EasyBuild support for installing Intel tools, implemented as an easybloc
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 
 import os
@@ -46,7 +47,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, read_file
+from easybuild.tools.filetools import find_flexlm_license, read_file, remove_file
 from easybuild.tools.run import run_cmd
 
 from vsc.utils import fancylogger
@@ -111,6 +112,42 @@ class IntelBase(EasyBlock):
 
         self.install_components = None
 
+    def get_guesses_tools(self):
+        """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+
+        guesses = super(IntelBase, self).make_module_req_guess()
+
+        if self.cfg['m32']:
+            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
+        else:
+            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
+
+        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
+
+        # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
+        # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
+        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
+            if key in guesses:
+                self.log.debug("Purposely not updating $%s in %s module file", key, self.name)
+                del guesses[key]
+
+        return guesses
+
+    def get_custom_paths_tools(self, binaries):
+        """Custom sanity check paths for certain Intel tools."""
+        if self.cfg['m32']:
+            files = [os.path.join('bin32', b) for b in binaries]
+            dirs = ['lib32', 'include']
+        else:
+            files = [os.path.join('bin64', b) for b in binaries]
+            dirs = ['lib64', 'include']
+
+        custom_paths = {
+            'files': [os.path.join(self.subdir, f) for f in files],
+            'dirs': [os.path.join(self.subdir, d) for d in dirs],
+        }
+        return custom_paths
+
     @staticmethod
     def extra_options(extra_vars=None):
         extra_vars = EasyBlock.extra_options(extra_vars)
@@ -164,8 +201,8 @@ class IntelBase(EasyBlock):
             for tree in os.listdir(self.home_subdir_local):
                 self.log.debug("... removing %s subtree" % tree)
                 path = os.path.join(self.home_subdir_local, tree)
-                if os.path.isfile(path):
-                    os.remove(path)
+                if os.path.isfile(path) or os.path.islink(path):
+                    remove_file(path)
                 else:
                     shutil.rmtree(path)
         except OSError, err:
@@ -201,7 +238,7 @@ class IntelBase(EasyBlock):
             else:
                 # if a broken symlink is present, remove it first
                 if os.path.islink(self.home_subdir):
-                    os.remove(self.home_subdir)
+                    remove_file(self.home_subdir)
                 os.symlink(self.home_subdir_local, self.home_subdir)
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
@@ -373,7 +410,7 @@ class IntelBase(EasyBlock):
             for symlink in ['%s_%s' % (self.name, majver), '%s_latest' % self.name]:
                 symlink_fp = os.path.join(self.installdir, symlink)
                 if os.path.exists(symlink_fp):
-                    os.remove(symlink_fp)
+                    remove_file(symlink_fp)
             # move contents of 'impi/<version>' dir to installdir
             for fil in os.listdir(subdir):
                 source = os.path.join(subdir, fil)
@@ -383,15 +420,15 @@ class IntelBase(EasyBlock):
             shutil.rmtree(os.path.join(self.installdir, self.name))
         except OSError, err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
-    
+
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from IntelBase)",
                       self.__class__.__name__)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Custom variable definitions in module file."""
-        txt = super(IntelBase, self).make_module_extra()
+        txt = super(IntelBase, self).make_module_extra(*args, **kwargs)
 
         if self.requires_runtime_license:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],

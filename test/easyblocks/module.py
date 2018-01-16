@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2017 Ghent University
+# Copyright 2015-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -315,6 +315,10 @@ def suite():
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
             exec("def innertest(self): template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock)
+        elif os.path.basename(easyblock) == 'systemmpi.py':
+            # use OpenMPI as name when testing SystemMPI easyblock
+            exec("def innertest(self): template_module_only_test(self, '%s', name='OpenMPI', version='system')" %
+                 easyblock)
         elif os.path.basename(easyblock) == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'

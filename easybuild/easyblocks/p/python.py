@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -159,9 +159,9 @@ class EB_Python(ConfigureMake):
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("which python", log_all=True, simple=False)
+            run_cmd("which python", log_all=True, simple=False, trace=False)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
-            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False)
+            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not abiflags:
                 raise EasyBuildError("Failed to determine abiflags: %s", abiflags)
             else:

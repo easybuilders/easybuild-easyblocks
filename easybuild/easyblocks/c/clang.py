@@ -1,6 +1,6 @@
 ##
 # Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2017 Ghent University
+# Copyright 2013-2018 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -33,12 +33,9 @@ Support for building and installing Clang, implemented as an easyblock.
 @author: Ward Poelmans (Ghent University)
 """
 
-import fileinput
 import glob
 import os
-import re
 import shutil
-import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -46,15 +43,24 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_os_name, get_os_version, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
                  "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "Sparc",
                  "SystemZ", "X86", "XCore"]
+
+# Mapping of EasyBuild CPU architecture names to list of default LLVM target names
+DEFAULT_TARGETS_MAP = {
+    AARCH32: ['ARM'],
+    AARCH64: ['AArch64'],
+    POWER: ['PowerPC'],
+    X86_64: ['X86'],
+}
 
 
 class EB_Clang(CMakeMake):
@@ -64,12 +70,13 @@ class EB_Clang(CMakeMake):
     def extra_options():
         extra_vars = {
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [["X86"], "Build targets for LLVM. Possible values: " + ', '.join(CLANG_TARGETS), CUSTOM],
+            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+                                    ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
-            'skip_sanitizer_tests': [False, "Do not run the sanitizer tests", CUSTOM],
+            'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
 
         return CMakeMake.extra_options(extra_vars)
@@ -84,16 +91,26 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
 
-        unknown_targets = [target for target in self.cfg['build_targets'] if target not in CLANG_TARGETS]
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
 
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in self.cfg['build_targets']:
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
             raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
 
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in self.cfg['build_targets']:
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
             raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
@@ -232,50 +249,30 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) < LooseVersion('3.6'):
             # for Clang 3.5 and lower, the tests are scattered over several CMakeLists.
             # We loop over them, and patch out the rule that adds the sanitizers tests to the testsuite
-            patchfiles = [
-                "lib/asan",
-                "lib/dfsan",
-                "lib/lsan",
-                "lib/msan",
-                "lib/tsan",
-                "lib/ubsan",
-            ]
+            patchfiles = ['lib/asan', 'lib/dfsan', 'lib/lsan', 'lib/msan', 'lib/tsan', 'lib/ubsan']
 
             for patchfile in patchfiles:
-                patchfile_fp = os.path.join(self.llvm_src_dir, "projects/compiler-rt", patchfile, "CMakeLists.txt")
-                if os.path.exists(patchfile_fp):
-                    self.log.debug("Patching %s in %s" % (patchfile, self.llvm_src_dir))
-                    try:
-                        for line in fileinput.input(patchfile_fp, inplace=1, backup='.orig'):
-                            if "add_subdirectory(lit_tests)" not in line:
-                                sys.stdout.write(line)
-                    except (IOError, OSError), err:
-                        raise EasyBuildError("Failed to patch %s: %s", patchfile_fp, err)
-                else:
-                    self.log.debug("Not patching non-existent %s in %s" % (patchfile, self.llvm_src_dir))
+                cmakelists = os.path.join(self.llvm_src_dir, 'projects/compiler-rt', patchfile, 'CMakeLists.txt')
+                if os.path.exists(cmakelists):
+                    regex_subs = [('.*add_subdirectory\(lit_tests\).*', '')]
+                    apply_regex_substitutions(cmakelists, regex_subs)
 
-            # There is a common part seperate for the specific saniters, we disable all
-            # the common tests
-            patchfile = "projects/compiler-rt/lib/sanitizer_common/CMakeLists.txt"
-            try:
-                for line in fileinput.input("%s/%s" % (self.llvm_src_dir, patchfile), inplace=1, backup='.orig'):
-                    if "add_subdirectory(tests)" not in line:
-                        sys.stdout.write(line)
-            except IOError, err:
-                raise EasyBuildError("Failed to patch %s/%s: %s", self.llvm_src_dir, patchfile, err)
+            # There is a common part seperate for the specific saniters, we disable all the common tests
+            cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
+            regex_subs = [('.*add_subdirectory\(tests\).*', '')]
+            apply_regex_substitutions(cmakelists, regex_subs)
+
         else:
             # In Clang 3.6, the sanitizer tests are grouped together in one CMakeLists
             # We patch out adding the subdirectories with the sanitizer tests
-            patchfile = "projects/compiler-rt/test/CMakeLists.txt"
-            patchfile_fp = os.path.join(self.llvm_src_dir, patchfile)
-            self.log.debug("Patching %s in %s" % (patchfile, self.llvm_src_dir))
-            patch_regex = re.compile(r'add_subdirectory\((.*san|sanitizer_common)\)')
-            try:
-                for line in fileinput.input(patchfile_fp, inplace=1, backup='.orig'):
-                    if not patch_regex.search(line):
-                        sys.stdout.write(line)
-            except IOError, err:
-                raise EasyBuildError("Failed to patch %s: %s", patchfile_fp, err)
+            cmakelists_tests = os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt', 'test', 'CMakeLists.txt')
+            regex_subs = []
+            if LooseVersion(self.version) >= LooseVersion('5.0'):
+                regex_subs.append((r'compiler_rt_test_runtime.*san.*', ''))
+            else:
+                regex_subs.append((r'add_subdirectory\((.*san|sanitizer_common)\)', ''))
+
+            apply_regex_substitutions(cmakelists_tests, regex_subs)
 
     def build_with_prev_stage(self, prev_obj, next_obj):
         """Build Clang stage N using Clang stage N-1"""

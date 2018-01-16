@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,9 +45,11 @@ from easybuild.toolchains.linalg.blacs import Blacs
 from easybuild.toolchains.linalg.gotoblas import GotoBLAS
 from easybuild.toolchains.linalg.lapack import Lapack
 from easybuild.toolchains.linalg.openblas import OpenBLAS
+from easybuild.toolchains.linalg.intelmkl import IntelMKL
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.filetools import copy_file, remove_file
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class EB_ScaLAPACK(ConfigureMake):
@@ -74,6 +76,7 @@ class EB_ScaLAPACK(ConfigureMake):
         # MPI compiler commands
         known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  #@UndefinedVariable
         known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  #@UndefinedVariable
+        known_mpi_libs += [toolchain.INTELMPI]  #@UndefinedVariable
         if os.getenv('MPICC') and os.getenv('MPIF77') and os.getenv('MPIF90'):
             mpicc = os.getenv('MPICC')
             mpif77 = os.getenv('MPIF77')
@@ -91,6 +94,7 @@ class EB_ScaLAPACK(ConfigureMake):
         acml = get_software_root(Acml.LAPACK_MODULE_NAME[0])
         lapack = get_software_root(Lapack.LAPACK_MODULE_NAME[0])
         openblas = get_software_root(OpenBLAS.LAPACK_MODULE_NAME[0])
+        intelmkl = get_software_root(IntelMKL.LAPACK_MODULE_NAME[0])
 
         if lapack:
             extra_makeopts.append('LAPACKLIB=%s' % os.path.join(lapack, 'lib', 'liblapack.a'))
@@ -115,6 +119,13 @@ class EB_ScaLAPACK(ConfigureMake):
         elif openblas:
             libdir = os.path.join(openblas, 'lib')
             blas_libs = ' '.join(['-l%s' % lib for lib in OpenBLAS.BLAS_LIB])
+            extra_makeopts.extend([
+                'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
+                'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
+            ])
+        elif intelmkl:
+            libdir = os.path.join(intelmkl, 'mkl', 'lib', 'intel64')
+            blas_libs = os.environ['LIBLAPACK']
             extra_makeopts.extend([
                 'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
                 'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
@@ -180,8 +191,30 @@ class EB_ScaLAPACK(ConfigureMake):
             extra_makeopts.append('CDEFS="-D%s"' % interface)
 
         # update make opts, and build_step
+        saved_buildopts = self.cfg['buildopts']
+
+        # Only build the library first, that can be done in parallel.
+        # Creating libscalapack.a may fail in parallel, but should work
+        # fine with non-parallel make afterwards
+        self.cfg.update('buildopts', 'lib')
         self.cfg.update('buildopts', ' '.join(extra_makeopts))
 
+        # Copied from ConfigureMake easyblock
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
+
+        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+
+        # Ignore exit code for parallel run
+        (out, _) = run_cmd(cmd, log_ok=False, log_all=False, simple=False)
+
+        # Now remake libscalapack.a serially and the tests.
+        self.cfg['buildopts'] = saved_buildopts
+        self.cfg.update('buildopts', ' '.join(extra_makeopts))
+
+        remove_file('libscalapack.a')
+        self.cfg['parallel'] = 1
         super(EB_ScaLAPACK, self).build_step()
 
     def install_step(self):

@@ -20,6 +20,9 @@ addons:
   apt:
     packages:
       - tcl8.5
+      # for testing OpenMPI-system*eb we need to have Open MPI installed
+      - libopenmpi-dev
+      - openmpi-bin
 install:
     # install easybuild-framework (and dependencies)
     # prefer clone & easy_install over easy_install directly in order to obtain information of what was installed exactly

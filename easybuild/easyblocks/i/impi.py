@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,16 +30,17 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import fileinput
 import os
-import re
 import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -139,15 +140,17 @@ EULA=accept
 
         impiver = LooseVersion(self.version)
         if impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
+            if impiver >= LooseVersion('2018.0.128'):
+                script_paths = [os.path.join('intel64', 'bin')]
+            else:
+                script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
             # fix broken env scripts after the move
-            for script in [os.path.join('intel64', 'bin', 'mpivars.csh'), os.path.join('mic', 'bin', 'mpivars.csh')]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^setenv I_MPI_ROOT.*", "setenv I_MPI_ROOT %s" % self.installdir, line)
-                    sys.stdout.write(line)
-            for script in [os.path.join('intel64', 'bin', 'mpivars.sh'), os.path.join('mic', 'bin', 'mpivars.sh')]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^I_MPI_ROOT=.*", "I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir, line)
-                    sys.stdout.write(line)
+            regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
+            for script in [os.path.join(script_path,'mpivars.csh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            for script in [os.path.join(script_path,'mpivars.sh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
@@ -195,9 +198,9 @@ EULA=accept
                 'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
-        txt = super(EB_impi, self).make_module_extra()
+        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:
