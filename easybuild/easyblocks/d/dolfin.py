@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -299,7 +299,7 @@ class EB_DOLFIN(CMakePythonPackage):
                 for lib in libs:
                     out, _ = run_cmd("patchelf --print-rpath %s" % lib, simple=False, log_all=True)
                     curr_rpath = out.strip()
-                    cmd = "patchelf --set-rpath %s:%s %s" % (curr_rpath, dolfin_libdir, lib)
+                    cmd = "patchelf --set-rpath '%s:%s' %s" % (curr_rpath, dolfin_libdir, lib)
                     run_cmd(cmd, log_all=True)
 
     def make_module_extra(self):
