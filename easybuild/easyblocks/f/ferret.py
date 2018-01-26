@@ -34,12 +34,17 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 """
 
 
-import os,re,fileinput,sys
+import fileinput
+import os
+import re
+import shutil
+import sys
+from distutils.version import LooseVersion
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+
 
 class EB_Ferret(ConfigureMake):
     """Support for building/installing Ferret."""
@@ -48,11 +53,11 @@ class EB_Ferret(ConfigureMake):
         """Configure Ferret build."""
 
         buildtype = "x86_64-linux"
-
-        try:
-            os.chdir('FERRET')
-        except OSError, err:
-            raise EasyBuildError("Failed to change to FERRET dir: %s", err)
+        if LooseVersion(self.version) < LooseVersion("7.3"):
+            try:
+                os.chdir('FERRET')
+            except OSError, err:
+                raise EasyBuildError("Failed to change to FERRET dir: %s", err)
 
         deps = ['HDF5', 'netCDF', 'Java']
 
@@ -60,59 +65,135 @@ class EB_Ferret(ConfigureMake):
             if not get_software_root(name):
                 raise EasyBuildError("%s module not loaded?", name)
 
-        fn = "site_specific.mk"
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            try:
+                shutil.copy2('external_functions/ef_utility/site_specific.mk.in',
+                             'external_functions/ef_utility/site_specific.mk')
+                shutil.copy2('site_specific.mk.in', 'site_specific.mk')
+            except OSError, err:
+                raise EasyBuildError("Failed to copy external_functions/ef_utility/site_specific.mk.in " +
+                                     "to external_functions/ef_utility/site_specific.mk or site_specific.mk.in " +
+                                     "to site_specific.mk: %s", err)
+            fns = [
+                "site_specific.mk",
+                "external_functions/ef_utility/site_specific.mk",
+            ]
+        else:
+            fns = "site_specific.mk"
 
-        for line in fileinput.input(fn, inplace=1, backup='.orig'):
+        for fn in fns:
+            for line in fileinput.input(fn, inplace=1, backup='.orig'):
+                line = re.sub(r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype, line)
+                line = re.sub(r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir, line)
 
-            line = re.sub(r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype, line)
-            line = re.sub(r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir, line)
+                for name in deps:
+                    line = re.sub(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name), line)
 
-            for name in deps:
-                line = re.sub(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name), line)
+                if LooseVersion(self.version) >= LooseVersion("7.3"):
+                    line = re.sub(r"^DIR_PREFIX =.*", "DIR_PREFIX = %s" % self.cfg['start_dir'], line)
+                    line = re.sub(r"^FER_LOCAL_EXTFCNS = $(FER_DIR)",
+                                  "FER_LOCAL_EXTFCNS = $(INSTALL_FER_DIR)/libs", line)
 
-            sys.stdout.write(line)
+                sys.stdout.write(line)
 
         comp_vars = {
-            'CC':'CC',
-            'CFLAGS':'CFLAGS',
-            'CPPFLAGS':'CPPFLAGS',
-            'FC':'F77',
+            'CC': 'CC',
+            'CFLAGS': 'CFLAGS',
+            'CPPFLAGS': 'CPPFLAGS',
+            'FC': 'F77',
+        }
+
+        gfort2ifort = {
+            '-fno-second-underscore': ' ',
+            '-fno-backslash': ' ',
+            '-fdollar-ok': ' ',
+            '-ffast-math': ' ',
+            '-ffixed-line-length-132': '-132',
+            '-fno-automatic': ' ',
+            '-ffpe-trap=overflow': ' ',
+            '-fimplicit-none': '-implicitnone',
+            '-fdefault-real-8': '-r8',
+            '-fdefault-double-8': ' ',
+            '-Wl,-Bstatic -lgfortran -Wl,-Bdynamic': ' ',
+            '-v --verbose -m64': ' ',
+            '-export-dynamic': ' ',
+            '-DG77_SIGNAL': ' ',
         }
 
         fn = 'xgks/CUSTOMIZE.%s' % buildtype
 
         for line in fileinput.input(fn, inplace=1, backup='.orig'):
 
-            for x,y in comp_vars.items():
-                line = re.sub(r"^(%s\s*)=.*" % x, r"\1=%s" % os.getenv(y), line)
+            for x, y in comp_vars.items():
+                line = re.sub(r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y), line)
 
             line = re.sub(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'), line)
-            line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'", line)
+            if LooseVersion(self.version) >= LooseVersion("7.3"):
+                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L$(EBROOTX11)/lib -lX11'", line)
+            else:
+                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'", line)
+
+            if LooseVersion(self.version) >= LooseVersion("7.3"):
+                if self.toolchain.comp_family() == toolchain.INTELCOMP:
+                    for x, y in gfort2ifort.items():
+                        line = re.sub(r"%s" % x, r"%s" % y, line)
 
             sys.stdout.write(line)
 
         comp_vars = {
-            'CC':'CC',
-            'CXX':'CXX',
-            'F77':'F77',
-            'FC':'F77',
+            'CC': 'CC',
+            'CXX': 'CXX',
+            'F77': 'F77',
+            'FC': 'F77',
         }
 
-        fns = [
-            'fer/platform_specific_flags.mk.%s' % buildtype,
-            'ppl/platform_specific_flags.mk.%s' % buildtype,
-             'external_functions/ef_utility/platform_specific_flags.mk.%s' % buildtype,
-        ]
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            fns = [
+                'platform_specific.mk.%s' % buildtype,
+                'external_functions/ef_utility/platform_specific.mk.%s' % buildtype,
+            ]
+        else:
+            fns = [
+                'fer/platform_specific_flags.mk.%s' % buildtype,
+                'ppl/platform_specific_flags.mk.%s' % buildtype,
+                'external_functions/ef_utility/platform_specific_flags.mk.%s' % buildtype,
+            ]
 
         for fn in fns:
             for line in fileinput.input(fn, inplace=1, backup='.orig'):
-                for x,y in comp_vars.items():
+                for x, y in comp_vars.items():
                     line = re.sub(r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y), line)
 
+                if LooseVersion(self.version) >= LooseVersion("7.3"):
+                    line = re.sub(r"^(\s*LDFLAGS\s*=).*",
+                                  r"\1 -fPIC %s -lnetcdff -lnetcdf -lhdf5_hl -lhdf5" % os.getenv("LDFLAGS"), line)
+                    line = re.sub(r"^(\s*)CDFLIB", r"\1NONEED", line)
                 if self.toolchain.comp_family() == toolchain.INTELCOMP:
                     line = re.sub(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"), line)
                     for x in ["CFLAGS", "FFLAGS"]:
                         line = re.sub(r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x), line)
+                    if LooseVersion(self.version) >= LooseVersion("7.3"):
+                        for x in ["CFLAGS", "FFLAGS"]:
+                            line = re.sub(r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x), line)
+                        for x, y in gfort2ifort.items():
+                            line = re.sub(r"%s" % x, r"%s" % y, line)
+
+                        line = re.sub(r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\", line)
+
+                sys.stdout.write(line)
+
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            comp_vars = {
+                'CC': 'CC',
+                'LDFLAGS': 'LDFLAGS',
+            }
+            fn = 'gksm2ps/Makefile'
+
+            for line in fileinput.input(fn, inplace=1, backup='.orig'):
+                for x, y in comp_vars.items():
+                    line = re.sub(r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y), line)
+
+                line = re.sub(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'), line)
 
                 sys.stdout.write(line)
 
@@ -120,8 +201,8 @@ class EB_Ferret(ConfigureMake):
         """Custom sanity check for Ferret."""
 
         custom_paths = {
-                        'files': ["bin/ferret_v%s" % self.version],
-                        'dirs': [],
-                       }
+            'files': ["bin/ferret_v%s" % self.version],
+            'dirs': [],
+        }
 
         super(EB_Ferret, self).sanity_check_step(custom_paths=custom_paths)
