@@ -85,7 +85,7 @@ class EB_COMSOL(PackedBinary):
             'desktopshortcuts': '0',
             'fileassoc': '0',
             'firewall': '0',
-            'installdirs': self.installdir,
+            'installdir': self.installdir,
             'license': self.license_file,
             'licmanager': '0',
             'linuxlauncher': '0',
