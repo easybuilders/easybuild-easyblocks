@@ -118,7 +118,7 @@ class EB_COMSOL(PackedBinary):
         # this is a workaround for not being able to specify --nodisplay to the install scripts
         env.unset_env_vars(['DISPLAY'])
 
-        cmd = ' '.join(self.cfg['preinstallopts'], src, '-s', self.configfile, self.cfg['installopts'])
+        cmd = ' '.join((self.cfg['preinstallopts'], src, '-s', self.configfile, self.cfg['installopts']))
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
