@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for installing Comsol, implemented as an easyblock
+EasyBuild support for installing COMSOL, implemented as an easyblock
 
 @author: Mikael OEhman (Chalmers University of Technology)
 @author: Ake Sandgren (HPC2N, Umea University)
@@ -43,12 +43,12 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
-class EB_Comsol(PackedBinary):
+class EB_COMSOL(PackedBinary):
     """Support for installing COMSOL."""
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to COMSOL."""
-        super(EB_Comsol, self).__init__(*args, **kwargs)
+        super(EB_COMSOL, self).__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_setupconfig.ini')
 
@@ -65,10 +65,10 @@ class EB_Comsol(PackedBinary):
 
         if lic_specs:
             if self.license_env_var is None:
-                self.log.info("Using Comsol license specifications from 'license_file': %s", lic_specs)
+                self.log.info("Using COMSOL license specifications from 'license_file': %s", lic_specs)
                 self.license_env_var = default_lic_env_var
             else:
-                self.log.info("Using Comsol license specifications from $%s: %s", self.license_env_var, lic_specs)
+                self.log.info("Using COMSOL license specifications from $%s: %s", self.license_env_var, lic_specs)
 
             self.license_file = os.pathsep.join(lic_specs)
             env.setvar(self.license_env_var, self.license_file)
@@ -85,7 +85,7 @@ class EB_Comsol(PackedBinary):
             'desktopshortcuts': '0',
             'fileassoc': '0',
             'firewall': '0',
-            'installdirs': self.installdir,
+            'installdir': self.installdir,
             'license': self.license_file,
             'licmanager': '0',
             'linuxlauncher': '0',
@@ -118,7 +118,7 @@ class EB_Comsol(PackedBinary):
         # this is a workaround for not being able to specify --nodisplay to the install scripts
         env.unset_env_vars(['DISPLAY'])
 
-        cmd = ' '.join(self.cfg['preinstallopts'], src, '-s', self.configfile, self.cfg['installopts'])
+        cmd = ' '.join([self.cfg['preinstallopts'], src, '-s', self.configfile, self.cfg['installopts']])
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
@@ -130,4 +130,4 @@ class EB_Comsol(PackedBinary):
             ],
             'dirs': ["java/glnxa64", "plugins"],
         }
-        super(EB_Comsol, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_COMSOL, self).sanity_check_step(custom_paths=custom_paths)
