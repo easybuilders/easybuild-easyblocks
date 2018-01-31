@@ -34,15 +34,12 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 """
 
 
-import fileinput
 import os
-import re
-import shutil
-import sys
 from distutils.version import LooseVersion
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file
 from easybuild.tools.modules import get_software_root
 
 
@@ -54,10 +51,7 @@ class EB_Ferret(ConfigureMake):
 
         buildtype = "x86_64-linux"
         if LooseVersion(self.version) < LooseVersion("7.3"):
-            try:
-                os.chdir('FERRET')
-            except OSError, err:
-                raise EasyBuildError("Failed to change to FERRET dir: %s", err)
+            change_dir('FERRET')
 
         deps = ['HDF5', 'netCDF', 'Java']
 
@@ -66,14 +60,9 @@ class EB_Ferret(ConfigureMake):
                 raise EasyBuildError("%s module not loaded?", name)
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
-            try:
-                shutil.copy2('external_functions/ef_utility/site_specific.mk.in',
-                             'external_functions/ef_utility/site_specific.mk')
-                shutil.copy2('site_specific.mk.in', 'site_specific.mk')
-            except OSError, err:
-                raise EasyBuildError("Failed to copy external_functions/ef_utility/site_specific.mk.in " +
-                                     "to external_functions/ef_utility/site_specific.mk or site_specific.mk.in " +
-                                     "to site_specific.mk: %s", err)
+            copy_file('external_functions/ef_utility/site_specific.mk.in',
+                      'external_functions/ef_utility/site_specific.mk')
+            copy_file('site_specific.mk.in', 'site_specific.mk')
             fns = [
                 "site_specific.mk",
                 "external_functions/ef_utility/site_specific.mk",
@@ -81,20 +70,22 @@ class EB_Ferret(ConfigureMake):
         else:
             fns = "site_specific.mk"
 
+        regex_subs = [
+            (r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype),
+            (r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir),
+        ]
+
+        for name in deps:
+            regex_subs += [(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name))]
+
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            regex_subs += [
+                (r"^DIR_PREFIX =.*", "DIR_PREFIX = %s" % self.cfg['start_dir']),
+                (r"^FER_LOCAL_EXTFCNS = $(FER_DIR)", "FER_LOCAL_EXTFCNS = $(INSTALL_FER_DIR)/libs"),
+            ]
+
         for fn in fns:
-            for line in fileinput.input(fn, inplace=1, backup='.orig'):
-                line = re.sub(r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype, line)
-                line = re.sub(r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir, line)
-
-                for name in deps:
-                    line = re.sub(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name), line)
-
-                if LooseVersion(self.version) >= LooseVersion("7.3"):
-                    line = re.sub(r"^DIR_PREFIX =.*", "DIR_PREFIX = %s" % self.cfg['start_dir'], line)
-                    line = re.sub(r"^FER_LOCAL_EXTFCNS = $(FER_DIR)",
-                                  "FER_LOCAL_EXTFCNS = $(INSTALL_FER_DIR)/libs", line)
-
-                sys.stdout.write(line)
+            apply_regex_substitutions(fn, regex_subs)
 
         comp_vars = {
             'CC': 'CC',
@@ -122,23 +113,21 @@ class EB_Ferret(ConfigureMake):
 
         fn = 'xgks/CUSTOMIZE.%s' % buildtype
 
-        for line in fileinput.input(fn, inplace=1, backup='.orig'):
+        regex_subs = [(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'))]
+        for x, y in comp_vars.items():
+            regex_subs += [(r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y))]
 
-            for x, y in comp_vars.items():
-                line = re.sub(r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y), line)
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            regex_subs += [(r"^(LD_X11\s*)=.*", r"\1='-L%s/lib -lX11'" % get_software_root('X11'))]
+        else:
+            regex_subs += [(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'")]
 
-            line = re.sub(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'), line)
-            if LooseVersion(self.version) >= LooseVersion("7.3"):
-                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L$(EBROOTX11)/lib -lX11'", line)
-            else:
-                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'", line)
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            if self.toolchain.comp_family() == toolchain.INTELCOMP:
+                for x, y in gfort2ifort.items():
+                    regex_subs += [(r"%s" % x, r"%s" % y)]
 
-            if LooseVersion(self.version) >= LooseVersion("7.3"):
-                if self.toolchain.comp_family() == toolchain.INTELCOMP:
-                    for x, y in gfort2ifort.items():
-                        line = re.sub(r"%s" % x, r"%s" % y, line)
-
-            sys.stdout.write(line)
+        apply_regex_substitutions(fn, regex_subs)
 
         comp_vars = {
             'CC': 'CC',
@@ -159,28 +148,30 @@ class EB_Ferret(ConfigureMake):
                 'external_functions/ef_utility/platform_specific_flags.mk.%s' % buildtype,
             ]
 
+        regex_subs = []
+        for x, y in comp_vars.items():
+            regex_subs += [(r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y))]
+
+        if LooseVersion(self.version) >= LooseVersion("7.3"):
+            regex_subs += [
+                (r"^(\s*LDFLAGS\s*=).*", r"\1 -fPIC %s -lnetcdff -lnetcdf -lhdf5_hl -lhdf5" % os.getenv("LDFLAGS")),
+                (r"^(\s*)CDFLIB", r"\1NONEED"),
+            ]
+
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            regex_subs += [(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"))]
+            for x in ["CFLAGS", "FFLAGS"]:
+                regex_subs += [(r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x))]
+            if LooseVersion(self.version) >= LooseVersion("7.3"):
+                for x in ["CFLAGS", "FFLAGS"]:
+                    regex_subs += [(r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x))]
+                for x, y in gfort2ifort.items():
+                    regex_subs += [(r"%s" % x, r"%s" % y)]
+
+                regex_subs += [(r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\")]
+
         for fn in fns:
-            for line in fileinput.input(fn, inplace=1, backup='.orig'):
-                for x, y in comp_vars.items():
-                    line = re.sub(r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y), line)
-
-                if LooseVersion(self.version) >= LooseVersion("7.3"):
-                    line = re.sub(r"^(\s*LDFLAGS\s*=).*",
-                                  r"\1 -fPIC %s -lnetcdff -lnetcdf -lhdf5_hl -lhdf5" % os.getenv("LDFLAGS"), line)
-                    line = re.sub(r"^(\s*)CDFLIB", r"\1NONEED", line)
-                if self.toolchain.comp_family() == toolchain.INTELCOMP:
-                    line = re.sub(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"), line)
-                    for x in ["CFLAGS", "FFLAGS"]:
-                        line = re.sub(r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x), line)
-                    if LooseVersion(self.version) >= LooseVersion("7.3"):
-                        for x in ["CFLAGS", "FFLAGS"]:
-                            line = re.sub(r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x), line)
-                        for x, y in gfort2ifort.items():
-                            line = re.sub(r"%s" % x, r"%s" % y, line)
-
-                        line = re.sub(r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\", line)
-
-                sys.stdout.write(line)
+            apply_regex_substitutions(fn, regex_subs)
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             comp_vars = {
@@ -189,13 +180,11 @@ class EB_Ferret(ConfigureMake):
             }
             fn = 'gksm2ps/Makefile'
 
-            for line in fileinput.input(fn, inplace=1, backup='.orig'):
-                for x, y in comp_vars.items():
-                    line = re.sub(r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y), line)
+            regex_subs = [(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'))]
+            for x, y in comp_vars.items():
+                regex_subs += [(r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y))]
 
-                line = re.sub(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'), line)
-
-                sys.stdout.write(line)
+            apply_regex_substitutions(fn, regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check for Ferret."""
