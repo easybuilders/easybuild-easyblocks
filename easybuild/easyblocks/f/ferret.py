@@ -36,10 +36,14 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 
 import os,re,fileinput,sys
 import easybuild.tools.toolchain as toolchain
+
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+
 
 class EB_Ferret(ConfigureMake):
     """Support for building/installing Ferret."""
@@ -60,17 +64,26 @@ class EB_Ferret(ConfigureMake):
             if not get_software_root(name):
                 raise EasyBuildError("%s module not loaded?", name)
 
-        fn = "site_specific.mk"
+        fns = ["site_specific.mk"]
+        if LooseVersion(self.version) >= LooseVersion('7.1'): 
+            fns.extend(["external_functions/ef_utility/site_specific.mk"])
 
-        for line in fileinput.input(fn, inplace=1, backup='.orig'):
+        for fn in fns:
+            for line in fileinput.input(fn, inplace=1, backup='.orig'):
 
-            line = re.sub(r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype, line)
-            line = re.sub(r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir, line)
+                line = re.sub(r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype, line)
+                line = re.sub(r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir, line)
 
-            for name in deps:
-                line = re.sub(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name), line)
+                if LooseVersion(self.version) >= LooseVersion('7.1'):
+                    line = re.sub(r"^(LIBZ.*DIR\s*)=.*", r"\1 = %s" % get_software_root('zlib'), line)
+                    line = re.sub(r"^(READLINE.*DIR\s*)=.*", r"\1 = %s" % get_software_root('libreadline'), line)
+                    line = re.sub(r"^(FER_LOCAL_EXTFCNS =).*", r"\1 %s/ext_func/libs" % self.installdir, line)
 
-            sys.stdout.write(line)
+                for name in deps:
+                    line = re.sub(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name), line)
+
+
+                sys.stdout.write(line)
 
         comp_vars = {
             'CC':'CC',
@@ -84,10 +97,13 @@ class EB_Ferret(ConfigureMake):
         for line in fileinput.input(fn, inplace=1, backup='.orig'):
 
             for x,y in comp_vars.items():
-                line = re.sub(r"^(%s\s*)=.*" % x, r"\1=%s" % os.getenv(y), line)
+                line = re.sub(r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y), line)
 
             line = re.sub(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'), line)
-            line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'", line)
+            if get_software_root('X11'):
+                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L%s/lib -lX11'\nCPP_X11='-I%s/include' " % (get_software_root('X11'), get_software_root('X11')), line)  
+            else:
+                line = re.sub(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'", line)
 
             sys.stdout.write(line)
 
@@ -101,9 +117,14 @@ class EB_Ferret(ConfigureMake):
         fns = [
             'fer/platform_specific_flags.mk.%s' % buildtype,
             'ppl/platform_specific_flags.mk.%s' % buildtype,
-             'external_functions/ef_utility/platform_specific_flags.mk.%s' % buildtype,
+            'external_functions/ef_utility/platform_specific_flags.mk.%s' % buildtype,
         ]
-
+        if LooseVersion(self.version) >= LooseVersion('7.1'):
+            fns = [
+                'platform_specific.mk.%s' % buildtype,
+                'external_functions/ef_utility/platform_specific.mk.%s' % buildtype,
+            ]
+   
         for fn in fns:
             for line in fileinput.input(fn, inplace=1, backup='.orig'):
                 for x,y in comp_vars.items():
@@ -113,6 +134,9 @@ class EB_Ferret(ConfigureMake):
                     line = re.sub(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"), line)
                     for x in ["CFLAGS", "FFLAGS"]:
                         line = re.sub(r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x), line)
+                    if LooseVersion(self.version) >= LooseVersion('7.1'):
+                        line = re.sub(r"^(\s*PPLUS_FFLAGS\s*=\s*\$\(CPP_FLAGS\)).*\\",
+                                      r"\1 %s \\" % os.getenv("FFLAGS"), line)
 
                 sys.stdout.write(line)
 
