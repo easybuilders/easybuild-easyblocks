@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2017 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
+# Copyright:: Copyright 2012-2018 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste, Damian Alvarez
 # License::   MIT/GPL
 # $Id$
@@ -125,16 +125,19 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) < LooseVersion("6"):
             chk_libdir += ["lib"]
 
-        extra_files = []
-        if LooseVersion(self.version) < LooseVersion('7'):
-            extra_files.append('open64/bin/nvopencc')
-
         custom_paths = {
-            'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] + extra_files +
+            'files': ["bin/%s" % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
                      ["%s/lib%s.%s" % (x, y, shlib_ext) for x in chk_libdir for y in ["cublas", "cudart", "cufft",
                                                                                       "curand", "cusparse"]],
             'dirs': ["include"],
         }
+
+        if LooseVersion(self.version) < LooseVersion('7'):
+            custom_paths['files'].append('open64/bin/nvopencc')
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            custom_paths['files'].append("extras/CUPTI/lib64/libcupti.%s" % shlib_ext)
+            custom_paths['dirs'].append("extras/CUPTI/include")
+
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -143,10 +146,22 @@ class EB_CUDA(Binary):
 
         guesses = super(EB_CUDA, self).make_module_req_guess()
 
+        # The dirs should be in the order ['open64/bin', 'bin']
+        bin_path = []
+        if LooseVersion(self.version) < LooseVersion('7'):
+            bin_path.append('open64/bin')
+        bin_path.append('bin')
+
+        lib_path = ['lib64']
+        inc_path = ['include']
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            lib_path.append('extras/CUPTI/lib64')
+            inc_path.append('extras/CUPTI/include')
+
         guesses.update({
-            'PATH': ['open64/bin', 'bin'],
-            'LD_LIBRARY_PATH': ['lib64'],
-            'CPATH': ['include'],
+            'PATH': bin_path,
+            'LD_LIBRARY_PATH': lib_path,
+            'CPATH': inc_path,
             'CUDA_HOME': [''],
             'CUDA_ROOT': [''],
             'CUDA_PATH': [''],

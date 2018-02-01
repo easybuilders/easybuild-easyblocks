@@ -30,6 +30,7 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 """
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -41,9 +42,14 @@ class EB_OpenBabel(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'try_python': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
+            'with_python_bindings': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize OpenBabel-specific variables."""
+        super(EB_OpenBabel, self).__init__(*args, **kwargs)
+        self.with_python = False
 
     def configure_step(self):
 
@@ -55,7 +61,7 @@ class EB_OpenBabel(CMakeMake):
         self.cfg['configopts'] += "-DBUILD_GUI=OFF "
 
         root_python = get_software_root('Python')
-        if root_python and self.cfg['try_python']:
+        if root_python and self.cfg['with_python_bindings']:
             self.log.info("Enabling Python bindings")
             self.with_python = True
             shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
@@ -65,7 +71,6 @@ class EB_OpenBabel(CMakeMake):
             self.cfg['configopts'] += "-DPYTHON_INCLUDE_DIR=%s/include/python%s " % (root_python, shortpyver)
         else:
             self.log.info("Not enabling Python bindings")
-            self.with_python = False
 
         root_eigen = get_software_root("Eigen")
         if root_eigen:
@@ -91,8 +96,7 @@ class EB_OpenBabel(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('2.4'):
                 # since OpenBabel 2.4.0 the Python bindings under 
                 # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
-                shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
-                ob_pythonpath = 'lib/python%s/site-packages/' % (shortpyver)
+                ob_pythonpath = det_pylibdir()
             else:
                 ob_pythonpath = 'lib'
             txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])

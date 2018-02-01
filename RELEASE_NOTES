@@ -5,6 +5,31 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 190 software-specific easyblocks and 31 generic easyblocks.
 
+v3.5.1 (January 16th 2018)
+--------------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - auto-detect default build target for Clang (#1115)
+  - build GROMACS for target architecture based on --optarch (#1163)
+  - ensure correct $PYTHONPATH for recent OpenBabel versions (#1219)
+  - enhance Amber easyblock with support for OpenBLAS and better Intel MPI support (#1305)
+  - also support only installing AmberTools through Amber easyblock (#1305)
+  - also pick locations for CUPTI headers & libraries in CUDA easyblock (#1306)
+  - update patching out of sanitizer tests for recent Clang versions (>=5.0) (#1327)
+  - update known questions for Qt5 to support installing recent versions (#1328)
+  - update BamTools easyblock for v2.5.0 (#1332, #1337)
+  - disable libfox target if external module found in QuantumESPRESSO easyblock (#1333)
+  - add support for linking Octave with multi-threaded BLAS/LAPACK library (#1340)
+  - support install_target in PythonPackage + deprecate use_easy_install & use_setup_py_develop (#1341, #1342)
+- various bug fixes, including:
+  - make RubyGem easyblock use $GEM_* environment variables except if as extension of Ruby itself (#1247)
+  - move initialisation in SystemCompiler & SystemMPI easyblocks to the prepare step (#1282)
+  - enable skipping sanitizer tests by default in Clang easyblock, they can't be relied on (#1329)
+  - fix quotes when using $ORIGIN in RPATH locations for DOLFIN (#1338)
+  - fix sanity check for shared libraries in Trilinos easyblock (#1339)
+
+
 v3.5.0 (December 15th 2017)
 ---------------------------
 
