@@ -41,13 +41,6 @@ class EB_Theano(PythonPackage):
        when running the software on a heterogeneous compute cluster.
     2) Make sure Theano uses the BLAS libraries.
     """
-    def configure_step(self):
-
-        self.LIBBLAS = os.getenv('LIBBLAS')
-
-        super(EB_Theano, self).configure_step()
-
-
     def make_module_extra(self):
 
         txt = super(EB_Theano, self).make_module_extra()
@@ -57,7 +50,10 @@ class EB_Theano(PythonPackage):
         theano_flags = ('compiledir_format=compiledir_%%(short_platform)s-%%(processor)s-'
                         '%%(python_version)s-%%(python_bitwidth)s-%s' % rand_string)
 
-        theano_flags += ',blas.ldflags="%s"' % self.LIBBLAS
+        libblas = os.getenv('LIBBLAS')
+
+        if libblas:
+            theano_flags += ',blas.ldflags="%s"' % libblas
 
         txt += self.module_generator.set_environment('THEANO_FLAGS', theano_flags)
 
