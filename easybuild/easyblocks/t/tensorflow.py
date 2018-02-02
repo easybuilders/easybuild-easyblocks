@@ -171,7 +171,8 @@ class EB_TensorFlow(PythonPackage):
 
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
-            (r'(cxx_builtin_include_directory:).*', '\n  '.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
+            (r'(cxx_builtin_include_directory:).*', ''),
+            (r'^toolchain {', 'toolchain {\n' + '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
