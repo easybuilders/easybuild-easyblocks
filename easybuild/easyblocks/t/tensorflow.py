@@ -43,6 +43,7 @@ from easybuild.tools.run import run_cmd
 
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
+export CPATH='%(cpath)s'
 %(compiler_path)s "$@"
 """
 
@@ -71,6 +72,7 @@ class EB_TensorFlow(PythonPackage):
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
                 'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+                'cpath': os.getenv('CPATH'),
             }
             icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
@@ -171,7 +173,8 @@ class EB_TensorFlow(PythonPackage):
 
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
-            (r'(cxx_builtin_include_directory:).*', '\n  '.join(r'\1 "%s"' % resolve_path(p) for p in inc_paths)),
+            (r'(cxx_builtin_include_directory:).*', ''),
+            (r'^toolchain {', 'toolchain {\n' + '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
