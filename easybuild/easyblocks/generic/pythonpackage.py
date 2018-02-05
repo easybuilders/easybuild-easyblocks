@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,9 +51,10 @@ from easybuild.tools.run import run_cmd
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
-EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py easy_install --prefix=%(prefix)s %(installopts)s %(loc)s"
+EASY_INSTALL_TARGET = "easy_install"
+EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
-SETUP_PY_INSTALL_CMD = "%(python)s setup.py install --prefix=%(prefix)s %(installopts)s"
+SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
@@ -181,10 +182,12 @@ class PythonPackage(ExtensionEasyBlock):
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
-            'use_easy_install': [False, "Install using '%s'" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
+            'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
-            'use_setup_py_develop': [False, "Install using '%s'" % SETUP_PY_DEVELOP_CMD, CUSTOM],
+            'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -209,12 +212,13 @@ class PythonPackage(ExtensionEasyBlock):
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
-        if not 'modulename' in self.options:
+        if 'modulename' not in self.options:
             self.options['modulename'] = self.name.lower()
 
         # determine install command
         self.use_setup_py = False
         if self.cfg.get('use_easy_install', False):
+            self.log.deprecated("Use 'install_target' rather than 'use_easy_install'.", '4.0')
             self.install_cmd = EASY_INSTALL_INSTALL_CMD
 
             # don't auto-install dependencies
@@ -239,12 +243,19 @@ class PythonPackage(ExtensionEasyBlock):
             self.use_setup_py = True
 
             if self.cfg.get('use_setup_py_develop', False):
+                self.log.deprecated("Use 'install_target' rather than 'use_setup_py_develop'.", '4.0')
                 self.install_cmd = SETUP_PY_DEVELOP_CMD
             else:
                 self.install_cmd = SETUP_PY_INSTALL_CMD
 
+            if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+                self.install_cmd += " %(loc)s"
+                self.cfg.update('installopts', '--no-deps')
             if self.cfg.get('zipped_egg', False):
-                raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
+                if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+                    self.cfg.update('installopts', '--zip-ok')
+                else:
+                    raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
 
         self.log.debug("Using '%s' as install command", self.install_cmd)
 
@@ -341,6 +352,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.cfg['preinstallopts'],
             self.install_cmd % {
                 'installopts': installopts,
+                'install_target': self.cfg['install_target'],
                 'loc': loc,
                 'prefix': prefix,
                 'python': self.python_cmd,
@@ -402,7 +414,8 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
-            cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
+            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
+                            self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,6 +43,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -71,6 +72,8 @@ class EB_Trinity(EasyBlock):
         """Install procedure for Butterfly."""
 
         self.log.info("Begin Butterfly")
+
+        setvar("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF8")
 
         dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
         try:

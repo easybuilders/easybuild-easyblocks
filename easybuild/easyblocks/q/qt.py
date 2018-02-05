@@ -85,6 +85,7 @@ class EB_Qt(ConfigureMake):
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
             "Do you accept the terms of either license?": 'yes',
+            "Which edition of Qt do you want to use?": 'o',
         }
         no_qa = [
             "for .*pro",
