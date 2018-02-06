@@ -40,6 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
+from vsc.utils.missing import nub
 
 
 class CMakeMake(ConfigureMake):
@@ -66,8 +67,8 @@ class CMakeMake(ConfigureMake):
         tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
         cpaths = os.getenv('CPATH', '').split(os.pathsep)
         lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
-        include_paths = os.pathsep.join(tc_ipaths + cpaths)
-        library_paths = os.pathsep.join(tc_lpaths + lpaths)
+        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
         setvar("CMAKE_INCLUDE_PATH", include_paths)
         setvar("CMAKE_LIBRARY_PATH", library_paths)
 
