@@ -59,7 +59,7 @@ class EB_COMSOL(PackedBinary):
         # the top dir.
         adjust_permissions(self.start_dir, stat.S_IWUSR)
 
-        default_lic_env_var = 'LM_LICENSE_FILE'
+        default_lic_env_var = 'LMCOMSOL_LICENSE_FILE'
         lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
                                                               lic_specs=[self.cfg['license_file']])
 
