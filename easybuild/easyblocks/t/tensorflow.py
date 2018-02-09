@@ -57,6 +57,7 @@ class EB_TensorFlow(PythonPackage):
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_jemalloc': [True, "Make TensorFlow use jemalloc", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -100,7 +101,7 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_GCP': '0',  # Google Cloud Platform
             'TF_NEED_GDR': '0',
             'TF_NEED_HDFS': '0',  # Hadoop File System
-            'TF_NEED_JEMALLOC': ('0', '1')[bool(jemalloc_root)],
+            'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_S3': '0',  # Amazon S3 File System
@@ -126,7 +127,8 @@ class EB_TensorFlow(PythonPackage):
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
-        run_cmd('./configure', log_all=True, simple=True)
+        cmd = self.cfg['preconfigopts'] +  './configure ' + self.cfg['configopts']
+        run_cmd(cmd, log_all=True, simple=True)
 
     def build_step(self):
         """Custom build procedure for TensorFlow."""
@@ -196,7 +198,7 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
 
-        cmd = ['bazel', '--output_base=%s' % tmpdir, 'build']
+        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir, 'build']
         # https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
         cmd.append('--compilation_mode=opt')
         # https://docs.bazel.build/versions/master/user-manual.html#flag--config
@@ -204,6 +206,8 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
+        # Limit the number of parallel jobs running simultaneously. Useful on KNL...
+        cmd.append('--jobs=%s' % self.cfg['parallel'])
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
@@ -213,10 +217,16 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        if self.cfg['with_mkl_dnn']:
-            # this makes TensorFlow download & use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
-            # using the full Intel MKL doesn't work without additional effort...
+        # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
+        mkl_root = get_software_root('mkl-dnn')
+        if mkl_root:
             cmd.extend(['--config=mkl'])
+            cmd.insert(0, 'export TF_MKL_DOWNLOAD=0 &&' )
+            cmd.insert(0, 'export TF_MKL_ROOT=%s &&' % mkl_root )
+        elif self.cfg['with_mkl_dnn']:
+            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
+            cmd.extend(['--config=mkl'])
+            cmd.insert(0, 'export TF_MKL_DOWNLOAD=1 &&' )
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
 
