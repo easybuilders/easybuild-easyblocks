@@ -3,7 +3,60 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 188 software-specific easyblocks and 30 generic easyblocks.
+The latest version of easybuild-easyblocks provides 190 software-specific easyblocks and 31 generic easyblocks.
+
+v3.5.1 (January 16th 2018)
+--------------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - auto-detect default build target for Clang (#1115)
+  - build GROMACS for target architecture based on --optarch (#1163)
+  - ensure correct $PYTHONPATH for recent OpenBabel versions (#1219)
+  - enhance Amber easyblock with support for OpenBLAS and better Intel MPI support (#1305)
+  - also support only installing AmberTools through Amber easyblock (#1305)
+  - also pick locations for CUPTI headers & libraries in CUDA easyblock (#1306)
+  - update patching out of sanitizer tests for recent Clang versions (>=5.0) (#1327)
+  - update known questions for Qt5 to support installing recent versions (#1328)
+  - update BamTools easyblock for v2.5.0 (#1332, #1337)
+  - disable libfox target if external module found in QuantumESPRESSO easyblock (#1333)
+  - add support for linking Octave with multi-threaded BLAS/LAPACK library (#1340)
+  - support install_target in PythonPackage + deprecate use_easy_install & use_setup_py_develop (#1341, #1342)
+- various bug fixes, including:
+  - make RubyGem easyblock use $GEM_* environment variables except if as extension of Ruby itself (#1247)
+  - move initialisation in SystemCompiler & SystemMPI easyblocks to the prepare step (#1282)
+  - enable skipping sanitizer tests by default in Clang easyblock, they can't be relied on (#1329)
+  - fix quotes when using $ORIGIN in RPATH locations for DOLFIN (#1338)
+  - fix sanity check for shared libraries in Trilinos easyblock (#1339)
+
+
+v3.5.0 (December 15th 2017)
+---------------------------
+
+feature release
+- new software-specific easyblock for Bazel (#1286) and Octave (#1304)
+- new generic easyblock for installing Octave packages as extensions (#1304, #1318)
+- minor enhancements, including:
+  - remove foamExec & wdot from sanity checks, add blockMesh & checkMesh + enable logging for recent OpenFOAM versions (#1205, #1272)
+  - add exceptions for FFTW/3.3.6 on POWER with GCC 5/6/7 (#1274)
+  - add support for Spectrum MPI to the systemmpi easyblock (#1275)
+  - allow skipping of steps for Bundle components + fix issues with templates & formatting of error message (#1278)
+  - update HPCG easyblock for v3.0 by changing configure syntax (#1284)
+  - correctly configure for BLAS/LAPACK in R easyblock & check configure output (#1292, #1300)
+  - make R easyblock set configure options for dependencies (#1297, #1303)
+  - allow tuning of build command in PythonPackage via custom 'buildcmd' easyconfig parameter (#1299)
+  - set default Java encoding to utf8 when installing Trinity (#1302)
+  - also define $CUDA_ROOT in generated module for CUDA (#1234)
+  - make the ScaLAPACK easyblock capable of building in parallel (#1288, #1321, #1324)
+- various bug fixes, including:
+  - avoid changing $CPATH, $LD_LIBRARY_PATH an $LIBRARY_PATH in generated modules for Intel Advisor, Inspector, and VTune (#1229)
+  - fix check for Intel MKL in PSI easyblock (#1273)
+  - fix missing space in fftw easyblock (#1277)
+  - fix use of FFTW on top of Intel MKL in CP2K easyblock (#1281)
+  - fix wrong sanity check for Boost when using Python 3.x (#1283)
+  - pick up per-component checksums in Bundle generic easyblock (#1285)
+  - correctly pass down optimization flags in CP2K easyblock (#1293)
+
 
 v3.4.1 (October 17th 2017)
 --------------------------

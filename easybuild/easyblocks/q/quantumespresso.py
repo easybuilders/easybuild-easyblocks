@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,6 +40,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 
 
@@ -161,6 +162,15 @@ class EB_QuantumESPRESSO(ConfigureMake):
         repls.append(('BLAS_LIBS_SWITCH', 'external', False))
         repls.append(('LAPACK_LIBS_SWITCH', 'external', False))
         repls.append(('LD_LIBS', os.getenv('LIBS'), False))
+
+        # check for external FoX
+        if get_software_root('FoX'):
+            self.log.debug("Found FoX external module, disabling libfox target in Makefile")
+            regex_subs = [
+                (r"(libfox: touch-dummy)\n.*",
+                 r"\1\n\techo 'libfox: external module used' #"),
+            ]
+            apply_regex_substitutions('Makefile', regex_subs)
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
