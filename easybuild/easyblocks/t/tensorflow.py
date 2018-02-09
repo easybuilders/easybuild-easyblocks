@@ -206,6 +206,8 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
+        # Limit the number of parallel jobs running simultaneously. Useful on KNL...
+        cmd.append('--jobs=%s' % self.cfg['parallel'])
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
