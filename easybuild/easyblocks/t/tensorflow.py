@@ -127,11 +127,7 @@ class EB_TensorFlow(PythonPackage):
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
-        cmd = "%(preconfigopts)s ./configure %(configopts)s" % {
-            'preconfigopts': self.cfg['preconfigopts'],
-            'configopts': self.cfg['configopts'],
-        }
-
+        cmd = self.cfg['preconfigopts'] +  './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
     def build_step(self):
@@ -202,7 +198,7 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
 
-        cmd = ['bazel', '--output_base=%s' % tmpdir, 'build']
+        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir, 'build']
         # https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
         cmd.append('--compilation_mode=opt')
         # https://docs.bazel.build/versions/master/user-manual.html#flag--config
@@ -231,8 +227,6 @@ class EB_TensorFlow(PythonPackage):
             cmd.insert(0, 'export TF_MKL_DOWNLOAD=1 &&' )
 
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
-
-        cmd.insert(0, self.cfg['prebuildopts'])
 
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
