@@ -135,6 +135,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         if self.cfg['with_scalapack']:
             dflags.append(" -D__SCALAPACK")
 
+        if hdf5:
+            dflags.append(" -D__HDF5")
+	    repls.append(('HDF5_LIB', '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5, False))
+
         if self.cfg['with_ace']:
             dflags.append(" -D__EXX_ACE")
 
@@ -190,6 +194,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         line = re.sub(r"^(%s\s*=[ \t]*)(.*)$" % k, r"\1\2 %s" % v, line)
                     else:
                         line = re.sub(r"^(%s\s*=[ \t]*).*$" % k, r"\1%s" % v, line)
+
+                # fix preprocessing directives for .f90 files in make.sys if required
+                if self.toolchain.comp_family() in [toolchain.GCC]:
+                    line = re.sub(r"\$\(MPIF90\) \$\(F90FLAGS\) -c \$<",
+                                  "$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
+                                  "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
+                                  line)
 
                 sys.stdout.write(line)
         except IOError, err:
