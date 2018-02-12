@@ -56,7 +56,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
             'with_jemalloc': [True, "Make TensorFlow use jemalloc", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
@@ -217,12 +217,17 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
+        # enable mkl-dnn by default, but only if cuDNN is not listed as dependency
+        if self.cfg['with_mkl_dnn'] is None and get_software_root('cuDNN') is None:
+            self.log.info("Enabling use of mkl-dnn since cuDNN is not listed as dependency")
+            self.cfg['with_mkl_dnn'] = True
+
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             cmd.extend(['--config=mkl'])
             cmd.insert(0, 'export TF_MKL_DOWNLOAD=0 &&' )
-            cmd.insert(0, 'export TF_MKL_ROOT=%s &&' % mkl_root )
+            cmd.insert(0, 'export TF_MKL_ROOT=%s &&' % mkl_root)
         elif self.cfg['with_mkl_dnn']:
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
             cmd.extend(['--config=mkl'])
