@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2017-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -24,6 +24,10 @@
 ##
 """
 EasyBuild support for building and installing TensorFlow, implemented as an easyblock
+
+@author: Kenneth Hoste (HPC-UGent)
+@author: Ake Sandgren (Umea University)
+@author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 import glob
 import os
@@ -41,9 +45,13 @@ from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
+# wrapper for Intel compiler, where required environment are hardcoded to make sure they're present;
+# this is required because Bazel resets the environment in which compiler commands are executed...
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
-export INTEL_LICENSE_FILE='%(intel_license_file)s'
+
 export CPATH='%(cpath)s'
+export INTEL_LICENSE_FILE='%(intel_license_file)s'
+
 %(compiler_path)s "$@"
 """
 
@@ -56,8 +64,8 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
             'with_jemalloc': [True, "Make TensorFlow use jemalloc", CUSTOM],
+            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -66,20 +74,22 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
-        # Bazel reset environment in which build is performed, so $INTEL_LICENSE_FILE gets unset
-        # so, we create a wrapper for icc to make sure location of license server is available...
+        # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
-                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
                 'cpath': os.getenv('CPATH'),
+                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
             }
             icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
-            adjust_permissions(icc_wrapper, stat.S_IXUSR)
             env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
-            self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+            if self.dry_run:
+                self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
+            else:
+                adjust_permissions(icc_wrapper, stat.S_IXUSR)
+                self.log.info("Using wrapper script for 'icc': %s", which('icc'))
 
         self.prepare_python()
 
@@ -136,7 +146,6 @@ class EB_TensorFlow(PythonPackage):
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
-        # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
         binutils_root = get_software_root('binutils')
         if binutils_root:
             binutils_bin = os.path.join(binutils_root, 'bin')
@@ -145,20 +154,22 @@ class EB_TensorFlow(PythonPackage):
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         if gcc_root:
-
             gcc_lib64 = os.path.join(gcc_root, 'lib64')
-
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+
+            # figure out location of GCC include files
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
                 gcc_lib_inc = res[0]
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
 
+            # make sure include-fixed directory is where we expect it to be
             gcc_lib_inc_fixed = os.path.join(os.path.dirname(gcc_lib_inc), 'include-fixed')
             if not os.path.exists(gcc_lib_inc_fixed):
                 raise EasyBuildError("Derived directory %s does not exist", gcc_lib_inc_fixed)
 
+            # also check on location of include/c++/<gcc version> directory
             gcc_cplusplus_inc = os.path.join(gcc_root, 'include', 'c++', gcc_ver)
             if not os.path.exists(gcc_cplusplus_inc):
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
@@ -173,10 +184,12 @@ class EB_TensorFlow(PythonPackage):
             inc_paths.append(os.path.join(cuda_root, 'include'))
             lib_paths.append(os.path.join(cuda_root, 'lib64'))
 
+        # fix hardcoded locations of compilers & tools
+        cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)),
+            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
@@ -185,10 +198,11 @@ class EB_TensorFlow(PythonPackage):
             else:
                 raise EasyBuildError("Failed to determine path to '%s'", tool)
 
+        # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE/-pie if -fPIC is used
         if self.toolchain.options.get('pic', None):
-            # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE & -pie
             regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
 
+        # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
         for path, dirnames, filenames in os.walk(self.start_dir):
             for filename in filenames:
                 if filename.startswith('CROSSTOOL'):
@@ -198,15 +212,24 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
 
+        # compose "bazel build" command with all its options...
         cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir, 'build']
-        # https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
+
+        # build with optimization enabled
+        # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
         cmd.append('--compilation_mode=opt')
+
+        # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
         # https://docs.bazel.build/versions/master/user-manual.html#flag--config
         cmd.append('--config=opt')
+
+        # make Bazel print full command line + make it verbose on failures
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
-        # Limit the number of parallel jobs running simultaneously. Useful on KNL...
+
+
+        # limit the number of parallel jobs running simultaneously (useful on KNL)...
         cmd.append('--jobs=%s' % self.cfg['parallel'])
 
         if self.toolchain.options.get('pic', None):
@@ -233,10 +256,12 @@ class EB_TensorFlow(PythonPackage):
             cmd.extend(['--config=mkl'])
             cmd.insert(0, 'export TF_MKL_DOWNLOAD=1 &&' )
 
+        # specify target of the build command as last argument
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
 
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
+        # run generated 'build_pip_package' script to build the .whl
         cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
@@ -246,6 +271,7 @@ class EB_TensorFlow(PythonPackage):
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
+        # find .whl file that was built, and install it using 'pip install'
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % self.version))
         if len(whl_paths) == 1:
             # --upgrade is required to ensure *this* wheel is installed
