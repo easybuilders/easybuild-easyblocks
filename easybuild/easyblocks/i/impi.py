@@ -184,6 +184,7 @@ EULA=accept
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
                 'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
@@ -194,6 +195,7 @@ EULA=accept
                 'PATH': ['bin/intel64', 'bin64'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
                 'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
