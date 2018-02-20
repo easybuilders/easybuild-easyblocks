@@ -52,6 +52,9 @@ INTEL_COMPILER_WRAPPER = """#!/bin/bash
 export CPATH='%(cpath)s'
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
 
+# exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
+export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' ':')
+
 %(compiler_path)s "$@"
 """
 
@@ -77,12 +80,14 @@ class EB_TensorFlow(PythonPackage):
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            wrapper_dir = os.path.join(tmpdir, 'bin')
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
                 'cpath': os.getenv('CPATH'),
                 'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+                'wrapper_dir': wrapper_dir,
             }
-            icc_wrapper = os.path.join(tmpdir, 'bin', 'icc')
+            icc_wrapper = os.path.join(wrapper_dir, 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
             env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
             if self.dry_run:
