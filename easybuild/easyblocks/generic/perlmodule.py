@@ -36,7 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
-
+from easybuild.tools.environment import unset_env_vars
 
 class PerlModule(ExtensionEasyBlock, ConfigureMake):
     """Builds and installs a Perl module, and can provide a dedicated module file."""
@@ -53,6 +53,10 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Initialize custom class variables."""
         super(PerlModule, self).__init__(*args, **kwargs)
         self.testcmd = None
+        # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail. 
+        # Therefore it is better to unset these variables.
+        unset_env_vars(['PERL_MM_OPT', 'PERL_MB_OPT'])
+
 
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
