@@ -36,7 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
-
+from easybuild.tools.environment import unset_env_vars
 
 class PerlModule(ExtensionEasyBlock, ConfigureMake):
     """Builds and installs a Perl module, and can provide a dedicated module file."""
@@ -46,6 +46,12 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Easyconfig parameters specific to Perl modules."""
         extra_vars = {
             'runtest': ['test', "Run unit tests.", CUSTOM],  # overrides default
+            'extensions_configopts': [None, "configopts specific to extensions", CUSTOM],
+            'extensions_preconfigopts': [None, "preconfigopts specific to extensions", CUSTOM],
+            'extensions_buildopts': [None, "buildopts specific to extensions", CUSTOM],
+            'extensions_prebuildopts': [None, "prebuildopts specific to extensions", CUSTOM],
+            'extensions_installopts': [None, "installopts specific to extensions", CUSTOM],
+            'extensions_preinstallopts': [None, "preinstallopts specific to extensions", CUSTOM],
         }
         return ExtensionEasyBlock.extra_options(extra_vars)
 
@@ -53,9 +59,18 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Initialize custom class variables."""
         super(PerlModule, self).__init__(*args, **kwargs)
         self.testcmd = None
+        
+        # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail. 
+        # Therefore it is better to unset these variables.
+        unset_env_vars(['PERL_MM_OPT', 'PERL_MB_OPT'])
 
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
+        # if extensions_"var" was specified, use this one instead
+        for var in ['configopts', 'preconfigopts', 'buildopts', 'prebuildopts', 'installopts', 'preinstallopts']:
+            if self.cfg['extensions_' + var] is not None:
+                self.cfg[var] = self.cfg['extensions_' + var]
+
         # Perl modules have two possible installation procedures: using Makefile.PL and Build.PL
         # configure, build, test, install
         if os.path.exists('Makefile.PL'):

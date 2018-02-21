@@ -48,6 +48,12 @@ class EB_Perl(ConfigureMake):
         """Add extra config options specific to Perl."""
         extra_vars = {
             'use_perl_threads': [True, "Use internal Perl threads by means of the -Dusethreads compiler directive", CUSTOM],
+            'extensions_configopts': [None, "configopts specific to extensions", CUSTOM],
+            'extensions_preconfigopts': [None, "preconfigopts specific to extensions", CUSTOM],
+            'extensions_buildopts': [None, "buildopts specific to extensions", CUSTOM],
+            'extensions_prebuildopts': [None, "prebuildopts specific to extensions", CUSTOM],
+            'extensions_installopts': [None, "installopts specific to extensions", CUSTOM],
+            'extensions_preinstallopts': [None, "preinstallopts specific to extensions", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -57,14 +63,11 @@ class EB_Perl(ConfigureMake):
         """
         configopts = [
             self.cfg['configopts'],
-            '-Dcc="{0}"'.format(os.getenv('CC')),
-            '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
-            '-Dinc_version_list=none',
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
 
-        cmd = './Configure -de %s -Dprefix="%s"' % (' '.join(configopts), self.installdir)
+        cmd = '%s ./Configure -de -Dcc="$CC" -Dccflags="$CFLAGS" -Dinc_version_list=none -Dprefix="%s" %s' % (self.cfg['preconfigopts'], self.installdir, ' '.join(configopts) )
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
