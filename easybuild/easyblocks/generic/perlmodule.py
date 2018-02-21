@@ -58,9 +58,8 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
         # Perl modules have two possible installation procedures: using Makefile.PL and Build.PL
         # configure, build, test, install
-        unset_cmd = "unset PERL_MM_OPT PERL_MB_OPT"
         if os.path.exists('Makefile.PL'):
-            run_cmd('%s %s perl Makefile.PL PREFIX=%s %s' % (unset_cmd, self.cfg['preconfigopts'], self.installdir, self.cfg['configopts']))
+            run_cmd('%s perl Makefile.PL PREFIX=%s %s' % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts']))
             ConfigureMake.build_step(self)
             ConfigureMake.test_step(self)
             ConfigureMake.install_step(self)
@@ -68,7 +67,7 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
             run_cmd('%s perl Build.PL --prefix %s %s' % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts']))
             run_cmd('%s perl Build build %s' % (self.cfg['prebuildopts'], self.cfg['buildopts']))
             run_cmd('perl Build test')
-            run_cmd('%s %s perl Build install %s' % (unset_cmd, self.cfg['preinstallopts'], self.cfg['installopts']))
+            run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):
         """Perform the actual Perl module build/installation procedure"""
