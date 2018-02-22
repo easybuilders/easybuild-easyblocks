@@ -24,6 +24,8 @@
 ##
 """
 EasyBuild support for building and installing Stata, implemented as an easyblock
+
+author: Kenneth Hoste (HPC-UGent)
 """
 import os
 import re
@@ -66,7 +68,8 @@ class EB_Stata(PackedBinary):
         }
         super(EB_Stata, self).sanity_check_step(custom_paths=custom_paths)
 
-        # make sure required libpng library is there for stata
+        # make sure required libpng library is there for Stata
+        # Stata depends on a very old version of libpng, so we need to provide it
         out, _ = run_cmd("ldd %s" % os.path.join(self.installdir, 'stata'), simple=False)
         regex = re.compile('libpng.*not found', re.M)
         if regex.search(out):
