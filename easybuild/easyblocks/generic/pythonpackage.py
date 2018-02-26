@@ -234,7 +234,10 @@ class PythonPackage(ExtensionEasyBlock):
             # don't auto-install dependencies with pip unless use_pip_for_dependencies=True
             # the default is use_pip_for_dependencies=False
             if self.cfg.get('use_pip_for_dependencies') == False:
+                self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
+            else:
+                self.log.info("Using pip to also install the dependencies")
 
             # don't (try to) uninstall already availale versions of the package being installed
             self.cfg.update('installopts', '--ignore-installed')
