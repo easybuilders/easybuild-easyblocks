@@ -67,7 +67,6 @@ class EB_CUDA(Binary):
         # script has /usr/bin/perl hardcoded, but we want to have control over which perl is being used
         if LooseVersion(self.version) <= LooseVersion("5"):
             install_script = "install-linux.pl"
-            install_script_path = os.path.join(self.builddir, install_script)
             cmd = "%(preinstallopts)s perl ./%(script)s --prefix=%(installdir)s %(installopts)s" % {
                 'preinstallopts': self.cfg['preinstallopts'],
                 'script': install_script,
