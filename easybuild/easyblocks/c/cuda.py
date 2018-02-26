@@ -68,13 +68,23 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) <= LooseVersion("5"):
             install_script = "install-linux.pl"
             install_script_path = os.path.join(self.builddir, install_script)
-            cmd = "perl ./%s --prefix=%s %s" % (install_script, self.installdir, self.cfg['installopts'])
+            cmd = "%(preinstallopts)s perl ./%(script)s --prefix=%(installdir)s %(installopts)s" % {
+                'preinstallopts': self.cfg['preinstallopts'],
+                'script': install_script,
+                'installdir': self.installdir,
+                'installopts': self.cfg['installopts']
+            }
         else:
             # the following would require to include "osdependencies = 'libglut'" because of samples
             # installparams = "-samplespath=%(x)s/samples/ -toolkitpath=%(x)s -samples -toolkit" % {'x': self.installdir}
             install_script = "cuda-installer.pl"
             installparams = "-toolkitpath=%s -toolkit" % self.installdir
-            cmd = "perl ./%s -verbose -silent %s %s" % (install_script, installparams, self.cfg['installopts'])
+            cmd = "%(preinstallopts)s perl ./%(script)s -verbose -silent %(installparams)s %(installopts)s" % {
+                'preinstallopts': self.cfg['preinstallopts'],
+                'script': install_script,
+                'installparams': installparams,
+                'installopts': self.cfg['installopts']
+            }
 
         # prepare for running install script autonomously
         qanda = {}
