@@ -160,6 +160,11 @@ class Bundle(EasyBlock):
             # figure out correct start directory
             comp.guess_start_dir()
 
+            # need to run fetch_patches to ensure per-component patches are applied
+            comp.fetch_patches()
+            # location of first unpacked source is used to determine where to apply patch(es)
+            comp.src = [{'finalpath': comp.cfg['start_dir']}]
+
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:
                 if step_name in cfg['skipsteps']:
