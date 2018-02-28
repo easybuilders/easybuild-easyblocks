@@ -12,7 +12,7 @@ bugfix/update release
 - new software-specific easyblocks for COMSOL (#1317), Stata (#1241) and TensorFlow (#1287, #1361)
 - enhance GCC easyblock to support building generically (via 'generic' easyconfig parameter or --optarch=GENERIC) (#1336)
 - minor enhancements, including:
-  - enhance GROMACS easyblock to support for building on KNL (#1360)
+  - make GROMACS easyblock aware of building for KNL via --optarch=MIC-AVX512 (#1360)
   - unset PERL_MM_OPT and PERL_MB_OPT when installing Perl modules to avoid problems (#1362)
   - add custom 'use_pip_for_deps' easyconfig parameter to PythonPackage easyblock (#1366)
   - add support for 'default_component_specs' easyconfig parameter in Bundle easyblock (#1369)
