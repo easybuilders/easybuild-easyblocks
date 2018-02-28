@@ -9,20 +9,20 @@ v3.5.2 (March 2nd 2018)
 -----------------------
 
 bugfix/update release
-- new software-specific easyblocks for COMSOL (#1317), Stata (#1241) and TensorFlow (#1287)
-- update gcc easyblock to add enable-fat option (#1336)
+- new software-specific easyblocks for COMSOL (#1317), Stata (#1241) and TensorFlow (#1287, #1361)
+- enhance GCC easyblock to support building generically (via 'generic' easyconfig parameter or --optarch=GENERIC) (#1336)
 - minor enhancements, including:
-  - let impi modules also update $MANPATH (#1354)
-  - added KNL support for gromacs (#1360)
-  - don't use PERL_MM_OPT and PERL_MB_OPT (#1362)
-  - added option use_pip_for_dependencies for pythonpackages (#1366)
-  - make CUDA easyblock aware of preinstallopts (#1367)
+  - enhance GROMACS easyblock to support for building on KNL (#1360)
+  - unset PERL_MM_OPT and PERL_MB_OPT when installing Perl modules to avoid problems (#1362)
+  - add custom 'use_pip_for_deps' easyconfig parameter to PythonPackage easyblock (#1366)
+  - add support for 'default_component_specs' easyconfig parameter in Bundle easyblock (#1369)
 - various bug fixes, including:
-  - fix a break inside loading gdb-ia when using easybuild (#1224)
-  - fix Tkinter so it works with both Python 2 and 3 (#1347)
+  - fix logic in icc easyblock w.r.t. location of debugger libraries (libipt library for gdb) (#1224)
+  - fix Tkinter easyblock to install Tkinter 3.x (#1347)
+  - let impi modules also update $MANPATH (#1354)
   - enhance Octave extension filter to avoid false positives (#1355)
-  - fix icc wrapper used in TensorFlow easyblock to avoid other wrappers from calling it (#1361)
-  - add support for 'default_component_specs' easyconfig parameter in Bundle easyblock + fix handling of per-component (checksums for) patches (#1369)
+  - make CUDA easyblock aware of 'preinstallopts' easyconfig parameter (#1367)
+  - fix handling of per-component (checksums for) patches in Bundle easyblock (#1369)
 
 
 v3.5.1 (January 16th 2018)
