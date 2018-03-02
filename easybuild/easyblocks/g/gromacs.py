@@ -89,7 +89,9 @@ class EB_GROMACS(CMakeMake):
             optarch = optarch.get(comp_fam, '')
         optarch = optarch.upper()
 
-        if 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+        if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512_KNL'
+        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
         elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
