@@ -179,8 +179,11 @@ class EB_GROMACS(CMakeMake):
 
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
-            # build a release build
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+            # Select debug or release build
+            if self.toolchain.options.get('debug', None):
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Debug")
+            else:
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
