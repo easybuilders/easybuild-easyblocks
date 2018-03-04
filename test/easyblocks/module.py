@@ -307,8 +307,9 @@ def suite():
     excluded_easyblocks = ['versionindependendpythonpackage.py']
     easyblocks = [e for e in easyblocks if os.path.basename(e) not in excluded_easyblocks]
 
-    # add dummy PrgEnv-gnu/1.2.3 module, required for testing CrayToolchain easyblock
-    write_file(os.path.join(TMPDIR, 'modules', 'all', 'PrgEnv-gnu', '1.2.3'), "#%Module")
+    # add dummy PrgEnv-* modules, required for testing CrayToolchain easyblock
+    for prgenv in ['PrgEnv-cray', 'PrgEnv-gnu', 'PrgEnv-intel', 'PrgEnv-pgi']:
+        write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
