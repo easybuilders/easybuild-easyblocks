@@ -178,17 +178,18 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'download_dep_fail': [False, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -478,7 +479,18 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        run_cmd(cmd, log_all=True, simple=True)
+        (out, ec) = run_cmd(cmd, log_all=True, simple=False)
+
+        if self.cfg['download_dep_fail']:
+            self.log.info("Detection of downloaded depenencies enabled, checking output of '%s'...", cmd)
+            patterns = [
+                'Downloading.*pypi.*packages.*',  # setuptools
+                'Collecting .* \(from.*',  # pip
+            ]
+            for pattern in patterns:
+                res = re.compile(pattern, re.M).findall(out)
+                if res:
+                    raise EasyBuildError("Found one or more downloaded dependencies: %s", res)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
