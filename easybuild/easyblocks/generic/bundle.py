@@ -93,7 +93,7 @@ class Bundle(EasyBlock):
                 # add component sources to list of sources
                 self.cfg.update('sources', cfg['sources'])
             else:
-                raise EasyBuildError("No sources specification for component %d v%d", comp_name, comp_version)
+                raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
             if 'source_urls' in comp_specs:
                 # add per-component source_urls to list of bundle source_urls, expanding templates
