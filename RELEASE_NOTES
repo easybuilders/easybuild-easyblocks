@@ -5,6 +5,16 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 193 software-specific easyblocks and 31 generic easyblocks.
 
+v3.5.3 (March 7th 2018)
+-----------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - make gromacs easyblock select build type from toolchainopt debug setting. (#1374)
+  - re-enable testing against environment modules, bump Lmod to 7.7.16 (#1376)
+  - enhance Gurobi easyblock to support installing Python bindings (#1378)
+
+
 v3.5.2 (March 2nd 2018)
 -----------------------
 
