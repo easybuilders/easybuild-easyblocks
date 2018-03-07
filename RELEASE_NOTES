@@ -10,7 +10,7 @@ v3.5.3 (March 7th 2018)
 
 bugfix/update release
 - minor enhancements, including:
-  - make gromacs easyblock select build type from toolchainopt debug setting. (#1374)
+  - make GROMACS easyblock select build type based on value for 'debug' in 'toolchainopts' (#1374)
   - re-enable testing against environment modules, bump Lmod to 7.7.16 (#1376)
   - enhance Gurobi easyblock to support installing Python bindings (#1378)
 
