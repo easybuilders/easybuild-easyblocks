@@ -81,9 +81,9 @@ class EB_ifort(EB_icc, IntelBase):
         """
         Additional paths to consider for prepend-paths statements in module file
         """
-        guesses = super(EB_icc, self).make_module_req_guess()
+        guesses = super(EB_ifort, self).make_module_req_guess()
         if LooseVersion(self.version) >= LooseVersion('2016'):
             # This enables the creation of fortran 2008 bindings in MPI
-            guesses['CPATH'].extend(['include'])
+            guesses['CPATH'].append('include')
 
         return guesses
