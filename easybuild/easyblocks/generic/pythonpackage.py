@@ -184,6 +184,7 @@ class PythonPackage(ExtensionEasyBlock):
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
@@ -230,8 +231,13 @@ class PythonPackage(ExtensionEasyBlock):
         elif self.cfg.get('use_pip', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            # don't auto-install dependencies
-            self.cfg.update('installopts', '--no-deps')
+            # don't auto-install dependencies with pip unless use_pip_for_deps=True
+            # the default is use_pip_for_deps=False
+            if self.cfg.get('use_pip_for_deps'):
+                self.log.info("Using pip to also install the dependencies")
+            else:
+                self.log.info("Using pip with --no-deps option")
+                self.cfg.update('installopts', '--no-deps')
 
             # don't (try to) uninstall already availale versions of the package being installed
             self.cfg.update('installopts', '--ignore-installed')

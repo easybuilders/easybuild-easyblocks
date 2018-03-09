@@ -64,6 +64,10 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         # Therefore it is better to unset these variables.
         unset_env_vars(['PERL_MM_OPT', 'PERL_MB_OPT'])
 
+        # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail. 
+        # Therefore it is better to unset these variables.
+        unset_env_vars(['PERL_MM_OPT', 'PERL_MB_OPT'])
+
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
         # if extensions_"var" was specified, use this one instead

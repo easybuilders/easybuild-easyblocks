@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,14 +28,13 @@ EasyBuild support for installing COMSOL, implemented as an easyblock
 @author: Mikael OEhman (Chalmers University of Technology)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
-import re
 import os
+import re
 import shutil
 import stat
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, find_flexlm_license, read_file, write_file
 from easybuild.tools.modules import get_software_root
@@ -49,17 +48,15 @@ class EB_COMSOL(PackedBinary):
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to COMSOL."""
         super(EB_COMSOL, self).__init__(*args, **kwargs)
-        self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_setupconfig.ini')
 
     def configure_step(self):
         """Configure COMSOL installation: create license file."""
 
-        # The tar file comes from the DVD and has 0444 as permission at
-        # the top dir.
+        # The tar file comes from the DVD and has 0444 as permission at the top dir.
         adjust_permissions(self.start_dir, stat.S_IWUSR)
 
-        default_lic_env_var = 'LM_LICENSE_FILE'
+        default_lic_env_var = 'LMCOMSOL_LICENSE_FILE'
         lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
                                                               lic_specs=[self.cfg['license_file']])
 
@@ -74,7 +71,7 @@ class EB_COMSOL(PackedBinary):
             env.setvar(self.license_env_var, self.license_file)
         else:
             msg = "No viable license specifications found; "
-            msg += "specify 'license_file', or define $LM_LICENSE_FILE"
+            msg += "specify 'license_file', or define $%s" % default_lic_env_var
             raise EasyBuildError(msg)
 
         copy_file(os.path.join(self.start_dir, 'setupconfig.ini'), self.configfile)
@@ -87,7 +84,6 @@ class EB_COMSOL(PackedBinary):
             'firewall': '0',
             'installdir': self.installdir,
             'license': self.license_file,
-            'lictype': 'mph',
             'licmanager': '0',
             'linuxlauncher': '0',
             'showgui': '0',
@@ -110,16 +106,16 @@ class EB_COMSOL(PackedBinary):
     def install_step(self):
         """COMSOL install procedure using 'install' command."""
 
-        src = os.path.join(self.start_dir, 'setup')
+        setup_script = os.path.join(self.start_dir, 'setup')
 
         # make sure setup script is executable
-        adjust_permissions(src, stat.S_IXUSR)
+        adjust_permissions(setup_script, stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
         # this is a workaround for not being able to specify --nodisplay to the install scripts
         env.unset_env_vars(['DISPLAY'])
 
-        cmd = ' '.join((self.cfg['preinstallopts'], src, '-s', self.configfile, self.cfg['installopts']))
+        cmd = ' '.join([self.cfg['preinstallopts'], setup_script, '-s', self.configfile, self.cfg['installopts']])
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):

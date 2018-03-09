@@ -67,14 +67,17 @@ class EB_CUDA(Binary):
         # script has /usr/bin/perl hardcoded, but we want to have control over which perl is being used
         if LooseVersion(self.version) <= LooseVersion("5"):
             install_script = "install-linux.pl"
-            install_script_path = os.path.join(self.builddir, install_script)
-            cmd = "perl ./%s --prefix=%s %s" % (install_script, self.installdir, self.cfg['installopts'])
+            self.cfg.update('installopts', '--prefix=%s' % self.installdir)
         else:
-            # the following would require to include "osdependencies = 'libglut'" because of samples
-            # installparams = "-samplespath=%(x)s/samples/ -toolkitpath=%(x)s -samples -toolkit" % {'x': self.installdir}
             install_script = "cuda-installer.pl"
-            installparams = "-toolkitpath=%s -toolkit" % self.installdir
-            cmd = "perl ./%s -verbose -silent %s %s" % (install_script, installparams, self.cfg['installopts'])
+            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
+
+        cmd = "%(preinstallopts)s perl ./%(script)s %(installopts)s" % {
+            'preinstallopts': self.cfg['preinstallopts'],
+            'script': install_script,
+            'installopts': self.cfg['installopts']
+        }
 
         # prepare for running install script autonomously
         qanda = {}

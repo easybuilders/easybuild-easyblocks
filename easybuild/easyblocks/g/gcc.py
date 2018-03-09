@@ -45,11 +45,13 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 COMP_CMD_SYMLINKS = {
@@ -79,6 +81,8 @@ class EB_GCC(ConfigureMake):
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' & co when linking", CUSTOM],
+            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target " \
+                              "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -380,7 +384,13 @@ class EB_GCC(ConfigureMake):
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
-                        cmd += "--with-pic --disable-shared --enable-cxx"
+                        cmd += "--with-pic --disable-shared --enable-cxx "
+
+                        # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
+                        # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                            cmd += "--enable-fat "
+
                     elif lib == "ppl":
                         self.pplver = LooseVersion(stage2_info['versions']['ppl'])
 
@@ -402,6 +412,12 @@ class EB_GCC(ConfigureMake):
                     elif lib == "isl":
                         cmd = "./configure --prefix=%s --with-pic --disable-shared " % stage2prefix
                         cmd += "--with-gmp=system --with-gmp-prefix=%s " % stage2prefix
+
+                        # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
+                        # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                            cmd += "--without-gcc-arch "
+
                     elif lib == "cloog":
                         self.cloogname = stage2_info['names']['cloog']
                         self.cloogver = LooseVersion(stage2_info['versions']['cloog'])

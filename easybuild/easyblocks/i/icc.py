@@ -215,6 +215,12 @@ class EB_icc(IntelBase):
             for key, subdirs in guesses.items():
                 guesses[key] = [os.path.join(prefix, subdir) for subdir in subdirs]
 
+        # The for loop above breaks libipt library loading for gdb - this fixes that
+            guesses['LD_LIBRARY_PATH'].extend([
+                os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
+                'daal/lib/intel64_lin',
+            ])
+                
         # only set $IDB_HOME if idb exists
         idb_home_subdir = 'bin/intel64'
         if os.path.isfile(os.path.join(self.installdir, idb_home_subdir, 'idb')):
