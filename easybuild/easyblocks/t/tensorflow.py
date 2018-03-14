@@ -125,7 +125,7 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
+                'GCC_HOST_COMPILER_PATH': os.path.realpath(which(os.getenv('CC'))),
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
