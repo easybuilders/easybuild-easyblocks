@@ -125,7 +125,7 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': os.path.realpath(which(os.getenv('CC'))),
+                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
@@ -191,10 +191,11 @@ class EB_TensorFlow(PythonPackage):
 
         # fix hardcoded locations of compilers & tools
         cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
+        cxx_inc_dir_lines_no_resolv_path = '\n'.join(r'cxx_builtin_include_directory: "%s"' % p for p in inc_paths)
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines),
+            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines + '\n' + cxx_inc_dir_lines_no_resolv_path),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
