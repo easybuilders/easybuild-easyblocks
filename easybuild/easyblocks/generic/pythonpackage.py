@@ -203,7 +203,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgincdir = None
         self.testinstall = False
         self.testcmd = None
-        self.unpack_options = ''
+        self.unpack_options = self.cfg['unpack_options']
 
         self.python_cmd = None
         self.pylibdir = UNKNOWN
