@@ -372,7 +372,7 @@ class EB_imkl(IntelBase):
                 precs = ['']
             fftw_vers = ['2x%s%s' % (x, prec) for x in ['c', 'f'] for prec in precs] + ['3xc', '3xf']
             pics = ['', '_pic']
-            libs = ['libfftw%s%s%s.a' % (fftwver, compsuff, pic) for fftwver in fftw_vers for pic in pics]
+            libs += ['libfftw%s%s%s.a' % (fftwver, compsuff, pic) for fftwver in fftw_vers for pic in pics]
 
             fftw_cdft_vers = ['2x_cdft_DOUBLE']
             if not self.cfg['m32']:
