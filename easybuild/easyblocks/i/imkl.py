@@ -77,6 +77,34 @@ class EB_imkl(IntelBase):
             super(EB_imkl, self).prepare_step(*args, **kwargs)
         else:
             super(EB_imkl, self).prepare_step(*args, **kwargs)
+        if self.cfg['interfaces']:
+            cdftlibs = ['fftw2x_cdft']
+            if LooseVersion(self.version) >= LooseVersion('10.3'):
+                cdftlibs.append('fftw3x_cdft')
+            mpi_spec = None
+            # check whether MPI_FAMILY constant is defined, so mpi_family() can be used
+            if hasattr(self.toolchain, 'MPI_FAMILY') and self.toolchain.MPI_FAMILY is not None:
+                mpi_spec_by_fam = {
+                    toolchain.MPICH: 'mpich2',  # MPICH is MPICH v3.x, which is MPICH2 compatible
+                    toolchain.MPICH2: 'mpich2',
+                    toolchain.MVAPICH2: 'mpich2',
+                    toolchain.OPENMPI: 'openmpi',
+                }
+                mpi_fam = self.toolchain.mpi_family()
+                mpi_spec = mpi_spec_by_fam.get(mpi_fam)
+                self.log.debug("Determined MPI specification based on MPI toolchain component: %s" % mpi_spec)
+            else:
+                # can't use toolchain.mpi_family, because of dummy toolchain
+                if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
+                    mpi_spec = 'mpich2'
+                elif get_software_root('OpenMPI'):
+                    mpi_spec = 'openmpi'
+                elif not get_software_root('impi'):
+                    # no compatible MPI found: do not build cdft
+                    cdftlibs = []
+                self.log.debug("Determined MPI specification based on loaded MPI module: %s" % mpi_spec)
+            self.cdftlibs = cdftlibs
+            self.mpi_spec = mpi_spec
 
     def install_step(self):
         """
@@ -218,9 +246,8 @@ class EB_imkl(IntelBase):
             # blas95 and lapack also need include/.mod to be processed
             fftw2libs = ['fftw2xc', 'fftw2xf']
             fftw3libs = ['fftw3xc', 'fftw3xf']
-            cdftlibs = ['fftw2x_cdft']
-            if LooseVersion(self.version) >= LooseVersion('10.3'):
-                cdftlibs.append('fftw3x_cdft')
+            # cdftlibs set in prepare_step
+            cdftlibs = self.cdftlibs
 
             interfacedir = os.path.join(self.installdir, intsubdir)
             try:
@@ -265,28 +292,8 @@ class EB_imkl(IntelBase):
                 if lib in fftw3libs:
                     buildopts.append('install_to=$INSTALL_DIR')
                 elif lib in cdftlibs:
-                    mpi_spec = None
-                    # check whether MPI_FAMILY constant is defined, so mpi_family() can be used
-                    if hasattr(self.toolchain, 'MPI_FAMILY') and self.toolchain.MPI_FAMILY is not None:
-                        mpi_spec_by_fam = {
-                            toolchain.MPICH: 'mpich2',  # MPICH is MPICH v3.x, which is MPICH2 compatible
-                            toolchain.MPICH2: 'mpich2',
-                            toolchain.MVAPICH2: 'mpich2',
-                            toolchain.OPENMPI: 'openmpi',
-                        }
-                        mpi_fam = self.toolchain.mpi_family()
-                        mpi_spec = mpi_spec_by_fam.get(mpi_fam)
-                        self.log.debug("Determined MPI specification based on MPI toolchain component: %s" % mpi_spec)
-                    else:
-                        # can't use toolchain.mpi_family, because of dummy toolchain
-                        if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
-                            mpi_spec = 'mpich2'
-                        elif get_software_root('OpenMPI'):
-                            mpi_spec = 'openmpi'
-                        self.log.debug("Determined MPI specification based on loaded MPI module: %s" % mpi_spec)
-
-                    if mpi_spec is not None:
-                        buildopts.append('mpi=%s' % mpi_spec)
+                    if self.mpi_spec is not None:
+                        buildopts.append('mpi=%s' % self.mpi_spec)
 
                 precflags = ['']
                 if lib.startswith('fftw2x') and not self.cfg['m32']:
@@ -374,19 +381,20 @@ class EB_imkl(IntelBase):
             pics = ['', '_pic']
             libs = ['libfftw%s%s%s.a' % (fftwver, compsuff, pic) for fftwver in fftw_vers for pic in pics]
 
-            fftw_cdft_vers = ['2x_cdft_DOUBLE']
-            if not self.cfg['m32']:
-                fftw_cdft_vers.append('2x_cdft_SINGLE')
-            if ver >= LooseVersion('10.3'):
-                fftw_cdft_vers.append('3x_cdft')
-            if ver >= LooseVersion('11.0.2'):
-                bits = ['_lp64']
+            if self.cdftlibs:
+                fftw_cdft_vers = ['2x_cdft_DOUBLE']
                 if not self.cfg['m32']:
-                    bits.append('_ilp64')
-            else:
-                # no bits suffix in cdft libs before imkl v11.0.2
-                bits = ['']
-            libs += ['libfftw%s%s%s.a' % x for x in itertools.product(fftw_cdft_vers, bits, pics)]
+                    fftw_cdft_vers.append('2x_cdft_SINGLE')
+                if ver >= LooseVersion('10.3'):
+                    fftw_cdft_vers.append('3x_cdft')
+                if ver >= LooseVersion('11.0.2'):
+                    bits = ['_lp64']
+                    if not self.cfg['m32']:
+                        bits.append('_ilp64')
+                else:
+                    # no bits suffix in cdft libs before imkl v11.0.2
+                    bits = ['']
+                libs += ['libfftw%s%s%s.a' % x for x in itertools.product(fftw_cdft_vers, bits, pics)]
 
         if ver >= LooseVersion('10.3'):
             if self.cfg['m32']:
