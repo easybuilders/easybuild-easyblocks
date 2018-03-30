@@ -101,7 +101,8 @@ class EB_ABAQUS(Binary):
                 r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir, 'sim'),
                 r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
                 r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
-                r"License Server 1\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
+                r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
+                r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
                 r"License Server . \(redundant\)\s*(\n.*){3}:": '',
                 r"Please choose an action:": '1',
                 r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
@@ -122,35 +123,38 @@ class EB_ABAQUS(Binary):
             # also install hot fixes (if any)
             hotfixes = [src for src in self.src if 'CFA' in src['name']]
             if hotfixes:
-                # first install Part_3DEXP_SimulationServices hotfix(es)
-                hotfix_dir = os.path.join(self.builddir, 'Part_3DEXP_SimulationServices.Linux64', '1', 'Software')
-                change_dir(hotfix_dir)
 
-                # SIMULIA_ComputeServices part
-                subdirs = glob.glob('HF_SIMULIA_ComputeServices.HF*.Linux64')
-                if len(subdirs) == 1:
-                    subdir = subdirs[0]
-                else:
-                    raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+                # first install Part_3DEXP_SimulationServices hotfix(es), if any
+                hotfixes_3dexp = [src for src in self.src if 'CFA' in src['name'] and '3DEXP' in src['name']]
+                if hotfixes_3dexp:
+                    hotfix_dir = os.path.join(self.builddir, 'Part_3DEXP_SimulationServices.Linux64', '1', 'Software')
+                    change_dir(hotfix_dir)
 
-                cwd = change_dir(os.path.join(subdir, '1'))
-                std_qa = {
-                    "Enter selection \(default: Next\):": '',
-                    "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                    "Enter selection \(default: Install\):": '',
-                }
-                run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    # SIMULIA_ComputeServices part
+                    subdirs = glob.glob('HF_SIMULIA_ComputeServices.HF*.Linux64')
+                    if len(subdirs) == 1:
+                        subdir = subdirs[0]
+                    else:
+                        raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
-                # F_CAASIMULIAComputeServicesBuildTime part
-                change_dir(cwd)
-                subdirs = glob.glob('HF_CAASIMULIAComputeServicesBuildTime.HF*.Linux64')
-                if len(subdirs) == 1:
-                    subdir = subdirs[0]
-                else:
-                    raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+                    cwd = change_dir(os.path.join(subdir, '1'))
+                    std_qa = {
+                        "Enter selection \(default: Next\):": '',
+                        "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
+                        "Enter selection \(default: Install\):": '',
+                    }
+                    run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
-                change_dir(os.path.join(cwd, subdir, '1'))
-                run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    # F_CAASIMULIAComputeServicesBuildTime part
+                    change_dir(cwd)
+                    subdirs = glob.glob('HF_CAASIMULIAComputeServicesBuildTime.HF*.Linux64')
+                    if len(subdirs) == 1:
+                        subdir = subdirs[0]
+                    else:
+                        raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+
+                    change_dir(os.path.join(cwd, subdir, '1'))
+                    run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
                 # next install Part_SIMULIA_Abaqus_CAE hotfix
                 hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_Abaqus_CAE.Linux64', '1', 'Software')
@@ -167,7 +171,8 @@ class EB_ABAQUS(Binary):
                     "Enter selection \(default: Next\):": '',
                     "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
                     "Enter selection \(default: Install\):": '',
-                    "Please choose an action:": '',
+                    "\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
+                    "\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
                 }
                 run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
