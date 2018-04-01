@@ -49,9 +49,10 @@ class Spack(EasyBlock):
 
         self.spack_dir = None
 
-    def prepare_step(self):
-        """Prepare build environment & Spack"""
-        super(Spack, self).prepare_step()
+    def configure_step(self, cmd_prefix=''):
+        """
+        Configure step: prepare Spack for use and configure it
+        """
 
         # copy Spack to build directory
         # this is required to configure it for the software installation(s) that will be performed
@@ -72,10 +73,6 @@ class Spack(EasyBlock):
         # make Spack aware of available compilers (incl. toolchain compiler)
         run_cmd("spack compiler add --scope site")
 
-    def configure_step(self, cmd_prefix=''):
-        """
-        Configure step: ...
-        """
         # instruct Spack where to install software
         spack_cfg_txt = '\n'.join([
             'config:',
