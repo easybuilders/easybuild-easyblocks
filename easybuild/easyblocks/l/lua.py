@@ -36,12 +36,11 @@ i.e. configure/make/make install, implemented as an easyblock.
 import fileinput
 import os
 import re
+import sys
 
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_Lua(ConfigureMake):
@@ -59,15 +58,29 @@ class EB_Lua(ConfigureMake):
 
         src_dir = self.src[0]['finalpath']
 
-        luaconf_h = os.path.join(src_dir, 'luaconf.h')
+        luaconf_h = os.path.join(src_dir, 'src', 'luaconf.h')
 
         # Open file
         self.log.debug("Patching luaconf.h at {}".format(luaconf_h))
         for line in fileinput.input(luaconf_h, inplace=True):
             if line.startswith('#define LUA_ROOT'):
-                re.replace(r'/usr/local', self.install_subdir, line)
-                print(line)
+                installdir = os.path.join(self.installdir, '')  # Add trailing slash
+                line = re.sub(r'/usr/local/', installdir, line)
+            sys.stdout.write(line)
 
+    def test_step(self):
+        out = super(EB_Lua, self).test_step()
+
+        # Check if the path where lua looks for packages is correctly pointing
+        # to installdir
+        cmd = "src/lua -e 'io.write(package.path)'"
+
+        stdout, exitcode = run_cmd(cmd, log_all=True, simple=False)
+
+        if not(self.installdir in stdout):
+            raise EasyBuildError("package.path seems to not point in the right path")
+
+        return out
 
     def install_step(self):
         """
