@@ -57,6 +57,7 @@ class EB_psmpi(EB_MPICH):
         extra_vars.update({
             'mpich_opts': [None, "Optional options to configure MPICH", CUSTOM],
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
+            'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
         })
         return extra_vars
 
@@ -92,8 +93,11 @@ class EB_psmpi(EB_MPICH):
             self.cfg.update('configopts', ' --with-mpichconf="%s"' % self.cfg['mpich_opts'])
 
         # Lastly, set pscom related variables
-        self.cfg.update('preconfigopts', ('PSCOM_LDFLAGS=-L{0}/lib '+
-                'PSCOM_CPPFLAGS=-I{0}/include').format(get_software_root('pscom')))
+        if self.cfg['pscom_allin_path'] is None:
+            self.cfg.update('preconfigopts', ('PSCOM_LDFLAGS=-L{0}/lib '+
+                    'PSCOM_CPPFLAGS=-I{0}/include').format(get_software_root('pscom')))
+        else:
+            self.cfg.update('configopts', ' --with-pscom-allin="%s"' % self.cfg['pscom_allin_path'])
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
 
