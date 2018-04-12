@@ -48,6 +48,7 @@ class Spack(EasyBlock):
         super(Spack, self).__init__(*args, **kwargs)
 
         self.spack_dir = None
+        self.spack_spec = None
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -80,6 +81,27 @@ class Spack(EasyBlock):
         ])
         write_file(os.path.join(self.spack_dir, 'etc', 'spack', 'config.yaml'), spack_cfg_txt)
 
+        self.spack_spec = self.name.lower() + '@' + self.version
+
+        # make Spack aware of available dependencies
+        spack_pkgs_lines = ['packages:']
+
+        # Python is a special case (OK to use system Python)
+        python_root = os.path.dirname(os.path.dirname(which('python')))
+        out, ec = run_cmd('python --version', simple=False)
+        if ec:
+            raise EasyBuildError("Failed to determine (system) Python version: %s" % out)
+        else:
+            python_ver = out.strip().split(' ')[-1]
+
+        spack_pkgs_lines.extend([
+            '  python:',
+            '    paths:',
+            '      python@%s: %s' % (python_ver, python_root),
+        ])
+
+        write_file(os.path.join(self.spack_dir, 'etc', 'spack', 'packages.yaml'), '\n'.join(spack_pkgs_lines))
+
     def build_step(self, verbose=False, path=None):
         """
         Build step: ...
@@ -90,11 +112,7 @@ class Spack(EasyBlock):
         """
         Install step: ...
         """
-        cmd = [
-            'spack',
-            'install',
-            self.name.lower() + '@' + self.version,
-        ]
+        cmd = ["spack install %s " % self.spack_spec]
 
         # instruct Spack to use right compiler when a non-dummy toolchain is used
         if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
@@ -104,30 +122,14 @@ class Spack(EasyBlock):
                 comp_name = 'gcc'
             else:
                 comp_name = comp_name.lower()
-            cmd.append('%' + comp_name + '@' + comp_version)
+            cmd += '%' + comp_name + '@' + comp_version
 
-        run_cmd(' '.join(cmd))
+        run_cmd(cmd)
 
     def post_install_step(self):
         """
         Symlink installed software into top-level installation prefix
         """
-        topdir = os.path.join(self.installdir, 'spack')
-        for dirpath, dirnames, filenames in os.walk(topdir):
-            for fn in filenames:
-                # Spack installs into <platform>/<compiler>/<software> subdirectory, so strip those off for symlinks
-                subdirs = dirpath.replace(topdir + '/', '').split(os.path.sep)[3:]
-                if subdirs:
-                    subdirs = os.path.join(*subdirs)
-                    target_path = os.path.join(self.installdir, subdirs, fn)
-                else:
-                    target_path = os.path.join(self.installdir, fn)
+        super(Spack, self).post_install_step()
 
-                mkdir(os.path.dirname(target_path), parents=True)
-                if os.path.exists(target_path):
-                    raise EasyBuildError("%s already exists" % target_path)
-                else:
-                    symlink(os.path.join(dirpath, fn), target_path)
-
-            # ignore .spack subdirectory
-            dirnames[:] = [d for d in dirnames if d not in ['.spack']]
+        run_cmd("spack view symlink %s %s" % (self.installdir, self.spack_spec))
