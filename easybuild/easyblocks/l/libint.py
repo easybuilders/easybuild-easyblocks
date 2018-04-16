@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ import os.path
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Libint(ConfigureMake):
@@ -46,24 +47,38 @@ class EB_Libint(ConfigureMake):
             # Enforce consistency.
             self.cfg.update('configopts', "--with-pic")
 
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
+        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('2.1'):
             # the code in libint is automatically generated and hence it is in some
             # parts so complex that -O2 or -O3 compiler optimization takes forever
             self.cfg.update('configopts', "--with-cxx-optflags='-O1'")
 
         super(EB_Libint, self).configure_step()
 
+    def test_step(self):
+        """Run Libint test suite for recent versions"""
+        if LooseVersion(self.version) >= LooseVersion('2.1') and self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'check'
+
+        super(EB_Libint, self).test_step()
+
     def sanity_check_step(self):
         """Custom sanity check for Libint."""
+        shlib_ext = get_shared_lib_ext()
+
         if LooseVersion(self.version) >= LooseVersion('2.0'):
             custom_paths = {
-                'files': ['lib/libint2.a', 'lib/libint2.so', 'include/libint2/libint2.h'],
-                'dirs': [],
+                'files': ['lib/libint2.a', 'lib/libint2.%s' % shlib_ext],
+                'dirs': ['include/libint2'],
             }
+            if LooseVersion(self.version) >= LooseVersion('2.1'):
+                custom_paths['files'].extend(['include/libint2.h', 'include/libint2.hpp'])
+                custom_paths['dirs'].extend(['share/libint', 'lib/pkgconfig'])
+            else:
+                custom_paths['files'].append('include/libint2/libint2.h')
         else:
             custom_paths = {
                 'files': ['include/libint/libint.h', 'include/libint/hrr_header.h', 'include/libint/vrr_header.h',
-                          'lib/libint.a', 'lib/libint.so'],
+                          'lib/libint.a', 'lib/libint.%s' % shlib_ext],
                 'dirs': [],
             }
         super(EB_Libint, self).sanity_check_step(custom_paths=custom_paths)

@@ -1,14 +1,14 @@
 # #
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,16 +30,19 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
-
+import fileinput
 import os
-import shutil
+import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_impi(IntelBase):
@@ -55,6 +58,13 @@ class EB_impi(IntelBase):
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
+
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_impi, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_impi, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -124,6 +134,24 @@ EULA=accept
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
             run_cmd(cmd, log_all=True, simple=True)
 
+    def post_install_step(self):
+        """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
+        super(EB_impi, self).post_install_step()
+
+        impiver = LooseVersion(self.version)
+        if impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
+            if impiver >= LooseVersion('2018.0.128'):
+                script_paths = [os.path.join('intel64', 'bin')]
+            else:
+                script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
+            # fix broken env scripts after the move
+            regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
+            for script in [os.path.join(script_path,'mpivars.csh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            for script in [os.path.join(script_path,'mpivars.sh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
 
@@ -139,7 +167,7 @@ EULA=accept
             'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
                      ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
                      ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
-                     ["lib%s/libmpi.so" % suff, "lib%s/libmpi.a" % suff],
+                     ["lib%s/libmpi.%s" % (suff, get_shared_lib_ext()), "lib%s/libmpi.a" % suff],
             'dirs': [],
         }
 
@@ -156,7 +184,9 @@ EULA=accept
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
+                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
         else:
             lib_dirs = ['lib/em64t', 'lib64']
@@ -165,13 +195,14 @@ EULA=accept
                 'PATH': ['bin/intel64', 'bin64'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
+                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
-        txt = super(EB_impi, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file], allow_abs=True)
+        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:
@@ -192,12 +223,13 @@ EULA=accept
         if self.cfg['set_mpi_wrapper_aliases_gcc'] or self.cfg['set_mpi_wrappers_all']:
             # force mpigcc/mpigxx to use GCC compilers, as would be expected based on their name
             txt += self.module_generator.set_alias('mpigcc', 'mpigcc -cc=gcc')
-            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cc=g++')
+            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cxx=g++')
 
         if self.cfg['set_mpi_wrapper_aliases_intel'] or self.cfg['set_mpi_wrappers_all']:
             # do the same for mpiicc/mpiipc/mpiifort to be consistent, even if they may not exist
             txt += self.module_generator.set_alias('mpiicc', 'mpiicc -cc=icc')
-            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cc=icpc')
-            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -cc=ifort')
+            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cxx=icpc')
+            # -fc also works, but -f90 takes precedence
+            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -f90=ifort')
 
         return txt

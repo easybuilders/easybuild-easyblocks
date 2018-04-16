@@ -1,14 +1,14 @@
 ##
-# Copyright 2012-2015 Ghent University
+# Copyright 2012-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,11 +26,17 @@
 EasyBuild support for building and installing R, implemented as an easyblock
 
 @author: Jens Timmerman (Ghent University)
+@author: Kenneth Hoste (Ghent University)
 """
 import os
+import re
+from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools import environment
+from easybuild.tools.build_log import print_warning
+from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 EXTS_FILTER_R_PACKAGES = ("R -q --no-save", "library(%(ext_name)s)")
@@ -52,11 +58,53 @@ class EB_R(ConfigureMake):
         self.cfg['exts_filter'] = EXTS_FILTER_R_PACKAGES
 
     def configure_step(self):
-        """Configuration step, we set FC, F77 is already set by EasyBuild to the right compiler,
-        FC is used for Fortan90"""
-        environment.setvar("FC", self.toolchain.get_variable('F90'))
-        ConfigureMake.configure_step(self)
-    
+        """Custom configuration for R."""
+
+        # define $BLAS_LIBS to build R correctly against BLAS/LAPACK library
+        # $LAPACK_LIBS should *not* be specified since that may lead to using generic LAPACK
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/1435
+        env.setvar('BLAS_LIBS', os.getenv('LIBBLAS'))
+        self.cfg.update('configopts', "--with-blas --with-lapack")
+
+        # make sure correct config script is used for Tcl/Tk
+        for dep in ['Tcl', 'Tk']:
+            root = get_software_root(dep)
+            if root:
+                dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
+                self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
+
+        if get_software_root('X11'):
+            self.cfg.update('configopts', '--with-x=yes')
+        else:
+            self.cfg.update('configopts', '--with-x=no')
+
+        # enable graphic capabilities for plotting, based on available dependencies
+        for dep in ['Cairo', 'libjpeg-turbo', 'libpng', 'libtiff']:
+            if get_software_root(dep):
+                if dep == 'libjpeg-turbo':
+                    conf_opt = 'jpeglib'
+                else:
+                    conf_opt = dep.lower()
+                self.cfg.update('configopts', '--with-%s' % conf_opt)
+
+        out = ConfigureMake.configure_step(self)
+
+        # check output of configure command to verify BLAS/LAPACK settings
+        ext_libs_regex = re.compile("External libraries:.*BLAS\((?P<BLAS>.*)\).*LAPACK\((?P<LAPACK>.*)\)")
+        res = ext_libs_regex.search(out)
+        if res:
+            for lib in ['BLAS', 'LAPACK']:
+                if res.group(lib) == 'generic':
+                    warn_msg = "R will be built with generic %s, which will result in poor performance." % lib
+                    self.log.warning(warn_msg)
+                    print_warning(warn_msg)
+                else:
+                    self.log.info("R is configured to use non-generic %s: %s", lib, res.group(lib))
+        else:
+            warn_msg = "R is configured to be built without BLAS/LAPACK, which will result in (very) poor performance"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
+
     def make_module_req_guess(self):
         """
         Add extra paths to modulefile
@@ -73,12 +121,16 @@ class EB_R(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for R."""
+        shlib_ext = get_shared_lib_ext()
 
         libfiles = [os.path.join('include', x) for x in ['Rconfig.h', 'Rdefines.h', 'Rembedded.h',
                                                          'R.h', 'Rinterface.h', 'Rinternals.h',
                                                          'Rmath.h', 'Rversion.h', 'S.h']]
-        libfiles += [os.path.join('modules', x) for x in ['internet.so', 'lapack.so', 'vfonts.so']]
-        libfiles += ['lib/libR.so']
+        modfiles = ['internet.%s' % shlib_ext, 'lapack.%s' % shlib_ext]
+        if LooseVersion(self.version) < LooseVersion('3.2'):
+            modfiles.append('vfonts.%s' % shlib_ext)
+        libfiles += [os.path.join('modules', x) for x in modfiles]
+        libfiles += ['lib/libR.%s' % shlib_ext]
 
         custom_paths = {
             'files': ['bin/%s' % x for x in ['R', 'Rscript']] +

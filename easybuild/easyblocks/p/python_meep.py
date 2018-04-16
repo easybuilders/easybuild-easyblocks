@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,6 +56,7 @@ class EB_python_minus_meep(PythonPackage):
         for dep in deps:
             if not get_software_root(dep):
                 raise EasyBuildError("Module for %s not loaded.", dep)
+        super(EB_python_minus_meep, self).configure_step()
 
     def build_step(self):
         """Build python-meep using available make/make-mpi script."""
@@ -135,9 +136,9 @@ class EB_python_minus_meep(PythonPackage):
         txt = super(EB_python_minus_meep, self).make_module_extra()
 
         meep = get_software_root('Meep')
-
-        txt += self.module_generator.set_environment('MEEP_INCLUDE', os.path.join(meep, 'include'))
-        txt += self.module_generator.set_environment('MEEP_LIB', os.path.join(meep, 'lib'))
+        if meep is not None:
+            txt += self.module_generator.set_environment('MEEP_INCLUDE', os.path.join(meep, 'include'))
+            txt += self.module_generator.set_environment('MEEP_LIB', os.path.join(meep, 'lib'))
 
         for var in ["PYTHONMEEPPATH", "PYTHONMEEP_INCLUDE", "PYTHONPATH"]:
             txt += self.module_generator.set_environment(var, os.path.join(self.installdir, 'site-packages'))

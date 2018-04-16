@@ -1,14 +1,14 @@
 ##
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,9 +47,11 @@ rc_regexp = re.compile("^.*(rc[0-9]*)$")
 res = rc_regexp.search(str(VERSION))
 if res:
     suff = res.group(1)
-dev_regexp = re.compile("^.*[0-9]dev$")
-if dev_regexp.match(str(VERSION)):
-    suff = 'dev'
+
+dev_regexp = re.compile("^.*[0-9](.?dev[0-9])$")
+res = dev_regexp.search(str(VERSION))
+if res:
+    suff = res.group(1)
 
 API_VERSION += suff
 
@@ -77,22 +79,24 @@ setup(
     description = """Python modules which implement support for installing particular (groups of) software packages with EasyBuild.""",
     license = "GPLv2",
     keywords = "software build building installation installing compilation HPC scientific",
-    url = "http://hpcugent.github.com/easybuild",
+    url = "https://easybuilders.github.io/easybuild",
     packages = ["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
     package_dir = {"easybuild.easyblocks": "easybuild/easyblocks"},
     package_data = {'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
     long_description = read("README.rst"),
     classifiers = [
-                   "Development Status :: 5 - Production/Stable",
-                   "Environment :: Console",
-                   "Intended Audience :: System Administrators",
-                   "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
-                   "Operating System :: POSIX :: Linux",
-                   "Programming Language :: Python :: 2.4",
-                   "Topic :: Software Development :: Build Tools",
-                  ],
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Intended Audience :: System Administrators",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 2.4",
+        "Topic :: Software Development :: Build Tools",
+    ],
     platforms = "Linux",
-    provides = ["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
-    install_requires = ["easybuild-framework >= %s" % API_VERSION],
+    install_requires = [
+        'setuptools >= 0.6',
+        "easybuild-framework >= %s" % API_VERSION,
+    ],
     zip_safe = False,
 )

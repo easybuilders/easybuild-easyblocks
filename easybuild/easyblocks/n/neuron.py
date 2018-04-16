@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,9 +34,13 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
+
+from distutils.version import LooseVersion
 
 
 class EB_NEURON(ConfigureMake):
@@ -46,9 +50,9 @@ class EB_NEURON(ConfigureMake):
         """Initialisation of custom class variables for NEURON."""
         super(EB_NEURON, self).__init__(*args, **kwargs)
 
-        self.hostcpu = None
+        self.hostcpu = 'UNKNOWN'
         self.with_python = False
-        self.pylibdir = None
+        self.pylibdir = 'UNKNOWN'
 
     @staticmethod
     def extra_options():
@@ -116,30 +120,26 @@ class EB_NEURON(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for NEURON."""
-
+        shlib_ext = get_shared_lib_ext()
         binpath = os.path.join(self.hostcpu, 'bin')
-        libpath = os.path.join(self.hostcpu, 'lib', 'lib%s.so')
-        custom_paths = {
-                        'files': [os.path.join(binpath, x) for x in ["bbswork.sh", "hel2mos1.sh",
-                                                                     "hoc_ed", "ivoc", "memacs",
-                                                                     "mkthreadsafe", "modlunit",
-                                                                     "mos2nrn", "mos2nrn2.sh",
-                                                                     "neurondemo", "nocmodl",
-                                                                     "oc"]] +
-                                 [os.path.join(binpath, "nrn%s" % x) for x in ["gui", "iv",
-                                                                               "iv_makefile",
-                                                                               "ivmodl",
-                                                                               "mech_makefile",
-                                                                               "oc",
-                                                                               "oc_makefile",
-                                                                               "ocmodl"]] +
-                                 [libpath % x for x in ["ivoc", "ivos", "memacs", "meschach",
-                                                        "neuron_gnu", "nrniv", "nrnmpi", "nrnoc",
-                                                        "nrnpython", "oc", "ocxt", "scopmath",
-                                                        "sparse13", "sundials"]],
-                        'dirs': ['include/nrn', 'share/nrn']
-                       }
+        libpath = os.path.join(self.hostcpu, 'lib', 'lib%s.' + shlib_ext)
+        binaries = ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn", 
+                    "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
 
+        # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
+        # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
+        # others) to be considered a mistake in the distribution
+        if LooseVersion(self.version) < LooseVersion('7.4'):
+            binaries.append("hoc_ed")
+
+        custom_paths = {
+            'files': [os.path.join(binpath, x) for x in binaries] +
+                     [os.path.join(binpath, "nrn%s" % x) for x in ["gui", "iv", "iv_makefile", "ivmodl",
+                                                                   "mech_makefile", "oc", "oc_makefile", "ocmodl"]] +
+                     [libpath % x for x in ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi",
+                                            "nrnoc", "nrnpython", "oc", "ocxt", "scopmath", "sparse13", "sundials"]],
+            'dirs': ['include/nrn', 'share/nrn'],
+        }
         super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
 
         try:
@@ -149,15 +149,15 @@ class EB_NEURON(ConfigureMake):
 
         # test NEURON demo
         inp = '\n'.join([
-                         "demo(3) // load the pyramidal cell model.",
-                         "init()  // initialise the model",
-                         "t       // should be zero",
-                         "soma.v  // will print -65",
-                         "run()   // run the simulation",
-                         "t       // should be 5, indicating that 5ms were simulated",
-                         "soma.v  // will print a value other than -65, indicating that the simulation was executed",
-                         "quit()",
-                        ])
+            "demo(3) // load the pyramidal cell model.",
+            "init()  // initialise the model",
+            "t       // should be zero",
+            "soma.v  // will print -65",
+            "run()   // run the simulation",
+            "t       // should be 5, indicating that 5ms were simulated",
+            "soma.v  // will print a value other than -65, indicating that the simulation was executed",
+            "quit()",
+        ])
         (out, ec) = run_cmd("neurondemo", simple=False, log_all=True, log_output=True, inp=inp)
 
         validate_regexp = re.compile("^\s+-65\s*\n\s+5\s*\n\s+-68.134337", re.M)
@@ -166,29 +166,31 @@ class EB_NEURON(ConfigureMake):
         else:
             self.log.info("Validation of NEURON demo OK!")
 
-        nproc = self.cfg['parallel']
+        if build_option('mpi_tests'):
+            nproc = self.cfg['parallel']
+            try:
+                cwd = os.getcwd()
+                os.chdir(os.path.join(self.cfg['start_dir'], 'src', 'parallel'))
 
-        try:
-            cwd = os.getcwd()
-            os.chdir(os.path.join(self.cfg['start_dir'], 'src', 'parallel'))
+                cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
+                (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
 
-            cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
-            (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
+                os.chdir(cwd)
+            except OSError, err:
+                raise EasyBuildError("Failed to run parallel hello world: %s", err)
 
-            os.chdir(cwd)
-        except OSError, err:
-            raise EasyBuildError("Failed to run parallel hello world: %s", err)
-
-        valid = True
-        for i in range(0, nproc):
-            validate_regexp = re.compile("I am %d of %d" % (i, nproc))
-            if not validate_regexp.search(out):
-                valid = False
-                break
-        if ec or not valid:
-            raise EasyBuildError("Validation of parallel hello world run failed.")
+            valid = True
+            for i in range(0, nproc):
+                validate_regexp = re.compile("I am %d of %d" % (i, nproc))
+                if not validate_regexp.search(out):
+                    valid = False
+                    break
+            if ec or not valid:
+                raise EasyBuildError("Validation of parallel hello world run failed.")
+            else:
+                self.log.info("Parallel hello world OK!")
         else:
-            self.log.info("Parallel hello world OK!")
+            self.log.info("Skipping MPI testing of NEURON since MPI testing is disabled")
 
         # cleanup
         self.clean_up_fake_module(fake_mod_data)
@@ -199,13 +201,13 @@ class EB_NEURON(ConfigureMake):
         guesses = super(EB_NEURON, self).make_module_req_guess()
 
         guesses.update({
-                        'PATH': [os.path.join(self.hostcpu, 'bin')],
-                       })
+            'PATH': [os.path.join(self.hostcpu, 'bin')],
+        })
 
         if self.with_python:
             guesses.update({
-                            'PYTHONPATH': [self.pylibdir],
-                           })
+                'PYTHONPATH': [self.pylibdir],
+            })
 
         return guesses
 

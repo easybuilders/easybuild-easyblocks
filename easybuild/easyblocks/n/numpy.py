@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ EasyBuild support for building and installing numpy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import glob
 import os
 import re
 import tempfile
@@ -38,14 +39,24 @@ import tempfile
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import change_dir, mkdir, rmtree2
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from distutils.version import LooseVersion
 
 
 class EB_numpy(FortranPythonPackage):
     """Support for installing the numpy Python package as part of a Python installation."""
+
+    @staticmethod
+    def extra_options():
+        """Easyconfig parameters specific to numpy."""
+        extra_vars = ({
+            'blas_test_time_limit': [500, "Time limit (in ms) for 1000x1000 matrix dot product BLAS test", CUSTOM],
+        })
+        return FortranPythonPackage.extra_options(extra_vars=extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Initialize numpy-specific class variables."""
@@ -53,20 +64,19 @@ class EB_numpy(FortranPythonPackage):
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
-        self.installopts = ''
         self.testinstall = True
-        self.testcmd = "cd .. && python -c 'import numpy; numpy.test(verbose=2)'"
+        self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
 
         # see e.g. https://github.com/numpy/numpy/pull/2809/files
         self.sitecfg = '\n'.join([
-                "[DEFAULT]",
-                "library_dirs = %(libs)s",
-                "include_dirs= %(includes)s",
-                "search_static_first=True",
-            ])
+            "[DEFAULT]",
+            "library_dirs = %(libs)s",
+            "include_dirs= %(includes)s",
+            "search_static_first=True",
+        ])
 
         if get_software_root("imkl"):
 
@@ -107,7 +117,7 @@ class EB_numpy(FortranPythonPackage):
             def get_libs_for_mkl(varname):
                 """Get list of libraries as required for MKL patch file."""
                 libs = self.toolchain.variables['LIB%s' % varname].copy()
-                libs.try_remove(['pthread'])
+                libs.try_remove(['pthread', 'dl'])
                 tweaks = {
                     'prefix': '',
                     'prefix_begin_end': '-Wl:',
@@ -166,6 +176,26 @@ class EB_numpy(FortranPythonPackage):
         if fft:
             extrasiteconfig += "\n[fftw]\nlibraries = %s" % fft
 
+        suitesparseroot = get_software_root('SuiteSparse')
+        if suitesparseroot:
+            amddir = os.path.join(suitesparseroot, 'AMD')
+            umfpackdir = os.path.join(suitesparseroot, 'UMFPACK')
+
+            if not os.path.exists(amddir) or not os.path.exists(umfpackdir):
+                raise EasyBuildError("Expected SuiteSparse subdirectories are not both there: %s, %s",
+                                     amddir, umfpackdir)
+            else:
+                extrasiteconfig += '\n'.join([
+                    "[amd]",
+                    "library_dirs = %s" % os.path.join(amddir, 'Lib'),
+                    "include_dirs = %s" % os.path.join(amddir, 'Include'),
+                    "amd_libs = amd",
+                    "[umfpack]",
+                    "library_dirs = %s" % os.path.join(umfpackdir, 'Lib'),
+                    "include_dirs = %s" % os.path.join(umfpackdir, 'Include'),
+                    "umfpack_libs = umfpack",
+                ])
+
         self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
 
         self.sitecfg = self.sitecfg % {
@@ -178,7 +208,7 @@ class EB_numpy(FortranPythonPackage):
         super(EB_numpy, self).configure_step()
 
         # check configuration (for debugging purposes)
-        cmd = "python setup.py config"
+        cmd = "%s setup.py config" % self.python_cmd
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
@@ -187,8 +217,12 @@ class EB_numpy(FortranPythonPackage):
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
-        cmd = "python setup.py install --prefix=%s %s" % (tmpdir, self.installopts)
-        run_cmd(cmd, log_all=True, simple=True)
+        abs_pylibdirs = [os.path.join(tmpdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        for pylibdir in abs_pylibdirs:
+            mkdir(pylibdir, parents=True)
+        pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
+        cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
+        run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
         try:
             pwd = os.getcwd()
@@ -198,10 +232,9 @@ class EB_numpy(FortranPythonPackage):
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
         size = 1000
-        max_time_msec = 1000  # 1 second should really do it for a 1000x1000 matrix dot product
         cmd = ' '.join([
-            'export PYTHONPATH=%s:$PYTHONPATH &&' % os.path.join(tmpdir, self.pylibdir),
-            'python -m timeit -n 3 -r 3',
+            pythonpath,
+            '%s -m timeit -n 3 -r 3' % self.python_cmd,
             '-s "import numpy; x = numpy.random.random((%(size)d, %(size)d))"' % {'size': size},
             '"numpy.dot(x, x.T)"',
         ])
@@ -219,33 +252,71 @@ class EB_numpy(FortranPythonPackage):
             res = sec_re.search(out)
             if res:
                 time_msec = 1000 * float(res.group('time'))
+            elif self.dry_run:
+                # use fake value during dry run
+                time_msec = 123
+                self.log.warning("Using fake value for time required for %dx%d matrix dot product under dry run: %s",
+                                 size, size, time_msec)
             else:
                 raise EasyBuildError("Failed to determine time for numpy.dot test run.")
 
         # make sure we observe decent performance
-        if time_msec < max_time_msec:
+        if time_msec < self.cfg['blas_test_time_limit']:
             self.log.info("Time for %dx%d matrix dot product: %d msec < %d msec => OK",
-                          size, size, time_msec, max_time_msec)
+                          size, size, time_msec, self.cfg['blas_test_time_limit'])
         else:
             raise EasyBuildError("Time for %dx%d matrix dot product: %d msec >= %d msec => ERROR",
-                                 size, size, time_msec, max_time_msec)
+                                 size, size, time_msec, self.cfg['blas_test_time_limit'])
         try:
             os.chdir(pwd)
             rmtree2(tmpdir)
         except OSError, err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
+    def install_step(self):
+        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
+        super(EB_numpy, self).install_step()
+
+        builddir = os.path.join(self.builddir, "numpy")
+        try:
+            if os.path.isdir(builddir):
+                os.chdir(self.builddir)
+                rmtree2(builddir)
+            else:
+                self.log.debug("build dir %s already clean" % builddir)
+
+        except OSError as err:
+            raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
+
+    def run(self):
+        """Install numpy as an extension"""
+        super(EB_numpy, self).run()
+
+        return self.make_module_extra_numpy_include()
+
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
         custom_paths = {
-            'files': [os.path.join(self.pylibdir, 'numpy', '__init__.py')],
-            'dirs': [],
+            'files': [],
+            'dirs': [self.pylibdir],
         }
         custom_commands = [
             ('python', '-c "import numpy"'),
-            ('python', '-c "import numpy.core._dotblas"'),  # _dotblas is required for decent performance of numpy.dot()
         ]
+        if LooseVersion(self.version) >= LooseVersion("1.10"):
+            # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
+            # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
+            blas_check_pytxt = '; '.join([
+                "import sys",
+                "import numpy",
+                "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
+                "sys.exit((1, 0)[blas_ok])",
+            ])
+            custom_commands.append(('python', '-c "%s"' % blas_check_pytxt))
+        else:
+            # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
+            custom_commands.append (('python', '-c "import numpy.core._dotblas"'))
 
         # make sure the installation path is in $PYTHONPATH so the sanity check commands can work
         pythonpath = os.environ.get('PYTHONPATH', '')
@@ -253,12 +324,30 @@ class EB_numpy(FortranPythonPackage):
 
         return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def install_step(self):
-        """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
-        super(EB_numpy, self).install_step()
+    def make_module_extra_numpy_include(self):
+        """
+        Return update statements for $CPATH specifically for numpy
+        """
+        numpy_core_subdir = os.path.join('numpy', 'core')
+        numpy_core_dirs = []
+        cwd = change_dir(self.installdir)
+        for pylibdir in self.all_pylibdirs:
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, numpy_core_subdir)))
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, 'numpy*.egg', numpy_core_subdir)))
+        change_dir(cwd)
 
-        builddir = os.path.join(self.builddir, "numpy")
-        if os.path.isdir(builddir):
-            rmtree2(builddir)
-        else:
-            self.log.debug("build dir %s already clean" % builddir)
+        txt = ''
+        for numpy_core_dir in numpy_core_dirs:
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join(numpy_core_dir, 'include'))
+            for lib_env_var in ('LD_LIBRARY_PATH', 'LIBRARY_PATH'):
+                txt += self.module_generator.prepend_paths(lib_env_var, os.path.join(numpy_core_dir, 'lib'))
+
+        return txt
+
+    def make_module_extra(self):
+        """
+        Add additional update statements in module file specific to numpy
+        """
+        txt = super(EB_numpy, self).make_module_extra()
+        txt += self.make_module_extra_numpy_include()
+        return txt

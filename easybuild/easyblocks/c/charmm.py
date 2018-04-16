@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,6 +55,11 @@ class EB_CHARMM(EasyBlock):
             'system_size': ["medium", "Specify the supported systemsize: %s" % ', '.join(KNOWN_SYSTEM_SIZES), CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialisation of custom class variables for CHARMM."""
+        super(EB_CHARMM, self).__init__(*args, **kwargs)
+        self.arch = 'UNKNOWN'
 
     def configure_step(self):
         # Clean out old dir but don't create new one

@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -61,6 +61,9 @@ class EB_PETSc(ConfigureMake):
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
             'papi_lib': ['/usr/lib64/libpapi.so', "Path for PAPI library", CUSTOM],
             'runtest': ['test', "Make target to test build", BUILD],
+            'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
+            'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
+            'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -79,6 +82,18 @@ class EB_PETSc(ConfigureMake):
         Configure procedure is much more concise for older versions (< v3).
         """
         if LooseVersion(self.version) >= LooseVersion("3"):
+            # make the install dir first if we are doing a download install, then keep it for the rest of the way
+            deps = self.cfg["download_deps"] + self.cfg["download_deps_static"] + self.cfg["download_deps_shared"]
+            if deps:
+                self.log.info("Creating the installation directory before the configure.")
+                self.make_installdir()
+                self.cfg["keeppreviousinstall"] = True
+                for dep in set(deps):
+                    self.cfg.update('configopts', '--download-%s=1' % dep)
+                for dep in self.cfg["download_deps_static"]:
+                    self.cfg.update('configopts', '--download-%s-shared=0' % dep)
+                for dep in self.cfg["download_deps_shared"]:
+                    self.cfg.update('configopts', '--download-%s-shared=1' % dep)
 
             # compilers
             self.cfg.update('configopts', '--with-cc="%s"' % os.getenv('CC'))
@@ -270,18 +285,17 @@ class EB_PETSc(ConfigureMake):
 
         guesses = super(EB_PETSc, self).make_module_req_guess()
 
-        prefix1 = ""
-        prefix2 = ""
+        prefix1 = ''
+        prefix2 = ''
         if self.cfg['sourceinstall']:
             prefix1 = self.petsc_subdir
             prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
 
         guesses.update({
-                        'PATH': [os.path.join(prefix1, "bin")],
-                        'CPATH': [os.path.join(prefix2, "include"),
-                                  os.path.join(prefix1, "include")],
-                        'LD_LIBRARY_PATH': [os.path.join(prefix2, "lib")]
-                        })
+            'CPATH': [os.path.join(prefix2, 'include'), os.path.join(prefix1, 'include')],
+            'LD_LIBRARY_PATH': [os.path.join(prefix2, 'lib')],
+            'PATH': [os.path.join(prefix1, 'bin')],
+        })
 
         return guesses
 
@@ -292,7 +306,6 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['sourceinstall']:
             txt += self.module_generator.set_environment('PETSC_DIR', os.path.join(self.installdir, self.petsc_subdir))
             txt += self.module_generator.set_environment('PETSC_ARCH', self.petsc_arch)
-
         else:
             txt += self.module_generator.set_environment('PETSC_DIR', self.installdir)
 
@@ -301,8 +314,8 @@ class EB_PETSc(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for PETSc"""
 
-        prefix1 = ""
-        prefix2 = ""
+        prefix1 = ''
+        prefix2 = ''
         if self.cfg['sourceinstall']:
             prefix1 = self.petsc_subdir
             prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
@@ -310,12 +323,16 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['shared_libs']:
             libext = get_shared_lib_ext()
         else:
-            libext = "a"
+            libext = 'a'
 
         custom_paths = {
-                        'files': [os.path.join(prefix2, "lib", "libpetsc.%s" % libext)],
-                        'dirs': [os.path.join(prefix1, "bin"), os.path.join(prefix2, "conf"),
-                                 os.path.join(prefix1, "include"), os.path.join(prefix2, "include")]
-                       }
+            'files': [os.path.join(prefix2, 'lib', 'libpetsc.%s' % libext)],
+            'dirs': [os.path.join(prefix1, 'bin'), os.path.join(prefix1, 'include'),
+                     os.path.join(prefix2, 'include')]
+        }
+        if LooseVersion(self.version) < LooseVersion('3.6'):
+            custom_paths['dirs'].append(os.path.join(prefix2, 'conf'))
+        else:
+            custom_paths['dirs'].append(os.path.join(prefix2, 'lib', 'petsc', 'conf'))
 
         super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths)

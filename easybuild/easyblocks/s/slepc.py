@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -145,6 +145,10 @@ class EB_SLEPc(ConfigureMake):
         """Custom sanity check for SLEPc"""
         custom_paths = {
             'files': [],
-            'dirs': [os.path.join(self.slepc_subdir, x) for x in ["conf", "include", "lib"]],
+            'dirs': [os.path.join(self.slepc_subdir, x) for x in ['include', 'lib']],
         }
+        if LooseVersion(self.version) < LooseVersion('3.6'):
+            custom_paths['dirs'].append('conf')
+        else:
+            custom_paths['dirs'].append(os.path.join('lib', 'slepc', 'conf'))
         super(EB_SLEPc, self).sanity_check_step(custom_paths=custom_paths)

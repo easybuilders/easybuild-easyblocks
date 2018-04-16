@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,18 +30,14 @@ EasyBuild support for building and installing FDTD Solutions, implemented as an 
 import glob
 import os
 import shutil
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.easyblocks.generic.rpm import rebuild_rpm
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd_qa
 
 
-class EB_FDTD_underscore_Solutions(EasyBlock):
+class EB_FDTD_underscore_Solutions(PackedBinary):
     """Support for building/installing FDTD Solutions."""
-
-    def configure_step(self):
-        """No configuration for FDTD Solutions."""
-        pass
 
     def build_step(self):
         """No build step for FDTD Solutions."""

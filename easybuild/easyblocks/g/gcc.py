@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,8 +34,8 @@ EasyBuild support for building and installing GCC, implemented as an easyblock
 @author: Ward Poelmans (Ghent University)
 """
 
-import re
 import os
+import re
 import shutil
 from copy import copy
 from distutils.version import LooseVersion
@@ -45,9 +45,21 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_shared_lib_ext, get_platform_name
+from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
+from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+
+
+COMP_CMD_SYMLINKS = {
+    'cc': 'gcc',
+    'c++': 'g++',
+    'f77': 'gfortran',
+    'f95': 'gfortran',
+}
 
 
 class EB_GCC(ConfigureMake):
@@ -60,6 +72,7 @@ class EB_GCC(ConfigureMake):
     def extra_options():
         extra_vars = {
             'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
+            'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
             'withlto': [True, "Enable LTO support", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
@@ -67,6 +80,9 @@ class EB_GCC(ConfigureMake):
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
+            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' & co when linking", CUSTOM],
+            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target " \
+                              "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -75,12 +91,12 @@ class EB_GCC(ConfigureMake):
 
         self.stagedbuild = False
 
-        if self.version >= LooseVersion("4.8.0") and self.cfg['clooguseisl'] and not self.cfg['withisl']:
+        if LooseVersion(self.version) >= LooseVersion("4.8.0") and self.cfg['clooguseisl'] and not self.cfg['withisl']:
             raise EasyBuildError("Using ISL bundled with CLooG is unsupported in >=GCC-4.8.0. "
                                  "Use a seperate ISL: set withisl=True")
 
-        # I think ISL without CLooG has no purpose in GCC...
-        if self.cfg['withisl'] and not self.cfg['withcloog']:
+        # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
+        if LooseVersion(self.version) < LooseVersion("5.0.0") and self.cfg['withisl'] and not self.cfg['withcloog']:
             raise EasyBuildError("Activating ISL without CLooG is pointless")
 
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
@@ -88,6 +104,8 @@ class EB_GCC(ConfigureMake):
         # ubuntu needs the LIBRARY_PATH env var to work apparently (#363)
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
+
+        self.platform_lib = get_platform_name(withversion=True)
 
     def create_dir(self, dirname):
         """
@@ -237,6 +255,10 @@ class EB_GCC(ConfigureMake):
         if self.cfg['languages']:
             self.configopts += " --enable-languages=%s" % ','.join(self.cfg['languages'])
 
+        # enable building of libiberty, if desired
+        if self.cfg['withlibiberty']:
+            self.configopts += " --enable-install-libiberty"
+
         # enable link-time-optimization (LTO) support, if desired
         if self.cfg['withlto']:
             self.configopts += " --enable-lto"
@@ -247,6 +269,7 @@ class EB_GCC(ConfigureMake):
         if self.cfg['multilib']:
             glibc_32bit = [
                 "glibc.i686",  # Fedora, RedHat-based
+                "glibc.ppc",   # "" on Power
                 "libc6-dev-i386",  # Debian-based
                 "gcc-c++-32bit",  # OpenSuSE, SLES
             ]
@@ -284,6 +307,16 @@ class EB_GCC(ConfigureMake):
             self.log.info("Performing regular GCC build...")
             configopts += " --prefix=%(p)s --with-local-prefix=%(p)s" % {'p': self.installdir}
 
+        # prioritize lib over lib{64,32,x32} for all architectures by overriding default MULTILIB_OSDIRNAMES config
+        # only do this when multilib is not enabled
+        if self.cfg['prefer_lib_subdir'] and not self.cfg['multilib']:
+            cfgfile = 'gcc/config/i386/t-linux64'
+            multilib_osdirnames = "MULTILIB_OSDIRNAMES = m64=../lib:../lib64 m32=../lib:../lib32 mx32=../lib:../libx32"
+            self.log.info("Patching MULTILIB_OSDIRNAMES in %s with '%s'", cfgfile, multilib_osdirnames)
+            write_file(cfgfile, multilib_osdirnames, append=True)
+        elif self.cfg['multilib']:
+            self.log.info("Not patching MULTILIB_OSDIRNAMES since use of --enable-multilib is enabled")
+
         # III) create obj dir to build in, and change to it
         #     GCC doesn't like to be built in the source dir
         if self.stagedbuild:
@@ -299,8 +332,6 @@ class EB_GCC(ConfigureMake):
         out, ec = run_cmd("../config.guess", simple=False)
         if ec == 0:
             self.platform_lib = out.rstrip()
-        else:
-            self.platform_lib = get_platform_name(withversion=True)
 
         self.run_configure_cmd(cmd)
 
@@ -353,7 +384,13 @@ class EB_GCC(ConfigureMake):
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
-                        cmd += "--with-pic --disable-shared --enable-cxx"
+                        cmd += "--with-pic --disable-shared --enable-cxx "
+
+                        # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
+                        # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                            cmd += "--enable-fat "
+
                     elif lib == "ppl":
                         self.pplver = LooseVersion(stage2_info['versions']['ppl'])
 
@@ -375,6 +412,12 @@ class EB_GCC(ConfigureMake):
                     elif lib == "isl":
                         cmd = "./configure --prefix=%s --with-pic --disable-shared " % stage2prefix
                         cmd += "--with-gmp=system --with-gmp-prefix=%s " % stage2prefix
+
+                        # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
+                        # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                            cmd += "--without-gcc-arch "
+
                     elif lib == "cloog":
                         self.cloogname = stage2_info['names']['cloog']
                         self.cloogver = LooseVersion(stage2_info['versions']['cloog'])
@@ -471,7 +514,7 @@ class EB_GCC(ConfigureMake):
             if self.cfg['withcloog']:
                 configopts += "--with-cloog=%s " % stage2prefix
 
-                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion("0.16") and self.version < LooseVersion("4.8.0"):
+                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion("0.16") and LooseVersion(self.version) < LooseVersion("4.8.0"):
                     configopts += "--enable-cloog-backend=isl "
 
             if self.cfg['withisl']:
@@ -488,6 +531,24 @@ class EB_GCC(ConfigureMake):
         super(EB_GCC, self).build_step()
 
     # make install is just standard install_step, nothing special there
+
+    def post_install_step(self, *args, **kwargs):
+        """
+        Post-processing after installation: add symlinks for cc, c++, f77, f95
+        """
+        super(EB_GCC, self).post_install_step(*args, **kwargs)
+
+        bindir = os.path.join(self.installdir, 'bin')
+        for key in COMP_CMD_SYMLINKS:
+            src = COMP_CMD_SYMLINKS[key]
+            target = os.path.join(bindir, key)
+            if os.path.exists(target):
+                self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
+                              key, bindir, src)
+            elif os.path.exists(os.path.join(bindir, src)):
+                symlink(src, target, use_abspath_source=False)
+            else:
+                raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
     def sanity_check_step(self):
         """
@@ -506,7 +567,7 @@ class EB_GCC(ConfigureMake):
         if os_type == 'Linux':
             lib_files.extend(["libgcc_s.%s" % sharedlib_ext])
             # libmudflap is replaced by asan (see release notes gcc 4.9.0)
-            if self.version < LooseVersion("4.9.0"):
+            if LooseVersion(self.version) < LooseVersion("4.9.0"):
                 lib_files.extend(["libmudflap.%s" % sharedlib_ext, "libmudflap.a"])
             else:
                 lib_files.extend(["libasan.%s" % sharedlib_ext, "libasan.a"])
@@ -552,8 +613,10 @@ class EB_GCC(ConfigureMake):
         libdirs = ['libexec', 'lib']
         libexec_files = [tuple([os.path.join(libdir, common_infix, x) for libdir in libdirs]) for x in libexec_files]
 
+        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
+
         custom_paths = {
-            'files': bin_files + lib_files + libexec_files,
+            'files': bin_files + lib_files + libexec_files + old_cmds,
             'dirs': dirs,
         }
 

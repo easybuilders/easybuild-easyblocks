@@ -1,14 +1,14 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ import glob
 import os
 import re
 import tempfile
-from vsc import fancylogger
+from vsc.utils import fancylogger
 from unittest import TestCase, TestLoader, main
 
 import easybuild.tools.options as eboptions
@@ -41,6 +41,8 @@ from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
+from easybuild.tools.filetools import write_file
+from easybuild.tools.options import set_tmpdir
 from easybuild.tools.module_naming_scheme import GENERAL_CLASS
 from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa
 from easybuild.tools.environment import modify_env, read_environment
@@ -58,15 +60,15 @@ class InitTest(TestCase):
         'valid_stops': [x[0] for x in EasyBlock.get_steps()],
     }
     config.init_build_options(build_options=build_options)
-    config.set_tmpdir()
+    set_tmpdir()
     del eb_go
 
-    def writeEC(self, easyblock, extratxt=''):
+    def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt=''):
         """ create temporary easyconfig file """
         txt = '\n'.join([
             'easyblock = "%s"',
-            'name = "foo"',
-            'version = "1.3.2"',
+            'name = "%s"' % name,
+            'version = "%s"' % version,
             'homepage = "http://example.com"',
             'description = "Dummy easyconfig file."',
             'toolchain = {"name": "dummy", "version": "dummy"}',
@@ -74,9 +76,7 @@ class InitTest(TestCase):
             extratxt,
         ])
 
-        f = open(self.eb_file, "w")
-        f.write(txt % easyblock)
-        f.close()
+        write_file(self.eb_file, txt % easyblock)
 
     def setUp(self):
         """Setup test."""
@@ -89,11 +89,11 @@ class InitTest(TestCase):
         try:
             os.remove(self.eb_file)
         except OSError, err:
-            self.log.error("Failed to remove %s/%s: %s" % (self.eb_file, err))
+            self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
-def template_init_test(self, easyblock):
-    """Test whether all easyconfigs can be initialized."""
+def template_init_test(self, easyblock, name='foo', version='1.3.2'):
+    """Test whether all easyblocks can be initialized."""
 
     def check_extra_options_format(extra_options):
         """Make sure extra_options value is of correct format."""
@@ -124,6 +124,14 @@ def template_init_test(self, easyblock):
     for regex in log_method_regexes:
         self.assertFalse(regex.search(txt), "No match for '%s' in %s" % (regex.pattern, easyblock))
 
+    # make sure that (named) arguments get passed down for prepare_step
+    if re.search('def prepare_step', txt):
+        regex = re.compile(r"def prepare_step\(self, \*args, \*\*kwargs\):")
+        self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
+    if re.search('\.prepare_step\(', txt):
+        regex = re.compile(r"\.prepare_step\(.*\*args,.*\*\*kwargs\.*\)")
+        self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
+
     # obtain easyblock class name using regex
     res = class_regex.search(txt)
     if res:
@@ -142,7 +150,7 @@ def template_init_test(self, easyblock):
                 extra_txt += '%s = "foo"\n' % key
 
         # write easyconfig file
-        self.writeEC(ebname, extra_txt)
+        self.writeEC(ebname, name=name, version=version, extratxt=extra_txt)
 
         # initialize easyblock
         # if this doesn't fail, the test succeeds
@@ -170,6 +178,7 @@ def template_init_test(self, easyblock):
     else:
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
+
 def suite():
     """Return all easyblock initialisation tests."""
 
@@ -180,7 +189,15 @@ def suite():
 
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to InitTest
-        exec("def innertest(self): template_init_test(self, '%s')" % easyblock)
+        if os.path.basename(easyblock) == 'systemcompiler.py':
+            # use GCC as name when testing SystemCompiler easyblock
+            exec("def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock)
+        elif os.path.basename(easyblock) == 'systemmpi.py':
+            # use OpenMPI as name when testing SystemMPI easyblock
+            exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock)
+        else:
+            exec("def innertest(self): template_init_test(self, '%s')" % easyblock)
+
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(InitTest, innertest.__name__, innertest)

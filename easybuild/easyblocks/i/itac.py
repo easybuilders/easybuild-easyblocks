@@ -1,14 +1,14 @@
 # #
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -125,20 +125,22 @@ EULA=accept
         if self.cfg['m32']:
             guesses.update({
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib'],
+                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib', 'slib'],
             })
         else:
             guesses.update({
                 'PATH': ['bin', 'bin/intel64', 'bin64'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64'],
+                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
             })
         return guesses
 
     def make_module_extra(self):
         """Overwritten from IntelBase to add extra txt"""
         txt = super(EB_itac, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file], allow_abs=True)
         txt += self.module_generator.set_environment('VT_ROOT', self.installdir)
         txt += self.module_generator.set_environment('VT_MPI', self.cfg['preferredmpi'])
         txt += self.module_generator.set_environment('VT_ADD_LIBS', "-ldwarf -lelf -lvtunwind -lnsl -lm -ldl -lpthread")
+        if LooseVersion(self.version) >= LooseVersion('9.0'):
+            txt += self.module_generator.set_environment('VT_LIB_DIR', self.installdir + "/lib")
+            txt += self.module_generator.set_environment('VT_SLIB_DIR', self.installdir + "/slib")
         return txt

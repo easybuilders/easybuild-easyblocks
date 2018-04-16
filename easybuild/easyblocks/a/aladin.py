@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,7 +39,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir
+from easybuild.tools.modules import get_software_root, get_software_libdir
 from easybuild.tools.ordereddict import OrderedDict
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -53,7 +54,7 @@ class EB_ALADIN(EasyBlock):
 
         self.conf_file = None
         self.conf_filepath = None
-        self.rootpack_dir = None
+        self.rootpack_dir = 'UNKNOWN'
 
         self.orig_library_path = None
 
@@ -73,7 +74,7 @@ class EB_ALADIN(EasyBlock):
         if 'LIBRARY_PATH' in os.environ:
             self.log.debug("Unsetting $LIBRARY_PATH (was: %s)" % os.environ['LIBRARY_PATH'])
             self.orig_library_path = os.environ.pop('LIBRARY_PATH')
-        
+
         # build auxiliary libraries
         auxlibs_dir = None
 
@@ -130,7 +131,7 @@ class EB_ALADIN(EasyBlock):
                  }
 
             run_cmd_qa("./build_gmkpack", qa)
- 
+
             os.chdir(cwd)
 
             paths = os.getenv('PATH').split(':')
@@ -144,16 +145,16 @@ class EB_ALADIN(EasyBlock):
 
         # generate gmkpack configuration file
         self.conf_file = 'ALADIN_%s' % self.version
-        self.conf_filepath = os.path.join(self.builddir, 'arch', '%s.x' % self.conf_file)
+        self.conf_filepath = os.path.join(self.builddir, 'gmkpack_support', 'arch', '%s.x' % self.conf_file)
 
         try:
             if os.path.exists(self.conf_filepath):
                 os.remove(self.conf_filepath)
                 self.log.info("Removed existing gmpack config file %s" % self.conf_filepath)
 
-            archdir = os.path.join(self.builddir, 'arch')
+            archdir = os.path.dirname(self.conf_filepath)
             if not os.path.exists(archdir):
-                os.makedirs(archdir)
+                mkdir(archdir, parents=True)
 
         except OSError, err:
             raise EasyBuildError("Failed to remove existing file %s: %s", self.conf_filepath, err)
@@ -181,9 +182,21 @@ class EB_ALADIN(EasyBlock):
         grib_api_f90_lib = os.path.join(get_software_root('grib_api'), 'lib', 'libgrib_api_f90.a')
         grib_api_inc = os.path.join(get_software_root('grib_api'), 'include')
         jasperlib = os.path.join(get_software_root('JasPer'), 'lib', 'libjasper.a')
-        netcdflib = os.path.join(get_software_root('netCDF'), 'lib', 'libnetcdff.a')
-        netcdfinc = os.path.join(get_software_root('netCDF'), 'include')
         mpilib = os.path.join(os.getenv('MPI_LIB_DIR'), os.getenv('MPI_LIB_SHARED'))
+
+        # netCDF
+        netcdf = get_software_root('netCDF')
+        netcdf_fortran = get_software_root('netCDF-Fortran')
+        if netcdf:
+            netcdfinc = os.path.join(netcdf, 'include')
+            if netcdf_fortran:
+                netcdflib = os.path.join(netcdf_fortran, get_software_libdir('netCDF-Fortran'), 'libnetcdff.a')
+            else:
+                netcdflib = os.path.join(netcdf, get_software_libdir('netCDF'), 'libnetcdff.a')
+            if not os.path.exists(netcdflib):
+                raise EasyBuildError("%s does not exist", netcdflib)
+        else:
+            raise EasyBuildError("netCDF(-Fortran) not available")
 
         ldpaths = [ldflag[2:] for ldflag in os.getenv('LDFLAGS').split(' ')]  # LDFLAGS have form '-L/path/to'
 
@@ -228,7 +241,7 @@ class EB_ALADIN(EasyBlock):
 
         stdqa = OrderedDict([
             (r'Confirm library .* is .*', 'y'),  # this one needs to be tried first!
-            (r'.*fortran 90 compiler name .*\s*:\n\(suggestions\s*: .*\)', os.getenv('F90')),
+            (r'.*fortran 90 compiler name .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
             (r'.*fortran 90 compiler interfaced with .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
             (r'Please type the ABSOLUTE name of .*library.*, or ignore\s*[:]*\s*[\n]*.*', ''),
             (r'Please .* to save this draft configuration file :\n.*', '%s.x' % self.conf_file),
@@ -249,6 +262,10 @@ class EB_ALADIN(EasyBlock):
         env.setvar('HOMEPACK', os.path.join(self.installdir, 'pack'))
         env.setvar('HOMEBIN', os.path.join(self.installdir, 'pack'))
 
+        # patch config file to include right Fortran compiler flags
+        regex_subs = [(r"^(FRTFLAGS\s*=.*)$", r"\1 %s" % os.getenv('FFLAGS'))]
+        apply_regex_substitutions(self.conf_filepath, regex_subs)
+
     def build_step(self):
         """No separate build procedure for ALADIN (see install_step)."""
 
@@ -265,8 +282,8 @@ class EB_ALADIN(EasyBlock):
         """Custom install procedure for ALADIN."""
 
         try:
-            os.mkdir(os.getenv('ROOTPACK'))
-            os.mkdir(os.getenv('HOMEPACK'))
+            mkdir(os.getenv('ROOTPACK'), parents=True)
+            mkdir(os.getenv('HOMEPACK'), parents=True)
         except OSError, err:
             raise EasyBuildError("Failed to create rootpack dir in %s: %s", err)
 
@@ -304,28 +321,23 @@ class EB_ALADIN(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for ALADIN."""
-
         bindir = os.path.join(self.rootpack_dir, 'bin')
         libdir = os.path.join(self.rootpack_dir, 'lib')
         custom_paths = {
-                        'files': [os.path.join(bindir, x) for x in ['MASTER']] +
-                                 [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
-                                                                                      'bla', 'mpa', 'mse', 'obt',
-                                                                                      'odb', 'sat', 'scr', 'sct',
-                                                                                      'sur', 'surfex', 'tal', 'tfl',
-                                                                                      'uti', 'xla', 'xrd']],
-                        'dirs': [],
-                       }
-
+            'files': [os.path.join(bindir, x) for x in ['MASTER']] +
+                     [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
+                                                                          'bla', 'mpa', 'mse', 'obt',
+                                                                          'odb', 'sat', 'scr', 'sct',
+                                                                          'sur', 'surfex', 'tal', 'tfl',
+                                                                          'uti', 'xla', 'xrd']],
+            'dirs': [],
+        }
         super(EB_ALADIN, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
         """Custom guesses for environment variables (PATH, ...) for ALADIN."""
-
         guesses = super(EB_ALADIN, self).make_module_req_guess()
-
         guesses.update({
-                        'PATH': [os.path.join(self.rootpack_dir, 'bin')],
-                       })
-
+            'PATH': [os.path.join(self.rootpack_dir, 'bin')],
+        })
         return guesses

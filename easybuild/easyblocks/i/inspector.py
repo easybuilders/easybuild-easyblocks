@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 EasyBuild support for installing Intel Inspector, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 from distutils.version import LooseVersion
 
@@ -36,6 +37,23 @@ class EB_Inspector(IntelBase):
     """
     Support for installing Intel Inspector
     """
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor; define class variables."""
+        super(EB_Inspector, self).__init__(*args, **kwargs)
+
+        # recent versions of Inspector are installed to a subdirectory
+        self.subdir = ''
+        loosever = LooseVersion(self.version)
+        if loosever >= LooseVersion('2013_update7') and loosever < LooseVersion('2017'):
+            self.subdir = 'inspector_xe'
+        elif loosever >= LooseVersion('2017'):
+            self.subdir = 'inspector'
+
+    def make_installdir(self):
+        """Do not create installation directory, install script handles that already."""
+        super(EB_Inspector, self).make_installdir(dontcreate=True)
+
     def install_step(self):
         """
         Actual installation
@@ -53,54 +71,11 @@ class EB_Inspector(IntelBase):
         super(EB_Inspector, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-
-        guesses = super(EB_Inspector, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses.update({
-                'PATH': ['bin32'],
-                'LD_LIBRARY_PATH': ['lib32'],
-                'LIBRARY_PATH': ['lib32'],
-            })
-        else:
-            guesses.update({
-                'PATH': ['bin64'],
-                'LD_LIBRARY_PATH': ['lib64'],
-                'LIBRARY_PATH': ['lib64'],
-            })
-
-        guesses.update({
-            'CPATH': ['include'],
-            'FPATH': ['include'],
-        })
-
-        return guesses
-
-    def make_module_extra(self):
-        """Custom variable definitions in module file."""
-        
-        txt = super(EB_Inspector, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, self.license_file, allow_abs=True)
-
-        return txt
+        """Find reasonable paths for Inspector"""
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel Inspector."""
-
         binaries = ['inspxe-cl', 'inspxe-feedback', 'inspxe-gui', 'inspxe-runmc', 'inspxe-runtc']
-        if self.cfg['m32']:
-            files = ["bin32/%s" % x for x in binaries]
-            dirs = ["lib32", "include"]
-        else:
-            files = ["bin64/%s" % x for x in binaries]
-            dirs = ["lib64", "include"]
-
-        custom_paths = {
-                        'files': files,
-                        'dirs': dirs,
-                       }
-
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_Inspector, self).sanity_check_step(custom_paths=custom_paths)

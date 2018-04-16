@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_CGAL(CMakeMake):
@@ -56,11 +57,11 @@ class EB_CGAL(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for CGAL."""
-
+        shlib_ext = get_shared_lib_ext()
+        libdirs = ('lib', 'lib64')
+        libs = [tuple(os.path.join(d, 'libCGAL%s.%s' % (l, shlib_ext)) for d in libdirs) for l in ['', '_Core']]
         custom_paths = {
-                        'files': ['bin/cgal_%s' % x for x in ["create_cmake_script", "make_macosx_app"]] +
-                                 ['lib/libCGAL%s.so' % x for x in ["", "_Core"]],
-                        'dirs':['include/CGAL', 'lib/CGAL']
-                       }
-
+            'files': ['bin/cgal_%s' % x for x in ['create_cmake_script', 'make_macosx_app']] + libs,
+            'dirs': ['include/CGAL', ('lib/CGAL', 'lib64/CGAL')],
+        }
         super(EB_CGAL, self).sanity_check_step(custom_paths=custom_paths)

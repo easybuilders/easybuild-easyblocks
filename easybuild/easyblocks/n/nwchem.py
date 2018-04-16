@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, mkdir
+from easybuild.tools.filetools import adjust_permissions, mkdir, write_file
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
@@ -93,15 +93,12 @@ class EB_NWChem(ConfigureMake):
             if os.path.exists(self.home_nwchemrc) or os.path.islink(self.home_nwchemrc):
                 # create a dummy file to check symlink
                 if not os.path.exists(self.local_nwchemrc):
-                    local_nwchemrc_dir = os.path.dirname(self.local_nwchemrc)
-                    if not os.path.exists(local_nwchemrc_dir):
-                        os.makedirs(local_nwchemrc_dir)
-                    f = open(self.local_nwchemrc, 'w')
-                    f.write('dummy')
-                    f.close()
+                    write_file(self.local_nwchemrc, 'dummy')
+
                 self.log.debug("Contents of %s: %s", os.path.dirname(self.local_nwchemrc),
                                os.listdir(os.path.dirname(self.local_nwchemrc)))
-                if os.path.exists(self.home_nwchemrc) and not os.path.samefile(self.home_nwchemrc, self.local_nwchemrc):
+
+                if os.path.islink(self.home_nwchemrc) and not os.path.samefile(self.home_nwchemrc, self.local_nwchemrc):
                     raise EasyBuildError("Found %s, but it's not a symlink to %s. "
                                          "Please (re)move %s while installing NWChem; it can be restored later",
                                          self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
@@ -110,14 +107,18 @@ class EB_NWChem(ConfigureMake):
         except (IOError, OSError), err:
             raise EasyBuildError("Failed to validate %s symlink: %s", self.home_nwchemrc, err)
 
-        # building NWChem in a long path name is an issue, so let's make sure we have a short one
+        # building NWChem in a long path name is an issue, so let's try to make sure we have a short one
         try:
             # NWChem insists that version is in name of build dir
-            tmpdir = tempfile.mkdtemp(suffix=self.version)
+            tmpdir = tempfile.mkdtemp(suffix='-%s-%s' % (self.name, self.version))
+            # remove created directory, since we're not going to use it as is
             os.rmdir(tmpdir)
-            os.symlink(self.cfg['start_dir'], tmpdir)
-            os.chdir(tmpdir)
-            self.cfg['start_dir'] = tmpdir
+            # avoid having '['/']' characters in build dir name, NWChem doesn't like that
+            start_dir = tmpdir.replace('[', '_').replace(']', '_')
+            mkdir(os.path.dirname(start_dir), parents=True)
+            os.symlink(self.cfg['start_dir'], start_dir)
+            os.chdir(start_dir)
+            self.cfg['start_dir'] = start_dir
         except OSError, err:
             raise EasyBuildError("Failed to symlink build dir to a shorter path name: %s", err)
 
@@ -131,6 +132,12 @@ class EB_NWChem(ConfigureMake):
 
         # set required NWChem environment variables
         env.setvar('NWCHEM_TOP', self.cfg['start_dir'])
+        if len(self.cfg['start_dir']) > 64:
+            # workaround for:
+            # "The directory name chosen for NWCHEM_TOP is longer than the maximum allowed value of 64 characters"
+            # see also https://svn.pnl.gov/svn/nwchem/trunk/src/util/util_nwchem_srcdir.F
+            self.setvar_env_makeopt('NWCHEM_LONG_PATHS', 'Y')
+
         env.setvar('NWCHEM_TARGET', self.cfg['target'])
         env.setvar('MSG_COMMS', self.cfg['msg_comms'])
         env.setvar('ARMCI_NETWORK', self.cfg['armci_network'])
@@ -166,30 +173,54 @@ class EB_NWChem(ConfigureMake):
         env.setvar('USE_NOFSCHECK', 'TRUE')
         env.setvar('CCSDTLR', 'y')  # enable CCSDTLR 
         env.setvar('CCSDTQ', 'y') # enable CCSDTQ (compilation is long, executable is big)
+
         if LooseVersion(self.version) >= LooseVersion("6.2"):
             env.setvar('MRCC_METHODS','y') # enable multireference coupled cluster capability
+
+        if LooseVersion(self.version) >= LooseVersion("6.5"):
+            env.setvar('EACCSD','y') # enable EOM electron-attachemnt coupled cluster capability
+            env.setvar('IPCCSD','y') # enable EOM ionization-potential coupled cluster capability
+            env.setvar('USE_NOIO', 'TRUE') # avoid doing I/O for the ddscf, mp2 and ccsd modules
 
         for var in ['USE_MPI', 'USE_MPIF', 'USE_MPIF4']:
             env.setvar(var, 'y')
         for var in ['CC', 'CXX', 'F90']:
             env.setvar('MPI_%s' % var, os.getenv('MPI%s' % var))
-        env.setvar('MPI_LOC', os.path.dirname(os.getenv('MPI_INC_DIR')))
-        env.setvar('MPI_LIB', os.getenv('MPI_LIB_DIR'))
-        env.setvar('MPI_INCLUDE', os.getenv('MPI_INC_DIR'))
-        libmpi = None
-        mpi_family = self.toolchain.mpi_family()
-        if mpi_family in toolchain.OPENMPI:
-            libmpi = "-lmpi_f90 -lmpi_f77 -lmpi -ldl -Wl,--export-dynamic -lnsl -lutil"
-        elif mpi_family in [toolchain.INTELMPI]:
-            if self.cfg['armci_network'] in ["MPI-MT"]:
-                libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi_mt"
+
+        libmpi = ""
+
+        # for NWChem 6.6 and newer, $LIBMPI & co should no longer be
+        # set, the correct values are determined by the NWChem build
+        # procedure automatically, see
+        # http://www.nwchem-sw.org/index.php/Compiling_NWChem#MPI_variables
+        if LooseVersion(self.version) < LooseVersion("6.6"):
+            env.setvar('MPI_LOC', os.path.dirname(os.getenv('MPI_INC_DIR')))
+            env.setvar('MPI_LIB', os.getenv('MPI_LIB_DIR'))
+            env.setvar('MPI_INCLUDE', os.getenv('MPI_INC_DIR'))
+
+            mpi_family = self.toolchain.mpi_family()
+            if mpi_family in toolchain.OPENMPI:
+                ompi_ver = get_software_version('OpenMPI')
+                if LooseVersion(ompi_ver) < LooseVersion("1.10"):
+                    if LooseVersion(ompi_ver) < LooseVersion("1.8"):
+                        libmpi = "-lmpi_f90 -lmpi_f77 -lmpi -ldl -Wl,--export-dynamic -lnsl -lutil"
+                    else:
+                        libmpi = "-lmpi_usempi -lmpi_mpifh -lmpi"
+                else:
+                    libmpi = "-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi"
+            elif mpi_family in [toolchain.INTELMPI]:
+                if self.cfg['armci_network'] in ["MPI-MT"]:
+                    libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi_mt"
+                else:
+                    libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi"
+            elif mpi_family in [toolchain.MPICH, toolchain.MPICH2]:
+                libmpi = "-lmpichf90 -lmpich -lopa -lmpl -lrt -lpthread"
             else:
-                libmpi = "-lmpigf -lmpigi -lmpi_ilp64 -lmpi"
-        elif mpi_family in [toolchain.MPICH, toolchain.MPICH2]:
-            libmpi = "-lmpichf90 -lmpich -lopa -lmpl -lrt -lpthread"
-        else:
-            raise EasyBuildError("Don't know how to set LIBMPI for %s", mpi_family)
-        env.setvar('LIBMPI', libmpi)
+                raise EasyBuildError("Don't know how to set LIBMPI for %s", mpi_family)
+            env.setvar('LIBMPI', libmpi)
+
+        if self.cfg['armci_network'] in ["OPENIB"]:
+            libmpi += " -libumad -libverbs -lpthread"
 
         # compiler optimization flags: set environment variables _and_ add them to list of make options
         self.setvar_env_makeopt('COPTIMIZE', os.getenv('CFLAGS'))
@@ -299,7 +330,7 @@ class EB_NWChem(ConfigureMake):
             raise EasyBuildError("Failed to install NWChem: %s", err)
 
         # create NWChem settings file
-        fn = os.path.join(self.installdir, 'data', 'default.nwchemrc')
+        default_nwchemrc = os.path.join(self.installdir, 'data', 'default.nwchemrc')
         txt = '\n'.join([
             "nwchem_basis_library %(path)s/data/libraries/",
             "nwchem_nwpw_library %(path)s/data/libraryps/",
@@ -313,12 +344,7 @@ class EB_NWChem(ConfigureMake):
             "charmm_x %(path)s/data/charmm_x/",
         ]) % {'path': self.installdir}
 
-        try:
-            f = open(fn, 'w')
-            f.write(txt)
-            f.close()
-        except IOError, err:
-            raise EasyBuildError("Failed to create %s: %s", fn, err)
+        write_file(default_nwchemrc, txt)
 
         # fix permissions in data directory
         datadir = os.path.join(self.installdir, 'data')
@@ -327,15 +353,11 @@ class EB_NWChem(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for NWChem."""
-
         custom_paths = {
-                        'files': ['bin/nwchem'],
-                        'dirs': [os.path.join('data', x) for x in ['amber_q', 'amber_s', 'amber_t',
-                                                                   'amber_u', 'amber_x', 'charmm_s',
-                                                                   'charmm_x', 'solvents',
-                                                                   'libraries', 'libraryps']],
-                       }
-
+            'files': ['bin/nwchem'],
+            'dirs': [os.path.join('data', x) for x in ['amber_q', 'amber_s', 'amber_t', 'amber_u', 'amber_x',
+                                                       'charmm_s', 'charmm_x', 'solvents', 'libraries', 'libraryps']],
+        }
         super(EB_NWChem, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
@@ -343,7 +365,11 @@ class EB_NWChem(ConfigureMake):
 
         txt = super(EB_NWChem, self).make_module_extra()
 
-        txt += self.module_generator.set_environment("PYTHONHOME", get_software_root('Python'))
+        # check whether Python module is loaded for compatibility with --module-only
+        python = get_software_root('Python')
+        if python:
+            txt += self.module_generator.set_environment('PYTHONHOME', python)
+
         # '/' at the end is critical for NWCHEM_BASIS_LIBRARY!
         datadir = os.path.join(self.installdir, 'data')
         txt += self.module_generator.set_environment('NWCHEM_BASIS_LIBRARY', os.path.join(datadir, 'libraries/'))

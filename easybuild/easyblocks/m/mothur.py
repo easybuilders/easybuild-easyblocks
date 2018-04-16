@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,8 +46,9 @@ class EB_Mothur(ConfigureMake):
         mothur_dirs = glob.glob(os.path.join(self.builddir, 'Mothur.*'))
         if len(mothur_dirs) == 1:
             self.cfg['start_dir'] = mothur_dirs[0]
-        else:
-            raise EasyBuildError("Failed to guess start directory in %s", mothur_dirs)
+        elif len(os.listdir(self.builddir)) > 1:
+            # we only have an issue if the default guessing approach will not work
+            raise EasyBuildError("Failed to guess start directory from %s", mothur_dirs)
 
         super(EB_Mothur, self).guess_start_dir()
 

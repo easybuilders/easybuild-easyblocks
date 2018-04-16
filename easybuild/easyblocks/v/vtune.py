@@ -4,11 +4,11 @@
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 EasyBuild support for installing Intel VTune, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 from distutils.version import LooseVersion
 
@@ -36,6 +37,23 @@ class EB_VTune(IntelBase):
     """
     Support for installing Intel VTune
     """
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor; define class variables."""
+        super(EB_VTune, self).__init__(*args, **kwargs)
+
+        # recent versions of VTune are installed to a subdirectory
+        self.subdir = ''
+        loosever = LooseVersion(self.version)
+        if loosever >= LooseVersion('2013_update12') and loosever < LooseVersion('2018'):
+            self.subdir = 'vtune_amplifier_xe'
+        elif loosever >= LooseVersion('2018'):
+            self.subdir = 'vtune_amplifier'
+
+    def make_installdir(self):
+        """Do not create installation directory, install script handles that already."""
+        super(EB_VTune, self).make_installdir(dontcreate=True)
+
     def install_step(self):
         """
         Actual installation
@@ -44,7 +62,7 @@ class EB_VTune(IntelBase):
         """
         silent_cfg_names_map = None
 
-        if LooseVersion(self.version) <= LooseVersion('2013_update10'):
+        if LooseVersion(self.version) <= LooseVersion('2013_update11'):
             silent_cfg_names_map = {
                 'activation_name': ACTIVATION_NAME_2012,
                 'license_file_name': LICENSE_FILE_NAME_2012,
@@ -53,55 +71,11 @@ class EB_VTune(IntelBase):
         super(EB_VTune, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-
-        guesses = super(EB_VTune, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses.update({
-                'PATH': ['bin32'],
-                'LD_LIBRARY_PATH': ['lib32'],
-                'LIBRARY_PATH': ['lib32'],
-            })
-        else:
-            guesses.update({
-                'PATH': ['bin64'],
-                'LD_LIBRARY_PATH': ['lib64'],
-                'LIBRARY_PATH': ['lib64'],
-            })
-
-        guesses.update({
-            'CPATH': ['include'],
-            'FPATH': ['include'],
-            'MANPATH': ['man'],
-        })
-
-        return guesses
-
-    def make_module_extra(self):
-        """Custom variable definitions in module file."""
-        
-        txt = super(EB_VTune, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, self.license_file, allow_abs=True)
-
-        return txt
+        """Find reasonable paths for VTune"""
+        return self.get_guesses_tools()
 
     def sanity_check_step(self):
-        """Custom sanity check paths for Intel VTune."""
-
-        binaries = ['amplxe-cl', 'amplxe-configurator', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
-        if self.cfg['m32']:
-            files = ["bin32/%s" % x for x in binaries]
-            dirs = ["lib32", "include"]
-        else:
-            files = ["bin64/%s" % x for x in binaries]
-            dirs = ["lib64", "include"]
-
-        custom_paths = {
-                        'files': files,
-                        'dirs': dirs,
-                       }
-
+        """Custom sanity check paths for VTune."""
+        binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
+        custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)

@@ -1,14 +1,14 @@
 ##
-# Copyright 2009-2015 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
 # with support of Ghent University (http://ugent.be/hpc),
-# the Flemish Supercomputer Centre (VSC) (https://vscentrum.be/nl/en),
-# the Hercules foundation (http://www.herculesstichting.be/in_English)
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ import os
 import shutil
 
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd, parse_log_for_error
@@ -64,6 +65,15 @@ class RPackage(ExtensionEasyBlock):
     """
     Install an R package as a separate module, or as an extension.
     """
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to RPackage."""
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
+            'unpack_sources': [False, "Unpack sources before installation", CUSTOM],
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initliaze RPackage-specific class variables."""
@@ -120,7 +130,9 @@ class RPackage(ExtensionEasyBlock):
         else:
             prefix = ''
 
-        if self.patches:
+        if self.cfg['unpack_sources']:
+            loc = self.start_dir
+        elif self.patches:
             loc = self.ext_dir
         else:
             loc = self.ext_src
@@ -131,8 +143,10 @@ class RPackage(ExtensionEasyBlock):
 
     def extract_step(self):
         """Source should not be extracted."""
-        pass
-        if len(self.src) > 1:
+
+        if self.cfg['unpack_sources']:
+            super(RPackage, self).extract_step()
+        elif len(self.src) > 1:
             raise EasyBuildError("Don't know how to handle R packages with multiple sources.'")
         else:
             try:
