@@ -27,12 +27,14 @@ EasyBuild support for building and installing LAMMPS, implemented as an easybloc
 
 @author: Kenneth Hoste (Ghent University)
 @author: Alexander Schnurpfeil (Juelich Supercomputer Centre)
+@author: Maxime Boissonneault (Compute Canada)
 """
 import os
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
@@ -50,14 +52,20 @@ class EB_LAMMPS(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for LAMMPS."""
         extra_vars = {
-            'packages': [[], "LAMMPS packages to install", MANDATORY],
+            'packages_yes': [[], "LAMMPS packages to install", MANDATORY],
+            'packages_no': [[], "LAMMPS packages to avoid installing", CUSTOM],
+            'packaged_libraries': [[], "Libraries to package with LAMMPS", MANDATORY],
+            'build_shared_libs': [True, "Build shared libraries" , CUSTOM],
+            'build_static_libs': [True, "Build static libraries", CUSTOM],
+            'build_type': ["", 'Argument passed to "make" for building LAMMPS itself', CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
     def extract_step(self):
         """Extract LAMMPS sources."""
         # strip off top-level subdirectory
-        self.cfg.update('unpack_options', '--strip-components=1')
+#        self.cfg.update('unpack_options', '--strip-components=1')
+        self.cfg['unpack_options'] = "--strip-components=1"
         super(EB_LAMMPS, self).extract_step()
 
     def configure_step(self):
@@ -90,16 +98,17 @@ class EB_LAMMPS(EasyBlock):
             'gfortran',
             # generic fallback
             'lammps',
+            # in case there is just a Makefile without extension
+            ''
         ]
 
         # build all packages
-        # skipped:
-        # * cuda
-        # * gpu
-        # * kim (requires external dep, see https://openkim.org)
-        # * 
-        for pkg in [p for p in os.listdir(libdir) if p not in ['README', 'cuda', 'gpu', 'kim', 'kokkos', 'molfile',
-                                                               'voronoi', 'linalg']]:
+        for pkg_t in self.cfg['packaged_libraries']:
+            makefile_ = None
+            if type(pkg_t) is tuple:
+                pkg, makefile_ = pkg_t
+            else:
+                pkg = pkg_t
 
             pkglibdir = os.path.join(libdir, pkg)
             if os.path.exists(pkglibdir):
@@ -110,41 +119,73 @@ class EB_LAMMPS(EasyBlock):
 
                 self.log.info("Building %s package libraries in %s" % (pkg, pkglibdir))
 
-                makefile = None
-                for suffix in suffixes:
-                    pot_makefile = 'Makefile.%s' % suffix
-                    self.log.debug("Checking for %s in %s" % (pot_makefile, pkglibdir))
-                    if os.path.exists(pot_makefile):
-                        makefile = pot_makefile
-                        self.log.debug("Found %s in %s" % (makefile, pkglibdir))
-                        break
+                if makefile_:
+                    makefile = makefile_
+                else:
+                    makefile = None
+                    for suffix in suffixes:
+                        if suffix:
+                            pot_makefile = 'Makefile.%s' % suffix
+                        else:
+                            pot_makefile = 'Makefile'
+
+                        self.log.debug("Checking for %s in %s" % (pot_makefile, pkglibdir))
+                        if os.path.exists(pot_makefile):
+                            makefile = pot_makefile
+                            self.log.debug("Found %s in %s" % (makefile, pkglibdir))
+                            break
 
                 if makefile is None:
                     raise EasyBuildError("No makefile matching active compilers found in %s", pkglibdir)
 
                 # make sure active compiler is used
-                run_cmd('make -f %s CC="%s" CXX="%s" FC="%s"' % (makefile, cc, cxx, f90), log_output=True)
+                run_cmd('make -f %s CC="%s" CXX="%s" FC="%s"' % (makefile, cc, cxx, f90), log_all=True)
 
             try:
                 os.chdir(srcdir)
             except OSError as err:
                 raise EasyBuildError("Failed to change to %s: %s", srcdir, err)
 
-        for p in self.cfg['packages']:
+        for p in self.cfg['packages_yes']:
             self.log.info("Building %s package", p)
-            run_cmd("make yes-%s" % p, log_output=True)
+            run_cmd("make yes-%s" % p, log_all=True)
+
+        for p in self.cfg['packages_no']:
+            self.log.info("Building %s package", p)
+            run_cmd("make no-%s" % p, log_all=True)
+
+        # save the list of built packages
+        run_cmd("echo Supported Packages: > list-packages.txt")
+        run_cmd("make package-status | grep -a 'YES:' >> list-packages.txt")
+        run_cmd("echo Not Supported Packages: >> list-packages.txt")
+        run_cmd("make package-status | grep -a 'NO:' >> list-packages.txt")
+        run_cmd("make package-update")
 
         # build LAMMPS itself
-        run_cmd("make mpi", log_output=True)
+        build_type = self.cfg["build_type"]
+        run_cmd("make %s" % build_type, log_all=True)
+
+        # build shared libraries
+        if self.cfg["build_shared_libs"]:
+            run_cmd("make mode=shlib %s" % build_type, log_all=True)
+
+        # build static libraries
+        if self.cfg["build_static_libs"]:
+            run_cmd("make mode=lib %s" % build_type, log_all=True)
 
     def install_step(self):
-        """No separate install step for LAMMPS."""
-        pass
+        """Copying files in the right directory"""
+        build_type = self.cfg["build_type"]
+        run_cmd("mkdir -p ../bin; pwd; cp lmp_%s ../bin" % build_type)
+        run_cmd("ln -s lmp_%s ../bin/lmp" % build_type)
+        run_cmd("mkdir -p ../lib; cp liblammps* ../lib")
+        run_cmd("cp list-packages.txt ..")
 
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
+        build_type = self.cfg["build_type"]
         custom_paths = {
-            'files': ['file1', 'file2'],
-            'dirs': ['dir1', 'dir2'],
+            'files': ['src/list-packages.txt','list-packages.txt','bin/lmp_%s' % build_type ],
+            'dirs': ['bin', 'lib'],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
