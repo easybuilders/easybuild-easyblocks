@@ -157,9 +157,11 @@ class EB_binutils(ConfigureMake):
             binaries.append('ld.gold')
             lib_exts.append(shlib_ext)
 
+        libs_fn = ['lib%s.%s' % (l, ext) for l in libs for ext in lib_exts]
+
         custom_paths = {
             'files': [os.path.join('bin', b) for b in binaries] +
-                     [os.path.join('lib', 'lib%s.%s' % (l, ext)) for l in libs for ext in lib_exts] +
+                     [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn] +
                      [os.path.join('include', h) for h in headers],
             'dirs': [],
         }
