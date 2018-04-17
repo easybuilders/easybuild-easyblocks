@@ -51,6 +51,7 @@ class Bundle(EasyBlock):
         extra_vars = {
             'altroot': [None, "Software name of dependency to use to define $EBROOT for this bundle", CUSTOM],
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
+            'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
         }
@@ -72,6 +73,9 @@ class Bundle(EasyBlock):
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
 
+        # list of checksums for patches (must be included after checksums for sources)
+        checksums_patches = []
+
         for comp_name, comp_version, comp_specs in self.cfg['components']:
             cfg = self.cfg.copy()
 
@@ -82,6 +86,12 @@ class Bundle(EasyBlock):
             # do not inherit easyblock to use from parent (since that would result in an infinite loop in install_step)
             cfg['easyblock'] = None
 
+            # reset list of sources/source_urls/checksums
+            cfg['sources'] = cfg['source_urls'] = cfg['checksums'] = []
+
+            for key in self.cfg['default_component_specs']:
+                cfg[key] = self.cfg['default_component_specs'][key]
+
             for key in comp_specs:
                 cfg[key] = comp_specs[key]
 
@@ -89,21 +99,28 @@ class Bundle(EasyBlock):
             cfg.enable_templating = True
 
             # 'sources' is strictly required
-            if 'sources' in comp_specs:
+            if cfg['sources']:
                 # add component sources to list of sources
                 self.cfg.update('sources', cfg['sources'])
             else:
-                raise EasyBuildError("No sources specification for component %d v%d", comp_name, comp_version)
+                raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            if 'source_urls' in comp_specs:
+            if cfg['source_urls']:
                 # add per-component source_urls to list of bundle source_urls, expanding templates
                 self.cfg.update('source_urls', cfg['source_urls'])
 
-            if 'checksums' in comp_specs:
-                # add per-component checksums for checksums
-                self.cfg.update('checksums', cfg['checksums'])
+            if cfg['checksums']:
+                src_cnt = len(cfg['sources'])
+
+                # add per-component checksums for sources to list of checksums
+                self.cfg.update('checksums', cfg['checksums'][:src_cnt])
+
+                # add per-component checksums for patches to list of checksums for patches
+                checksums_patches.extend(cfg['checksums'][src_cnt:])
 
             self.comp_cfgs.append(cfg)
+
+        self.cfg.update('checksums', checksums_patches)
 
         self.cfg.enable_templating = True
 
@@ -142,6 +159,11 @@ class Bundle(EasyBlock):
 
             # figure out correct start directory
             comp.guess_start_dir()
+
+            # need to run fetch_patches to ensure per-component patches are applied
+            comp.fetch_patches()
+            # location of first unpacked source is used to determine where to apply patch(es)
+            comp.src = [{'finalpath': comp.cfg['start_dir']}]
 
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:

@@ -184,6 +184,8 @@ class PythonPackage(ExtensionEasyBlock):
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
+            'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
@@ -201,7 +203,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgincdir = None
         self.testinstall = False
         self.testcmd = None
-        self.unpack_options = ''
+        self.unpack_options = self.cfg['unpack_options']
 
         self.python_cmd = None
         self.pylibdir = UNKNOWN
@@ -227,11 +229,16 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--zip-ok')
 
-        elif self.cfg.get('use_pip', False):
+        elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            # don't auto-install dependencies
-            self.cfg.update('installopts', '--no-deps')
+            # don't auto-install dependencies with pip unless use_pip_for_deps=True
+            # the default is use_pip_for_deps=False
+            if self.cfg.get('use_pip_for_deps'):
+                self.log.info("Using pip to also install the dependencies")
+            else:
+                self.log.info("Using pip with --no-deps option")
+                self.cfg.update('installopts', '--no-deps')
 
             # don't (try to) uninstall already availale versions of the package being installed
             self.cfg.update('installopts', '--ignore-installed')
@@ -347,6 +354,10 @@ class PythonPackage(ExtensionEasyBlock):
 
         if installopts is None:
             installopts = self.cfg['installopts']
+
+        if self.cfg.get('use_pip_editable', False):
+            # add --editable option when requested, in the right place (i.e. right before the location specification)
+            loc = "--editable %s" % loc
 
         cmd.extend([
             self.cfg['preinstallopts'],

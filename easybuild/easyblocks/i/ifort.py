@@ -76,3 +76,14 @@ class EB_ifort(EB_icc, IntelBase):
         custom_commands = ["which ifort"]
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """
+        Additional paths to consider for prepend-paths statements in module file
+        """
+        guesses = super(EB_ifort, self).make_module_req_guess()
+        if LooseVersion(self.version) >= LooseVersion('2016'):
+            # This enables the creation of fortran 2008 bindings in MPI
+            guesses['CPATH'].append('include')
+
+        return guesses
