@@ -133,31 +133,31 @@ class EB_WIEN2k(EasyBlock):
 
         rplibs = ' '.join(rplibs)
 
-        d = {
-             'FC': '%s' % os.getenv('F90'),
-             'FOPT': '%s' % os.getenv('OPTFLAGS'),
-             'MPF': '%s' % os.getenv('MPIF90'),
-             'FPOPT': '%s' % os.getenv('OPTFLAGS'),
-             'CC': os.getenv('CC'),
-             'LDFLAGS': '$(FOPT) %s ' % os.getenv('LDFLAGS'),
-             'R_LIBS': rlibs,  # libraries for 'real' (not 'complex') binary
-             'RP_LIBS': rplibs,  # libraries for 'real' parallel binary
-             'MPIRUN': '',
-            }
+        vars = {
+            'FC': '%s' % os.getenv('F90'),
+            'FOPT': '%s' % os.getenv('OPTFLAGS'),
+            'MPF': '%s' % os.getenv('MPIF90'),
+            'FPOPT': '%s' % os.getenv('OPTFLAGS'),
+            'CC': os.getenv('CC'),
+            'LDFLAGS': '$(FOPT) %s ' % os.getenv('LDFLAGS'),
+            'R_LIBS': rlibs,  # libraries for 'real' (not 'complex') binary
+            'RP_LIBS': rplibs,  # libraries for 'real' parallel binary
+            'MPIRUN': '',
+        }
 
         for line in fileinput.input(self.cfgscript, inplace=1, backup='.orig'):
             # set config parameters
-            for (k, v) in d.items():
-                regexp = re.compile('^([a-z0-9]+):%s:(.*)' % k)
+            for (key, val) in vars.items():
+                regexp = re.compile('^([a-z0-9]+):%s:(.*)' % key)
                 res = regexp.search(line)
                 if res:
                     # we need to exclude the lines with 'current', otherwise we break the script
                     if not res.group(1) == "current":
-                        if 'OPT' in k:
+                        if 'OPT' in key:
                             # append instead of replace
-                            line = regexp.sub('\\1:%s:%s %s' % (k, res.group(2), v), line)
+                            line = regexp.sub('\\1:%s:%s %s' % (key, res.group(2), val), line)
                         else:
-                            line = regexp.sub('\\1:%s:%s' % (k, v), line)
+                            line = regexp.sub('\\1:%s:%s' % (key, val), line)
             # avoid exit code > 0 at end of configuration
             line = re.sub('(\s+)exit 1', '\\1exit 0', line)
             sys.stdout.write(line)
@@ -169,11 +169,11 @@ class EB_WIEN2k(EasyBlock):
             'COMPILERC': os.getenv('CC'),
             'COMPILER': os.getenv('F90'),
             'COMPILERP': os.getenv('MPIF90'),
-            }
+        }
 
         if LooseVersion(self.version) < LooseVersion("17"):
-            for (k, v) in dc.items():
-                write_file(k, v)
+            for (key, val) in dc.items():
+                write_file(key, val)
         else:
             dc['cc'] = dc.pop('COMPILERC')
             dc['fortran'] = dc.pop('COMPILER')
@@ -215,6 +215,9 @@ class EB_WIEN2k(EasyBlock):
             })
 
             if LooseVersion(self.version) >= LooseVersion("17"):
+                scalapack_libs = os.getenv('LIBSCALAPACK').split()
+                scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
+                blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas'),
                 qanda.update({
                         'LIBXC (that you have installed)? (y,N):': '',
                         'You need to KNOW details about your installed MPI, ELPA, and FFTW ) (y/N)': 'y',
@@ -224,11 +227,9 @@ class EB_WIEN2k(EasyBlock):
                         'Is this correct? (Y,n):': 'y',
                         'Please specify the target architecture of your ScaLAPACK libraries (e.g. intel64)!:': '',
                         'ScaLAPACK root:': os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK'),
-                        'ScaLAPACK library:': next((lib[2:] for lib in os.getenv('LIBSCALAPACK').split()
-                                                    if 'scalapack' in lib), 'scalapack'),
+                        'ScaLAPACK library:': scalapack,
                         'BLACS root:': os.getenv('MKLROOT') or os.getenv('EBROOTOPENBLAS'),
-                        'BLACS library:': next((lib[2:] for lib in os.getenv('LIBSCALAPACK').split()
-                                                if 'blacs' in lib), 'openblas'),
+                        'BLACS library:': blacs,
                         'Please enter your choice of additional libraries!:': '',
                         'Do you want to use a present FFTW installation? (Y,n):': 'y',
                         'Please specify the path of your FFTW installation (like /opt/fftw3/) '
@@ -244,6 +245,7 @@ class EB_WIEN2k(EasyBlock):
                         'Please specify your parallel compiler options or accept the recommendations '
                         '(Enter - default)!:': '',
                         'Please specify your MPIRUN command or accept the recommendations (Enter - default)!:': '',
+                        # the temporary directory is hardcoded into execution scripts and must exist at runtime
                         'Please enter the full path to your temporary directory:': '/tmp',
                     })
         else:
@@ -321,12 +323,12 @@ class EB_WIEN2k(EasyBlock):
             qanda.update({
                     'L Perl path (if not in /usr/bin/perl) Q Quit Selection:': 'R',
                     'A Compile all programs S Select program Q Quit Selection:': 'A',
-                    })
+            })
         else:
             qanda.update({
                     'program Q Quit Selection:': 'A',
                     'Path Q Quit Selection:': 'R',
-                    })
+            })
 
         no_qa = [
                  "%s[ \t]*.*" % os.getenv('MPIF90'),
