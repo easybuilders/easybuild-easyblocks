@@ -217,7 +217,7 @@ class EB_WIEN2k(EasyBlock):
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
                 scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
-                blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas'),
+                blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas')
                 qanda.update({
                         'LIBXC (that you have installed)? (y,N):': '',
                         'You need to KNOW details about your installed MPI, ELPA, and FFTW ) (y/N)': 'y',
