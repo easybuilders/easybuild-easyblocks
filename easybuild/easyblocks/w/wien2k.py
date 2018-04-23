@@ -211,15 +211,25 @@ class EB_WIEN2k(EasyBlock):
                  'Please specify whether you want to use FFTW3 (default) or FFTW2  (FFTW3 / FFTW2):': fftw_spec,
                  'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3):': fftw_root,
                  'is this correct? enter Y (default) or n:': 'Y',
-                 'LIBXC (that you have installed before)? (y,N):': '',
             })
+
+            libxcroot = get_software_root('libxc')
+            libxcquestion = 'LIBXC (that you have installed%s)? (y,N):' % \
+                            (' before' if LooseVersion(self.version) < LooseVersion("17") else '')
+            if libxcroot:
+                qanda.update({
+                    libxcquestion: 'y',
+                    'Do you want to automatically search for LIBXC installations? (Y,n):': 'n',
+                    'Please enter the directory of your LIBXC-installation!:': libxcroot,
+                })
+            else:
+                qanda.update({libxcquestion: ''})
 
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
                 scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
                 blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas')
                 qanda.update({
-                        'LIBXC (that you have installed)? (y,N):': '',
                         'You need to KNOW details about your installed MPI, ELPA, and FFTW ) (y/N)': 'y',
                         'Do you want to use a present ScaLAPACK installation? (Y,n):': 'y',
                         'Do you want to use the MKL version of ScaLAPACK? (Y,n):': 'n',  # we set it ourselves below
