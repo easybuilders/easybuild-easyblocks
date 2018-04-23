@@ -135,9 +135,9 @@ class EB_WIEN2k(EasyBlock):
 
         vars = {
             'FC': '%s' % os.getenv('F90'),
-            'FOPT': '%s' % os.getenv('OPTFLAGS'),
+            'FOPT': '%s' % os.getenv('FFLAGS'),
             'MPF': '%s' % os.getenv('MPIF90'),
-            'FPOPT': '%s' % os.getenv('OPTFLAGS'),
+            'FPOPT': '%s' % os.getenv('FFLAGS'),
             'CC': os.getenv('CC'),
             'LDFLAGS': '$(FOPT) %s ' % os.getenv('LDFLAGS'),
             'R_LIBS': rlibs,  # libraries for 'real' (not 'complex') binary
