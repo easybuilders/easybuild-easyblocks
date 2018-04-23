@@ -250,7 +250,6 @@ class EB_WIEN2k(EasyBlock):
                         'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3/) '
                         'or accept present choice (enter):': fftw_root,
                         'Is this correct? enter Y (default) or n:': 'Y',
-                        'Do you want to use ELPA? (y,N):': 'N',
                         'Please specify the name of your FFTW library or accept present choice (enter):': '',
                         'Please specify your parallel compiler options or accept the recommendations '
                         '(Enter - default)!:': '',
@@ -258,6 +257,17 @@ class EB_WIEN2k(EasyBlock):
                         # the temporary directory is hardcoded into execution scripts and must exist at runtime
                         'Please enter the full path to your temporary directory:': '/tmp',
                     })
+
+                elparoot = get_software_root('ELPA')
+                if elparoot:
+                    qanda.update({
+                        'Do you want to use ELPA? (y,N):': 'y',
+                        'Do you want to automatically search for ELPA installations? (Y,n):': 'n',
+                        'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) '
+                        'or accept present path (Enter):': elparoot,
+                    })
+                else:
+                    qanda.update({'Do you want to use ELPA? (y,N):': 'n'})
         else:
             qanda.update({
                  'compiler) Selection:': comp_answer,
