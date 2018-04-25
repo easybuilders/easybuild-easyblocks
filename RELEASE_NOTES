@@ -24,6 +24,7 @@ feature release
   - fix for installing TensorFlow 1.6.0: use the absolute path for the C compiler when compiling with GPU support (#1386)
   - also take lib64 into account for binutils libraries (#1399)
   - make sanity check in MPICH easyblock aware of libraries in lib64 subdir (#1403)
+  - take into account that self.debuggerpath may not be set in icc easyblock (#1408)
 
 
 v3.5.3 (March 7th 2018)
