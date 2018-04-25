@@ -94,13 +94,13 @@ class EB_psmpi(EB_MPICH):
 
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
-            self.cfg.update('preconfigopts', ('PSCOM_LDFLAGS=-L{0}/lib '+
-                    'PSCOM_CPPFLAGS=-I{0}/include').format(get_software_root('pscom')))
+            pscom_path = get_software_root('pscom')
         else:
-            pscom_allin_path = self.cfg['pscom_allin_path'].strip()
-            self.cfg.update('configopts', ' --with-pscom-allin="%s"' % pscom_allin_path)
-            self.cfg.update('preconfigopts', ('PSCOM_LDFLAGS=-L{0}/lib '+
-                    'PSCOM_CPPFLAGS=-I{0}/include').format(pscom_allin_path))
+            pscom_path = self.cfg['pscom_allin_path'].strip()
+            self.cfg.update('configopts', ' --with-pscom-allin="%s"' % pscom_path)
+
+        pscom_flags = 'PSCOM_LDFLAGS=-L{0}/lib PSCOM_CPPFLAGS=-I{0}/include'.format(pscom_path)
+        self.cfg.update('preconfigopts', pscom_flags)
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
 
