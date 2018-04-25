@@ -3,7 +3,28 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 193 software-specific easyblocks and 31 generic easyblocks.
+The latest version of easybuild-easyblocks provides 194 software-specific easyblocks and 31 generic easyblocks.
+
+v3.6.0 (April 25th 2018)
+------------------------
+
+feature release
+- new software-specific easyblock for Nim (#1402)
+- minor enhancements, including:
+  - add support to PythonPackage easyblock to install with 'pip install --editable' (#1384)
+  - enhance RPackage easyblock to support installing from unpacked sources (#1383)
+  - add $EBROOTIFORT/include in CPATH (#1385)
+  - add additional location to $PATH for FLUENT installations (#1389)
+  - add houndci + flake8 configuration (#1388)
+  - make PythonPackage generic easyblock aware of 'unpack_options' easyconfig parameter (#1391)
+  - minor updates to ABAQUS easyblock to support latest version (#1394)
+  - add support for extracting sources in Binary easyblock (#1401)
+- various bug fixes, including:
+  - fix linking to FFTW for Doris: should be -lfftw3f (#1387)
+  - TensorFlow 1.6.0 fix: use the absolute path for the C compiler when compiling with GPU support (#1386)
+  - also take lib64 into account for binutils libraries (#1399)
+  - make sanity check in MPICH easyblock aware of libraries in lib64 subdir (#1403)
+
 
 v3.5.3 (March 7th 2018)
 -----------------------
