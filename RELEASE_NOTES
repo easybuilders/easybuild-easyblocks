@@ -25,6 +25,7 @@ feature release
   - also take lib64 into account for binutils libraries (#1399)
   - make sanity check in MPICH easyblock aware of libraries in lib64 subdir (#1403)
   - take into account that self.debuggerpath may not be set in icc easyblock (#1408)
+  - extend noqa in configure step of Qt easyblock (#1409)
 
 
 v3.5.3 (March 7th 2018)
