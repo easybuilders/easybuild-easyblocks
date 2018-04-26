@@ -95,6 +95,7 @@ class EB_Qt(ConfigureMake):
             "Project MESSAGE:.*",
             "rm -f .*",
             'Creating qmake...',
+            'Checking for .*...',
         ]
         run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=120)
 
