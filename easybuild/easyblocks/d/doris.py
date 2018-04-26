@@ -81,7 +81,7 @@ class EB_Doris(ConfigureMake):
         change_dir(os.path.join(self.cfg['start_dir'], 'src'))
 
         # override some of the settings via options to 'make'
-        lflags = "-L%s -lfftw3 " % os.path.join(get_software_root('FFTW'), 'lib')
+        lflags = "-L%s -lfftw3f " % os.path.join(get_software_root('FFTW'), 'lib')
         lflags += "-L%s %s" % (os.getenv('LAPACK_LIB_DIR'), os.getenv('LIBLAPACK_MT'))
         self.cfg.update('buildopts', 'LFLAGS="%s"' % lflags)
         self.cfg.update('buildopts', 'CFLAGSOPT="%s \$(DEFS)"' % os.getenv('CXXFLAGS'))

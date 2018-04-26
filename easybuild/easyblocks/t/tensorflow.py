@@ -191,10 +191,11 @@ class EB_TensorFlow(PythonPackage):
 
         # fix hardcoded locations of compilers & tools
         cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
+        cxx_inc_dir_lines_no_resolv_path = '\n'.join(r'cxx_builtin_include_directory: "%s"' % p for p in inc_paths)
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines),
+            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines + '\n' + cxx_inc_dir_lines_no_resolv_path),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
