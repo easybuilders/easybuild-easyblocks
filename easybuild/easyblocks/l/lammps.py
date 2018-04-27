@@ -245,12 +245,20 @@ class EB_LAMMPS(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
+
         build_type = self.cfg['build_type']
-        shlib_ext = get_shared_lib_ext()
+
+        files = ['bin/lmp', 'bin/lmp_%s' % build_type]
+
+        if self.cfg['build_shared_libs']:
+            shlib_ext = get_shared_lib_ext()
+            files.extend(['lib/liblammps.%s' % shlib_ext, 'lib/liblammps_%s.%s' % (build_type, shlib_ext)])
+
+        if self.cfg['build_static_libs']:
+            files.extend(['lib/liblammps.a', 'lib/liblammps_%s.a' % build_type])
+
         custom_paths = {
-            'files': ['bin/lmp', 'bin/lmp_%s' % build_type,
-                      'lib/liblammps.a', 'lib/liblammps.%s' % shlib_ext,
-                      'lib/liblammps_%s.a' % build_type, 'lib/liblammps_%s.%s' % (build_type, shlib_ext)],
+            'files': files,
             'dirs': ['bench', 'doc', 'examples', 'lib', 'tools'],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
