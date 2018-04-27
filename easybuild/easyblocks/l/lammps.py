@@ -38,6 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_file, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 BUILD_TYPE_MPI = 'mpi'
@@ -57,12 +58,13 @@ class EB_LAMMPS(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for LAMMPS."""
         extra_vars = {
-            'packages_yes': [[], "LAMMPS packages to install", CUSTOM],
-            'packages_no': [[], "LAMMPS packages to avoid installing", CUSTOM],
-            'packaged_libraries': [[], "Libraries to package with LAMMPS", CUSTOM],
             'build_shared_libs': [True, "Build shared libraries", CUSTOM],
             'build_static_libs': [True, "Build static libraries", CUSTOM],
             'build_type': [BUILD_TYPE_MPI, "Argument passed to 'make' for building LAMMPS itself", CUSTOM],
+            'lmp_inc': ['-DLAMMPS_MEMALIGN=64', "Options to include in value for LMP_INC argument to make", CUSTOM],
+            'packaged_libraries': [[], "Libraries to package with LAMMPS", CUSTOM],
+            'packages_no': [[], "LAMMPS packages to avoid installing", CUSTOM],
+            'packages_yes': [[], "LAMMPS packages to install", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -76,7 +78,7 @@ class EB_LAMMPS(EasyBlock):
         """No configure step for LAMMPS."""
 
         lmp_inc = 'LMP_INC'
-        make_vars = {lmp_inc: '-DLAMMPS_MEMALIGN=64'}
+        make_vars = {lmp_inc: self.cfg['lmp_inc']}
 
         # enable FFmpeg/gzip support if included as dependency
         # having the corresponding binaries in $PATH suffices
@@ -203,28 +205,39 @@ class EB_LAMMPS(EasyBlock):
         run_cmd("make package-status | grep -a 'NO:' >> list-packages.txt")
         run_cmd("make package-update")
 
-        make_par = ''
+        # put together options for make command
+        cmd_opts = {
+            'build_type': self.cfg['build_type'],
+            'buildopts': self.cfg['buildopts'],
+            'make_vars': self.make_vars,
+            'par': '',
+            'prebuildopts': self.cfg['prebuildopts'],
+        }
         if self.cfg['parallel']:
-            make_par = '-j %s' % self.cfg['parallel']
+            cmd_opts['par'] = '-j %s' % self.cfg['parallel']
 
-        # build LAMMPS itself
-        build_type = self.cfg['build_type']
-        run_cmd("make %s %s %s" % (make_par, build_type, self.make_vars), log_all=True)
-
-        # build shared libraries
-        if self.cfg["build_shared_libs"]:
-            run_cmd("make %s mode=shlib %s %s" % (make_par, build_type, self.make_vars), log_all=True)
-
-        # build static libraries
-        if self.cfg["build_static_libs"]:
-            run_cmd("make %s mode=lib %s %s" % (make_par, build_type, self.make_vars), log_all=True)
+        # run main make commands
+        make_modes = [
+            ('', True),  # LAMMPS itself
+            ('mode=shlib', self.cfg['build_shared_libs']),  # shared libraries
+            ('mode=lib', self.cfg['build_static_libs']),  # static libraries
+        ]
+        for mode, enable in make_modes:
+            if enable:
+                cmd_opts['mode'] = mode
+                cmd = "%(prebuildopts)s make %(par)s %(mode)s %(build_type)s %(make_vars)s %(buildopts)s" % cmd_opts
+                run_cmd(cmd, log_all=True)
 
     def install_step(self):
         """Copying files in the right directory"""
+
+        # copy binary and symlink bin/lmp to it
         lmp_bin = 'lmp_%s' % self.cfg['build_type']
         bin_dir = os.path.join(self.installdir, 'bin')
         copy_file(lmp_bin, os.path.join(bin_dir, lmp_bin))
         symlink(os.path.join(bin_dir, lmp_bin), os.path.join(bin_dir, 'lmp'))
+
+        # copy libraries to standard location <prefix>/lib
         for lib in glob.glob('liblammps*'):
             copy_file(lib, os.path.join(self.installdir, 'lib', lib))
         # FIXME?
@@ -233,8 +246,11 @@ class EB_LAMMPS(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
         build_type = self.cfg['build_type']
+        shlib_ext = get_shared_lib_ext()
         custom_paths = {
-            'files': ['bin/lmp', 'bin/lmp_%s' % build_type],
-            'dirs': ['lib'],
+            'files': ['bin/lmp', 'bin/lmp_%s' % build_type,
+                      'lib/liblammps.a', 'lib/liblammps.%s' % shlib_ext,
+                      'lib/liblammps_%s.a' % build_type, 'lib/liblammps_%s.%s' % (build_type, shlib_ext)],
+            'dirs': ['bench', 'doc', 'examples', 'lib', 'tools'],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
