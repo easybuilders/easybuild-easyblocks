@@ -32,10 +32,11 @@ EasyBuild support for building and installing LAMMPS, implemented as an easybloc
 import glob
 import os
 
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, copy_file, symlink
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -53,6 +54,7 @@ class EB_LAMMPS(EasyBlock):
 
         self.build_in_installdir = True
         self.make_vars = ''
+        self.lammps_pylibdir = None
 
     @staticmethod
     def extra_options():
@@ -79,6 +81,12 @@ class EB_LAMMPS(EasyBlock):
 
         lmp_inc = 'LMP_INC'
         make_vars = {lmp_inc: self.cfg['lmp_inc']}
+
+        # build Python bindings if Python is included as a dependency
+        # this implies building shared LAMMPS library
+        if get_software_root('Python'):
+            self.lammps_pylibdir = det_pylibdir()
+            self.cfg['build_shared_libs'] = True
 
         # enable FFmpeg/gzip support if included as dependency
         # having the corresponding binaries in $PATH suffices
@@ -155,7 +163,7 @@ class EB_LAMMPS(EasyBlock):
         ]
 
         # build all packages
-        libdir = os.path.join(self.cfg['start_dir'], 'lib')
+        libdir = os.path.join(self.start_dir, 'lib')
         for pkg_t in self.cfg['packaged_libraries']:
             makefile = None
             if type(pkg_t) is tuple:
@@ -188,7 +196,7 @@ class EB_LAMMPS(EasyBlock):
                 run_cmd('make -f %s CC="%s" CXX="%s" FC="%s" F90="%s"' % (makefile, cc, cxx, f90, f90), log_all=True)
 
         if not self.dry_run:  # FIXME
-            change_dir(os.path.join(self.cfg['start_dir'], 'src'))
+            change_dir(os.path.join(self.start_dir, 'src'))
 
         for pkg in self.cfg['packages_yes']:
             self.log.info("Building %s package", pkg)
@@ -234,12 +242,21 @@ class EB_LAMMPS(EasyBlock):
         # copy binary and symlink bin/lmp to it
         lmp_bin = 'lmp_%s' % self.cfg['build_type']
         bin_dir = os.path.join(self.installdir, 'bin')
-        copy_file(lmp_bin, os.path.join(bin_dir, lmp_bin))
+        copy_file(os.path.join(self.start_dir, 'src', lmp_bin), os.path.join(bin_dir, lmp_bin))
         symlink(os.path.join(bin_dir, lmp_bin), os.path.join(bin_dir, 'lmp'))
 
         # copy libraries to standard location <prefix>/lib
         for lib in glob.glob('liblammps*'):
             copy_file(lib, os.path.join(self.installdir, 'lib', lib))
+
+        # install Python bindings
+        if self.lammps_pylibdir:
+            change_dir(os.path.join(self.start_dir, 'python'))
+            pylibdir = os.path.join(self.installdir, self.lammps_pylibdir)
+            mkdir(pylibdir, parents=True)
+            cmd = "python install.py %s" % pylibdir
+            run_cmd(cmd, log_all=True)
+
         # FIXME?
         copy_file('list-packages.txt', os.path.join(self.installdir, 'list-packages.txt'))
 
@@ -249,6 +266,7 @@ class EB_LAMMPS(EasyBlock):
         build_type = self.cfg['build_type']
 
         files = ['bin/lmp', 'bin/lmp_%s' % build_type]
+        custom_commands = []
 
         if self.cfg['build_shared_libs']:
             shlib_ext = get_shared_lib_ext()
@@ -257,8 +275,21 @@ class EB_LAMMPS(EasyBlock):
         if self.cfg['build_static_libs']:
             files.extend(['lib/liblammps.a', 'lib/liblammps_%s.a' % build_type])
 
+        if self.lammps_pylibdir:
+            files.append(os.path.join(self.lammps_pylibdir, 'lammps.py'))
+            custom_commands.append("python -c 'from lammps import lammps; lmp = lammps()'")
+
         custom_paths = {
             'files': files,
-            'dirs': ['bench', 'doc', 'examples', 'lib', 'tools'],
+            'dirs': ['bench', 'doc', 'examples', 'lib', 'potentials', 'python', 'tools'],
         }
-        super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """Also update $PYTHONPATH if LAMMPS Python bindings are being installed."""
+        txt = super(EB_LAMMPS, self).make_module_extra()
+
+        if self.lammps_pylibdir:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.lammps_pylibdir)
+
+        return txt
