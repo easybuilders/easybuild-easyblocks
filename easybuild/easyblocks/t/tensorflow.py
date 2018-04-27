@@ -124,7 +124,6 @@ class EB_TensorFlow(PythonPackage):
 
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
-        jemalloc_root = get_software_root('jemalloc')
         opencl_root = get_software_root('OpenCL')
 
         use_mpi = self.toolchain.options.get('usempi', False)
@@ -166,7 +165,7 @@ class EB_TensorFlow(PythonPackage):
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
-        cmd = self.cfg['preconfigopts'] +  './configure ' + self.cfg['configopts']
+        cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
     def build_step(self):
@@ -258,7 +257,6 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-
         # limit the number of parallel jobs running simultaneously (useful on KNL)...
         cmd.append('--jobs=%s' % self.cfg['parallel'])
 
@@ -279,12 +277,12 @@ class EB_TensorFlow(PythonPackage):
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             cmd.extend(['--config=mkl'])
-            cmd.insert(0, 'export TF_MKL_DOWNLOAD=0 &&' )
-            cmd.insert(0, 'export TF_MKL_ROOT=%s &&' % mkl_root)
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
+            cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
         elif self.cfg['with_mkl_dnn']:
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
             cmd.extend(['--config=mkl'])
-            cmd.insert(0, 'export TF_MKL_DOWNLOAD=1 &&' )
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
 
         # specify target of the build command as last argument
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
