@@ -179,7 +179,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'download_dep_fail': [False, "Fail if downloaded dependencies are detected", CUSTOM],
+            'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
@@ -209,13 +209,26 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
+        self.install_cmd_output = ''
+
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
         home = os.path.expanduser('~')
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
+        # use lowercase name as default value for expected module name (used in sanity check)
         if 'modulename' not in self.options:
             self.options['modulename'] = self.name.lower()
+            self.log.info("Using default value for expected module name (lowercase software name): '%s'",
+                          self.options['modulename'])
+
+        # only for Python packages installed as extensions:
+        # inherit setting for detection of downloaded dependencies from parent,
+        # if 'download_dep_fail' was left unspecified
+        if self.is_extension and self.cfg.get('download_dep_fail') is None:
+            self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
+            self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
+                          self.cfg['download_dep_fail'])
 
         # determine install command
         self.use_setup_py = False
@@ -479,18 +492,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        (out, ec) = run_cmd(cmd, log_all=True, simple=False)
-
-        if self.cfg['download_dep_fail']:
-            self.log.info("Detection of downloaded depenencies enabled, checking output of '%s'...", cmd)
-            patterns = [
-                'Downloading.*pypi.*packages.*',  # setuptools
-                'Collecting .* \(from.*',  # pip
-            ]
-            for pattern in patterns:
-                res = re.compile(pattern, re.M).findall(out)
-                if res:
-                    raise EasyBuildError("Found one or more downloaded dependencies: %s", res)
+        (self.install_cmd_output, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
@@ -520,7 +522,24 @@ class PythonPackage(ExtensionEasyBlock):
             orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
             exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
             kwargs.update({'exts_filter': exts_filter})
-        return super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        (success, fail_msg) = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        if self.cfg.get('download_dep_fail', False):
+            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            patterns = [
+                'Downloading .*/packages/.*',  # setuptools
+                'Collecting .* \(from.*',  # pip
+            ]
+            for pattern in patterns:
+                downloaded_deps = re.compile(pattern, re.M).findall(self.install_cmd_output)
+                if downloaded_deps:
+                    success = False
+                    fail_msg += ", found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+        else:
+            self.log.debug("Detection of downloaded dependencies not enabled")
+
+        return (success, fail_msg)
 
     def make_module_req_guess(self):
         """
