@@ -54,7 +54,8 @@ class EB_MaterialsStudio(PackedBinary):
             "[ ] 0. Continue >>>": '0',
             " 1) Enter temporary license password 2) Set connection to license server 3) List command line license administration tools 99) Finished with license configuration Choose one of the above options:": '99'
         }
-        run_cmd_qa(cmd, qanda, log_all=True)
+        no_qa = [ "Running installation ...", "Running ConfigureMaterialsStudio.pl" ]
+        run_cmd_qa(cmd, qanda, no_qa = no_qa, log_all=True)
         cmd = "echo %s >> %s/BIOVIA_LicensePack/Licenses/msi_server.fil" % (license_server, self.installdir)
         run_cmd(cmd, log_all=True)
 
