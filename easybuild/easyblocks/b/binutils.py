@@ -61,7 +61,8 @@ class EB_binutils(ConfigureMake):
 
         if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
             # determine list of 'lib' directories to use rpath for;
-            # this should 'harden' the resulting binutils to bootstrap GCC (no trouble when other libstdc++ is build etc)
+            # this should 'harden' the resulting binutils to bootstrap GCC
+            # (no trouble when other libstdc++ is build etc)
             libdirs = []
             for libdir in ['/usr/lib', '/usr/lib64', '/usr/lib/x86_64-linux-gnu/']:
                 # also consider /lib, /lib64
@@ -157,10 +158,14 @@ class EB_binutils(ConfigureMake):
             binaries.append('ld.gold')
             lib_exts.append(shlib_ext)
 
+        bin_paths = [os.path.join('bin', b) for b in binaries]
+        inc_paths = [os.path.join('include', h) for h in headers]
+
+        libs_fn = ['lib%s.%s' % (l, ext) for l in libs for ext in lib_exts]
+        lib_paths = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+
         custom_paths = {
-            'files': [os.path.join('bin', b) for b in binaries] +
-                     [os.path.join('lib', 'lib%s.%s' % (l, ext)) for l in libs for ext in lib_exts] +
-                     [os.path.join('include', h) for h in headers],
+            'files': bin_paths + inc_paths + lib_paths,
             'dirs': [],
         }
 

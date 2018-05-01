@@ -111,7 +111,6 @@ class EB_MPICH(ConfigureMake):
         add_configopts.extend(['--enable-f77', '--enable-fc', '--enable-cxx'])
 
         self.cfg.update('configopts', ' '.join(add_configopts))
- 
 
     def configure_step(self, add_mpich_configopts=True):
         """
@@ -125,7 +124,7 @@ class EB_MPICH(ConfigureMake):
         if not self.cfg['keeppreviousinstall']:
             self.log.info("Making sure any old installation is removed before we start the build...")
             super(EB_MPICH, self).make_dir(self.installdir, True, dontcreateinstalldir=True)
-        
+
         if add_mpich_configopts:
             self.add_mpich_configopts()
 
@@ -161,9 +160,10 @@ class EB_MPICH(ConfigureMake):
 
         bins = [os.path.join('bin', x) for x in binaries]
         headers = [os.path.join('include', x) for x in ['mpi.h', 'mpicxx.h', 'mpif.h']]
-        libs = [os.path.join('lib', 'lib%s.%s' % (l, e)) for l in libnames for e in ['a', shlib_ext]]
+        libs_fn = ['lib%s.%s' % (l, e) for l in libnames for e in ['a', shlib_ext]]
+        libs = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
 
-        custom_paths.setdefault('dirs', []).extend(['bin', 'include', 'lib'])
+        custom_paths.setdefault('dirs', []).extend(['bin', 'include', ('lib', 'lib64')])
         custom_paths.setdefault('files', []).extend(bins + headers + libs)
 
         super(EB_MPICH, self).sanity_check_step(custom_paths=custom_paths)
