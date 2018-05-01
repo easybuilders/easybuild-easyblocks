@@ -37,14 +37,6 @@ from easybuild.tools.run import run_cmd, run_cmd_qa
 
 class EB_MaterialsStudio(PackedBinary):
     """Support for installing MaterialsStudio"""
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """
-        Define list of files or directories to be copied after make
-        """
-        extra_vars = PackedBinary.extra_options(extra_vars=extra_vars)
-        extra_vars["visit_options"] = ['', "Options to pass to the build script", CUSTOM]
-        return extra_vars
 
     def install_step(self):
         """Build by running the command with the inputfiles"""
