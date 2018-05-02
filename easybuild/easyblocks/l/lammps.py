@@ -31,6 +31,7 @@ EasyBuild support for building and installing LAMMPS, implemented as an easybloc
 """
 import glob
 import os
+import re
 
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyblock import EasyBlock
@@ -115,15 +116,20 @@ class EB_LAMMPS(EasyBlock):
         for key in ['JPG_INC', 'JPG_LIB', 'JPG_PATH']:
             make_vars[key] = ''
 
-        for lib_name, key, liblink in [('libjpeg-turbo', 'JPG', '-ljpeg'), ('libpng', 'PNG', '-lpng')]:
+        jpg_libs = [
+            ('libjpeg-turbo', 'JPG', '-ljpeg'),
+            ('libpng', 'PNG', '-lpng'),
+            ('zlib', None, '-lz'),
+        ]
+        for lib_name, key, liblink in jpg_libs:
             lib_root = get_software_root(lib_name)
-
             if lib_root:
                 lib_libdir = get_software_libdir(lib_name, only_one=True)
                 if lib_libdir is None:
                     raise EasyBuildError("Failed to find %s lib subdirectory in %s", lib_name, lib_root)
 
-                make_vars[lmp_inc] += ' -DLAMMPS_%s' % key
+                if key:
+                    make_vars[lmp_inc] += ' -DLAMMPS_%s' % key
                 make_vars['JPG_INC'] += ' -I%s' % os.path.join(lib_root, 'include')
                 make_vars['JPG_LIB'] += ' %s' % liblink
                 make_vars['JPG_PATH'] += ' -L%s' % os.path.join(lib_root, lib_libdir)
@@ -151,9 +157,9 @@ class EB_LAMMPS(EasyBlock):
         f90 = os.getenv('F90')
         suffixes = [
             # MPI wrappers should be considered first
-            'mpicc', 'mpic++',
+            'mpicc', 'mpic++', 'mpi',
             # active serial compilers next
-            cc, cxx, f90,
+            cc, cxx, f90, 'serial',
             # GNU compilers as backup (in case no custom Makefile for active compiler is available)
             'gcc', 'g++', 'gfortran',
             # generic fallback
@@ -164,39 +170,45 @@ class EB_LAMMPS(EasyBlock):
 
         # build all packages
         libdir = os.path.join(self.start_dir, 'lib')
-        for pkg_t in self.cfg['packaged_libraries']:
+        for pkg in self.cfg['packaged_libraries']:
             makefile = None
-            if type(pkg_t) is tuple:
-                pkg, makefile = pkg_t
-            else:
-                pkg = pkg_t
+            if isinstance(pkg, tuple):
+                pkg, makefile = pkg
 
             pkglibdir = os.path.join(libdir, pkg)
-            if os.path.exists(pkglibdir):
-                self.log.info("Building %s package libraries in %s", pkg, pkglibdir)
-                if not self.dry_run:  # FIXME
-                    change_dir(pkglibdir)
+            self.log.info("Building %s package libraries in %s", pkg, pkglibdir)
+            change_dir(pkglibdir)
 
-                if makefile is None:
-                    for suffix in suffixes:
-                        pot_makefile = 'Makefile'
-                        if suffix:
-                            pot_makefile += '.%s' % suffix
+            # if no makefile is specified, find most appropriate one to use
+            if makefile is None:
+                for suffix in suffixes:
+                    pot_makefile = 'Makefile'
+                    if suffix:
+                        pot_makefile += '.%s' % suffix
 
-                        self.log.debug("Checking for %s in %s", pot_makefile, pkglibdir)
-                        if os.path.exists(pot_makefile):
-                            makefile = pot_makefile
-                            self.log.debug("Found %s in %s", makefile, pkglibdir)
-                            break
+                    self.log.debug("Checking for %s in %s", pot_makefile, pkglibdir)
+                    if os.path.exists(pot_makefile) or self.dry_run:
+                        makefile = pot_makefile
+                        self.log.debug("Found %s in %s", makefile, pkglibdir)
+                        break
 
-                if makefile is None:
-                    raise EasyBuildError("No makefile matching active compilers found in %s", pkglibdir)
+            if makefile is None:
+                raise EasyBuildError("No makefile matching active compilers found in %s", pkglibdir)
 
-                # make sure active compiler is used
-                run_cmd('make -f %s CC="%s" CXX="%s" FC="%s" F90="%s"' % (makefile, cc, cxx, f90, f90), log_all=True)
+            # include additional argument to 'make' command in some cases
+            extra_make_vars = ''
+            if pkg in ['atc', 'awpmd']:
+                extra_make_vars += ' user-%s_SYSLIB="$LIBLAPACK_MT"' % pkg
 
-        if not self.dry_run:  # FIXME
-            change_dir(os.path.join(self.start_dir, 'src'))
+            # make sure active compiler is used
+            cmd = 'make -f %s CC="%s" CXX="%s" FC="%s" F90="%s" %s' % (makefile, cc, cxx, f90, f90, extra_make_vars)
+            run_cmd(cmd, log_all=True)
+
+            if extra_make_vars:
+                self.make_vars += extra_make_vars
+
+        # build main program
+        change_dir(os.path.join(self.start_dir, 'src'))
 
         for pkg in self.cfg['packages_yes']:
             self.log.info("Building %s package", pkg)
@@ -206,11 +218,7 @@ class EB_LAMMPS(EasyBlock):
             self.log.info("Not building %s package", pkg)
             run_cmd("make no-%s" % pkg, log_all=True)
 
-        # save the list of built packages
-        run_cmd("echo Supported Packages: > list-packages.txt")
-        run_cmd("make package-status | grep -a 'YES:' >> list-packages.txt")
-        run_cmd("echo Not Supported Packages: >> list-packages.txt")
-        run_cmd("make package-status | grep -a 'NO:' >> list-packages.txt")
+        # update src/ files with files from pkg subdirs, to propagate changes made by patches (if any)
         run_cmd("make package-update")
 
         # put together options for make command
@@ -257,9 +265,6 @@ class EB_LAMMPS(EasyBlock):
             cmd = "python install.py %s" % pylibdir
             run_cmd(cmd, log_all=True)
 
-        # FIXME?
-        copy_file('list-packages.txt', os.path.join(self.installdir, 'list-packages.txt'))
-
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
 
@@ -284,6 +289,22 @@ class EB_LAMMPS(EasyBlock):
             'dirs': ['bench', 'doc', 'examples', 'lib', 'potentials', 'python', 'tools'],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_description(self):
+        """Include information about supported packages in module description."""
+
+        change_dir(os.path.join(self.installdir, 'src'))
+        (pkg_status_out, _) = run_cmd("make package-status", simple=False)
+
+        regex_yes_pkg = re.compile("^Installed\s*YES: package (?P<pkg>.*)$", re.M)
+        yes_pkgs = sorted(regex_yes_pkg.findall(pkg_status_out))
+        self.cfg.update('description', "\ninstalled packages: %s\n" % ' '.join(yes_pkgs))
+
+        regex_no_pkg = re.compile("^Installed\s*NO: package (?P<pkg>.*)$", re.M)
+        no_pkgs = sorted(regex_no_pkg.findall(pkg_status_out))
+        self.cfg.update('description', "\nnon-installed packages: %s\n" % ' '.join(no_pkgs))
+
+        return super(EB_LAMMPS, self).make_module_description()
 
     def make_module_extra(self):
         """Also update $PYTHONPATH if LAMMPS Python bindings are being installed."""
