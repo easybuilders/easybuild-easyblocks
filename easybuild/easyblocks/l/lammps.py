@@ -293,16 +293,17 @@ class EB_LAMMPS(EasyBlock):
     def make_module_description(self):
         """Include information about supported packages in module description."""
 
-        change_dir(os.path.join(self.installdir, 'src'))
-        (pkg_status_out, _) = run_cmd("make package-status", simple=False)
+        if os.path.exists(os.path.join(self.installdir, 'src')):
+            change_dir(os.path.join(self.installdir, 'src'))
+            (pkg_status_out, _) = run_cmd("make package-status", simple=False)
 
-        regex_yes_pkg = re.compile("^Installed\s*YES: package (?P<pkg>.*)$", re.M)
-        yes_pkgs = sorted(regex_yes_pkg.findall(pkg_status_out))
-        self.cfg.update('description', "\ninstalled packages: %s\n" % ' '.join(yes_pkgs))
+            regex_yes_pkg = re.compile("^Installed\s*YES: package (?P<pkg>.*)$", re.M)
+            yes_pkgs = sorted(regex_yes_pkg.findall(pkg_status_out))
+            self.cfg.update('description', "\ninstalled packages: %s\n" % ' '.join(yes_pkgs))
 
-        regex_no_pkg = re.compile("^Installed\s*NO: package (?P<pkg>.*)$", re.M)
-        no_pkgs = sorted(regex_no_pkg.findall(pkg_status_out))
-        self.cfg.update('description', "\nnon-installed packages: %s\n" % ' '.join(no_pkgs))
+            regex_no_pkg = re.compile("^Installed\s*NO: package (?P<pkg>.*)$", re.M)
+            no_pkgs = sorted(regex_no_pkg.findall(pkg_status_out))
+            self.cfg.update('description', "\nnon-installed packages: %s\n" % ' '.join(no_pkgs))
 
         return super(EB_LAMMPS, self).make_module_description()
 
