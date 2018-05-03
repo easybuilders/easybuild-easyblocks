@@ -73,8 +73,7 @@ class EB_R(ConfigureMake):
                 dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
                 self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
 
-        if "--with-x=" not in self.cfg['configopts']:
-
+        if "--with-x=" not in self.cfg['configopts'].lower():
             if get_software_root('X11'):
                 self.cfg.update('configopts', '--with-x=yes')
             else:
