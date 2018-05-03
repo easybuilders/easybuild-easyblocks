@@ -33,6 +33,7 @@ import glob
 import os
 import re
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
@@ -157,9 +158,11 @@ class EB_LAMMPS(EasyBlock):
         f90 = os.getenv('F90')
         suffixes = [
             # MPI wrappers should be considered first
-            'mpicc', 'mpic++', 'mpi',
+            'mpicc', 'mpic++',
             # active serial compilers next
             cc, cxx, f90, 'serial',
+            # use generic MPI Makefile as fallback
+            'mpi',
             # GNU compilers as backup (in case no custom Makefile for active compiler is available)
             'gcc', 'g++', 'gfortran',
             # generic fallback
@@ -199,6 +202,9 @@ class EB_LAMMPS(EasyBlock):
             extra_make_vars = ''
             if pkg in ['atc', 'awpmd']:
                 extra_make_vars += ' user-%s_SYSLIB="$LIBLAPACK_MT"' % pkg
+
+            if pkg in ['meam'] and self.toolchain.comp_family() == toolchain.INTELCOMP:
+                extra_make_vars += ' meam_SYSLIB="-lifcore -lsvml -liomp5 -limf"'
 
             # make sure active compiler is used
             cmd = 'make -f %s CC="%s" CXX="%s" FC="%s" F90="%s" %s' % (makefile, cc, cxx, f90, f90, extra_make_vars)
