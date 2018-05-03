@@ -46,13 +46,13 @@ class EB_FEKO(Binary):
 
     def install_step(self):
         """Install FEKO by running the command."""
-        cmd = "cd %s && pwd && ./hwFEKO* -i silent -DUSER_INSTALL_DIR=%s" % (self.builddir, self.installdir)
+        cmd = "cd %s && ./hwFEKO* -i silent -DUSER_INSTALL_DIR=%s -r %s/installation_responses.txt" % (self.builddir, self.installdir, self.installdir)
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
         """Custom sanity check for FEKO."""
         custom_paths = {
-            'files': ['altair/feko/bin/feko_parallel'],
+            'files': ['altair/feko/bin/feko_parallel', 'installation_responses.txt'],
             'dirs': ['altair/feko/bin']
         }
         super(EB_FEKO, self).sanity_check_step(custom_paths=custom_paths)
