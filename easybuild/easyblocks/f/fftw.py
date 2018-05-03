@@ -70,6 +70,8 @@ class EB_FFTW(ConfigureMake):
         for flag in FFTW_CPU_FEATURE_FLAGS:
             if flag == 'fma4':
                 conf_opt = 'avx-128-fma'
+            elif flag == 'avx512f':
+                conf_opt = 'avx512'
             else:
                 conf_opt = flag
 
