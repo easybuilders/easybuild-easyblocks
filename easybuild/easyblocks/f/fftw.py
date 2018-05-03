@@ -40,7 +40,7 @@ from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 # AVX*, FMA4 (AMD Bulldozer+ only), SSE2 (x86_64 only)
-FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE = ['avx', 'avx2', 'avx512', 'fma4', 'sse2', 'vsx']
+FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE = ['avx', 'avx2', 'avx512f', 'fma4', 'sse2', 'vsx']
 # Altivec (POWER), SSE (x86), NEON (ARM), FMA (x86_64)
 # asimd is CPU feature for extended NEON on AARCH64
 FFTW_CPU_FEATURE_FLAGS = FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE + ['altivec', 'asimd', 'neon', 'sse']
