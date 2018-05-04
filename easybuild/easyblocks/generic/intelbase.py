@@ -96,24 +96,6 @@ class IntelBase(EasyBlock):
     - add license_file variable
     """
 
-    @staticmethod
-    def extra_options(extra_vars=None):
-        extra_vars = EasyBlock.extra_options(extra_vars)
-        extra_vars.update({
-            'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
-            'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
-                                         CUSTOM],
-            # 'usetmppath':
-            # workaround for older SL5 version (5.5 and earlier)
-            # used to be True, but False since SL5.6/SL6
-            # disables TMP_PATH env and command line option
-            'usetmppath': [False, "Use temporary path for installation", CUSTOM],
-            'm32': [False, "Enable 32-bit toolchain", CUSTOM],
-            'components': [None, "List of components to install", CUSTOM],
-        })
-
-        return extra_vars
-
     def __init__(self, *args, **kwargs):
         """Constructor, adds extra config options"""
         super(IntelBase, self).__init__(*args, **kwargs)
@@ -165,6 +147,24 @@ class IntelBase(EasyBlock):
             'dirs': [os.path.join(self.subdir, d) for d in dirs],
         }
         return custom_paths
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars.update({
+            'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
+            'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
+                                         CUSTOM],
+            # 'usetmppath':
+            # workaround for older SL5 version (5.5 and earlier)
+            # used to be True, but False since SL5.6/SL6
+            # disables TMP_PATH env and command line option
+            'usetmppath': [False, "Use temporary path for installation", CUSTOM],
+            'm32': [False, "Enable 32-bit toolchain", CUSTOM],
+            'components': [None, "List of components to install", CUSTOM],
+        })
+
+        return extra_vars
 
     def parse_components_list(self):
         """parse the regex in the components extra_options and select the matching components
