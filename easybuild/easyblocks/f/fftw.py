@@ -122,7 +122,8 @@ class EB_FFTW(ConfigureMake):
             # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
             if 'avx1.0' in avail_cpu_features:
                 avail_cpu_features.append('avx')
-            # avx512 availability is indicated via avx512f and other features starting with avx512
+            # --enable-avx512 only uses AVX-512 Foundation (the core extension) features, which
+            # are indicated using avx512f, not plain avx512 in CPU features.
             if 'avx512f' in avail_cpu_features:
                 avail_cpu_features.append('avx512')
 
