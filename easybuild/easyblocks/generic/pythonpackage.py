@@ -425,6 +425,13 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
+
+            if get_software_root('CMake'):
+                include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
+                library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+                env.setvar("CMAKE_INCLUDE_PATH", include_paths)
+                env.setvar("CMAKE_LIBRARY_PATH", library_paths)
+
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
