@@ -28,12 +28,10 @@ EasyBuild support for building and installing GDAL-GRASS, implemented as an easy
 @author: Benjamin Roberts (Landcare Research New Zealand Ltd)
 """
 import os
-import sys
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
-
 
 class EB_GDAL_minus_GRASS(ConfigureMake):
     """Support for building/installing the GDAL-GRASS plugin."""
@@ -51,6 +49,6 @@ class EB_GDAL_minus_GRASS(ConfigureMake):
                 libname = "%s.%s" % (libbase, get_shared_lib_ext())
                 fulllibpath = os.path.join(gdalplugindir, libname)
                 if not os.path.isfile(fulllibpath):
-                    return False 
+                    return False
 
         return True
