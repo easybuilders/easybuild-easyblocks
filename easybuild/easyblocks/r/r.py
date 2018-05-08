@@ -73,10 +73,11 @@ class EB_R(ConfigureMake):
                 dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
                 self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
 
-        if get_software_root('X11'):
-            self.cfg.update('configopts', '--with-x=yes')
-        else:
-            self.cfg.update('configopts', '--with-x=no')
+        if "--with-x=" not in self.cfg['configopts'].lower():
+            if get_software_root('X11'):
+                self.cfg.update('configopts', '--with-x=yes')
+            else:
+                self.cfg.update('configopts', '--with-x=no')
 
         # enable graphic capabilities for plotting, based on available dependencies
         for dep in ['Cairo', 'libjpeg-turbo', 'libpng', 'libtiff']:
