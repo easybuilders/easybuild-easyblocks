@@ -33,6 +33,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_GDAL_minus_GRASS(ConfigureMake):
     """Support for building/installing the GDAL-GRASS plugin."""
 
