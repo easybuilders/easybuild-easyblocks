@@ -161,6 +161,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
                  r"\1\n\techo 'libfox: external module used' #"),
             ]
             apply_regex_substitutions('Makefile', regex_subs)
+            # Make configure and make look in the correct directory
+            regex_subs = [
+                (r"\(TOPDIR\)/FoX/finclude",
+                 r"(EBROOTFOX)/finclude"),
+            ]
+            apply_regex_substitutions('install/configure', regex_subs)
+            apply_regex_substitutions('make.inc', regex_subs)
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
