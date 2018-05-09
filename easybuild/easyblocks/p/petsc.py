@@ -291,7 +291,10 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['sourceinstall']:
             prefix1 = self.petsc_subdir
             prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
-        
+
+        if LooseVersion(self.version) >= LooseVersion("3.9"):
+            prefix3 = prefix1 + 'lib/petsc/'
+
         guesses.update({
             'CPATH': [os.path.join(prefix2, 'include'), os.path.join(prefix1, 'include')],
             'LD_LIBRARY_PATH': [os.path.join(prefix2, 'lib')],
@@ -318,7 +321,6 @@ class EB_PETSc(ConfigureMake):
         prefix1 = ''
         prefix2 = ''
         prefix3 = ''
-
         if self.cfg['sourceinstall']:
             prefix1 = self.petsc_subdir
             prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
