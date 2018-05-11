@@ -136,7 +136,7 @@ class EB_Boost(EasyBlock):
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
-                    txt = '\n'.join([    
+                    txt = '\n'.join([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
                         ': %s' % craygccversion,
@@ -151,7 +151,7 @@ class EB_Boost(EasyBlock):
                         ';',
                         '',
                     ])
-                else: 
+                else:
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
             else:
                 txt = "using mpi : %s ;" % os.getenv("MPICXX")
@@ -166,7 +166,7 @@ class EB_Boost(EasyBlock):
         # install built Boost library
         cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
-        # clean up before proceeding with next build    
+        # clean up before proceeding with next build
         run_cmd("./bjam --clean-all", log_all=True, simple=True)
 
     def build_step(self):
@@ -176,10 +176,10 @@ class EB_Boost(EasyBlock):
 
         cxxflags = os.getenv('CXXFLAGS')
         if cxxflags is not None:
-            bjamoptions += " cxxflags='%s'" % cxxflags 
+            bjamoptions += " cxxflags='%s'" % cxxflags
         ldflags = os.getenv('LDFLAGS')
         if ldflags is not None:
-            bjamoptions += " linkflags='%s'" % ldflags 
+            bjamoptions += " linkflags='%s'" % ldflags
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
@@ -241,8 +241,11 @@ class EB_Boost(EasyBlock):
             custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
+            pyminorver = get_software_version('Python').split('.')[1]
             if int(pymajorver) >= 3:
                 suffix = pymajorver
+            elif LooseVersion(self.version) >= LooseVersion("1.67.0"):
+                suffix = '%s%s' % (pymajorver, pyminorver)
             else:
                 suffix = ''
             custom_paths["files"].append('lib/libboost_python%s.%s' % (suffix, shlib_ext))
@@ -258,4 +261,4 @@ class EB_Boost(EasyBlock):
         txt = super(EB_Boost, self).make_module_extra()
         txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt
-    
+
