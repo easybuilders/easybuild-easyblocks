@@ -261,4 +261,3 @@ class EB_Boost(EasyBlock):
         txt = super(EB_Boost, self).make_module_extra()
         txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt
-
