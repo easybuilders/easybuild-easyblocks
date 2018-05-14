@@ -161,7 +161,6 @@ class EB_numpy(FortranPythonPackage):
                 self.sitecfg.set('mkl', 'lapack_libs', lapack)
                 self.sitecfg.set('mkl', 'mk_libs', blas)
 
-
         else:
             lapack_root_dir = get_software_root("OpenBLAS")
             if lapack_root_dir:
@@ -221,7 +220,6 @@ class EB_numpy(FortranPythonPackage):
                 self.sitecfg.set('umfpack', 'Include_dirs',
                                  os.path.join(umfpackdir, 'Include'))
                 self.sitecfg.set('umfpack', 'umfpack_Libs', 'umfpack')
-
 
         # I need to dump the configfile to a string
         sitecfg_fh = StringIO.StringIO()
