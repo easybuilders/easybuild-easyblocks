@@ -35,6 +35,8 @@ import glob
 import os
 import re
 import tempfile
+import ConfigParser
+import StringIO
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -62,7 +64,7 @@ class EB_numpy(FortranPythonPackage):
         """Initialize numpy-specific class variables."""
         super(EB_numpy, self).__init__(*args, **kwargs)
 
-        self.sitecfg = None
+        self.sitecfg = ConfigParser.SafeConfigParser()
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
         self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
@@ -70,46 +72,9 @@ class EB_numpy(FortranPythonPackage):
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
 
-        # see e.g. https://github.com/numpy/numpy/pull/2809/files
-        self.sitecfg = '\n'.join([
-            "[DEFAULT]",
-            "library_dirs = %(libs)s",
-            "include_dirs= %(includes)s",
-            "search_static_first=True",
-        ])
-
-        if get_software_root("imkl"):
-
-            if self.toolchain.comp_family() == toolchain.GCC:
-                # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
-                # section Building with GNU Compiler chain
-                extrasiteconfig = '\n'.join([
-                    "[mkl]",
-                    "lapack_libs = ",
-                    "mkl_libs = mkl_rt",
-                ])
-            else:
-                extrasiteconfig = '\n'.join([
-                    "[mkl]",
-                    "lapack_libs = %(lapack)s",
-                    "mkl_libs = %(blas)s",
-                ])
-
-        else:
-            # [atlas] the only real alternative, even for non-ATLAS BLAS libs (e.g., OpenBLAS, ACML, ...)
-            # using only the [blas] and [lapack] sections results in sub-optimal builds that don't provide _dotblas.so;
-            # it does require a CBLAS interface to be available for the BLAS library being used
-            # e.g. for ACML, the CBLAS module providing a C interface needs to be used
-            extrasiteconfig = '\n'.join([
-                "[atlas]",
-                "atlas_libs = %(lapack)s",
-                "[lapack]",
-                "lapack_libs = %(lapack)s",  # required by scipy, that uses numpy's site.cfg
-            ])
-
-        blas = None
-        lapack = None
-        fft = None
+        blas = ''
+        lapack = ''
+        fft = ''
 
         if get_software_root("imkl"):
             # with IMKL, no spaces and use '-Wl:'
@@ -173,37 +138,96 @@ class EB_numpy(FortranPythonPackage):
                 raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
                                      "but it's not loaded.")
 
+        # See https://github.com/numpy/numpy/blob/master/site.cfg.example
+        if LooseVersion(self.version) > LooseVersion("1.9.3"):
+            def_section = 'ALL'
+            self.sitecfg.add_section(def_section)
+        else:
+            # `DEFAULT` section is already there, no need to add it
+            def_section = 'DEFAULT'
+
+        self.sitecfg.set(def_section, 'library_dirs', libs)
+        self.sitecfg.set(def_section, 'include_dirs', includes)
+        self.sitecfg.set(def_section, 'search_static_first', 'True')
+
+        if get_software_root("imkl"):
+            self.sitecfg.add_section('mkl')
+            if self.toolchain.comp_family() == toolchain.GCC:
+                # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
+                # section Building with GNU Compiler chain
+                self.sitecfg.set('mkl', 'lapack_libs', '')
+                self.sitecfg.set('mkl', 'mkl_rt')
+            else:
+                self.sitecfg.set('mkl', 'lapack_libs', lapack)
+                self.sitecfg.set('mkl', 'mk_libs', blas)
+
+
+        else:
+            lapack_root_dir = get_software_root("OpenBLAS")
+            if lapack_root_dir:
+                lapack_section = 'openblas'
+                lapack = 'openblas'
+
+            else:
+                # Otherwise we rely on ATLAS
+                lapack_root_dir = get_software_root("ATLAS")
+                lapack_section = 'atlas'
+
+        self.sitecfg.add_section(lapack_section)
+        self.sitecfg.set(lapack_section, 'libraries', lapack)
+
+        if not(get_software_root("imkl")):
+            lapack_lib_dirs = os.path.join(lapack_root_dir, 'lib')
+            lapack_incl_dirs = os.path.join(lapack_root_dir, 'include')
+            self.sitecfg.set(lapack_section, 'library_dirs', lapack_lib_dirs)
+            self.sitecfg.set(lapack_section, 'include_dirs', lapack_incl_dirs)
+
         if fft:
-            extrasiteconfig += "\n[fftw]\nlibraries = %s" % fft
+            self.sitecfg.add_section('fftw')
+            self.sitecfg.set('fftw', 'libraries', fft)
 
         suitesparseroot = get_software_root('SuiteSparse')
         if suitesparseroot:
             amddir = os.path.join(suitesparseroot, 'AMD')
             umfpackdir = os.path.join(suitesparseroot, 'UMFPACK')
+            self.sitecfg.add_section('amd')
+            self.sitecfg.add_section('umfpack')
 
             if not os.path.exists(amddir) or not os.path.exists(umfpackdir):
-                raise EasyBuildError("Expected SuiteSparse subdirectories are not both there: %s, %s",
-                                     amddir, umfpackdir)
+                # At least in the last version of SuiteSparse with the standard
+                # easyconfig, everything is installed in ./lib, ./include
+
+                self.sitecfg.set('amd', 'library_dirs',
+                                 os.path.join(suitesparseroot, 'lib'))
+                self.sitecfg.set('amd', 'include_dirs',
+                                 os.path.join(suitesparseroot, 'include'))
+                self.sitecfg.set('amd', 'amd_libs', 'amd')
+
+                self.sitecfg.set('umfpack', 'library_dirs',
+                                 os.path.join(suitesparseroot, 'lib'))
+                self.sitecfg.set('umfpack', 'include_dirs',
+                                 os.path.join(suitesparseroot, 'include'))
+                self.sitecfg.set('umfpack', 'umfpack_libs', 'umfpack')
+
             else:
-                extrasiteconfig += '\n'.join([
-                    "[amd]",
-                    "library_dirs = %s" % os.path.join(amddir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(amddir, 'Include'),
-                    "amd_libs = amd",
-                    "[umfpack]",
-                    "library_dirs = %s" % os.path.join(umfpackdir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(umfpackdir, 'Include'),
-                    "umfpack_libs = umfpack",
-                ])
+                self.sitecfg.set('amd', 'Library_dirs',
+                                 os.path.join(amddir, 'Lib'))
+                self.sitecfg.set('amd', 'Include_dirs',
+                                 os.path.join(amddir, 'Include'))
+                self.sitecfg.set('amd', 'amd_Libs', 'amd')
 
-        self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
+                self.sitecfg.set('umfpack', 'Library_dirs',
+                                 os.path.join(umfpackdir, 'Lib'))
+                self.sitecfg.set('umfpack', 'Include_dirs',
+                                 os.path.join(umfpackdir, 'Include'))
+                self.sitecfg.set('umfpack', 'umfpack_Libs', 'umfpack')
 
-        self.sitecfg = self.sitecfg % {
-            'blas': blas,
-            'lapack': lapack,
-            'libs': libs,
-            'includes': includes,
-        }
+
+        # I need to dump the configfile to a string
+        sitecfg_fh = StringIO.StringIO()
+        self.sitecfg.write(sitecfg_fh)
+        self.sitecfg = sitecfg_fh.getvalue()
+        sitecfg_fh.close()
 
         super(EB_numpy, self).configure_step()
 
