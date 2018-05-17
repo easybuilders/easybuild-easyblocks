@@ -33,6 +33,7 @@ import glob
 import os
 import stat
 import tempfile
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -43,6 +44,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_os_name, get_os_version
 
 
 # wrapper for Intel compiler, where required environment are hardcoded to make sure they're present;
@@ -67,10 +69,30 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'with_jemalloc': [True, "Make TensorFlow use jemalloc", CUSTOM],
+            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
+
+    def handle_jemalloc(self):
+        """Figure out whether jemalloc support should be enabled or not."""
+        if self.cfg['with_jemalloc'] is None:
+            if LooseVersion(self.version) > LooseVersion('1.6'):
+                # jemalloc bundled with recent versions of TensorFlow does not work on RHEL 6 or derivatives,
+                # so disable it automatically if with_jemalloc was left unspecified
+                rh_based_os = get_os_name().split(' ')[0] in ['centos', 'redhat', 'rhel', 'sl']
+                if rh_based_os and get_os_version().startswith('6.'):
+                    self.log.info("Disabling jemalloc since bundled jemalloc does not work on RHEL 6 and derivatives")
+                    self.cfg['with_jemalloc'] = False
+
+            # if the above doesn't disable jemalloc support, then enable it by default
+            if self.cfg['with_jemalloc'] is None:
+                self.log.info("Enabling jemalloc support by default, since it was left unspecified")
+                self.cfg['with_jemalloc'] = True
+
+        else:
+            # if with_jemalloc was specified, stick to that
+            self.log.info("with_jemalloc was specified as %s, so sticking to it", self.cfg['with_jemalloc'])
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -98,9 +120,10 @@ class EB_TensorFlow(PythonPackage):
 
         self.prepare_python()
 
+        self.handle_jemalloc()
+
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
-        jemalloc_root = get_software_root('jemalloc')
         opencl_root = get_software_root('OpenCL')
 
         use_mpi = self.toolchain.options.get('usempi', False)
@@ -142,7 +165,7 @@ class EB_TensorFlow(PythonPackage):
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
-        cmd = self.cfg['preconfigopts'] +  './configure ' + self.cfg['configopts']
+        cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
     def build_step(self):
@@ -191,10 +214,11 @@ class EB_TensorFlow(PythonPackage):
 
         # fix hardcoded locations of compilers & tools
         cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
+        cxx_inc_dir_lines_no_resolv_path = '\n'.join(r'cxx_builtin_include_directory: "%s"' % p for p in inc_paths)
         regex_subs = [
             (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines),
+            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines + '\n' + cxx_inc_dir_lines_no_resolv_path),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
@@ -233,7 +257,6 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-
         # limit the number of parallel jobs running simultaneously (useful on KNL)...
         cmd.append('--jobs=%s' % self.cfg['parallel'])
 
@@ -254,12 +277,12 @@ class EB_TensorFlow(PythonPackage):
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             cmd.extend(['--config=mkl'])
-            cmd.insert(0, 'export TF_MKL_DOWNLOAD=0 &&' )
-            cmd.insert(0, 'export TF_MKL_ROOT=%s &&' % mkl_root)
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
+            cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
         elif self.cfg['with_mkl_dnn']:
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
             cmd.extend(['--config=mkl'])
-            cmd.insert(0, 'export TF_MKL_DOWNLOAD=1 &&' )
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
 
         # specify target of the build command as last argument
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')

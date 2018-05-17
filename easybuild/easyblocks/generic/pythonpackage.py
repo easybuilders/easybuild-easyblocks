@@ -187,6 +187,7 @@ class PythonPackage(ExtensionEasyBlock):
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
@@ -203,7 +204,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgincdir = None
         self.testinstall = False
         self.testcmd = None
-        self.unpack_options = ''
+        self.unpack_options = self.cfg['unpack_options']
 
         self.python_cmd = None
         self.pylibdir = UNKNOWN
@@ -242,7 +243,7 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--zip-ok')
 
-        elif self.cfg.get('use_pip', False):
+        elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
@@ -368,6 +369,10 @@ class PythonPackage(ExtensionEasyBlock):
         if installopts is None:
             installopts = self.cfg['installopts']
 
+        if self.cfg.get('use_pip_editable', False):
+            # add --editable option when requested, in the right place (i.e. right before the location specification)
+            loc = "--editable %s" % loc
+
         cmd.extend([
             self.cfg['preinstallopts'],
             self.install_cmd % {
@@ -434,6 +439,13 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
+
+            if get_software_root('CMake'):
+                include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
+                library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+                env.setvar("CMAKE_INCLUDE_PATH", include_paths)
+                env.setvar("CMAKE_LIBRARY_PATH", library_paths)
+
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)

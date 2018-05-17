@@ -39,7 +39,7 @@ import stat
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, rmtree2
+from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, rmtree2
 from easybuild.tools.run import run_cmd
 
 
@@ -54,6 +54,7 @@ class Binary(EasyBlock):
         """Extra easyconfig parameters specific to Binary easyblock."""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
+            'extract_sources': [False, "Whether or not to extract sources", CUSTOM],
             'install_cmd': [None, "Install command to be used.", CUSTOM],
             # staged installation can help with the hard (potentially faulty) check on available disk space
             'staged_install': [False, "Perform staged installation via subdirectory of build directory", CUSTOM],
@@ -74,17 +75,17 @@ class Binary(EasyBlock):
     def extract_step(self):
         """Copy all source files to the build directory"""
 
-        self.src[0]['finalpath'] = self.builddir
+        if self.cfg.get('extract_sources', False):
+            super(Binary, self).extract_step()
+        else:
+            # required for correctly guessing start directory
+            self.src[0]['finalpath'] = self.builddir
 
-        # copy source to build dir.
-        for source in self.src:
-            src = source['path']
-            dst = os.path.join(self.builddir, source['name'])
-            try:
-                shutil.copy2(src, self.builddir)
-                os.chmod(dst, stat.S_IRWXU)
-            except (OSError, IOError), err:
-                raise EasyBuildError("Couldn't copy %s to %s: %s", src, self.builddir, err)
+            # copy source to build dir
+            for source in self.src:
+                dst = os.path.join(self.builddir, source['name'])
+                copy_file(source['path'], dst)
+                adjust_permissions(dst, stat.S_IRWXU, add=True)
 
     def configure_step(self):
         """No configuration, this is binary software"""
