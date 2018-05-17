@@ -54,6 +54,14 @@ class EB_PETSc(ConfigureMake):
         self.prefix_lib = ''
         self.prefix_bin = ''
 
+        if self.cfg['sourceinstall']:
+            self.prefix_inc = self.petsc_subdir
+            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+
+        if LooseVersion(self.version) >= LooseVersion("3.9"):
+            self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
+
+
     @staticmethod
     def extra_options():
         """Add extra config options specific to PETSc."""
@@ -287,13 +295,6 @@ class EB_PETSc(ConfigureMake):
         """Specify PETSc custom values for PATH, CPATH and LD_LIBRARY_PATH."""
 
         guesses = super(EB_PETSc, self).make_module_req_guess()
-
-        if self.cfg['sourceinstall']:
-            self.prefix_inc = self.petsc_subdir
-            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
-
-        if LooseVersion(self.version) >= LooseVersion("3.9"):
-            self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
 
         guesses.update({
             'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
