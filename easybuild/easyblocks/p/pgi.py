@@ -41,7 +41,6 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
@@ -86,7 +85,7 @@ class EB_PGI(PackedBinary):
         super(EB_PGI, self).__init__(*args, **kwargs)
 
         self.license_file = 'UNKNOWN'
-        self.license_env_var = 'UNKNOWN' # Probably not really necessary for PGI
+        self.license_env_var = 'UNKNOWN'  # Probably not really necessary for PGI
 
         self.pgi_install_subdir = os.path.join('linux86-64', self.version)
 
@@ -110,8 +109,7 @@ class EB_PGI(PackedBinary):
             env.setvar(self.license_env_var, self.license_file)
 
         else:
-            raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
-                                 "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
+            self.log.info("No viable license specifications found, assuming PGI Community Edition...")
 
     def install_step(self):
         """Install by running install command."""
