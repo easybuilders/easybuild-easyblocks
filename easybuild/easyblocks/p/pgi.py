@@ -177,7 +177,8 @@ class EB_PGI(PackedBinary):
     def make_module_extra(self):
         """Add environment variables LM_LICENSE_FILE and PGI for license file and PGI location"""
         txt = super(EB_PGI, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
-                                                   allow_abs=True, expand_relpaths=False)
+        if self.license_env_var:
+            txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                       allow_abs=True, expand_relpaths=False)
         txt += self.module_generator.set_environment('PGI', self.installdir)
         return txt
