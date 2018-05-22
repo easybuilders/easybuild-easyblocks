@@ -58,9 +58,8 @@ class Binary(EasyBlock):
             'install_cmd': [None, "Install command to be used.", CUSTOM],
             # staged installation can help with the hard (potentially faulty) check on available disk space
             'staged_install': [False, "Perform staged installation via subdirectory of build directory", CUSTOM],
-            'prepend_to_path': ['',
-                                "Prepend the given path to environment PATH in the module file. Set to None to skip",
-                                CUSTOM],
+            'prepend_to_path': [[''], "Prepend the given directories (relative to install-dir) to the environment "
+                                      "variable PATH in the module file.", CUSTOM],
         })
         return extra_vars
 
@@ -134,10 +133,10 @@ class Binary(EasyBlock):
                       self.__class__.__name__)
 
     def make_module_extra(self):
-        """Add the specified directory to the PATH."""
+        """Add the specified directories to the PATH."""
 
         txt = super(Binary, self).make_module_extra()
-        if not self.cfg['prepend_to_path'] is None:
-            txt += self.module_generator.prepend_paths("PATH", [self.cfg['prepend_to_path']])
+        if self.cfg['prepend_to_path'] is not None:
+            txt += self.module_generator.prepend_paths("PATH", self.cfg['prepend_to_path'])
         self.log.debug("make_module_extra added this: %s" % txt)
         return txt
