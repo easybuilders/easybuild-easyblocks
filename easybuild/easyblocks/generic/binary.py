@@ -43,6 +43,8 @@ from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, rmtr
 from easybuild.tools.run import run_cmd
 
 
+PREPEND_TO_PATH_DEFAULT = ['']
+
 class Binary(EasyBlock):
     """
     Support for installing software that comes in binary form.
@@ -58,8 +60,9 @@ class Binary(EasyBlock):
             'install_cmd': [None, "Install command to be used.", CUSTOM],
             # staged installation can help with the hard (potentially faulty) check on available disk space
             'staged_install': [False, "Perform staged installation via subdirectory of build directory", CUSTOM],
-            'prepend_to_path': [[''], "Prepend the given directories (relative to install-dir) to the environment "
-                                      "variable PATH in the module file.", CUSTOM],
+            'prepend_to_path': [PREPEND_TO_PATH_DEFAULT, "Prepend the given directories (relative to install-dir) to "
+                                                         "the environment variable PATH in the module file. Default "
+                                                         "is the install-dir itself.", CUSTOM],
         })
         return extra_vars
 
@@ -136,7 +139,8 @@ class Binary(EasyBlock):
         """Add the specified directories to the PATH."""
 
         txt = super(Binary, self).make_module_extra()
-        if self.cfg['prepend_to_path'] is not None:
-            txt += self.module_generator.prepend_paths("PATH", self.cfg['prepend_to_path'])
+        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
+        if prepend_to_path:
+            txt += self.module_generator.prepend_paths("PATH", prepend_to_path)
         self.log.debug("make_module_extra added this: %s" % txt)
         return txt
