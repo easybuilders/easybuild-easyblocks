@@ -46,7 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, mkdir, read_file, rmtree2, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, extract_file, mkdir, read_file, rmtree2, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -127,9 +127,11 @@ class EB_WIEN2k(EasyBlock):
 
         rplibs = ' '.join(rplibs)
 
+	# Haven't figured out how to set the FOPT value correctly in the
+	# cfgscript yet.
         d = {
-             'FC': '%s %s' % (os.getenv('F90'), os.getenv('FFLAGS')),
-             'MPF': "%s %s" % (os.getenv('MPIF90'), os.getenv('FFLAGS')),
+             'FC': os.getenv('F90'),
+             'MPF': os.getenv('MPIF90'),
              'CC': os.getenv('CC'),
              'LDFLAGS': '$(FOPT) %s ' % os.getenv('LDFLAGS'),
              'R_LIBS': rlibs,  # libraries for 'real' (not 'complex') binary
@@ -149,6 +151,12 @@ class EB_WIEN2k(EasyBlock):
             # avoid exit code > 0 at end of configuration
             line = re.sub('(\s+)exit 1', '\\1exit 0', line)
             sys.stdout.write(line)
+
+        regex_subs = [
+            (r'set\s*f77\s*=\s*\$FC', r'set f77 = "$FC"'),
+            (r'set\s*c77\s*=\s*cc', r'set c77 = "$CC"'),
+        ]
+        apply_regex_substitutions(self.cfgscript, regex_subs)
 
         # set correct compilers
         env.setvar('bin', os.getcwd())
@@ -178,6 +186,7 @@ class EB_WIEN2k(EasyBlock):
              'continue or stop (c/s)': 'c',
              '(like taskset -c). Enter N / your_specific_command:': 'N',
         }
+
         if LooseVersion(self.version) >= LooseVersion("13"):
             fftw_root = get_software_root('FFTW')
             if fftw_root:
@@ -194,6 +203,41 @@ class EB_WIEN2k(EasyBlock):
                  'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3):' : fftw_root,
                  'is this correct? enter Y (default) or n:' : 'Y',
             })
+
+            if LooseVersion(self.version) >= LooseVersion("16"):
+                libxc_root = get_software_root('libxc')
+                if libxc_root:
+                    libxc_root = libxc_root + "/"
+                    qanda.update({
+                        'use LIBXC (that you have installed before)? (y,N):': 'y',
+                        'Do you want to automatically search for LIBXC installations? (Y,n):': 'n',
+                        'Please specify the ROOT-path of your LIBXC installation (like /usr/local/libxc/) or accept the present path (Enter) (EXIT or an empty LIBXCpath aborts LIBXC selection):': libxc_root,
+                    })
+                else:
+                    qanda.update({
+                        'use LIBXC (that you have installed before)? (y,N):': 'N',
+                    })
+
+                elpa_root = get_software_root('ELPA')
+                if elpa_root:
+                    elpa_root = elpa_root + "/"
+                    qanda.update({
+                        'Do you want to use ELPA? (y,N):': 'y',
+                        'Do you want to automatically search for ELPA installations? (Y,n):': 'n',
+                        'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) or accept present path (Enter):': elpa_root,
+                    })
+                else:
+                    qanda.update({
+                        'Do you want to use ELPA? (y,N):': 'n',
+                    })
+
+                qanda.update({
+                     'You need to KNOW details about your installed MPI, ELPA, and FFTW ) (y/n)': 'y',
+                     'Do you want to automatically search for FFTW installations? (Y,n):': 'n',
+                     'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3/) or accept present choice (enter):' : fftw_root,
+                     'Is this correct? enter Y (default) or n:' : 'Y',
+                     'Is this correct? Enter Y (default) or n:' : 'Y',
+                })
         else:
             qanda.update({
                  'compiler) Selection:': comp_answer,
@@ -219,7 +263,23 @@ class EB_WIEN2k(EasyBlock):
             'Recommended setting for parallel f90 compiler: .* Current selection: Your compiler:': os.getenv('MPIF90'),
         }
 
-        run_cmd_qa(cmd, qanda, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        if LooseVersion(self.version) >= LooseVersion("16"):
+            if elpa_root:
+                # This may seem a bit complex, but we need to make very
+                # sure that we pick the non-openmp version of the fortran
+                # modules since Wien2k forcibly uses -lelpa and we can't
+                # (currently) change that to -lelpa_openmp.
+                # We also can't guarantee that Wien2k finds the two
+                # versions in any particular order.
+                many_elpa = r'More than one version of ELPA found. Pick one \(enter line number!\):.*[\s\n]+'
+                many_elpa_omp_std = many_elpa + elpa_root + r'include/elpa_openmp.*[\s\n]+' + elpa_root + r'include/elpa-.*'
+                many_elpa_std_omp =  many_elpa+ elpa_root + r'include/elpa-.*[\s\n]+' + elpa_root + r'include/elpa_openmp.*'
+                std_qa.update({
+                    many_elpa_omp_std : '2',
+                    many_elpa_std_omp : '1',
+                })
+
+        run_cmd_qa(cmd, qanda, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=500)
 
         # post-configure patches
         parallel_options = {}
