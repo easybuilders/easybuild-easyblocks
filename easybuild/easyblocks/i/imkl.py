@@ -87,7 +87,7 @@ class EB_imkl(IntelBase):
                 }
                 mpi_fam = self.toolchain.mpi_family()
                 self.mpi_spec = mpi_spec_by_fam.get(mpi_fam)
-                self.log.debug("Determined MPI specification based on MPI toolchain component: %s", self.mpi_spec)
+                debugstr = "MPI toolchain component"
             else:
                 # can't use toolchain.mpi_family, because of dummy toolchain
                 if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
@@ -97,7 +97,11 @@ class EB_imkl(IntelBase):
                 elif not get_software_root('impi'):
                     # no compatible MPI found: do not build cdft
                     self.cdftlibs = []
-                self.log.debug("Determined MPI specification based on loaded MPI module: %s", self.mpi_spec)
+                debugstr = "loaded MPI module"
+            if self.mpi_spec:
+                self.log.debug("Determined MPI specification based on %s: %s", debugstr, self.mpi_spec)
+            else:
+                self.log.debug("No MPI or no compatible MPI found: do not build CDFT")
 
     def prepare_step(self, *args, **kwargs):
         if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
