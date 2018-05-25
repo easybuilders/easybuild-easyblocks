@@ -11,8 +11,9 @@ v3.6.1 (May 25th 2018)
 bugfix/update release
 - minor enhancements, including:
   - add support for detecting auto-downloaded dependencies in PythonPackage easyblock (#1377)
+    - disable by default, can be enabled using "download_dep_fail = True" in easyconfig file
   - add support to enable integration of pscom in psmpi easyblock (#1397)
-  - set CMake patch when it's loaded in PythonPackage (#1398)
+  - set $CMAKE_*_PATH when CMake is loaded in PythonPackage easyblock (#1398)
   - update WIEN2k easyblock for v17 (#1405)
   - disable jemalloc support in TensorFlow on CentOS 6 & co (+ minor cleanups) (#1412)
   - update Maple easyblock to support recent versions (#1414)
@@ -24,12 +25,12 @@ bugfix/update release
 - minor changes, including:
   - assume PGI Community edition is used when no license file is specified (#1427)
 - various bug fixes, including:
-  - add conditional so "--with-x" is only added to configopts if not defined (#1415)
-  - fixed ICEM_ACN path (#1422)
-  - install Chimera in a subdirectory to avoid its dependencies being added to the environment (#1413)
-  - avoid hardcoding defaults in question patterns in Doris easyblock (#1428)
-  - make configure and make look for FoX in EBROOTFOX in QuantumESPRESSO easyblock (#1420)
   - fix imkl sanity check overwriting base libs with interface libs. (#1392)
+  - install Chimera in a subdirectory to avoid its dependencies being added to the environment (#1413)
+  - add conditional so "--with-x" is only added to configopts if left unspecified (#1415)
+  - make configure and make look for FoX in $EBROOTFOX in QuantumESPRESSO easyblock (#1420)
+  - fix path for $ICEM_ACN in ANSYS easyblock (#1422)
+  - avoid hardcoding defaults in question patterns in Doris easyblock (#1428)
 
 
 v3.6.0 (April 26th 2018)
