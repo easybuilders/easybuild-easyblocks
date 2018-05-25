@@ -5,13 +5,13 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 194 software-specific easyblocks and 31 generic easyblocks.
 
-v3.6.1 (May 25th 2018)
+v3.6.1 (May 28th 2018)
 ----------------------
 
 bugfix/update release
 - minor enhancements, including:
   - add support for detecting auto-downloaded dependencies in PythonPackage easyblock (#1377)
-    - disable by default, can be enabled using "download_dep_fail = True" in easyconfig file
+    - disabled by default, can be enabled using "download_dep_fail = True" in easyconfig file
   - add support to enable integration of pscom in psmpi easyblock (#1397)
   - set $CMAKE_*_PATH when CMake is loaded in PythonPackage easyblock (#1398)
   - update WIEN2k easyblock for v17 (#1405)
@@ -27,7 +27,7 @@ bugfix/update release
 - various bug fixes, including:
   - fix imkl sanity check overwriting base libs with interface libs. (#1392)
   - install Chimera in a subdirectory to avoid its dependencies being added to the environment (#1413)
-  - add conditional so "--with-x" is only added to configopts if left unspecified (#1415)
+  - add conditional so "--with-x" is only added to configopts if left unspecified in R easyblock (#1415)
   - make configure and make look for FoX in $EBROOTFOX in QuantumESPRESSO easyblock (#1420)
   - fix path for $ICEM_ACN in ANSYS easyblock (#1422)
   - avoid hardcoding defaults in question patterns in Doris easyblock (#1428)
