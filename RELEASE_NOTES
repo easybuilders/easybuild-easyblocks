@@ -21,6 +21,7 @@ bugfix/update release
   - check output of MATLAB installation command for invalid installation key error (#1423)
   - fix suffix for Boost Python library in Boost 1.67.0 & newer (#1424)
   - support adding specific paths to $PATH for generic Binary easyblock via 'prepend_to_path' custom easyconfig parameter (#1426)
+- minor changes, including:
   - assume PGI Community edition is used when no license file is specified (#1427)
 - various bug fixes, including:
   - add conditional so "--with-x" is only added to configopts if not defined (#1415)
