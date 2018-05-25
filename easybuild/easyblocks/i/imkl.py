@@ -77,6 +77,8 @@ class EB_imkl(IntelBase):
             super(EB_imkl, self).prepare_step(*args, **kwargs)
         else:
             super(EB_imkl, self).prepare_step(*args, **kwargs)
+
+        # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
             cdftlibs = ['fftw2x_cdft']
             if LooseVersion(self.version) >= LooseVersion('10.3'):
@@ -92,7 +94,7 @@ class EB_imkl(IntelBase):
                 }
                 mpi_fam = self.toolchain.mpi_family()
                 mpi_spec = mpi_spec_by_fam.get(mpi_fam)
-                self.log.debug("Determined MPI specification based on MPI toolchain component: %s" % mpi_spec)
+                self.log.debug("Determined MPI specification based on MPI toolchain component: %s", mpi_spec)
             else:
                 # can't use toolchain.mpi_family, because of dummy toolchain
                 if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
@@ -102,7 +104,7 @@ class EB_imkl(IntelBase):
                 elif not get_software_root('impi'):
                     # no compatible MPI found: do not build cdft
                     cdftlibs = []
-                self.log.debug("Determined MPI specification based on loaded MPI module: %s" % mpi_spec)
+                self.log.debug("Determined MPI specification based on loaded MPI module: %s", mpi_spec)
             self.cdftlibs = cdftlibs
             self.mpi_spec = mpi_spec
 
@@ -246,8 +248,6 @@ class EB_imkl(IntelBase):
             # blas95 and lapack also need include/.mod to be processed
             fftw2libs = ['fftw2xc', 'fftw2xf']
             fftw3libs = ['fftw3xc', 'fftw3xf']
-            # cdftlibs set in prepare_step
-            cdftlibs = self.cdftlibs
 
             interfacedir = os.path.join(self.installdir, intsubdir)
             try:
@@ -284,14 +284,14 @@ class EB_imkl(IntelBase):
                     ('-Wall', ''),
                     ('-Werror', ''),
                 ]
-                for lib in cdftlibs:
+                for lib in self.cdftlibs:
                     apply_regex_substitutions(os.path.join(interfacedir, lib, 'makefile'), regex_subs)
 
-            for lib in fftw2libs + fftw3libs + cdftlibs:
+            for lib in fftw2libs + fftw3libs + self.cdftlibs:
                 buildopts = [compopt]
                 if lib in fftw3libs:
                     buildopts.append('install_to=$INSTALL_DIR')
-                elif lib in cdftlibs:
+                elif lib in self.cdftlibs:
                     if self.mpi_spec is not None:
                         buildopts.append('mpi=%s' % self.mpi_spec)
 
@@ -301,7 +301,7 @@ class EB_imkl(IntelBase):
                     precflags = ['PRECISION=MKL_DOUBLE', 'PRECISION=MKL_SINGLE']
 
                 intflags = ['']
-                if lib in cdftlibs and not self.cfg['m32']:
+                if lib in self.cdftlibs and not self.cfg['m32']:
                     # build both 32-bit and 64-bit interfaces
                     intflags = ['interface=lp64', 'interface=ilp64']
 
