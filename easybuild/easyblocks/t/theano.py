@@ -30,6 +30,7 @@ EasyBuild support for Theano, implemented as an easyblock
 
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.modules import get_software_root, get_software_version
 import os
 import random
 import string
@@ -58,3 +59,11 @@ class EB_Theano(PythonPackage):
         txt += self.module_generator.set_environment('THEANO_FLAGS', theano_flags)
 
         return txt
+
+    def sanity_check_step(self, *args, **kwargs):
+        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+        custom_paths = {
+            'files': ['bin/theano-cache', 'bin/theano-nose'],
+            'dirs': ['lib/python%s/site-packages' % pyshortver],
+        }
+        return super(EB_Theano, self).sanity_check_step(custom_paths=custom_paths)
