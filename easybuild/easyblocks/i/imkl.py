@@ -71,19 +71,12 @@ class EB_imkl(IntelBase):
         # make sure $MKLROOT isn't set, it's known to cause problems with the installation
         self.cfg.update('unwanted_env_vars', ['MKLROOT'])
 
-    def prepare_step(self, *args, **kwargs):
-        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
-            kwargs['requires_runtime_license'] = False
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
-
         # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
-            cdftlibs = ['fftw2x_cdft']
+            self.cdftlibs = ['fftw2x_cdft']
             if LooseVersion(self.version) >= LooseVersion('10.3'):
-                cdftlibs.append('fftw3x_cdft')
-            mpi_spec = None
+                self.cdftlibs.append('fftw3x_cdft')
+            self.mpi_spec = None
             # check whether MPI_FAMILY constant is defined, so mpi_family() can be used
             if hasattr(self.toolchain, 'MPI_FAMILY') and self.toolchain.MPI_FAMILY is not None:
                 mpi_spec_by_fam = {
@@ -93,20 +86,25 @@ class EB_imkl(IntelBase):
                     toolchain.OPENMPI: 'openmpi',
                 }
                 mpi_fam = self.toolchain.mpi_family()
-                mpi_spec = mpi_spec_by_fam.get(mpi_fam)
-                self.log.debug("Determined MPI specification based on MPI toolchain component: %s", mpi_spec)
+                self.mpi_spec = mpi_spec_by_fam.get(mpi_fam)
+                self.log.debug("Determined MPI specification based on MPI toolchain component: %s", self.mpi_spec)
             else:
                 # can't use toolchain.mpi_family, because of dummy toolchain
                 if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
-                    mpi_spec = 'mpich2'
+                    self.mpi_spec = 'mpich2'
                 elif get_software_root('OpenMPI'):
-                    mpi_spec = 'openmpi'
+                    self.mpi_spec = 'openmpi'
                 elif not get_software_root('impi'):
                     # no compatible MPI found: do not build cdft
-                    cdftlibs = []
-                self.log.debug("Determined MPI specification based on loaded MPI module: %s", mpi_spec)
-            self.cdftlibs = cdftlibs
-            self.mpi_spec = mpi_spec
+                    self.cdftlibs = []
+                self.log.debug("Determined MPI specification based on loaded MPI module: %s", self.mpi_spec)
+
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
