@@ -5,6 +5,33 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 194 software-specific easyblocks and 31 generic easyblocks.
 
+v3.6.1 (May 25th 2018)
+----------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - add support for detecting auto-downloaded dependencies in PythonPackage easyblock (#1377)
+  - add support to enable integration of pscom in psmpi easyblock (#1397)
+  - set CMake patch when it's loaded in PythonPackage (#1398)
+  - update WIEN2k easyblock for v17 (#1405)
+  - disable jemalloc support in TensorFlow on CentOS 6 & co (+ minor cleanups) (#1412)
+  - update Maple easyblock to support recent versions (#1414)
+  - enable nc-config usage for netCDF in ESMF >=7.1 (#1419)
+  - enhance PETSc easyblock for version 3.9 (#1421)
+  - check output of MATLAB installation command for invalid installation key error (#1423)
+  - fix suffix for Boost Python library in Boost 1.67.0 & newer (#1424)
+  - support adding specific paths to $PATH for generic Binary easyblock via 'prepend_to_path' custom easyconfig parameter (#1426)
+- minor changes, including:
+  - assume PGI Community edition is used when no license file is specified (#1427)
+- various bug fixes, including:
+  - add conditional so "--with-x" is only added to configopts if not defined (#1415)
+  - fixed ICEM_ACN path (#1422)
+  - install Chimera in a subdirectory to avoid its dependencies being added to the environment (#1413)
+  - avoid hardcoding defaults in question patterns in Doris easyblock (#1428)
+  - make configure and make look for FoX in EBROOTFOX in QuantumESPRESSO easyblock (#1420)
+  - fix imkl sanity check overwriting base libs with interface libs. (#1392)
+
+
 v3.6.0 (April 26th 2018)
 ------------------------
 
