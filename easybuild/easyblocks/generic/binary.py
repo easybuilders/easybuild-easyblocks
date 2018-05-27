@@ -43,6 +43,8 @@ from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, rmtr
 from easybuild.tools.run import run_cmd
 
 
+PREPEND_TO_PATH_DEFAULT = ['']
+
 class Binary(EasyBlock):
     """
     Support for installing software that comes in binary form.
@@ -58,6 +60,9 @@ class Binary(EasyBlock):
             'install_cmd': [None, "Install command to be used.", CUSTOM],
             # staged installation can help with the hard (potentially faulty) check on available disk space
             'staged_install': [False, "Perform staged installation via subdirectory of build directory", CUSTOM],
+            'prepend_to_path': [PREPEND_TO_PATH_DEFAULT, "Prepend the given directories (relative to install-dir) to "
+                                                         "the environment variable PATH in the module file. Default "
+                                                         "is the install-dir itself.", CUSTOM],
         })
         return extra_vars
 
@@ -66,7 +71,7 @@ class Binary(EasyBlock):
         super(Binary, self).__init__(*args, **kwargs)
 
         self.actual_installdir = None
-        if self.cfg['staged_install']:
+        if self.cfg.get('staged_install', False):
             self.actual_installdir = self.installdir
             self.installdir = os.path.join(self.builddir, 'staged')
             mkdir(self.installdir, parents=True)
@@ -97,7 +102,8 @@ class Binary(EasyBlock):
 
     def install_step(self):
         """Copy all files in build directory to the install directory"""
-        if self.cfg['install_cmd'] is None:
+        install_cmd = self.cfg.get('install_cmd', None)
+        if install_cmd is None:
             try:
                 # shutil.copytree doesn't allow the target directory to exist already
                 rmtree2(self.installdir)
@@ -105,13 +111,13 @@ class Binary(EasyBlock):
             except OSError, err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
         else:
-            cmd = ' '.join([self.cfg['preinstallopts'], self.cfg['install_cmd'], self.cfg['installopts']])
+            cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
             self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
             run_cmd(cmd, log_all=True, simple=True)
 
     def post_install_step(self):
         """Copy installation to actual installation directory in case of a staged installation."""
-        if self.cfg['staged_install']:
+        if self.cfg.get('staged_install', False):
             staged_installdir = self.installdir
             self.installdir = self.actual_installdir
             try:
@@ -131,9 +137,11 @@ class Binary(EasyBlock):
                       self.__class__.__name__)
 
     def make_module_extra(self):
-        """Add the install directory to the PATH."""
+        """Add the specified directories to the PATH."""
 
         txt = super(Binary, self).make_module_extra()
-        txt += self.module_generator.prepend_paths("PATH", [''])
+        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
+        if prepend_to_path:
+            txt += self.module_generator.prepend_paths("PATH", prepend_to_path)
         self.log.debug("make_module_extra added this: %s" % txt)
         return txt
