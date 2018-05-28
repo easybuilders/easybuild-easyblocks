@@ -156,11 +156,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # check for external FoX
         if get_software_root('FoX'):
             self.log.debug("Found FoX external module, disabling libfox target in Makefile")
-            regex_subs = [
-                (r"(libfox: touch-dummy)\n.*",
-                 r"\1\n\techo 'libfox: external module used' #"),
-            ]
+            regex_subs = [(r"(libfox: touch-dummy)\n.*", r"\1\n\techo 'libfox: external module used' #")]
             apply_regex_substitutions('Makefile', regex_subs)
+            # Make configure and make look in the correct directory
+            regex_subs = [(r"\(TOPDIR\)/FoX", r"(EBROOTFOX)")]
+            apply_regex_substitutions('install/configure', regex_subs)
+            apply_regex_substitutions('make.inc', regex_subs)
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
