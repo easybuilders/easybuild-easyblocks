@@ -176,13 +176,14 @@ class EB_Boost(EasyBlock):
         bjamoptions = " --prefix=%s" % self.objdir
 
         cxxflags = os.getenv('CXXFLAGS')
-        cxxflags += ' -D_GLIBCXX_USE_CXX11_ABI='
-        if self.cfg['use_glibcxx11_abi']:
-            cxxflags += '1'
-        elif self.cfg['use_glibcxx11_abi'] is False:
-            # only disable if use_glibcxx11_abi was explicitly set to False
-            # None value is the default, which corresponds to default setting (=1 since GCC 5.x)
-            cxxflags += '0'
+        # only disable -D_GLIBCXX_USE_CXX11_ABI if use_glibcxx11_abi was explicitly set to False
+        # None value is the default, which corresponds to default setting (=1 since GCC 5.x)
+        if self.cfg['use_glibcxx11_abi'] is not None:
+            cxxflags += ' -D_GLIBCXX_USE_CXX11_ABI='
+            if self.cfg['use_glibcxx11_abi']:
+                cxxflags += '1'
+            else:
+                cxxflags += '0'
         if cxxflags is not None:
             bjamoptions += " cxxflags='%s'" % cxxflags
         ldflags = os.getenv('LDFLAGS')
