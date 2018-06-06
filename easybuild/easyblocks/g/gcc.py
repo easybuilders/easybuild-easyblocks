@@ -33,7 +33,6 @@ EasyBuild support for building and installing GCC, implemented as an easyblock
 @author: Toon Willems (Ghent University)
 @author: Ward Poelmans (Ghent University)
 """
-
 import os
 import re
 import shutil
@@ -50,7 +49,7 @@ from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
@@ -107,6 +106,8 @@ class EB_GCC(ConfigureMake):
 
         self.platform_lib = get_platform_name(withversion=True)
 
+        self.with_lto = self.cfg['withlto']
+
     def create_dir(self, dirname):
         """
         Create a dir to build in.
@@ -119,6 +120,28 @@ class EB_GCC(ConfigureMake):
             return dirpath
         except OSError, err:
             raise EasyBuildError("Can't use dir %s to build in: %s", dirpath, err)
+
+    def disable_lto_old_gcc(self, stage):
+        """
+        # if GCC version used to build stage 1 is too old, build GCC without LTO support in stage 1
+        # required for e.g. CentOS 6, cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6374
+        """
+        # by default, whether or not GCC is configured with --enable-lto depends on 'withlto' easyconfig parameter
+        self.with_lto = self.cfg['withlto']
+
+        if stage == 'stage1':
+            # check GCC version being used
+            # GCC 4.5 is required for -flto (cfr. https://gcc.gnu.org/gcc-4.5/changes.html)
+            gcc_ver = get_gcc_version()
+            min_gcc_ver_lto = '4.5'
+            if gcc_ver is None:
+                self.log.info("Failed to determine GCC version, assuming it's recent enough for building with LTO...")
+            elif LooseVersion(gcc_ver) < LooseVersion(min_gcc_ver_lto):
+                self.log.info("Configuring GCC to build without LTO support in stage 1 (GCC %s is too old: < %s)!",
+                              gcc_ver, min_gcc_ver_lto)
+                self.with_lto = False
+            else:
+                self.log.info("GCC %s (>= %s) is OK for building stage 1 with LTO enabled", gcc_ver, min_gcc_ver_lto)
 
     def prep_extra_src_dirs(self, stage, target_prefix=None):
         """
@@ -160,6 +183,8 @@ class EB_GCC(ConfigureMake):
                     # also, no need to stage cloog/ppl/isl in stage3 (may even cause troubles)
                     self.stagedbuild = True
                     extra_src_dirs.remove(extra)
+
+            self.disable_lto_old_gcc(stage)
 
             # try and find source directories with given prefixes
             # these sources should be included in list of sources in .eb spec file,
@@ -260,8 +285,10 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --enable-install-libiberty"
 
         # enable link-time-optimization (LTO) support, if desired
-        if self.cfg['withlto']:
+        if self.with_lto:
             self.configopts += " --enable-lto"
+        else:
+            self.configopts += " --disable-lto"
 
         # configure for a release build
         self.configopts += " --enable-checking=release "
