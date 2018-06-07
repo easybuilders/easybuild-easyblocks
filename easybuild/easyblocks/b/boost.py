@@ -72,6 +72,7 @@ class EB_Boost(EasyBlock):
             'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
+            'use_glibcxx11_abi': [None, "Use the GLIBCXX11 ABI", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -175,6 +176,14 @@ class EB_Boost(EasyBlock):
         bjamoptions = " --prefix=%s" % self.objdir
 
         cxxflags = os.getenv('CXXFLAGS')
+        # only disable -D_GLIBCXX_USE_CXX11_ABI if use_glibcxx11_abi was explicitly set to False
+        # None value is the default, which corresponds to default setting (=1 since GCC 5.x)
+        if self.cfg['use_glibcxx11_abi'] is not None:
+            cxxflags += ' -D_GLIBCXX_USE_CXX11_ABI='
+            if self.cfg['use_glibcxx11_abi']:
+                cxxflags += '1'
+            else:
+                cxxflags += '0'
         if cxxflags is not None:
             bjamoptions += " cxxflags='%s'" % cxxflags
         ldflags = os.getenv('LDFLAGS')
