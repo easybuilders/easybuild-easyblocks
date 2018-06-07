@@ -33,6 +33,7 @@ EasyBuild support for building and installing GCC, implemented as an easyblock
 @author: Toon Willems (Ghent University)
 @author: Ward Poelmans (Ghent University)
 """
+import glob
 import os
 import re
 import shutil
@@ -45,7 +46,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
@@ -106,8 +107,6 @@ class EB_GCC(ConfigureMake):
 
         self.platform_lib = get_platform_name(withversion=True)
 
-        self.with_lto = self.cfg['withlto']
-
     def create_dir(self, dirname):
         """
         Create a dir to build in.
@@ -121,27 +120,46 @@ class EB_GCC(ConfigureMake):
         except OSError, err:
             raise EasyBuildError("Can't use dir %s to build in: %s", dirpath, err)
 
-    def disable_lto_old_gcc(self, stage):
+    def disable_lto_mpfr_old_gcc(self, objdir):
         """
         # if GCC version used to build stage 1 is too old, build GCC without LTO support in stage 1
         # required for e.g. CentOS 6, cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6374
         """
-        # by default, whether or not GCC is configured with --enable-lto depends on 'withlto' easyconfig parameter
-        self.with_lto = self.cfg['withlto']
+        self.log.info("Checking whether we are trying to build a recent MPFR with an old GCC...")
 
-        if stage == 'stage1':
+        # try to figure out MPFR version being built
+        mpfr_ver = '0.0'
+        mpfr_dirs = glob.glob(os.path.join(self.builddir, 'mpfr-*'))
+        if len(mpfr_dirs) == 1:
+            mpfr_dir = mpfr_dirs[0]
+            res = re.search('(?P<mpfr_ver>[0-9.]+)$', mpfr_dir)
+            if res:
+                mpfr_ver = res.group('mpfr_ver')
+                self.log.info("Found MPFR version %s (based name of MPFR source dir: %s)", mpfr_ver, mpfr_dir)
+            else:
+                self.log.warning("Failed to determine MPFR version from '%s', assuming v%s", mpfr_dir, mpfr_ver)
+        else:
+            self.log.warning("Failed to isolate MPFR source dir to determine MPFR version, assuming v%s", mpfr_ver)
+
+        # for MPFR v4.x & newer, we need a recent GCC that supports -flto
+        if LooseVersion(mpfr_ver) >= LooseVersion('4.0'):
             # check GCC version being used
             # GCC 4.5 is required for -flto (cfr. https://gcc.gnu.org/gcc-4.5/changes.html)
             gcc_ver = get_gcc_version()
             min_gcc_ver_lto = '4.5'
             if gcc_ver is None:
-                self.log.info("Failed to determine GCC version, assuming it's recent enough for building with LTO...")
+                self.log.warning("Failed to determine GCC version, assuming it's recent enough...")
             elif LooseVersion(gcc_ver) < LooseVersion(min_gcc_ver_lto):
-                self.log.info("Configuring GCC to build without LTO support in stage 1 (GCC %s is too old: < %s)!",
+                self.log.info("Configuring MPFR to build without LTO in stage 1 (GCC %s is too old: < %s)!",
                               gcc_ver, min_gcc_ver_lto)
-                self.with_lto = False
+
+                # patch GCC's Makefile to inject --disable-lto when building MPFR
+                stage1_makefile = os.path.join(objdir, 'Makefile')
+                regex_subs = [(r'(--with-gmp-lib=\$\$r/\$\(HOST_SUBDIR\)/gmp/.libs) \\', r'\1 --disable-lto \\')]
+                apply_regex_substitutions(stage1_makefile, regex_subs)
             else:
-                self.log.info("GCC %s (>= %s) is OK for building stage 1 with LTO enabled", gcc_ver, min_gcc_ver_lto)
+                self.log.info("GCC %s (>= %s) is OK for building MPFR in stage 1 with LTO enabled",
+                              gcc_ver, min_gcc_ver_lto)
 
     def prep_extra_src_dirs(self, stage, target_prefix=None):
         """
@@ -183,8 +201,6 @@ class EB_GCC(ConfigureMake):
                     # also, no need to stage cloog/ppl/isl in stage3 (may even cause troubles)
                     self.stagedbuild = True
                     extra_src_dirs.remove(extra)
-
-            self.disable_lto_old_gcc(stage)
 
             # try and find source directories with given prefixes
             # these sources should be included in list of sources in .eb spec file,
@@ -284,6 +300,12 @@ class EB_GCC(ConfigureMake):
         if self.cfg['withlibiberty']:
             self.configopts += " --enable-install-libiberty"
 
+        # enable link-time-optimization (LTO) support, if desired
+        if self.cfg['withlto']:
+            self.configopts += " --enable-lto"
+        else:
+            self.configopts += " --disable-lto"
+
         # configure for a release build
         self.configopts += " --enable-checking=release "
         # enable multilib: allow both 32 and 64 bit
@@ -307,12 +329,6 @@ class EB_GCC(ConfigureMake):
         # use GOLD as default linker, enable plugin support
         self.configopts += " --enable-gold=default --enable-plugins "
         self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
-
-        # enable link-time-optimization (LTO) support, if desired
-        if self.with_lto:
-            configopts += " --enable-lto"
-        else:
-            configopts += " --disable-lto"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
@@ -347,9 +363,10 @@ class EB_GCC(ConfigureMake):
         # III) create obj dir to build in, and change to it
         #     GCC doesn't like to be built in the source dir
         if self.stagedbuild:
-            self.stage1prefix = self.create_dir("stage1_obj")
+            objdir = self.create_dir("stage1_obj")
+            self.stage1prefix = objdir
         else:
-            self.create_dir("obj")
+            objdir = self.create_dir("obj")
 
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
@@ -361,6 +378,8 @@ class EB_GCC(ConfigureMake):
             self.platform_lib = out.rstrip()
 
         self.run_configure_cmd(cmd)
+
+        self.disable_lto_mpfr_old_gcc(objdir)
 
     def build_step(self):
 
@@ -518,12 +537,6 @@ class EB_GCC(ConfigureMake):
 
             # enable bootstrapping for self-containment
             configopts += " --enable-bootstrap "
-
-            # enable link-time-optimization (LTO) support, if desired
-            if self.with_lto:
-                configopts += " --enable-lto "
-            else:
-                configopts += " --disable-lto "
 
             # PPL config options
             if self.cfg['withppl']:
