@@ -284,12 +284,6 @@ class EB_GCC(ConfigureMake):
         if self.cfg['withlibiberty']:
             self.configopts += " --enable-install-libiberty"
 
-        # enable link-time-optimization (LTO) support, if desired
-        if self.with_lto:
-            self.configopts += " --enable-lto"
-        else:
-            self.configopts += " --disable-lto"
-
         # configure for a release build
         self.configopts += " --enable-checking=release "
         # enable multilib: allow both 32 and 64 bit
@@ -313,6 +307,12 @@ class EB_GCC(ConfigureMake):
         # use GOLD as default linker, enable plugin support
         self.configopts += " --enable-gold=default --enable-plugins "
         self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
+
+        # enable link-time-optimization (LTO) support, if desired
+        if self.with_lto:
+            configopts += " --enable-lto"
+        else:
+            configopts += " --disable-lto"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
@@ -509,7 +509,7 @@ class EB_GCC(ConfigureMake):
             self.create_dir("stage3_obj")
 
             # reconfigure for stage 3 build
-            self.log.info("Stage 2 of 3-staged build completed, continuing with stage 2 "
+            self.log.info("Stage 2 of 3-staged build completed, continuing with stage 3 "
                           "(with CLooG and/or PPL, ISL support enabled)...")
 
             stage3_info = self.prep_extra_src_dirs("stage3")
@@ -518,6 +518,12 @@ class EB_GCC(ConfigureMake):
 
             # enable bootstrapping for self-containment
             configopts += " --enable-bootstrap "
+
+            # enable link-time-optimization (LTO) support, if desired
+            if self.with_lto:
+                configopts += " --enable-lto "
+            else:
+                configopts += " --disable-lto "
 
             # PPL config options
             if self.cfg['withppl']:
