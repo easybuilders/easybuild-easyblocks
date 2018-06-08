@@ -122,7 +122,7 @@ class EB_GCC(ConfigureMake):
 
     def disable_lto_mpfr_old_gcc(self, objdir):
         """
-        # if GCC version used to build stage 1 is too old, build GCC without LTO support in stage 1
+        # if GCC version used to build stage 1 is too old, build MPFR without LTO in stage 1
         # required for e.g. CentOS 6, cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6374
         """
         self.log.info("Checking whether we are trying to build a recent MPFR with an old GCC...")
