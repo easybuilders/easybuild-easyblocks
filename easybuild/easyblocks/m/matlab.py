@@ -128,13 +128,24 @@ class EB_MATLAB(PackedBinary):
         if 'DISPLAY' in os.environ:
             os.environ.pop('DISPLAY')
 
-        if not '_JAVA_OPTIONS' in self.cfg['preinstallopts']:
-            self.cfg['preinstallopts'] = ('export _JAVA_OPTIONS="%s" && ' % self.cfg['java_options']) + self.cfg['preinstallopts']
+        if '_JAVA_OPTIONS' not in self.cfg['preinstallopts']:
+            java_opts = 'export _JAVA_OPTIONS="%s" && ' % self.cfg['java_options']
+            self.cfg['preinstallopts'] = java_opts + self.cfg['preinstallopts']
         if LooseVersion(self.version) >= LooseVersion('2016b'):
             change_dir(self.builddir)
 
         cmd = "%s %s -v -inputFile %s %s" % (self.cfg['preinstallopts'], src, self.configfile, self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+        # check installer output for known signs of trouble
+        patterns = [
+            "Error: You have entered an invalid File Installation Key",
+        ]
+        for pattern in patterns:
+            regex = re.compile(pattern, re.I)
+            if regex.search(out):
+                raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
+                                     regex.pattern, cmd, out)
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""

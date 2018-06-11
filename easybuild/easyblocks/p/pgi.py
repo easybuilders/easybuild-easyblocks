@@ -41,7 +41,6 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
@@ -88,7 +87,7 @@ class EB_PGI(PackedBinary):
         super(EB_PGI, self).__init__(*args, **kwargs)
 
         self.license_file = 'UNKNOWN'
-        self.license_env_var = 'UNKNOWN' # Probably not really necessary for PGI
+        self.license_env_var = 'UNKNOWN'  # Probably not really necessary for PGI
 
         # Initialise whether we need a runtime licence or not
         self.requires_runtime_license = True
@@ -117,8 +116,8 @@ class EB_PGI(PackedBinary):
                 self.license_file = os.pathsep.join(lic_specs)
                 env.setvar(self.license_env_var, self.license_file)
             else:
-                raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
-                                     "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
+                self.log.info("No viable license specifications found, assuming PGI Community Edition...")
+
 
     def install_step(self):
         """Install by running install command."""
@@ -186,7 +185,7 @@ class EB_PGI(PackedBinary):
     def make_module_extra(self):
         """Add environment variables LM_LICENSE_FILE and PGI for license file and PGI location"""
         txt = super(EB_PGI, self).make_module_extra()
-        if self.requires_runtime_license:
+        if self.requires_runtime_license or self.license_env_var:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
                                                        allow_abs=True, expand_relpaths=False)
         txt += self.module_generator.set_environment('PGI', self.installdir)
