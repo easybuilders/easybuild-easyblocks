@@ -26,6 +26,10 @@
 EasyBuild support for building and installing the SuperLU library, implemented as an easyblock
 
 @author: Xavier Besseron (University of Luxembourg)
+Modifications:
+- May 26, 2018: Ali Kerrache (University of Manitoba)
+      * Added a path to lib64 for the version >= 5.2 (lib for version < 5.2)
+      * Fixed the sanity check for the versions >= 5.2
 """
 
 import os
@@ -122,9 +126,12 @@ class EB_SuperLU(CMakeMake):
         Custom install procedure for SuperLU
         """
         super(EB_SuperLU, self).install_step()
-
-        expected_libpath = os.path.join(self.installdir, "lib", "libsuperlu.%s" % self.lib_ext)
-        actual_libpath   = os.path.join(self.installdir, "lib", "libsuperlu_%s.%s" % (self.cfg['version'], self.lib_ext))
+        if LooseVersion(self.version) >= LooseVersion("5.2"):
+            self.lib_dir = 'lib64'
+        else:
+            self.lib_dir = 'lib'
+        expected_libpath = os.path.join(self.installdir, self.lib_dir, "libsuperlu.%s" % self.lib_ext)
+        actual_libpath   = os.path.join(self.installdir, self.lib_dir, "libsuperlu_%s.%s" % (self.cfg['version'], self.lib_ext))
 
         if not os.path.exists(expected_libpath):
             try:
@@ -132,13 +139,12 @@ class EB_SuperLU(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to create symlink '%s' -> '%s: %s", expected_libpath, actual_libpath, err)
 
-
     def sanity_check_step(self):
         """
         Check for main library files for SuperLU
         """
         custom_paths = {
-            'files': ["include/supermatrix.h", "lib/libsuperlu.%s" % self.lib_ext],
+            'files': ["include/supermatrix.h", os.path.join(self.lib_dir, "libsuperlu.%s" % self.lib_ext)],
             'dirs': [],
         }
         super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)
