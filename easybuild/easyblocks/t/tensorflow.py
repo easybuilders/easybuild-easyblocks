@@ -69,6 +69,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
+            'wrapper_filter': [[], "List of paths to filter out in the wrapper creation", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
@@ -103,9 +104,16 @@ class EB_TensorFlow(PythonPackage):
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             wrapper_dir = os.path.join(tmpdir, 'bin')
+
+            # filter out paths from CPATH
+            wrapper_filter = self.cfg['wrapper_filter']
+            cpath = os.getenv('CPATH').split(':')
+            filtered_cpath = [path for fil in wrapper_filter for path in cpath if not fil in path]
+            cpath = ':'.join(filtered_cpath)
+
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
-                'cpath': os.getenv('CPATH'),
+                'cpath': cpath,
                 'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
                 'wrapper_dir': wrapper_dir,
             }
