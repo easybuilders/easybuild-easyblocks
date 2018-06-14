@@ -114,7 +114,7 @@ class EB_TensorFlow(PythonPackage):
 
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
-                'cpath': cpath,
+                'cpath': os.getenv('CPATH'),
                 'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
                 'wrapper_dir': wrapper_dir,
             }
