@@ -69,7 +69,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'wrapper_filter': [[], "List of paths to filter out in the wrapper creation", CUSTOM],
+            'package_filter': [[], "List of paths to filter out", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
@@ -100,16 +100,17 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
+        # filter out paths from CPATH and LIBRARY_PATH
+        package_filter = self.cfg['package_filter']
+        for var in ['CPATH', 'LIBRARY_PATH']:
+            path = os.getenv(var).split(':')
+            filtered_path = [path for fil in package_filter for p in path if fil not in p]
+            os.environ[var] = ':'.join(filtered_path)
+
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             wrapper_dir = os.path.join(tmpdir, 'bin')
-
-            # filter out paths from CPATH
-            wrapper_filter = self.cfg['wrapper_filter']
-            cpath = os.getenv('CPATH').split(':')
-            filtered_cpath = [path for fil in wrapper_filter for path in cpath if not fil in path]
-            cpath = ':'.join(filtered_cpath)
 
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
