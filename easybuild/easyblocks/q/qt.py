@@ -81,7 +81,9 @@ class EB_Qt(ConfigureMake):
         else:
             raise EasyBuildError("Don't know which platform to set based on compiler family.")
 
-        if LooseVersion(self.version) >= LooseVersion('4'):
+        # configure Qt such that xmlpatterns is also installed
+        # -xmlpatterns is not a known configure option for Qt 5.x, but there xmlpatterns support is enabled by default
+        if LooseVersion(self.version) >= LooseVersion('4') and LooseVersion(self.version) < LooseVersion('5'):
             self.cfg.update('configopts', '-xmlpatterns')
 
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
