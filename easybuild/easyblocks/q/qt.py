@@ -81,6 +81,8 @@ class EB_Qt(ConfigureMake):
         else:
             raise EasyBuildError("Don't know which platform to set based on compiler family.")
 
+        self.cfg.update('configopts', '-xmlpatterns')
+
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
@@ -129,8 +131,8 @@ class EB_Qt(ConfigureMake):
             libfile = os.path.join('lib', 'libqt.%s' % shlib_ext)
 
         custom_paths = {
-            'files': [libfile],
-            'dirs': ['bin', 'include', 'plugins'],
+            'files': ['bin/moc', 'bin/qmake', 'bin/xmlpatterns', libfile],
+            'dirs': ['include', 'plugins'],
         }
 
         super(EB_Qt, self).sanity_check_step(custom_paths=custom_paths)
