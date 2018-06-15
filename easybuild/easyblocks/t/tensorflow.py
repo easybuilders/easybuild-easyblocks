@@ -104,7 +104,7 @@ class EB_TensorFlow(PythonPackage):
         package_filter = self.cfg['package_filter']
         for var in ['CPATH', 'LIBRARY_PATH']:
             path = os.getenv(var).split(':')
-            filtered_path = [path for fil in package_filter for p in path if fil not in p]
+            filtered_path = [p for fil in package_filter for p in path if fil not in p]
             os.environ[var] = ':'.join(filtered_path)
 
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
