@@ -48,7 +48,9 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name , get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.systemtools import X86_64
+from easybuild.tools.systemtools import get_cpu_architecture, get_platform_name, get_shared_lib_ext
 
 
 class EB_GROMACS(CMakeMake):
@@ -102,6 +104,12 @@ class EB_GROMACS(CMakeMake):
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
             res = 'SSE2'
+        elif optarch == OPTARCH_GENERIC:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                res = 'SSE2'
+            else:
+                res = 'None'
 
         if res:
             self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
