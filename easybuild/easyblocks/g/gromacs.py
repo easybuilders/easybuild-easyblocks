@@ -103,7 +103,7 @@ class EB_GROMACS(CMakeMake):
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
             res = 'SSE2'
-        elif optarch == OPTARCH_GENERIC:
+        elif optarch == OPTARCH_GENERIC and LooseVersion(self.version) >= LooseVersion('5.0'):
             cpu_arch = get_cpu_architecture()
             if cpu_arch == X86_64:
                 res = 'SSE2'
