@@ -166,7 +166,7 @@ class EB_Python(ConfigureMake):
                 self.log.info("Current stack size limit is %s: OK", curr_ulimit_s)
             elif max_ulimit_s == UNLIMITED:
                 self.log.info("Current stack size limit is %s, setting it to %s for build...",
-                              UNLIMITED, curr_ulimit_s)
+                              curr_ulimit_s, UNLIMITED)
                 self.cfg.update('prebuildopts', "ulimit -s %s && " % UNLIMITED)
             else:
                 msg = "Current stack size limit is %s, and can not be set to %s due to hard limit of %s;"
