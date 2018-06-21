@@ -170,8 +170,10 @@ class EB_Python(ConfigureMake):
                 self.cfg.update('prebuildopts', "ulimit -s %s && " % UNLIMITED)
             else:
                 msg = "Current stack size limit is %s, and can not be set to %s due to hard limit of %s;"
+                msg += " setting stack size limit to %s instead, "
                 msg += " this may break part of the compilation (e.g. hashlib)..."
-                print_warning(msg % (curr_ulimit_s, UNLIMITED, max_ulimit_s))
+                print_warning(msg % (curr_ulimit_s, UNLIMITED, max_ulimit_s, max_ulimit_s))
+                self.cfg.update('prebuildopts', "ulimit -s %s && " % max_ulimit_s)
 
         super(EB_Python, self).build_step(*args, **kwargs)
 
