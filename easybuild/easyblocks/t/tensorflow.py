@@ -69,7 +69,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'package_filter': [[], "List of paths to filter out", CUSTOM],
+            'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
@@ -100,12 +100,17 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
-        # filter out paths from CPATH and LIBRARY_PATH
-        package_filter = self.cfg['package_filter']
-        for var in ['CPATH', 'LIBRARY_PATH']:
-            path = os.getenv(var).split(':')
-            filtered_path = [p for fil in package_filter for p in path if fil not in p]
-            os.environ[var] = ':'.join(filtered_path)
+        # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
+        # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
+        path_filter = self.cfg['path_filter']
+        if len(path_filter > 0):
+            self.log.info("Filtering $CPATH and $LIBRARY_PATH")
+            for var in ['CPATH', 'LIBRARY_PATH']:
+                path = os.getenv(var).split(':')
+                self.log.info("$%s old value was %s" % (var, path))
+                filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
+                self.log.info("$%s new value is %s" % (var, filtered_path))
+                setvar(var, filtered_path)
 
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
