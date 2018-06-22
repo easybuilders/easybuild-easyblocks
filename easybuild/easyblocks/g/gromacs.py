@@ -43,7 +43,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -112,7 +112,7 @@ class EB_GROMACS(CMakeMake):
             else:
                 res = 'None'
         elif optarch:
-            self.log.info("OPTARCH set to %s but not used. Compiling GROMACS for the current host architecture")
+            print_warning("OPTARCH set to %s but not used. Compiling GROMACS for the current host architecture", optarch)
 
         if res:
             self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
