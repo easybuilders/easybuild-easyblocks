@@ -118,6 +118,5 @@ class EB_ipp(IntelBase):
                 'CPATH': [include_path],
                 'INCLUDE': [include_path],
             })
-            guesses.pop('NLSPATH')
 
         return guesses
