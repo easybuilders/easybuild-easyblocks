@@ -112,8 +112,10 @@ class EB_GROMACS(CMakeMake):
             else:
                 res = 'None'
         elif optarch:
-            print_warning("OPTARCH set to %s but not used."
-                          "Compiling GROMACS for the current host architecture", optarch)
+            warn_msg = "--optarch configuration setting set to %s but not taken into account; " % optarch
+            warn_msg += "compiling GROMACS for the current host architecture (i.e. the default behavior)"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
 
         if res:
             self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
