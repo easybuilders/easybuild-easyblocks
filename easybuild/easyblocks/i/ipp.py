@@ -109,14 +109,15 @@ class EB_ipp(IntelBase):
         guesses = super(EB_ipp, self).make_module_req_guess()
 
         if LooseVersion(self.version) >= LooseVersion('9.0'):
-            lib_path = os.path.join('lib', self.arch)
+            lib_path = [os.path.join('ipp/lib', self.arch), os.path.join('lib', self.arch)]
             include_path = 'ipp/include'
 
             guesses.update({
-                'LD_LIBRARY_PATH': [lib_path],
-                'LIBRARY_PATH': [lib_path],
+                'LD_LIBRARY_PATH': lib_path,
+                'LIBRARY_PATH': lib_path,
                 'CPATH': [include_path],
                 'INCLUDE': [include_path],
             })
+            guesses.pop('NLSPATH')
 
         return guesses
