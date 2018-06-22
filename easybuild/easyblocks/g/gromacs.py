@@ -90,6 +90,8 @@ class EB_GROMACS(CMakeMake):
             optarch = optarch.get(comp_fam, '')
         optarch = optarch.upper()
 
+        # The list of GMX_SIMD options can be found
+        # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
         elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
