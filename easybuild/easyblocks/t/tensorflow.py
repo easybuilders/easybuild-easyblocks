@@ -110,7 +110,7 @@ class EB_TensorFlow(PythonPackage):
                 self.log.info("$%s old value was %s" % (var, path))
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 self.log.info("$%s new value is %s" % (var, filtered_path))
-                setvar(var, filtered_path)
+                env.setvar(var, filtered_path)
 
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
@@ -125,7 +125,7 @@ class EB_TensorFlow(PythonPackage):
             }
             icc_wrapper = os.path.join(wrapper_dir, 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
-            env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
+            env.setvar('PATH', os.pathsep.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
             if self.dry_run:
                 self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
             else:
