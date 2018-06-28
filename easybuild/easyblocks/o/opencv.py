@@ -30,14 +30,15 @@ EasyBuild support for building and installing OpenCV, implemented as an easybloc
 import glob
 import os
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import compute_checksum, copy, mkdir
+from easybuild.tools.filetools import compute_checksum, copy
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 class EB_OpenCV(CMakeMake):
@@ -63,7 +64,7 @@ class EB_OpenCV(CMakeMake):
     def prepare_step(self):
         """Prepare environment for installing OpenCV."""
         super(EB_OpenCV, self).prepare_step()
-        
+
         self.pylibdir = det_pylibdir()
 
         ippicv_tgz = glob.glob(os.path.join(self.builddir, 'ippicv*.tgz'))
@@ -150,13 +151,13 @@ class EB_OpenCV(CMakeMake):
                 self.cfg.update('configopts', '-DCPU_BASELINE_DISABLE=FP16')
 
         super(EB_OpenCV, self).configure_step()
-    
+
     def install_step(self):
         """
         Custom installation procedure for OpenCV: also copy IPP library into lib subdirectory of installation directory.
         """
         super(EB_OpenCV, self).install_step()
-       
+
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             ipp_libs = glob.glob(os.path.join('3rdparty', 'ippicv', 'ippicv_lnx', 'lib', 'intel64', 'libippicv.*'))
             copy(ipp_libs, os.path.join(self.installdir, 'lib'))
@@ -164,10 +165,10 @@ class EB_OpenCV(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenCV."""
         shlib_ext = get_shared_lib_ext()
+        opencv_bins = ['annotation', 'createsamples', 'traincascade', 'interactive-calibration', 'version',
+                       'visualisation']
         custom_paths = {
-            'files': [os.path.join('bin', 'opencv_%s' % x) for x in ['annotation', 'createsamples', 'traincascade',
-                                                                     'interactive-calibration', 'version',
-                                                                     'visualisation']] +
+            'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] +
                      [os.path.join('lib64', 'libopencv_core.%s' % shlib_ext)],
             'dirs': ['include', self.pylibdir],
         }
