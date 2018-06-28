@@ -61,9 +61,9 @@ class EB_OpenCV(CMakeMake):
 
         self.cfg['separate_build_dir'] = True
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Prepare environment for installing OpenCV."""
-        super(EB_OpenCV, self).prepare_step()
+        super(EB_OpenCV, self).prepare_step(*args, **kwargs)
 
         self.pylibdir = det_pylibdir()
 
