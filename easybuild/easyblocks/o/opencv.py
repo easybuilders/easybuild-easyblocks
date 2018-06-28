@@ -164,12 +164,11 @@ class EB_OpenCV(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for OpenCV."""
-        shlib_ext = get_shared_lib_ext()
         opencv_bins = ['annotation', 'createsamples', 'traincascade', 'interactive-calibration', 'version',
                        'visualisation']
+        libfile = 'libopencv_core.%s' % get_shared_lib_ext()
         custom_paths = {
-            'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] +
-                     [os.path.join('lib64', 'libopencv_core.%s' % shlib_ext)],
+            'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] + [os.path.join('lib64', libfile)],
             'dirs': ['include', self.pylibdir],
         }
         if 'WITH_IPP=ON' in self.cfg['configopts']:
