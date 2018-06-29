@@ -70,13 +70,21 @@ class EB_imkl(IntelBase):
         super(EB_imkl, self).__init__(*args, **kwargs)
         # make sure $MKLROOT isn't set, it's known to cause problems with the installation
         self.cfg.update('unwanted_env_vars', ['MKLROOT'])
+        self.cdftlibs = []
+        self.mpi_spec = None
+
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_imkl, self).prepare_step(*args, **kwargs)
 
         # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
             self.cdftlibs = ['fftw2x_cdft']
             if LooseVersion(self.version) >= LooseVersion('10.3'):
                 self.cdftlibs.append('fftw3x_cdft')
-            self.mpi_spec = None
             # check whether MPI_FAMILY constant is defined, so mpi_family() can be used
             if hasattr(self.toolchain, 'MPI_FAMILY') and self.toolchain.MPI_FAMILY is not None:
                 mpi_spec_by_fam = {
@@ -102,13 +110,6 @@ class EB_imkl(IntelBase):
                 self.log.debug("Determined MPI specification based on %s: %s", debugstr, self.mpi_spec)
             else:
                 self.log.debug("No MPI or no compatible MPI found: do not build CDFT")
-
-    def prepare_step(self, *args, **kwargs):
-        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
-            kwargs['requires_runtime_license'] = False
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
