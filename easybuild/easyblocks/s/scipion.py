@@ -27,16 +27,14 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 
 @author: Ake Sandgren (HPC2N, Umea University)
 """
-import glob
 import os
-import re
-import shutil
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.scons import SCons
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+
 
 class EB_Scipion(SCons):
     """Support for building/installing Scipion."""
