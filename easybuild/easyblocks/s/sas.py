@@ -54,6 +54,7 @@ class EB_SAS(EasyBlock):
             "SAS/ACCESS Interface to MySQL (default: Yes):": 'N',
             "SAS/ACCESS Interface to Oracle (default: Yes):": 'N',
             "SAS/ACCESS Interface to Sybase (default: Yes):": 'N',
+            "SAS/ACCESS Interface to SAP ASE (default: Yes):": 'N',
             "Use PAM Authentication (default: No):": 'N',
             "Port Number:": '',
             "Configure SAS Studio Basic (default: Yes):": 'N',
