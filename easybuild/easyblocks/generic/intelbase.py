@@ -271,15 +271,16 @@ class IntelBase(EasyBlock):
                         self.log.info("Using Intel license specifications from 'license_file': %s", lic_specs)
                         self.license_env_var = default_lic_env_var
                     else:
-                        self.log.info("Using Intel license specifications from $%s: %s", self.license_env_var, lic_specs)
+                        self.log.info("Using Intel license specifications from $%s: %s",
+                                      self.license_env_var, lic_specs)
 
                     self.license_file = os.pathsep.join(lic_specs)
                     env.setvar(self.license_env_var, self.license_file)
 
                     # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
                     if len(lic_specs) > 1:
-                        self.log.debug("More than one license specs found, using '%s' license activation instead of '%s'",
-                                       ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
+                        self.log.debug("More than one license specs found, using '%s' license activation instead of "
+                                       "'%s'", ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
                         self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
 
                         # $INTEL_LICENSE_FILE should always be set during installation with existing license
