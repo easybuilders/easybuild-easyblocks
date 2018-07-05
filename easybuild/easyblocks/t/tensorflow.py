@@ -103,13 +103,12 @@ class EB_TensorFlow(PythonPackage):
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
         path_filter = self.cfg['path_filter']
-        if len(path_filter > 0):
-            self.log.info("Filtering $CPATH and $LIBRARY_PATH")
+        if path_filter:
+            self.log.info("Filtering $CPATH and $LIBRARY_PATH with path filter %s", path_filter)
             for var in ['CPATH', 'LIBRARY_PATH']:
-                path = os.getenv(var).split(':')
+                path = os.getenv(var).split(os.pathsep)
                 self.log.info("$%s old value was %s" % (var, path))
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
-                self.log.info("$%s new value is %s" % (var, filtered_path))
                 env.setvar(var, filtered_path)
 
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
