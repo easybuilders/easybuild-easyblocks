@@ -165,11 +165,13 @@ class EB_TensorFlow(PythonPackage):
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
-        if cudnn_root:
-            config_env_vars.update({
-                'CUDNN_INSTALL_PATH': cudnn_root,
-                'TF_CUDNN_VERSION': get_software_version('cuDNN'),
-            })
+            if cudnn_root:
+                config_env_vars.update({
+                    'CUDNN_INSTALL_PATH': cudnn_root,
+                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                })
+            else:
+                raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
 
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
