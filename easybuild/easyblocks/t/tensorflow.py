@@ -315,7 +315,11 @@ class EB_TensorFlow(PythonPackage):
     def install_step(self):
         """Custom install procedure for TensorFlow."""
         # find .whl file that was built, and install it using 'pip install'
-        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % self.version))
+        if ("-rc" in self.version):
+            whl_version = self.version.replace("-rc", "rc")
+        else:
+            whl_version = self.version
+        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
             # --upgrade is required to ensure *this* wheel is installed
             # cfr. https://github.com/tensorflow/tensorflow/issues/7449
