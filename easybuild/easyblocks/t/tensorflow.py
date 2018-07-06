@@ -71,7 +71,7 @@ class EB_TensorFlow(PythonPackage):
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
-            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
+            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -282,11 +282,6 @@ class EB_TensorFlow(PythonPackage):
 
         if cuda_root:
             cmd.append('--config=cuda')
-
-        # enable mkl-dnn by default, but only if cuDNN is not listed as dependency
-        if self.cfg['with_mkl_dnn'] is None and get_software_root('cuDNN') is None:
-            self.log.info("Enabling use of mkl-dnn since cuDNN is not listed as dependency")
-            self.cfg['with_mkl_dnn'] = True
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
