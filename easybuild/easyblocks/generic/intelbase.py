@@ -259,36 +259,34 @@ class IntelBase(EasyBlock):
 
         if self.serial_number:
             self.log.info("Using provided serial number (%s) and ignoring other licenses", self.serial_number)
-        else:
-            if self.requires_runtime_license:
-                default_lic_env_var = 'INTEL_LICENSE_FILE'
-                license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
-                lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
-                                                                      lic_specs=license_specs)
+        elif self.requires_runtime_license:
+            default_lic_env_var = 'INTEL_LICENSE_FILE'
+            license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
+            lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
+                                                                  lic_specs=license_specs)
 
-                if lic_specs:
-                    if self.license_env_var is None:
-                        self.log.info("Using Intel license specifications from 'license_file': %s", lic_specs)
-                        self.license_env_var = default_lic_env_var
-                    else:
-                        self.log.info("Using Intel license specifications from $%s: %s",
-                                      self.license_env_var, lic_specs)
-
-                    self.license_file = os.pathsep.join(lic_specs)
-                    env.setvar(self.license_env_var, self.license_file)
-
-                    # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
-                    if len(lic_specs) > 1:
-                        self.log.debug("More than one license specs found, using '%s' license activation instead of "
-                                       "'%s'", ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
-                        self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
-
-                        # $INTEL_LICENSE_FILE should always be set during installation with existing license
-                        env.setvar(default_lic_env_var, self.license_file)
+            if lic_specs:
+                if self.license_env_var is None:
+                    self.log.info("Using Intel license specifications from 'license_file': %s", lic_specs)
+                    self.license_env_var = default_lic_env_var
                 else:
-                    msg = "No viable license specifications found; "
-                    msg += "specify 'license_file', or define $INTEL_LICENSE_FILE or $LM_LICENSE_FILE"
-                    raise EasyBuildError(msg)
+                    self.log.info("Using Intel license specifications from $%s: %s", self.license_env_var, lic_specs)
+
+                self.license_file = os.pathsep.join(lic_specs)
+                env.setvar(self.license_env_var, self.license_file)
+
+                # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
+                if len(lic_specs) > 1:
+                    self.log.debug("More than one license specs found, using '%s' license activation instead of "
+                                   "'%s'", ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
+                    self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
+
+                    # $INTEL_LICENSE_FILE should always be set during installation with existing license
+                    env.setvar(default_lic_env_var, self.license_file)
+            else:
+                msg = "No viable license specifications found; "
+                msg += "specify 'license_file', or define $INTEL_LICENSE_FILE or $LM_LICENSE_FILE"
+                raise EasyBuildError(msg)
 
     def configure_step(self):
         """Configure: handle license file and clean home dir."""
