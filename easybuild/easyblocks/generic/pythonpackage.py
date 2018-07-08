@@ -449,6 +449,8 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
+            env.setvar("LDSHARED", "%s -shared" % self.toolchain.get_variable("CC", str))
+
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
