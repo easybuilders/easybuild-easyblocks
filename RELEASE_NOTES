@@ -3,7 +3,31 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 194 software-specific easyblocks and 31 generic easyblocks.
+The latest version of easybuild-easyblocks provides 195 software-specific easyblocks and 31 generic easyblocks.
+
+v3.6.2 (July 11th 2018)
+-----------------------
+
+bugfix/update release
+- new software-specific easyblock for OpenCV (#1444)
+- minor enhancements, including:
+  - use $CPATH/$LD_LIBRARY_PATH for CMake's find_path/find_library functions in CMakeMake easyblock (#1165)
+  - make cdft lib compilation optional for Intel MKL, by detecting MPI availability (#1393)
+  - add use_glibcxx11_abi easyconfig parameter in Boost easyblock (#1434)
+  - enable filtering of paths in $CPATH and $LIBRARY_PATH in TensorFlow easyblock (#1436)
+  - add support for building GROMACS with --optarch=GENERIC (#1440)
+  - check current stack limit and set it to 'unlimited' if possible in Python easyblock (#1441)
+  - trivial update for Q&A in SAS easyblock (#1448)
+  - allow skipping tests when installing Perl extensions, by setting 'runtest' to False (#1451)
+  - add support for installing Intel products using serial numbers (#1452)
+  - update version check to FFTW 3.3.8 for tests to pass on POWER (ppc64le) (#1454)
+- various bug fixes, including:
+  - build MPFR in GCC stage 1 without LTO if (system) GCC used is too old (#1435)
+  - make sure xmlpatterns always gets built with Qt (#1437)
+  - fix symlink check in NWChem easyblock + use change_dir/remove_file/symlink functions (#1438)
+- other changes:
+  - move flake8 configuration to setup.cfg and make HoundCI aware of it (#1430)
+
 
 v3.6.1 (May 28th 2018)
 ----------------------

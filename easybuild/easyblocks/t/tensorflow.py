@@ -69,6 +69,7 @@ class EB_TensorFlow(PythonPackage):
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
+            'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
         }
@@ -99,10 +100,22 @@ class EB_TensorFlow(PythonPackage):
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
+        # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
+        # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
+        path_filter = self.cfg['path_filter']
+        if path_filter:
+            self.log.info("Filtering $CPATH and $LIBRARY_PATH with path filter %s", path_filter)
+            for var in ['CPATH', 'LIBRARY_PATH']:
+                path = os.getenv(var).split(os.pathsep)
+                self.log.info("$%s old value was %s" % (var, path))
+                filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
+                env.setvar(var, filtered_path)
+
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             wrapper_dir = os.path.join(tmpdir, 'bin')
+
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
                 'cpath': os.getenv('CPATH'),
@@ -111,7 +124,7 @@ class EB_TensorFlow(PythonPackage):
             }
             icc_wrapper = os.path.join(wrapper_dir, 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
-            env.setvar('PATH', ':'.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
+            env.setvar('PATH', os.pathsep.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
             if self.dry_run:
                 self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
             else:
