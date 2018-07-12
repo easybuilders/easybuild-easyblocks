@@ -159,7 +159,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if hdf5:
             dflags.append(" -D__HDF5")
-            repls.append(('HDF5_LIB', '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5, False))
+            hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
+            repls.append(('HDF5_LIB', hdf5_lib_repl, False))
 
         if self.cfg['with_ace']:
             dflags.append(" -D__EXX_ACE")
@@ -315,8 +316,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
             upftools = []
             if 'upf' in self.cfg['buildopts'] or 'all' in self.cfg['buildopts']:
                 upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                        "virtual.x"]
+                            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
+                            "virtual.x"]
                 if LooseVersion(self.version) > LooseVersion("5"):
                     upftools.extend(["interpolate.x", "upf2casino.x"])
             upf_bins = [os.path.join('upftools', x) for x in upftools]
@@ -431,8 +432,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         d3q_bins = []
         if 'd3q' in self.cfg['buildopts']:
             d3q_bins = ['d3_asr3.x', 'd3_import3py.x', 'd3_lw.x', 'd3_q2r.x',
-                    'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
-                    'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+                        'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
+                        'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
 
         custom_paths = {
                         'files': [os.path.join('bin', x) for x in bins] +
