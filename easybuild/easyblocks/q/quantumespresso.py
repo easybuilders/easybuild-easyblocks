@@ -114,6 +114,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
             # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
             env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
+        if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
+            repls.append(('F90FLAGS', '-fpp', True))
+
         if self.toolchain.comp_family() in [toolchain.GCC]:
             repls.append(('F90FLAGS', '-cpp', True))
 
@@ -154,7 +157,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if hdf5:
             dflags.append(" -D__HDF5")
-	    repls.append(('HDF5_LIB', '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5, False))
+            repls.append(('HDF5_LIB', '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5, False))
 
         if self.cfg['with_ace']:
             dflags.append(" -D__EXX_ACE")
