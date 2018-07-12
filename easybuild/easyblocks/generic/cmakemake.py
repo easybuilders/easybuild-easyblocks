@@ -40,6 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
+from vsc.utils.missing import nub
 
 
 class CMakeMake(ConfigureMake):
@@ -62,8 +63,12 @@ class CMakeMake(ConfigureMake):
             self.log.nosupport("CMakeMake.configure_step: named argument 'builddir' (should be 'srcdir')", "2.0")
 
         # Set the search paths for CMake
-        include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
-        library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
+        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
+        cpaths = os.getenv('CPATH', '').split(os.pathsep)
+        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
         setvar("CMAKE_INCLUDE_PATH", include_paths)
         setvar("CMAKE_LIBRARY_PATH", library_paths)
 

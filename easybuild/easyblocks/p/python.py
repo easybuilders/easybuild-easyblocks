@@ -40,7 +40,8 @@ import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.modules import get_software_libdir, get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.run import run_cmd
@@ -48,6 +49,9 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
+
+# magic value for unlimited stack size
+UNLIMITED = 'unlimited'
 
 
 class EB_Python(ConfigureMake):
@@ -61,6 +65,14 @@ class EB_Python(ConfigureMake):
     e.g., you can include numpy and scipy in a default Python installation
     but also provide newer updated numpy and scipy versions by creating a PythonPackage-derived easyblock for it.
     """
+
+    @staticmethod
+    def extra_options():
+        """Add extra config options specific to Python."""
+        extra_vars = {
+            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
 
     def prepare_for_extensions(self):
         """
@@ -137,6 +149,34 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).configure_step()
 
+    def build_step(self, *args, **kwargs):
+        """Custom build procedure for Python, ensure stack size limit is set to 'unlimited' (if desired)."""
+
+        if self.cfg['ulimit_unlimited']:
+            # determine current stack size limit
+            (out, _) = run_cmd("ulimit -s")
+            curr_ulimit_s = out.strip()
+
+            # figure out hard limit for stack size limit;
+            # this determines whether or not we can use "ulimit -s unlimited"
+            (out, _) = run_cmd("ulimit -s -H")
+            max_ulimit_s = out.strip()
+
+            if curr_ulimit_s == UNLIMITED:
+                self.log.info("Current stack size limit is %s: OK", curr_ulimit_s)
+            elif max_ulimit_s == UNLIMITED:
+                self.log.info("Current stack size limit is %s, setting it to %s for build...",
+                              curr_ulimit_s, UNLIMITED)
+                self.cfg.update('prebuildopts', "ulimit -s %s && " % UNLIMITED)
+            else:
+                msg = "Current stack size limit is %s, and can not be set to %s due to hard limit of %s;"
+                msg += " setting stack size limit to %s instead, "
+                msg += " this may break part of the compilation (e.g. hashlib)..."
+                print_warning(msg % (curr_ulimit_s, UNLIMITED, max_ulimit_s, max_ulimit_s))
+                self.cfg.update('prebuildopts', "ulimit -s %s && " % max_ulimit_s)
+
+        super(EB_Python, self).build_step(*args, **kwargs)
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
         super(EB_Python, self).install_step()
@@ -169,6 +209,17 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Failed to determine abiflags: %s", abiflags)
             else:
                 abiflags = abiflags.strip()
+
+        # make sure hashlib is installed correctly, there should be no errors/output when 'import hashlib' is run
+        # (python will exit with 0 regardless of whether or not errors are printed...)
+        # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6484
+        cmd = "python -c 'import hashlib'"
+        (out, _) = run_cmd(cmd)
+        regex = re.compile('error', re.I)
+        if regex.search(out):
+            raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
+        else:
+            self.log.info("No errors found in output of %s: %s", cmd, out)
 
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
