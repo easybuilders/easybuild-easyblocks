@@ -189,16 +189,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
         repls.append(('LAPACK_LIBS_SWITCH', 'external', False))
         repls.append(('LD_LIBS', os.getenv('LIBS'), False))
 
-        # check for external FoX
-        fox = get_software_root('FoX')
-        if fox:
-            self.log.debug("Found FoX external module, disabling libfox target in Makefile")
-            regex_subs = [(r"(libfox: touch-dummy)\n.*", r"\1\n\techo 'libfox: external module used' #")]
-            apply_regex_substitutions('Makefile', regex_subs)
-            # Make configure and make look in the correct directory
-            regex_subs = [(r"\(TOPDIR\)/FoX", r"(EBROOTFOX)")]
-            apply_regex_substitutions('install/configure', regex_subs)
-            apply_regex_substitutions('make.inc', regex_subs)
+        # Do not use external FoX.
+        # FoX starts to be used in 6.2 and they use a patched version that
+        # is newer than FoX 4.1.2 which is the latest release.
+        # Ake Sandgren, 20180712
+        if get_software_root('FoX'):
+            raise EasyBuildError("Found FoX external module, QuantumESPRESSO must use the version they include with the source.")
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
