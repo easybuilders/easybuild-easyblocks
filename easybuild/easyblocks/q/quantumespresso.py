@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 
 
 class EB_QuantumESPRESSO(ConfigureMake):
@@ -85,6 +85,19 @@ class EB_QuantumESPRESSO(ConfigureMake):
         hdf5 = get_software_root("HDF5")
         if hdf5:
             self.cfg.update('configopts', '--with-hdf5=%s' % hdf5)
+
+        elpa = get_software_root("ELPA")
+        if elpa:
+            elpa_v = get_software_version("ELPA")
+            if LooseVersion(elpa_v) >= LooseVersion("2016"):
+                if self.toolchain.options.get('openmp', False):
+                    self.cfg.update('configopts', '--with-elpa-include=%s/include' % elpa)
+                    self.cfg.update('configopts', '--with-elpa-lib=%s/lib/libelpa_openmp.a' % elpa)
+                else:
+                    self.cfg.update('configopts', '--with-elpa-include=%s/include' % elpa)
+                    self.cfg.update('configopts', '--with-elpa-lib=%s/lib/libelpa.a' % elpa)
+            else:
+                EasyBuildError("Quantum ESPRESSO needs ELPA to be version 2016 or later")
 
         repls = []
 
