@@ -81,6 +81,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if not self.cfg['with_scalapack']:
             self.cfg.update('configopts', '--without-scalapack')
+        else:
+            if self.toolchain.options.get('usempi', None):
+                if get_software_root("impi") and get_software_root("imkl"):
+                    self.cfg.update('configopts', '--with-scalapack=intel')
 
         hdf5 = get_software_root("HDF5")
         if hdf5:
