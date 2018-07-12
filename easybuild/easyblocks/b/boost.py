@@ -72,6 +72,7 @@ class EB_Boost(EasyBlock):
             'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
+            'use_glibcxx11_abi': [None, "Use the GLIBCXX11 ABI", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -136,7 +137,7 @@ class EB_Boost(EasyBlock):
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
-                    txt = '\n'.join([    
+                    txt = '\n'.join([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
                         ': %s' % craygccversion,
@@ -151,7 +152,7 @@ class EB_Boost(EasyBlock):
                         ';',
                         '',
                     ])
-                else: 
+                else:
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
             else:
                 txt = "using mpi : %s ;" % os.getenv("MPICXX")
@@ -166,7 +167,7 @@ class EB_Boost(EasyBlock):
         # install built Boost library
         cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
-        # clean up before proceeding with next build    
+        # clean up before proceeding with next build
         run_cmd("./bjam --clean-all", log_all=True, simple=True)
 
     def build_step(self):
@@ -175,11 +176,19 @@ class EB_Boost(EasyBlock):
         bjamoptions = " --prefix=%s" % self.objdir
 
         cxxflags = os.getenv('CXXFLAGS')
+        # only disable -D_GLIBCXX_USE_CXX11_ABI if use_glibcxx11_abi was explicitly set to False
+        # None value is the default, which corresponds to default setting (=1 since GCC 5.x)
+        if self.cfg['use_glibcxx11_abi'] is not None:
+            cxxflags += ' -D_GLIBCXX_USE_CXX11_ABI='
+            if self.cfg['use_glibcxx11_abi']:
+                cxxflags += '1'
+            else:
+                cxxflags += '0'
         if cxxflags is not None:
-            bjamoptions += " cxxflags='%s'" % cxxflags 
+            bjamoptions += " cxxflags='%s'" % cxxflags
         ldflags = os.getenv('LDFLAGS')
         if ldflags is not None:
-            bjamoptions += " linkflags='%s'" % ldflags 
+            bjamoptions += " linkflags='%s'" % ldflags
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
@@ -241,8 +250,11 @@ class EB_Boost(EasyBlock):
             custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
+            pyminorver = get_software_version('Python').split('.')[1]
             if int(pymajorver) >= 3:
                 suffix = pymajorver
+            elif LooseVersion(self.version) >= LooseVersion("1.67.0"):
+                suffix = '%s%s' % (pymajorver, pyminorver)
             else:
                 suffix = ''
             custom_paths["files"].append('lib/libboost_python%s.%s' % (suffix, shlib_ext))
@@ -258,4 +270,3 @@ class EB_Boost(EasyBlock):
         txt = super(EB_Boost, self).make_module_extra()
         txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt
-    

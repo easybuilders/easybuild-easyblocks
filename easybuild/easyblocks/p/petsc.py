@@ -50,6 +50,17 @@ class EB_PETSc(ConfigureMake):
 
         self.petsc_arch = ""
         self.petsc_subdir = ""
+        self.prefix_inc = ''
+        self.prefix_lib = ''
+        self.prefix_bin = ''
+
+        if self.cfg['sourceinstall']:
+            self.prefix_inc = self.petsc_subdir
+            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+
+        if LooseVersion(self.version) >= LooseVersion("3.9"):
+            self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
+
 
     @staticmethod
     def extra_options():
@@ -285,16 +296,10 @@ class EB_PETSc(ConfigureMake):
 
         guesses = super(EB_PETSc, self).make_module_req_guess()
 
-        prefix1 = ''
-        prefix2 = ''
-        if self.cfg['sourceinstall']:
-            prefix1 = self.petsc_subdir
-            prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
-
         guesses.update({
-            'CPATH': [os.path.join(prefix2, 'include'), os.path.join(prefix1, 'include')],
-            'LD_LIBRARY_PATH': [os.path.join(prefix2, 'lib')],
-            'PATH': [os.path.join(prefix1, 'bin')],
+            'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
+            'LD_LIBRARY_PATH': [os.path.join(self.prefix_lib, 'lib')],
+            'PATH': [os.path.join(self.prefix_bin, 'bin')],
         })
 
         return guesses
@@ -314,25 +319,19 @@ class EB_PETSc(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for PETSc"""
 
-        prefix1 = ''
-        prefix2 = ''
-        if self.cfg['sourceinstall']:
-            prefix1 = self.petsc_subdir
-            prefix2 = os.path.join(self.petsc_subdir, self.petsc_arch)
-
         if self.cfg['shared_libs']:
             libext = get_shared_lib_ext()
         else:
             libext = 'a'
 
         custom_paths = {
-            'files': [os.path.join(prefix2, 'lib', 'libpetsc.%s' % libext)],
-            'dirs': [os.path.join(prefix1, 'bin'), os.path.join(prefix1, 'include'),
-                     os.path.join(prefix2, 'include')]
+            'files': [os.path.join(self.prefix_lib, 'lib', 'libpetsc.%s' % libext)],
+            'dirs': [os.path.join(self.prefix_bin, 'bin'), os.path.join(self.prefix_inc, 'include'),
+                     os.path.join(self.prefix_lib, 'include')]
         }
         if LooseVersion(self.version) < LooseVersion('3.6'):
-            custom_paths['dirs'].append(os.path.join(prefix2, 'conf'))
+            custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'conf'))
         else:
-            custom_paths['dirs'].append(os.path.join(prefix2, 'lib', 'petsc', 'conf'))
+            custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
         super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths)

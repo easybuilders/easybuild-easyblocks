@@ -134,7 +134,7 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             break
         else:
             log.debug("Python command '%s' does not satisfy version requirements (maj: %s, min: %s), moving on",
-                      req_maj_ver, req_min_ver, python_cmd)
+                      python_cmd, req_maj_ver, req_min_ver)
 
     return res
 
@@ -178,16 +178,19 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
+            'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -201,19 +204,32 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgincdir = None
         self.testinstall = False
         self.testcmd = None
-        self.unpack_options = ''
+        self.unpack_options = self.cfg['unpack_options']
 
         self.python_cmd = None
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
+
+        self.install_cmd_output = ''
 
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
         home = os.path.expanduser('~')
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
+        # use lowercase name as default value for expected module name (used in sanity check)
         if 'modulename' not in self.options:
             self.options['modulename'] = self.name.lower()
+            self.log.info("Using default value for expected module name (lowercase software name): '%s'",
+                          self.options['modulename'])
+
+        # only for Python packages installed as extensions:
+        # inherit setting for detection of downloaded dependencies from parent,
+        # if 'download_dep_fail' was left unspecified
+        if self.is_extension and self.cfg.get('download_dep_fail') is None:
+            self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
+            self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
+                          self.cfg['download_dep_fail'])
 
         # determine install command
         self.use_setup_py = False
@@ -227,11 +243,16 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--zip-ok')
 
-        elif self.cfg.get('use_pip', False):
+        elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            # don't auto-install dependencies
-            self.cfg.update('installopts', '--no-deps')
+            # don't auto-install dependencies with pip unless use_pip_for_deps=True
+            # the default is use_pip_for_deps=False
+            if self.cfg.get('use_pip_for_deps'):
+                self.log.info("Using pip to also install the dependencies")
+            else:
+                self.log.info("Using pip with --no-deps option")
+                self.cfg.update('installopts', '--no-deps')
 
             # don't (try to) uninstall already availale versions of the package being installed
             self.cfg.update('installopts', '--ignore-installed')
@@ -348,6 +369,10 @@ class PythonPackage(ExtensionEasyBlock):
         if installopts is None:
             installopts = self.cfg['installopts']
 
+        if self.cfg.get('use_pip_editable', False):
+            # add --editable option when requested, in the right place (i.e. right before the location specification)
+            loc = "--editable %s" % loc
+
         cmd.extend([
             self.cfg['preinstallopts'],
             self.install_cmd % {
@@ -414,6 +439,13 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
         if self.use_setup_py:
+
+            if get_software_root('CMake'):
+                include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
+                library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+                env.setvar("CMAKE_INCLUDE_PATH", include_paths)
+                env.setvar("CMAKE_LIBRARY_PATH", library_paths)
+
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
@@ -472,7 +504,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        run_cmd(cmd, log_all=True, simple=True)
+        (self.install_cmd_output, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
@@ -502,7 +534,24 @@ class PythonPackage(ExtensionEasyBlock):
             orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
             exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
             kwargs.update({'exts_filter': exts_filter})
-        return super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        (success, fail_msg) = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        if self.cfg.get('download_dep_fail', False):
+            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            patterns = [
+                'Downloading .*/packages/.*',  # setuptools
+                'Collecting .* \(from.*',  # pip
+            ]
+            for pattern in patterns:
+                downloaded_deps = re.compile(pattern, re.M).findall(self.install_cmd_output)
+                if downloaded_deps:
+                    success = False
+                    fail_msg += ", found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+        else:
+            self.log.debug("Detection of downloaded dependencies not enabled")
+
+        return (success, fail_msg)
 
     def make_module_req_guess(self):
         """

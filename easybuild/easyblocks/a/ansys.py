@@ -82,7 +82,7 @@ class EB_ANSYS(PackedBinary):
     def make_module_extra(self):
         """Define extra environment variables required by Ansys"""
         txt = super(EB_ANSYS, self).make_module_extra()
-        icem_acn = os.path.join(self.installdir, 'icemcfd', 'linux64_amd')
+        icem_acn = os.path.join(self.installdir, self.ansysver, 'icemcfd', 'linux64_amd')
         txt += self.module_generator.set_environment('ICEM_ACN', icem_acn)
         return txt
 
