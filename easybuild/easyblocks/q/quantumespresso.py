@@ -61,9 +61,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Add extra config options specific to Quantum ESPRESSO."""
         super(EB_QuantumESPRESSO, self).__init__(*args, **kwargs)
 
-        if LooseVersion(self.version) >= LooseVersion("6.3"):
-            self.install_subdir = "q-e-qe-%s" % self.version
-        elif LooseVersion(self.version) >= LooseVersion("6"):
+        if LooseVersion(self.version) >= LooseVersion("6"):
             self.install_subdir = "qe-%s" % self.version
         else:
             self.install_subdir = "espresso-%s" % self.version
