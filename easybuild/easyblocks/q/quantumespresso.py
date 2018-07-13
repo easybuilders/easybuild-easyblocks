@@ -318,6 +318,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                             "virtual.x"]
                 if LooseVersion(self.version) > LooseVersion("5"):
                     upftools.extend(["interpolate.x", "upf2casino.x"])
+                if LooseVersion(self.version) >= LooseVersion("6"):
+                    upftools.extend(["fix_upf.x"])
             upf_bins = [os.path.join('upftools', x) for x in upftools]
             for x in upf_bins:
                 shutil.copy(os.path.join(self.cfg['start_dir'], x), bindir)
@@ -332,6 +334,17 @@ class EB_QuantumESPRESSO(ConfigureMake):
             want_bins = [os.path.join('WANT', 'bin', x) for x in wanttools]
             for x in want_bins:
                 shutil.copy(os.path.join(self.cfg['start_dir'], x), bindir)
+
+            # Pick up files not installed in bin
+            w90tools = []
+            if 'w90' in self.cfg['buildopts']:
+                w90tools = ["postw90.x"]
+                if LooseVersion(self.version) < LooseVersion("6"):
+                    w90tools = ["w90chk2chk.x"]
+            w90_bins = [os.path.join('W90', 'bin', x) for x in w90tools]
+            for x in w90_bins:
+                shutil.copy(os.path.join(self.cfg['start_dir'], x), bindir)
+
 
         except OSError, err:
             raise EasyBuildError("Failed to install QuantumEspresso: %s", err)
@@ -404,12 +417,16 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         "virtual.x"]
             if LooseVersion(self.version) > LooseVersion("5"):
                 upftools.extend(["interpolate.x", "upf2casino.x"])
+            if LooseVersion(self.version) >= LooseVersion("6"):
+                upftools.extend(["fix_upf.x"])
 
         if 'vdw' in self.cfg['buildopts']:  # only for v4.x, not in v5.0 anymore
             bins.extend(["vdw.x"])
 
         if 'w90' in self.cfg['buildopts']:
-            bins.extend(["wannier90.x"])
+            bins.extend(["wannier90.x", "postw90.x"])
+            if LooseVersion(self.version) < LooseVersion("6"):
+                bins.extend(["w90chk2chk.x"])
 
         want_bins = []
         if 'want' in self.cfg['buildopts']:
