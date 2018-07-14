@@ -73,15 +73,31 @@ class EB_QuantumESPRESSO(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
 
+        # compose list of DFLAGS (flag, value, keep_stuff)
+        # for guidelines, see include/defs.h.README in sources
+        dflags = []
+
+        repls = []
+
+        comp_fam_dflags = {
+            toolchain.INTELCOMP: '-D__INTEL',
+            toolchain.GCC: '-D__GFORTRAN -D__STD_F95',
+        }
+        dflags.append(comp_fam_dflags[self.toolchain.comp_family()])
+
         if self.toolchain.options.get('openmp', False) or self.cfg['hybrid']:
             self.cfg.update('configopts', '--enable-openmp')
+            dflags.append(" -D__OPENMP")
 
         if not self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', '--disable-parallel')
+        else:
+            dflags.append('-D__MPI -D__PARA')
 
         if not self.cfg['with_scalapack']:
             self.cfg.update('configopts', '--without-scalapack')
         else:
+            dflags.append(" -D__SCALAPACK")
             if self.toolchain.options.get('usempi', None):
                 if get_software_root("impi") and get_software_root("imkl"):
                     self.cfg.update('configopts', '--with-scalapack=intel')
@@ -89,21 +105,35 @@ class EB_QuantumESPRESSO(ConfigureMake):
         hdf5 = get_software_root("HDF5")
         if hdf5:
             self.cfg.update('configopts', '--with-hdf5=%s' % hdf5)
+            dflags.append(" -D__HDF5")
+            hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
+            repls.append(('HDF5_LIB', hdf5_lib_repl, False))
 
         elpa = get_software_root("ELPA")
         if elpa:
-            elpa_v = get_software_version("ELPA")
-            if LooseVersion(elpa_v) >= LooseVersion("2016"):
-                if self.toolchain.options.get('openmp', False):
-                    self.cfg.update('configopts', '--with-elpa-include=%s/include' % elpa)
-                    self.cfg.update('configopts', '--with-elpa-lib=%s/lib/libelpa_openmp.a' % elpa)
-                else:
-                    self.cfg.update('configopts', '--with-elpa-include=%s/include' % elpa)
-                    self.cfg.update('configopts', '--with-elpa-lib=%s/lib/libelpa.a' % elpa)
-            else:
-                EasyBuildError("Quantum ESPRESSO needs ELPA to be version 2016 or later")
+            if not self.cfg['with_scalapack']:
+                EasyBuildError("ELPA requires ScaLAPACK but 'with_scalapack' is set to False")
 
-        repls = []
+            elpa_v = get_software_version("ELPA")
+            if LooseVersion(self.version) >= LooseVersion("6"):
+                elpa_min_ver = "2016.11.001.pre"
+                dflags.append('-D__ELPA_2016')
+            else:
+                elpa_min_ver = "2015"
+                dflags.append('-D__ELPA_2015')
+
+            if LooseVersion(elpa_v) < LooseVersion(elpa_min_ver):
+                EasyBuildError("QuantumESPRESSO %s needs ELPA to be version %s or newer" % (self-version, elpa_min_ver))
+
+            elpa_include = os.path.join(elpa, 'include')
+            repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
+            self.cfg.update('configopts', '--with-elpa-include=%s' % elpa_include)
+            if self.toolchain.options.get('openmp', False):
+                elpa_lib = os.path.join(elpa, 'lib', 'libelpa_openmp.a')
+            else:
+                elpa_lib = os.path.join(elpa, 'lib', 'libelpa.a')
+
+            self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
 
         if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
@@ -122,16 +152,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         super(EB_QuantumESPRESSO, self).configure_step()
 
-        # compose list of DFLAGS (flag, value, keep_stuff)
-        # for guidelines, see include/defs.h.README in sources
-        dflags = []
-
-        comp_fam_dflags = {
-            toolchain.INTELCOMP: '-D__INTEL',
-            toolchain.GCC: '-D__GFORTRAN -D__STD_F95',
-        }
-        dflags.append(comp_fam_dflags[self.toolchain.comp_family()])
-
         if self.toolchain.options.get('openmp', False):
             libfft = os.getenv('LIBFFT_MT')
         else:
@@ -145,20 +165,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if get_software_root('ACML'):
             dflags.append('-D__ACML')
-
-        if self.toolchain.options.get('usempi', None):
-            dflags.append('-D__MPI -D__PARA')
-
-        if self.toolchain.options.get('openmp', False) or self.cfg['hybrid']:
-            dflags.append(" -D__OPENMP")
-
-        if self.cfg['with_scalapack']:
-            dflags.append(" -D__SCALAPACK")
-
-        if hdf5:
-            dflags.append(" -D__HDF5")
-            hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
-            repls.append(('HDF5_LIB', hdf5_lib_repl, False))
 
         if self.cfg['with_ace']:
             dflags.append(" -D__EXX_ACE")
@@ -175,11 +181,16 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # obtain library settings
         libs = []
-        for lib in ['BLAS', 'LAPACK', 'FFT', 'SCALAPACK']:
+        num_libs = ['BLAS', 'LAPACK', 'FFT']
+        if self.cfg['with_scalapack']:
+            num_libs.extend(['SCALAPACK'])
+        for lib in num_libs:
             if self.toolchain.options.get('openmp', False):
                 val = os.getenv('LIB%s_MT' % lib)
             else:
                 val = os.getenv('LIB%s' % lib)
+            if lib == 'SCALAPACK' and elpa:
+                val = ' '.join([elpa_lib, val])
             repls.append(('%s_LIBS' % lib, val, False))
             libs.append(val)
         libs = ' '.join(libs)
@@ -341,10 +352,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 w90tools = ["postw90.x"]
                 if LooseVersion(self.version) < LooseVersion("6"):
                     w90tools = ["w90chk2chk.x"]
-            w90_bins = [os.path.join('W90', 'bin', x) for x in w90tools]
+            w90_bins = [os.path.join('W90', x) for x in w90tools]
             for x in w90_bins:
                 shutil.copy(os.path.join(self.cfg['start_dir'], x), bindir)
-
 
         except OSError, err:
             raise EasyBuildError("Failed to install QuantumEspresso: %s", err)
