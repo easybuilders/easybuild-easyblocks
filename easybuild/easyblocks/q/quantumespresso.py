@@ -79,6 +79,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         repls = []
 
+        extra_libs = []
+
         comp_fam_dflags = {
             toolchain.INTELCOMP: '-D__INTEL',
             toolchain.GCC: '-D__GFORTRAN -D__STD_F95',
@@ -101,6 +103,15 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if self.toolchain.options.get('usempi', None):
                 if get_software_root("impi") and get_software_root("imkl"):
                     self.cfg.update('configopts', '--with-scalapack=intel')
+
+        libxc = get_software_root("libxc")
+        if libxc:
+            libxc_v = get_software_version("libxc")
+            if LooseVersion(libxc_v) < LooseVersion("3.0.1"):
+                EasyBuildError("Must use libxc >= 3.0.1")
+            dflags.append(" -D__LIBXC")
+            repls.append(('IFLAGS', '-I%s' % os.path.join(libxc, 'include'), True))
+            extra_libs.append(" -lxcf90 -lxc")
 
         hdf5 = get_software_root("HDF5")
         if hdf5:
@@ -197,7 +208,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         repls.append(('BLAS_LIBS_SWITCH', 'external', False))
         repls.append(('LAPACK_LIBS_SWITCH', 'external', False))
-        repls.append(('LD_LIBS', os.getenv('LIBS'), False))
+        repls.append(('LD_LIBS', ' '.join(extra_libs + [os.getenv('LIBS')]), False))
 
         # Do not use external FoX.
         # FoX starts to be used in 6.2 and they use a patched version that
