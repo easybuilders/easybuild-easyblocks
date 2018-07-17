@@ -145,7 +145,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 elpa_lib = os.path.join(elpa, 'lib', 'libelpa.a')
 
             self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
-            extra_libs.append(elpa_lib)
 
         if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
@@ -201,6 +200,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 val = os.getenv('LIB%s_MT' % lib)
             else:
                 val = os.getenv('LIB%s' % lib)
+            if lib == 'SCALAPACK' and elpa:
+                val = ' '.join([elpa_lib, val])
             repls.append(('%s_LIBS' % lib, val, False))
             libs.append(val)
         libs = ' '.join(libs)
