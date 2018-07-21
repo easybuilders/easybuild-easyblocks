@@ -27,6 +27,7 @@ EasyBuild support for installing STAR-CCM+, implemented as an easyblock
 
 @author: Maxime Boissonneault (Compute Canada, Laval University)
 """
+from distutils.version import LooseVersion
 import os
 import stat
 
@@ -44,7 +45,11 @@ class EB_STARCCM(PackedBinary):
 
     def install_step(self):
         """Custom install procedure for STAR-CCM+."""
-        cmd = "./STAR-CCM+*.bin -DINSTALLDIR=%s -DINSTALLFLEX=false -DNODOC=true -i silent" % os.path.join(self.installdir,"..")
+        if LooseVersion(self.version) < LooseVersion('12.06.010'):
+          cmd = "./STAR-CCM+*.bin -DINSTALLDIR=%s -DINSTALLFLEX=false -DNODOC=true -i silent" % os.path.join(self.installdir,"..")
+        else:
+          cmd = "./STAR-CCM+*.sh -DINSTALLDIR=%s -DINSTALLFLEX=false -DNODOC=true -i silent" % os.path.join(self.installdir,"..")
+        
         run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_req_guess(self):
