@@ -141,8 +141,6 @@ class EB_Amber(ConfigureMake):
                 self.mpi_option = '-mpi'
 
         common_configopts = [self.cfg['configopts'], '--no-updates', '-noX11']
-        if self.name == 'Amber':
-            common_configopts.append('-static')
 
         netcdfroot = get_software_root('netCDF')
         if netcdfroot:
