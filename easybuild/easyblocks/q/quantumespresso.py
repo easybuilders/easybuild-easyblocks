@@ -340,7 +340,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                             "virtual.x"]
                 if LooseVersion(self.version) > LooseVersion("5"):
                     upftools.extend(["interpolate.x", "upf2casino.x"])
-                if LooseVersion(self.version) >= LooseVersion("6"):
+                if LooseVersion(self.version) >= LooseVersion("6.3"):
                     upftools.extend(["fix_upf.x"])
             upf_bins = [os.path.join('upftools', x) for x in upftools]
             for x in upf_bins:
@@ -438,7 +438,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         "virtual.x"]
             if LooseVersion(self.version) > LooseVersion("5"):
                 upftools.extend(["interpolate.x", "upf2casino.x"])
-            if LooseVersion(self.version) >= LooseVersion("6"):
+            if LooseVersion(self.version) >= LooseVersion("6.3"):
                 upftools.extend(["fix_upf.x"])
 
         if 'vdw' in self.cfg['buildopts']:  # only for v4.x, not in v5.0 anymore
