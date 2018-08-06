@@ -360,9 +360,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
             # Pick up files not installed in bin
             w90tools = []
             if 'w90' in self.cfg['buildopts']:
-                w90tools = ["postw90.x"]
                 if LooseVersion(self.version) < LooseVersion("6"):
                     w90tools = ["w90chk2chk.x"]
+                if LooseVersion(self.version) >= LooseVersion("6.1"):
+                    w90tools = ["postw90.x"]
             w90_bins = [os.path.join('W90', x) for x in w90tools]
             for x in w90_bins:
                 shutil.copy(os.path.join(self.cfg['start_dir'], x), bindir)
@@ -445,9 +446,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
             bins.extend(["vdw.x"])
 
         if 'w90' in self.cfg['buildopts']:
-            bins.extend(["wannier90.x", "postw90.x"])
             if LooseVersion(self.version) < LooseVersion("6"):
                 bins.extend(["w90chk2chk.x"])
+            if LooseVersion(self.version) >= LooseVersion("6.1"):
+                bins.extend(["wannier90.x", "postw90.x"])
 
         want_bins = []
         if 'want' in self.cfg['buildopts']:
