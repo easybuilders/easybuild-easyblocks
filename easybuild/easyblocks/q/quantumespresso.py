@@ -215,7 +215,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # is newer than FoX 4.1.2 which is the latest release.
         # Ake Sandgren, 20180712
         if get_software_root('FoX'):
-            raise EasyBuildError("Found FoX external module, QuantumESPRESSO must use the version they include with the source.")
+            raise EasyBuildError("Found FoX external module, QuantumESPRESSO must use the " +
+                                 "version they include with the source.")
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
