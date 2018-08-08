@@ -324,19 +324,11 @@ class EB_PETSc(ConfigureMake):
         else:
             libext = 'a'
 
-        if LooseVersion(self.version) < LooseVersion('3.9.0'):
-            custom_paths = {
-                 'files': [os.path.join(self.prefix_lib, 'lib', 'libpetsc.%s' % libext)],
-                 'dirs': [os.path.join(self.prefix_bin, 'bin'), os.path.join(self.prefix_bin, 'include'),
-                          os.path.join(self.prefix_lib, 'include')]
-            }
-        else:
-            custom_paths = {
-                 'files': [os.path.join(self.prefix_lib, 'lib', 'libpetsc.%s' % libext)],
-                 'dirs': [os.path.join(self.prefix_bin, 'lib/petsc/bin'), os.path.join(self.prefix_bin, 'include'),
-                          os.path.join(self.prefix_lib, 'include')]
-            }
-
+        custom_paths = {
+            'files': [os.path.join(self.prefix_lib, 'lib', 'libpetsc.%s' % libext)],
+            'dirs': [os.path.join(self.prefix_bin, 'bin'), os.path.join(self.prefix_inc, 'include'),
+                     os.path.join(self.prefix_lib, 'include')]
+        }
         if LooseVersion(self.version) < LooseVersion('3.6'):
             custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'conf'))
         else:
