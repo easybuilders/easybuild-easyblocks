@@ -134,7 +134,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 dflags.append('-D__ELPA_2015 -D__ELPA')
 
             if LooseVersion(elpa_v) < LooseVersion(elpa_min_ver):
-                raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be version %s or newer" % (self.version, elpa_min_ver))
+                raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be " +
+                                     "version %s or newer" % (self.version, elpa_min_ver))
 
             elpa_include = os.path.join(elpa, 'include')
             repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
@@ -214,8 +215,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # is newer than FoX 4.1.2 which is the latest release.
         # Ake Sandgren, 20180712
         if get_software_root('FoX'):
-            raise EasyBuildError("Found FoX external module, QuantumESPRESSO must use the " +
-                                 "version they include with the source.")
+            raise EasyBuildError("Found FoX external module, QuantumESPRESSO" +
+                                 "must use the version they include with the source.")
 
         self.log.debug("List of replacements to perform: %s" % repls)
 
