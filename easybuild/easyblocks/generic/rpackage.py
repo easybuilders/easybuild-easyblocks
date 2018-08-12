@@ -201,7 +201,14 @@ class RPackage(ExtensionEasyBlock):
             lib_install_prefix = os.path.join(rhome, 'library')
         else:
             # extension is being installed in a separate installation prefix
-            lib_install_prefix = self.installdir
+            lib_install_prefix = os.path.join(self.installdir, 'library')
+            try:
+                os.mkdir(lib_install_prefix)
+            except OSError, err:
+                if os.path.isdir(lib_install_prefix):
+                    pass
+                else:
+                    raise EasyBuildError("Failed to create library directory for R packages: %s", err)
 
         if self.patches:
             super(RPackage, self).run(unpack_src=True)
@@ -226,5 +233,5 @@ class RPackage(ExtensionEasyBlock):
 
     def make_module_extra(self):
         """Add install path to R_LIBS"""
-        extra = self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
+        extra = self.module_generator.prepend_paths("R_LIBS", ['library'])  # prepend R_LIBS with install path
         return super(RPackage, self).make_module_extra(extra)
