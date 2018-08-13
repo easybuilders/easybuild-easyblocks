@@ -145,7 +145,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
             else:
                 elpa_lib = 'libelpa.a'
 
-            self.cfg.update('configopts', '--with-elpa-lib=%s' % os.path.join(elpa, 'lib', elpa_lib))
+            elpa_lib = os.path.join(elpa, 'lib', elpa_lib)
+            self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
 
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
