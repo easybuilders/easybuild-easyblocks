@@ -251,10 +251,10 @@ class EB_Boost(EasyBlock):
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
             pyminorver = get_software_version('Python').split('.')[1]
-            if int(pymajorver) >= 3:
-                suffix = pymajorver
-            elif LooseVersion(self.version) >= LooseVersion("1.67.0"):
+            if LooseVersion(self.version) >= LooseVersion("1.67.0"):
                 suffix = '%s%s' % (pymajorver, pyminorver)
+            elif int(pymajorver) >= 3:
+                suffix = pymajorver
             else:
                 suffix = ''
             custom_paths["files"].append('lib/libboost_python%s.%s' % (suffix, shlib_ext))
