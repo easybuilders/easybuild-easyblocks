@@ -43,12 +43,13 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name , get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
 
 
 class EB_GROMACS(CMakeMake):
@@ -89,6 +90,8 @@ class EB_GROMACS(CMakeMake):
             optarch = optarch.get(comp_fam, '')
         optarch = optarch.upper()
 
+        # The list of GMX_SIMD options can be found
+        # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
         elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
@@ -102,6 +105,17 @@ class EB_GROMACS(CMakeMake):
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
             res = 'SSE2'
+        elif optarch == OPTARCH_GENERIC:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                res = 'SSE2'
+            else:
+                res = 'None'
+        elif optarch:
+            warn_msg = "--optarch configuration setting set to %s but not taken into account; " % optarch
+            warn_msg += "compiling GROMACS for the current host architecture (i.e. the default behavior)"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
 
         if res:
             self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
