@@ -252,7 +252,10 @@ class EB_Boost(EasyBlock):
             pymajorver = get_software_version('Python').split('.')[0]
             pyminorver = get_software_version('Python').split('.')[1]
             if int(pymajorver) >= 3:
-                suffix = pymajorver
+                if LooseVersion(self.version) >= LooseVersion("1.68.0"):
+                    suffix = '%s%s' % (pymajorver, pyminorver)
+                else:
+                    suffix = pymajorver
             elif LooseVersion(self.version) >= LooseVersion("1.67.0"):
                 suffix = '%s%s' % (pymajorver, pyminorver)
             else:
