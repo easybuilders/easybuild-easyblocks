@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import which, write_file
+from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
@@ -71,7 +71,7 @@ class EB_TensorFlow(PythonPackage):
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
-            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
+            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -138,6 +138,8 @@ class EB_TensorFlow(PythonPackage):
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
         opencl_root = get_software_root('OpenCL')
+        tensorrt_root = get_software_root('TensorRT')
+        nccl_root = get_software_root('NCCL')
 
         use_mpi = self.toolchain.options.get('usempi', False)
 
@@ -155,8 +157,12 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
+            'TF_NEED_OPENCL_SYCL': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_VERBS': '0',
+            'TF_NEED_TENSORRT': ('0', '1')[bool(tensorrt_root)],
+            'TF_NEED_AWS': '0',  # Amazon AWS Platform
+            'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
         if cuda_root:
             config_env_vars.update({
@@ -165,10 +171,22 @@ class EB_TensorFlow(PythonPackage):
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
-        if cudnn_root:
+            if cudnn_root:
+                config_env_vars.update({
+                    'CUDNN_INSTALL_PATH': cudnn_root,
+                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                })
+            else:
+                raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
+            if nccl_root:
+                nccl_version = get_software_version('NCCL')
+                config_env_vars.update({
+                    'NCCL_INSTALL_PATH': nccl_root,
+                })
+            else:
+                nccl_version = '1.3'  # Use simple downloadable version
             config_env_vars.update({
-                'CUDNN_INSTALL_PATH': cudnn_root,
-                'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                'TF_NCCL_VERSION': nccl_version,
             })
 
         for (key, val) in sorted(config_env_vars.items()):
@@ -281,11 +299,6 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        # enable mkl-dnn by default, but only if cuDNN is not listed as dependency
-        if self.cfg['with_mkl_dnn'] is None and get_software_root('cuDNN') is None:
-            self.log.info("Enabling use of mkl-dnn since cuDNN is not listed as dependency")
-            self.cfg['with_mkl_dnn'] = True
-
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
@@ -313,7 +326,11 @@ class EB_TensorFlow(PythonPackage):
     def install_step(self):
         """Custom install procedure for TensorFlow."""
         # find .whl file that was built, and install it using 'pip install'
-        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % self.version))
+        if ("-rc" in self.version):
+            whl_version = self.version.replace("-rc", "rc")
+        else:
+            whl_version = self.version
+        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
             # --upgrade is required to ensure *this* wheel is installed
             # cfr. https://github.com/tensorflow/tensorflow/issues/7449
@@ -321,6 +338,15 @@ class EB_TensorFlow(PythonPackage):
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
+
+        # Fix for https://github.com/tensorflow/tensorflow/issues/6341
+        # If the site-packages/google/__init__.py file is missing, make
+        # it an empty file.
+        # This fixes the "No module named google.protobuf" error that
+        # sometimes shows up during sanity_check
+        google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
+        if not is_readable(google_init_file):
+            write_file(google_init_file, '')
 
         # test installation using MNIST tutorial examples
         # (can't be done in sanity check because mnist_deep.py is not part of installation)
