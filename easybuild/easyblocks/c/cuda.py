@@ -160,10 +160,14 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) >= LooseVersion('7'):
             lib_path.append('extras/CUPTI/lib64')
             inc_path.append('extras/CUPTI/include')
+            bin_path.append('nvvm/bin')
+            lib_path.append('nvvm/lib64')
+            inc_path.append('nvvm/include')
 
         guesses.update({
             'PATH': bin_path,
             'LD_LIBRARY_PATH': lib_path,
+            'LIBRARY_PATH': ['lib64', 'lib64/stubs'],
             'CPATH': inc_path,
             'CUDA_HOME': [''],
             'CUDA_ROOT': [''],
