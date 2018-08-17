@@ -76,7 +76,11 @@ class Bundle(EasyBlock):
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
 
-        for comp_name, comp_version, comp_specs in self.cfg['components']:
+        for comp in self.cfg['components']:
+            comp_name, comp_version, comp_specs = comp[0], comp[1], {}
+            if len(comp) == 3:
+                comp_specs = comp[2]
+
             cfg = self.cfg.copy()
 
             cfg['name'] = comp_name
