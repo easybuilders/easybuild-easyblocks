@@ -132,11 +132,10 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) < LooseVersion("6"):
             chk_libdir += ["lib"]
 
+        culibs = ["cublas", "cudart", "cufft", "curand", "cusparse"]
         custom_paths = {
-            'files': [os.path.join("bin", "%s") % x for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
-                     [os.path.join("%s", "lib%s.%s") % (x, y, shlib_ext) for x in chk_libdir for y in ["cublas",
-                                                                                      "cudart", "cufft", "curand",
-                                                                                      "cusparse"]],
+            'files': [os.path.join("bin", x) for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
+            [os.path.join("%s", "lib%s.%s") % (x, y, shlib_ext) for x in chk_libdir for y in culibs],
             'dirs': ["include"],
         }
 
