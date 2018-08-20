@@ -337,6 +337,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         bindir = os.path.join(self.installdir, 'bin')
         copy_dir(os.path.join(self.cfg['start_dir'], 'bin'), bindir)
 
+        # Pick up files not installed in bin
         upftools = []
         if 'upf' in self.cfg['buildopts'] or 'all' in self.cfg['buildopts']:
             upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
@@ -361,7 +362,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
         for want_bin in want_bins:
             copy_file(os.path.join(self.cfg['start_dir'], want_bin), bindir)
 
-        # Pick up files not installed in bin
         w90tools = []
         if 'w90' in self.cfg['buildopts']:
             if LooseVersion(self.version) < LooseVersion("6"):
@@ -371,6 +371,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
         w90_bins = [os.path.join('W90', x) for x in w90tools]
         for w90_bin in w90_bins:
             copy_file(os.path.join(self.cfg['start_dir'], w90_bin), bindir)
+
+        yambo_bins = []
+        if 'yambo' in self.cfg['buildopts']:
+            yambo_bins = ["a2y", "p2y", "yambo", "ypp"]
+        for yambo_bin in yambo_bins:
+            copy_file(os.path.join(self.cfg['start_dir'], yambo_bin), bindir)
 
     def sanity_check_step(self):
         """Custom sanity check for Quantum ESPRESSO."""
