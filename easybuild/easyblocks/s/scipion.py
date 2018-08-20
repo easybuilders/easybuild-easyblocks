@@ -25,12 +25,15 @@
 """
 EasyBuild support for building and installing Scipion, implemented as an easyblock
 
+@author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
 import os
 
 import easybuild.tools.environment as env
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.scons import SCons
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -42,6 +45,37 @@ class EB_Scipion(SCons):
     def __init__(self, *args, **kwargs):
         """Initialize Scipion-specific variables."""
         super(EB_Scipion, self).__init__(*args, **kwargs)
+        self.build_in_installdir = True
+
+        # scipion.cfg file
+        cfgdir = os.path.join(self.cfg['start_dir'], 'config')
+        cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
+
+    def extract_step(self):
+        """Extract Scipion sources."""
+        # strip off 'scipion-*' part to avoid having everything in a subdirectory
+        self.cfg.update('unpack_options', '--strip-components=1')
+        super(EB_Scipion, self).extract_step()
+
+    def setup_env(self):
+        # Need to setup some environment variables before running SCons
+        env.setvar('SCIPION_HOME', self.installdir)
+        env.setvar('SCIPION_CWD', self.builddir)
+        env.setvar('SCIPION_VERSION', self.version)
+        env.setvar('SCIPION_CONFIG', self.cfgfile)
+        env.setvar('SCIPION_LOCAL_CONFIG', self.cfgfile)
+        env.setvar('SCIPION_PROTOCOLS', os.path.join(self.cfgdir, 'protocols.conf'))
+        env.setvar('SCIPION_HOSTS', os.path.join(self.cfgdir, 'hosts.conf'))
+        # TODO: read this from scipion.conf
+        env.setvar('SCIPION_URL_SOFTWARE', 'http://scipion.cnb.csic.es/downloads/scipion/software')
+        env.setvar('LINKERFORPROGRAMS', os.environ['CXX'])
+        env.setvar('MPI_CC', os.getenv('MPICC'))
+        env.setvar('MPI_CXX', os.getenv('MPICXX'))
+        env.setvar('MPI_LINKERFORPROGRAMS', os.getenv('MPICXX'))
+        incpath = os.path.join(get_software_root('Java'), 'include')
+        env.setvar('JNI_CPPPATH', os.pathsep.join([incpath, os.path.join(incpath, 'linux')]))
+        env.setvar('JAVAC', 'javac')
+        env.setvar('JAR', 'jar')
 
     def configure_step(self):
         """Custom configuration procedure for Scipion."""
@@ -54,88 +88,76 @@ class EB_Scipion(SCons):
         cmd = './scipion --config %s/config/scipion.conf config' % self.installdir
         run_cmd(cmd, log_all=True, simple=True)
 
-        # Mapping of EB software names and variables to patch in
-        # scipion.conf
-        map_sw2var_name = {
-            'ctffind': 'CTFFIND4_HOME',
-            'EMAN2': 'EMAN2DIR',
-            'frealign': 'FREALIGN_HOME',
-            'MotionCor2': 'MOTIONCOR2_HOME',
-            'RELION': 'RELION_HOME',
-            'Java': 'JAVA_HOME',
-            'VMD': 'VMD_HOME',
-            'MATLAB': 'MATLAB_DIR',
+        params = {
+            'CC': os.environ['CC'],
+            'CXX': os.environ['CXX'],
+            'LINKERFORPROGRAMS': os.environ['CXX'],
+            # I don't think Scipion can actually build without MPI.
+            'MPI_CC': os.environ.get('MPICC', 'UNKNOWN'),
+            'MPI_CXX': os.environ.get('MPICXX', 'UNKNOWN'),
+            'MPI_LINKERFORPROGRAMS': os.environ.get('MPICXX', 'UNKNOWN'),
+            # Set MPI_LIBDIR/INCLUDE/BINDIR to dummy values.
+            # Makes it easier to detect if they are still misused someplace.
+            # To be removed or changed to the real values later...
+            'MPI_LIBDIR': '/dummy',
+            'MPI_INCLUDE': '/dummy',
+            'MPI_BINDIR': '/dummy',
         }
 
-        # Some other variables we need to change
-        regex_subs = [
-            (r'^CC = .*$', r'CC = %s' % os.getenv('CC')),
-            (r'^CXX = .*$', r'CXX = %s' % os.getenv('CXX')),
-            (r'^LINKERFORPROGRAMS = .*$', r'LINKERFORPROGRAMS = %s' % os.getenv('CXX')),
-            (r'^MPI_CC = .*$', r'MPI_CC = %s' % os.getenv('MPICC')),
-            (r'^MPI_CXX = .*$', r'MPI_CXX = %s' % os.getenv('MPICXX')),
-            (r'^MPI_LINKERFORPROGRAMS = .*$', r'MPI_LINKERFORPROGRAMS = %s' % os.getenv('MPICXX')),
-            (r'^MPI_LIBDIR = .*$', r'MPI_LIBDIR = /'),
-            (r'^MPI_INCLUDE = .*$', r'MPI_INCLUDE = /'),
-            (r'^MPI_BINDIR = .*$', r'MPI_BINDIR = /'),
-            # The EB motioncor2 build renames that binary to an explicit name
-            (r'^MOTIONCOR2_BIN = .*$', r'MOTIONCOR2_BIN = motioncor2'),
+        deps = [
+            # dep name, is required dep?
+            ('EMAN2', 'EMAN2DIR', False),
+            ('frealign', 'FREALIGN_HOME', False),
+            ('Java', 'JAVA_HOME', True),
+            ('MATLAB', 'MATLAB_DIR', False),
+            ('MotionCor2', 'MOTIONCOR2_HOME', False),
+            ('RELION', 'RELION_HOME', False),
+            ('VMD', 'VMD_HOME', False),
         ]
-        for (k, v) in map_sw2var_name.items():
-            swroot = get_software_root(k)
-            if swroot:
-                regex_subs.extend([(r'^%s = .*$' % v, r'%s = %s' % (v, swroot))])
+
+        regex_subs = []
+
+        if get_software_root('ctffind'):
+            # note: check whether ctffind 4.x is being used
+            if LooseVersion(get_software_version('ctffind')).version[0] == 4:
+                deps.append(('ctffind', 'CTFFIND4_HOME', False))
+            else:
+                deps.append(('ctffind', 'CTFFIND_HOME', False))
+
         cuda_root = get_software_root('CUDA')
         if cuda_root:
-            regex_subs.extend([(r'^(.*CUDA_LIB) = .*$', r'\1 = %s/lib64' % (cuda_root))])
-            regex_subs.extend([(r'^CUDA_BIN = .*$', r'CUDA_BIN = %s/bin' % (cuda_root))])
-            regex_subs.extend([(r'^CUDA = .*$', r'CUDA = True')])
+            params.update({'CUDA_BIN': '%s' % os.path.join(cuda_root, 'bin')})
+            params.update({'(.*CUDA_LIB)': '%s' % os.path.join(cuda_root, 'lib64')})
+        for dep in ['CUDA', 'MATLAB', 'OpenCV']:
+            use_dep = bool(get_software_root(dep))
+            params.update({dep: use_dep})
 
-        java_root = get_software_root('Java')
-        if java_root:
-            jnipath = os.path.join(java_root, 'include')
-            jnipath = os.pathsep.join([jnipath, os.path.join(jnipath, 'linux')])
-            regex_subs.extend([(r'^JNI_CPPPATH = .*$', r'JNI_CPPPATH = %s' % jnipath)])
+        if get_software_root('MotionCor2'):
+            # The EB motioncor2 build links the binary to an explicit name
+            params.update({'MOTIONCOR2_BIN': 'motioncor2'})
 
-        if get_software_root('OpenCV'):
-            opencv = 'True'
-        else:
-            opencv = 'False'
-        regex_subs.extend([(r'^OPENCV = .*$', r'OPENCV = %s' % opencv)])
+        missing_deps = []
+        for dep, var, required in deps:
+            root = get_software_root(dep)
+            if root:
+                params.update({var: root})
+            elif required:
+                missing_deps.append(dep)
 
-        if get_software_root('MATLAB'):
-            matlab = 'True'
-        else:
-            matlab = 'False'
-        regex_subs.extend([(r'^MATLAB = .*$', r'MATLAB = %s' % matlab)])
+        if missing_deps:
+            raise EasyBuildError("One or more required dependencies not available: %s", ', '.join(missing_deps))
 
-        apply_regex_substitutions('%s/config/scipion.conf' % self.installdir, regex_subs)
+        # Here we know that Java exists since it is a required dependency
+        jnipath = os.path.join(get_software_root('Java'), 'include')
+        jnipath = os.pathsep.join([jnipath, os.path.join(jnipath, 'linux')])
+        params.update({'JNI_CPPPATH': jnipath})
 
-    def setup_env(self):
-        # Need to setup some environemt variables before running SCons
-        env.setvar('SCIPION_HOME', self.installdir)
-        env.setvar('SCIPION_CWD', self.builddir)
-        env.setvar('SCIPION_VERSION', self.version)
-        env.setvar('SCIPION_CONFIG', '%s/config/scipion.conf' % self.installdir)
-        env.setvar('SCIPION_LOCAL_CONFIG', '%s/config/scipion.conf' % self.installdir)
-        env.setvar('SCIPION_PROTOCOLS', '%s/config/protocols.conf' % self.installdir)
-        env.setvar('SCIPION_HOSTS', '%s/config/hosts.conf' % self.installdir)
-        # Read this from scipion.conf
-        env.setvar('SCIPION_URL_SOFTWARE', 'http://scipion.cnb.csic.es/downloads/scipion/software')
-        env.setvar('LINKERFORPROGRAMS', os.getenv('CXX'))
-        env.setvar('MPI_CC', os.getenv('MPICC'))
-        env.setvar('MPI_CXX', os.getenv('MPICXX'))
-        env.setvar('MPI_LINKERFORPROGRAMS', os.getenv('MPICXX'))
-        java_root = get_software_root('Java')
-        env.setvar('JNI_CPPPATH', '%s/include:%s/include/linux' % (java_root, java_root))
-        env.setvar('JAVAC', 'javac')
-        env.setvar('JAR', 'jar')
+        for (key, val) in params.items():
+            regex_subs.extend([(r'^%s\s*=.*$' % key, r'%s = %s' % (key, val))])
 
-    def build_step(self):
-        """Custom build step for Scipion."""
+        apply_regex_substitutions(self.cfgfile, regex_subs)
+
         self.setup_env()
-
-        super(EB_Scipion, self).build_step()
 
     def install_step(self):
         """Custom install step for Scipion."""
@@ -159,7 +181,13 @@ class EB_Scipion(SCons):
         """Custom sanity check for Scipion."""
 
         custom_paths = {
-            'files': ['software/em/xmipp/bin/xmipp_volume_validate_pca'],
-            'dirs': [],
+            'files': ['scipion', os.path.join('software', 'em', 'xmipp', 'bin', 'xmipp_volume_validate_pca')],
+            'dirs': ['scripts'],
         }
         super(EB_Scipion, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_req_guess(self):
+        """Custom guesses for environment variables (PATH, ...) for Scipion."""
+        guesses = super(EB_Scipion, self).make_module_req_guess()
+        guesses.update({'PATH': ['scripts']})
+        return guesses
