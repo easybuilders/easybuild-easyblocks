@@ -128,7 +128,7 @@ class EB_Amber(ConfigureMake):
         elif openblasroot:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:
-                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environement.")
+                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
             else:
                 env.setvar('GOTO', lapack)
 
