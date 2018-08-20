@@ -364,10 +364,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         w90tools = []
         if 'w90' in self.cfg['buildopts']:
-            if LooseVersion(self.version) < LooseVersion("6"):
-                w90tools = ["w90chk2chk.x"]
-            if LooseVersion(self.version) >= LooseVersion("6.1"):
+            if LooseVersion(self.version) >= LooseVersion("5.4"):
                 w90tools = ["postw90.x"]
+                if LooseVersion(self.version) < LooseVersion("6.1"):
+                    w90tools = ["w90chk2chk.x"]
         w90_bins = [os.path.join('W90', x) for x in w90tools]
         for w90_bin in w90_bins:
             copy_file(os.path.join(self.cfg['start_dir'], w90_bin), bindir)
