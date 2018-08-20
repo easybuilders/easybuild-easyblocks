@@ -58,7 +58,7 @@ class EB_Scipion(SCons):
         super(EB_Scipion, self).extract_step()
 
     def setup_scipion_env(self):
-        # Need to setup some environment variables before running SCons
+        """Setup environment before running SCons."""
         env.setvar('SCIPION_HOME', self.installdir)
         env.setvar('SCIPION_CWD', self.builddir)
         env.setvar('SCIPION_VERSION', self.version)
