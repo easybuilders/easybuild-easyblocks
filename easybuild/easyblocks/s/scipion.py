@@ -57,7 +57,7 @@ class EB_Scipion(SCons):
         self.cfg.update('unpack_options', '--strip-components=1')
         super(EB_Scipion, self).extract_step()
 
-    def setup_env(self):
+    def setup_scipion_env(self):
         # Need to setup some environment variables before running SCons
         env.setvar('SCIPION_HOME', self.installdir)
         env.setvar('SCIPION_CWD', self.builddir)
@@ -85,7 +85,7 @@ class EB_Scipion(SCons):
         # moment.
 
         # Create the config files and then make the subtitutions
-        cmd = './scipion --config %s/config/scipion.conf config' % self.installdir
+        cmd = './scipion --config %s config' % self.cfgfile
         run_cmd(cmd, log_all=True, simple=True)
 
         params = {
@@ -157,11 +157,10 @@ class EB_Scipion(SCons):
 
         apply_regex_substitutions(self.cfgfile, regex_subs)
 
-        self.setup_env()
+        self.setup_scipion_env()
 
     def install_step(self):
         """Custom install step for Scipion."""
-        self.setup_env()
 
         super(EB_Scipion, self).install_step()
 
