@@ -85,11 +85,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
             toolchain.INTELCOMP: '-D__INTEL',
             toolchain.GCC: '-D__GFORTRAN -D__STD_F95',
         }
-        comp_fam =  self.toolchain.comp_family()
+        comp_fam = self.toolchain.comp_family()
         if comp_fam in comp_fam_dflags:
             dflags.append(comp_fam_dflags[comp_fam])
         else:
-            raise EasyBuildError("EasyBuild does not yet have support for WQuantumESPRESSO with toolchain %s" % comp_fam)
+            raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
 
         if self.toolchain.options.get('openmp', False) or self.cfg['hybrid']:
             self.cfg.update('configopts', '--enable-openmp')
