@@ -195,5 +195,5 @@ class EB_Scipion(SCons):
     def make_module_req_guess(self):
         """Custom guesses for environment variables (PATH, ...) for Scipion."""
         guesses = super(EB_Scipion, self).make_module_req_guess()
-        guesses.update({'PATH': ['scripts']})
+        guesses.update({'PATH': ['bin', 'scripts']})
         return guesses
