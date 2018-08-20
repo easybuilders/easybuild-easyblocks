@@ -131,8 +131,9 @@ class EB_Scipion(SCons):
 
         cuda_root = get_software_root('CUDA')
         if cuda_root:
-            params.update({'CUDA_BIN': '%s' % os.path.join(cuda_root, 'bin')})
-            params.update({'(.*CUDA_LIB)': '%s' % os.path.join(cuda_root, 'lib64')})
+            params.update({'CUDA_BIN': os.path.join(cuda_root, 'bin')})
+            params.update({'CUDA_LIB': os.path.join(cuda_root, 'lib64')})
+
         for dep in ['CUDA', 'MATLAB', 'OpenCV']:
             use_dep = bool(get_software_root(dep))
             params.update({dep: use_dep})
@@ -140,6 +141,7 @@ class EB_Scipion(SCons):
         if get_software_root('MotionCor2'):
             # The EB motioncor2 build links the binary to an explicit name
             params.update({'MOTIONCOR2_BIN': 'motioncor2'})
+            params.update({'MOTIONCOR2_CUDA_LIB': os.path.join(cuda_root, 'lib64')})
 
         missing_deps = []
         for dep, var, required in deps:
