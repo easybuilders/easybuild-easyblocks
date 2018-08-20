@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.scons import SCons
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -48,8 +48,8 @@ class EB_Scipion(SCons):
         self.build_in_installdir = True
 
         # scipion.cfg file
-        cfgdir = os.path.join(self.cfg['start_dir'], 'config')
-        cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
+        self.cfgdir = os.path.join(self.cfg['start_dir'], 'config')
+        self.cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
 
     def extract_step(self):
         """Extract Scipion sources."""
