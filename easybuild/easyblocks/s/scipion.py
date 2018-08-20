@@ -90,7 +90,7 @@ class EB_Scipion(SCons):
         self.cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
 
         # Create the config files and then make the subtitutions
-        cmd = './scipion --config %s config' % self.cfgfile
+        cmd = '%s ./scipion --config %s config' % (self.cfg['preconfigopts'], self.cfgfile)
         run_cmd(cmd, log_all=True, simple=True)
 
         params = {
