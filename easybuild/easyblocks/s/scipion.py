@@ -47,9 +47,10 @@ class EB_Scipion(SCons):
         super(EB_Scipion, self).__init__(*args, **kwargs)
         self.build_in_installdir = True
 
-        # scipion.cfg file
-        self.cfgdir = os.path.join(self.cfg['start_dir'], 'config')
-        self.cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
+        # scipion.cfg file is in start_dir which isn't set until later
+        # so it gets initialized in configure_step instead.
+        self.cfgdir = ""
+        self.cfgfile = ""
 
     def extract_step(self):
         """Extract Scipion sources."""
@@ -83,6 +84,10 @@ class EB_Scipion(SCons):
         # scipion.conf needs to be configured with paths to all the
         # dependencies, stupid but that's the way it works at the
         # moment.
+
+        # Initialize config dir/file
+        self.cfgdir = os.path.join(self.cfg['start_dir'], 'config')
+        self.cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
 
         # Create the config files and then make the subtitutions
         cmd = './scipion --config %s config' % self.cfgfile
