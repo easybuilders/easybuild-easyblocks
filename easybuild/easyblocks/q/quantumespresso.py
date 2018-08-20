@@ -307,7 +307,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # move non-espresso directories to where they're expected and create symlinks
         try:
-            dirnames = [d for d in os.listdir(self.builddir) if d != self.install_subdir and d != 'd3q-latest']
+            dirnames = [d for d in os.listdir(self.builddir) if d not in [self.install_subdir, 'd3q-latest']]
             targetdir = os.path.join(self.builddir, self.install_subdir)
             for dirname in dirnames:
                 shutil.move(os.path.join(self.builddir, dirname), os.path.join(targetdir, dirname))
