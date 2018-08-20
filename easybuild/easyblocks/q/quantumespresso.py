@@ -481,12 +481,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
 
         custom_paths = {
-                        'files': [os.path.join('bin', x) for x in bins] +
-                                 [os.path.join('bin', x) for x in upftools] +
-                                 [os.path.join('bin', x) for x in want_bins] +
-                                 [os.path.join('bin', x) for x in yambo_bins] +
-                                 [os.path.join('bin', x) for x in d3q_bins],
-                        'dirs': []
-                       }
+            'files': [os.path.join('bin', x) for x in bins + upftools + want_bins + yambo_bins + d3q_bins],
+            'dirs': []
+        }
 
         super(EB_QuantumESPRESSO, self).sanity_check_step(custom_paths=custom_paths)
