@@ -486,7 +486,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                  [os.path.join('bin', x) for x in want_bins] +
                                  [os.path.join('bin', x) for x in yambo_bins] +
                                  [os.path.join('bin', x) for x in d3q_bins],
-                        'dirs': ['bin']
+                        'dirs': []
                        }
 
         super(EB_QuantumESPRESSO, self).sanity_check_step(custom_paths=custom_paths)
