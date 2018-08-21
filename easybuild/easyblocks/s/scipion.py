@@ -164,9 +164,13 @@ class EB_Scipion(SCons):
 
         apply_regex_substitutions(self.cfgfile, regex_subs)
 
-        self.setup_scipion_env()
-        # Temp workaround for missing include/python2.7 in CPATH
-        env.setvar('CPATH', os.pathsep.join([os.environ['CPATH'], os.path.join(get_software_root('Python'), 'include', 'python2.7')]))
+        py_ver = get_software_version('Python)
+        py_maj_ver = LooseVersion(py_ver).version[0]
+        py_min_ver = LooseVersion(py_ver).version[1]
+        pyver = 'python%s.%s' % (py_maj_ver, py_min_ver)
+        pyincpath = os.path.join(get_software_root('Python'), 'include', pyver)
+        # Temp workaround for missing include/pythonx.y in CPATH
+        env.setvar('CPATH', os.pathsep.join([os.environ['CPATH'], pyincpath]))
 
     def install_step(self):
         """Custom install step for Scipion."""
