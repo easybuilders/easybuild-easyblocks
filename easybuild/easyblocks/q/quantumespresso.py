@@ -375,6 +375,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         yambo_bins = []
         if 'yambo' in self.cfg['buildopts']:
             yambo_bins = ["a2y", "p2y", "yambo", "ypp"]
+        yambo_bins = [os.path.join('YAMBO', 'bin', x) for x in yambo_bins]
         for yambo_bin in yambo_bins:
             copy_file(os.path.join(self.cfg['start_dir'], yambo_bin), bindir)
 
