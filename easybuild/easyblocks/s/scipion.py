@@ -164,7 +164,7 @@ class EB_Scipion(SCons):
 
         apply_regex_substitutions(self.cfgfile, regex_subs)
 
-        py_ver = get_software_version('Python)
+        py_ver = get_software_version('Python')
         py_maj_ver = LooseVersion(py_ver).version[0]
         py_min_ver = LooseVersion(py_ver).version[1]
         pyver = 'python%s.%s' % (py_maj_ver, py_min_ver)
