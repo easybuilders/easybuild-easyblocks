@@ -454,10 +454,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
             bins.extend(["vdw.x"])
 
         if 'w90' in self.cfg['buildopts']:
-            if LooseVersion(self.version) < LooseVersion("6"):
-                bins.extend(["w90chk2chk.x"])
-            if LooseVersion(self.version) >= LooseVersion("6.1"):
-                bins.extend(["wannier90.x", "postw90.x"])
+            bins.extend(["wannier90.x"])
+            if LooseVersion(self.version) >= LooseVersion("5.4"):
+                bins.extend(["postw90.x"])
+                if LooseVersion(self.version) < LooseVersion("6.1"):
+                    bins.extend(["w90chk2chk.x"])
 
         want_bins = []
         if 'want' in self.cfg['buildopts']:
