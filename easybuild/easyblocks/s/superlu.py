@@ -96,10 +96,10 @@ class EB_SuperLU(CMakeMake):
         elif toolchain_blas == 'OpenBLAS':
             # Unfortunately, OpenBLAS is not recognized by FindBLAS from CMake,
             # we have to specify the OpenBLAS library manually
-            openblas_lib = os.path.join( get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a" )
+            openblas_lib = os.path.join(get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a")
             self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
 
-        elif toolchain_blas == None:
+        elif toolchain_blas is None:
             # This toolchain has no BLAS library
             raise EasyBuildError("No BLAS library found in the toolchain")
 
@@ -123,15 +123,18 @@ class EB_SuperLU(CMakeMake):
         """
         super(EB_SuperLU, self).install_step()
 
-        expected_libpath = os.path.join(self.installdir, "lib", "libsuperlu.%s" % self.lib_ext)
-        actual_libpath   = os.path.join(self.installdir, "lib", "libsuperlu_%s.%s" % (self.cfg['version'], self.lib_ext))
+        libbit = "lib"
+        if not os.path.exists(os.path.join(self.installdir, libbit)):
+                libbit = "lib64"
+
+        expected_libpath = os.path.join(self.installdir, libbit, "libsuperlu.%s" % self.lib_ext)
+        actual_libpath = os.path.join(self.installdir, libbit, "libsuperlu_%s.%s" % (self.cfg['version'], self.lib_ext))
 
         if not os.path.exists(expected_libpath):
             try:
                 os.symlink(actual_libpath, expected_libpath)
             except OSError as err:
                 raise EasyBuildError("Failed to create symlink '%s' -> '%s: %s", expected_libpath, actual_libpath, err)
-
 
     def sanity_check_step(self):
         """
