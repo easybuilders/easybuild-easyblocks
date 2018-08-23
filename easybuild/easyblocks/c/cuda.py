@@ -21,13 +21,15 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Ward Poelmans (Free University of Brussels)
 """
 import os
+import re
 import stat
 
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, write_file
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -131,6 +133,11 @@ class EB_CUDA(Binary):
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
+
+        versionfile = read_file(os.path.join(self.installdir, "version.txt"))
+        if not re.search("Version %s$" % self.version, versionfile):
+            raise EasyBuildError("Unable to find the correct version (%s) in the version.txt file", self.version)
+
         shlib_ext = get_shared_lib_ext()
 
         chk_libdir = ["lib64"]
