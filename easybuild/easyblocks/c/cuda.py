@@ -18,15 +18,18 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Fotis Georgatos (Uni.lu)
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich)
+@author: Ward Poelmans (Free University of Brussels)
 """
 import os
+import re
 import stat
 
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, write_file
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -105,6 +108,12 @@ class EB_CUDA(Binary):
         # question)
         run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
 
+        # check if there are patches to apply
+        if len(self.src) > 1:
+            for patch in self.src[1:]:
+                self.log.debug("Running patch %s", patch['name'])
+                run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
+
     def post_install_step(self):
         """Create wrappers for the specified host compilers and generate the appropriate stub symlinks"""
         def create_wrapper(wrapper_name, wrapper_comp):
@@ -124,6 +133,11 @@ class EB_CUDA(Binary):
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
+
+        versionfile = read_file(os.path.join(self.installdir, "version.txt"))
+        if not re.search("Version %s$" % self.version, versionfile):
+            raise EasyBuildError("Unable to find the correct version (%s) in the version.txt file", self.version)
+
         shlib_ext = get_shared_lib_ext()
 
         chk_libdir = ["lib64"]
