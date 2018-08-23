@@ -18,6 +18,7 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Fotis Georgatos (Uni.lu)
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich)
+@author: Ward Poelmans (Free University of Brussels)
 """
 import os
 import stat
@@ -104,6 +105,12 @@ class EB_CUDA(Binary):
         # overriding maxhits default value to 300 (300s wait for nothing to change in the output without seeing a known
         # question)
         run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
+
+        # check if there are patches to apply
+        if len(self.src) > 1:
+            for patch in self.src[1:]:
+                self.log.debug("Running patch %s", patch['name'])
+                run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
     def post_install_step(self):
         """Create wrappers for the specified host compilers and generate the appropriate stub symlinks"""
