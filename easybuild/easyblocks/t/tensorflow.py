@@ -81,7 +81,8 @@ class EB_TensorFlow(PythonPackage):
             if LooseVersion(self.version) > LooseVersion('1.6'):
                 # jemalloc bundled with recent versions of TensorFlow does not work on RHEL 6 or derivatives,
                 # so disable it automatically if with_jemalloc was left unspecified
-                rh_based_os = get_os_name().split(' ')[0] in ['centos', 'redhat', 'rhel', 'sl']
+                os_name = get_os_name().replace(' ', '')
+                rh_based_os = any(os_name.startswith(x) for x in ['centos', 'redhat', 'rhel', 'sl'])
                 if rh_based_os and get_os_version().startswith('6.'):
                     self.log.info("Disabling jemalloc since bundled jemalloc does not work on RHEL 6 and derivatives")
                     self.cfg['with_jemalloc'] = False
