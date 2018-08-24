@@ -134,9 +134,10 @@ class EB_CUDA(Binary):
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
 
-        versionfile = read_file(os.path.join(self.installdir, "version.txt"))
-        if not re.search("Version %s$" % self.version, versionfile):
-            raise EasyBuildError("Unable to find the correct version (%s) in the version.txt file", self.version)
+        if LooseVersion(self.version) > LooseVersion("8"):
+            versionfile = read_file(os.path.join(self.installdir, "version.txt"))
+            if not re.search("Version %s$" % self.version, versionfile):
+                raise EasyBuildError("Unable to find the correct version (%s) in the version.txt file", self.version)
 
         shlib_ext = get_shared_lib_ext()
 
