@@ -199,6 +199,8 @@ class EB_Boost(EasyBlock):
             paracmd = "-j %s" % self.cfg['parallel']
 
         if self.cfg['only_python_bindings']:
+            # magic incantation to only install Boost Python bindings is... --with-python
+            # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
             bjamoptions += " --with-python"
 
         if self.cfg['boost_mpi']:
