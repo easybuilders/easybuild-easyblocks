@@ -49,7 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import copy, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import UNKNOWN, get_glibc_version, get_shared_lib_ext
@@ -72,6 +72,7 @@ class EB_Boost(EasyBlock):
             'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
+            'only_python_bindings': [False, "Only install Boost.Python library providing Python bindings", CUSTOM],
             'use_glibcxx11_abi': [None, "Use the GLIBCXX11 ABI", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -103,12 +104,8 @@ class EB_Boost(EasyBlock):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
 
         # create build directory (Boost doesn't like being built in source dir)
-        try:
-            self.objdir = os.path.join(self.builddir, 'obj')
-            os.mkdir(self.objdir)
-            self.log.debug("Succesfully created directory %s" % self.objdir)
-        except OSError, err:
-            raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
+        self.objdir = os.path.join(self.builddir, 'obj')
+        mkdir(self.objdir)
 
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
@@ -201,6 +198,9 @@ class EB_Boost(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
+        if self.cfg['only_python_bindings']:
+            bjamoptions += " --with-python"
+
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
             self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
@@ -225,29 +225,22 @@ class EB_Boost(EasyBlock):
         """Install Boost by copying file to install dir."""
 
         self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
-
-        try:
-            for f in os.listdir(self.objdir):
-                src = os.path.join(self.objdir, f)
-                dst = os.path.join(self.installdir, f)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-        except OSError, err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", self.objdir, self.installdir, err)
+        copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
         shlib_ext = get_shared_lib_ext()
 
         custom_paths = {
-            'files': ['lib/libboost_system.%s' % shlib_ext],
+            'files': [],
             'dirs': ['include/boost']
         }
+        if not self.cfg['only_python_bindings']:
+            custom_paths['files'].append(os.path.join('lib', 'libboost_system.%s' % shlib_ext))
 
         if self.cfg['boost_mpi']:
-            custom_paths["files"].append('lib/libboost_mpi.%s' % shlib_ext)
+            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi.%s' % shlib_ext))
+
         if get_software_root('Python'):
             pymajorver = get_software_version('Python').split('.')[0]
             pyminorver = get_software_version('Python').split('.')[1]
@@ -257,11 +250,13 @@ class EB_Boost(EasyBlock):
                 suffix = pymajorver
             else:
                 suffix = ''
-            custom_paths["files"].append('lib/libboost_python%s.%s' % (suffix, shlib_ext))
+            custom_paths['files'].append(os.path.join('lib', 'libboost_python%s.%s' % (suffix, shlib_ext)))
+
         if self.cfg['boost_multi_thread']:
-            custom_paths["files"].append('lib/libboost_thread-mt.%s' % shlib_ext)
+            custom_paths['files'].append(os.path.join('lib', 'libboost_thread-mt.%s' % shlib_ext))
+
         if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
-            custom_paths["files"].append('lib/libboost_mpi-mt.%s' % shlib_ext)
+            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi-mt.%s' % shlib_ext))
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
 
