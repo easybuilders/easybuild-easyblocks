@@ -123,13 +123,12 @@ class EB_SuperLU(CMakeMake):
         """
         super(EB_SuperLU, self).install_step()
 
-        self.libbits = ""
-        for libnames in ["lib", "lib64"]:
-            if os.path.exists(os.path.join(self.installdir, libnames)):
-                self.libbits = libnames
+        self.libbits = 'lib'
+        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+            self.libbits = 'lib64'
 
-        if not self.libbits:
-            raise EasyBuildError("No lib or lib64 directory exist in installdir '%s'" % self.installdir)
+        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+            raise EasyBuildError("No lib or lib64 subdirectory exist in %s", self.installdir)
 
         expected_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu.%s" % self.lib_ext)
         actual_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu_%s.%s" %
@@ -146,7 +145,7 @@ class EB_SuperLU(CMakeMake):
         Check for main library files for SuperLU
         """
         custom_paths = {
-            'files': ["include/supermatrix.h", "%s/libsuperlu.%s" % (self.libbits, self.lib_ext)],
+            'files': ["include/supermatrix.h", os.path.join(self.libbits, "libsuperlu.%s" % self.lib_ext)],
             'dirs': [],
         }
         super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)
