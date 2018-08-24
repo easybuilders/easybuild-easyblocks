@@ -39,6 +39,7 @@ from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd, parse_log_for_error
 
 
@@ -71,6 +72,7 @@ class RPackage(ExtensionEasyBlock):
         """Extra easyconfig parameters specific to RPackage."""
         extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
+            'exts_subdir': ['', "Subdirectory where R extensions should be installed info", CUSTOM],
             'unpack_sources': [False, "Unpack sources before installation", CUSTOM],
         })
         return extra_vars
@@ -187,7 +189,7 @@ class RPackage(ExtensionEasyBlock):
     def install_step(self):
         """Install procedure for R packages."""
 
-        cmd, stdin = self.make_cmdline_cmd(prefix=self.installdir)
+        cmd, stdin = self.make_cmdline_cmd(prefix=os.path.join(self.installdir, self.cfg['exts_subdir']))
         self.install_R_package(cmd, inp=stdin)
 
     def run(self):
@@ -201,7 +203,8 @@ class RPackage(ExtensionEasyBlock):
             lib_install_prefix = os.path.join(rhome, 'library')
         else:
             # extension is being installed in a separate installation prefix
-            lib_install_prefix = self.installdir
+            lib_install_prefix = os.path.join(self.installdir, self.cfg['exts_subdir'])
+            mkdir(lib_install_prefix, parents=True)
 
         if self.patches:
             super(RPackage, self).run(unpack_src=True)
@@ -226,5 +229,6 @@ class RPackage(ExtensionEasyBlock):
 
     def make_module_extra(self):
         """Add install path to R_LIBS"""
-        extra = self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
+        # prepend R_LIBS with install path
+        extra = self.module_generator.prepend_paths("R_LIBS", [self.cfg['exts_subdir']])
         return super(RPackage, self).make_module_extra(extra)
