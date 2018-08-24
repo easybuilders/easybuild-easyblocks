@@ -125,7 +125,7 @@ class EB_Trilinos(CMakeMake):
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
             incdirs, libdirs, libnames = [], [], []
-            for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]:
+            for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
                 incdirs.append(os.path.join(suitesparse, lib, "Include"))
                 libdirs.append(os.path.join(suitesparse, lib, "Lib"))
                 libnames.append(lib.lower())
