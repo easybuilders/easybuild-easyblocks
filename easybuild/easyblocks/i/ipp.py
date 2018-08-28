@@ -83,27 +83,16 @@ class EB_ipp(IntelBase):
         """Custom sanity check paths for IPP."""
         shlib_ext = get_shared_lib_ext()
 
+        dirs = [ os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
         if LooseVersion(self.version) < LooseVersion('8.0'):
-            dirs = [
+            dirs.extend([
                 os.path.join('compiler', 'lib', 'intel64'),
-                os.path.join('ipp', 'bin'),
-                os.path.join('ipp', 'include'),
                 os.path.join('ipp', 'interfaces', 'data-compression'),
-                os.path.join('ipp', 'tools', 'intel64')
-            ]
-        elif LooseVersion(self.version) >= LooseVersion('9.0'):
-            dirs = [
-                os.path.join('ipp', 'bin'),
-                os.path.join('ipp', 'include'),
-                os.path.join('ipp', 'tools', 'intel64')
-            ]
-        else:
-            dirs = [
+            ])
+        elif LooseVersion(self.version) < LooseVersion('9.0'):
+            dirs.extend([
                 os.path.join('composerxe', 'lib', 'intel64'),
-                os.path.join('ipp', 'bin'),
-                os.path.join('ipp', 'include'),
-                os.path.join('ipp', 'tools', 'intel64')
-            ]
+            ])
 
         ipp_libs = ['cc', 'ch', 'core', 'cv', 'dc', 'i', 's', 'vm']
         if LooseVersion(self.version) < LooseVersion('9.0'):
