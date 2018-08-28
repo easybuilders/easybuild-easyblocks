@@ -112,7 +112,7 @@ class EB_ipp(IntelBase):
         custom_paths = {
             'files': [
                 os.path.join('ipp', 'lib', 'intel64', 'libipp%s') % y for x in ipp_libs
-                    for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]
+                for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]
             ],
             'dirs': dirs,
         }
