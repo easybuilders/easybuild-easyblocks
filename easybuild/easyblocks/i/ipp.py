@@ -83,7 +83,7 @@ class EB_ipp(IntelBase):
         """Custom sanity check paths for IPP."""
         shlib_ext = get_shared_lib_ext()
 
-        dirs = [ os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
+        dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
         if LooseVersion(self.version) < LooseVersion('8.0'):
             dirs.extend([
                 os.path.join('compiler', 'lib', 'intel64'),
