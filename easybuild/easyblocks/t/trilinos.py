@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import mkdir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -219,15 +219,23 @@ class EB_Trilinos(CMakeMake):
         # cfr. https://github.com/trilinos/Trilinos/issues/2434
         # so, try to create build directory with shorter path length to build in
         salt = ''.join(random.choice(string.letters) for _ in range(5))
-        self.short_build_dir = os.path.join(build_path(), self.name + '-' + salt)
-        if os.path.exists(self.short_build_dir):
-            raise EasyBuildError("Short build directory %s for Trilinos already exists?!", self.short_build_dir)
+        self.short_start_dir = os.path.join(build_path(), self.name + '-' + salt)
+        if os.path.exists(self.short_start_dir):
+            raise EasyBuildError("Short start directory %s for Trilinos already exists?!", self.short_start_dir)
 
-        self.log.info("Length of path to original build directory: %s", len(self.builddir))
-        self.log.info("Short build directory: %s (length: %d)", self.short_build_dir, len(self.short_build_dir))
+        self.log.info("Length of path to original start directory: %s", len(self.start_dir))
+        self.log.info("Short start directory: %s (length: %d)", self.short_start_dir, len(self.short_start_dir))
+
+        mkdir(self.short_start_dir)
+        short_src_dir = os.path.join(self.short_start_dir, 'src')
+        symlink(self.start_dir, short_src_dir)
+        short_build_dir = os.path.join(self.short_start_dir, 'obj')
+        obj_dir = os.path.join(self.builddir, 'obj')
+        mkdir(obj_dir)
+        symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(builddir=self.short_build_dir)
+        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
     def build_step(self):
         """Build with make (verbose logging enabled)."""
@@ -270,4 +278,4 @@ class EB_Trilinos(CMakeMake):
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""
-        rmtree2(self.short_build_dir)
+        rmtree2(self.short_start_dir)
