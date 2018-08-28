@@ -27,13 +27,15 @@ EasyBuild support for FreeFem++, implemented as an easyblock
 
 @author: Balazs Hajgato (Free University Brussels - VUB)
 """
+import os
+
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
 
-class EB_FreeFem(ConfigureMake):
+class EB_FreeFem_plus__plus_(ConfigureMake):
     """Support for building and installing FreeFem++."""
 
     def configure_step(self):
@@ -41,8 +43,8 @@ class EB_FreeFem(ConfigureMake):
         then configure FreeFem++ with the builded PETSc."""
 
         # first Autoreconf has to be run
-        if not get_software_root('Autotools'):
-            raise EasyBuildError("Autoconfig is required to build FreeFem++. Please add it as build dependency")
+        if not get_software_root('Autoconf'):
+            raise EasyBuildError("Autoconf is required to build FreeFem++. Please add it as build dependency")
 
         run_cmd("autoreconf -i", log_all=True, simple=False)
 
@@ -57,4 +59,57 @@ class EB_FreeFem(ConfigureMake):
         cmd += "cd ../.."
         run_cmd(cmd, log_all=True, simple=False)
 
-        super(EB_FreeFem, self).configure_step()
+        # check HDF5 and GSL deps and add the corresponding configopts
+        hdf5_root = get_software_root('HDF5')
+        if hdf5_root:
+            self.cfg.update('configopts', '--with-hdf5=%s ' % os.join.path(hdf5_root, 'bin', 'h5pcc'))
+
+        gsl_root = get_software_root('GSL')
+        if gsl_root:
+            self.cfg.update('configopts', '--with-gsl-include=%s ' % os.join.path(gsl_root, 'include'))
+            self.cfg.update('configopts', '--with-gsl-ldflags=%s ' % os.join.path(gsl_root, 'lib'))
+
+        # We should download deps
+        self.cfg.update('configopts', '--enable-download ')
+
+        # PaStiX does not work parallel, so disable it.
+        self.cfg.update('configopts', '--disable-pastix ')
+
+        super(EB_FreeFem_plus__plus_, self).configure_step()
+
+    def build_step(self):
+        # dependencies are heavily patched by FreeFem++, we therefore let it download and install them itself
+        self.cfg.update('prebuildopts', 'download/getall -a -o ScaLAPACK,ARPACK,freeYams,Gmm++,Hips,Ipopt,METIS,'
+                        'ParMETIS,MMG3D,mshmet,MUMPS,NLopt,pARMS,PaStiX,Scotch,SuiteSparse,SuperLU_DIST,SuperLU,'
+                        'TetGen,PETSc,SLEPc,hpddm &&')
+
+        # FreeFem++ parallel make does not work.
+        if self.cfg['parallel'] != 1:
+            self.log.warning("Ignoring requested build parallelism, it breaks FreeFem++ building, so setting to 1")
+            self.cfg['parallel'] = 1
+
+        super(EB_FreeFem_plus__plus_, self).build_step()
+
+    def test_step(self):
+        # run the full test of FreeFem++
+        self.cfg['runtest'] = "check"
+
+        super(EB_FreeFem_plus__plus_, self).test_step()
+
+    def sanity_check_step(self):
+        # define FreeFem++ sanity_check_paths here
+
+        custom_paths = {
+            'files': ['bin/%s' % x for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmedit']] +
+            ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
+            ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
+            'dirs': ['share/freefem++/%(version)s/'] +
+            ['lib/ff++/%%(version)s/%s' % x for x in ['bin', 'etc', 'idp', 'include', 'lib']]
+        }
+        super(EB_FreeFem_plus__plus_, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        # Run only one OpenBLAS thread
+        txt = super(EB_FreeFem_plus__plus_, self).make_module_extra()
+        txt += self.module_generator.set_environment('OPENBLAS_NUM_THREAD', "1")
+        return txt
