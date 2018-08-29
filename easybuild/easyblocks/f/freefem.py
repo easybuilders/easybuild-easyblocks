@@ -62,12 +62,12 @@ class EB_FreeFem_plus__plus_(ConfigureMake):
         # check HDF5 and GSL deps and add the corresponding configopts
         hdf5_root = get_software_root('HDF5')
         if hdf5_root:
-            self.cfg.update('configopts', '--with-hdf5=%s ' % os.join.path(hdf5_root, 'bin', 'h5pcc'))
+            self.cfg.update('configopts', '--with-hdf5=%s ' % os.path.join(hdf5_root, 'bin', 'h5pcc'))
 
         gsl_root = get_software_root('GSL')
         if gsl_root:
-            self.cfg.update('configopts', '--with-gsl-include=%s ' % os.join.path(gsl_root, 'include'))
-            self.cfg.update('configopts', '--with-gsl-ldflags=%s ' % os.join.path(gsl_root, 'lib'))
+            self.cfg.update('configopts', '--with-gsl-include=%s ' % os.path.join(gsl_root, 'include'))
+            self.cfg.update('configopts', '--with-gsl-ldflags=%s ' % os.path.join(gsl_root, 'lib'))
 
         # We should download deps
         self.cfg.update('configopts', '--enable-download ')
@@ -90,12 +90,6 @@ class EB_FreeFem_plus__plus_(ConfigureMake):
 
         super(EB_FreeFem_plus__plus_, self).build_step()
 
-    def test_step(self):
-        # run the full test of FreeFem++
-        self.cfg['runtest'] = "check"
-
-        super(EB_FreeFem_plus__plus_, self).test_step()
-
     def sanity_check_step(self):
         # define FreeFem++ sanity_check_paths here
 
@@ -103,8 +97,8 @@ class EB_FreeFem_plus__plus_(ConfigureMake):
             'files': ['bin/%s' % x for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmedit']] +
             ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
             ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
-            'dirs': ['share/freefem++/%(version)s/'] +
-            ['lib/ff++/%%(version)s/%s' % x for x in ['bin', 'etc', 'idp', 'include', 'lib']]
+            'dirs': ['share/freefem++/%s' % self.version] +
+            ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
         }
         super(EB_FreeFem_plus__plus_, self).sanity_check_step(custom_paths=custom_paths)
 
