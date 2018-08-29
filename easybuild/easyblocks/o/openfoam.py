@@ -155,6 +155,7 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching out hardcoded $WM_* env vars in %s", script)
             # disable any third party stuff, we use EB controlled builds
             regex_subs = [(r"^(setenv|export) WM_THIRD_PARTY_USE_.*[ =].*$", r"# \g<0>")]
+            regex_subs += [(r"^(setenv|export) WM_PROJECT_VERSION=.*$", r"export WM_PROJECT_VERSION=%s #\g<0>" % self.version)]
             WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
             if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
@@ -162,7 +163,6 @@ class EB_OpenFOAM(EasyBlock):
             for env_var in WM_env_var:
                 regex_subs.append((r"^(setenv|export) (?P<var>%s)[ =](?P<val>.*)$" % env_var,
                                    r": ${\g<var>:=\g<val>}; export \g<var>"))
-
             apply_regex_substitutions(script, regex_subs)
 
         # inject compiler variables into wmake/rules files
