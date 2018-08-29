@@ -158,7 +158,7 @@ class EB_OpenFOAM(EasyBlock):
 
             # replacement dictionary of key-values
             replacement_dict = {"WM_PROJECT_VERSION": self.version}
-            for key,val in replacement_dict.items():
+            for key, val in replacement_dict.items():
                 regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, val))]
 
             WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
