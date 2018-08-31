@@ -38,7 +38,6 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import is_sha256_checksum
 from easybuild.tools.modules import get_software_root, get_software_version
 
 
