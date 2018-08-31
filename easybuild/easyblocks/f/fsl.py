@@ -67,10 +67,23 @@ class EB_FSL(EasyBlock):
         # either using matching config, or copy closest match
         cfgdir = os.path.join(self.fsldir, "config")
         try:
-            cfgs = os.listdir(cfgdir)
-            best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
+            systype_regex = re.compile(".*(apple|gnu|i686|linux|spark).*", re.M)
+            diff_regex = re.compile("^diff.*config\/", re.M)
 
-            self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+            patched_cfgs = []
+            
+            for patch in self.patches:
+                for line in open(patch['path'], 'r'):
+                    if all(regex.match(line) for regex in [systype_regex, diff_regex]):
+                        matches = [m.group(0) for l in line.split('/') for m in [systype_regex.search(l)] if m]
+                        patched_cfgs.extend(matches)
+
+            if patched_cfgs && patched_cfgs[1:] == patched_cfgs[:-1]:
+                best_cfg = patched_cfgs[0]
+                self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+            else:
+                dirs = ', '.join(patched_cfgs)
+                raise EasyBuildError("Patch files are editing multiple configuration directories: %s", dirs)
 
             if fslmachtype != best_cfg:
                 srcdir = os.path.join(cfgdir, best_cfg)
