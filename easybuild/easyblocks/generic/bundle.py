@@ -38,6 +38,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.filetools import is_sha256_checksum
 from easybuild.tools.modules import get_software_root, get_software_version
 
 
@@ -127,6 +128,19 @@ class Bundle(EasyBlock):
         self.cfg.update('checksums', checksums_patches)
 
         self.cfg.enable_templating = True
+
+    def check_checksums(self):
+        """
+        Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
+
+        :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
+        """
+        checksum_issues = []
+
+        for comp in self.comp_cfgs:
+            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+
+        return checksum_issues
 
     def configure_step(self):
         """Collect altroot/altversion info."""
