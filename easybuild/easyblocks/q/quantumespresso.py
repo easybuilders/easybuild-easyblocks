@@ -152,7 +152,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             elpa_lib = os.path.join(elpa, 'lib', elpa_lib)
             self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
 
-        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+        if comp_fam == toolchain.INTELCOMP:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
             cpp = "%s -E -C" % os.getenv('CC')
             repls.append(('CPP', cpp, False))
@@ -161,9 +161,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
             # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
             env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
-        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+        if comp_fam == toolchain.INTELCOMP:
             repls.append(('F90FLAGS', '-fpp', True))
-        elif self.toolchain.comp_family() == toolchain.GCC:
+        elif comp_fam == toolchain.GCC:
             repls.append(('F90FLAGS', '-cpp', True))
 
         super(EB_QuantumESPRESSO, self).configure_step()
@@ -244,7 +244,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
                 # fix preprocessing directives for .f90 files in make.sys if required
                 if LooseVersion(self.version) < LooseVersion("6.0"):
-                    if self.toolchain.comp_family() == toolchain.GCC:
+                    if comp_fam == toolchain.GCC:
                         line = re.sub(r"^\t\$\(MPIF90\) \$\(F90FLAGS\) -c \$<",
                                       "\t$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
@@ -295,7 +295,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             try:
                 for line in fileinput.input(make_sys_in_path, inplace=1, backup='.orig.eb'):
                     # fix preprocessing directives for .f90 files in make.sys if required
-                    if self.toolchain.comp_family() == toolchain.GCC:
+                    if comp_fam == toolchain.GCC:
                         line = re.sub("@f90rule@",
                                       "$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
