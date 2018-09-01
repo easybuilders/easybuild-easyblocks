@@ -32,7 +32,9 @@ import stat
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, write_file
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, change_dir
+from easybuild.tools.filetools import copy_file, which, write_file
+from easybuild.tools.modules import get_software_root
 
 
 class EB_BWISE(MakeCp):
@@ -40,15 +42,20 @@ class EB_BWISE(MakeCp):
     Custom easyblock to install BWISE
     """
     @staticmethod
-    def extra_options(extra_vars=None):
+    def extra_options():
         """Change default values of options"""
         extra = MakeCp.extra_options()
         # files_to_copy is not mandatory here
         extra['files_to_copy'][2] = CUSTOM
         return extra
 
-    def build_step(self, verbose=False, path=None):
+    def build_step(self):
         """Run multiple times for different sources"""
+
+        # BCALM is a git submodule of BWISE but we use it as a dependency
+        bcalm = get_software_root('BCALM')
+        if not bcalm:
+            raise EasyBuildError("BWISE needs BCALM to work")
 
         makefiles_fixes = [
             (r'^CC=.*$', 'CC=$(CXX)'),
@@ -56,39 +63,36 @@ class EB_BWISE(MakeCp):
             (r'^LDFLAGS=.*$', 'LDFLAGS:=$(LDFLAGS) -fopenmp')
         ]
 
-        os.chdir(self.builddir)
-        # first BWISE itself
-        bwisepath = glob.glob('BWISE-*')
-        if bwisepath:
-            os.chdir(os.path.join(bwisepath[0], 'src'))
-        else:
-            raise EasyBuildError("Could not find BWISE path")
+        def find_subdir(pattern):
+            """Changes to the sub directory that matches the given pattern"""
+            subdir = glob.glob(os.path.join(self.builddir, pattern))
+            if subdir:
+                return subdir[0]
+            else:
+                raise EasyBuildError("Could not find a subdirectory matching the pattern %s", pattern)
 
+        # BWISE has 3 independant parts, we build them one by one
+        # first BWISE itself
+        subdir = find_subdir(os.path.join('BWISE-*', 'src'))
+        change_dir(subdir)
         apply_regex_substitutions('makefile', makefiles_fixes)
-        apply_regex_substitutions('../Bwise.py', [(r'^BWISE_MAIN = .*$', 'BWISE_MAIN = os.environ[\'EBROOTBWISE\']')])
+        apply_regex_substitutions(os.path.join(subdir, '..', 'Bwise.py'),
+                                  [(r'^BWISE_MAIN = .*$', 'BWISE_MAIN = os.environ[\'EBROOTBWISE\']')])
         super(EB_BWISE, self).build_step()
 
         # Onwards to BGREAT
-        os.chdir(self.builddir)
-        bgreatpath = glob.glob('BGREAT2-*')
-        if bgreatpath:
-            os.chdir(bgreatpath[0])
-        else:
-            raise EasyBuildError("Could not find BGREAT path")
+        subdir = find_subdir('BGREAT2-*')
+        change_dir(subdir)
         apply_regex_substitutions('makefile', makefiles_fixes)
         super(EB_BWISE, self).build_step()
-        copy_file('bgreat', self.cfg['start_dir'])
+        copy_file(os.path.join(subdir, 'bgreat'), self.cfg['start_dir'])
 
         # Finally, BTRIM
-        os.chdir(self.builddir)
-        btrimpath = glob.glob('BTRIM-*')
-        if btrimpath:
-            os.chdir(btrimpath[0])
-        else:
-            raise EasyBuildError("Could not find BTRIM path")
+        subdir = find_subdir('BTRIM-*')
+        change_dir(subdir)
         apply_regex_substitutions('makefile', makefiles_fixes)
         super(EB_BWISE, self).build_step()
-        copy_file('btrim', self.cfg['start_dir'])
+        copy_file(os.path.join(subdir, 'btrim'), self.cfg['start_dir'])
 
         binaries = ['sequencesToNumbers', 'numbersFilter', 'path_counter', 'maximal_sr', 'simulator',
                     'path_to_kmer', 'K2000/*.py', 'K2000/*.sh']
@@ -98,10 +102,19 @@ class EB_BWISE(MakeCp):
     def install_step(self):
         super(EB_BWISE, self).install_step()
 
-        # BWISE expects it to be at this location...
+        # BWISE expects BCALM to be at exactly this location...
+        bcalm = which('bcalm')
         txt = """#!/bin/sh
-        bcalm "$@"
-        """
+%s "$@"
+        """ % bcalm
         write_file(os.path.join(self.installdir, "bin", "bcalm"), txt)
 
         adjust_permissions(os.path.join(self.installdir, "bin"), stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    def sanity_check_step(self):
+        """Custom sanity check for BWISE."""
+        custom_paths = {
+            'files': [os.path.join('bin', x) for x in ['bcalm', 'Bwise.py', 'bgreat', 'btrim']],
+            'dirs': ['data']
+        }
+        super(EB_BWISE, self).sanity_check_step(custom_paths=custom_paths)
