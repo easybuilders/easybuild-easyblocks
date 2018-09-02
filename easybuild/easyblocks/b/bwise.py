@@ -52,7 +52,8 @@ class EB_BWISE(MakeCp):
     def build_step(self):
         """Run multiple times for different sources"""
 
-        # BCALM is a git submodule of BWISE but we use it as a dependency
+        # BCALM is a git submodule of BWISE but we use it as a dependency because
+        # it also has submodules and it's from a different developer
         bcalm = get_software_root('BCALM')
         if not bcalm:
             raise EasyBuildError("BWISE needs BCALM to work")
@@ -63,35 +64,29 @@ class EB_BWISE(MakeCp):
             (r'^LDFLAGS=.*$', 'LDFLAGS:=$(LDFLAGS) -fopenmp')
         ]
 
-        def find_subdir(pattern):
+        def find_build_subdir(pattern):
             """Changes to the sub directory that matches the given pattern"""
             subdir = glob.glob(os.path.join(self.builddir, pattern))
             if subdir:
+                change_dir(subdir[0])
+                apply_regex_substitutions('makefile', makefiles_fixes)
+                super(EB_BWISE, self).build_step()
                 return subdir[0]
             else:
                 raise EasyBuildError("Could not find a subdirectory matching the pattern %s", pattern)
 
         # BWISE has 3 independant parts, we build them one by one
         # first BWISE itself
-        subdir = find_subdir(os.path.join('BWISE-*', 'src'))
-        change_dir(subdir)
-        apply_regex_substitutions('makefile', makefiles_fixes)
+        subdir = find_build_subdir(os.path.join('BWISE-*', 'src'))
         apply_regex_substitutions(os.path.join(subdir, '..', 'Bwise.py'),
                                   [(r'^BWISE_MAIN = .*$', 'BWISE_MAIN = os.environ[\'EBROOTBWISE\']')])
-        super(EB_BWISE, self).build_step()
 
         # Onwards to BGREAT
-        subdir = find_subdir('BGREAT2-*')
-        change_dir(subdir)
-        apply_regex_substitutions('makefile', makefiles_fixes)
-        super(EB_BWISE, self).build_step()
+        subdir = find_build_subdir('BGREAT2-*')
         copy_file(os.path.join(subdir, 'bgreat'), self.cfg['start_dir'])
 
         # Finally, BTRIM
-        subdir = find_subdir('BTRIM-*')
-        change_dir(subdir)
-        apply_regex_substitutions('makefile', makefiles_fixes)
-        super(EB_BWISE, self).build_step()
+        subdir = find_build_subdir('BTRIM-*')
         copy_file(os.path.join(subdir, 'btrim'), self.cfg['start_dir'])
 
         binaries = ['sequencesToNumbers', 'numbersFilter', 'path_counter', 'maximal_sr', 'simulator',
@@ -103,11 +98,10 @@ class EB_BWISE(MakeCp):
         super(EB_BWISE, self).install_step()
 
         # BWISE expects BCALM to be at exactly this location...
-        bcalm = which('bcalm')
-        txt = """#!/bin/sh
-%s "$@"
-        """ % bcalm
-        write_file(os.path.join(self.installdir, "bin", "bcalm"), txt)
+        bcalmwrapper = """#!/bin/sh
+$EBROOTBCALM/bin/bcalm "$@"
+        """
+        write_file(os.path.join(self.installdir, "bin", "bcalm"), bcalmwrapper)
 
         adjust_permissions(os.path.join(self.installdir, "bin"), stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
