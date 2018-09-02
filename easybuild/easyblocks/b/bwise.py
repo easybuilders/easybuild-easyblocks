@@ -33,7 +33,7 @@ from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, change_dir
-from easybuild.tools.filetools import copy_file, which, write_file
+from easybuild.tools.filetools import copy_file, write_file
 from easybuild.tools.modules import get_software_root
 
 
