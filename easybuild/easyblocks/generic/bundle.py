@@ -128,6 +128,19 @@ class Bundle(EasyBlock):
 
         self.cfg.enable_templating = True
 
+    def check_checksums(self):
+        """
+        Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
+
+        :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
+        """
+        checksum_issues = []
+
+        for comp in self.comp_cfgs:
+            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+
+        return checksum_issues
+
     def configure_step(self):
         """Collect altroot/altversion info."""
         # pick up altroot/altversion, if they are defined
