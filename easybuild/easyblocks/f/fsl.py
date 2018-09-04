@@ -63,28 +63,35 @@ class EB_FSL(EasyBlock):
         fslmachtype = out.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
-        # prepare config
-        # either using matching config, or copy closest match
-        cfgdir = os.path.join(self.fsldir, "config")
-        try:
-            systype_regex = re.compile(".*(apple|gnu|i686|linux|spark).*", re.M)
-            diff_regex = re.compile("^diff.*config\/", re.M)
+        # Check if a specific machine type directory is patched
+        systype_regex = re.compile(".*(apple|gnu|i686|linux|spark).*", re.M)
+        diff_regex = re.compile("^diff.*config\/", re.M)
+        
+        patched_cfgs = []
 
-            patched_cfgs = []
-            
-            for patch in self.patches:
+        for patch in self.patches:
+            try:
                 for line in open(patch['path'], 'r'):
                     if all(regex.match(line) for regex in [systype_regex, diff_regex]):
                         matches = [m.group(0) for l in line.split('/') for m in [systype_regex.search(l)] if m]
                         patched_cfgs.extend(matches)
-
-            if patched_cfgs && patched_cfgs[1:] == patched_cfgs[:-1]:
+            except OSError, err:
+                raise EasyBuildError("Unable to open patch file: %s", patch['path'])
+            
+        if patched_cfgs:
+            if patched_cfgs[1:] == patched_cfgs[:-1]:
                 best_cfg = patched_cfgs[0]
-                self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+                self.log.debug("Found patched config dir: %s" % (best_cfg))
             else:
                 dirs = ', '.join(patched_cfgs)
-                raise EasyBuildError("Patch files are editing multiple configuration directories: %s", dirs)
+                raise EasyBuildError("Patch files are editing multiple config dirs: %s", dirs)
+        else:
+            self.log.debug("No config dir found in patch files")
 
+        # prepare config
+        # either using matching config, or copy closest match
+        cfgdir = os.path.join(self.fsldir, "config")
+        try:
             if fslmachtype != best_cfg:
                 srcdir = os.path.join(cfgdir, best_cfg)
                 tgtdir = os.path.join(cfgdir, fslmachtype)
