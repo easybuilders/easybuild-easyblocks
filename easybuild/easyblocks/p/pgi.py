@@ -68,8 +68,7 @@ append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
 # cf. https://www.pgroup.com/userforum/viewtopic.php?t=5253&sid=93356f
 SITERC_PTHREAD_SWITCH = """
 # allow -pthread switch stands for -lpthread
-switch -pthread is
-append(LDLIB1=-lpthread);
+switch -pthread is replace(-lpthread) positional(linker);
 """
 
 
