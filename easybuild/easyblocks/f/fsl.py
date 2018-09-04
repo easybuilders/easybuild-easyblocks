@@ -68,6 +68,7 @@ class EB_FSL(EasyBlock):
         diff_regex = re.compile("^diff.*config\/", re.M)
         
         patched_cfgs = []
+        best_cfg = None
 
         for patch in self.patches:
             try:
@@ -88,9 +89,16 @@ class EB_FSL(EasyBlock):
         else:
             self.log.debug("No config dir found in patch files")
 
-        # prepare config
-        # either using matching config, or copy closest match
+        # If no patched config is found, pick best guess
         cfgdir = os.path.join(self.fsldir, "config")
+        if not best_cfg:
+            cfgs = os.listdir(cfgdir)
+            best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
+
+            self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+
+        # Prepare config
+        # Either use patched config or copy closest match
         try:
             if fslmachtype != best_cfg:
                 srcdir = os.path.join(cfgdir, best_cfg)
