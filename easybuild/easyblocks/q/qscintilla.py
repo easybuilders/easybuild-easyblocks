@@ -131,10 +131,14 @@ class EB_QScintilla(ConfigureMake):
 
         custom_paths = {
             'files': [os.path.join('lib', qsci_lib + '.' + get_shared_lib_ext())],
-            'dirs': ['data', os.path.join('include', 'Qsci'), os.path.join(det_pylibdir(), 'PyQt4'),
-                     os.path.join('qsci', 'api', 'python'), os.path.join('share', 'sip', 'PyQt4'), 'trans'],
+            'dirs': ['data', os.path.join('include', 'Qsci'), 'trans'],
         }
-        custom_commands = ["python -c 'import PyQt4.Qsci'"]
+        # also install Python bindings if Python is included as a dependency
+        python = get_software_root('Python')
+        custom_commands = []
+        if python:
+            custom_paths['dirs'] += [os.path.join(det_pylibdir(), 'PyQt4'), os.path.join('qsci', 'api', 'python'), os.path.join('share', 'sip', 'PyQt4')]
+            custom_commands = ["python -c 'import PyQt4.Qsci'"]
 
         super(EB_QScintilla, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
