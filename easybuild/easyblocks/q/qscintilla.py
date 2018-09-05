@@ -147,5 +147,7 @@ class EB_QScintilla(ConfigureMake):
     def make_module_extra(self):
         """Custom extra module file entries for QScintilla."""
         txt = super(EB_QScintilla, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
+        python = get_software_root('Python')
+        if python:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
         return txt
