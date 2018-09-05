@@ -26,6 +26,7 @@
 EasyBuild support for building and installing QScintilla, implemented as an easyblock
 
 author: Kenneth Hoste (HPC-UGent)
+author: Maxime Boissonneault (Compute Canada)
 """
 import os
 from distutils.version import LooseVersion
