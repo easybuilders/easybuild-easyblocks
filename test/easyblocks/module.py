@@ -313,7 +313,7 @@ def suite():
         write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
     # add foo/1.3.2.1.1 module, required for testing ModuleAlias easyblock
-    write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.3.2.1.1'), "#%Module")
+    write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.2.3.4.5'), "#%Module")
 
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
@@ -330,8 +330,12 @@ def suite():
             exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
         elif os.path.basename(easyblock) == 'modulealias.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
-            extra_txt = 'dependencies = [("foo", "1.3.2.1.1")]'
-            exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
+            extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
+            test_definition = ' '.join([
+                "def innertest(self):",
+                "  template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt),
+            ])
+            exec(test_definition)
         else:
             exec("def innertest(self): template_module_only_test(self, '%s')" % easyblock)
         innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
