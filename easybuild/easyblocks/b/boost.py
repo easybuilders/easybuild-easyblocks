@@ -265,5 +265,6 @@ class EB_Boost(EasyBlock):
     def make_module_extra(self):
         """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
         txt = super(EB_Boost, self).make_module_extra()
-        txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
+        if not self.cfg['only_python_bindings']:
+            txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt
