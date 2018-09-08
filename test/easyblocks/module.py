@@ -258,7 +258,11 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         finally:
             os.chdir(orig_workdir)
 
-        if os.path.basename(easyblock) not in ['modulealias.py']:
+        if os.path.basename(easyblock) == 'modulealias.py':
+            # .modulerc must be cleaned up to avoid causing trouble (e.g. "Duplicate version symbol" errors)
+            modulerc = os.path.join(TMPDIR, 'modules', 'all', name, '.modulerc')
+            os.remove(modulerc)
+        else:
             modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
             luamodfile = '%s.lua' % modfile
             self.assertTrue(os.path.exists(modfile) or os.path.exists(luamodfile),
