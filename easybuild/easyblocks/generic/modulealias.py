@@ -83,7 +83,10 @@ class ModuleAlias(EasyBlock):
         ])
         write_file(modulerc, modulerc_txt)
 
-        return self.module_generator.get_modules_path(fake=fake)
+        modpath = self.module_generator.get_modules_path(fake=fake)
+        self.invalidate_module_caches(modpath)
+
+        return modpath
 
     def sanity_check_step(self, *args, **kwargs):
         """
