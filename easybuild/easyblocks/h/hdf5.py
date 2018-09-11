@@ -38,8 +38,18 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+# pkgconfig data template
+HDF5_PKG_CONFIG = """Name: HDF5
+Description: Hierarchical Data Format 5 (HDF5)
+Version: %s
+Requires:
+Cflags: -I%s
+Libs: -L%s -lhdf5
+"""
 
 class EB_HDF5(ConfigureMake):
     """Support for building/installing HDF5"""
@@ -81,7 +91,14 @@ class EB_HDF5(ConfigureMake):
 
         super(EB_HDF5, self).configure_step()
 
-    # default make and make install are ok
+    # default make and make install are ok but add a pkconfig file
+    def install_step(self):
+        """Custom install step for HDF5"""
+        super(EB_HDF5, self).install_step()
+        write_file(os.path.join(self.installdir, "lib", "pkgconfig", "hdf5.pc"),
+                   HDF5_PKG_CONFIG % (self.version, os.path.join(self.installdir, "include"),
+                                      os.path.join(self.installdir, "lib")),
+                   forced=True)
 
     def sanity_check_step(self):
         """
@@ -106,6 +123,15 @@ class EB_HDF5(ConfigureMake):
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_req_guess(self):
+        """Specify pkgconfig path for HDF5."""
+        guesses = super(EB_HDF5, self).make_module_req_guess()
+        guesses.update({
+            'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')],
+        })
+
+        return guesses
 
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""
