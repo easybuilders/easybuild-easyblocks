@@ -33,7 +33,6 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file
-from easybuild.tools.module_generator import ModuleGeneratorTcl
 
 
 class ModuleRC(EasyBlock):
