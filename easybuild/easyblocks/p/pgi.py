@@ -65,9 +65,8 @@ append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
 """
 
 # contents for siterc file to make PGI accept the -pthread switch
-# cf. https://www.pgroup.com/userforum/viewtopic.php?t=5253&sid=93356f
 SITERC_PTHREAD_SWITCH = """
-# allow -pthread switch stands for -lpthread
+# replace unknown switch -pthread with -lpthread
 switch -pthread is replace(-lpthread) positional(linker);
 """
 
@@ -157,7 +156,7 @@ class EB_PGI(PackedBinary):
         self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
                       siterc_path, SITERC_LIBRARY_PATH)
         write_file(siterc_path, SITERC_PTHREAD_SWITCH, append=True)
-        self.log.info("Appended instructions to allow -pthread switch to siterc file at %s: %s",
+        self.log.info("Append instructions to replace -pthread with -lpthread to siterc file at %s: %s",
                       siterc_path, SITERC_PTHREAD_SWITCH)
 
     def sanity_check_step(self):
