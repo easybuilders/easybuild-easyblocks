@@ -258,7 +258,7 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         finally:
             os.chdir(orig_workdir)
 
-        if os.path.basename(easyblock) == 'modulealias.py':
+        if os.path.basename(easyblock) == 'modulerc.py':
             # .modulerc must be cleaned up to avoid causing trouble (e.g. "Duplicate version symbol" errors)
             modulerc = os.path.join(TMPDIR, 'modules', 'all', name, '.modulerc')
             os.remove(modulerc)
@@ -332,7 +332,7 @@ def suite():
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
             exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
-        elif os.path.basename(easyblock) == 'modulealias.py':
+        elif os.path.basename(easyblock) == 'modulerc.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
             test_definition = ' '.join([

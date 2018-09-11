@@ -62,7 +62,7 @@ class ModuleRC(EasyBlock):
 
         deps = self.cfg['dependencies']
         if len(deps) != 1:
-            raise EasyBuildError("There should be only one single dependency specified, found %d", len(deps))
+            raise EasyBuildError("There should be exactly one dependency specified, found %d", len(deps))
 
         # names should match
         if self.name != deps[0]['name']:
