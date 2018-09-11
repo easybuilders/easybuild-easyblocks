@@ -42,7 +42,8 @@ from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
-# pkgconfig data template
+# Pkgconfig data template
+# Based on pkgconfig file from Debian packaging of HDF5
 HDF5_PKG_CONFIG = """Name: HDF5
 Description: Hierarchical Data Format 5 (HDF5)
 Version: %s
@@ -95,10 +96,10 @@ class EB_HDF5(ConfigureMake):
     def install_step(self):
         """Custom install step for HDF5"""
         super(EB_HDF5, self).install_step()
-        write_file(os.path.join(self.installdir, "lib", "pkgconfig", "hdf5.pc"),
-                   HDF5_PKG_CONFIG % (self.version, os.path.join(self.installdir, "include"),
-                                      os.path.join(self.installdir, "lib")),
-                   forced=True)
+        inc_dir = os.path.join(self.installdir, 'include')
+        lib_dir = os.path.join(self.installdir, 'lib')
+        hdf5_pc_txt = HDF5_PKG_CONFIG % (self.version, inc_dir, lib_dir)
+        write_file(os.path.join(self.installdir, "lib", "pkgconfig", "hdf5.pc"), hdf5_pc_txt)
 
     def sanity_check_step(self):
         """
@@ -127,9 +128,7 @@ class EB_HDF5(ConfigureMake):
     def make_module_req_guess(self):
         """Specify pkgconfig path for HDF5."""
         guesses = super(EB_HDF5, self).make_module_req_guess()
-        guesses.update({
-            'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')],
-        })
+        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
 
         return guesses
 
