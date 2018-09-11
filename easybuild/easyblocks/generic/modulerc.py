@@ -36,7 +36,7 @@ from easybuild.tools.filetools import write_file
 from easybuild.tools.module_generator import ModuleGeneratorTcl
 
 
-class ModuleAlias(EasyBlock):
+class ModuleRC(EasyBlock):
     """
     Generic easyblock to create a software-specific .modulerc file
     """
@@ -77,10 +77,8 @@ class ModuleAlias(EasyBlock):
         alias_modname = deps[0]['full_mod_name']
         self.log.info("Adding module version alias for %s to %s", alias_modname, modulerc)
 
-        modulerc_txt = '\n'.join([
-            ModuleGeneratorTcl.MODULE_SHEBANG,
-            "module-version %s %s" % (alias_modname, self.version),
-        ])
+        module_version_specs = {'modname': alias_modname, 'sym_version': self.version, 'version': deps[0]['version']}
+        modulerc_txt = self.module_generator.modulerc(module_version=module_version_specs)
         write_file(modulerc, modulerc_txt)
 
         modpath = self.module_generator.get_modules_path(fake=fake)
