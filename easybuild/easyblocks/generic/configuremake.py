@@ -83,11 +83,16 @@ class ConfigureMake(EasyBlock):
         if prefix_opt is None:
             prefix_opt = '--prefix='
 
-        cmd = "%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(configopts)s" % {
+        # Avoid using config.guess from the package as it is frequently out of date, use the version shipped with EB
+        build_type, _ = run_cmd('config_guess')
+        build_type_option = '--build=' + build_type.strip()
+
+        cmd = "%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(build_type_option)s %(configopts)s" % {
             'preconfigopts': self.cfg['preconfigopts'],
             'cmd_prefix': cmd_prefix,
             'prefix_opt': prefix_opt,
             'installdir': self.installdir,
+            'build_type_option': build_type_option,
             'configopts': self.cfg['configopts'],
         }
 
