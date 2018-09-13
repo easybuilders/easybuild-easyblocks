@@ -91,7 +91,7 @@ class ConfigureMake(EasyBlock):
             config_guess_path, _ = run_cmd('which config.guess', log_all=True, simple=False)
             build_type, _ = run_cmd('config.guess', log_all=True, simple=False)
             build_type = build_type.strip()
-            self.log("%s returned a build type %s" % (config_guess_path, build_type))
+            self.log.info("%s returned a build type %s" % (config_guess_path, build_type))
         build_type_option = '--build=' + build_type
 
         cmd = ' '.join([
