@@ -173,7 +173,8 @@ class EB_Siesta(ConfigureMake):
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
                     (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
                 ])
-                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nNETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc))
+                netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
+                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
 
         apply_regex_substitutions(arch_make, regex_subs)
 
