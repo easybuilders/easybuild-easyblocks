@@ -231,6 +231,8 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
                 apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
 
+            # build_all.sh might be missing executable bit...
+            adjust_permissions('./build_all.sh', stat.S_IXUSR, recursive=False, relative=True)
             run_cmd('./build_all.sh', log_all=True, simple=True, log_output=True)
 
             # Now move all the built utils to the temp installdir
