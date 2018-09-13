@@ -52,6 +52,8 @@ class ConfigureMake(EasyBlock):
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
+            'build_type': [None, "Type of system package is being configured for, e.g., x86_64-pc-linux-gnu (determined"
+                                 " by config.guess shipped with EasyBuild if None)", CUSTOM],
         })
         return extra_vars
 
@@ -84,10 +86,17 @@ class ConfigureMake(EasyBlock):
             prefix_opt = '--prefix='
 
         # Avoid using config.guess from the package as it is frequently out of date, use the version shipped with EB
-        build_type, _ = run_cmd('config_guess')
-        build_type_option = '--build=' + build_type.strip()
+        build_type = self.cfg.get('build_type')
+        if build_type is None:
+            build_type, exit_code = run_cmd('config.guess')
+            if exit_code != 0:
+                raise EasyBuildError("config.guess shipped with EB could not determine build type: '%s'",
+                                     build_type)
+            build_type = build_type.strip()
+        build_type_option = '--build=' + build_type
 
-        cmd = "%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(build_type_option)s %(configopts)s" % {
+        cmd = ("%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(build_type_option)s "
+               "%(configopts)s") % {
             'preconfigopts': self.cfg['preconfigopts'],
             'cmd_prefix': cmd_prefix,
             'prefix_opt': prefix_opt,
