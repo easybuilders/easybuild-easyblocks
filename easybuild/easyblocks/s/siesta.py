@@ -68,8 +68,10 @@ class EB_Siesta(ConfigureMake):
         arch_make = os.path.join(obj_dir, 'arch.make')
         bindir = os.path.join(start_dir, 'bin')
 
+        loose_ver = LooseVersion(self.version)
+
         par = ''
-        if LooseVersion(self.version) >= LooseVersion('4.1'):
+        if loose_ver >= LooseVersion('4.1'):
             par = '-j %s' % self.cfg['parallel']
 
         # enable OpenMP support if desired
@@ -115,7 +117,7 @@ class EB_Siesta(ConfigureMake):
         # Populate start_dir with makefiles
         run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
 
-        if LooseVersion(self.version) < LooseVersion('4.1-b2'):
+        if loose_ver < LooseVersion('4.1-b2'):
             # MPI?
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', '--enable-mpi')
@@ -135,7 +137,7 @@ class EB_Siesta(ConfigureMake):
             # Configure is run in obj_dir, configure script is in ../Src
             super(EB_Siesta, self).configure_step(cmd_prefix='../Src/')
 
-            if LooseVersion(self.version) > LooseVersion('4.0'):
+            if loose_ver > LooseVersion('4.0'):
                 regex_subs_Makefile = [
                     (r'CFLAGS\)-c', r'CFLAGS) -c'),
                 ]
@@ -191,12 +193,12 @@ class EB_Siesta(ConfigureMake):
             # Make the utils
             change_dir(os.path.join(start_dir, 'Util'))
 
-            if LooseVersion(self.version) >= LooseVersion('4'):
+            if loose_ver >= LooseVersion('4'):
                 # clean_all.sh might be missing executable bit...
                 adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
                 run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
 
-            if LooseVersion(self.version) >= LooseVersion('4.1'):
+            if loose_ver >= LooseVersion('4.1'):
                 regex_subs_TS = [
                     (r"^default:.*$", r""),
                     (r"^EXE\s*=.*$", r""),
@@ -207,7 +209,7 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'TS', 'tshs2tshs', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_TS)
 
-            if LooseVersion(self.version) >= LooseVersion('4'):
+            if loose_ver >= LooseVersion('4'):
                 # SUFFIX rules in wrong place
                 regex_subs_suffix = [
                     (r'^(\.SUFFIXES:.*)$', r''),
@@ -223,15 +225,14 @@ class EB_Siesta(ConfigureMake):
             ]
             makefile = os.path.join(start_dir, 'Util', 'Optimizer', 'Makefile')
             apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
-            if LooseVersion(self.version) >= LooseVersion('4'):
+            if loose_ver >= LooseVersion('4'):
                 makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
 
             # remove clean at the end of default target
             # And yes, they are re-introducing this bug.
-            if ((LooseVersion(self.version) >= LooseVersion('4.0')
-                and LooseVersion(self.version) < LooseVersion('4.0.2'))
-                or LooseVersion(self.version) == LooseVersion('4.1-b3')):
+            is_ver40_to_401 = loose_ver >= LooseVersion('4.0') and loose_ver < LooseVersion('4.0.2')
+            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1-b3')):
                     makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
                     apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
                     makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
@@ -276,12 +277,12 @@ class EB_Siesta(ConfigureMake):
                 'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
 
-            if LooseVersion(self.version) >= LooseVersion('3.2'):
+            if loose_ver >= LooseVersion('3.2'):
                 expected_utils.extend([
                     'Bands/eigfat2plot',
                 ])
 
-            if LooseVersion(self.version) >= LooseVersion('4.0'):
+            if loose_ver >= LooseVersion('4.0'):
                 expected_utils.extend([
                     'SiestaSubroutine/ProtoNEB/Src/protoNEB',
                     'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
@@ -296,8 +297,8 @@ class EB_Siesta(ConfigureMake):
                         'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
                     ])
 
-            if LooseVersion(self.version) < LooseVersion('4.1'):
-                if LooseVersion(self.version) >= LooseVersion('4.0'):
+            if loose_ver < LooseVersion('4.1'):
+                if loose_ver >= LooseVersion('4.0'):
                     expected_utils.extend([
                         'COOP/dm_creator',
                         'TBTrans_rep/tbtrans',
@@ -307,7 +308,7 @@ class EB_Siesta(ConfigureMake):
                         'TBTrans/tbtrans',
                     ])
 
-            if LooseVersion(self.version) < LooseVersion('4.0.2'):
+            if loose_ver < LooseVersion('4.0.2'):
                 expected_utils.extend([
                     'Bands/new.gnubands',
                 ])
@@ -317,14 +318,14 @@ class EB_Siesta(ConfigureMake):
                 ])
                 # Need to revisit this when 4.1 is officialy released.
                 # This is based on b1-b3 releases
-                if LooseVersion(self.version) < LooseVersion('4.1'):
+                if loose_ver < LooseVersion('4.1'):
                     expected_utils.extend([
                         'Contour/grid1d', 'Contour/grid2d',
                         'Optical/optical', 'Optical/optical_input',
                         'sies2arc/sies2arc',
                     ])
 
-            if LooseVersion(self.version) >= LooseVersion('4.1'):
+            if loose_ver >= LooseVersion('4.1'):
                 expected_utils.extend([
                     'DensityMatrix/dmbs2dm', 'DensityMatrix/dmUnblock',
                     'Grimme/fdf2grimme',
