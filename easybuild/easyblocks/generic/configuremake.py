@@ -89,14 +89,10 @@ class ConfigureMake(EasyBlock):
         # Avoid using config.guess from the package as it is frequently out of date, use the version shipped with EB
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            # Log the config.guess being used
-            (config_guess_path, _) = run_cmd('which config.guess', log_all=True, simple=False)
-            (build_type, exit_code) = run_cmd('config.guess', log_all=True, simple=False)
-
-            if exit_code != 0:
-                raise EasyBuildError("config.guess at %s could not determine build type: '%s'", config_guess_path,
-                                     build_type)
+            config_guess_path, _ = run_cmd('which config.guess', log_all=True, simple=False)
+            build_type, _ = run_cmd('config.guess', log_all=True, simple=False)
             build_type = build_type.strip()
+            self.log("%s returned a build type %s" %(config_guess_path, build_type))
         build_type_option = '--build=' + build_type
 
         cmd = ' '.join([
