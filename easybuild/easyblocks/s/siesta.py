@@ -206,15 +206,16 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'TS', 'tshs2tshs', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_TS)
 
-            # SUFFIX rules in wrong place
-            regex_subs_suffix = [
-                (r'^(\.SUFFIXES:.*)$', r''),
-                (r'^(include\s*\$\(ARCH_MAKE\).*)$', r'\1\n.SUFFIXES:\n.SUFFIXES: .c .f .F .o .a .f90 .F90'),
-            ]
-            makefile = os.path.join(start_dir, 'Util', 'Sockets', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_suffix)
-            makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_suffix)
+            if LooseVersion(self.version) >= LooseVersion('4'):
+                # SUFFIX rules in wrong place
+                regex_subs_suffix = [
+                    (r'^(\.SUFFIXES:.*)$', r''),
+                    (r'^(include\s*\$\(ARCH_MAKE\).*)$', r'\1\n.SUFFIXES:\n.SUFFIXES: .c .f .F .o .a .f90 .F90'),
+                ]
+                makefile = os.path.join(start_dir, 'Util', 'Sockets', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_suffix)
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_suffix)
 
             regex_subs_UtilLDFLAGS = [
                 (r'(\$\(FC\)\s*-o\s)', r'$(FC) %s %s -o ' % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])),
