@@ -222,8 +222,9 @@ class EB_Siesta(ConfigureMake):
             ]
             makefile = os.path.join(start_dir, 'Util', 'Optimizer', 'Makefile')
             apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
-            makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
+            if LooseVersion(self.version) >= LooseVersion('4'):
+                makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
 
             # remove clean at the end of default target
             if self.version == '4.0.1' or self.version == '4.1-b3':
