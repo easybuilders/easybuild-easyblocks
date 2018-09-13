@@ -327,6 +327,7 @@ class EB_Siesta(ConfigureMake):
         custom_commands = []
         if self.toolchain.options.get('usempi', None):
             # make sure Siesta was indeed built with support for running in parallel
-            custom_commands.append("echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL")
+            # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
+            custom_commands.append("cd %s && echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL" % self.builddir)
 
         super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
