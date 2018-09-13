@@ -36,7 +36,6 @@ i.e. configure/make/make install, implemented as an easyblock.
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
 
@@ -92,7 +91,7 @@ class ConfigureMake(EasyBlock):
             config_guess_path, _ = run_cmd('which config.guess', log_all=True, simple=False)
             build_type, _ = run_cmd('config.guess', log_all=True, simple=False)
             build_type = build_type.strip()
-            self.log("%s returned a build type %s" %(config_guess_path, build_type))
+            self.log("%s returned a build type %s" % (config_guess_path, build_type))
         build_type_option = '--build=' + build_type
 
         cmd = ' '.join([
