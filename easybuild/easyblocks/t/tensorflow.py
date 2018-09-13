@@ -53,6 +53,7 @@ INTEL_COMPILER_WRAPPER = """#!/bin/bash
 
 export CPATH='%(cpath)s'
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
+export I_MPI_ROOT='%(intel_mpi_root)s'
 
 # exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
 export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' ':')
@@ -112,25 +113,47 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
+        use_mpi = self.toolchain.options.get('usempi', False)
+
         # put wrapper for Intel C compiler in place (required to make sure license server is found)
         # cfr. https://github.com/bazelbuild/bazel/issues/663
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            wrapper_dir = os.path.join(tmpdir, 'bin')
+            icc_wrapper_dir = os.path.join(tmpdir, 'bin')
 
             icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
                 'compiler_path': which('icc'),
+                'intel_mpi_root': '',
                 'cpath': os.getenv('CPATH'),
                 'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
-                'wrapper_dir': wrapper_dir,
+                'wrapper_dir': icc_wrapper_dir,
             }
-            icc_wrapper = os.path.join(wrapper_dir, 'icc')
+            icc_wrapper = os.path.join(icc_wrapper_dir, 'icc')
             write_file(icc_wrapper, icc_wrapper_txt)
-            env.setvar('PATH', os.pathsep.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
+            env.setvar('PATH', os.pathsep.join([icc_wrapper_dir, os.getenv('PATH')]))
+
+            if use_mpi:
+                mpiicc_wrapper_dir = os.path.join(tmpdir, 'bin2')
+                mpiicc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
+                    'compiler_path': which('mpiicc'),
+                    'intel_mpi_root': os.getenv('I_MPI_ROOT'),
+                    'cpath': os.getenv('CPATH'),
+                    'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+                    'wrapper_dir': mpiicc_wrapper_dir,
+                }
+                mpiicc_wrapper = os.path.join(mpiicc_wrapper_dir, 'mpiicc')
+                write_file(mpiicc_wrapper, mpiicc_wrapper_txt)
+                env.setvar('PATH', os.pathsep.join([mpiicc_wrapper_dir, os.getenv('PATH')]))
+
             if self.dry_run:
                 self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
+                if use_mpi:
+                    self.dry_run_msg("Wrapper for 'mpiicc' was put in place: %s", mpiicc_wrapper)
             else:
                 adjust_permissions(icc_wrapper, stat.S_IXUSR)
                 self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+                if use_mpi:
+                    adjust_permissions(mpiicc_wrapper, stat.S_IXUSR)
+                    self.log.info("Using wrapper script for 'mpiicc': %s", which('mpiicc'))
 
         self.prepare_python()
 
@@ -142,11 +165,15 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
-        use_mpi = self.toolchain.options.get('usempi', False)
+        mpi_home = ''
+        if use_mpi:
+            impi_root = get_software_root('impi')
+            if impi_root:
+                mpi_home = os.path.join(impi_root, 'intel64')
 
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
-            'MPI_HOME': '',
+            'MPI_HOME': mpi_home,
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
@@ -194,6 +221,8 @@ class EB_TensorFlow(PythonPackage):
             env.setvar(key, val)
 
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
+        # Should perhaps set --install_base  and --output_user_root too
+        # bazel still uses $HOME/.cache/bazel for some things.
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
