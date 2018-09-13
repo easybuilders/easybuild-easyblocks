@@ -263,14 +263,19 @@ class EB_Trilinos(CMakeMake):
             libs.remove('Kokkos')
             libs.append('kokkoscore')
 
+        # libgaleri was split into libgaleri-epetra & libgaleri-xpetra
+        if LooseVersion(self.version) >= LooseVersion('12.6'):
+            libs.remove('Galeri')
+            libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
         # Get the library extension
         if self.cfg['shared_libs']:
             lib_ext = get_shared_lib_ext()
         else:
-            lib_ext = "a"
+            lib_ext = 'a'
 
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.%s' % (x.lower(), lib_ext)) for x in libs],
+            'files': [os.path.join('lib', 'lib%s.%s' % (l.lower(), lib_ext)) for l in libs],
             'dirs': ['bin', 'include']
         }
 
