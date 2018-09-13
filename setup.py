@@ -85,7 +85,7 @@ setup(
     package_data = {'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
     scripts=[
         # updated config.guess that is leveraged by the configuremake easyblock
-        'easybuild/scripts/config.guess',
+        'easybuild/scripts/configuremake/config.guess',
     ],
     long_description = read("README.rst"),
     classifiers = [
