@@ -190,9 +190,10 @@ class EB_Siesta(ConfigureMake):
             # Make the utils
             change_dir(os.path.join(start_dir, 'Util'))
 
-            # clean_all.sh might be missing executable bit...
-            adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
-            run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
+            if LooseVersion(self.version) >= LooseVersion('4'):
+                # clean_all.sh might be missing executable bit...
+                adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
+                run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
 
             if LooseVersion(self.version) >= LooseVersion('4.1'):
                 regex_subs_TS = [
