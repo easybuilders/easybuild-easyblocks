@@ -36,6 +36,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -86,14 +87,17 @@ class ConfigureMake(EasyBlock):
             prefix_opt = '--prefix='
 
         # Avoid using config.guess from the package as it is frequently out of date, use the version shipped with EB
-        build_type = self.cfg.get('build_type')
-        if build_type is None:
-            config_guess_path, _ = run_cmd('which config.guess')
-            config_guess_path = config_guess_path.strip()
-            build_type, _ = run_cmd('config.guess', log_all=True)
-            build_type = build_type.strip()
-            self.log.info("%s returned a build type %s" % (config_guess_path, build_type))
-        build_type_option = '--build=' + build_type
+        # (but only do this if Autotools is listed as dependency)
+        build_type_option = ''
+        if get_software_root("Autotools"):
+            build_type = self.cfg.get('build_type')
+            if build_type is None:
+                config_guess_path, _ = run_cmd('which config.guess')
+                config_guess_path = config_guess_path.strip()
+                build_type, _ = run_cmd('config.guess', log_all=True)
+                build_type = build_type.strip()
+                self.log.info("%s returned a build type %s" % (config_guess_path, build_type))
+            build_type_option = '--build=' + build_type
 
         cmd = ' '.join([
             self.cfg['preconfigopts'],
