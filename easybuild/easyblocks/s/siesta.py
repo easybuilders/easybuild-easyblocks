@@ -171,9 +171,9 @@ class EB_Siesta(ConfigureMake):
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF"),
+                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
                 ])
-                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nNETCDF_LIBS = -lnetcdff"))
+                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nNETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc))
 
         apply_regex_substitutions(arch_make, regex_subs)
 
