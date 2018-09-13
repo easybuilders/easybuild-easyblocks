@@ -228,11 +228,13 @@ class EB_Siesta(ConfigureMake):
 
             # remove clean at the end of default target
             # And yes, they are re-introducing this bug.
-            if LooseVersion(self.version) >= LooseVersion('4.0') and LooseVersion(self.version) < LooseVersion('4.0.2') or LooseVersion(self.version) == LooseVersion('4.1-b3'):
-                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
-                apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
-                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
-                apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
+            if ((LooseVersion(self.version) >= LooseVersion('4.0')
+                and LooseVersion(self.version) < LooseVersion('4.0.2'))
+                or LooseVersion(self.version) == LooseVersion('4.1-b3')):
+                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                    apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
+                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
+                    apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
 
             # build_all.sh might be missing executable bit...
             adjust_permissions('./build_all.sh', stat.S_IXUSR, recursive=False, relative=True)
@@ -370,6 +372,8 @@ class EB_Siesta(ConfigureMake):
         if self.toolchain.options.get('usempi', None):
             # make sure Siesta was indeed built with support for running in parallel
             # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
-            custom_commands.append("cd %s && echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL" % self.builddir)
+            mpi_test_cmd = "cd %s && " % self.builddir
+            mpi_test_cmd = mpi_test_cmd + "echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL"
+            custom_commands.append(mpi_test_cmd)
 
         super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
