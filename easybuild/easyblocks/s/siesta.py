@@ -227,7 +227,8 @@ class EB_Siesta(ConfigureMake):
                 apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
 
             # remove clean at the end of default target
-            if self.version == '4.0.1' or self.version == '4.1-b3':
+            # And yes, they are re-introducing this bug.
+            if LooseVersion(self.version) >= LooseVersion('4.0') and LooseVersion(self.version) < LooseVersion('4.0.2') or LooseVersion(self.version) == LooseVersion('4.1-b3'):
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
                 apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
