@@ -34,11 +34,8 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Toon Willems (Ghent University)
 """
 
-import os
-
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -100,7 +97,6 @@ class ConfigureMake(EasyBlock):
                 build_type = build_type.strip()
                 self.log.info("%s returned a build type %s" % (config_guess_path, build_type))
             build_type_option = '--build=' + build_type
-
 
         cmd = ' '.join([
             self.cfg['preconfigopts'],
