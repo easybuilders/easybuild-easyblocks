@@ -49,24 +49,28 @@ Description: Hierarchical Data Format 5 (HDF5)
 Version: %s
 Requires:
 Cflags: -I%s
-Libs: -L%s -lhdf5
+Libs: -L%s -lhdf5 %s
 """
 
 class EB_HDF5(ConfigureMake):
     """Support for building/installing HDF5"""
 
+    def __init__(self, *args, **kwargs):
+        """Initialize HDF5-specific variables."""
+        super(EB_HDF5, self).__init__(*args, **kwargs)
+        # configure options for dependencies
+        self.known_deps = [
+            {'name': 'Szip', 'with': 'szlib', 'lib': '-lsz'},
+            {'name': 'zlib', 'with': 'zlib', 'lib': '-lz'},
+        ]
+
     def configure_step(self):
         """Configure build: set require config and make options, and run configure script."""
 
-        # configure options for dependencies
-        deps = [
-            ("Szip", "--with-szlib"),
-            ("zlib", "--with-zlib"),
-        ]
-        for (dep, opt) in deps:
-            root = get_software_root(dep)
+        for dep in self.known_deps:
+            root = get_software_root(dep['name'])
             if root:
-                self.cfg.update('configopts', '%s=%s' % (opt, root))
+                self.cfg.update('configopts', '--with-%s=%s' % (dep['with'], root))
 
         fcomp = 'FC="%s"' % os.getenv('F90')
 
@@ -96,9 +100,15 @@ class EB_HDF5(ConfigureMake):
     def install_step(self):
         """Custom install step for HDF5"""
         super(EB_HDF5, self).install_step()
+        hdf5_lib_deps = ''
+        for dep in self.known_deps:
+            root = get_software_root(dep['name'])
+            if root:
+                hdf5_lib_deps = hdf5_lib_deps + dep['lib'] + ' '
+
         inc_dir = os.path.join(self.installdir, 'include')
         lib_dir = os.path.join(self.installdir, 'lib')
-        hdf5_pc_txt = HDF5_PKG_CONFIG % (self.version, inc_dir, lib_dir)
+        hdf5_pc_txt = HDF5_PKG_CONFIG % (self.version, inc_dir, lib_dir, hdf5_lib_deps)
         write_file(os.path.join(self.installdir, "lib", "pkgconfig", "hdf5.pc"), hdf5_pc_txt)
 
     def sanity_check_step(self):
