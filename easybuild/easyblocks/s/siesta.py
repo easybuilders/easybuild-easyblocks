@@ -240,23 +240,23 @@ class EB_Siesta(ConfigureMake):
 
             # Now move all the built utils to the temp installdir
             expected_utils = [
-                'Bands/eigfat2plot',
                 'CMLComp/ccViz',
-                'Contrib/APostnikov/eig2bxsf', 'Contrib/APostnikov/rho2xsf',
-                'Contrib/APostnikov/vib2xsf', 'Contrib/APostnikov/fmpdos',
-                'Contrib/APostnikov/xv2xsf', 'Contrib/APostnikov/md2axsf',
-                'COOP/mprop', 'COOP/fat',
+                'Contrib/APostnikov/eig2bxsf', 'Contrib/APostnikov/fmpdos',
+                'Contrib/APostnikov/md2axsf', 'Contrib/APostnikov/rho2xsf',
+                'Contrib/APostnikov/vib2xsf', 'Contrib/APostnikov/xv2xsf',
+                'COOP/fat', 'COOP/mprop',
                 'Denchar/Src/denchar',
-                'DensityMatrix/dm2cdf', 'DensityMatrix/cdf2dm',
+                'DensityMatrix/cdf2dm', 'DensityMatrix/dm2cdf',
                 'Eig2DOS/Eig2DOS',
-                'Gen-basis/ioncat', 'Gen-basis/gen-basis',
-                'Grid/cdf2grid', 'Grid/cdf_laplacian', 'Grid/cdf2xsf',
-                'Grid/grid2cube',
-                'Grid/grid_rotate', 'Grid/g2c_ng', 'Grid/grid2cdf', 'Grid/grid2val',
+                'Gen-basis/gen-basis', 'Gen-basis/ioncat',
+                'Gen-basis/ionplot.sh',
+                'Grid/cdf2grid', 'Grid/cdf2xsf', 'Grid/cdf_laplacian',
+                'Grid/g2c_ng', 'Grid/grid2cdf', 'Grid/grid2cube',
+                'Grid/grid2val', 'Grid/grid_rotate',
                 'Helpers/get_chem_labels',
                 'HSX/hs2hsx', 'HSX/hsx2hs',
-                'JobList/Src/getResults', 'JobList/Src/countJobs',
-                'JobList/Src/runJobs', 'JobList/Src/horizontal',
+                'JobList/Src/countJobs', 'JobList/Src/getResults',
+                'JobList/Src/horizontal', 'JobList/Src/runJobs',
                 'Macroave/Src/macroave',
                 'ON/lwf2cdf',
                 'Optimizer/simplex', 'Optimizer/swarm',
@@ -265,17 +265,17 @@ class EB_Siesta(ConfigureMake):
                 'SiestaSubroutine/FmixMD/Src/driver',
                 'SiestaSubroutine/FmixMD/Src/para',
                 'SiestaSubroutine/FmixMD/Src/simple',
-                'STM/simple-stm/plstm', 'STM/ol-stm/Src/stm',
-                'VCA/mixps', 'VCA/fractional',
-                'Vibra/Src/vibra', 'Vibra/Src/fcbuild',
-                'WFS/info_wfsx', 'WFS/wfsx2wfs',
-                'WFS/readwfx', 'WFS/wfsnc2wfsx', 'WFS/readwf', 'WFS/wfs2wfsx',
+                'STM/ol-stm/Src/stm', 'STM/simple-stm/plstm',
+                'VCA/fractional', 'VCA/mixps',
+                'Vibra/Src/fcbuild', 'Vibra/Src/vibra',
+                'WFS/info_wfsx',
+                'WFS/readwf', 'WFS/readwfx', 'WFS/wfs2wfsx',
+                'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
 
-            if LooseVersion(self.version) <= LooseVersion('4.0'):
+            if LooseVersion(self.version) >= LooseVersion('3.2'):
                 expected_utils.extend([
-                    'Bands/new.gnubands',
-                    'TBTrans/tbtrans',
+                    'Bands/eigfat2plot',
                 ])
 
             if LooseVersion(self.version) >= LooseVersion('4.0'):
@@ -283,15 +283,51 @@ class EB_Siesta(ConfigureMake):
                     'SiestaSubroutine/ProtoNEB/Src/protoNEB',
                     'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
                     'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
+                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
+                if self.toolchain.options.get('usempi', None):
+                    expected_utils.extend([
+                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
+                    ])
+
+            if LooseVersion(self.version) < LooseVersion('4.1'):
+                if LooseVersion(self.version) >= LooseVersion('4.0'):
+                    expected_utils.extend([
+                        'COOP/dm_creator',
+                        'TBTrans_rep/tbtrans',
+                    ])
+                else:
+                    expected_utils.extend([
+                        'TBTrans/tbtrans',
+                    ])
+
+            if LooseVersion(self.version) < LooseVersion('4.0.2'):
+                expected_utils.extend([
+                    'Bands/new.gnubands',
+                ])
+            else:
+                expected_utils.extend([
+                    'Bands/gnubands',
+                ])
+                # Need to revisit this when 4.1 is officialy released.
+                # This is based on b1-b3 releases
+                if LooseVersion(self.version) < LooseVersion('4.1'):
+                    expected_utils.extend([
+                        'Contour/grid1d', 'Contour/grid2d',
+                        'Optical/optical', 'Optical/optical_input',
+                        'sies2arc/sies2arc',
+                    ])
 
             if LooseVersion(self.version) >= LooseVersion('4.1'):
                 expected_utils.extend([
-                    'Bands/gnubands',
+                    'DensityMatrix/dmbs2dm', 'DensityMatrix/dmUnblock',
                     'Grimme/fdf2grimme',
                     'SpPivot/pvtsp',
-                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs', 'TS/TBtrans/tbtrans',
+                    'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
+                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs',
                 ])
 
             for util in expected_utils:
