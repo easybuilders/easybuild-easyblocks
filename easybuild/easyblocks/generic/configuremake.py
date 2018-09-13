@@ -36,6 +36,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
 
@@ -88,22 +89,23 @@ class ConfigureMake(EasyBlock):
         # Avoid using config.guess from the package as it is frequently out of date, use the version shipped with EB
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type, exit_code = run_cmd('config.guess')
+            # Log the config.guess being used
+            (config_guess_path, _) = run_cmd('which config.guess', log_all=True, simple=False)
+            (build_type, exit_code) = run_cmd('config.guess', log_all=True, simple=False)
+
             if exit_code != 0:
-                raise EasyBuildError("config.guess shipped with EB could not determine build type: '%s'",
+                raise EasyBuildError("config.guess at %s could not determine build type: '%s'", config_guess_path,
                                      build_type)
             build_type = build_type.strip()
         build_type_option = '--build=' + build_type
 
-        cmd = ("%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(build_type_option)s "
-               "%(configopts)s") % {
-            'preconfigopts': self.cfg['preconfigopts'],
-            'cmd_prefix': cmd_prefix,
-            'prefix_opt': prefix_opt,
-            'installdir': self.installdir,
-            'build_type_option': build_type_option,
-            'configopts': self.cfg['configopts'],
-        }
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            cmd_prefix + './configure',
+            prefix_opt + self.installdir,
+            build_type_option,
+            self.cfg['configopts'],
+        ])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
