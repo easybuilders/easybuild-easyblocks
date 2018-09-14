@@ -18,7 +18,7 @@ $ wget -O config.guess 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_
 > rest of that program.
 
 In order to conform with this licence exception (and the original intent since we use this file to update software that
-uses `Autoconf`) we include a simple `Autoconf`-generated configure file here.
+uses `Autoconf`) we include a simple `Autoconf`-generated `configure` script here.
 
 ### Current `config.guess` info ###
 
