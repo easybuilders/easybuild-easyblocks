@@ -32,6 +32,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Toon Willems (Ghent University)
+@author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 
 import os
