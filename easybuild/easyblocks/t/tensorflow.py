@@ -105,6 +105,23 @@ class EB_TensorFlow(PythonPackage):
             # if with_jemalloc was specified, stick to that
             self.log.info("with_jemalloc was specified as %s, so sticking to it", self.cfg['with_jemalloc'])
 
+    def write_wrapper(self, wrapper_dir, compiler, i_mpi_root):
+        """Helper function to write a compiler wrapper."""
+        wrapper_txt = INTEL_COMPILER_WRAPPER % {
+            'compiler_path': which(compiler),
+            'intel_mpi_root': i_mpi_root,
+            'cpath': os.getenv('CPATH'),
+            'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+            'wrapper_dir': wrapper_dir,
+        }
+        wrapper = os.path.join(wrapper_dir, compiler)
+        write_file(wrapper, wrapper_txt)
+        if self.dry_run:
+            self.dry_run_msg("Wrapper for '%s' was put in place: %s", compiler, wrapper)
+        else:
+            adjust_permissions(wrapper, stat.S_IXUSR)
+            self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -124,49 +141,20 @@ class EB_TensorFlow(PythonPackage):
         use_mpi = self.toolchain.options.get('usempi', False)
 
         wrapper_dir = os.path.join(tmpdir, 'bin')
-        wrapper_cpath = os.getenv('CPATH')
-        wrapper_intel_lic = os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE'))
         use_wrapper = False
 
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             # put wrappers for Intel C/C++ compilers in place (required to make sure license server is found)
             # cfr. https://github.com/bazelbuild/bazel/issues/663
             for compiler in ('icc', 'icpc'):
-                wrapper_txt = INTEL_COMPILER_WRAPPER % {
-                    'compiler_path': which(compiler),
-                    'intel_mpi_root': 'NOT-USED-WITH-ICC',
-                    'cpath': wrapper_cpath,
-                    'intel_license_file': wrapper_intel_lic,
-                    'wrapper_dir': wrapper_dir,
-                }
-                wrapper = os.path.join(wrapper_dir, compiler)
-                write_file(wrapper, wrapper_txt)
-                if self.dry_run:
-                    self.dry_run_msg("Wrapper for '%s' was put in place: %s", compiler, wrapper)
-                else:
-                    adjust_permissions(wrapper, stat.S_IXUSR)
-                    self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
+                self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
             use_wrapper = True
 
         if use_mpi and get_software_root('impi'):
             # put wrappers for Intel MPI compiler wrappers in place
             # (required to make sure license server and I_MPI_ROOT are found)
             for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
-                wrapper_txt = INTEL_COMPILER_WRAPPER % {
-                    'compiler_path': which(compiler),
-                    'intel_mpi_root': os.getenv('I_MPI_ROOT'),
-                    'cpath': wrapper_cpath,
-                    'intel_license_file': wrapper_intel_lic,
-                    'wrapper_dir': wrapper_dir,
-                }
-                wrapper = os.path.join(wrapper_dir, compiler)
-                write_file(wrapper, wrapper_txt)
-
-                if self.dry_run:
-                    self.dry_run_msg("Wrapper for '%s' was put in place: %s", compiler, wrapper)
-                else:
-                    adjust_permissions(wrapper, stat.S_IXUSR)
-                    self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
+                self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
             use_wrapper = True
 
         if use_wrapper:
