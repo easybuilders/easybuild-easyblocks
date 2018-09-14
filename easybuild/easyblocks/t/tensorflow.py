@@ -170,6 +170,7 @@ class EB_TensorFlow(PythonPackage):
             impi_root = get_software_root('impi')
             if impi_root:
                 mpi_home = os.path.join(impi_root, 'intel64')
+                self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
