@@ -84,7 +84,7 @@ setup(
     package_dir = {"easybuild.easyblocks": "easybuild/easyblocks"},
     package_data = {'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
     scripts=[
-        # updated config.guess that is leveraged by the configuremake easyblock
+        # updated config.guess that is leveraged by the ConfigureMake easyblock
         'easybuild/scripts/configuremake/config.guess',
     ],
     long_description = read("README.rst"),
