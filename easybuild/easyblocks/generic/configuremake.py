@@ -38,6 +38,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.filetools import read_file, which
 from easybuild.tools.run import run_cmd
 
@@ -101,7 +102,8 @@ class ConfigureMake(EasyBlock):
                 if build_type is None:
                     config_guess_path = which('config.guess')
                     if config_guess_path is None:
-                        self.log.info("No config.guess in $PATH, not setting --build option")
+                        print_warning("No config.guess in $PATH, not setting '--build' option for configure step\n"
+                                      "EasyBuild ships with a recent config.guess, please verify your installation!")
                     else:
                         build_type, _ = run_cmd('config.guess', log_all=True)
                         build_type = build_type.strip()
