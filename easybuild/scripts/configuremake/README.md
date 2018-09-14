@@ -13,7 +13,7 @@ $ wget -O config.guess 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_
 
 ```
 timestamp='2018-08-29'
-c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2cbffc74c  config.guess
+SHA256='c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2cbffc74c  config.guess'
 ```
 
 (You can find a timestamp for the last update in the first few lines of the script)

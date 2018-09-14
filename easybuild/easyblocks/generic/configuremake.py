@@ -101,7 +101,7 @@ class ConfigureMake(EasyBlock):
                 if build_type is None:
                     config_guess_path = which('config.guess')
                     if config_guess_path is None:
-                        self.log.info("No config.guess in $PATH, not setting --build")
+                        self.log.info("No config.guess in $PATH, not setting --build option")
                     else:
                         build_type, _ = run_cmd('config.guess', log_all=True)
                         build_type = build_type.strip()
