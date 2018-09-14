@@ -28,7 +28,9 @@ EasyBuild support for Trilinos, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
+import random
 import re
+import string
 
 from distutils.version import LooseVersion
 
@@ -36,6 +38,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_path
+from easybuild.tools.filetools import mkdir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -129,9 +133,17 @@ class EB_Trilinos(CMakeMake):
                 incdirs.append(os.path.join(suitesparse, lib, "Include"))
                 libdirs.append(os.path.join(suitesparse, lib, "Lib"))
                 libnames.append(lib.lower())
+
             # add SuiteSparse config lib, it is in recent versions of suitesparse
             libdirs.append(os.path.join(suitesparse, 'SuiteSparse_config'))
             libnames.append('suitesparseconfig')
+
+            # required to resolve METIS symbols in SuiteSparse's libcholmod.a
+            # doesn't need to be full location, probably because it can be found via $LIBRARY_PATH
+            # not easy to know whether it should come from METIS or ParMETIS...
+            # see https://answers.launchpad.net/dorsal/+question/223167
+            libnames.append('libmetis.a')
+
             self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
@@ -203,15 +215,27 @@ class EB_Trilinos(CMakeMake):
                 self.cfg.update('configopts', "-DTrilinos_ENABLE_%s:BOOL=OFF" % ext)
 
         # building in source dir not supported
-        try:
-            build_dir = "BUILD"
-            os.mkdir(build_dir)
-            os.chdir(build_dir)
-        except OSError, err:
-            raise EasyBuildError("Failed to create and move into build directory: %s", err)
+        # + if the build directory is a long path, problems like "Argument list too long" may occur
+        # cfr. https://github.com/trilinos/Trilinos/issues/2434
+        # so, try to create build directory with shorter path length to build in
+        salt = ''.join(random.choice(string.letters) for _ in range(5))
+        self.short_start_dir = os.path.join(build_path(), self.name + '-' + salt)
+        if os.path.exists(self.short_start_dir):
+            raise EasyBuildError("Short start directory %s for Trilinos already exists?!", self.short_start_dir)
+
+        self.log.info("Length of path to original start directory: %s", len(self.start_dir))
+        self.log.info("Short start directory: %s (length: %d)", self.short_start_dir, len(self.short_start_dir))
+
+        mkdir(self.short_start_dir)
+        short_src_dir = os.path.join(self.short_start_dir, 'src')
+        symlink(self.start_dir, short_src_dir)
+        short_build_dir = os.path.join(self.short_start_dir, 'obj')
+        obj_dir = os.path.join(self.builddir, 'obj')
+        mkdir(obj_dir)
+        symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(srcdir="..")
+        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
     def build_step(self):
         """Build with make (verbose logging enabled)."""
@@ -239,15 +263,24 @@ class EB_Trilinos(CMakeMake):
             libs.remove('Kokkos')
             libs.append('kokkoscore')
 
+        # libgaleri was split into libgaleri-epetra & libgaleri-xpetra
+        if LooseVersion(self.version) >= LooseVersion('12.6'):
+            libs.remove('Galeri')
+            libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
         # Get the library extension
         if self.cfg['shared_libs']:
             lib_ext = get_shared_lib_ext()
         else:
-            lib_ext = "a"
+            lib_ext = 'a'
 
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.%s' % (x.lower(), lib_ext)) for x in libs],
+            'files': [os.path.join('lib', 'lib%s.%s' % (l.lower(), lib_ext)) for l in libs],
             'dirs': ['bin', 'include']
         }
 
         super(EB_Trilinos, self).sanity_check_step(custom_paths=custom_paths)
+
+    def cleanup_step(self):
+        """Complete cleanup by also removing custom created short build directory."""
+        rmtree2(self.short_start_dir)
