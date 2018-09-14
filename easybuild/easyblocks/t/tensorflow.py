@@ -47,17 +47,23 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
 
 
-# wrapper for Intel compiler, where required environment are hardcoded to make sure they're present;
-# this is required because Bazel resets the environment in which compiler commands are executed...
+# Wrapper for Intel(MPI) compilers, where required environment variables
+# are hardcoded to make sure they are present;
+# this is required because Bazel resets the environment in which
+# compiler commands are executed...
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
 
 export CPATH='%(cpath)s'
+
+# Only relevant for Intel compilers.
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
-# only relevant for MPI compiler wrapper (mpiicc/mpicc etc),
-# not for regular compiler (icc)
+
+# Only relevant for MPI compiler wrapper (mpiicc/mpicc etc),
+# not for regular compiler.
 export I_MPI_ROOT='%(intel_mpi_root)s'
 
-# exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
+# Exclude location of this wrapper from $PATH to avoid other potential
+# wrappers calling this wrapper.
 export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' ':')
 
 %(compiler_path)s "$@"
