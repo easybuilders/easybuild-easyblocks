@@ -53,6 +53,8 @@ INTEL_COMPILER_WRAPPER = """#!/bin/bash
 
 export CPATH='%(cpath)s'
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
+# only relevant for MPI compiler wrapper (mpiicc/mpicc etc),
+# not for regular compiler (icc)
 export I_MPI_ROOT='%(intel_mpi_root)s'
 
 # exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
