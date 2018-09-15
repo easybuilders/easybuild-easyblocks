@@ -408,7 +408,14 @@ class IntelBase(EasyBlock):
         env.setvar('INSTALL_PATH', self.installdir)
 
         # perform installation
-        cmd = "./install.sh %s -s %s" % (tmppathopt, silentcfg)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            './install.sh',
+            tmppathopt,
+            '-s ' + silentcfg,
+            self.cfg['installopts'],
+        ])
+
         return run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def move_after_install(self):
