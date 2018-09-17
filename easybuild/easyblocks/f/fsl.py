@@ -32,6 +32,7 @@ import difflib
 import os
 import re
 import shutil
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -64,26 +65,28 @@ class EB_FSL(EasyBlock):
         fslmachtype = out.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
-        # Check if a specific machine type directory is patched
-        systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
+        # Patch files for ver. < 5.0.10 patch multiple config directories
+        if LooseVersion(self.version) >= LooseVersion('5.0.10'):
+            # Check if a specific machine type directory is patched
+            systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
-        patched_cfgs = []
+            patched_cfgs = []
         
-        for patch in self.patches:
-            patchfile = read_file(patch['path'])
-            res = systype_regex.findall(patchfile)
-            patched_cfgs.extend([i[0] for i in res])
+            for patch in self.patches:
+                patchfile = read_file(patch['path'])
+                res = systype_regex.findall(patchfile)
+                patched_cfgs.extend([i[0] for i in res])
 
-        # Check that at least one config has been found
-        if len(patched_cfgs) != 0:
-            # Check that a single config has been patched
-            if patched_cfgs[1:] == patched_cfgs[:-1]:
-                best_cfg = patched_cfgs[0]
-                self.log.debug("Found patched config dir: %s", best_cfg)
+            # Check that at least one config has been found
+            if len(patched_cfgs) != 0:
+                # Check that a single config has been patched
+                if patched_cfgs[1:] == patched_cfgs[:-1]:
+                    best_cfg = patched_cfgs[0]
+                    self.log.debug("Found patched config dir: %s", best_cfg)
+                else:
+                    raise EasyBuildError("Patch files are editing multiple config dirs: %s", patched_cfgs)
             else:
-                raise EasyBuildError("Patch files are editing multiple config dirs: %s", patched_cfgs)
-        else:
-            self.log.debug("No config dir found in patch files")
+                self.log.debug("No config dir found in patch files")
 
         # If no patched config is found, pick best guess
         cfgdir = os.path.join(self.fsldir, "config")
