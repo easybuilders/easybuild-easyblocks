@@ -112,7 +112,7 @@ class RPackage(ExtensionEasyBlock):
         %s
         install.packages("%s", %s dependencies = FALSE %s%s)
         """ % (confvarslist, confargslist, self.name, prefix, confvarsstr, confargsstr)
-        cmd = "R -q --no-save"
+        cmd = "%s R -q --no-save %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
 
         self.log.debug("make_r_cmd returns %s with input %s" % (cmd, r_cmd))
 
@@ -138,7 +138,16 @@ class RPackage(ExtensionEasyBlock):
             loc = self.ext_dir
         else:
             loc = self.ext_src
-        cmd = "R CMD INSTALL %s %s %s %s --no-clean-on-error" % (loc, confargs, confvars, prefix)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            "R CMD INSTALL",
+            loc,
+            confargs,
+            confvars,
+            prefix,
+            '--no-clean-on-error',
+            self.cfg['installopts'],
+        ])
 
         self.log.debug("make_cmdline_cmd returns %s" % cmd)
         return cmd, None
