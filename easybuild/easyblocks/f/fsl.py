@@ -33,6 +33,7 @@ import os
 import re
 import shutil
 from distutils.version import LooseVersion
+from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -71,16 +72,16 @@ class EB_FSL(EasyBlock):
             systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
             patched_cfgs = []
-        
+
             for patch in self.patches:
                 patchfile = read_file(patch['path'])
                 res = systype_regex.findall(patchfile)
                 patched_cfgs.extend([i[0] for i in res])
 
             # Check that at least one config has been found
-            if len(patched_cfgs) != 0:
+            if patched_cfgs:
                 # Check that a single config has been patched
-                if patched_cfgs[1:] == patched_cfgs[:-1]:
+                if len(nub(patched_cfgs)) == 1:
                     best_cfg = patched_cfgs[0]
                     self.log.debug("Found patched config dir: %s", best_cfg)
                 else:
@@ -95,8 +96,8 @@ class EB_FSL(EasyBlock):
                 cfgs = os.listdir(cfgdir)
                 best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
                 self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
-        except OSError, err:
-            raise EasyBuildError("Unable to access configurations directory: %s", err)
+        except OSError as err:
+            raise EasyBuildError("Unable to access configuration directory: %s", cfgdir, err)
 
         # Prepare config
         # Either use patched config or copy closest match
