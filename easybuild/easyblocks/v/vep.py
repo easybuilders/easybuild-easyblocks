@@ -69,16 +69,26 @@ class EB_VEP(EasyBlock):
         env.setvar(perllib_envvar, '%s:%s' % (api_mods_dir, perllib))
 
         # see https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html#installer
-        # --NO_HTSLIB: don't try to install optional Bio::DB::HTS (can be provided as an extension instead)
-        # --AUTO af (a: API, f: FASTA)
-        #   not included:
-        #    * c: cache, should be downloaded by user
-        #    * l: Bio::DB::HTS, should be provided via EasyBuild
-        #    * p: plugins
-        # --SPECIES all: install all species
-        # --NO_UPDATE: don't update VEP during installation
-        # --DESTDIR: location to install Perl API modules into
-        cmd = "perl INSTALL.pl --NO_HTSLIB --AUTO af --SPECIES all --NO_UPDATE --DESTDIR %s " % api_mods_dir
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            'perl',
+            'INSTALL.pl',
+            # don't try to install optional Bio::DB::HTS (can be provided as an extension instead)
+            '--NO_HTSLIB',
+            # a: API, f: FASTA
+            # not included:
+            # c: cache, should be downloaded by user
+            # l: Bio::DB::HTS, should be provided via EasyBuild
+            # p: plugins
+            '--AUTO af',
+            # install all species
+            '--SPECIES all',
+            # don't update VEP during installation
+            '--NO_UPDATE',
+            # location to install Perl API modules into
+            '--DESTDIR ' + api_mods_dir,
+            self.cfg['installopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def sanity_check_step(self):
