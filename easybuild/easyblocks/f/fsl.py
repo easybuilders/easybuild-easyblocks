@@ -73,7 +73,7 @@ class EB_FSL(EasyBlock):
 
             patched_cfgs = []
             best_cfg = None
-            
+
             for patch in self.patches:
                 patchfile = read_file(patch['path'])
                 res = systype_regex.findall(patchfile)
