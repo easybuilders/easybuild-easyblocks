@@ -224,8 +224,6 @@ class EB_TensorFlow(PythonPackage):
             env.setvar(key, val)
 
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-        # Should perhaps set --install_base  and --output_user_root too
-        # bazel still uses $HOME/.cache/bazel for some things.
         regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
         apply_regex_substitutions('configure.py', regex_subs)
 
