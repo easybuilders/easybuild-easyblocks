@@ -31,6 +31,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file
 
@@ -78,7 +79,10 @@ class ModuleRC(EasyBlock):
 
         module_version_specs = {'modname': alias_modname, 'sym_version': self.version, 'version': deps[0]['version']}
         modulerc_txt = self.module_generator.modulerc(module_version=module_version_specs)
-        write_file(modulerc, modulerc_txt)
+        write_file(modulerc, modulerc_txt, backup=True)
+
+        if not fake:
+            print_msg("created .modulerc file at %s" % modulerc, log=self.log)
 
         modpath = self.module_generator.get_modules_path(fake=fake)
         self.invalidate_module_caches(modpath)
