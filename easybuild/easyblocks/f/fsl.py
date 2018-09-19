@@ -72,7 +72,8 @@ class EB_FSL(EasyBlock):
             systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
             patched_cfgs = []
-
+            best_cfg = None
+            
             for patch in self.patches:
                 patchfile = read_file(patch['path'])
                 res = systype_regex.findall(patchfile)
