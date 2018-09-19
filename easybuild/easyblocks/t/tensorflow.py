@@ -138,8 +138,6 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
-        use_mpi = self.toolchain.options.get('usempi', False)
-
         wrapper_dir = os.path.join(tmpdir, 'bin')
         use_wrapper = False
 
@@ -150,12 +148,18 @@ class EB_TensorFlow(PythonPackage):
                 self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
             use_wrapper = True
 
-        if use_mpi and get_software_root('impi'):
+        use_mpi = self.toolchain.options.get('usempi', False)
+        impi_root = get_software_root('impi')
+        mpi_home = ''
+        if use_mpi and impi_root:
             # put wrappers for Intel MPI compiler wrappers in place
             # (required to make sure license server and I_MPI_ROOT are found)
             for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
                 self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
             use_wrapper = True
+            # set correct value for MPI_HOME
+            mpi_home = os.path.join(impi_root, 'intel64')
+            self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
             env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
@@ -169,13 +173,6 @@ class EB_TensorFlow(PythonPackage):
         opencl_root = get_software_root('OpenCL')
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
-
-        mpi_home = ''
-        if use_mpi:
-            impi_root = get_software_root('impi')
-            if impi_root:
-                mpi_home = os.path.join(impi_root, 'intel64')
-                self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
