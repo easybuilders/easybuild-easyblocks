@@ -180,6 +180,7 @@ class PythonPackage(ExtensionEasyBlock):
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'extras': [None, "String specifies 'extras' (optional features) to install", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
@@ -365,6 +366,10 @@ class PythonPackage(ExtensionEasyBlock):
                 loc = self.src
             else:
                 loc = self.src[0]['path']
+
+        extras = self.cfg.get('extras', None)
+        if extras:
+            loc += '[%s]' % extras
 
         if installopts is None:
             installopts = self.cfg['installopts']
