@@ -47,14 +47,23 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
 
 
-# wrapper for Intel compiler, where required environment are hardcoded to make sure they're present;
-# this is required because Bazel resets the environment in which compiler commands are executed...
+# Wrapper for Intel(MPI) compilers, where required environment variables
+# are hardcoded to make sure they are present;
+# this is required because Bazel resets the environment in which
+# compiler commands are executed...
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
 
 export CPATH='%(cpath)s'
+
+# Only relevant for Intel compilers.
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
 
-# exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
+# Only relevant for MPI compiler wrapper (mpiicc/mpicc etc),
+# not for regular compiler.
+export I_MPI_ROOT='%(intel_mpi_root)s'
+
+# Exclude location of this wrapper from $PATH to avoid other potential
+# wrappers calling this wrapper.
 export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' ':')
 
 %(compiler_path)s "$@"
@@ -96,6 +105,23 @@ class EB_TensorFlow(PythonPackage):
             # if with_jemalloc was specified, stick to that
             self.log.info("with_jemalloc was specified as %s, so sticking to it", self.cfg['with_jemalloc'])
 
+    def write_wrapper(self, wrapper_dir, compiler, i_mpi_root):
+        """Helper function to write a compiler wrapper."""
+        wrapper_txt = INTEL_COMPILER_WRAPPER % {
+            'compiler_path': which(compiler),
+            'intel_mpi_root': i_mpi_root,
+            'cpath': os.getenv('CPATH'),
+            'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+            'wrapper_dir': wrapper_dir,
+        }
+        wrapper = os.path.join(wrapper_dir, compiler)
+        write_file(wrapper, wrapper_txt)
+        if self.dry_run:
+            self.dry_run_msg("Wrapper for '%s' was put in place: %s", compiler, wrapper)
+        else:
+            adjust_permissions(wrapper, stat.S_IXUSR)
+            self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -112,25 +138,31 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
-        # put wrapper for Intel C compiler in place (required to make sure license server is found)
-        # cfr. https://github.com/bazelbuild/bazel/issues/663
-        if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            wrapper_dir = os.path.join(tmpdir, 'bin')
+        wrapper_dir = os.path.join(tmpdir, 'bin')
+        use_wrapper = False
 
-            icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
-                'compiler_path': which('icc'),
-                'cpath': os.getenv('CPATH'),
-                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
-                'wrapper_dir': wrapper_dir,
-            }
-            icc_wrapper = os.path.join(wrapper_dir, 'icc')
-            write_file(icc_wrapper, icc_wrapper_txt)
-            env.setvar('PATH', os.pathsep.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
-            if self.dry_run:
-                self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
-            else:
-                adjust_permissions(icc_wrapper, stat.S_IXUSR)
-                self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            # put wrappers for Intel C/C++ compilers in place (required to make sure license server is found)
+            # cfr. https://github.com/bazelbuild/bazel/issues/663
+            for compiler in ('icc', 'icpc'):
+                self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
+            use_wrapper = True
+
+        use_mpi = self.toolchain.options.get('usempi', False)
+        impi_root = get_software_root('impi')
+        mpi_home = ''
+        if use_mpi and impi_root:
+            # put wrappers for Intel MPI compiler wrappers in place
+            # (required to make sure license server and I_MPI_ROOT are found)
+            for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
+                self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+            use_wrapper = True
+            # set correct value for MPI_HOME
+            mpi_home = os.path.join(impi_root, 'intel64')
+            self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
+
+        if use_wrapper:
+            env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
 
@@ -142,11 +174,9 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
-        use_mpi = self.toolchain.options.get('usempi', False)
-
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
-            'MPI_HOME': '',
+            'MPI_HOME': mpi_home,
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
