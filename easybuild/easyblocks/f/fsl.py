@@ -66,13 +66,14 @@ class EB_FSL(EasyBlock):
         fslmachtype = out.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
+        best_cfg = None
+
         # Patch files for ver. < 5.0.10 patch multiple config directories
         if LooseVersion(self.version) >= LooseVersion('5.0.10'):
             # Check if a specific machine type directory is patched
             systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
             patched_cfgs = []
-            best_cfg = None
 
             for patch in self.patches:
                 patchfile = read_file(patch['path'])
