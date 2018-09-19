@@ -158,10 +158,8 @@ class EB_OpenFOAM(EasyBlock):
 
             # this does not work for OpenFOAM Extend lower than 2.0
             if 'extend' not in self.name.lower() or LooseVersion(self.version) >= LooseVersion('2.0'):
-                # replacement dictionary of key-values
-                replacement_dict = {"WM_PROJECT_VERSION": self.version}
-                for key, val in replacement_dict.items():
-                    regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, val))]
+                key = "WM_PROJECT_VERSION"
+                regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, self.version))]
 
             WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
