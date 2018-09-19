@@ -149,7 +149,7 @@ class EB_MATLAB(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
         custom_paths = {
-            'files': ["bin/matlab", "bin/mcc", "bin/glnxa64/MATLAB", "bin/glnxa64/mcc",
+            'files': ["bin/matlab", "bin/glnxa64/MATLAB",
                       "runtime/glnxa64/libmwmclmcrrt.%s" % get_shared_lib_ext(), "toolbox/local/classpath.txt"],
             'dirs': ["java/jar", "toolbox/compiler"],
         }
