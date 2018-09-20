@@ -225,7 +225,7 @@ class EB_TensorFlow(PythonPackage):
 
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
         regex_subs = [(r"(run_shell\(\['bazel')",
-            r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
+                      r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
         apply_regex_substitutions('configure.py', regex_subs)
 
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
@@ -307,7 +307,8 @@ class EB_TensorFlow(PythonPackage):
 
         # compose "bazel build" command with all its options...
         cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir,
-            '--install_base=%s' % os.path.join(tmpdir, 'inst_base'), '--output_user_root=%s' % user_root_tmpdir, 'build']
+            '--install_base=%s' % os.path.join(tmpdir, 'inst_base'),
+            '--output_user_root=%s' % user_root_tmpdir, 'build']
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
