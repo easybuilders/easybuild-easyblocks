@@ -38,7 +38,7 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, rmtree2
+from easybuild.tools.filetools import change_dir, remove
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -285,10 +285,7 @@ class EB_DOLFIN(CMakePythonPackage):
                 run_cmd(cmd, log_all=True)
 
             # clean up temporary dir
-            try:
-                rmtree2(tmpdir)
-            except OSError, err:
-                raise EasyBuildError("Failed to remove Instant cache/error dirs: %s", err)
+            remove(tmpdir)
 
     def install_step(self):
         """Custom install procedure for DOLFIN: also install Python bindings."""
