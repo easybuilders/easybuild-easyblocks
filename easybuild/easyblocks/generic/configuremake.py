@@ -105,7 +105,7 @@ class ConfigureMake(EasyBlock):
                 if verify_checksum(downloaded_path, CONFIG_DOT_GUESS_SHA256):
                     config_dot_guess_path = downloaded_path
                     # Add execute permissions
-                    adjust_permissions(downloaded_path, stat.S_IXUSR|stat.S_IXGRP|stat.S_IXOTH, add=True)
+                    adjust_permissions(downloaded_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
                     self.log.info("Downloaded recent %s to %s, using it if required.", download_name,
                                   config_dot_guess_path)
                 else:
