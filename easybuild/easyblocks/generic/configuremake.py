@@ -196,7 +196,7 @@ class ConfigureMake(EasyBlock):
         # it is possible that the configure script is generated using preconfigopts...
         # if so, we're at the mercy of the gods
         build_type_option = ''
-        if AUTOCONF_GENERATED_MSG in read_file(configure_command):
+        if os.path.exist(configure_command) and AUTOCONF_GENERATED_MSG in read_file(configure_command):
             build_type = self.cfg.get('build_type')
 
             if build_type is None:
