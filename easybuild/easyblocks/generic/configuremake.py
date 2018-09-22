@@ -207,7 +207,8 @@ class ConfigureMake(EasyBlock):
 
             if build_type is None:
 
-                # use an updated config.guess from a global location (if possible)
+                # config.guess script may not be obtained yet despite the call in fetch_step,
+                # for example when installing a Bundle component with ConfigureMake
                 if self.config_guess is None:
                     self.config_guess = self.obtain_config_guess()
 
