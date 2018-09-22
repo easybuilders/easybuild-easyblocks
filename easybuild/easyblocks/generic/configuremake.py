@@ -77,6 +77,12 @@ class ConfigureMake(EasyBlock):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Initialize easyblock."""
+        super(ConfigureMake, self).__init__(*args, **kwargs)
+
+        self.config_guess = None
+
     def obtain_config_guess(self, download_source_path=None, search_source_paths=None):
         """
         Locate or download an up-to-date config.guess for use with ConfigureMake
@@ -154,6 +160,13 @@ class ConfigureMake(EasyBlock):
                 tup = (self.config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
                 print_warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
 
+    def fetch_step(self, *args, **kwargs):
+        """Custom fetch step for ConfigureMake so we use an updated config.guess."""
+        super(ConfigureMake, self).fetch_step(*args, **kwargs)
+
+        # Use an updated config.guess from a global location (if possible)
+        self.config_guess = self.obtain_config_guess()
+
     def configure_step(self, cmd_prefix=''):
         """
         Configure step
@@ -195,7 +208,8 @@ class ConfigureMake(EasyBlock):
             if build_type is None:
 
                 # use an updated config.guess from a global location (if possible)
-                self.config_guess = self.obtain_config_guess()
+                if self.config_guess is None:
+                    self.config_guess = self.obtain_config_guess()
 
                 if self.config_guess is None:
                     print_warning("No config.guess available, not setting '--build' option for configure step\n"
