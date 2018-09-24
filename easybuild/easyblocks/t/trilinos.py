@@ -137,6 +137,8 @@ class EB_Trilinos(CMakeMake):
             # add SuiteSparse config lib, it is in recent versions of suitesparse
             libdirs.append(os.path.join(suitesparse, 'SuiteSparse_config'))
             libnames.append('suitesparseconfig')
+            # because of "SuiteSparse_config.c:function SuiteSparse_tic: error: undefined reference to 'clock_gettime'"
+            libnames.append('rt')
 
             # required to resolve METIS symbols in SuiteSparse's libcholmod.a
             # doesn't need to be full location, probably because it can be found via $LIBRARY_PATH
