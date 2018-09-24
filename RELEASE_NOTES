@@ -3,7 +3,59 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 195 software-specific easyblocks and 31 generic easyblocks.
+The latest version of easybuild-easyblocks provides 197 software-specific easyblocks and 32 generic easyblocks.
+
+v3.7.0 (September 25th 2018)
+----------------------------
+
+feature release
+- new generic easyblock ModuleRC (#1503)
+- new software specific easyblocks for BWISE (#1497) and VEP (#1512)
+- minor enhancements, including:
+  - update quantumespresso.py for newer versions (#1312)
+  - multiple updates to Tensorflow easyblock (#1453)
+  - update wien2k easyblock to 18.1 (#1460)
+  - add CUDA Stubs path to LIBRARY_PATH (#1464)
+  - ScaLAPACK: add support for BLIS (#1467)
+  - amber: Handle X11 better and make static a build flag (#1468)
+  - boost.py - upgrade to reflect name change of python 3 related lib files in Boost 1.67.0 (#1472)
+  - use os.path.join in cuda.py, and add ldconfig to post_install_step (#1473)
+  - add CEI/bin to $PATH for ANSYS 19 & newer (#1476)
+  - make scons accept parallel setting (#1477)
+  - add CCOLAMD and CAMD to Trilinos (#1480)
+  - add support to apply (binary) patches after main CUDA install (#1481)
+  - add support for only building Python bindings (+ code cleanup) in Boost easyblock (#1484)
+  - provide control over subdirectory in which R packages are installed (#1485)
+  - added regex to fix WM_PROJECT_VERSION correctly in OpenFOAM easyblock (#1489)
+  - improve PGI siterc so it allows -pthread switch (#1494)
+  - customise check_checksums method in Bundle easyblock (#1496)
+  - add a pkgconfig file to HDF5 when installing (#1504)
+  - sidestep using the config.guess that comes with a package in ConfigureMake generic easyblock (#1506)
+  - add support for IntelMPI in TensorFlow (#1507)
+  - make IntelBase generic easyblock aware of (pre)installopts (#1509)
+  - update Siesta easyblock for v3.2 to 4.1-b3 (#1510)
+  - take (pre)installopts into account in RPackage generic easyblock (#1513)
+- various bug fixes, including:
+  - drop useless definition of NLSPATH in IntelBase, fix ipp library paths (#1442)
+  - fix order of arguments in log message in PythonPackage easyblock (#1459)
+  - take into account that only name/version may be specified for some components in Bundle easyblock (#1474)
+  - make SuperLU handle both lib and lib64 subdirectories (#1479)
+  - make CUDA version check version dependent (only for v9.x & newer) (#1483)
+  - use short build dir for Trilinos + link with libmetis.a (#1486)
+  - correct check for Red Hat 6 based OS in TensorFlow easyblock (#1487)
+  - don't set $BOOST_ROOT when only installing Boost Python bindings (#1495)
+  - FSL - Improve configuration choice (#1498)
+  - back up existing .modulerc file + print informative message in ModuleRC easyblock (#1518)
+  - make sure bazel doesn't write files in $HOME/.cache when building tensorflow (#1519)
+  - enable VSX on POWER for FFTW >= 3.3.7 (#1520)
+  - only read 'configure' script when it's actually there (#1522)
+  - fix typo in ConfigureMake easyblock (#1523)
+  - move finding of config.guess in ConfigureMake easyblock into configure_step (#1524)
+- other changes:
+  - switch to using CMake install procedure for Eigen 3.3.4 & newer (#1482)
+  - bump Lmod version used in Travis config to 6.6.3 (now required by framework) (#1505)
+  - don't check for mcc in MATLAB sanity check as it requires a specific toolbox license (#1514)
+
 
 v3.6.2 (July 11th 2018)
 -----------------------
