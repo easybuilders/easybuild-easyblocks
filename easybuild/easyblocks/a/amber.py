@@ -59,6 +59,7 @@ class EB_Amber(ConfigureMake):
             'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
             # enable testing by default
             'runtest': [True, "Run tests after each build", CUSTOM],
+            'static': [True, "Build statically linked executables", CUSTOM],
         })
         return ConfigureMake.extra_options(extra_vars)
 
@@ -125,11 +126,11 @@ class EB_Amber(ConfigureMake):
         if mklroot:
             env.setvar('MKL_HOME', mklroot)
         elif openblasroot:
-	    lapack = os.getenv('LIBLAPACK')
-	    if lapack is None:
-		raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environement.")
-	    else:
-		env.setvar('GOTO', lapack)
+            lapack = os.getenv('LIBLAPACK')
+            if lapack is None:
+                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+            else:
+                env.setvar('GOTO', lapack)
 
         mpiroot = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
         if mpiroot and self.toolchain.options.get('usempi', None):
@@ -140,7 +141,13 @@ class EB_Amber(ConfigureMake):
             else:
                 self.mpi_option = '-mpi'
 
-        common_configopts = [self.cfg['configopts'], '--no-updates', '-noX11']
+        common_configopts = [self.cfg['configopts'], '--no-updates']
+
+        if get_software_root('X11') is None:
+            common_configopts.append('-noX11')
+
+        if self.name == 'Amber' and self.cfg['static']:
+            common_configopts.append('-static')
 
         netcdfroot = get_software_root('netCDF')
         if netcdfroot:

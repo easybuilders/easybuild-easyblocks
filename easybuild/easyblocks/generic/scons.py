@@ -51,10 +51,16 @@ class SCons(EasyBlock):
         """
         Build with SCons 
         """
-        cmd = "%(prebuildopts)s scons %(buildopts)s %(prefix)s" % {
+
+        par = ''
+        if self.cfg['parallel']:
+            par = "-j %s" % self.cfg['parallel']
+
+        cmd = "%(prebuildopts)s scons %(par)s %(buildopts)s %(prefix)s" % {
             'buildopts': self.cfg['buildopts'],
             'prebuildopts': self.cfg['prebuildopts'],
             'prefix': self.cfg['prefix_arg'] + self.installdir,
+            'par': par,
         }
         (out, _) = run_cmd(cmd, log_all=True, log_output=verbose)
 

@@ -30,6 +30,7 @@ EasyBuild support for installing ANSYS, implemented as an easyblock
 """
 import os
 import stat
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.run import run_cmd
@@ -76,6 +77,8 @@ class EB_ANSYS(PackedBinary):
             "Icepak/bin",
             "icemcfd/linux64_amd/bin"
         ]
+        if LooseVersion(self.version) >= LooseVersion('19.0'):
+            dirs.append("CEI/bin")
         guesses.update({"PATH": [os.path.join(self.ansysver, dir) for dir in dirs]})
         return guesses
 

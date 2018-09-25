@@ -134,7 +134,7 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             break
         else:
             log.debug("Python command '%s' does not satisfy version requirements (maj: %s, min: %s), moving on",
-                      req_maj_ver, req_min_ver, python_cmd)
+                      python_cmd, req_maj_ver, req_min_ver)
 
     return res
 
