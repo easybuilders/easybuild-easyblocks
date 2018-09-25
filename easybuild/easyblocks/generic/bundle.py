@@ -76,7 +76,11 @@ class Bundle(EasyBlock):
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
 
-        for comp_name, comp_version, comp_specs in self.cfg['components']:
+        for comp in self.cfg['components']:
+            comp_name, comp_version, comp_specs = comp[0], comp[1], {}
+            if len(comp) == 3:
+                comp_specs = comp[2]
+
             cfg = self.cfg.copy()
 
             cfg['name'] = comp_name
@@ -123,6 +127,19 @@ class Bundle(EasyBlock):
         self.cfg.update('checksums', checksums_patches)
 
         self.cfg.enable_templating = True
+
+    def check_checksums(self):
+        """
+        Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
+
+        :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
+        """
+        checksum_issues = []
+
+        for comp in self.comp_cfgs:
+            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+
+        return checksum_issues
 
     def configure_step(self):
         """Collect altroot/altversion info."""

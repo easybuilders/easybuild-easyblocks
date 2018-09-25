@@ -189,6 +189,7 @@ class EB_WIEN2k(EasyBlock):
              'Your compiler:': '',
              'Hit Enter to continue': '',
              'Remote shell (default is ssh) =': '',
+             'Remote copy (default is scp) =': '',
              'and you need to know details about your installed  mpi ..) (y/n)': 'y',
              'Q to quit Selection:': 'Q',
              'A Compile all programs (suggested) Q Quit Selection:': 'Q',

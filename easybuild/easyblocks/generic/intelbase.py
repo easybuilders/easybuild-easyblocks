@@ -408,7 +408,14 @@ class IntelBase(EasyBlock):
         env.setvar('INSTALL_PATH', self.installdir)
 
         # perform installation
-        cmd = "./install.sh %s -s %s" % (tmppathopt, silentcfg)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            './install.sh',
+            tmppathopt,
+            '-s ' + silentcfg,
+            self.cfg['installopts'],
+        ])
+
         return run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def move_after_install(self):
@@ -444,12 +451,6 @@ class IntelBase(EasyBlock):
         if self.requires_runtime_license:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
                                                        allow_abs=True, expand_relpaths=False)
-
-        if self.cfg['m32']:
-            nlspath = os.path.join('idb', '32', 'locale', '%l_%t', '%N')
-        else:
-            nlspath = os.path.join('idb', 'intel64', 'locale', '%l_%t', '%N')
-        txt += self.module_generator.prepend_paths('NLSPATH', nlspath)
 
         return txt
 

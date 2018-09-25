@@ -258,18 +258,23 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         finally:
             os.chdir(orig_workdir)
 
-        modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
-        luamodfile = '%s.lua' % modfile
-        self.assertTrue(os.path.exists(modfile) or os.path.exists(luamodfile),
-                        "Module file %s or %s was generated" % (modfile, luamodfile))
-
-        if os.path.exists(modfile):
-            modtxt = read_file(modfile)
+        if os.path.basename(easyblock) == 'modulerc.py':
+            # .modulerc must be cleaned up to avoid causing trouble (e.g. "Duplicate version symbol" errors)
+            modulerc = os.path.join(TMPDIR, 'modules', 'all', name, '.modulerc')
+            os.remove(modulerc)
         else:
-            modtxt = read_file(luamodfile)
+            modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
+            luamodfile = '%s.lua' % modfile
+            self.assertTrue(os.path.exists(modfile) or os.path.exists(luamodfile),
+                            "Module file %s or %s was generated" % (modfile, luamodfile))
 
-        none_regex = re.compile('None')
-        self.assertFalse(none_regex.search(modtxt), "None not found in module file: %s" % modtxt)
+            if os.path.exists(modfile):
+                modtxt = read_file(modfile)
+            else:
+                modtxt = read_file(luamodfile)
+
+            none_regex = re.compile('None')
+            self.assertFalse(none_regex.search(modtxt), "None not found in module file: %s" % modtxt)
 
         # cleanup
         app.close_log()
@@ -311,6 +316,9 @@ def suite():
     for prgenv in ['PrgEnv-cray', 'PrgEnv-gnu', 'PrgEnv-intel', 'PrgEnv-pgi']:
         write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
+    # add foo/1.3.2.1.1 module, required for testing ModuleAlias easyblock
+    write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.2.3.4.5'), "#%Module")
+
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
@@ -324,6 +332,14 @@ def suite():
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
             exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
+        elif os.path.basename(easyblock) == 'modulerc.py':
+            # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
+            extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
+            test_definition = ' '.join([
+                "def innertest(self):",
+                "  template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt),
+            ])
+            exec(test_definition)
         else:
             exec("def innertest(self): template_module_only_test(self, '%s')" % easyblock)
         innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
