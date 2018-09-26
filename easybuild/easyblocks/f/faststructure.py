@@ -69,7 +69,7 @@ class EB_fastStructure(CmdCp):
             for pyfile in self.pyfiles:
                 with open(os.path.join(self.installdir, pyfile), 'r+') as pf:
                     pf_contents = pf.read()
-                    pf.seek(0,0)
+                    pf.seek(0, 0)
                     pf.write('#!/usr/bin/env python\n' + pf_contents)
                 os.chmod(os.path.join(self.installdir, pyfile), 0755)
         except OSError, err:
