@@ -71,7 +71,7 @@ class EB_fastStructure(CmdCp):
                     pf_contents = pf.read()
                     pf.seek(0, 0)
                     pf.write('#!/usr/bin/env python\n' + pf_contents)
-                os.chmod(os.path.join(self.installdir, pyfile), 0755)
+                os.chmod(os.path.join(self.installdir, pyfile), 0o755)
         except OSError, err:
             raise EasyBuildError("Failed to patch .py files: %s", err)
 
