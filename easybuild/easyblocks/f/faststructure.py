@@ -53,7 +53,9 @@ class EB_fastStructure(CmdCp):
 
     def build_step(self):
         """Build fastStructure using setup.py."""
-        self.cfg['cmds_map'] = [('.*', 'cd vars && python setup.py build_ext --inplace && cd .. && python setup.py build_ext --inplace')]        
+        self.cfg['cmds_map'] = [
+            ('.*', 'cd vars && python setup.py build_ext --inplace && cd .. && python setup.py build_ext --inplace')
+        ]
         super(EB_fastStructure, self).build_step()
 
     def install_step(self):
