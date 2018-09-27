@@ -33,8 +33,8 @@ import stat
 
 from easybuild.easyblocks.generic.cmdcp import CmdCp
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import adjust_permissions, read_file, write_file
-
+from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
+from easybuild.tools.run import run_cmd
 
 class EB_fastStructure(CmdCp):
     """Support for building and installing fastStructure."""
@@ -55,10 +55,10 @@ class EB_fastStructure(CmdCp):
 
     def build_step(self):
         """Build fastStructure using setup.py."""
-        self.cfg['cmds_map'] = [
-            ('.*', 'cd vars && python setup.py build_ext --inplace && cd .. && python setup.py build_ext --inplace')
-        ]
-        super(EB_fastStructure, self).build_step()
+        cwd = change_dir('vars')
+        run_cmd("python setup.py build_ext --inplace")
+        change_dir(cwd)
+        run_cmd("python setup.py build_ext --inplace")
 
     def install_step(self):
         """Custom installation procedure for fastStructure."""
