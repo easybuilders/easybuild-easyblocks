@@ -84,6 +84,6 @@ class EB_fastStructure(CmdCp):
 
     def make_module_req_guess(self):
         """Make sure PATH is set correctly."""
-        return {
-            'PATH': ['.'],
-        }
+        guesses = super(EB_fastStructure, self).make_module_req_guess()
+        guesses['PATH'] = ['']
+        return guesses
