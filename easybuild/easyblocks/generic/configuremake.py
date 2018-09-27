@@ -73,7 +73,8 @@ class ConfigureMake(EasyBlock):
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
             'build_type': [None, "Type of system package is being configured for, e.g., x86_64-pc-linux-gnu "
-                                 "(determined by config.guess shipped with EasyBuild if None)", CUSTOM],
+                                 "(determined by config.guess shipped with EasyBuild if None, "
+                                 "False implies to leave it up to the configure script)", CUSTOM],
         })
         return extra_vars
 
@@ -221,7 +222,7 @@ class ConfigureMake(EasyBlock):
                     build_type = build_type.strip()
                     self.log.info("%s returned a build type %s", self.config_guess, build_type)
 
-            if build_type is not None:
+            if build_type is not None and build_type:
                 build_type_option = '--build=' + build_type
 
         cmd = ' '.join([
