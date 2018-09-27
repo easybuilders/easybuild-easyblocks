@@ -29,9 +29,11 @@ EasyBuild support for building and installing fastStructure, implemented as an e
 @author: Bob Dröge (University of Groningen)
 """
 import os
+import stat
 
 from easybuild.easyblocks.generic.cmdcp import CmdCp
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.filetools import adjust_permissions, read_file, write_file
 
 
 class EB_fastStructure(CmdCp):
@@ -65,15 +67,12 @@ class EB_fastStructure(CmdCp):
 
     def post_install_step(self):
         """Add a shebang to the .py files and make them executable."""
-        try:
-            for pyfile in self.pyfiles:
-                with open(os.path.join(self.installdir, pyfile), 'r+') as pf:
-                    pf_contents = pf.read()
-                    pf.seek(0, 0)
-                    pf.write('#!/usr/bin/env python\n' + pf_contents)
-                os.chmod(os.path.join(self.installdir, pyfile), 0o755)
-        except OSError, err:
-            raise EasyBuildError("Failed to patch .py files: %s", err)
+        for pyfile in self.pyfiles:
+            pf_path = os.path.join(self.installdir, pyfile)
+            pf_contents = read_file(pf_path)
+            write_file(pf_path, "#!/usr/bin/env python\n" + pf_contents)
+            adjust_permissions(pf_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            super(EB_fastStructure, self).post_install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for fastStructure."""
