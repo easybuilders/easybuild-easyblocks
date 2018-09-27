@@ -36,6 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
 from easybuild.tools.run import run_cmd
 
+
 class EB_fastStructure(CmdCp):
     """Support for building and installing fastStructure."""
 
