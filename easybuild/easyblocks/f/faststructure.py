@@ -51,6 +51,7 @@ class EB_fastStructure(CmdCp):
         """Initialisation of custom class variables for fastStructure."""
         super(EB_fastStructure, self).__init__(*args, **kwargs)
 
+        self.cfg['files_to_copy'] = ['*']
         self.pyfiles = ['distruct.py', 'chooseK.py', 'structure.py']
 
     def build_step(self):
@@ -59,11 +60,6 @@ class EB_fastStructure(CmdCp):
         run_cmd("python setup.py build_ext --inplace")
         change_dir(cwd)
         run_cmd("python setup.py build_ext --inplace")
-
-    def install_step(self):
-        """Custom installation procedure for fastStructure."""
-        self.cfg['files_to_copy'] = ['*']
-        super(EB_fastStructure, self).install_step()
 
     def post_install_step(self):
         """Add a shebang to the .py files and make them executable."""
