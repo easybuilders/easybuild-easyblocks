@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,8 +38,10 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import change_dir, mkdir
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
+from vsc.utils.missing import nub
 
 
 class CMakeMake(ConfigureMake):
@@ -58,24 +60,25 @@ class CMakeMake(ConfigureMake):
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        if builddir is not None:
-            self.log.nosupport("CMakeMake.configure_step: named argument 'builddir' (should be 'srcdir')", "2.0")
-
         # Set the search paths for CMake
-        include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
-        library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
+        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
+        cpaths = os.getenv('CPATH', '').split(os.pathsep)
+        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
         setvar("CMAKE_INCLUDE_PATH", include_paths)
         setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-        default_srcdir = '.'
-        if self.cfg.get('separate_build_dir', False):
-            objdir = os.path.join(self.builddir, 'easybuild_obj')
-            try:
-                os.mkdir(objdir)
-                os.chdir(objdir)
-            except OSError, err:
-                raise EasyBuildError("Failed to create separate build dir %s in %s: %s", objdir, os.getcwd(), err)
+        if builddir is None and self.cfg.get('separate_build_dir', False):
+            builddir = os.path.join(self.builddir, 'easybuild_obj')
+
+        if builddir:
+            mkdir(builddir, parents=True)
+            change_dir(builddir)
             default_srcdir = self.cfg['start_dir']
+        else:
+            default_srcdir = '.'
 
         if srcdir is None:
             if self.cfg.get('srcdir', None) is not None:
