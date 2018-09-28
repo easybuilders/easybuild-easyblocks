@@ -109,7 +109,8 @@ class EB_VMD(ConfigureMake):
 
         # plugins need to be built first (see http://www.ks.uiuc.edu/Research/vmd/doxygen/compiling.html)
         change_dir(os.path.join(self.cfg['start_dir'], 'plugins'))
-        cmd = "make LINUXAMD64 TCLLIB='-L%s' TCLINC='-I%s' NETCDFLIB='-L%s' NETCDFINC='-I%s' %s" % (tcllib, tclinc, netcdflib, netcdfinc, self.cfg['buildopts'])
+        cmd = "make LINUXAMD64 TCLLIB='-L%s' TCLINC='-I%s' " % (tcllib, tclinc)
+        cmd += "NETCDFLIB='-L%s' NETCDFINC='-I%s' %s" % (netcdflib, netcdfinc, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=False)
 
         # create plugins distribution
@@ -192,9 +193,11 @@ class EB_VMD(ConfigureMake):
         super(EB_VMD, self).install_step()
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
-            copy_file(os.path.join(vmddir, 'lib', 'surf', 'surf'), os.path.join(self.installdir, 'lib', 'surf_LINUXAMD64'))
+            surf_bin = os.path.join(vmddir, 'lib', 'surf', 'surf')
+            copy_file(surf_bin, os.path.join(self.installdir, 'lib', 'surf_LINUXAMD64'))
             if self.have_stride:
-                copy_file(os.path.join(vmddir, 'lib', 'stride', 'stride'), os.path.join(self.installdir, 'lib', 'stride_LINUXAMD64'))
+                stride_bin = os.path.join(vmddir, 'lib', 'stride', 'stride')
+                copy_file(stride_bin, os.path.join(self.installdir, 'lib', 'stride_LINUXAMD64'))
 
     def sanity_check_step(self):
         """Custom sanity check for VMD."""
