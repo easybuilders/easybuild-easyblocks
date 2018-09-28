@@ -63,11 +63,10 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
             # shutil.copytree doesn't allow the target directory to exist already
             rmtree2(self.installdir)
             shutil.copytree(os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd'),
-                                    self.installdir, symlinks=self.cfg['keepsymlinks'])
+                            self.installdir, symlinks=self.cfg['keepsymlinks'])
         except OSError, err:
             raise EasyBuildError("Failed to copy %s to %s: %s",
-	os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd'),
-	self.installdir, err)
+        os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd'), self.installdir, err)
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
