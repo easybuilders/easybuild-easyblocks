@@ -111,7 +111,8 @@ class EB_Molpro(ConfigureMake, Binary):
                 elif self.toolchain.mpi_family() == toolchain.INTELMPI:
                     self.cfg.update('configopts', "-intel-mpi")
                 else:
-                    raise EasyBuildError("Failed to find out which MPI toolchain is in use: %s" % self.toolchain.mpi_family())
+                    raise EasyBuildError("Failed to find out which MPI toolchain is in use: %s"
+                                         % self.toolchain.mpi_family())
             else:
                 self.cfg.update('configopts', "-%s -%s" % (os.environ['CC'], os.environ['F90']))
 
@@ -148,11 +149,11 @@ class EB_Molpro(ConfigureMake, Binary):
 
             # patch CONFIG file to change COPT3 to -O2, intel core
             # dumps at -O3 on some of the files.
-            apply_regex_substitutions(cfgfile, [(r"^(COPT3\s*=\s*).*$", r"\1-O2" )])
-            apply_regex_substitutions(cfgfile, [(r"^(FOPT3\s*=\s*).*$", r"\1-O2" )])
+            apply_regex_substitutions(cfgfile, [(r"^(COPT3\s*=\s*).*$", r"\1-O2")])
+            apply_regex_substitutions(cfgfile, [(r"^(FOPT3\s*=\s*).*$", r"\1-O2")])
 
             # Turn on VERBOSE build
-            apply_regex_substitutions(cfgfile, [(r"^(VERBOSE\s*=\s*).*$", r"\1" )])
+            apply_regex_substitutions(cfgfile, [(r"^(VERBOSE\s*=\s*).*$", r"\1")])
 
             # reread CONFIG and log contents
             cfgtxt = read_file(cfgfile)
