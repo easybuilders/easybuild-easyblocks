@@ -69,7 +69,8 @@ class EB_fastStructure(CmdCp):
             pf_contents = read_file(pf_path)
             write_file(pf_path, "#!/usr/bin/env python\n" + pf_contents)
             adjust_permissions(pf_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            super(EB_fastStructure, self).post_install_step()
+        
+        super(EB_fastStructure, self).post_install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for fastStructure."""
