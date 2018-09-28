@@ -72,9 +72,12 @@ class ConfigureMake(EasyBlock):
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
-            'build_type': [None, "Type of system package is being configured for, e.g., x86_64-pc-linux-gnu "
-                                 "(determined by config.guess shipped with EasyBuild if None, "
-                                 "False implies to leave it up to the configure script)", CUSTOM],
+            'build_type': [None, "Value to provide to --build option of configure script, e.g., x86_64-pc-linux-gnu "
+                                 "(determined by config.guess shipped with EasyBuild if None,"
+                                 " False implies to leave it up to the configure script)", CUSTOM],
+            'host_type': [None, "Value to provide to --host option of configure script, e.g., x86_64-pc-linux-gnu "
+                                "(determined by config.guess shipped with EasyBuild if None,"
+                                " False implies to leave it up to the configure script)", CUSTOM],
         })
         return extra_vars
 
@@ -203,10 +206,13 @@ class ConfigureMake(EasyBlock):
         # it is possible that the configure script is generated using preconfigopts...
         # if so, we're at the mercy of the gods
         build_type_option = ''
+        host_type_option = ''
         if os.path.exists(configure_command) and AUTOCONF_GENERATED_MSG in read_file(configure_command):
-            build_type = self.cfg.get('build_type')
 
-            if build_type is None:
+            build_type = self.cfg.get('build_type')
+            host_type = self.cfg.get('host_type')
+
+            if build_type is None or host_type is None:
 
                 # config.guess script may not be obtained yet despite the call in fetch_step,
                 # for example when installing a Bundle component with ConfigureMake
@@ -218,18 +224,30 @@ class ConfigureMake(EasyBlock):
                                   "EasyBuild attempts to download a recent config.guess but seems to have failed!")
                 else:
                     self.check_config_guess()
-                    build_type, _ = run_cmd(self.config_guess, log_all=True)
-                    build_type = build_type.strip()
-                    self.log.info("%s returned a build type %s", self.config_guess, build_type)
+                    system_type, _ = run_cmd(self.config_guess, log_all=True)
+                    system_type = system_type.strip()
+                    self.log.info("%s returned a system type '%s'", self.config_guess, system_type)
+
+                    if build_type is None:
+                        build_type = system_type
+                        self.log.info("Providing '%s' as value to --build option of configure script", build_type)
+
+                    if host_type is None:
+                        host_type = system_type
+                        self.log.info("Providing '%s' as value to --host option of configure script", host_type)
 
             if build_type is not None and build_type:
                 build_type_option = '--build=' + build_type
+
+            if host_type is not None and host_type:
+                host_type_option = '--host=' + host_type
 
         cmd = ' '.join([
             self.cfg['preconfigopts'],
             configure_command,
             prefix_opt + self.installdir,
             build_type_option,
+            host_type_option,
             self.cfg['configopts'],
         ])
 
