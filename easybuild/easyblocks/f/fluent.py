@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,8 +69,11 @@ class EB_FLUENT(PackedBinary):
         guesses = super(EB_FLUENT, self).make_module_req_guess()
 
         guesses.update({
-            "PATH": [os.path.join(self.fluent_verdir, "fluent", "bin")],
-            "LD_LIBRARY_PATH": [os.path.join(self.fluent_verdir, "fluent", "lib")],
+            'PATH': [
+                os.path.join(self.fluent_verdir, 'fluent', 'bin'),
+                os.path.join(self.fluent_verdir, 'Framework', 'bin', 'Linux64'),
+            ],
+            'LD_LIBRARY_PATH': [os.path.join(self.fluent_verdir, 'fluent', 'lib')],
         })
 
         return guesses

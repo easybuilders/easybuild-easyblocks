@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2017 Ghent University
+# Copyright 2012-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -73,10 +73,11 @@ class EB_R(ConfigureMake):
                 dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
                 self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
 
-        if get_software_root('X11'):
-            self.cfg.update('configopts', '--with-x=yes')
-        else:
-            self.cfg.update('configopts', '--with-x=no')
+        if "--with-x=" not in self.cfg['configopts'].lower():
+            if get_software_root('X11'):
+                self.cfg.update('configopts', '--with-x=yes')
+            else:
+                self.cfg.update('configopts', '--with-x=no')
 
         # enable graphic capabilities for plotting, based on available dependencies
         for dep in ['Cairo', 'libjpeg-turbo', 'libpng', 'libtiff']:

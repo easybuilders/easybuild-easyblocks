@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,24 +38,39 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+# Pkgconfig data template
+# Based on pkgconfig file from Debian packaging of HDF5
+HDF5_PKG_CONFIG = """Name: HDF5
+Description: Hierarchical Data Format 5 (HDF5)
+Version: %s
+Requires:
+Cflags: -I%s
+Libs: -L%s -lhdf5 %s
+"""
 
 class EB_HDF5(ConfigureMake):
     """Support for building/installing HDF5"""
 
+    def __init__(self, *args, **kwargs):
+        """Initialize HDF5-specific variables."""
+        super(EB_HDF5, self).__init__(*args, **kwargs)
+        # configure options for dependencies
+        self.known_deps = [
+            {'name': 'Szip', 'with': 'szlib', 'lib': '-lsz'},
+            {'name': 'zlib', 'with': 'zlib', 'lib': '-lz'},
+        ]
+
     def configure_step(self):
         """Configure build: set require config and make options, and run configure script."""
 
-        # configure options for dependencies
-        deps = [
-            ("Szip", "--with-szlib"),
-            ("zlib", "--with-zlib"),
-        ]
-        for (dep, opt) in deps:
-            root = get_software_root(dep)
+        for dep in self.known_deps:
+            root = get_software_root(dep['name'])
             if root:
-                self.cfg.update('configopts', '%s=%s' % (opt, root))
+                self.cfg.update('configopts', '--with-%s=%s' % (dep['with'], root))
 
         fcomp = 'FC="%s"' % os.getenv('F90')
 
@@ -81,7 +96,20 @@ class EB_HDF5(ConfigureMake):
 
         super(EB_HDF5, self).configure_step()
 
-    # default make and make install are ok
+    # default make and make install are ok but add a pkconfig file
+    def install_step(self):
+        """Custom install step for HDF5"""
+        super(EB_HDF5, self).install_step()
+        hdf5_lib_deps = ''
+        for dep in self.known_deps:
+            root = get_software_root(dep['name'])
+            if root:
+                hdf5_lib_deps = hdf5_lib_deps + dep['lib'] + ' '
+
+        inc_dir = os.path.join(self.installdir, 'include')
+        lib_dir = os.path.join(self.installdir, 'lib')
+        hdf5_pc_txt = HDF5_PKG_CONFIG % (self.version, inc_dir, lib_dir, hdf5_lib_deps)
+        write_file(os.path.join(self.installdir, "lib", "pkgconfig", "hdf5.pc"), hdf5_pc_txt)
 
     def sanity_check_step(self):
         """
@@ -106,6 +134,13 @@ class EB_HDF5(ConfigureMake):
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_req_guess(self):
+        """Specify pkgconfig path for HDF5."""
+        guesses = super(EB_HDF5, self).make_module_req_guess()
+        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
+
+        return guesses
 
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""
