@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2017 Ghent University
-# Copyright 2015-2017 Stanford University
+# Copyright 2009-2018 Ghent University
+# Copyright 2015-2018 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,6 +59,7 @@ class EB_Amber(ConfigureMake):
             'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
             # enable testing by default
             'runtest': [True, "Run tests after each build", CUSTOM],
+            'static': [True, "Build statically linked executables", CUSTOM],
         })
         return ConfigureMake.extra_options(extra_vars)
 
@@ -121,15 +122,32 @@ class EB_Amber(ConfigureMake):
 
         # define environment variables for MPI, BLAS/LAPACK & dependencies
         mklroot = get_software_root('imkl')
+        openblasroot = get_software_root('OpenBLAS')
         if mklroot:
             env.setvar('MKL_HOME', mklroot)
+        elif openblasroot:
+            lapack = os.getenv('LIBLAPACK')
+            if lapack is None:
+                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+            else:
+                env.setvar('GOTO', lapack)
 
         mpiroot = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
         if mpiroot and self.toolchain.options.get('usempi', None):
             env.setvar('MPI_HOME', mpiroot)
             self.with_mpi = True
+            if self.toolchain.mpi_family() == toolchain.INTELMPI:
+                self.mpi_option = '-intelmpi'
+            else:
+                self.mpi_option = '-mpi'
 
-        common_configopts = [self.cfg['configopts'], '--no-updates', '-static', '-noX11']
+        common_configopts = [self.cfg['configopts'], '--no-updates']
+
+        if get_software_root('X11') is None:
+            common_configopts.append('-noX11')
+
+        if self.name == 'Amber' and self.cfg['static']:
+            common_configopts.append('-static')
 
         netcdfroot = get_software_root('netCDF')
         if netcdfroot:
@@ -157,11 +175,15 @@ class EB_Amber(ConfigureMake):
         else:
             raise EasyBuildError("Don't know how to compile with compiler family '%s' -- check EasyBlock?", comp_fam)
 
+        # The NAB compiles need openmp flag
+        if self.toolchain.options.get('openmp', None):
+            env.setvar('CUSTOMBUILDFLAGS', self.toolchain.get_flag('openmp'))
+
         # compose list of build targets
         build_targets = [('', 'test')]
 
         if self.with_mpi:
-            build_targets.append(('-mpi', 'test.parallel'))
+            build_targets.append((self.mpi_option, 'test.parallel'))
             # hardcode to 4 MPI processes, minimal required to run all tests
             env.setvar('DO_PARALLEL', 'mpirun -np 4')
 
@@ -171,7 +193,7 @@ class EB_Amber(ConfigureMake):
             self.with_cuda = True
             build_targets.append(('-cuda', 'test.cuda'))
             if self.with_mpi:
-                build_targets.append(("-cuda -mpi", 'test.cuda_parallel'))
+                build_targets.append(("-cuda %s" % self.mpi_option, 'test.cuda_parallel'))
 
         ld_lib_path = os.environ.get('LD_LIBRARY_PATH', '')
         env.setvar('LD_LIBRARY_PATH', os.pathsep.join([os.path.join(self.installdir, 'lib'), ld_lib_path]))
@@ -194,13 +216,18 @@ class EB_Amber(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Amber."""
-        binaries = ['pmemd', 'sander', 'tleap']
-        if self.with_cuda:
-            binaries.append('pmemd.cuda')
-            if self.with_mpi:
-                binaries.append('pmemd.cuda.MPI')
+        binaries = ['sander', 'tleap']
+        if self.name == 'Amber':
+            binaries.append('pmemd')
+            if self.with_cuda:
+                binaries.append('pmemd.cuda')
+                if self.with_mpi:
+                    binaries.append('pmemd.cuda.MPI')
+
         if self.with_mpi:
-            binaries.extend(['pmemd.MPI', 'sander.MPI'])
+            binaries.extend(['sander.MPI'])
+            if self.name == 'Amber':
+                binaries.append('pmemd.MPI')
 
         custom_paths = {
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],

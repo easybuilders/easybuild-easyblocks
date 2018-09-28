@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
-
+from easybuild.tools.environment import unset_env_vars
 
 class PerlModule(ExtensionEasyBlock, ConfigureMake):
     """Builds and installs a Perl module, and can provide a dedicated module file."""
@@ -54,6 +54,10 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         super(PerlModule, self).__init__(*args, **kwargs)
         self.testcmd = None
 
+        # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail. 
+        # Therefore it is better to unset these variables.
+        unset_env_vars(['PERL_MM_OPT', 'PERL_MB_OPT'])
+
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
         # Perl modules have two possible installation procedures: using Makefile.PL and Build.PL
@@ -66,7 +70,8 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         elif os.path.exists('Build.PL'):
             run_cmd('%s perl Build.PL --prefix %s %s' % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts']))
             run_cmd('%s perl Build build %s' % (self.cfg['prebuildopts'], self.cfg['buildopts']))
-            run_cmd('perl Build test')
+            if self.cfg['runtest']:
+                run_cmd('perl Build %s' % self.cfg['runtest'])
             run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):

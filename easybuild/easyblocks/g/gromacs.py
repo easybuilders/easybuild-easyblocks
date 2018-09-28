@@ -30,6 +30,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Benjamin Roberts (The University of Auckland)
 @author: Luca Marsella (CSCS)
 @author: Guilherme Peretti-Pezzi (CSCS)
+@author: Oliver Stueker (Compute Canada/ACENET)
 """
 import glob
 import os
@@ -42,11 +43,13 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name , get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
 
 
 class EB_GROMACS(CMakeMake):
@@ -68,6 +71,58 @@ class EB_GROMACS(CMakeMake):
         super(EB_GROMACS, self).__init__(*args, **kwargs)
         self.lib_subdir = ''
         self.pre_env = ''
+
+    def get_gromacs_arch(self):
+        """Determine value of GMX_SIMD CMake flag based on optarch string.
+
+        Refs:
+        [0] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#typical-installation
+        [1] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#simd-support
+        [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
+        """
+        # default: fall back on autodetection
+        res = None
+
+        optarch = build_option('optarch') or ''
+        # take into account that optarch value is a dictionary if it is specified by compiler family
+        if isinstance(optarch, dict):
+            comp_fam = self.toolchain.comp_family()
+            optarch = optarch.get(comp_fam, '')
+        optarch = optarch.upper()
+
+        # The list of GMX_SIMD options can be found
+        # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
+        if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512_KNL'
+        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512'
+        elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
+            res = 'AVX2_256'
+        elif 'AVX' in optarch:
+            res = 'AVX_256'
+        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch:
+            # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
+            # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
+            # and SSE4.1 is not supported by AMD Magny-Cours[1].
+            res = 'SSE2'
+        elif optarch == OPTARCH_GENERIC:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                res = 'SSE2'
+            else:
+                res = 'None'
+        elif optarch:
+            warn_msg = "--optarch configuration setting set to %s but not taken into account; " % optarch
+            warn_msg += "compiling GROMACS for the current host architecture (i.e. the default behavior)"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
+
+        if res:
+            self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
+        else:
+            self.log.info("No target architecture specified based on optarch configuration option ('%s')", optarch)
+
+        return res
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
@@ -138,8 +193,11 @@ class EB_GROMACS(CMakeMake):
 
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
-            # build a release build
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+            # Select debug or release build
+            if self.toolchain.options.get('debug', None):
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Debug")
+            else:
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
@@ -157,6 +215,14 @@ class EB_GROMACS(CMakeMake):
 
             # disable GUI tools
             self.cfg.update('configopts', "-DGMX_X11=OFF")
+
+            # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
+            gmx_simd = self.get_gromacs_arch()
+            if gmx_simd:
+                if LooseVersion(self.version) < LooseVersion('5.0'):
+                    self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                else:
+                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'

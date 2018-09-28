@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2017 Bart Oldeman
-# Copyright 2016-2017 Forschungszentrum Juelich
+# Copyright 2015-2018 Bart Oldeman
+# Copyright 2016-2018 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -41,7 +41,6 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
@@ -65,6 +64,12 @@ append LDLIBARGS=$library_path;
 append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
 """
 
+# contents for siterc file to make PGI accept the -pthread switch
+SITERC_PTHREAD_SWITCH = """
+# replace unknown switch -pthread with -lpthread
+switch -pthread is replace(-lpthread) positional(linker);
+"""
+
 
 class EB_PGI(PackedBinary):
     """
@@ -86,7 +91,7 @@ class EB_PGI(PackedBinary):
         super(EB_PGI, self).__init__(*args, **kwargs)
 
         self.license_file = 'UNKNOWN'
-        self.license_env_var = 'UNKNOWN' # Probably not really necessary for PGI
+        self.license_env_var = 'UNKNOWN'  # Probably not really necessary for PGI
 
         self.pgi_install_subdir = os.path.join('linux86-64', self.version)
 
@@ -110,8 +115,7 @@ class EB_PGI(PackedBinary):
             env.setvar(self.license_env_var, self.license_file)
 
         else:
-            raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
-                                 "define $PGROUPD_LICENSE_FILE or $LM_LICENSE_FILE")
+            self.log.info("No viable license specifications found, assuming PGI Community Edition...")
 
     def install_step(self):
         """Install by running install command."""
@@ -146,11 +150,14 @@ class EB_PGI(PackedBinary):
                 if os.path.islink(path):
                     os.remove(path)
 
-        # install (or update) siterc file to make PGI consider $LIBRARY_PATH
+        # install (or update) siterc file to make PGI consider $LIBRARY_PATH and accept -pthread
         siterc_path = os.path.join(self.installdir, self.pgi_install_subdir, 'bin', 'siterc')
         write_file(siterc_path, SITERC_LIBRARY_PATH, append=True)
         self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
                       siterc_path, SITERC_LIBRARY_PATH)
+        write_file(siterc_path, SITERC_PTHREAD_SWITCH, append=True)
+        self.log.info("Append instructions to replace -pthread with -lpthread to siterc file at %s: %s",
+                      siterc_path, SITERC_PTHREAD_SWITCH)
 
     def sanity_check_step(self):
         """Custom sanity check for PGI"""
@@ -179,7 +186,8 @@ class EB_PGI(PackedBinary):
     def make_module_extra(self):
         """Add environment variables LM_LICENSE_FILE and PGI for license file and PGI location"""
         txt = super(EB_PGI, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
-                                                   allow_abs=True, expand_relpaths=False)
+        if self.license_env_var:
+            txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                       allow_abs=True, expand_relpaths=False)
         txt += self.module_generator.set_environment('PGI', self.installdir)
         return txt
