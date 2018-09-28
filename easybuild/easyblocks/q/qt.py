@@ -81,10 +81,16 @@ class EB_Qt(ConfigureMake):
         else:
             raise EasyBuildError("Don't know which platform to set based on compiler family.")
 
+        # configure Qt such that xmlpatterns is also installed
+        # -xmlpatterns is not a known configure option for Qt 5.x, but there xmlpatterns support is enabled by default
+        if LooseVersion(self.version) >= LooseVersion('4') and LooseVersion(self.version) < LooseVersion('5'):
+            self.cfg.update('configopts', '-xmlpatterns')
+
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
             "Do you accept the terms of either license?": 'yes',
+            "Which edition of Qt do you want to use?": 'o',
         }
         no_qa = [
             "for .*pro",
@@ -94,6 +100,7 @@ class EB_Qt(ConfigureMake):
             "Project MESSAGE:.*",
             "rm -f .*",
             'Creating qmake...',
+            'Checking for .*...',
         ]
         run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=120)
 
@@ -127,8 +134,11 @@ class EB_Qt(ConfigureMake):
             libfile = os.path.join('lib', 'libqt.%s' % shlib_ext)
 
         custom_paths = {
-            'files': [libfile],
-            'dirs': ['bin', 'include', 'plugins'],
+            'files': ['bin/moc', 'bin/qmake', libfile],
+            'dirs': ['include', 'plugins'],
         }
+
+        if LooseVersion(self.version) >= LooseVersion('4'):
+            custom_paths['files'].append('bin/xmlpatterns')
 
         super(EB_Qt, self).sanity_check_step(custom_paths=custom_paths)

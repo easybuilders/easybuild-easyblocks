@@ -1,8 +1,8 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2017 Uni.Lu/LCSB, NTUA
-# Copyright:: Copyright 2016-2017 Forschungszentrum Juelich
+# Copyright:: Copyright 2012-2018 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2016-2018 Forschungszentrum Juelich
 # Authors::   Fotis Georgatos <fotis@cern.ch>
 # Authors::   Damian Alvarez  <d.alvarez@fz-juelich.de>
 # License::   MIT/GPL

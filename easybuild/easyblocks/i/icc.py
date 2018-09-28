@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2017 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -214,6 +214,11 @@ class EB_icc(IntelBase):
         if prefix and os.path.isdir(os.path.join(self.installdir, prefix)):
             for key, subdirs in guesses.items():
                 guesses[key] = [os.path.join(prefix, subdir) for subdir in subdirs]
+
+            # The for loop above breaks libipt library loading for gdb - this fixes that
+            guesses['LD_LIBRARY_PATH'].append('daal/lib/intel64_lin')
+            if self.debuggerpath:
+                guesses['LD_LIBRARY_PATH'].append(os.path.join(self.debuggerpath, 'libipt/intel64/lib'))
 
         # only set $IDB_HOME if idb exists
         idb_home_subdir = 'bin/intel64'
