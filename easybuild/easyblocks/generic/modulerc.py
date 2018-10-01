@@ -56,10 +56,10 @@ class ModuleRC(EasyBlock):
     def make_module_step(self, fake=False):
         """Install .modulerc file."""
         modfile_path = self.module_generator.get_module_filepath(fake=fake)
-        modulerc = os.path.join(os.path.dirname(modfile_path), '.modulerc')
+        modulerc = os.path.join(os.path.dirname(modfile_path), self.module_generator.DOT_MODULERC)
 
         if os.path.exists(modulerc) and not build_option('force'):
-            raise EasyBuildError("Found existing .modulerc at %s, not overwriting without --force", modulerc)
+            raise EasyBuildError("Found existing file at %s, not overwriting without --force", modulerc)
 
         deps = self.cfg['dependencies']
         if len(deps) != 1:
