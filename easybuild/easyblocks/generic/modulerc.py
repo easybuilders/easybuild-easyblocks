@@ -74,7 +74,7 @@ class ModuleRC(EasyBlock):
             raise EasyBuildError("Version is not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
-        alias_modname = deps[0]['full_mod_name']
+        alias_modname = deps[0]['short_mod_name']
         self.log.info("Adding module version alias for %s to %s", alias_modname, modulerc)
 
         module_version_specs = {'modname': alias_modname, 'sym_version': self.version, 'version': deps[0]['version']}
