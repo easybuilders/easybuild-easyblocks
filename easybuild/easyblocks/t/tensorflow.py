@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, which, write_file
+from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
@@ -367,33 +367,11 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
-            # --upgrade is required to ensure *this* wheel is installed
-            # cfr. https://github.com/tensorflow/tensorflow/issues/7449
-            cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
+            # --ignore-installed is required to ensure *this* wheel is installed
+            cmd = "pip install --ignore-installed --no-deps --prefix=%s %s" % (self.installdir, whl_paths[0])
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
-
-        # Fix for https://github.com/tensorflow/tensorflow/issues/6341
-        # If the site-packages/google/__init__.py file is missing, make
-        # it an empty file.
-        # This fixes the "No module named google.protobuf" error that
-        # sometimes shows up during sanity_check
-        google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
-        if not is_readable(google_init_file):
-            write_file(google_init_file, '')
-
-        # test installation using MNIST tutorial examples
-        # (can't be done in sanity check because mnist_deep.py is not part of installation)
-        if self.cfg['runtest']:
-            pythonpath = os.getenv('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
-
-            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
-                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
-                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
-                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
-                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
@@ -408,3 +386,14 @@ class EB_TensorFlow(PythonPackage):
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
         super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+        # test installation using MNIST tutorial examples
+        if self.cfg['runtest']:
+            pythonpath = os.getenv('PYTHONPATH', '')
+            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+
+            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
+                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
+                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
+                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
+                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
