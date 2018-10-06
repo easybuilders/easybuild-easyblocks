@@ -368,7 +368,13 @@ class EB_TensorFlow(PythonPackage):
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
-            cmd = "pip install --ignore-installed --no-deps --prefix=%s %s" % (self.installdir, whl_paths[0])
+            cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
+
+            # if extensions are listed, assume they will provide all required dependencies,
+            # so use --no-deps to prevent pip from downloading & installing them
+            if self.cfg['exts_list']:
+                cmd += ' --no-deps'
+
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
