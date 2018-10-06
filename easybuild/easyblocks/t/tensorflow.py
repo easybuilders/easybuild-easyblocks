@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import which, write_file
+from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
@@ -378,6 +378,17 @@ class EB_TensorFlow(PythonPackage):
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
+
+        # Fix for https://github.com/tensorflow/tensorflow/issues/6341
+        # If the site-packages/google/__init__.py file is missing, make
+        # it an empty file.
+        # This fixes the "No module named google.protobuf" error that
+        # sometimes shows up during sanity_check
+        google_protobuf_dir = os.path.join(self.installdir, self.pylibdir, 'google', 'protobuf')
+        google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
+        if os.path.isdir(google_protobuf_dir) and not is_readable(google_init_file):
+            self.log.debug("Creating (empty) missing %s", google_init_file)
+            write_file(google_init_file, '')
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
