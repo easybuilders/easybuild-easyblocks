@@ -38,6 +38,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
@@ -83,6 +84,18 @@ class EB_TensorFlow(PythonPackage):
             'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize TensorFlow easyblock."""
+        super(EB_TensorFlow, self).__init__(*args, **kwargs)
+
+        self.cfg['exts_defaultclass'] = 'PythonPackage'
+
+        self.cfg['exts_default_options'] = {
+            'download_dep_fail': True,
+            'use_pip': True,
+        }
+        self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
