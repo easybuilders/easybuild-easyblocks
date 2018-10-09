@@ -4,7 +4,6 @@ EasyBuild support for Autoconf, implemented as an easyblock.
 Created by the BEAR Software team at the University of Birmingham
 to support IBM's Power architecture.
 """
-import os
 import subprocess
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
@@ -21,4 +20,3 @@ class EB_Autoconf(ConfigureMake):
             self.cfg['configopts'] += ' --build=ppc64le '
 
         super(EB_Autoconf, self).configure_step(cmd_prefix)
-
