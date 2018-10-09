@@ -1,5 +1,8 @@
 """
 EasyBuild support for Autoconf, implemented as an easyblock.
+
+Created by the BEAR Software team at the University of Birmingham
+to support IBM's Power architecture.
 """
 import os
 import subprocess
