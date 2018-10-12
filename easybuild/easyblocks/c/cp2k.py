@@ -57,7 +57,7 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_avail_core_count
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
-# CP2K needs this version of libxc
+# CP2K needs this version of libxc. CP2K 6.1 needs a more recent one (4.0.3)
 LIBXC_MIN_VERSION = '2.0.1'
 
 
@@ -222,9 +222,15 @@ class EB_CP2K(EasyBlock):
         elpa = get_software_root('ELPA')
         if elpa:
             options['LIBS'] += ' -lelpa'
-            options['DFLAGS'] += ' -D__ELPA3'
             elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'modules')
             options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
+            if LooseVersion(self.version) >= LooseVersion('6.1'):
+                elpa_ver = ''.join(get_software_version('ELPA').split('.')[:2])
+                options['DFLAGS'] += ' -D__ELPA=%s' % elpa_ver
+                elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'elpa')
+                options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
+            else:
+                options['DFLAGS'] += ' -D__ELPA3'
 
         # CUDA
         cuda = get_software_root('CUDA')
@@ -394,32 +400,40 @@ class EB_CP2K(EasyBlock):
                     raise EasyBuildError("Building the libint wrapper failed")
                 libint_wrapper = '%s/libint_cpp_wrapper.o' % libinttools_path
 
-            # determine LibInt libraries based on major version number
-            libint_maj_ver = get_software_version('LibInt').split('.')[0]
+            # determine Libint libraries based on major version number
+            libint_maj_ver = get_software_version('Libint').split('.')[0]
             if libint_maj_ver == '1':
                 libint_libs = "$(LIBINTLIB)/libderiv.a $(LIBINTLIB)/libint.a $(LIBINTLIB)/libr12.a"
             elif libint_maj_ver == '2':
                 libint_libs = "$(LIBINTLIB)/libint2.a"
             else:
                 raise EasyBuildError("Don't know how to handle libint version %s", libint_maj_ver)
-            self.log.info("Using LibInt version %s" % (libint_maj_ver))
+            self.log.info("Using Libint version %s" % (libint_maj_ver))
 
             options['LIBINTLIB'] = '%s/lib' % libint
             options['LIBS'] += ' %s -lstdc++ %s' % (libint_libs, libint_wrapper)
 
         else:
-            # throw a warning, since CP2K without LibInt doesn't make much sense
-            self.log.warning("LibInt module not loaded, so building without LibInt support")
+            # throw a warning, since CP2K without Libint doesn't make much sense
+            self.log.warning("Libint module not loaded, so building without Libint support")
 
 
         libxc = get_software_root('libxc')
         if libxc:
             cur_libxc_version = get_software_version('libxc')
-            if LooseVersion(cur_libxc_version) < LooseVersion(LIBXC_MIN_VERSION):
-                raise EasyBuildError("CP2K only works with libxc v%s (or later)", LIBXC_MIN_VERSION)
+            if LooseVersion(self.version) >= LooseVersion('6.1'):
+                LIBXC_MIN_VERSION = '4.0.3'
+                dflags = ' -D__LIBXC'
+            else:
+                dflags = ' -D__LIBXC2'
 
-            options['DFLAGS'] += ' -D__LIBXC2'
-            if LooseVersion(cur_libxc_version) >= LooseVersion('2.2'):
+            if LooseVersion(cur_libxc_version) < LooseVersion(LIBXC_MIN_VERSION):
+                raise EasyBuildError("This version of CP2K is not compatible with libxc < %s" % LIBXC_MIN_VERSION)
+
+            options['DFLAGS'] += dflags
+            if LooseVersion(cur_libxc_version) >= LooseVersion('4.0.3'):
+                options['LIBS'] += ' -L%s/lib -lxcf03 -lxc' % libxc
+            elif LooseVersion(cur_libxc_version) >= LooseVersion('2.2'):
                 options['LIBS'] += ' -L%s/lib -lxcf90 -lxc' % libxc
             else:
                 options['LIBS'] += ' -L%s/lib -lxc' % libxc
