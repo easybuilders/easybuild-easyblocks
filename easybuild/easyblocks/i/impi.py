@@ -163,13 +163,21 @@ EULA=accept
         if LooseVersion(self.version) > LooseVersion('4.0'):
             mpi_mods.extend(["mpi_base.mod", "mpi_constants.mod", "mpi_sizeofs.mod"])
 
-        custom_paths = {
-            'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
-                     ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
-                     ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
-                     ["lib%s/libmpi.%s" % (suff, get_shared_lib_ext()), "lib%s/libmpi.a" % suff],
-            'dirs': [],
-        }
+        if LooseVersion(self.version) >= LooseVersion('2019'):
+            custom_paths = {
+                'files': ["intel64/bin/mpi%s" % (x) for x in ["icc", "icpc", "ifort"]] +
+                         ["intel64/include/mpi%s.h" % (x) for x in ["cxx", "f", "", "o", "of"]] +
+                         ["intel64/lib/release/libmpi.%s" % (get_shared_lib_ext()), "intel64/lib/release/libmpi.a"],
+                'dirs': [],
+            }
+        else:
+            custom_paths = {
+                'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
+                         ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
+                         ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
+                         ["lib%s/libmpi.%s" % (suff, get_shared_lib_ext()), "lib%s/libmpi.a" % suff],
+                'dirs': [],
+            }
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -189,10 +197,11 @@ EULA=accept
                 'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
             }
         else:
-            lib_dirs = ['lib/em64t', 'lib64']
-            include_dirs = ['include64']
+            # Keep release and release_mt in front, to give priority to the symlinks in intel64/lib
+            lib_dirs = ['intel64/lib/release', 'intel64/lib/release_mt', 'lib/em64t', 'lib64', 'intel64/lib', 'intel64/libfabric/lib']
+            include_dirs = ['include64', 'intel64/include']
             return {
-                'PATH': ['bin/intel64', 'bin64'],
+                'PATH': ['bin/intel64', 'bin64', 'intel64/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
                 'MANPATH': ['man'],
