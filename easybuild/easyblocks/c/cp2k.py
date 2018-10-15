@@ -806,7 +806,7 @@ class EB_CP2K(EasyBlock):
         except OSError, err:
             raise EasyBuildError("Copying executables from %s to bin dir %s failed: %s", exedir, targetdir, err)
 
-        # copy library
+        # copy libraries
         if self.cfg['library']:
             targetdir = os.path.join(self.installdir, 'lib')
             libdir = os.path.join(self.cfg['start_dir'], 'lib/%s' % self.typearch, self.cfg['type'])
@@ -819,7 +819,7 @@ class EB_CP2K(EasyBlock):
                         shutil.copy2(library, targetdir)
             except OSError, err:
                 raise EasyBuildError("Copying libraries from %s to lib dir %s failed: %s", exedir, targetdir, err)
-            
+
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
         targetdir = os.path.join(self.installdir, 'data')
