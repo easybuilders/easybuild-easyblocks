@@ -50,12 +50,11 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import change_dir, copy_dir, copy_file, write_file
+from easybuild.tools.filetools import copy_dir, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_avail_core_count
-from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 # CP2K needs this version of libxc
 LIBXC_MIN_VERSION = '2.0.1'
@@ -797,10 +796,7 @@ class EB_CP2K(EasyBlock):
         targetdir = os.path.join(self.installdir, 'bin')
         exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
         try:
-            change_dir(exedir)
-            for exefile in os.listdir(exedir):
-                if os.path.isfile(exefile):
-                    copy_file(exefile, targetdir)
+            copy_dir(exedir, targetdir)
         except OSError, err:
             raise EasyBuildError("Copying executables from %s to bin dir %s failed: %s", exedir, targetdir, err)
 
@@ -809,10 +805,7 @@ class EB_CP2K(EasyBlock):
             targetdir = os.path.join(self.installdir, 'lib')
             libdir = os.path.join(self.cfg['start_dir'], 'lib', self.typearch, self.cfg['type'])
             try:
-                change_dir(libdir)
-                for lib in os.listdir(libdir):
-                    if os.path.isfile(lib):
-                        copy_file(lib, targetdir)
+                copy_dir(libdir, targetdir)
             except OSError as err:
                 raise EasyBuildError("Copying libraries from %s to lib dir %s failed: %s", libdir, targetdir, err)
 
