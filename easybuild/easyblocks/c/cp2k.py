@@ -843,7 +843,8 @@ class EB_CP2K(EasyBlock):
             'files': ["bin/%s.%s" % (x, cp2k_type) for x in ["cp2k", "cp2k_shell"]],
             'dirs': ["tests"]
         }
-
+        if self.cfg['library']:
+            custom_paths['files'].append(os.path.join('lib', 'libcp2k.a'))
         super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
