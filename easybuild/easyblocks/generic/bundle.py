@@ -47,15 +47,17 @@ class Bundle(EasyBlock):
     """
 
     @staticmethod
-    def extra_options():
-        extra_vars = {
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to Bundle easyblock."""
+        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars.update({
             'altroot': [None, "Software name of dependency to use to define $EBROOT for this bundle", CUSTOM],
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
-        }
-        return EasyBlock.extra_options(extra_vars)
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize easyblock."""
@@ -218,7 +220,7 @@ class Bundle(EasyBlock):
         """
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super(Bundle, self).sanity_check_step(*args, **kwargs)
-        else:
+        elif not self.dry_run:
             self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
             fake_mod_data = self.load_fake_module(purge=True)
             self.log.debug("Cleaning up after testing loading of module")

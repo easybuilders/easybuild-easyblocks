@@ -33,10 +33,37 @@ EasyBuild support for installing compiler toolchains, implemented as an easybloc
 """
 
 from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.toolchain.utilities import get_toolchain, search_toolchain
 
 
 class Toolchain(Bundle):
     """
     Compiler toolchain: generate module file only, nothing to build/install
     """
-    pass
+    @staticmethod
+    def extra_options():
+        extra_vars = {
+            'set_build_env': [True, "Include statements to prepare the environment for using this toolchain " \
+                                     "(e.g. $CC, $CFLAGS, etc.) in the generated module file", CUSTOM],
+        }
+        return Bundle.extra_options(extra_vars)
+
+    def make_module_extra(self):
+        """
+        Include statements to prepare environment for using this toolchain (if desired).
+        """
+        txt = super(Toolchain, self).make_module_extra()
+
+        tc_spec = {'name': self.name, 'version': self.version}
+        tcdeps = self.cfg.dependencies()
+        tc_inst = get_toolchain(tc_spec, {}, tcdeps=tcdeps, modtool=self.modules_tool)
+        tc_inst.add_dependencies(tcdeps)
+        tc_inst._load_dependencies_modules()
+        tc_inst.set_variables()
+        self._add_dependency_variables()
+        tc_inst.generate_vars()
+        for key, val in sorted(tc_inst.vars.items()):
+            txt += self.module_generator.set_environment(key, val)
+
+        return txt
