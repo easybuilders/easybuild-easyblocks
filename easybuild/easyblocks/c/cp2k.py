@@ -793,21 +793,15 @@ class EB_CP2K(EasyBlock):
         """
 
         # copy executables
-        targetdir = os.path.join(self.installdir, 'bin')
         exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
-        try:
-            copy_dir(exedir, targetdir)
-        except OSError, err:
-            raise EasyBuildError("Copying executables from %s to bin dir %s failed: %s", exedir, targetdir, err)
+        targetdir = os.path.join(self.installdir, 'bin')
+        copy_dir(exedir, targetdir)
 
         # copy libraries
         if self.cfg['library']:
-            targetdir = os.path.join(self.installdir, 'lib')
             libdir = os.path.join(self.cfg['start_dir'], 'lib', self.typearch, self.cfg['type'])
-            try:
-                copy_dir(libdir, targetdir)
-            except OSError as err:
-                raise EasyBuildError("Copying libraries from %s to lib dir %s failed: %s", libdir, targetdir, err)
+            targetdir = os.path.join(self.installdir, 'lib')
+            copy_dir(libdir, targetdir)
 
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
@@ -815,10 +809,7 @@ class EB_CP2K(EasyBlock):
         if os.path.exists(targetdir):
             self.log.info("Won't copy data dir. Destination directory %s already exists" % targetdir)
         elif os.path.exists(datadir):
-            try:
-                copy_dir(datadir, targetdir)
-            except:
-                raise EasyBuildError("Copying data dir from %s to %s failed", datadir, targetdir)
+            copy_dir(datadir, targetdir)
         else:
             self.log.info("Won't copy data dir. Source directory %s does not exist" % datadir)
 
@@ -828,10 +819,7 @@ class EB_CP2K(EasyBlock):
         if os.path.exists(targetdir):
             self.log.info("Won't copy tests. Destination directory %s already exists" % targetdir)
         else:
-            try:
-                copy_dir(srctests, targetdir)
-            except:
-                raise EasyBuildError("Copying tests from %s to %s failed", srctests, targetdir)
+            copy_dir(srctests, targetdir)
 
         # copy regression test results
         if self.cfg['runtest']:
