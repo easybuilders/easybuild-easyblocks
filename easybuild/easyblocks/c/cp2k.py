@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import change_dir, copy_dir, copy_file, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -97,7 +97,7 @@ class EB_CP2K(EasyBlock):
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
             'ignore_regtest_fails': [False, ("Ignore failures in regression test "
                                              "(should be used with care)"), CUSTOM],
-            'library': [True, "Also build CP2K as a library", CUSTOM],
+            'library': [False, "Also build CP2K as a library", CUSTOM],
             'maxtasks': [4, ("Maximum number of CP2K instances run at "
                              "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use "
@@ -795,30 +795,26 @@ class EB_CP2K(EasyBlock):
 
         # copy executables
         targetdir = os.path.join(self.installdir, 'bin')
-        exedir = os.path.join(self.cfg['start_dir'], 'exe/%s' % self.typearch)
+        exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
         try:
-            if not os.path.exists(targetdir):
-                os.makedirs(targetdir)
-            os.chdir(exedir)
+            change_dir(exedir)
             for exefile in os.listdir(exedir):
                 if os.path.isfile(exefile):
-                    shutil.copy2(exefile, targetdir)
+                    copy_file(exefile, targetdir)
         except OSError, err:
             raise EasyBuildError("Copying executables from %s to bin dir %s failed: %s", exedir, targetdir, err)
 
         # copy libraries
         if self.cfg['library']:
             targetdir = os.path.join(self.installdir, 'lib')
-            libdir = os.path.join(self.cfg['start_dir'], 'lib/%s' % self.typearch, self.cfg['type'])
+            libdir = os.path.join(self.cfg['start_dir'], 'lib', self.typearch, self.cfg['type'])
             try:
-                if not os.path.exists(targetdir):
-                    os.makedirs(targetdir)
-                os.chdir(libdir)
-                for library in os.listdir(libdir):
-                    if os.path.isfile(library):
-                        shutil.copy2(library, targetdir)
-            except OSError, err:
-                raise EasyBuildError("Copying libraries from %s to lib dir %s failed: %s", exedir, targetdir, err)
+                change_dir(libdir)
+                for lib in os.listdir(libdir):
+                    if os.path.isfile(lib):
+                        copy_file(lib, targetdir)
+            except OSError as err:
+                raise EasyBuildError("Copying libraries from %s to lib dir %s failed: %s", libdir, targetdir, err)
 
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
@@ -827,7 +823,7 @@ class EB_CP2K(EasyBlock):
             self.log.info("Won't copy data dir. Destination directory %s already exists" % targetdir)
         elif os.path.exists(datadir):
             try:
-                shutil.copytree(datadir, targetdir)
+                copy_dir(datadir, targetdir)
             except:
                 raise EasyBuildError("Copying data dir from %s to %s failed", datadir, targetdir)
         else:
@@ -840,7 +836,7 @@ class EB_CP2K(EasyBlock):
             self.log.info("Won't copy tests. Destination directory %s already exists" % targetdir)
         else:
             try:
-                shutil.copytree(srctests, targetdir)
+                copy_dir(srctests, targetdir)
             except:
                 raise EasyBuildError("Copying tests from %s to %s failed", srctests, targetdir)
 
@@ -852,7 +848,7 @@ class EB_CP2K(EasyBlock):
                     if d.startswith('TEST-%s-%s' % (self.typearch, self.cfg['type'])):
                         path = os.path.join(testdir, d)
                         target = os.path.join(self.installdir, d)
-                        shutil.copytree(path, target)
+                        copy_dir(path, target)
                         self.log.info("Regression test results dir %s copied to %s" % (d, self.installdir))
                         break
             except (OSError, IOError), err:
