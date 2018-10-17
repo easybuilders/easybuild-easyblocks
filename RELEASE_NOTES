@@ -3,7 +3,30 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 197 software-specific easyblocks and 32 generic easyblocks.
+The latest version of easybuild-easyblocks provides 198 software-specific easyblocks and 32 generic easyblocks.
+
+v3.7.1 (October 18th 2018)
+--------------------------
+
+bugfix/update release
+- new software specific easyblocks for fastStructure (#1529)
+- minor enhancements, including:
+  - support bypassing use of system type obtained with recent config.guess in ConfigureMake (#1531)
+  - enhance generated module file for FreeSurfer (#1543)
+  - add option in Qt easyblock to check for QtWebEngine component in sanity check (#1544)
+  - also install CP2K as a library (#1547)
+- various bug fixes, including:
+  - fix checking for downloaded dependencies for stand-alone installations in PythonPackage generic easyblock (#1530)
+  - also specify --host option to configure script based on config.guess result in ConfigureMake easyblock (#1532)
+  - use short module name when creating module wrapper in ModuleRC generic easyblock (#1535)
+  - use DOT_MODULERC constant in ModuleRC easyblock rather than hardcoding '.modulerc' (#1533)
+  - use --no-deps when installing .whl in TensorFlow easyblock if extension are being installed, move test run to sanity check (#1537)
+  - use os.getcwd() rather than self.startdir in TensorFlow easyblock to fix installation of TensorFlow as extension in a bundle (#1540)
+  - add symlink to wrapped module file when creating .modulerc in temporary location (#1539)
+  - properly handle Python dependency in Qscintilla easyblock (#1499)
+- other changes:
+  - cleanup Tarball easyblock by using copy_dir function (#1541)
+
 
 v3.7.0 (September 25th 2018)
 ----------------------------
