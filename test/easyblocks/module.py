@@ -40,6 +40,7 @@ from vsc.utils.patterns import Singleton
 from vsc.utils.testing import EnhancedTestCase
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.imod import EB_IMOD
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
@@ -214,11 +215,15 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
 
-        if app_class == EB_IMOD:
+        elif app_class == EB_IMOD:
             # $JAVA_HOME must be set for IMOD
             os.environ['JAVA_HOME'] = tmpdir
 
-        if app_class == EB_OpenFOAM:
+        elif app_class == PythonBundle:
+            # $EBROOtPYTHON must be set for PythonBundle easyblock
+            os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
+
+        elif app_class == EB_OpenFOAM:
             # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
             write_file(os.path.join(tmpdir, 'GCC', '4.9.3-2.25'), '\n'.join([
                 '#%Module',
