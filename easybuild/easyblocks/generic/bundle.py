@@ -47,14 +47,17 @@ class Bundle(EasyBlock):
     """
 
     @staticmethod
-    def extra_options():
-        extra_vars = {
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to bundles."""
+        if extra_vars is None:
+            extra_vars = {}
+        extra_vars.update({
             'altroot': [None, "Software name of dependency to use to define $EBROOT for this bundle", CUSTOM],
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
-        }
+        })
         return EasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
