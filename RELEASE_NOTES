@@ -14,7 +14,7 @@ bugfix/update release
   - support bypassing use of system type obtained with recent config.guess in ConfigureMake (#1531)
   - enhance generated module file for FreeSurfer (#1543)
   - add option in Qt easyblock to check for QtWebEngine component in sanity check (#1544)
-  - also install CP2K as a library (#1547)
+  - also install CP2K as a library + code cleanup in CP2K easyblock (#1547)
 - various bug fixes, including:
   - fix checking for downloaded dependencies for stand-alone installations in PythonPackage generic easyblock (#1530)
   - also specify --host option to configure script based on config.guess result in ConfigureMake easyblock (#1532)
