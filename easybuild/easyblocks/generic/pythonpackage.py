@@ -535,7 +535,7 @@ class PythonPackage(ExtensionEasyBlock):
             exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
             kwargs.update({'exts_filter': exts_filter})
 
-        (success, fail_msg) = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+        success, fail_msg = True, ''
 
         if self.cfg.get('download_dep_fail', False):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
@@ -543,15 +543,23 @@ class PythonPackage(ExtensionEasyBlock):
                 'Downloading .*/packages/.*',  # setuptools
                 'Collecting .* \(from.*',  # pip
             ]
+            downloaded_deps = []
             for pattern in patterns:
-                downloaded_deps = re.compile(pattern, re.M).findall(self.install_cmd_output)
-                if downloaded_deps:
-                    success = False
-                    fail_msg += ", found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+                downloaded_deps.extend(re.compile(pattern, re.M).findall(self.install_cmd_output))
+
+            if downloaded_deps:
+                success = False
+                fail_msg = "found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+                self.sanity_check_fail_msgs.append(fail_msg)
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
 
-        return (success, fail_msg)
+        parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        if parent_fail_msg:
+            parent_fail_msg += ', '
+
+        return (parent_success and success, parent_fail_msg + fail_msg)
 
     def make_module_req_guess(self):
         """

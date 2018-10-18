@@ -38,6 +38,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
@@ -83,6 +84,18 @@ class EB_TensorFlow(PythonPackage):
             'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize TensorFlow easyblock."""
+        super(EB_TensorFlow, self).__init__(*args, **kwargs)
+
+        self.cfg['exts_defaultclass'] = 'PythonPackage'
+
+        self.cfg['exts_default_options'] = {
+            'download_dep_fail': True,
+            'use_pip': True,
+        }
+        self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
@@ -295,7 +308,7 @@ class EB_TensorFlow(PythonPackage):
             regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
 
         # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
-        for path, dirnames, filenames in os.walk(self.start_dir):
+        for path, dirnames, filenames in os.walk(os.getcwd()):
             for filename in filenames:
                 if filename.startswith('CROSSTOOL'):
                     full_path = os.path.join(path, filename)
@@ -367,9 +380,14 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
-            # --upgrade is required to ensure *this* wheel is installed
-            # cfr. https://github.com/tensorflow/tensorflow/issues/7449
+            # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
+
+            # if extensions are listed, assume they will provide all required dependencies,
+            # so use --no-deps to prevent pip from downloading & installing them
+            if self.cfg['exts_list']:
+                cmd += ' --no-deps'
+
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
@@ -379,21 +397,11 @@ class EB_TensorFlow(PythonPackage):
         # it an empty file.
         # This fixes the "No module named google.protobuf" error that
         # sometimes shows up during sanity_check
+        google_protobuf_dir = os.path.join(self.installdir, self.pylibdir, 'google', 'protobuf')
         google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
-        if not is_readable(google_init_file):
+        if os.path.isdir(google_protobuf_dir) and not is_readable(google_init_file):
+            self.log.debug("Creating (empty) missing %s", google_init_file)
             write_file(google_init_file, '')
-
-        # test installation using MNIST tutorial examples
-        # (can't be done in sanity check because mnist_deep.py is not part of installation)
-        if self.cfg['runtest']:
-            pythonpath = os.getenv('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
-
-            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
-                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
-                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
-                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
-                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
@@ -408,3 +416,14 @@ class EB_TensorFlow(PythonPackage):
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
         super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+        # test installation using MNIST tutorial examples
+        if self.cfg['runtest']:
+            pythonpath = os.getenv('PYTHONPATH', '')
+            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+
+            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
+                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
+                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
+                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
+                run_cmd(cmd, log_all=True, simple=True, log_ok=True)

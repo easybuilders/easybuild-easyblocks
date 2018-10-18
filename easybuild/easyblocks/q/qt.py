@@ -38,6 +38,7 @@ from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_Qt(ConfigureMake):
     """
     Support for building and installing Qt.
@@ -46,7 +47,8 @@ class EB_Qt(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-             'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
+            'check_qtwebengine': [False, "Make sure QtWebEngine components is installed", CUSTOM],
+            'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
         }
         extra_vars = ConfigureMake.extra_options(extra_vars)
 
@@ -65,9 +67,9 @@ class EB_Qt(ConfigureMake):
         if self.cfg['platform']:
             platform = self.cfg['platform']
         # if no platform is specified, try to derive it based on compiler in toolchain
-        elif comp_fam in [toolchain.GCC]:  #@UndefinedVariable
+        elif comp_fam in [toolchain.GCC]:  # @UndefinedVariable
             platform = 'linux-g++-64'
-        elif comp_fam in [toolchain.INTELCOMP]:  #@UndefinedVariable
+        elif comp_fam in [toolchain.INTELCOMP]:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('4'):
                 platform = 'linux-icc-64'
             else:
@@ -75,7 +77,7 @@ class EB_Qt(ConfigureMake):
                 # fix -fPIC flag (-KPIC is not correct for recent Intel compilers)
                 qmake_conf = os.path.join('mkspecs', platform, 'qmake.conf')
                 apply_regex_substitutions(qmake_conf, [('-KPIC', '-fPIC')])
-                
+
         if platform:
             self.cfg.update('configopts', "-platform %s" % platform)
         else:
@@ -137,6 +139,10 @@ class EB_Qt(ConfigureMake):
             'files': ['bin/moc', 'bin/qmake', libfile],
             'dirs': ['include', 'plugins'],
         }
+
+        if self.cfg['check_qtwebengine']:
+            qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
+            custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
 
         if LooseVersion(self.version) >= LooseVersion('4'):
             custom_paths['files'].append('bin/xmlpatterns')
