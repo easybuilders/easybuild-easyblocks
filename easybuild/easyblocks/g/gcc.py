@@ -80,8 +80,8 @@ class EB_GCC(ConfigureMake):
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
-            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' & co when linking", CUSTOM],
-            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target " \
+            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
+            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
                               "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -434,7 +434,7 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False:
                             cmd += "--enable-fat "
 
                     elif lib == "ppl":
@@ -461,7 +461,7 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False:
                             cmd += "--without-gcc-arch "
 
                     elif lib == "cloog":
@@ -560,7 +560,8 @@ class EB_GCC(ConfigureMake):
             if self.cfg['withcloog']:
                 configopts += "--with-cloog=%s " % stage2prefix
 
-                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion("0.16") and LooseVersion(self.version) < LooseVersion("4.8.0"):
+                gccver = LooseVersion(self.version)
+                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion('0.16') and gccver < LooseVersion('4.8.0'):
                     configopts += "--enable-cloog-backend=isl "
 
             if self.cfg['withisl']:
