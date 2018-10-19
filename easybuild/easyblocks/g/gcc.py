@@ -71,18 +71,19 @@ class EB_GCC(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
-            'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
-            'withlto': [True, "Enable LTO support", CUSTOM],
-            'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
-            'withppl': [False, "Build GCC with PPL support", CUSTOM],
-            'withisl': [False, "Build GCC with ISL support", CUSTOM],
-            'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
-            'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
-            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
             'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
                               "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
+            'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
+            'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
+            'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
+            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
+            'use_gold_linker': [True, "Configure GCC to use GOLD as default linker", CUSTOM],
+            'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
+            'withisl': [False, "Build GCC with ISL support", CUSTOM],
+            'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
+            'withlto': [True, "Enable LTO support", CUSTOM],
+            'withppl': [False, "Build GCC with PPL support", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -324,11 +325,14 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --disable-multilib"
         # build both static and dynamic libraries (???)
         self.configopts += " --enable-shared=yes --enable-static=yes "
+
         # use POSIX threads
         self.configopts += " --enable-threads=posix "
+
         # use GOLD as default linker, enable plugin support
-        self.configopts += " --enable-gold=default --enable-plugins "
-        self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
+        if self.cfg['use_gold_linker']:
+            self.configopts += " --enable-gold=default --enable-plugins "
+            self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
