@@ -439,7 +439,7 @@ class EB_TensorFlow(PythonPackage):
         # test installation using MNIST tutorial examples
         if self.cfg['runtest']:
             pythonpath = os.getenv('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
             for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
                 tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
