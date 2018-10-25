@@ -162,7 +162,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
             env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
         if comp_fam == toolchain.INTELCOMP:
-            repls.append(('F90FLAGS', '-fpp', True))
+            # Intel compiler must have -assume byterecl (see install/configure)
+            repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
+            repls.append(('FFLAGS', '-assume byterecl', True))
         elif comp_fam == toolchain.GCC:
             repls.append(('F90FLAGS', '-cpp', True))
 
