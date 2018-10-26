@@ -805,7 +805,7 @@ class EB_CP2K(EasyBlock):
             # Also need to populate the include directory
             targetdir = os.path.join(self.installdir, 'include')
             libcp2k_header = os.path.join(self.cfg['start_dir'], 'src', 'start', 'libcp2k.h')
-            target_header = os.path.join(targetdir,os.path.basename(libcp2k_header))
+            target_header = os.path.join(targetdir, os.path.basename(libcp2k_header))
             copy_file(libcp2k_header, target_header)
             # include all .mod files for fortran users (don't know the exact list so take everything)
             mod_path = os.path.join(self.cfg['start_dir'], 'obj', self.typearch, self.cfg['type'])
