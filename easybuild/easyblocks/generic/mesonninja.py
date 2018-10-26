@@ -31,7 +31,8 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import change_dir, mkdir
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.run import run_cmd
 
 
@@ -48,6 +49,19 @@ class MesonNinja(EasyBlock):
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
+
+    def prepare_step(self):
+        """Prepare build environment."""
+        super(MesonNinja, self).prepare_step()
+
+        # make sure both Meson and Ninja are included as build dependencies
+        build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
+        for tool in ['Ninja', 'Meson']:
+            if tool not in build_dep_names:
+                raise EasyBuildError("%s not included as build dependency", tool)
+            cmd = tool.lower()
+            if not which(cmd):
+                raise EasyBuildError("'%s' command not found", cmd)
 
     def configure_step(self, cmd_prefix=''):
         """
