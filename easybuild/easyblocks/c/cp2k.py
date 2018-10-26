@@ -804,14 +804,14 @@ class EB_CP2K(EasyBlock):
             copy_dir(libdir, targetdir)
             # Also need to populate the include directory
             targetdir = os.path.join(self.installdir, 'include')
-            mkdir(targetdir)  # Needs to exist for copy below to work correctly
-            include_file = os.path.join(self.cfg['start_dir'], 'src', 'start', 'libcp2k.h')
-            copy_file(include_file, targetdir)
-            # include all .mod files for fortran users
+            libcp2k_header = os.path.join(self.cfg['start_dir'], 'src', 'start', 'libcp2k.h')
+            target_header = os.path.join(targetdir,os.path.basename(libcp2k_header))
+            copy_file(libcp2k_header, target_header)
+            # include all .mod files for fortran users (don't know the exact list so take everything)
             mod_path = os.path.join(self.cfg['start_dir'], 'obj', self.typearch, self.cfg['type'])
-            _, mod_files = search_file([mod_path], '.*\.mod', silent=True)
-            for mod_file in mod_files:
-                copy_file(mod_file, targetdir)
+            for mod_file in glob.glob(os.path.join(mod_path, '*.mod')):
+                target_mod = os.path.join(targetdir, os.path.basename(mod_file))
+                copy_file(mod_file, target_mod)
 
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
