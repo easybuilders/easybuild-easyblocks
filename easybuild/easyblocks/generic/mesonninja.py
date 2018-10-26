@@ -63,6 +63,10 @@ class MesonNinja(EasyBlock):
             if not which(cmd):
                 raise EasyBuildError("'%s' command not found", cmd)
 
+        self.parallel = ''
+        if self.cfg['parallel']:
+            self.parallel = "-j %s" % self.cfg['parallel']
+
     def configure_step(self, cmd_prefix=''):
         """
         Configure with Meson.
@@ -85,13 +89,9 @@ class MesonNinja(EasyBlock):
         """
         Build with Ninja.
         """
-        parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
-
         cmd = "%(prebuildopts)s ninja %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
-            'parallel': parallel,
+            'parallel': self.parallel,
             'prebuildopts': self.cfg['prebuildopts'],
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
@@ -109,8 +109,9 @@ class MesonNinja(EasyBlock):
         """
         Install with 'ninja install'.
         """
-        cmd = "%(preinstallopts)s ninja %(installopts)s install" % {
+        cmd = "%(preinstallopts)s ninja %(parallel)s %(installopts)s install" % {
             'installopts': self.cfg['installopts'],
+            'parallel': self.parallel,
             'preinstallopts': self.cfg['preinstallopts'],
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
