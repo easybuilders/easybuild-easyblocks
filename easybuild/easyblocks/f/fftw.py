@@ -88,6 +88,7 @@ class EB_FFTW(ConfigureMake):
 
         # do not enable MPI if the toolchain does not support it
         if not self.toolchain.mpi_family():
+            self.log.info("Disabling MPI support because the toolchain used does not support it.")
             self.cfg['with_mpi'] = False
 
         for flag in FFTW_CPU_FEATURE_FLAGS:
