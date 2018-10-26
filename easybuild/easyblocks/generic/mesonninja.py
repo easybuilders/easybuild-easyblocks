@@ -50,10 +50,10 @@ class MesonNinja(EasyBlock):
         })
         return extra_vars
 
-    def prepare_step(self):
-        """Prepare build environment."""
-        super(MesonNinja, self).prepare_step()
-
+    def configure_step(self, cmd_prefix=''):
+        """
+        Configure with Meson.
+        """
         # make sure both Meson and Ninja are included as build dependencies
         build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
         for tool in ['Ninja', 'Meson']:
@@ -63,14 +63,6 @@ class MesonNinja(EasyBlock):
             if not which(cmd):
                 raise EasyBuildError("'%s' command not found", cmd)
 
-        self.parallel = ''
-        if self.cfg['parallel']:
-            self.parallel = "-j %s" % self.cfg['parallel']
-
-    def configure_step(self, cmd_prefix=''):
-        """
-        Configure with Meson.
-        """
         if self.cfg.get('separate_build_dir', True):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
             mkdir(builddir)
@@ -89,9 +81,13 @@ class MesonNinja(EasyBlock):
         """
         Build with Ninja.
         """
+        parallel = ''
+        if self.cfg['parallel']:
+            parallel = "-j %s" % self.cfg['parallel']
+
         cmd = "%(prebuildopts)s ninja %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
-            'parallel': self.parallel,
+            'parallel': parallel,
             'prebuildopts': self.cfg['prebuildopts'],
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
@@ -109,9 +105,13 @@ class MesonNinja(EasyBlock):
         """
         Install with 'ninja install'.
         """
+        parallel = ''
+        if self.cfg['parallel']:
+            parallel = "-j %s" % self.cfg['parallel']
+
         cmd = "%(preinstallopts)s ninja %(parallel)s %(installopts)s install" % {
             'installopts': self.cfg['installopts'],
-            'parallel': self.parallel,
+            'parallel': parallel,
             'preinstallopts': self.cfg['preinstallopts'],
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
