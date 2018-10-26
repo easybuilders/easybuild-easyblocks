@@ -195,13 +195,14 @@ class EB_FFTW(ConfigureMake):
                 cpu_arch = get_cpu_architecture()
                 comp_fam = self.toolchain.comp_family()
                 fftw_ver = LooseVersion(self.version)
-                if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC and fftw_ver <= LooseVersion('3.3.8'):
+                if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
                     # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5/6/7
-                    if prec == 'single':
+                    if prec == 'single' and fftw_ver <= LooseVersion('3.3.8'):
                         self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
                                       % self.version)
                         prec_configopts.append('--disable-altivec')
-                    if prec == 'double':
+                    # Issue with VSX has been solved in FFTW/3.3.7
+                    if prec == 'double' and fftw_ver <= LooseVersion('3.3.6'):
                         self.log.info("Disabling vsx for double precision on POWER with GCC for FFTW/%s" % self.version)
                         prec_configopts.append('--disable-vsx')
 

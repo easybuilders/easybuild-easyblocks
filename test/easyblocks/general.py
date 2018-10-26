@@ -28,12 +28,12 @@ General unit tests for the easybuild-easyblocks repo.
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import re
 import shutil
 import tempfile
 from unittest import TestLoader, main
 from vsc.utils.testing import EnhancedTestCase
 
+from easybuild.easyblocks import VERSION
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
@@ -49,6 +49,10 @@ for subdir in subdirs:
     __path__ = extend_path(__path__, '%s.%s' % (__name__, subdir))
 """
 NAMESPACE_EXTEND_PATH = "from pkgutil import extend_path; __path__ = extend_path(__path__, __name__)"
+EASYBLOCKS_VERSION = """
+from distutils.version import LooseVersion
+VERSION = LooseVersion('%s')
+""" % VERSION
 
 
 def det_path_for_import(module, pythonpath=None):
@@ -141,7 +145,7 @@ class GeneralEasyblockTest(EnhancedTestCase):
 
         # define easybuild.easyblocks namespace in custom easyblocks repo
         write_module('__init__.py', NAMESPACE_EXTEND_PATH)
-        txt = '\n'.join([NAMESPACE_EXTEND_PATH, EASYBLOCKS_FLATTEN_EXTEND_PATH])
+        txt = '\n'.join([NAMESPACE_EXTEND_PATH, EASYBLOCKS_VERSION, EASYBLOCKS_FLATTEN_EXTEND_PATH])
         write_module(os.path.join('easyblocks', '__init__.py'), txt)
 
         # add custom easyblock for foobar

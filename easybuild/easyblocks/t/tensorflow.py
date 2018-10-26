@@ -41,20 +41,29 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import which, write_file
+from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_os_name, get_os_version
 
 
-# wrapper for Intel compiler, where required environment are hardcoded to make sure they're present;
-# this is required because Bazel resets the environment in which compiler commands are executed...
+# Wrapper for Intel(MPI) compilers, where required environment variables
+# are hardcoded to make sure they are present;
+# this is required because Bazel resets the environment in which
+# compiler commands are executed...
 INTEL_COMPILER_WRAPPER = """#!/bin/bash
 
 export CPATH='%(cpath)s'
+
+# Only relevant for Intel compilers.
 export INTEL_LICENSE_FILE='%(intel_license_file)s'
 
-# exclude location of this wrapper from $PATH to avoid other potential wrappers calling this wrapper
+# Only relevant for MPI compiler wrapper (mpiicc/mpicc etc),
+# not for regular compiler.
+export I_MPI_ROOT='%(intel_mpi_root)s'
+
+# Exclude location of this wrapper from $PATH to avoid other potential
+# wrappers calling this wrapper.
 export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' ':')
 
 %(compiler_path)s "$@"
@@ -71,7 +80,7 @@ class EB_TensorFlow(PythonPackage):
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
-            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN (enabled unless cuDNN is used)", CUSTOM],
+            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
         return PythonPackage.extra_options(extra_vars)
 
@@ -81,7 +90,8 @@ class EB_TensorFlow(PythonPackage):
             if LooseVersion(self.version) > LooseVersion('1.6'):
                 # jemalloc bundled with recent versions of TensorFlow does not work on RHEL 6 or derivatives,
                 # so disable it automatically if with_jemalloc was left unspecified
-                rh_based_os = get_os_name().split(' ')[0] in ['centos', 'redhat', 'rhel', 'sl']
+                os_name = get_os_name().replace(' ', '')
+                rh_based_os = any(os_name.startswith(x) for x in ['centos', 'redhat', 'rhel', 'sl'])
                 if rh_based_os and get_os_version().startswith('6.'):
                     self.log.info("Disabling jemalloc since bundled jemalloc does not work on RHEL 6 and derivatives")
                     self.cfg['with_jemalloc'] = False
@@ -94,6 +104,23 @@ class EB_TensorFlow(PythonPackage):
         else:
             # if with_jemalloc was specified, stick to that
             self.log.info("with_jemalloc was specified as %s, so sticking to it", self.cfg['with_jemalloc'])
+
+    def write_wrapper(self, wrapper_dir, compiler, i_mpi_root):
+        """Helper function to write a compiler wrapper."""
+        wrapper_txt = INTEL_COMPILER_WRAPPER % {
+            'compiler_path': which(compiler),
+            'intel_mpi_root': i_mpi_root,
+            'cpath': os.getenv('CPATH'),
+            'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
+            'wrapper_dir': wrapper_dir,
+        }
+        wrapper = os.path.join(wrapper_dir, compiler)
+        write_file(wrapper, wrapper_txt)
+        if self.dry_run:
+            self.dry_run_msg("Wrapper for '%s' was put in place: %s", compiler, wrapper)
+        else:
+            adjust_permissions(wrapper, stat.S_IXUSR)
+            self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -111,25 +138,31 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
-        # put wrapper for Intel C compiler in place (required to make sure license server is found)
-        # cfr. https://github.com/bazelbuild/bazel/issues/663
-        if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            wrapper_dir = os.path.join(tmpdir, 'bin')
+        wrapper_dir = os.path.join(tmpdir, 'bin')
+        use_wrapper = False
 
-            icc_wrapper_txt = INTEL_COMPILER_WRAPPER % {
-                'compiler_path': which('icc'),
-                'cpath': os.getenv('CPATH'),
-                'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
-                'wrapper_dir': wrapper_dir,
-            }
-            icc_wrapper = os.path.join(wrapper_dir, 'icc')
-            write_file(icc_wrapper, icc_wrapper_txt)
-            env.setvar('PATH', os.pathsep.join([os.path.dirname(icc_wrapper), os.getenv('PATH')]))
-            if self.dry_run:
-                self.dry_run_msg("Wrapper for 'icc' was put in place: %s", icc_wrapper)
-            else:
-                adjust_permissions(icc_wrapper, stat.S_IXUSR)
-                self.log.info("Using wrapper script for 'icc': %s", which('icc'))
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            # put wrappers for Intel C/C++ compilers in place (required to make sure license server is found)
+            # cfr. https://github.com/bazelbuild/bazel/issues/663
+            for compiler in ('icc', 'icpc'):
+                self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
+            use_wrapper = True
+
+        use_mpi = self.toolchain.options.get('usempi', False)
+        impi_root = get_software_root('impi')
+        mpi_home = ''
+        if use_mpi and impi_root:
+            # put wrappers for Intel MPI compiler wrappers in place
+            # (required to make sure license server and I_MPI_ROOT are found)
+            for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
+                self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+            use_wrapper = True
+            # set correct value for MPI_HOME
+            mpi_home = os.path.join(impi_root, 'intel64')
+            self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
+
+        if use_wrapper:
+            env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
 
@@ -138,12 +171,12 @@ class EB_TensorFlow(PythonPackage):
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
         opencl_root = get_software_root('OpenCL')
-
-        use_mpi = self.toolchain.options.get('usempi', False)
+        tensorrt_root = get_software_root('TensorRT')
+        nccl_root = get_software_root('NCCL')
 
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
-            'MPI_HOME': '',
+            'MPI_HOME': mpi_home,
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
@@ -155,8 +188,12 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
+            'TF_NEED_OPENCL_SYCL': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_VERBS': '0',
+            'TF_NEED_TENSORRT': ('0', '1')[bool(tensorrt_root)],
+            'TF_NEED_AWS': '0',  # Amazon AWS Platform
+            'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
         if cuda_root:
             config_env_vars.update({
@@ -165,17 +202,30 @@ class EB_TensorFlow(PythonPackage):
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': get_software_version('CUDA'),
             })
-        if cudnn_root:
+            if cudnn_root:
+                config_env_vars.update({
+                    'CUDNN_INSTALL_PATH': cudnn_root,
+                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                })
+            else:
+                raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
+            if nccl_root:
+                nccl_version = get_software_version('NCCL')
+                config_env_vars.update({
+                    'NCCL_INSTALL_PATH': nccl_root,
+                })
+            else:
+                nccl_version = '1.3'  # Use simple downloadable version
             config_env_vars.update({
-                'CUDNN_INSTALL_PATH': cudnn_root,
-                'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                'TF_NCCL_VERSION': nccl_version,
             })
 
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
 
         # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-        regex_subs = [(r"(run_shell\(\['bazel')", r"\1, '--output_base=%s'" % tmpdir)]
+        regex_subs = [(r"(run_shell\(\['bazel')",
+                       r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
         apply_regex_substitutions('configure.py', regex_subs)
 
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
@@ -253,9 +303,12 @@ class EB_TensorFlow(PythonPackage):
                     apply_regex_substitutions(full_path, regex_subs)
 
         tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
+        user_root_tmpdir = tempfile.mkdtemp(suffix='-user_root')
 
         # compose "bazel build" command with all its options...
-        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir, 'build']
+        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir,
+               '--install_base=%s' % os.path.join(tmpdir, 'inst_base'),
+               '--output_user_root=%s' % user_root_tmpdir, 'build']
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
@@ -280,11 +333,6 @@ class EB_TensorFlow(PythonPackage):
 
         if cuda_root:
             cmd.append('--config=cuda')
-
-        # enable mkl-dnn by default, but only if cuDNN is not listed as dependency
-        if self.cfg['with_mkl_dnn'] is None and get_software_root('cuDNN') is None:
-            self.log.info("Enabling use of mkl-dnn since cuDNN is not listed as dependency")
-            self.cfg['with_mkl_dnn'] = True
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
@@ -313,7 +361,11 @@ class EB_TensorFlow(PythonPackage):
     def install_step(self):
         """Custom install procedure for TensorFlow."""
         # find .whl file that was built, and install it using 'pip install'
-        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % self.version))
+        if ("-rc" in self.version):
+            whl_version = self.version.replace("-rc", "rc")
+        else:
+            whl_version = self.version
+        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
             # --upgrade is required to ensure *this* wheel is installed
             # cfr. https://github.com/tensorflow/tensorflow/issues/7449
@@ -321,6 +373,15 @@ class EB_TensorFlow(PythonPackage):
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
+
+        # Fix for https://github.com/tensorflow/tensorflow/issues/6341
+        # If the site-packages/google/__init__.py file is missing, make
+        # it an empty file.
+        # This fixes the "No module named google.protobuf" error that
+        # sometimes shows up during sanity_check
+        google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
+        if not is_readable(google_init_file):
+            write_file(google_init_file, '')
 
         # test installation using MNIST tutorial examples
         # (can't be done in sanity check because mnist_deep.py is not part of installation)
