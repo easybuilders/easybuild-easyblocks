@@ -220,7 +220,7 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
             os.environ['JAVA_HOME'] = tmpdir
 
         elif app_class == PythonBundle:
-            # $EBROOtPYTHON must be set for PythonBundle easyblock
+            # $EBROOTPYTHON must be set for PythonBundle easyblock
             os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
 
         elif app_class == EB_OpenFOAM:
