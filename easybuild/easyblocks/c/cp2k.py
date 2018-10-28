@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import copy_dir, write_file
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, search_file, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -797,11 +797,21 @@ class EB_CP2K(EasyBlock):
         targetdir = os.path.join(self.installdir, 'bin')
         copy_dir(exedir, targetdir)
 
-        # copy libraries
+        # copy libraries and include files, not sure what is strictly required so we take everything
         if self.cfg['library']:
             libdir = os.path.join(self.cfg['start_dir'], 'lib', self.typearch, self.cfg['type'])
             targetdir = os.path.join(self.installdir, 'lib')
             copy_dir(libdir, targetdir)
+            # Also need to populate the include directory
+            targetdir = os.path.join(self.installdir, 'include')
+            libcp2k_header = os.path.join(self.cfg['start_dir'], 'src', 'start', 'libcp2k.h')
+            target_header = os.path.join(targetdir, os.path.basename(libcp2k_header))
+            copy_file(libcp2k_header, target_header)
+            # include all .mod files for fortran users (don't know the exact list so take everything)
+            mod_path = os.path.join(self.cfg['start_dir'], 'obj', self.typearch, self.cfg['type'])
+            for mod_file in glob.glob(os.path.join(mod_path, '*.mod')):
+                target_mod = os.path.join(targetdir, os.path.basename(mod_file))
+                copy_file(mod_file, target_mod)
 
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
@@ -845,6 +855,8 @@ class EB_CP2K(EasyBlock):
         }
         if self.cfg['library']:
             custom_paths['files'].append(os.path.join('lib', 'libcp2k.a'))
+            custom_paths['files'].append(os.path.join('include', 'libcp2k.h'))
+            custom_paths['files'].append(os.path.join('include', 'libcp2k.mod'))
         super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
