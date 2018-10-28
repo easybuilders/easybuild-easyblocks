@@ -76,6 +76,13 @@ class EB_WRF(EasyBlock):
             - run configure script
             - adjust configure.wrf file if needed
         """
+
+        mainver = self.version.split('.')[0]
+        if mainver < 4:
+            wrfdir = os.path.join(self.builddir, "WRFV%s" % mainver)
+        else:
+            wrfdir = os.path.join(self.builddir, "WRF-%s" % self.version)
+
         # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
 
@@ -113,7 +120,9 @@ class EB_WRF(EasyBlock):
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
         # patch arch/Config_new.pl script, so that run_cmd_qa receives all output to answer questions
-        patch_perl_script_autoflush(os.path.join("arch", "Config_new.pl"))
+        mainver = self.version.split('.')[0]
+        if mainver < 4:
+            patch_perl_script_autoflush(os.path.join(wrfdir, "arch", "Config_new.pl"))
 
         # determine build type option to look for
         build_type_option = None
@@ -363,7 +372,10 @@ class EB_WRF(EasyBlock):
         """Custom sanity check for WRF."""
 
         mainver = self.version.split('.')[0]
-        self.wrfsubdir = "WRFV%s" % mainver
+        if mainver < 4:
+            self.wrfsubdir = "WRFV%s" % mainver
+        else:
+            self.wrfsubdir = "WRF-%s" % self.version
 
         files = ['libwrflib.a', 'wrf.exe', 'ideal.exe', 'real.exe', 'ndown.exe', 'tc.exe']
         # nup.exe was 'temporarily removed' in WRF v3.7, at least until 3.8
