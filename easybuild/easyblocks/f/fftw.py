@@ -86,6 +86,11 @@ class EB_FFTW(ConfigureMake):
         """Initialisation of custom class variables for FFTW."""
         super(EB_FFTW, self).__init__(*args, **kwargs)
 
+        # do not enable MPI if the toolchain does not support it
+        if not self.toolchain.mpi_family():
+            self.log.info("Disabling MPI support because the toolchain used does not support it.")
+            self.cfg['with_mpi'] = False
+
         for flag in FFTW_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
             if hasattr(self, flag):
