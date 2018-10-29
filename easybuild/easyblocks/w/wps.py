@@ -45,7 +45,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_file, extract_file, patch_perl_script_autoflush, rmtree2
+from easybuild.tools.filetools import copy_file, extract_file, patch_perl_script_autoflush, rmtree2, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -96,13 +96,10 @@ class EB_WPS(EasyBlock):
         wrf = get_software_root('WRF')
         if wrf:
             wrfver = get_software_version('WRF')
-            majver = wrfver.split('.')[0]
-            if majver == '3':
-                self.wrfdir = os.path.join(wrf, "WRFV%s" % majver)
-            elif majver == '4':
-                self.wrfdir = os.path.join(wrf, "WRF-%s" % wrfver)
+            if LooseVersion(wrfver) < LooseVersion("4.0"):
+                self.wrfdir = os.path.join(wrf, "WRFV3")
             else:
-                raise EasyBuildError("Unknown WRF version: %s" % wrfver)
+                self.wrfdir = os.path.join(wrf, "WRF-%s" % wrfver)
         else:
             raise EasyBuildError("WRF module not loaded?")
 
@@ -260,8 +257,7 @@ class EB_WPS(EasyBlock):
                 raise EasyBuildError("List of URLs for testdata not provided.")
 
 
-            mainver = self.version.split('.')[0]
-            if mainver < 4:
+            if LooseVersion(self.version) < LooseVersion("4.0"):
                 wpsdir = os.path.join(self.builddir, "WPS")
             else:
                 wpsdir = os.path.join(self.builddir, "WPS-%s" % self.version)
@@ -288,12 +284,12 @@ class EB_WPS(EasyBlock):
                 # GEOGRID
 
                 # setup directories and files
-                if mainver < 4:
+                if LooseVersion(self.version) < LooseVersion("4.0"):
                     geog_data_dir = "geog"
                 else:
                     geog_data_dir = "WPS_GEOG"
-                for d in os.listdir(os.path.join(tmpdir, geog_data_dir)):
-                    os.symlink(os.path.join(tmpdir, geog_data_dir, d), os.path.join(tmpdir, d))
+                for dir_name in os.listdir(os.path.join(tmpdir, geog_data_dir)):
+                    symlink(os.path.join(tmpdir, geog_data_dir, dir_name), os.path.join(tmpdir, dir_name))
 
                 # copy namelist.wps file and patch it for geogrid
                 copy_file(os.path.join(wpsdir, 'namelist.wps'), namelist_file)
