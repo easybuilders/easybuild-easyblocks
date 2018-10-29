@@ -77,9 +77,8 @@ class EB_WRF(EasyBlock):
             - adjust configure.wrf file if needed
         """
 
-        mainver = self.version.split('.')[0]
-        if mainver < 4:
-            wrfdir = os.path.join(self.builddir, "WRFV%s" % mainver)
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            wrfdir = os.path.join(self.builddir, "WRFV3")
         else:
             wrfdir = os.path.join(self.builddir, "WRF-%s" % self.version)
 
@@ -120,8 +119,7 @@ class EB_WRF(EasyBlock):
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
         # patch arch/Config_new.pl script, so that run_cmd_qa receives all output to answer questions
-        mainver = self.version.split('.')[0]
-        if mainver < 4:
+        if LooseVersion(self.version) < LooseVersion('4.0'):
             patch_perl_script_autoflush(os.path.join(wrfdir, "arch", "Config_new.pl"))
 
         # determine build type option to look for
@@ -371,9 +369,8 @@ class EB_WRF(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for WRF."""
 
-        mainver = self.version.split('.')[0]
-        if mainver < 4:
-            self.wrfsubdir = "WRFV%s" % mainver
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            self.wrfsubdir = "WRFV3"
         else:
             self.wrfsubdir = "WRF-%s" % self.version
 
@@ -391,8 +388,10 @@ class EB_WRF(EasyBlock):
 
     def make_module_req_guess(self):
 
-        mainver = self.version.split('.')[0]
-        self.wrfsubdir = "WRFV%s"%mainver
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            self.wrfsubdir = "WRFV3"
+        else:
+            self.wrfsubdir = "WRF-%s" % self.version
 
         maindir = os.path.join(self.wrfsubdir, "main")
 
