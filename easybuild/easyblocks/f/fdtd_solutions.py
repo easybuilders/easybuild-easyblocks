@@ -34,7 +34,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.easyblocks.generic.rpm import rebuild_rpm
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, rmtree2
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_cmd
 
 
 class EB_FDTD_underscore_Solutions(PackedBinary):
