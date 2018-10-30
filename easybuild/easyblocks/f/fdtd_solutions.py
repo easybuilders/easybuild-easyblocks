@@ -59,19 +59,13 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
 
     def install_step(self):
         """Install FDTD Solutions using copy tree."""
-        try:
-            # shutil.copytree doesn't allow the target directory to exist already
-            rmtree2(self.installdir)
-            shutil.copytree(os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd'),
-                            self.installdir, symlinks=self.cfg['keepsymlinks'])
-        except OSError, err:
-            raise EasyBuildError("Failed to copy %s to %s: %s",
-        os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd'), self.installdir, err)
+        fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd')
+        copy_dir(ftdt_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
         custom_paths = {
-            'files': [],
-            'dirs': ['bin', 'lib'],
+            'files': ['bin/fdtd-solutions', 'lib/fdtd-engine-mpichp4_libFNP.so'],
+            'dirs': ['api'],
         }
         super(EB_FDTD_underscore_Solutions, self).sanity_check_step(custom_paths=custom_paths)
