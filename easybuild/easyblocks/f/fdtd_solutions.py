@@ -33,7 +33,7 @@ import shutil
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.easyblocks.generic.rpm import rebuild_rpm
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import copy_dir, rmtree2
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
 
@@ -60,7 +60,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
     def install_step(self):
         """Install FDTD Solutions using copy tree."""
         fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd')
-        copy_dir(ftdt_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
+        copy_dir(fdtd_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
