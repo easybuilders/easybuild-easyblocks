@@ -33,7 +33,7 @@ import shutil
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.easyblocks.generic.rpm import rebuild_rpm
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, rmtree2
+from easybuild.tools.filetools import copy_dir
 from easybuild.tools.run import run_cmd
 
 
