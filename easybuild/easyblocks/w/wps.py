@@ -41,7 +41,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.netcdf import set_netcdf_env_vars  #@UnresolvedImport
+from easybuild.easyblocks.netcdf import set_netcdf_env_vars
 from easybuild.easyblocks.wrf import det_wrf_subdir
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
@@ -65,11 +65,14 @@ class EB_WPS(EasyBlock):
         self.compile_script = None
         testdata_urls = ["http://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
         if LooseVersion(self.version) < LooseVersion('3.8'):
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")  # 697MB download, 16GB unpacked!
+            # 697MB download, 16GB unpacked!
+            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
         elif LooseVersion(self.version) < LooseVersion('4.0'):
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2")  # 2.3GB download!
+            # 2.3GB download!
+            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2")
         else:
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")  # 2.6GB download, 29GB unpacked!!
+            # 2.6GB download, 29GB unpacked!!
+            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
         if self.cfg.get('testdata') is None:
             self.cfg['testdata'] = testdata_urls
 
@@ -165,10 +168,10 @@ class EB_WPS(EasyBlock):
                                'dmpar': 'dmpar'
                               }
 
-            if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+            if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
                 build_type_option = " Linux x86_64, Intel compiler"
 
-            elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
+            elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
                 build_type_option = "Linux x86_64 g95 compiler"
 
             else:
@@ -181,10 +184,10 @@ class EB_WPS(EasyBlock):
                                'dmpar': 'DM parallel'
                               }
 
-            if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+            if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
                 build_type_option = "PC Linux x86_64, Intel compiler"
 
-            elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
+            elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
                 build_type_option = "PC Linux x86_64, gfortran compiler,"
                 knownbuildtypes['dmpar'] = knownbuildtypes['dmpar'].upper()
 
@@ -194,7 +197,7 @@ class EB_WPS(EasyBlock):
         # check and fetch selected build type
         bt = self.cfg['buildtype']
 
-        if not bt in knownbuildtypes.keys():
+        if bt not in knownbuildtypes.keys():
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, knownbuildtypes.keys())
 
         # fetch option number based on build type option and selected build type
@@ -362,7 +365,7 @@ class EB_WPS(EasyBlock):
         env_vars = ['JASPERINC', 'JASPERLIB']
 
         for env_var in env_vars:
-            if os.environ.has_key(env_var):
+            if env_var in os.environ:
                 os.environ.pop(env_var)
 
     def sanity_check_step(self):

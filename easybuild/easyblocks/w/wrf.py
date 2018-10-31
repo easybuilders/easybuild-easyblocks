@@ -52,10 +52,8 @@ from easybuild.tools.run import run_cmd, run_cmd_qa
 def det_wrf_subdir(wrf_version):
     """Determine WRF subdirectory for given WRF version."""
 
-    wrf_maj_ver = wrf_version.split('.')[0]
-
     if LooseVersion(wrf_version) < LooseVersion('4.0'):
-        wrf_subdir = 'WRFV%s' % wrf_maj_ver
+        wrf_subdir = 'WRFV%s' % wrf_version.split('.')[0]
     else:
         wrf_subdir = 'WRF-%s' % wrf_version
 
@@ -77,7 +75,7 @@ class EB_WRF(EasyBlock):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), " \
+            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), "
                                 "dmpar (MPI), dm+sm (hybrid OpenMP/MPI)).", MANDATORY],
             'rewriteopts': [True, "Replace -O3 with CFLAGS/FFLAGS", CUSTOM],
             'runtest': [True, "Build and run WRF tests", CUSTOM],
@@ -136,13 +134,13 @@ class EB_WRF(EasyBlock):
         # determine build type option to look for
         build_type_option = None
         self.comp_fam = self.toolchain.comp_family()
-        if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
                 build_type_option = "INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
-        elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
+        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
                 build_type_option = "GNU\ \(gfortran\/gcc\)"
             else:
@@ -156,7 +154,7 @@ class EB_WRF(EasyBlock):
         self.parallel_build_types = ["dmpar", "smpar", "dm+sm"]
         bt = self.cfg['buildtype']
 
-        if not bt in known_build_types:
+        if bt not in known_build_types:
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, known_build_types)
 
         # fetch option number based on build type option and selected build type
@@ -216,7 +214,7 @@ class EB_WRF(EasyBlock):
 
             # set extra flags for Intel compilers
             # see http://software.intel.com/en-us/forums/showthread.php?t=72109&p=1#146748
-            if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+            if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
 
                 # -O3 -heap-arrays is required to resolve compilation error
                 for envvar in ['CFLAGS', 'FFLAGS']:
@@ -269,7 +267,7 @@ class EB_WRF(EasyBlock):
 
             # exclude 2d testcases in non-parallel WRF builds
             if self.cfg['buildtype'] in self.parallel_build_types:
-                self.testcases = [test for test in self.testcases if not "2d_" in test]
+                self.testcases = [test for test in self.testcases if '2d_' not in test]
 
             # exclude real testcases
             self.testcases = [test for test in self.testcases if not test.endswith("_real")]
@@ -282,7 +280,7 @@ class EB_WRF(EasyBlock):
                     self.testcases.remove(test)
 
             # some tests hang when WRF is built with Intel compilers
-            if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+            if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
                 for test in ["em_heldsuarez"]:
                     if test in self.testcases:
                         self.testcases.remove(test)
@@ -331,12 +329,12 @@ class EB_WRF(EasyBlock):
                             os.remove(f)
                             self.log.debug("Cleaned up file %s." % f)
 
-            # build an run each test case individually
+            # build and run each test case individually
             for test in self.testcases:
 
                 self.log.debug("Building and running test %s" % test)
 
-                #build_and_install
+                # build and install
                 cmd = "tcsh ./compile %s %s" % (self.par, test)
                 run_cmd(cmd, log_all=True, simple=True)
 
