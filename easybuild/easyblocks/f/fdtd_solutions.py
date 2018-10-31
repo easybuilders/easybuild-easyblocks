@@ -57,7 +57,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         """Override installdir creation"""
         self.log.warning("Not pre-creating installation directory %s" % self.installdir)
         self.cfg['dontcreateinstalldir'] = True
-        super(EB_EB_FDTD_underscore_Solutions, self).make_installdir()
+        super(EB_FDTD_underscore_Solutions, self).make_installdir()
 
     def build_step(self):
         """No build step for FDTD Solutions."""
