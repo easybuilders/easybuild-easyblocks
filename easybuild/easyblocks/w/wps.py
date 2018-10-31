@@ -30,6 +30,7 @@ EasyBuild support for building and installing WPS, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Andreas Hilboll (University of Bremen)
 """
 import fileinput
 import os
@@ -41,6 +42,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.netcdf import set_netcdf_env_vars  #@UnresolvedImport
+from easybuild.easyblocks.wrf import det_wrf_subdir
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
@@ -60,7 +62,6 @@ class EB_WPS(EasyBlock):
 
         self.build_in_installdir = True
         self.comp_fam = None
-        self.wrfdir = None
         self.compile_script = None
         testdata_urls = ["http://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
         if LooseVersion(self.version) < LooseVersion('3.8'):
@@ -71,6 +72,11 @@ class EB_WPS(EasyBlock):
             testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")  # 2.6GB download, 29GB unpacked!!
         if self.cfg.get('testdata') is None:
             self.cfg['testdata'] = testdata_urls
+
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            self.wps_subdir = 'WPS'
+        else:
+            self.wps_subdir = 'WPS-%s' % self.version
 
     @staticmethod
     def extra_options():
@@ -95,11 +101,7 @@ class EB_WPS(EasyBlock):
         # WRF dependency check
         wrf = get_software_root('WRF')
         if wrf:
-            wrfver = get_software_version('WRF')
-            if LooseVersion(wrfver) < LooseVersion("4.0"):
-                self.wrfdir = os.path.join(wrf, "WRFV3")
-            else:
-                self.wrfdir = os.path.join(wrf, "WRF-%s" % wrfver)
+            wrfdir = os.path.join(wrf, det_wrf_subdir(get_software_version('WRF')))
         else:
             raise EasyBuildError("WRF module not loaded?")
 
@@ -107,7 +109,7 @@ class EB_WPS(EasyBlock):
         self.compile_script = "compile"
         try:
             for line in fileinput.input(self.compile_script, inplace=1, backup='.orig.wrf'):
-                line = re.sub(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % self.wrfdir, line)
+                line = re.sub(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir, line)
                 sys.stdout.write(line)
         except IOError, err:
             raise EasyBuildError("Failed to patch %s script: %s", self.compile_script, err)
@@ -256,11 +258,7 @@ class EB_WPS(EasyBlock):
             if not self.cfg['testdata']:
                 raise EasyBuildError("List of URLs for testdata not provided.")
 
-
-            if LooseVersion(self.version) < LooseVersion("4.0"):
-                wpsdir = os.path.join(self.builddir, "WPS")
-            else:
-                wpsdir = os.path.join(self.builddir, "WPS-%s" % self.version)
+            wpsdir = os.path.join(self.builddir, self.wps_subdir)
 
             try:
                 # create temporary directory
@@ -369,13 +367,9 @@ class EB_WPS(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for WPS."""
-        mainver = self.version.split('.')[0]
-        if mainver < 4:
-            wpsdir = 'WPS'
-        else:
-            wpsdir = 'WPS-%s' % self.version
+
         custom_paths = {
-            'files': ['%s/%s' % (wpsdir, x) for x in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
+            'files': [os.path.join(self.wps_subdir, x) for x in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
             'dirs': [],
         }
         super(EB_WPS, self).sanity_check_step(custom_paths=custom_paths)

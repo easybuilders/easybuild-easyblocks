@@ -30,10 +30,10 @@ EasyBuild support for building and installing WRF, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Andreas Hilboll (University of Bremen)
 """
 import os
 import re
-import sys
 
 from distutils.version import LooseVersion
 
@@ -49,6 +49,19 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
 
+def det_wrf_subdir(wrf_version):
+    """Determine WRF subdirectory for given WRF version."""
+
+    wrf_maj_ver = wrf_version.split('.')[0]
+
+    if LooseVersion(wrf_version) < LooseVersion('4.0'):
+        wrf_subdir = 'WRFV%s' % wrf_maj_ver
+    else:
+        wrf_subdir = 'WRF-%s' % wrf_version
+
+    return wrf_subdir
+
+
 class EB_WRF(EasyBlock):
     """Support for building/installing WRF."""
 
@@ -57,8 +70,9 @@ class EB_WRF(EasyBlock):
         super(EB_WRF, self).__init__(*args, **kwargs)
 
         self.build_in_installdir = True
-        self.wrfsubdir = None
         self.comp_fam = None
+
+        self.wrfsubdir = det_wrf_subdir(self.version)
 
     @staticmethod
     def extra_options():
@@ -77,10 +91,7 @@ class EB_WRF(EasyBlock):
             - adjust configure.wrf file if needed
         """
 
-        if LooseVersion(self.version) < LooseVersion('4.0'):
-            wrfdir = os.path.join(self.builddir, "WRFV3")
-        else:
-            wrfdir = os.path.join(self.builddir, "WRF-%s" % self.version)
+        wrfdir = os.path.join(self.builddir, self.wrfsubdir)
 
         # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
@@ -369,11 +380,6 @@ class EB_WRF(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for WRF."""
 
-        if LooseVersion(self.version) < LooseVersion('4.0'):
-            self.wrfsubdir = "WRFV3"
-        else:
-            self.wrfsubdir = "WRF-%s" % self.version
-
         files = ['libwrflib.a', 'wrf.exe', 'ideal.exe', 'real.exe', 'ndown.exe', 'tc.exe']
         # nup.exe was 'temporarily removed' in WRF v3.7, at least until 3.8
         if LooseVersion(self.version) < LooseVersion('3.7'):
@@ -387,19 +393,14 @@ class EB_WRF(EasyBlock):
         super(EB_WRF, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
+        """Path-like environment variable updates specific to WRF."""
 
-        if LooseVersion(self.version) < LooseVersion('4.0'):
-            self.wrfsubdir = "WRFV3"
-        else:
-            self.wrfsubdir = "WRF-%s" % self.version
-
-        maindir = os.path.join(self.wrfsubdir, "main")
-
+        maindir = os.path.join(self.wrfsubdir, 'main')
         return {
-                'PATH': [maindir],
-                'LD_LIBRARY_PATH': [maindir],
-                'MANPATH': [],
-               }
+            'PATH': [maindir],
+            'LD_LIBRARY_PATH': [maindir],
+            'MANPATH': [],
+        }
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
