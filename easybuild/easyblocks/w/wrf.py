@@ -44,7 +44,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, patch_perl_script_autoflush
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, patch_perl_script_autoflush, read_file
+from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -178,18 +179,18 @@ class EB_WRF(EasyBlock):
         # run configure script
         cmd = "./configure"
         qa = {
-              # named group in match will be used to construct answer
-              "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
-              "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
-             }
+            # named group in match will be used to construct answer
+            "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
+            "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
+        }
         no_qa = [
-                 "testing for fseeko and fseeko64",
-                 r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
-                ]
+            "testing for fseeko and fseeko64",
+            r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
+        ]
         std_qa = {
-                  # named group in match will be used to construct answer
-                  r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-                 }
+            # named group in match will be used to construct answer
+            r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
+        }
 
         run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 
@@ -197,12 +198,12 @@ class EB_WRF(EasyBlock):
 
         # make sure correct compilers are being used
         comps = {
-                 'SCC': os.getenv('CC'),
-                 'SFC': os.getenv('F90'),
-                 'CCOMP': os.getenv('CC'),
-                 'DM_FC': os.getenv('MPIF90'),
-                 'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
-                }
+            'SCC': os.getenv('CC'),
+            'SFC': os.getenv('F90'),
+            'CCOMP': os.getenv('CC'),
+            'DM_FC': os.getenv('MPIF90'),
+            'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
+        }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
         apply_regex_substitutions(cfgfile, regex_subs)
 
@@ -234,10 +235,10 @@ class EB_WRF(EasyBlock):
         """Build and install WRF and testcases using provided compile script."""
 
         # enable parallel build
-        p = self.cfg['parallel']
-        self.par = ""
-        if p:
-            self.par = "-j %s" % p
+        par = self.cfg['parallel']
+        self.par = ''
+        if par:
+            self.par = "-j %s" % par
 
         # build wrf (compile script uses /bin/csh )
         cmd = "tcsh ./compile %s wrf" % self.par
@@ -307,14 +308,7 @@ class EB_WRF(EasyBlock):
                 run_cmd(test_cmd, log_all=True, simple=True)
 
                 # check for success
-                fn = "rsl.error.0000"
-                try:
-                    f = open(fn, "r")
-                    txt = f.read()
-                    f.close()
-                except IOError, err:
-                    raise EasyBuildError("Failed to read output file %s: %s", fn, err)
-
+                txt = read_file('rsl.error.0000')
                 if re_success.search(txt):
                     self.log.info("Test %s ran successfully." % test)
 
@@ -323,11 +317,11 @@ class EB_WRF(EasyBlock):
 
                 # clean up stuff that gets in the way
                 fn_prefs = ["wrfinput_", "namelist.output", "wrfout_", "rsl.out.", "rsl.error."]
-                for f in os.listdir('.'):
-                    for p in fn_prefs:
-                        if f.startswith(p):
-                            os.remove(f)
-                            self.log.debug("Cleaned up file %s." % f)
+                for filename in os.listdir('.'):
+                    for pref in fn_prefs:
+                        if filename.startswith(pref):
+                            remove_file(filename)
+                            self.log.debug("Cleaned up file %s", filename)
 
             # build and run each test case individually
             for test in self.testcases:
@@ -340,7 +334,7 @@ class EB_WRF(EasyBlock):
 
                 # run test
                 try:
-                    os.chdir('run')
+                    prev_dir = change_dir('run')
 
                     if test in ["em_fire"]:
 
@@ -352,10 +346,10 @@ class EB_WRF(EasyBlock):
                             subtestdir = os.path.join(testdir, subtest)
 
                             # link required files
-                            for f in os.listdir(subtestdir):
-                                if os.path.exists(f):
-                                    os.remove(f)
-                                os.symlink(os.path.join(subtestdir, f), f)
+                            for filename in os.listdir(subtestdir):
+                                if os.path.exists(filename):
+                                    remove_file(filename)
+                                symlink(os.path.join(subtestdir, filename), filename)
 
                             # run test
                             run_test()
@@ -365,9 +359,9 @@ class EB_WRF(EasyBlock):
                         # run test
                         run_test()
 
-                    os.chdir('..')
+                    change_dir(prev_dir)
 
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("An error occured when running test %s: %s", test, err)
 
     # building/installing is done in build_step, so we can run tests

@@ -32,10 +32,8 @@ EasyBuild support for building and installing WPS, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Andreas Hilboll (University of Bremen)
 """
-import fileinput
 import os
 import re
-import sys
 import tempfile
 from distutils.version import LooseVersion
 
@@ -47,7 +45,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_file, extract_file, patch_perl_script_autoflush, rmtree2, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, extract_file, mkdir
+from easybuild.tools.filetools import patch_perl_script_autoflush, remove_dir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -110,12 +109,8 @@ class EB_WPS(EasyBlock):
 
         # patch compile script so that WRF is found
         self.compile_script = "compile"
-        try:
-            for line in fileinput.input(self.compile_script, inplace=1, backup='.orig.wrf'):
-                line = re.sub(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir, line)
-                sys.stdout.write(line)
-        except IOError, err:
-            raise EasyBuildError("Failed to patch %s script: %s", self.compile_script, err)
+        regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
+        apply_regex_substitutions(self.compile_script, regex_subs)
 
         # libpng dependency check
         libpng = get_software_root('libpng')
@@ -142,15 +137,12 @@ class EB_WPS(EasyBlock):
             raise EasyBuildError("JasPer module not loaded?")
 
         # patch ungrib Makefile so that JasPer is found
-        fn = os.path.join("ungrib", "src", "Makefile")
         jasperlibs = "%s -ljasper %s -lpng" % (jasperlib, libpnglib)
-        try:
-            for line in fileinput.input(fn, inplace=1, backup='.orig.JasPer'):
-                line = re.sub(r"^(\s*-L\.\s*-l\$\(LIBTARGET\))(\s*;.*)$", r"\1 %s\2" % jasperlibs, line)
-                line = re.sub(r"^(\s*\$\(COMPRESSION_LIBS\))(\s*;.*)$", r"\1 %s\2" % jasperlibs, line)
-                sys.stdout.write(line)
-        except IOError, err:
-            raise EasyBuildError("Failed to patch %s: %s", fn, err)
+        regex_subs = [
+            (r"^(\s*-L\.\s*-l\$\(LIBTARGET\))(\s*;.*)$", r"\1 %s\2" % jasperlibs),
+            (r"^(\s*\$\(COMPRESSION_LIBS\))(\s*;.*)$", r"\1 %s\2" % jasperlibs),
+        ]
+        apply_regex_substitutions(os.path.join('ungrib', 'src', 'Makefile'), regex_subs)
 
         # patch arch/Config.pl script, so that run_cmd_qa receives all output to answer questions
         patch_perl_script_autoflush(os.path.join("arch", "Config.pl"))
@@ -164,9 +156,9 @@ class EB_WPS(EasyBlock):
         if LooseVersion(self.version) >= LooseVersion("3.4"):
 
             knownbuildtypes = {
-                               'smpar': 'serial',
-                               'dmpar': 'dmpar'
-                              }
+                'smpar': 'serial',
+                'dmpar': 'dmpar'
+            }
 
             if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
                 build_type_option = " Linux x86_64, Intel compiler"
@@ -180,9 +172,9 @@ class EB_WPS(EasyBlock):
         else:
 
             knownbuildtypes = {
-                               'smpar': 'serial',
-                               'dmpar': 'DM parallel'
-                              }
+                'smpar': 'serial',
+                'dmpar': 'DM parallel'
+            }
 
             if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
                 build_type_option = "PC Linux x86_64, Intel compiler"
@@ -207,26 +199,23 @@ class EB_WPS(EasyBlock):
         qa = {}
         no_qa = [".*compiler is.*"]
         std_qa = {
-                  # named group in match will be used to construct answer
-                  r"%s(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-                 }
+            # named group in match will be used to construct answer
+            r"%s(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
+        }
 
         run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 
         # make sure correct compilers and compiler flags are being used
         comps = {
-                 'SCC': "%s -I$(JASPERINC) %s" % (os.getenv('CC'), libpnginc),
-                 'SFC': os.getenv('F90'),
-                 'DM_FC': os.getenv('MPIF90'),
-                 'DM_CC': os.getenv('MPICC'),
-                 'FC': os.getenv('MPIF90'),
-                 'CC': os.getenv('MPICC'),
-                }
-        fn = 'configure.wps'
-        for line in fileinput.input(fn, inplace=1, backup='.orig.comps'):
-            for (k, v) in comps.items():
-                line = re.sub(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v, line)
-            sys.stdout.write(line)
+            'SCC': "%s -I$(JASPERINC) %s" % (os.getenv('CC'), libpnginc),
+            'SFC': os.getenv('F90'),
+            'DM_FC': os.getenv('MPIF90'),
+            'DM_CC': os.getenv('MPICC'),
+            'FC': os.getenv('MPIF90'),
+            'CC': os.getenv('MPICC'),
+        }
+        regex_subs = [(r"^(%s\s*=\s*).*$" % key, r"\1 %s" % val) for (key, val) in comps.items()]
+        apply_regex_substitutions('configure.wps', regex_subs)
 
     def build_step(self):
         """Build in install dir using compile script."""
@@ -266,7 +255,7 @@ class EB_WPS(EasyBlock):
             try:
                 # create temporary directory
                 tmpdir = tempfile.mkdtemp()
-                os.chdir(tmpdir)
+                change_dir(tmpdir)
 
                 # download data
                 testdata_paths = []
@@ -294,15 +283,14 @@ class EB_WPS(EasyBlock):
 
                 # copy namelist.wps file and patch it for geogrid
                 copy_file(os.path.join(wpsdir, 'namelist.wps'), namelist_file)
-                for line in fileinput.input(namelist_file, inplace=1, backup='.orig.geogrid'):
-                    line = re.sub(r"^(\s*geog_data_path\s*=\s*).*$", r"\1 '%s'" % tmpdir, line)
-                    sys.stdout.write(line)
+                regex_subs = [(r"^(\s*geog_data_path\s*=\s*).*$", r"\1 '%s'" % tmpdir)]
+                apply_regex_substitutions(namelist_file, regex_subs)
 
                 # GEOGRID.TBL
-                geogrid_dir = os.path.join(tmpdir, "geogrid")
-                os.mkdir(geogrid_dir)
-                os.symlink(os.path.join(wpsdir, "geogrid", "GEOGRID.TBL.ARW"),
-                           os.path.join(geogrid_dir, "GEOGRID.TBL"))
+                geogrid_dir = os.path.join(tmpdir, 'geogrid')
+                mkdir(geogrid_dir)
+                symlink(os.path.join(wpsdir, 'geogrid', 'GEOGRID.TBL.ARW'),
+                        os.path.join(geogrid_dir, 'GEOGRID.TBL'))
 
                 # run geogrid.exe
                 run_wps_cmd("geogrid")
@@ -318,10 +306,11 @@ class EB_WPS(EasyBlock):
 
                 # copy namelist.wps file and patch it for ungrib
                 copy_file(os.path.join(wpsdir, 'namelist.wps'), namelist_file)
-                for line in fileinput.input(namelist_file, inplace=1, backup='.orig.ungrib'):
-                    line = re.sub(r"^(\s*start_date\s*=\s*).*$", r"\1 '%s','%s'," % (start, start), line)
-                    line = re.sub(r"^(\s*end_date\s*=\s*).*$", r"\1 '%s','%s'," % (end, end), line)
-                    sys.stdout.write(line)
+                regex_subs = [
+                    (r"^(\s*start_date\s*=\s*).*$", r"\1 '%s','%s'," % (start, start)),
+                    (r"^(\s*end_date\s*=\s*).*$", r"\1 '%s','%s'," % (end, end)),
+                ]
+                apply_regex_substitutions(namelist_file, regex_subs)
 
                 # copy correct Vtable
                 vtable_dir = os.path.join(wpsdir, 'ungrib', 'Variable_Tables')
@@ -341,20 +330,20 @@ class EB_WPS(EasyBlock):
 
                 # METGRID.TBL
 
-                metgrid_dir = os.path.join(tmpdir, "metgrid")
-                os.mkdir(metgrid_dir)
-                os.symlink(os.path.join(wpsdir, "metgrid", "METGRID.TBL.ARW"),
-                           os.path.join(metgrid_dir, "METGRID.TBL"))
+                metgrid_dir = os.path.join(tmpdir, 'metgrid')
+                mkdir(metgrid_dir)
+                symlink(os.path.join(wpsdir, 'metgrid', 'METGRID.TBL.ARW'),
+                        os.path.join(metgrid_dir, 'METGRID.TBL'))
 
                 # run metgrid.exe
                 run_wps_cmd('metgrid')
 
                 # clean up
-                rmtree2(tmpdir)
+                remove_dir(tmpdir)
 
-                os.chdir(self.builddir)
+                change_dir(self.builddir)
 
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to run WPS test: %s", err)
 
     # installing is done in build_step, so we can run tests
