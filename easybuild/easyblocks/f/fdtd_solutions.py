@@ -53,6 +53,10 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         cmd = "rpm2cpio %s | cpio -idm " % rpms[0]
         run_cmd(cmd, log_all=True, simple=True)
 
+    def make_installdir(self):
+        """Override installdir creation"""
+        self.log.warning("Not pre-creating installation directory %s" % self.installdir)
+
     def build_step(self):
         """No build step for FDTD Solutions."""
         pass
