@@ -71,7 +71,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
         custom_paths = {
-            'files': ['bin/fdtd-solutions', 'lib/fdtd-engine-mpichp4_libFNP.so'],
-            'dirs': ['api'],
+            'files': ['bin/fdtd-solutions'],
+            'dirs': ['lib'],
         }
         super(EB_FDTD_underscore_Solutions, self).sanity_check_step(custom_paths=custom_paths)
