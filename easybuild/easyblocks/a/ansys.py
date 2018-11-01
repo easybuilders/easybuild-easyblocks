@@ -57,7 +57,7 @@ class EB_ANSYS(PackedBinary):
         cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
         run_cmd(cmd, log_all=True, simple=True)
 
-        adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
+        adjust_permissions(self.installdir, stat.S_IWOTH, add=False, ignore_errors=True)
 
     def make_module_req_guess(self):
         """Custom extra module file entries for ANSYS."""
@@ -93,6 +93,6 @@ class EB_ANSYS(PackedBinary):
         """Custom sanity check for ANSYS."""
         custom_paths = {
            'files': [os.path.join(self.ansysver, "fluent", "bin", "fluent%s" % x) for x in ['', '_arch', '_sysinfo']],
-           'dirs': [os.path.join(self.ansysver, x) for x in ["ansys", "aisol", "CFD-Post","CFX"]]
+           'dirs': [os.path.join(self.ansysver, x) for x in ["ansys", "aisol", "CFD-Post", "CFX"]]
         }
         super(EB_ANSYS, self).sanity_check_step(custom_paths=custom_paths)
