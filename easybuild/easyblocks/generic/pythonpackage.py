@@ -254,7 +254,7 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
 
-            # don't (try to) uninstall already availale versions of the package being installed
+            # don't (try to) uninstall already available versions of the package being installed
             self.cfg.update('installopts', '--ignore-installed')
 
             if self.cfg.get('zipped_egg', False):
@@ -502,9 +502,15 @@ class PythonPackage(ExtensionEasyBlock):
         new_pythonpath = os.pathsep.join([x for x in abs_pylibdirs + [pythonpath] if x is not None])
         env.setvar('PYTHONPATH', new_pythonpath, verbose=False)
 
+        install_cmd = self.compose_install_command(self.installdir)
+        self.log.info("Installing %s v%s with: %s", self.name, self.version, install_cmd)
+
+        # run 'pip check' before trying to install package, if pip is used with --no-deps
+        if "pip install" in install_cmd and '--no-deps' in install_cmd:
+            run_cmd("pip check", log_all=True, log_ok=True, simple=False)
+
         # actually install Python package
-        cmd = self.compose_install_command(self.installdir)
-        (self.install_cmd_output, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+        (self.install_cmd_output, _) = run_cmd(install_cmd, log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
