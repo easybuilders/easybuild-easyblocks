@@ -93,13 +93,13 @@ class EB_PSI(CMakeMake):
         if not pythonroot:
             raise EasyBuildError("Python module not loaded.")
 
-        # Use EB Boost
-        boostroot = get_software_root('Boost')
-        if not boostroot:
-            raise EasyBuildError("Boost module not loaded.")
-
         # pre 4.0b5, they were using autotools, on newer it's CMake
         if LooseVersion(self.version) <= LooseVersion("4.0b5") and self.name == "PSI":
+            # Use EB Boost
+            boostroot = get_software_root('Boost')
+            if not boostroot:
+                raise EasyBuildError("Boost module not loaded.")
+
             self.log.info("Using configure based build")
             env.setvar('PYTHON', os.path.join(pythonroot, 'bin', 'python'))
             env.setvar('USE_SYSTEM_BOOST', 'TRUE')
