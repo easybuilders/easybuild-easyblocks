@@ -35,13 +35,14 @@ EasyBuild support for installing PGI compilers, implemented as an easyblock
 import os
 import fileinput
 import re
+import stat
 import sys
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
-from easybuild.tools.filetools import find_flexlm_license, write_file
+from easybuild.tools.filetools import adjust_permissions, find_flexlm_license, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 
@@ -166,6 +167,9 @@ class EB_PGI(PackedBinary):
         write_file(siterc_path, SITERC_PTHREAD_SWITCH, append=True)
         self.log.info("Append instructions to replace -pthread with -lpthread to siterc file at %s: %s",
                       siterc_path, SITERC_PTHREAD_SWITCH)
+
+        # The cuda nvvp tar file has broken permissions
+        adjust_permissions(self.installdir, stat.S_IWUSR, add=True, onlydirs=True)
 
     def sanity_check_step(self):
         """Custom sanity check for PGI"""
