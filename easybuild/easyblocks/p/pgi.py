@@ -39,6 +39,7 @@ import stat
 import sys
 
 import easybuild.tools.environment as env
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
@@ -95,6 +96,9 @@ class EB_PGI(PackedBinary):
         self.license_env_var = 'UNKNOWN'  # Probably not really necessary for PGI
 
         self.pgi_install_subdir = os.path.join('linux86-64', self.version)
+        self.pgi_install_subdirs = [self.pgi_install_subdir]
+        if LooseVersion(self.version) > LooseVersion('18'):
+            self.pgi_install_subdirs.append(os.path.join('linux86-64-llvm', self.version))
 
     def configure_step(self):
         """
@@ -146,10 +150,12 @@ class EB_PGI(PackedBinary):
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
         # If we use the EB libnuma, delete those symbolic links to ensure they are not used
         if get_software_root("numactl"):
-            for filename in ["libnuma.so", "libnuma.so.1"]:
-                path = os.path.join(install_abs_subdir, "lib", filename)
-                if os.path.islink(path):
-                    os.remove(path)
+            for subdir in self.pgi_install_subdirs:
+                install_abs_subdir = os.path.join(self.installdir, subdir)
+                for filename in ["libnuma.so", "libnuma.so.1"]:
+                    path = os.path.join(install_abs_subdir, "lib", filename)
+                    if os.path.islink(path):
+                        os.remove(path)
 
         # install (or update) siterc file to make PGI consider $LIBRARY_PATH and accept -pthread
         siterc_path = os.path.join(self.installdir, self.pgi_install_subdir, 'bin', 'siterc')
