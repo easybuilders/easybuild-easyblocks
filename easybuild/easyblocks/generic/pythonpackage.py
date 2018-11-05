@@ -505,12 +505,12 @@ class PythonPackage(ExtensionEasyBlock):
         install_cmd = self.compose_install_command(self.installdir)
         self.log.info("Installing %s v%s with: %s", self.name, self.version, install_cmd)
 
-        # run 'pip check' before trying to install package, if pip is used with --no-deps
-        if "pip install" in install_cmd and '--no-deps' in install_cmd:
-            run_cmd("pip check", log_all=True, log_ok=True, simple=False)
-
         # actually install Python package
         (self.install_cmd_output, _) = run_cmd(install_cmd, log_all=True, log_ok=True, simple=False)
+
+        # run 'pip check' to see whether all required dependencies are available
+        if "pip install" in install_cmd and '--no-deps' in install_cmd:
+            run_cmd("pip check", log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
