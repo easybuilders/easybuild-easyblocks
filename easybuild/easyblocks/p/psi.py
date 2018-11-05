@@ -140,7 +140,7 @@ class EB_PSI(CMakeMake):
         else:
             self.log.info("Using CMake based build")
             self.cfg.update('configopts', ' -DPYTHON_INTERPRETER=%s' % os.path.join(pythonroot, 'bin', 'python'))
-            if (self.name == 'PSI4') and (LooseVersion(self.version) >= LooseVersion("1.2")):
+            if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
                 self.log.info("You have to remove CMAKE_BUILD_TYPE test in PSI4 source and the downoaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
                 self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=None')
@@ -174,12 +174,12 @@ class EB_PSI(CMakeMake):
 
                 #  Be aware, PSI4 wants exact versions of the following deps! built with CMake!!
                 if LooseVersion(self.version) >= LooseVersion("1.2"):
-                    depsdict = {'libxc': 'Libxc', 'Libint': 'Libint', 'pybind11': 'pybind11', 'gau2grid': 'gau2grid'}
-                    for deps in depsdict:
-                        depsroot = get_software_root(deps)
-                        if depsroot:
-                            self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_{0}=ON "
-                                            "-D{0}_DIR={1}/share/cmake/{2}" .format(depsdict[deps], depsroot, deps))
+                    for dep in ['libxc', 'Libint', 'pybind11', 'gau2grid']:
+                        deproot = get_software_root(dep)
+                        if deproot:
+                            self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_%s=ON" % dep)
+                            self.cfg.update('configopts', " -D%s_DIR%s "
+                                            % (dep, os.path.join(deproot, 'share', 'cmake', dep)))
 
             CMakeMake.configure_step(self, srcdir=self.cfg['start_dir'])
 
@@ -202,7 +202,7 @@ class EB_PSI(CMakeMake):
         """
         testdir = tempfile.mkdtemp()
         env.setvar('PSI_SCRATCH', testdir)
-        if (self.name == 'PSI4') and (LooseVersion(self.version) >= LooseVersion("1.2")):
+        if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
             if self.cfg['runtest']:
                 paracmd = ''
                 # Run ctest parallel, but limit to maximum 4 jobs (in case of slow disks)
