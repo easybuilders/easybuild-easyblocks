@@ -339,9 +339,8 @@ class EB_WPS(EasyBlock):
                 run_wps_cmd('metgrid')
 
                 # clean up
-                remove_dir(tmpdir)
-
                 change_dir(self.builddir)
+                remove_dir(tmpdir)
 
             except OSError as err:
                 raise EasyBuildError("Failed to run WPS test: %s", err)
