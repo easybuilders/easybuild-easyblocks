@@ -173,13 +173,17 @@ class EB_PSI(CMakeMake):
                                         "-DCheMPS2_DIR=%s/share/cmake/CheMPS2" % chempsroot)
 
                 #  Be aware, PSI4 wants exact versions of the following deps! built with CMake!!
+                #  If you want to use non-CMake build versions, the you have to provide the
+                #  corresponding Find<library-name>.cmake scripts
+                #  In PSI4 version 1.2.1, you can check the corresponding CMakeLists.txt file
+                #  in external/upstream/<library-name>/
                 if LooseVersion(self.version) >= LooseVersion("1.2"):
                     for dep in ['libxc', 'Libint', 'pybind11', 'gau2grid']:
                         deproot = get_software_root(dep)
                         if deproot:
                             self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_%s=ON" % dep)
-                            self.cfg.update('configopts', " -D%s_DIR%s "
-                                            % (dep, os.path.join(deproot, 'share', 'cmake', dep)))
+                            dep_dir = os.path.join(deproot, 'share', 'cmake', dep)
+                            self.cfg.update('configopts', " -D%s_DIR=%s " % (dep, dep_dir))
 
             CMakeMake.configure_step(self, srcdir=self.cfg['start_dir'])
 
