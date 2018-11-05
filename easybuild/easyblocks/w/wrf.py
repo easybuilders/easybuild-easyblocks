@@ -266,7 +266,7 @@ class EB_WRF(EasyBlock):
             elif not self.dry_run:
                 raise EasyBuildError("Test directory not found, failed to determine list of test cases")
 
-            # exclude 2d testcases in non-parallel WRF builds
+            # exclude 2d testcases in parallel WRF builds
             if self.cfg['buildtype'] in self.parallel_build_types:
                 self.testcases = [test for test in self.testcases if '2d_' not in test]
 
