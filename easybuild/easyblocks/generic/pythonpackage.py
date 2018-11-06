@@ -207,6 +207,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.unpack_options = self.cfg['unpack_options']
 
         self.python_cmd = None
+        self.pip_version = None
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
@@ -328,6 +329,24 @@ class PythonPackage(ExtensionEasyBlock):
         # set Python lib directories
         self.set_pylibdirs()
 
+    def det_pip_version(self):
+        """Determine pip version."""
+
+        pip_version = None
+        out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
+
+        pip_version_regex = re.compile('^pip ([0-9.]+)')
+        res = pip_version_regex.search(out)
+        if res:
+            pip_version = res.group(1)
+            self.log.info("Found pip version: %s", pip_version)
+
+        elif not self.dry_run:
+            raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
+                                 out, pip_version_regex.pattern)
+
+        return pip_version
+
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
@@ -335,21 +354,13 @@ class PythonPackage(ExtensionEasyBlock):
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
-            out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
-
-            # pip 8.x or newer required, because of --prefix option being used
-            pip_version_regex = re.compile('^pip ([0-9.]+)')
-            res = pip_version_regex.search(out)
-            if res:
-                pip_version = res.group(1)
-                if LooseVersion(pip_version) >= LooseVersion('8.0'):
-                    self.log.info("Found pip version %s, OK", pip_version)
+            self.pip_version = self.det_pip_version()
+            if self.pip_version:
+                # pip 8.x or newer required, because of --prefix option being used
+                if LooseVersion(self.pip_version) >= LooseVersion('8.0'):
+                    self.log.info("Found pip version %s, OK", self.pip_version)
                 else:
-                    raise EasyBuildError("Need pip version 8.0 or newer, found version %s", pip_version)
-
-            elif not self.dry_run:
-                raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
-                                     out, pip_version_regex.pattern)
+                    raise EasyBuildError("Need pip version 8.0 or newer, found version %s", self.pip_version)
 
         cmd = []
         if extrapath:
@@ -508,9 +519,10 @@ class PythonPackage(ExtensionEasyBlock):
         # actually install Python package
         (self.install_cmd_output, _) = run_cmd(install_cmd, log_all=True, log_ok=True, simple=False)
 
-        # run 'pip check' to see whether all required dependencies are available
-        if "pip install" in install_cmd and '--no-deps' in install_cmd:
-            run_cmd("pip check", log_all=True, log_ok=True, simple=False)
+        # run 'pip check' (requires pip v9.0 or newer) to see whether all required dependencies are available
+        if self.pip_version and LooseVersion(self.pip_version) > LooseVersion('9.0'):
+            if "pip install" in install_cmd and '--no-deps' in install_cmd:
+                run_cmd("pip check", log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
