@@ -447,4 +447,6 @@ class EB_TensorFlow(PythonPackage):
                 cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
+            os.rmdir('/tmp/tensorflow')
+
         return res
