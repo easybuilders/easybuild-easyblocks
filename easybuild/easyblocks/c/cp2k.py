@@ -50,12 +50,11 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, search_file, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_avail_core_count
-from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 # CP2K needs this version of libxc
 LIBXC_MIN_VERSION = '2.0.1'
@@ -97,6 +96,7 @@ class EB_CP2K(EasyBlock):
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
             'ignore_regtest_fails': [False, ("Ignore failures in regression test "
                                              "(should be used with care)"), CUSTOM],
+            'library': [False, "Also build CP2K as a library", CUSTOM],
             'maxtasks': [4, ("Maximum number of CP2K instances run at "
                              "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use "
@@ -637,6 +637,8 @@ class EB_CP2K(EasyBlock):
         run_cmd(cmd + " clean", log_all=True, simple=True, log_output=True)
 
         #build_and_install
+        if self.cfg['library']:
+            cmd += ' libcp2k'
         run_cmd(cmd + " all", log_all=True, simple=True, log_output=True)
 
     def test_step(self):
@@ -791,17 +793,25 @@ class EB_CP2K(EasyBlock):
         """
 
         # copy executables
+        exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
         targetdir = os.path.join(self.installdir, 'bin')
-        exedir = os.path.join(self.cfg['start_dir'], 'exe/%s' % self.typearch)
-        try:
-            if not os.path.exists(targetdir):
-                os.makedirs(targetdir)
-            os.chdir(exedir)
-            for exefile in os.listdir(exedir):
-                if os.path.isfile(exefile):
-                    shutil.copy2(exefile, targetdir)
-        except OSError, err:
-            raise EasyBuildError("Copying executables from %s to bin dir %s failed: %s", exedir, targetdir, err)
+        copy_dir(exedir, targetdir)
+
+        # copy libraries and include files, not sure what is strictly required so we take everything
+        if self.cfg['library']:
+            libdir = os.path.join(self.cfg['start_dir'], 'lib', self.typearch, self.cfg['type'])
+            targetdir = os.path.join(self.installdir, 'lib')
+            copy_dir(libdir, targetdir)
+            # Also need to populate the include directory
+            targetdir = os.path.join(self.installdir, 'include')
+            libcp2k_header = os.path.join(self.cfg['start_dir'], 'src', 'start', 'libcp2k.h')
+            target_header = os.path.join(targetdir, os.path.basename(libcp2k_header))
+            copy_file(libcp2k_header, target_header)
+            # include all .mod files for fortran users (don't know the exact list so take everything)
+            mod_path = os.path.join(self.cfg['start_dir'], 'obj', self.typearch, self.cfg['type'])
+            for mod_file in glob.glob(os.path.join(mod_path, '*.mod')):
+                target_mod = os.path.join(targetdir, os.path.basename(mod_file))
+                copy_file(mod_file, target_mod)
 
         # copy data dir
         datadir = os.path.join(self.cfg['start_dir'], 'data')
@@ -809,10 +819,7 @@ class EB_CP2K(EasyBlock):
         if os.path.exists(targetdir):
             self.log.info("Won't copy data dir. Destination directory %s already exists" % targetdir)
         elif os.path.exists(datadir):
-            try:
-                shutil.copytree(datadir, targetdir)
-            except:
-                raise EasyBuildError("Copying data dir from %s to %s failed", datadir, targetdir)
+            copy_dir(datadir, targetdir)
         else:
             self.log.info("Won't copy data dir. Source directory %s does not exist" % datadir)
 
@@ -822,10 +829,7 @@ class EB_CP2K(EasyBlock):
         if os.path.exists(targetdir):
             self.log.info("Won't copy tests. Destination directory %s already exists" % targetdir)
         else:
-            try:
-                shutil.copytree(srctests, targetdir)
-            except:
-                raise EasyBuildError("Copying tests from %s to %s failed", srctests, targetdir)
+            copy_dir(srctests, targetdir)
 
         # copy regression test results
         if self.cfg['runtest']:
@@ -835,7 +839,7 @@ class EB_CP2K(EasyBlock):
                     if d.startswith('TEST-%s-%s' % (self.typearch, self.cfg['type'])):
                         path = os.path.join(testdir, d)
                         target = os.path.join(self.installdir, d)
-                        shutil.copytree(path, target)
+                        copy_dir(path, target)
                         self.log.info("Regression test results dir %s copied to %s" % (d, self.installdir))
                         break
             except (OSError, IOError), err:
@@ -849,7 +853,10 @@ class EB_CP2K(EasyBlock):
             'files': ["bin/%s.%s" % (x, cp2k_type) for x in ["cp2k", "cp2k_shell"]],
             'dirs': ["tests"]
         }
-
+        if self.cfg['library']:
+            custom_paths['files'].append(os.path.join('lib', 'libcp2k.a'))
+            custom_paths['files'].append(os.path.join('include', 'libcp2k.h'))
+            custom_paths['files'].append(os.path.join('include', 'libcp2k.mod'))
         super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):

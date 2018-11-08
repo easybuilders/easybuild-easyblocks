@@ -30,10 +30,8 @@ EasyBuild support for installing a software-specific .modulerc file
 import os
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.build_log import print_msg
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import write_file
+from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.filetools import mkdir, symlink
 
 
 class ModuleRC(EasyBlock):
@@ -56,10 +54,7 @@ class ModuleRC(EasyBlock):
     def make_module_step(self, fake=False):
         """Install .modulerc file."""
         modfile_path = self.module_generator.get_module_filepath(fake=fake)
-        modulerc = os.path.join(os.path.dirname(modfile_path), '.modulerc')
-
-        if os.path.exists(modulerc) and not build_option('force'):
-            raise EasyBuildError("Found existing .modulerc at %s, not overwriting without --force", modulerc)
+        modulerc = os.path.join(os.path.dirname(modfile_path), self.module_generator.DOT_MODULERC)
 
         deps = self.cfg['dependencies']
         if len(deps) != 1:
@@ -74,12 +69,24 @@ class ModuleRC(EasyBlock):
             raise EasyBuildError("Version is not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
-        alias_modname = deps[0]['full_mod_name']
+        alias_modname = deps[0]['short_mod_name']
         self.log.info("Adding module version alias for %s to %s", alias_modname, modulerc)
 
-        module_version_specs = {'modname': alias_modname, 'sym_version': self.version, 'version': deps[0]['version']}
-        modulerc_txt = self.module_generator.modulerc(module_version=module_version_specs)
-        write_file(modulerc, modulerc_txt, backup=True)
+        # add symlink to wrapped module file when generating .modulerc in temporary directory (done during sanity check)
+        # this is strictly required for Lmod 6.x, for which .modulerc and wrapped module file must be in same location
+        if fake:
+            wrapped_mod_path = self.modules_tool.modulefile_path(alias_modname)
+            wrapped_mod_filename = os.path.basename(wrapped_mod_path)
+            target = os.path.join(os.path.dirname(modulerc), wrapped_mod_filename)
+            mkdir(os.path.dirname(target), parents=True)
+            symlink(wrapped_mod_path, target)
+
+        module_version_specs = {
+            'modname': alias_modname,
+            'sym_version': self.version,
+            'version': deps[0]['version'],
+        }
+        self.module_generator.modulerc(module_version=module_version_specs, filepath=modulerc)
 
         if not fake:
             print_msg("created .modulerc file at %s" % modulerc, log=self.log)
