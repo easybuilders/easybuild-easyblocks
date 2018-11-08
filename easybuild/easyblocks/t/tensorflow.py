@@ -442,9 +442,10 @@ class EB_TensorFlow(PythonPackage):
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
             for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
-                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
+                datadir = tempfile.mkdtemp(suffix='-tf-%s-data' % os.path.splitext(mnist_py)[0])
+                logdir = tempfile.mkdtemp(suffix='-tf-%s-logs' % os.path.splitext(mnist_py)[0])
                 mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
-                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
+                cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
         return res
