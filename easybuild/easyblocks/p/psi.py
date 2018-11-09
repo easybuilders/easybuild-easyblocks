@@ -143,7 +143,7 @@ class EB_PSI(CMakeMake):
             if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
                 self.log.info("You have to remove CMAKE_BUILD_TYPE test in PSI4 source and the downoaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
-                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=None')
+                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=EasyBuildRelease')
             else:
                 self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=Release')
 
