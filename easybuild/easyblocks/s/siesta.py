@@ -344,7 +344,7 @@ class EB_Siesta(ConfigureMake):
             ts_clean_target = 'clean'
             if loose_ver >= LooseVersion('4.1-b4'):
                 ts_clean_target += '-transiesta'
-            
+
             run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)
             run_cmd('make %s transiesta' % par, log_all=True, simple=True, log_output=True)
 
