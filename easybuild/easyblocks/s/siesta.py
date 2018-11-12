@@ -341,14 +341,24 @@ class EB_Siesta(ConfigureMake):
             # Build transiesta
             change_dir(obj_dir)
 
-            run_cmd('make clean', log_all=True, simple=True, log_output=True)
+            ts_clean_target = 'clean'
+            if loose_ver >= LooseVersion('4.1-b4'):
+                ts_clean_target += '-transiesta'
+            
+            run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)
             run_cmd('make %s transiesta' % par, log_all=True, simple=True, log_output=True)
 
             copy_file(os.path.join(obj_dir, 'transiesta'), bindir)
 
+
     def build_step(self):
         """No build step for Siesta."""
         pass
+
+    def test_step(self):
+        """Custom test step for Siesta."""
+        change_dir(os.path.join(self.cfg['start_dir'], 'Obj', 'Tests'))
+        super(EB_Siesta, self).test_step()
 
     def install_step(self):
         """Custom install procedure for Siesta: copy binaries."""
