@@ -27,10 +27,14 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 
 @author: Kenneth Hoste (Ghent University)
 """
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version, det_pylibdir
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class PythonBundle(Bundle):
@@ -43,6 +47,9 @@ class PythonBundle(Bundle):
         """Easyconfig parameters specific to bundles of Python packages."""
         if extra_vars is None:
             extra_vars = {}
+        extra_vars.update({
+            'run_pip_check': [True, "Run 'pip check' to ensure all required Python packages are installed", CUSTOM],
+        })
         # combine custom easyconfig parameters of Bundle & PythonPackage
         extra_vars = Bundle.extra_options(extra_vars)
         return PythonPackage.extra_options(extra_vars)
@@ -101,3 +108,16 @@ class PythonBundle(Bundle):
             'dirs': [self.pylibdir],
         }
         super(Bundle, self).sanity_check_step(*args, custom_paths=custom_paths, **kwargs)
+
+        # run 'pip check' to see whether all required dependencies are available (unless disabled)
+        if self.cfg.get('run_pip_check', False):
+            if self.cfg.get('use_pip', False) and not self.cfg.get('use_pip_for_deps'):
+                # 'pip check' requires pip v9.0 (or newer)
+                if LooseVersion(det_pip_version()) > LooseVersion('9.0'):
+                    # module needs to be loaded for 'pip check' to pick up installed Python packages
+                    fake_mod_data = self.load_fake_module(purge=True)
+
+                    run_cmd("pip list")
+                    run_cmd("pip check")
+
+                    self.clean_up_fake_module(fake_mod_data)
