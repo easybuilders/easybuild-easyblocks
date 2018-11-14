@@ -141,7 +141,7 @@ class EB_PSI(CMakeMake):
             self.log.info("Using CMake based build")
             self.cfg.update('configopts', ' -DPYTHON_INTERPRETER=%s' % os.path.join(pythonroot, 'bin', 'python'))
             if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
-                self.log.info("You have to remove CMAKE_BUILD_TYPE test in PSI4 source and the downoaded dependencies!")
+                self.log.info("Remove the CMAKE_BUILD_TYPE test in PSI4 source and the downloaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
                 self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=EasyBuildRelease')
             else:
