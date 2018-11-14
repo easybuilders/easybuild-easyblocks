@@ -174,10 +174,10 @@ EULA=accept
 
         custom_paths = {
             'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
-                ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-                ["%s/%s" % (include_dir, x) for x in ["i_malloc.h"] + mpi_mods] +
-                ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
-                ["%s/libmpi.a" % lib_dir],
+                     ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+                     ["%s/%s" % (include_dir, x) for x in ["i_malloc.h"] + mpi_mods] +
+                     ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+                     ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 
@@ -196,13 +196,13 @@ EULA=accept
                 'LIBRARY_PATH': lib_dirs,
                 'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
+                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
             }
         else:
             # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
             # IntelMPI 2019 changed the default library to be the non-mt version.
-            lib_dirs = ['intel64/%s' for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']] +
-                ['lib/em64t', 'lib64']
+            lib_dirs = ['intel64/%s' x for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']] +
+                       ['lib/em64t', 'lib64']
             include_dirs = ['include64', 'intel64/include']
             return {
                 'PATH': ['bin/intel64', 'bin64', 'intel64/bin', 'intel64/libfabric/bin'],
@@ -210,8 +210,8 @@ EULA=accept
                 'LIBRARY_PATH': lib_dirs,
                 'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
-                'FI_PROVIDER_PATH' : ['intel64/libfabric/lib/prov'],
+                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
+                'FI_PROVIDER_PATH': ['intel64/libfabric/lib/prov'],
             }
 
     def make_module_extra(self, *args, **kwargs):
