@@ -113,7 +113,7 @@ class EB_TAU(ConfigureMake):
         iter_cnt = len(self.cfg['extra_backends']) + 1
 
         # define list of configure options to iterate over
-        if self.cfg['configopts']:
+        if self.cfg['configopts'] and isinstance(self.cfg['configopts'], basestring):
             raise EasyBuildError("Specifying additional configure options for TAU is not supported (yet)")
 
         self.cfg['configopts'] = [mpi_tmpl, openmp_tmpl, hybrid_tmpl] * iter_cnt
