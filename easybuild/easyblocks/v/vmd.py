@@ -131,7 +131,6 @@ class EB_VMD(ConfigureMake):
         # FLTK - nix install
         # NETCDF - from easybuild
         self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS FLTK TK COLVARS NOSILENT TCL OPENGL MESA NETCDF", allow_duplicate=False)
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT", allow_duplicate=False)
 
         # add additional configopts based on available dependencies
         for key in deps:
