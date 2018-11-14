@@ -22,10 +22,6 @@
 # You should have received a copy of the GNU General Public License
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
-# Modifications:
-# @author: Ali Kerrache (University of Manitoba)
-# 22/10/2018: Fix the path for Chrysalis in the version 2.8 
-##
 """
 EasyBuild support for building and installing Trinity, implemented as an easyblock
 
@@ -323,17 +319,16 @@ class EB_Trinity(EasyBlock):
         else:
             sep = '_r'
 
+        if version >= LooseVersion('2.8') and version < LooseVersion('2000'):
+            chrysalis_bin = 'Chrysalis/bin/Chrysalis'
+        else:
+            chrysalis_bin = 'Chrysalis/Chrysalis'
+
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
-        # These lists are definitely non-exhaustive, but better than nothing:
-        
-        if version >= LooseVersion('2.8'):
-            chrysalis_path = 'Chrysalis/bin/Chrysalis'
-        else:
-            chrysalis_path = 'Chrysalis/Chrysalis'
-
+        # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', chrysalis_path]],
+            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', chrysalis_bin]],
             'dirs': [os.path.join(path, x) for x in ['Butterfly/src/bin', 'util']]
         }
 
