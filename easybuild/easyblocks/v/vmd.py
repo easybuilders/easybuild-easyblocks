@@ -130,21 +130,24 @@ class EB_VMD(ConfigureMake):
         # MESA - nix install
         # FLTK - nix install
         # NETCDF - from easybuild
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS FLTK TK COLVARS NOSILENT TCL OPENGL MESA NETCDF")
+        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS FLTK TK COLVARS NOSILENT TCL OPENGL MESA NETCDF", allow_duplicate=False)
+        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT", allow_duplicate=False)
 
         # add additional configopts based on available dependencies
         for key in deps:
             if deps[key]:
-                if key == 'OptiX':
-                    self.cfg.update('configopts', "LIBOPTIX")
-                elif key == 'Python27-SciPy-Stack':
-                    self.cfg.update('configopts', "PYTHON NUMPY")
+                if key == 'Mesa':
+                    self.cfg.update('configopts', "OPENGL MESA", allow_duplicate=False)
+                elif key == 'OptiX':
+                    self.cfg.update('configopts', "LIBOPTIX", allow_duplicate=False)
+                elif key == 'Python':
+                    self.cfg.update('configopts', "PYTHON NUMPY", allow_duplicate=False)
                 else:
-                    self.cfg.update('configopts', key.upper())
+                    self.cfg.update('configopts', key.upper(), allow_duplicate=False)
 
         # configure for building with Intel compilers specifically
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            self.cfg.update('configopts', 'ICC')
+            self.cfg.update('configopts', 'ICC', allow_duplicate=False)
 
         # specify install location using environment variables
         env.setvar('VMDINSTALLBINDIR', os.path.join(self.installdir, 'bin'))
