@@ -319,7 +319,7 @@ class EB_Trinity(EasyBlock):
         else:
             sep = '_r'
 
-        if version >= LooseVersion('2.8'):
+if version >= LooseVersion('2.8') and version < LooseVersion('2000'):
             chrysalis_bin = 'Chrysalis/bin/Chrysalis'
         else:
             chrysalis_bin = 'Chrysalis/Chrysalis'
