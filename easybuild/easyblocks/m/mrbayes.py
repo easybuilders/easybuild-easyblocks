@@ -58,7 +58,7 @@ class EB_MrBayes(ConfigureMake):
             # set correct start_dir dir, and change into it
             # test whether it already contains 'src', since a reprod easyconfig would
             if not self.cfg['start_dir'].endswith('src'):
-                self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'],'src')
+                self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
             try:
                 os.chdir(self.cfg['start_dir'])
             except OSError, err:
