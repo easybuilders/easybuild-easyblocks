@@ -55,12 +55,17 @@ class EB_MUMPS(ConfigureMake):
         else:
             make_inc_suff = 'SEQ'
 
+        if self.toolchain.options.get('openmp', None):
+            optl = self.toolchain.get_flag('openmp')
+        else:
+            optl = ""
+
         # select Makefile.inc template and prepare compiler specific compiler flags
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
             make_inc_templ = 'Makefile.INTEL.%s'
             optf = "-Dintel_ -DALLOW_NON_INIT -nofor-main"
-            optl = "-nofor-main"
+            optl = "%s -nofor-main" % optl
         elif comp_fam == toolchain.GCC:  #@UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
                 make_inc_templ = 'Makefile.debian.%s'
@@ -68,7 +73,6 @@ class EB_MUMPS(ConfigureMake):
                 make_inc_templ = 'Makefile.gfortran.%s'
 
             optf = "-DALLOW_NON_INIT"
-            optl = ""
         else:
             raise EasyBuildError("Unknown compiler family, don't know to prepare for building with specified toolchain.")
 
