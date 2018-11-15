@@ -171,11 +171,12 @@ EULA=accept
             bin_dir = 'bin%s' % suff
             include_dir = 'include%s' % suff
             lib_dir = 'lib%s' % suff
+            mpi_mods.extend(["i_malloc.h"])
 
         custom_paths = {
             'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
                     ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-                    ["%s/%s" % (include_dir, x) for x in ["i_malloc.h"] + mpi_mods] +
+                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
                     ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
                     ["%s/libmpi.a" % lib_dir],
             'dirs': [],
@@ -199,20 +200,28 @@ EULA=accept
                 'MIC_LD_LIBRARY_PATH': ['mic/lib'],
             }
         else:
-            # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
-            # IntelMPI 2019 changed the default library to be the non-mt version.
-            lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']] +
-                    ['lib/em64t', 'lib64']
-            include_dirs = ['include64', 'intel64/include']
-            return {
-                'PATH': ['bin/intel64', 'bin64', 'intel64/bin', 'intel64/libfabric/bin'],
+            if LooseVersion(self.version) >= LooseVersion('2019'):
+                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # IntelMPI 2019 changed the default library to be the non-mt version.
+                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']]
+                include_dirs = ['intel64/include']
+                path_dirs = ['intel64/bin', 'intel64/libfabric/bin']
+                guesses = {'FI_PROVIDER_PATH': ['intel64/libfabric/lib/prov']}
+            else:
+                lib_dirs = ['lib/em64t', 'lib64']
+                include_dirs = ['include64']
+                path_dirs = ['bin/intel64', 'bin64']
+                guesses = {'MIC_LD_LIBRARY_PATH': ['mic/lib']}
+
+            guesses.update({
+                'PATH': path_dirs,
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
                 'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
-                'FI_PROVIDER_PATH': ['intel64/libfabric/lib/prov'],
-            }
+            })
+
+            return guesses
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
