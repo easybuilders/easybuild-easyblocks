@@ -83,7 +83,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
             ])
 
         if self.cfg['debug']:
-            cmd = ' '.join([cmd, '--enable-debug']) 
+            cmd = ' '.join([cmd, '--enable-debug'])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
