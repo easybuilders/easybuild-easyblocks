@@ -54,7 +54,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
         return extra_vars
 
-
     def prepare_step(self, *args, **kwargs):
         """Prepare step for Code_Saturne obtained from the repository."""
         super(EB_Code_underscore_Saturne, self).prepare_step(*args, **kwargs)
@@ -65,7 +64,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
         return out
-
 
     def configure_step(self):
         """Configure step for Code_Saturne."""
@@ -81,16 +79,15 @@ class EB_Code_underscore_Saturne(EasyBlock):
             './configure',
             '--prefix=' + self.installdir,
             '--without-modules',
-            self.cfg['configopts'], 
+            self.cfg['configopts'],
             ])
 
         if self.cfg['debug']:
-            cmd = ' '.join([ cmd, '--enable-debug' ]) 
+            cmd = ' '.join([cmd, '--enable-debug']) 
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
         return out
-
 
     def build_step(self):
         """ Build step for Code_Saturne."""
@@ -105,7 +102,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
         return out
 
-
     def install_step(self):
         """ Build step for Code_Saturne."""
 
@@ -114,7 +110,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
         return out
-
 
     def post_install_step(self):
         """Custom post install step for Code_Saturne."""
@@ -125,7 +120,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
             self.log.info("Running the post-install SLURM step ...")
 
-            target_path = os.path.join(self.installdir,'etc/code_saturne.cfg')
+            target_path = os.path.join(self.installdir, 'etc/code_saturne.cfg')
             from_path = target_path + '.template'
 
             apply_regex_substitutions(from_path,
@@ -139,7 +134,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
             os.rename(from_path, target_path)
 
-
     def sanity_check_step(self):
         """Custom sanity check step for Code_Saturne."""
 
@@ -152,7 +146,6 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
         super(EB_Code_underscore_Saturne, self).sanity_check_step(
             custom_paths=custom_paths)
-
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Extra environment variables for Code_Saturne."""
