@@ -36,7 +36,6 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir
 from easybuild.tools.environment import setvar
@@ -110,7 +109,7 @@ class CMakeMake(ConfigureMake):
 
         options_string = ' '.join(options)
 
-        command = "%s cmake %s %s %s" % (self.cfg['preconfigopts'], srcdir, options_string, self.cfg['configopts'])
+        command = ' '.join([self.cfg['preconfigopts'], 'cmake', options_string, self.cfg['configopts'], srcdir])
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
