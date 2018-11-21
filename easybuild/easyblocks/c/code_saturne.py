@@ -20,7 +20,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
+# along with EasyBuild. If not, see <http://www.gnu.org/licenses/>.
 ##
 """
 EasyBuild support for building and installing Code_Saturne, implemented as an easyblock
@@ -30,12 +30,13 @@ EasyBuild support for building and installing Code_Saturne, implemented as an ea
 
 import os
 
-import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
 from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+import easybuild.tools.environment as env
 
 
 class EB_Code_underscore_Saturne(EasyBlock):
@@ -49,21 +50,10 @@ class EB_Code_underscore_Saturne(EasyBlock):
         # add more custom easyconfig parameters specific to OpenFOAM
         extra_vars.update({
             'debug': [False, "Build the debug version.", CUSTOM],
-            'slurm': [False, "Build for the slurm resource manager.", CUSTOM],
+            'SLURM': [False, "Build for the slurm resource manager.", CUSTOM],
         })
 
         return extra_vars
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare step for Code_Saturne obtained from the repository."""
-        super(EB_Code_underscore_Saturne, self).prepare_step(*args, **kwargs)
-
-        self.log.info("Running ./sbin/bootstrap ...")
-
-        cmd = './sbin/bootstrap'
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
-
-        return out
 
     def configure_step(self):
         """Configure step for Code_Saturne."""
@@ -74,6 +64,10 @@ class EB_Code_underscore_Saturne(EasyBlock):
         env.setvar("CFLAGS", os.environ['OPTFLAGS'])
         env.setvar("CXXFLAGS", os.environ['OPTFLAGS'])
         env.setvar("FCFLAGS", os.environ['OPTFLAGS'])
+
+        self.log.info("Running ./sbin/bootstrap ...")
+        cmd = './sbin/bootstrap'
+        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
         cmd = ' '.join([
             './configure',
@@ -96,16 +90,18 @@ class EB_Code_underscore_Saturne(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        cmd = "make %s" % paracmd
+        cmd = "%s make %s %s" % (self.cfg['prebuildopts'],
+                                 paracmd, self.cfg['buildopts'])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
         return out
 
     def install_step(self):
-        """ Build step for Code_Saturne."""
+        """ Install step for Code_Saturne."""
 
-        cmd = "make install"
+        cmd = "%s make install %s" % (self.cfg['preinstallopts'],
+                                      self.cfg['installopts'])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
 
@@ -116,7 +112,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
         super(EB_Code_underscore_Saturne, self).post_install_step()
 
         # create a "etc/code_saturne.cfg" and modify it to match SLURM
-        if self.cfg['slurm']:
+        if self.cfg['SLURM']:
 
             self.log.info("Running the post-install SLURM step ...")
 
@@ -152,7 +148,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
         txt = super(EB_Code_underscore_Saturne, self).make_module_extra()
 
-        cs_bashPath = os.path.join(self.installdir, 'etc', 'bash_completion.d', 'code_saturne')
-        txt += self.module_generator.set_environment('CS_BASH', cs_bashPath)
+        cs_bash_path = os.path.join(self.installdir, 'etc', 'bash_completion.d', 'code_saturne')
+        txt += self.module_generator.set_environment('CS_BASH', cs_bash_path)
 
         return txt
