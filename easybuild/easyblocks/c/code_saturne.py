@@ -71,6 +71,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
         run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
         cmd = ' '.join([
+            self.cfg['preconfigopts'],
             './configure',
             '--prefix=' + self.installdir,
             '--without-modules',
