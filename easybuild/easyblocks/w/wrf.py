@@ -98,6 +98,7 @@ class EB_WRF(EasyBlock):
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
         if hdf5:
+            env.setvar('HDF5', hdf5)
             # check if this is parallel HDF5
             phdf5_bins = ['h5pcc', 'ph5diff']
             parallel_hdf5 = True
@@ -112,6 +113,11 @@ class EB_WRF(EasyBlock):
         else:
             self.log.info("HDF5 module not loaded, assuming that's OK...")
 
+        # Parallel netCDF (optional) dependency
+        pnetcdf = get_software_root('PnetCDF')
+        if pnetcdf:
+            env.setvar('PNETCDF', pnetcdf)
+
         # JasPer dependency check + setting env vars
         jasper = get_software_root('JasPer')
         if jasper:
@@ -124,6 +130,14 @@ class EB_WRF(EasyBlock):
                 raise EasyBuildError("JasPer module not loaded, but JASPERINC and/or JASPERLIB still set?")
             else:
                 self.log.info("JasPer module not loaded, assuming that's OK...")
+
+        # explicitly select the model core
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            env.setvar('EM_CORE', '1')
+            env.setvar('NMM_CORE', '0')
+        else:
+            env.setvar('WRF_EM_CORE', '1')
+            env.setvar('WRF_NMM_CORE', '0')
 
         # enable support for large file support in netCDF
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
