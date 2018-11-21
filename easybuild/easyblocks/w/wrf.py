@@ -131,14 +131,6 @@ class EB_WRF(EasyBlock):
             else:
                 self.log.info("JasPer module not loaded, assuming that's OK...")
 
-        # explicitly select the model core
-        if LooseVersion(self.version) < LooseVersion('4.0'):
-            env.setvar('EM_CORE', '1')
-            env.setvar('NMM_CORE', '0')
-        else:
-            env.setvar('WRF_EM_CORE', '1')
-            env.setvar('WRF_NMM_CORE', '0')
-
         # enable support for large file support in netCDF
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
