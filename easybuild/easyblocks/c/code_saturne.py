@@ -23,15 +23,16 @@
 # along with EasyBuild. If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing Code_Saturne, implemented as an easyblock
+EasyBuild support for building and installing Code_Saturne,
+implemented as an easyblock.
 
-@author: Metin Cakircali (Juelich Supercomputing Centre)
+@author: Metin Cakircali (Juelich Supercomputing Centre, FZJ GmbH)
 """
 
 import os
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.default import CUSTOM
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -47,10 +48,10 @@ class EB_Code_underscore_Saturne(EasyBlock):
         """Extra easyconfig parameters specific to Code_Saturne."""
         extra_vars = EasyBlock.extra_options(extra_vars)
 
-        # add more custom easyconfig parameters specific to OpenFOAM
+        # add some custom easyconfig parameters specific to Code_Saturne
         extra_vars.update({
             'debug': [False, "Build the debug version.", CUSTOM],
-            'SLURM': [False, "Build for the slurm resource manager.", CUSTOM],
+            'slurm': [False, "Build for the slurm workload manager.", CUSTOM],
         })
 
         return extra_vars
@@ -67,7 +68,7 @@ class EB_Code_underscore_Saturne(EasyBlock):
 
         self.log.info("Running ./sbin/bootstrap ...")
         cmd = './sbin/bootstrap'
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=True)
+        run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
         cmd = ' '.join([
             './configure',
@@ -111,22 +112,32 @@ class EB_Code_underscore_Saturne(EasyBlock):
         """Custom post install step for Code_Saturne."""
         super(EB_Code_underscore_Saturne, self).post_install_step()
 
-        # create a "etc/code_saturne.cfg" and modify it to match SLURM
-        if self.cfg['SLURM']:
+        # if we are using a SLURM system, we need to change the defaults;
+        # so, modify the template and rename it to "etc/code_saturne.cfg"
+        if self.cfg['slurm']:
 
             self.log.info("Running the post-install SLURM step ...")
 
             target_path = os.path.join(self.installdir, 'etc/code_saturne.cfg')
             from_path = target_path + '.template'
 
-            apply_regex_substitutions(from_path,
-                                      [(r"# batch =", r"batch = SLURM")])
-            apply_regex_substitutions(from_path,
-                                      [(r"# mpiexec = mpiexec", r"mpiexec = srun")])
-            apply_regex_substitutions(from_path,
-                                      [(r"# mpiexec_n = ' -n '", r"mpiexec_n = ' -n '")])
-            apply_regex_substitutions(from_path,
-                                      [(r"# mpiexec_n_per_node =", r"mpiexec_n_per_node = ' --ntasks-per-node '")])
+            apply_regex_substitutions(
+                from_path,
+                [(r"# batch =", r"batch = SLURM")]
+                )
+            apply_regex_substitutions(
+                from_path,
+                [(r"# mpiexec = mpiexec", r"mpiexec = srun")]
+                )
+            apply_regex_substitutions(
+                from_path,
+                [(r"# mpiexec_n = ' -n '", r"mpiexec_n = ' -n '")]
+                )
+            apply_regex_substitutions(
+                from_path,
+                [(r"# mpiexec_n_per_node =",
+                  r"mpiexec_n_per_node = ' --ntasks-per-node '")]
+                )
 
             os.rename(from_path, target_path)
 
@@ -143,12 +154,13 @@ class EB_Code_underscore_Saturne(EasyBlock):
         super(EB_Code_underscore_Saturne, self).sanity_check_step(
             custom_paths=custom_paths)
 
-    def make_module_extra(self, altroot=None, altversion=None):
+    def make_module_extra(self):
         """Extra environment variables for Code_Saturne."""
 
         txt = super(EB_Code_underscore_Saturne, self).make_module_extra()
 
-        cs_bash_path = os.path.join(self.installdir, 'etc', 'bash_completion.d', 'code_saturne')
+        cs_bash_path = os.path.join(self.installdir, 'etc',
+                                    'bash_completion.d', 'code_saturne')
         txt += self.module_generator.set_environment('CS_BASH', cs_bash_path)
 
         return txt
