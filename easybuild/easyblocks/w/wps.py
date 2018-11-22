@@ -100,10 +100,6 @@ class EB_WPS(EasyBlock):
         # netCDF dependency check + setting env vars (NETCDF, NETCDFF)
         set_netcdf_env_vars(self.log)
 
-        netcdff = get_software_root('netCDF-Fortran')
-        if netcdff:
-            env.setvar('NETCDFF', netcdff)
-
         # WRF dependency check
         wrf = get_software_root('WRF')
         if wrf:
