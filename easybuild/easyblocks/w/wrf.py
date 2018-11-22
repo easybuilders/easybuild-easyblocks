@@ -98,6 +98,7 @@ class EB_WRF(EasyBlock):
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
         if hdf5:
+            env.setvar('HDF5', hdf5)
             # check if this is parallel HDF5
             phdf5_bins = ['h5pcc', 'ph5diff']
             parallel_hdf5 = True
@@ -105,12 +106,17 @@ class EB_WRF(EasyBlock):
                 if not os.path.exists(os.path.join(hdf5, 'bin', f)):
                     parallel_hdf5 = False
                     break
-            if not (hdf5 or parallel_hdf5):
-                raise EasyBuildError("Parallel HDF5 module not loaded?")
-            else:
+            if parallel_hdf5:
                 env.setvar('PHDF5', hdf5)
+            else:
+                self.log.info("Parallel HDF5 module not loaded, assuming that's OK...")
         else:
             self.log.info("HDF5 module not loaded, assuming that's OK...")
+
+        # Parallel netCDF (optional) dependency
+        pnetcdf = get_software_root('PnetCDF')
+        if pnetcdf:
+            env.setvar('PNETCDF', pnetcdf)
 
         # JasPer dependency check + setting env vars
         jasper = get_software_root('JasPer')
