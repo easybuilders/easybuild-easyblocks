@@ -70,8 +70,6 @@ class EB_MVAPICH2(EB_MPICH):
 
         if self.cfg['rdma_type']:
             add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
-        else:
-            add_configopts.append('--without-rdma')
 
         # enable specific support options (if desired)
         if self.cfg['withmpe']:
