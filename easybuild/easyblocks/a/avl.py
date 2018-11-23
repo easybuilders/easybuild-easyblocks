@@ -32,13 +32,11 @@ Shamelessly ripped off from the ANSYS and MATLAB easyblocks.
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import os
-import stat
-from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
-from easybuild.tools.filetools import adjust_permissions, write_file
+from easybuild.tools.filetools import write_file
 
 
 class EB_AVL(PackedBinary):
