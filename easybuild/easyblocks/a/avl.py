@@ -29,12 +29,14 @@ Shamelessly ripped off from the ANSYS and MATLAB easyblocks.
 @author: Kenneth Hoste (Ghent University)
 @author: Bart Verleye (Centre for eResearch, Auckland)
 @author: Chris Samuel (Swinburne University of Technology, Melbourne, Australia)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import os
 import stat
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 from easybuild.tools.filetools import adjust_permissions, write_file
 
@@ -42,22 +44,28 @@ from easybuild.tools.filetools import adjust_permissions, write_file
 class EB_AVL(PackedBinary):
     """Support for installing AVL."""
 
-    def __init__(self, *args, **kwargs):
-        """Initialize AVL-specific variables."""
-        super(EB_AVL, self).__init__(*args, **kwargs)
-        self.avlver = "v%s" % ''.join(self.version.split('.')[0:2])
-
     def install_step(self):
         """Custom install procedure for AVL."""
-        licserv = self.cfg['license_server']
-        if licserv is None:
-            licserv = os.getenv('EB_AVL_LICENSE_SERVER', 'license.example.com')
-        licport = self.cfg['license_server_port']
-        if licport is None:
-            licport = os.getenv('EB_AVL_LICENSE_SERVER_PORT', '27012')
 
-        cmd = "./setup.sh --mode unattended --prefix %s " % (os.path.join(self.installdir,self.avlver))
+        licserv = self.cfg['license_server']
+
+        # try to find the license in a FlexLM license file/server
+        if licserv is None:
+            licserv = os.getenv('LM_LICENSE_FILE')
+
+        if licserv is None:
+            msg = "No viable license specifications found; "
+            msg += "specify 'license_server' (port@example.server.com), or define $LM_LICENSE_FILE"
+            raise EasyBuildError(msg)
+
+        cmd = "./setup.sh --mode unattended --prefix %s" % self.installdir
         run_cmd(cmd, log_all=True, simple=True)
+
+        # Get the first server if there are multiple servers
+        licserv = licserv.split(':')[0]
+
+        # Get the port and server
+        licport, licserv = licserv.split('@')
 
         # create license file
         lictxt = '\n'.join([
@@ -65,42 +73,13 @@ class EB_AVL(PackedBinary):
             "USE_SERVER",
         ])
 
-        licfile = os.path.join(self.installdir, self.avlver, 'etc/lmx/license.dat')
+        licfile = os.path.join(self.installdir, 'etc/lmx/license.dat')
         write_file(licfile, lictxt)
-
-        adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
-
-    def make_module_req_guess(self):
-        """Custom extra module file entries for AVL."""
-        guesses = super(EB_AVL, self).make_module_req_guess()
-        dirs = [
-            "bin",
-#            "AUTOSHAFT/bin",
-#            "AWS/bin",
-#            "BOOST/bin",
-#            "CAA/bin",
-#            "CFDTOOLS/bin",
-#            "CFDWM/bin",
-#            "EXCITE_AC/bin",
-#            "EXCITE/bin",
-#            "EXCITE_PR/bin",
-#            "EXCITE_TD/bin",
-#            "FIRE/bin",
-#            "IMPRESS/bin",
-#            "TABKIN/bin",
-        ]
-        guesses.update({"PATH": [os.path.join(self.avlver, dir) for dir in dirs]})
-        return guesses
-
-    def make_module_extra(self):
-        """Define extra environment variables required by AVL"""
-        txt = super(EB_AVL, self).make_module_extra()
-        return txt
 
     def sanity_check_step(self):
         """Custom sanity check for AVL."""
         custom_paths = {
-           'files': [os.path.join(self.avlver, x) for x in ['FIRE/bin/fire_launcher.py', 'bin/fire_wm', 'bin/diagnose']],
-           'dirs': [os.path.join(self.avlver, x) for x in ["bin", "FIRE", "resource","tools"]]
+            'files': ['FIRE/bin/fire_launcher.py', 'bin/fire_wm', 'bin/diagnose'],
+            'dirs': ["resource", "tools"]
         }
         super(EB_AVL, self).sanity_check_step(custom_paths=custom_paths)
