@@ -162,16 +162,21 @@ class EB_TensorFlow(PythonPackage):
             use_wrapper = True
 
         use_mpi = self.toolchain.options.get('usempi', False)
-        impi_root = get_software_root('impi')
         mpi_home = ''
-        if use_mpi and impi_root:
-            # put wrappers for Intel MPI compiler wrappers in place
-            # (required to make sure license server and I_MPI_ROOT are found)
-            for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
-                self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
-            use_wrapper = True
-            # set correct value for MPI_HOME
-            mpi_home = os.path.join(impi_root, 'intel64')
+        if use_mpi:
+            impi_root = get_software_root('impi')
+            if impi_root:
+                # put wrappers for Intel MPI compiler wrappers in place
+                # (required to make sure license server and I_MPI_ROOT are found)
+                for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
+                    self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+                use_wrapper = True
+                # set correct value for MPI_HOME
+                mpi_home = os.path.join(impi_root, 'intel64')
+            else:
+                self.log.debug("MPI module name: %s", self.toolchain.MPI_MODULE_NAME[0])
+                mpi_home = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
+
             self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
