@@ -31,6 +31,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import copy
 import os
 
 import easybuild.tools.environment as env
@@ -85,6 +86,18 @@ class Bundle(EasyBlock):
                 comp_specs = comp[2]
 
             cfg = self.cfg.copy()
+
+            easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
+            if easyblock is None:
+                raise EasyBuildError("No easyblock specified for component %s v%s", cfg['name'], cfg['version'])
+            elif easyblock == 'Bundle':
+                raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
+
+            cfg.easyblock = get_easyblock_class(easyblock, name=cfg['name'])
+
+            # make sure that extra easyconfig parameters are known, so they can be set
+            extra_opts = cfg.easyblock.extra_options()
+            cfg.extend_params(copy.deepcopy(extra_opts))
 
             cfg['name'] = comp_name
             cfg['version'] = comp_version
@@ -162,20 +175,18 @@ class Bundle(EasyBlock):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
         for idx, cfg in enumerate(self.comp_cfgs):
-            easyblock = cfg.get('easyblock') or self.cfg['default_easyblock']
-            if easyblock is None:
-                raise EasyBuildError("No easyblock specified for component %s v%s", cfg['name'], cfg['version'])
-            elif easyblock == 'Bundle':
-                raise EasyBuildError("The '%s' easyblock can not be used to install components in a bundle", easyblock)
 
             print_msg("installing bundle component %s v%s (%d/%d)..." % (cfg['name'], cfg['version'], idx+1, comp_cnt))
-            self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], easyblock)
+            self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
 
-            comp = get_easyblock_class(easyblock, name=cfg['name'])(cfg)
+            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
             comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
+
+            # make sure we can build in parallel
+            comp.set_parallel()
 
             # figure out correct start directory
             comp.guess_start_dir()
