@@ -185,6 +185,9 @@ class Bundle(EasyBlock):
             comp.builddir = self.builddir
             comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
 
+            # make sure we can build in parallel
+            comp.set_parallel()
+
             # figure out correct start directory
             comp.guess_start_dir()
 
