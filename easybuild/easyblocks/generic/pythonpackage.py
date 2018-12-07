@@ -404,6 +404,9 @@ class PythonPackage(ExtensionEasyBlock):
     def configure_step(self):
         """Configure Python package build/install."""
 
+        if self.python_cmd is None:
+            self.prepare_python()
+
         if self.sitecfg is not None:
             # used by some extensions, like numpy, to find certain libs
 
