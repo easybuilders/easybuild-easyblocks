@@ -36,7 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import remove_file, write_file
+from easybuild.tools.filetools import mkdir, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -93,6 +93,10 @@ class EB_psmpi(EB_MPICH):
     * Sets extra MPICH options if required by the easyconfig
     """
 
+    def __init__(self, *args, **kwargs):
+        super(EB_psmpi, self).__init__(*args, **kwargs)
+        self.prof_dir = os.path.join(self.builddir, 'profile')
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Define custom easyconfig parameters specific to ParaStationMPI."""
@@ -116,13 +120,8 @@ class EB_psmpi(EB_MPICH):
         Set of steps to be performed after the initial installation, if PGO were enabled
         """
         # Remove old profiles
-        prof_dir = '%s/profile/' % self.builddir
-        old_profs = os.listdir(prof_dir)
-        for prof in [os.path.join(prof_dir, p) for p in old_profs]:
-            remove_file(prof)
-        new_profs = os.listdir(prof_dir)
-        if new_profs:
-            raise EasyBuildError("The configure PGO profiles were not wiped (%s)" % new_profs)
+        remove_dir(self.prof_dir)
+        mkdir(self.prof_dir)
 
         # Clean the old build
         run_cmd('make distclean')
@@ -189,7 +188,7 @@ class EB_psmpi(EB_MPICH):
 
         # Add PGO related options, if enabled
         if self.cfg['pgo']:
-            self.cfg.update('configopts', ' --with-profile=gen --with-profdir=%(builddir)s/profile')
+            self.cfg.update('configopts', ' --with-profile=gen --with-profdir=%s' % self.prof_dir)
 
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
