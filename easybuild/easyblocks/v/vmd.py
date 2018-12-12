@@ -174,14 +174,14 @@ class EB_VMD(ConfigureMake):
         # Build Surf, which is part of VMD as of VMD version 1.9.3
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             change_dir(os.path.join(vmddir, 'lib', 'surf'))
-            surf_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
-            run_cmd(surf_cmd)
+            surf_build_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
+            run_cmd(surf_build_cmd)
             # Build Stride if it was downloaded
             change_dir(os.path.join(vmddir, 'lib', 'stride'))
             if is_readable('Makefile'):
                 self.have_stride = True
-                stride_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
-                run_cmd(stride_cmd)
+                stride_build_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
+                run_cmd(stride_build_cmd)
 
     def install_step(self):
         """Custom build step for VMD."""
