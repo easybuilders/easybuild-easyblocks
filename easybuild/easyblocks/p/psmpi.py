@@ -137,7 +137,7 @@ class EB_psmpi(EB_MPICH):
         # Check that the profiles are there
         new_profs = os.listdir(prof_dir)
         if not new_profs:
-            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % profs)
+            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % prof_dir)
 
         # Change PGO related options
         self.cfg['pgo'] = False
