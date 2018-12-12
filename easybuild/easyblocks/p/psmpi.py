@@ -29,12 +29,60 @@ EasyBuild support for building and installing the ParaStationMPI library, implem
 """
 
 import easybuild.tools.toolchain as toolchain
+import os
+import re
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.filetools import remove_file, write_file
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
+
+
+PINGPONG_PGO_TEST = """
+/****************************************
+ * Buggy, ugly and extremely simple MPI ping pong.
+ * The goal is to trigger pscom internal routines
+ * to generate profiles to be used by PGO-enabled
+ * compilers.
+ *
+ * Nothing more, nothing less.
+ *
+ * We try small and large messages to walk the path for
+ * eager and rendezvous protocols
+ ****************************************/
+
+#include "mpi.h"
+#define MAX_LENGTH 1048576
+
+int main(int argc, char *argv[]){
+    int myid, vlength;
+
+    double v0[MAX_LENGTH], v1[MAX_LENGTH];
+
+    MPI_Status stat;
+
+    MPI_Init(&argc,&argv);
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+    for (vlength=1; vlength<=MAX_LENGTH; vlength*=2){
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        if (myid == 0){
+            MPI_Send(v0, vlength, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(v1, vlength, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &stat);
+        }
+        else{
+            MPI_Recv(v1, vlength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &stat);
+            MPI_Send(v0, vlength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+        }
+    }
+    MPI_Finalize();
+}
+"""
 
 
 class EB_psmpi(EB_MPICH):
@@ -58,8 +106,55 @@ class EB_psmpi(EB_MPICH):
             'mpich_opts': [None, "Optional options to configure MPICH", CUSTOM],
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
             'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
+            'pgo': [False, "Enable profiling guided optimizations", CUSTOM],
+            'mpiexec_cmd': ['srun -n ', "Command to run benchmarks to generate PGO profile. With -n switch", CUSTOM],
         })
         return extra_vars
+
+    def pgo_steps(self):
+        """
+        Set of steps to be performed after the initial installation, if PGO were enabled
+        """
+        # Remove old profiles
+        prof_dir = '%s/profile/' % self.builddir
+        old_profs = os.listdir(prof_dir)
+        for prof in [os.path.join(prof_dir, p) for p in old_profs]:
+            remove_file(prof)
+        new_profs = os.listdir(prof_dir)
+        if new_profs:
+            raise EasyBuildError("The configure PGO profiles were not wiped (%s)" % new_profs)
+
+        # Clean the old build
+        run_cmd('make distclean')
+
+        # Compile and run example to generate profile
+        print_msg("generating PGO profile...")
+        write_file('pingpong.c', PINGPONG_PGO_TEST)
+        run_cmd('%s/bin/mpicc pingpong.c -o pingpong' % self.installdir)
+        run_cmd('PSM_SHM=0 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
+        run_cmd('PSM_SHM=1 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
+
+        # Check that the profiles are there
+        new_profs = os.listdir(prof_dir)
+        if not new_profs:
+            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % profs)
+
+        # Change PGO related options
+        self.cfg['pgo'] = False
+        self.cfg['configopts'] = re.sub('--with-profile=gen', '--with-profile=use', self.cfg['configopts'])
+
+        # Reconfigure
+        print_msg("configuring with PGO...")
+        self.configure_step()
+
+        # Rebuild
+        print_msg("building with PGO...")
+        self.build_step()
+
+        # Reinstall
+        print_msg("installing with PGO...")
+        self.install_step()
+
 
     # MPICH configure script complains when F90 or F90FLAGS are set,
     def configure_step(self):
@@ -92,6 +187,10 @@ class EB_psmpi(EB_MPICH):
         if self.cfg['mpich_opts'] is not None:
             self.cfg.update('configopts', ' --with-mpichconf="%s"' % self.cfg['mpich_opts'])
 
+        # Add PGO related options, if enabled
+        if self.cfg['pgo']:
+            self.cfg.update('configopts', ' --with-profile=gen --with-profdir=%(builddir)s/profile')
+
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
             pscom_path = get_software_root('pscom')
@@ -104,7 +203,16 @@ class EB_psmpi(EB_MPICH):
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
 
-    # make and make install are default
+    # If PGO is enabled, install, generate a profile, and start over
+    def install_step(self):
+        """
+        Custom installation procedure for ParaStationMPI.
+        * If PGO is requested, installs, generate a profile, and start over
+        """
+        super(EB_psmpi, self).install_step()
+
+        if self.cfg['pgo']:
+            self.pgo_steps()
 
     def sanity_check_step(self):
         """
