@@ -42,7 +42,6 @@ from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
-from distutils.version import LooseVersion
 
 
 class EB_Trilinos(CMakeMake):
