@@ -134,9 +134,9 @@ class EB_psmpi(EB_MPICH):
         run_cmd('PSM_SHM=1 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
 
         # Check that the profiles are there
-        new_profs = os.listdir(prof_dir)
+        new_profs = os.listdir(self.prof_dir)
         if not new_profs:
-            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % prof_dir)
+            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % self.prof_dir)
 
         # Change PGO related options
         self.cfg['pgo'] = False
