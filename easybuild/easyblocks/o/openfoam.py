@@ -142,6 +142,9 @@ class EB_OpenFOAM(EasyBlock):
             if 'extend' in self.name.lower() and LooseVersion(self.version) < LooseVersion('2.0'):
                 extra_flags += ' -fpermissive'
 
+            if LooseVersion(self.version) < LooseVersion('3.0'):
+                extra_flags += ' -fno-delete-null-pointer-checks'
+
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             # make sure -no-prec-div is used with Intel compilers
             extra_flags = '-no-prec-div'
