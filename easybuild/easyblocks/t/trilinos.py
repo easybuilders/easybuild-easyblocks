@@ -42,6 +42,7 @@ from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
+from distutils.version import LooseVersion
 
 
 class EB_Trilinos(CMakeMake):
@@ -125,7 +126,7 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', '-D%s_LIBRARY_NAMES="%s"' % (dep, lib_names))
 
         # MKL
-        if get_software_root('imkl'):
+        if get_software_root('imkl') and LooseVersion(self.version) >= LooseVersion('12.12'):
             self.cfg.update('configopts', "-DTPL_ENABLE_MKL:BOOL=ON")
             self.cfg.update('configopts', '-DMKL_LIBRARY_DIRS:PATH="%s/lib/intel64"' % os.getenv('MKLROOT'))
             self.cfg.update('configopts', '-DMKL_INCLUDE_DIRS:PATH="%s/include"' % os.getenv('MKLROOT'))
