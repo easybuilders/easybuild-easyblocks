@@ -36,7 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, copy_file, extract_file, is_readable
+from easybuild.tools.filetools import change_dir, copy_file, extract_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
 import easybuild.tools.environment as env
