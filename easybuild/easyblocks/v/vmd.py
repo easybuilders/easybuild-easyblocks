@@ -113,8 +113,15 @@ class EB_VMD(ConfigureMake):
 
         # plugins need to be built first (see http://www.ks.uiuc.edu/Research/vmd/doxygen/compiling.html)
         change_dir(os.path.join(self.cfg['builddir'], 'plugins'))
-        cmd = "make LINUXAMD64 TCLLIB='-L%s' TCLINC='-I%s' " % (tcllib, tclinc)
-        cmd += "NETCDFLIB='-L%s' NETCDFINC='-I%s' %s" % (netcdflib, netcdfinc, self.cfg['buildopts'])
+        cmd = ' '.join([
+            'make',
+            'LINUXAMD64',
+            "TCLINC='-I%s'" % tclinc,
+            "TCLLIB='-L%s'" % tcllib,
+            "NETCDFINC='-I%s'" % netcdfinc,
+            "NETCDFLIB='-L%s'" % netcdflib,
+            self.cfg['buildopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=False)
 
         # create plugins distribution
