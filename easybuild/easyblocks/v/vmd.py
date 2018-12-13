@@ -46,13 +46,20 @@ import easybuild.tools.toolchain as toolchain
 class EB_VMD(ConfigureMake):
     """Easyblock for building and installing VMD"""
 
+    def __init__(self, *args, **kwargs):
+        """Initialize VMD-specific variables."""
+        super(EB_VMD, self).__init__(*args, **kwargs)
+        # source tarballs contains a 'plugins' and 'vmd-<version>' directory
+        self.vmddir = os.path.join(self.cfg['builddir'], '%s-%s' % (self.name.lower(), self.version))
+        self.surf_dir = os.path.join(self.vmddir, 'lib', 'surf')
+        self.stride_dir = os.path.join(self.vmddir, 'lib', 'stride')
+
     def extract_step(self):
         """Custom extract step for VMD."""
         super(EB_VMD, self).extract_step()
 
-        vmddir = os.path.join(self.src[0]['finalpath'], '%s-%s' % (self.name.lower(), self.version))
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
-            change_dir(os.path.join(vmddir, 'lib', 'surf'))
+            change_dir(self.surf_dir)
             extract_file('surf.tar.Z', os.getcwd())
 
     def configure_step(self):
@@ -104,17 +111,14 @@ class EB_VMD(ConfigureMake):
         self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
         self.cfg.update('buildopts', 'CCPP="%s"' % os.getenv('CXX'))
 
-        # source tarballs contains a 'plugins' and 'vmd-<version>' directory
-        vmddir = os.path.join(self.cfg['start_dir'], '%s-%s' % (self.name.lower(), self.version))
-
         # plugins need to be built first (see http://www.ks.uiuc.edu/Research/vmd/doxygen/compiling.html)
-        change_dir(os.path.join(self.cfg['start_dir'], 'plugins'))
+        change_dir(os.path.join(self.cfg['builddir'], 'plugins'))
         cmd = "make LINUXAMD64 TCLLIB='-L%s' TCLINC='-I%s' " % (tcllib, tclinc)
         cmd += "NETCDFLIB='-L%s' NETCDFINC='-I%s' %s" % (netcdflib, netcdfinc, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=False)
 
         # create plugins distribution
-        plugindir = os.path.join(vmddir, 'plugins')
+        plugindir = os.path.join(self.vmddir, 'plugins')
         env.setvar('PLUGINDIR', plugindir)
         self.log.info("Generating VMD plugins in %s", plugindir)
         run_cmd("make distrib %s" % self.cfg['buildopts'], log_all=True, simple=False)
@@ -159,44 +163,43 @@ class EB_VMD(ConfigureMake):
         env.setvar('VMDINSTALLLIBRARYDIR', os.path.join(self.installdir, 'lib'))
 
         # configure in vmd-<version> directory
-        change_dir(vmddir)
+        change_dir(self.vmddir)
         run_cmd("%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts']))
 
         # change to 'src' subdirectory, ready for building
-        change_dir(os.path.join(vmddir, 'src'))
+        change_dir(os.path.join(self.vmddir, 'src'))
 
     def build_step(self):
         """Custom build step for VMD."""
         super(EB_VMD, self).build_step()
 
-        vmddir = os.path.join(self.cfg['start_dir'], '%s-%s' % (self.name.lower(), self.version))
         self.have_stride = False
         # Build Surf, which is part of VMD as of VMD version 1.9.3
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
-            change_dir(os.path.join(vmddir, 'lib', 'surf'))
+            change_dir(self.surf_dir)
             surf_build_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
             run_cmd(surf_build_cmd)
             # Build Stride if it was downloaded
-            change_dir(os.path.join(vmddir, 'lib', 'stride'))
-            if is_readable('Makefile'):
+            if os.path.exist(os.path.join(self.stride_dir, 'Makefile')):
+                change_dir(self.stride_dir)
                 self.have_stride = True
                 stride_build_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
                 run_cmd(stride_build_cmd)
+            else:
+                self.log.info("Stride has not been downloaded and/or unpacked.")
 
     def install_step(self):
         """Custom build step for VMD."""
 
-        vmddir = os.path.join(self.cfg['start_dir'], '%s-%s' % (self.name.lower(), self.version))
-
         # Install must also be done in 'src' subdir
-        change_dir(os.path.join(vmddir, 'src'))
+        change_dir(os.path.join(self.vmddir, 'src'))
         super(EB_VMD, self).install_step()
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
-            surf_bin = os.path.join(vmddir, 'lib', 'surf', 'surf')
+            surf_bin = os.path.join(self.surf_dir, 'surf')
             copy_file(surf_bin, os.path.join(self.installdir, 'lib', 'surf_LINUXAMD64'))
             if self.have_stride:
-                stride_bin = os.path.join(vmddir, 'lib', 'stride', 'stride')
+                stride_bin = os.path.join(self.stride_dir, 'stride')
                 copy_file(stride_bin, os.path.join(self.installdir, 'lib', 'stride_LINUXAMD64'))
 
     def sanity_check_step(self):
