@@ -50,7 +50,7 @@ class EB_VMD(ConfigureMake):
         """Initialize VMD-specific variables."""
         super(EB_VMD, self).__init__(*args, **kwargs)
         # source tarballs contains a 'plugins' and 'vmd-<version>' directory
-        self.vmddir = os.path.join(self.cfg['builddir'], '%s-%s' % (self.name.lower(), self.version))
+        self.vmddir = os.path.join(self.builddir, '%s-%s' % (self.name.lower(), self.version))
         self.surf_dir = os.path.join(self.vmddir, 'lib', 'surf')
         self.stride_dir = os.path.join(self.vmddir, 'lib', 'stride')
 
@@ -112,7 +112,7 @@ class EB_VMD(ConfigureMake):
         self.cfg.update('buildopts', 'CCPP="%s"' % os.getenv('CXX'))
 
         # plugins need to be built first (see http://www.ks.uiuc.edu/Research/vmd/doxygen/compiling.html)
-        change_dir(os.path.join(self.cfg['builddir'], 'plugins'))
+        change_dir(os.path.join(self.builddir, 'plugins'))
         cmd = ' '.join([
             'make',
             'LINUXAMD64',
@@ -187,7 +187,7 @@ class EB_VMD(ConfigureMake):
             surf_build_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
             run_cmd(surf_build_cmd)
             # Build Stride if it was downloaded
-            if os.path.exist(os.path.join(self.stride_dir, 'Makefile')):
+            if os.path.exists(os.path.join(self.stride_dir, 'Makefile')):
                 change_dir(self.stride_dir)
                 self.have_stride = True
                 stride_build_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
