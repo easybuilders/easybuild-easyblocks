@@ -25,12 +25,6 @@
 """
 EasyBuild support for Blender, implemented as an easyblock
 
-@author: Stijn De Weirdt (Ghent University)
-@author: Dries Verdegem (Ghent University)
-@author: Kenneth Hoste (Ghent University)
-@author: Pieter De Baets (Ghent University)
-@author: Jens Timmerman (Ghent University)
-@author: Ward Poelmans (Ghent University)
 @author: Samuel Moors (Vrije Universiteit Brussel)
 """
 import glob
@@ -48,33 +42,43 @@ class EB_Blender(CMakeMake):
         """Set CMake options for Blender"""
         self.cfg['separate_build_dir'] = True
 
-        self.cfg.update('configopts', '-DWITH_INSTALL_PORTABLE=OFF')
-        self.cfg.update('configopts', '-DWITH_BUILDINFO=OFF')
-
-        # disable SSE detection to give EasyBuild full control over optimization compiler flags being used
-        self.cfg.update('configopts', '-DWITH_CPU_SSE=OFF')
-        self.cfg.update('configopts', '-DCMAKE_C_FLAGS_RELEASE="-DNDEBUG"')
-        self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG"')
-
-        # these are needed until extra dependencies are added for them to work
-        self.cfg.update('configopts', '-DWITH_GAMEENGINE=OFF')
-        self.cfg.update('configopts', '-DWITH_SYSTEM_GLEW=OFF')
+        default_config_opts = {
+            'WITH_INSTALL_PORTABLE': 'OFF',
+            'WITH_BUILDINFO': 'OFF',
+            # disable SSE detection to give EasyBuild full control over optimization compiler flags being used
+            'WITH_CPU_SSE': 'OFF',
+            'CMAKE_C_FLAGS_RELEASE': '-DNDEBUG',
+            'CMAKE_CXX_FLAGS_RELEASE': '-DNDEBUG',
+            # these are needed unless extra dependencies are added for them to work
+            'WITH_GAMEENGINE': 'OFF',
+            'WITH_SYSTEM_GLEW': 'OFF',
+        }
+        for key in default_config_opts:
+            opt = '-D%s=' % key
+            if opt not in self.cfg['configopts']:
+                self.cfg.update('configopts', opt + default_config_opts[key])
 
         # Python paths
         python_root = get_software_root('Python')
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        site_packages = os.path.join(python_root, 'lib', 'python%s' % pyshortver, 'site-packages')
-        numpy_root = glob.glob(os.path.join(site_packages, 'numpy*'))[0]
-        requests_root = glob.glob(os.path.join(site_packages, 'requests*'))[0]
-        shlib_ext = get_shared_lib_ext()
-        self.cfg.update('configopts', '-DPYTHON_VERSION=%s' % pyshortver)
-        self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s/lib/libpython%sm.%s' % (python_root, pyshortver, shlib_ext))
-        self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include/python%sm' % (python_root, pyshortver))
-        self.cfg.update('configopts', '-DPYTHON_NUMPY_PATH=%s' % numpy_root)
-        self.cfg.update('configopts', '-DPYTHON_REQUESTS_PATH=%s' % requests_root)
+        if python_root:
+            shlib_ext = get_shared_lib_ext()
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            site_packages = os.path.join(python_root, 'lib', 'python%s' % pyshortver, 'site-packages')
+            numpy_root = glob.glob(os.path.join(site_packages, 'numpy-*-py%s-linux-x86_64.egg' % pyshortver))[0]
+            requests_root = glob.glob(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))[0]
+            python_lib = glob.glob(os.path.join(python_root, 'lib', 'libpython%s*.%s' % (pyshortver, shlib_ext)))[0]
+            python_include_dir = glob.glob(os.path.join(python_root, 'include', 'python%s*' % pyshortver))[0]
+
+            self.cfg.update('configopts', '-DPYTHON_VERSION=%s' % pyshortver)
+            self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
+            self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_include_dir)
+            self.cfg.update('configopts', '-DPYTHON_NUMPY_PATH=%s' % numpy_root)
+            self.cfg.update('configopts', '-DPYTHON_REQUESTS_PATH=%s' % requests_root)
 
         # OpenEXR
-        self.cfg.update('configopts', '-DOPENEXR_INCLUDE_DIR=$EBROOTOPENEXR/include')
+        openexr_root = get_software_root('OpenEXR')
+        if openexr_root:
+            self.cfg.update('configopts', '-DOPENEXR_INCLUDE_DIR=%s' % os.path.join(openexr_root, 'include'))
 
         # OpenColorIO
         if get_software_root('OpenColorIO'):
@@ -95,3 +99,4 @@ class EB_Blender(CMakeMake):
         }
 
         super(EB_Blender, self).sanity_check_step(custom_paths=custom_paths)
+
