@@ -99,4 +99,3 @@ class EB_Blender(CMakeMake):
         }
 
         super(EB_Blender, self).sanity_check_step(custom_paths=custom_paths)
-
