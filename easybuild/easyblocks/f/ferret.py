@@ -158,7 +158,7 @@ class EB_Ferret(ConfigureMake):
             ])
 
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
-            regex_subs += [(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"))]
+            regex_subs.append((r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77")))
             for x in ["CFLAGS", "FFLAGS"]:
                 regex_subs.append((r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x)))
             if LooseVersion(self.version) >= LooseVersion("7.3"):
