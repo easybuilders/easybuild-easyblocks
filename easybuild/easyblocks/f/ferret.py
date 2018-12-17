@@ -68,7 +68,7 @@ class EB_Ferret(ConfigureMake):
                 "external_functions/ef_utility/site_specific.mk",
             ]
         else:
-            fns = "site_specific.mk"
+            fns = ["site_specific.mk"]
 
         regex_subs = [
             (r"^BUILDTYPE\s*=.*", "BUILDTYPE = %s" % buildtype),
@@ -76,13 +76,13 @@ class EB_Ferret(ConfigureMake):
         ]
 
         for name in deps:
-            regex_subs += [(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name))]
+            regex_subs.append([(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name))])
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
-            regex_subs += [
+            regex_subs.extend([
                 (r"^DIR_PREFIX =.*", "DIR_PREFIX = %s" % self.cfg['start_dir']),
                 (r"^FER_LOCAL_EXTFCNS = $(FER_DIR)", "FER_LOCAL_EXTFCNS = $(INSTALL_FER_DIR)/libs"),
-            ]
+            ])
 
         for fn in fns:
             apply_regex_substitutions(fn, regex_subs)
@@ -115,17 +115,16 @@ class EB_Ferret(ConfigureMake):
 
         regex_subs = [(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'))]
         for x, y in comp_vars.items():
-            regex_subs += [(r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y))]
+            regex_subs.append((r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y)))
 
-        if LooseVersion(self.version) >= LooseVersion("7.3"):
-            regex_subs += [(r"^(LD_X11\s*)=.*", r"\1='-L%s/lib -lX11'" % get_software_root('X11'))]
+        x11_root = get_software_root('X11')
+        if x11_root:
+            regex_subs.append((r"^(LD_X11\s*)=.*", r"\1='-L%s/lib -lX11'" % x11_root))
         else:
-            regex_subs += [(r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'")]
+            regex_subs.append((r"^(LD_X11\s*)=.*", r"\1='-L/usr/lib64/X11 -lX11'"))
 
-        if LooseVersion(self.version) >= LooseVersion("7.3"):
-            if self.toolchain.comp_family() == toolchain.INTELCOMP:
-                for x, y in gfort2ifort.items():
-                    regex_subs += [(r"%s" % x, r"%s" % y)]
+        if LooseVersion(self.version) >= LooseVersion("7.3") and self.toolchain.comp_family() == toolchain.INTELCOMP:
+            regex_subs.extend(sorted(gfort2ifort.items()))
 
         apply_regex_substitutions(fn, regex_subs)
 
@@ -150,25 +149,24 @@ class EB_Ferret(ConfigureMake):
 
         regex_subs = []
         for x, y in comp_vars.items():
-            regex_subs += [(r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y))]
+            regex_subs.append((r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
-            regex_subs += [
+            regex_subs.extend([
                 (r"^(\s*LDFLAGS\s*=).*", r"\1 -fPIC %s -lnetcdff -lnetcdf -lhdf5_hl -lhdf5" % os.getenv("LDFLAGS")),
                 (r"^(\s*)CDFLIB", r"\1NONEED"),
-            ]
+            ])
 
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             regex_subs += [(r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main" % os.getenv("F77"))]
             for x in ["CFLAGS", "FFLAGS"]:
-                regex_subs += [(r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x))]
+                regex_subs.append((r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x)))
             if LooseVersion(self.version) >= LooseVersion("7.3"):
                 for x in ["CFLAGS", "FFLAGS"]:
-                    regex_subs += [(r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x))]
-                for x, y in gfort2ifort.items():
-                    regex_subs += [(r"%s" % x, r"%s" % y)]
+                    regex_subs.append((r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x)))
+                regex_subs.extend(sorted(gfort2ifort.items()))
 
-                regex_subs += [(r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\")]
+                regex_subs.append((r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\"))
 
         for fn in fns:
             apply_regex_substitutions(fn, regex_subs)
@@ -182,7 +180,7 @@ class EB_Ferret(ConfigureMake):
 
             regex_subs = [(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'))]
             for x, y in comp_vars.items():
-                regex_subs += [(r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y))]
+                regex_subs.append((r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y)))
 
             apply_regex_substitutions(fn, regex_subs)
 
