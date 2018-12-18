@@ -60,6 +60,7 @@ class EB_NEURON(ConfigureMake):
 
         extra_vars = {
             'paranrn': [True, "Enable support for distributed simulations.", CUSTOM],
+            'with_python': [False, "Enable support for python", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -101,7 +102,7 @@ class EB_NEURON(ConfigureMake):
 
         super(EB_NEURON, self).install_step()
 
-        if self.with_python:
+        if self.with_python or self.cfg['with_python']:
             pypath = os.path.join('src', 'nrnpython')
             try:
                 pwd = os.getcwd()
@@ -109,7 +110,7 @@ class EB_NEURON(ConfigureMake):
             except OSError, err:
                 raise EasyBuildError("Failed to change to %s: %s", pypath, err)
 
-            cmd = "python setup.py install --prefix=%s" % self.installdir
+            cmd = "%s python setup.py install --prefix=%s" % (self.cfg['preinstallopts'], self.installdir)
             run_cmd(cmd, simple=True, log_all=True, log_ok=True)
 
             try:
