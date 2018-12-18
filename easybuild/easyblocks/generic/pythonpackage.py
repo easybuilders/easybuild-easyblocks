@@ -219,7 +219,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # use lowercase name as default value for expected module name (used in sanity check)
         if 'modulename' not in self.options:
-            self.options['modulename'] = self.name.lower()
+            self.options['modulename'] = self.name.lower().replace('-', '_')
             self.log.info("Using default value for expected module name (lowercase software name): '%s'",
                           self.options['modulename'])
 
@@ -403,6 +403,9 @@ class PythonPackage(ExtensionEasyBlock):
 
     def configure_step(self):
         """Configure Python package build/install."""
+
+        if self.python_cmd is None:
+            self.prepare_python()
 
         if self.sitecfg is not None:
             # used by some extensions, like numpy, to find certain libs

@@ -67,7 +67,9 @@ class EB_MVAPICH2(EB_MPICH):
 
         # additional configuration options
         add_configopts = []
-        add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
+
+        if self.cfg['rdma_type']:
+            add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
 
         # enable specific support options (if desired)
         if self.cfg['withmpe']:

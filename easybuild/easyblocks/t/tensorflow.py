@@ -162,16 +162,21 @@ class EB_TensorFlow(PythonPackage):
             use_wrapper = True
 
         use_mpi = self.toolchain.options.get('usempi', False)
-        impi_root = get_software_root('impi')
         mpi_home = ''
-        if use_mpi and impi_root:
-            # put wrappers for Intel MPI compiler wrappers in place
-            # (required to make sure license server and I_MPI_ROOT are found)
-            for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
-                self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
-            use_wrapper = True
-            # set correct value for MPI_HOME
-            mpi_home = os.path.join(impi_root, 'intel64')
+        if use_mpi:
+            impi_root = get_software_root('impi')
+            if impi_root:
+                # put wrappers for Intel MPI compiler wrappers in place
+                # (required to make sure license server and I_MPI_ROOT are found)
+                for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
+                    self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+                use_wrapper = True
+                # set correct value for MPI_HOME
+                mpi_home = os.path.join(impi_root, 'intel64')
+            else:
+                self.log.debug("MPI module name: %s", self.toolchain.MPI_MODULE_NAME[0])
+                mpi_home = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
+
             self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
@@ -342,6 +347,21 @@ class EB_TensorFlow(PythonPackage):
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
 
+        # include install location of Python packages in $PYTHONPATH,
+        # and specify that value of $PYTHONPATH should be passed down into Bazel build environment;
+        # this is required to make sure that Python packages included as extensions are found at build time;
+        # see also https://github.com/tensorflow/tensorflow/issues/22395
+        pythonpath = os.getenv('PYTHONPATH', '')
+        env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+
+        cmd.append('--action_env=PYTHONPATH')
+
+        # use same configuration for both host and target programs, which can speed up the build
+        # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
+        # see https://docs.bazel.build/versions/master/guide.html#configurations
+        if self.toolchain.options.get('optarch'):
+            cmd.append('--distinct_host_configuration=false')
+
         cmd.append(self.cfg['buildopts'])
 
         if cuda_root:
@@ -415,15 +435,22 @@ class EB_TensorFlow(PythonPackage):
             # tf_should_use importsweakref.finalize, which requires backports.weakref for Python < 3.4
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
-        super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        res = super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+        # determine top-level directory
+        # start_dir is not set when TensorFlow is installed as an extension, then fall back to ext_dir
+        topdir = self.start_dir or self.ext_dir
 
         # test installation using MNIST tutorial examples
         if self.cfg['runtest']:
             pythonpath = os.getenv('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
             for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
-                tmpdir = tempfile.mkdtemp(suffix='-tf-%s-test' % os.path.splitext(mnist_py)[0])
-                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
-                cmd = "%s %s --data_dir %s" % (self.python_cmd, mnist_py, tmpdir)
+                datadir = tempfile.mkdtemp(suffix='-tf-%s-data' % os.path.splitext(mnist_py)[0])
+                logdir = tempfile.mkdtemp(suffix='-tf-%s-logs' % os.path.splitext(mnist_py)[0])
+                mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
+                cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+        return res

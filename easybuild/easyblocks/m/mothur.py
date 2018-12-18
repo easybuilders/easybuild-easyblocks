@@ -69,6 +69,12 @@ class EB_Mothur(ConfigureMake):
         # enable compression
         if get_software_root('bzip2') or get_software_root('gzip'):
             self.cfg.update('buildopts', 'USE_COMPRESSION=yes')
+        # Use Boost
+        if get_software_root('Boost'):
+            self.cfg.update('buildopts', 'USEBOOST=yes')
+        # Use HDF5
+        if get_software_root('HDF5'):
+            self.cfg.update('buildopts', 'USEHDF5=yes')
 
     def install_step(self):
         """

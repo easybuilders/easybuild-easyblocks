@@ -27,8 +27,6 @@ EasyBuild support for building and installing netcdf4-python, implemented as an 
 
 @author: Kenneth Hoste (Ghent University)
 """
-import os
-
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.modules import get_software_root
@@ -63,8 +61,7 @@ class EB_netcdf4_minus_python(PythonPackage):
     def test_step(self):
         """Run netcdf4-python tests."""
         self.testinstall = True
-        cwd = os.getcwd()
-        self.testcmd = "cd %s/test && %s run_all.py && cd %s" % (self.cfg['start_dir'], self.python_cmd, cwd)
+        self.testcmd = "cd test && %s run_all.py" % self.python_cmd
         super(EB_netcdf4_minus_python, self).test_step()
 
     def sanity_check_step(self):

@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -75,6 +75,7 @@ class EB_Clang(CMakeMake):
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
+            'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
@@ -211,7 +212,7 @@ class EB_Clang(CMakeMake):
 
         # Create and enter build directory.
         mkdir(self.llvm_obj_dir_stage1)
-        os.chdir(self.llvm_obj_dir_stage1)
+        change_dir(self.llvm_obj_dir_stage1)
 
         # GCC and Clang are installed in different prefixes and Clang will not
         # find the GCC installation on its own.
@@ -279,7 +280,7 @@ class EB_Clang(CMakeMake):
 
         # Create and enter build directory.
         mkdir(next_obj)
-        os.chdir(next_obj)
+        change_dir(next_obj)
 
         # Configure.
         CC = os.path.join(prev_obj, 'bin', 'clang')
@@ -297,17 +298,19 @@ class EB_Clang(CMakeMake):
         run_cmd("make %s" % self.make_parallel_opts, log_all=True)
 
     def run_clang_tests(self, obj_dir):
-        os.chdir(obj_dir)
+        """Run Clang tests in specified directory (unless disabled)."""
+        if not self.cfg['skip_all_tests']:
+            change_dir(obj_dir)
 
-        self.log.info("Running tests")
-        run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
+            self.log.info("Running tests")
+            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
 
     def build_step(self):
         """Build Clang stage 1, 2, 3"""
 
         # Stage 1: build using system compiler.
         self.log.info("Building stage 1")
-        os.chdir(self.llvm_obj_dir_stage1)
+        change_dir(self.llvm_obj_dir_stage1)
         super(EB_Clang, self).build_step()
 
         if self.cfg['bootstrap']:
@@ -323,6 +326,7 @@ class EB_Clang(CMakeMake):
             # Don't run stage 3 tests here, do it in the test step.
 
     def test_step(self):
+        """Run Clang tests."""
         if self.cfg['bootstrap']:
             self.run_clang_tests(self.llvm_obj_dir_stage3)
         else:
@@ -332,9 +336,9 @@ class EB_Clang(CMakeMake):
         """Install stage 3 binaries."""
 
         if self.cfg['bootstrap']:
-            os.chdir(self.llvm_obj_dir_stage3)
+            change_dir(self.llvm_obj_dir_stage3)
         else:
-            os.chdir(self.llvm_obj_dir_stage1)
+            change_dir(self.llvm_obj_dir_stage1)
         super(EB_Clang, self).install_step()
 
         # the static analyzer is not installed by default
