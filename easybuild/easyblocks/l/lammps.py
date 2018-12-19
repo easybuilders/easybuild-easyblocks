@@ -47,16 +47,21 @@ class EB_LAMMPS(EasyBlock):
         super(EB_LAMMPS, self).__init__(*args, **kwargs)
 
         self.build_in_installdir = True
+        self.files_check = ["LICENSE", "README", "list-packages.txt"]
+        self.dir_check = ["bin"] 
 
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters for LAMMPS."""
         extra_vars = {
-            'packages_yes': [[], "LAMMPS packages to install", MANDATORY],
-            'packages_no': [[], "LAMMPS packages to avoid installing", CUSTOM],
-            'packaged_libraries': [[], "Libraries to package with LAMMPS", MANDATORY],
-            'build_shared_libs': [True, "Build shared libraries" , CUSTOM],
-            'build_static_libs': [True, "Build static libraries", CUSTOM],
+            'packages_yes': [[], "LAMMPS packages to install.", MANDATORY],
+            'packages_no': [[], "LAMMPS packages to avoid installing.", CUSTOM],
+            'packaged_libraries': [[], "Libraries to package with LAMMPS.", MANDATORY],
+            'build_shared_libs': [True, "Build shared libraries." , CUSTOM],
+            'build_static_libs': [True, "Build static libraries.", CUSTOM],
+            'build_doc': [True, "Includes the doc directory.", CUSTOM],
+            'build_examples': [True, "Includes the examples directory.", CUSTOM],
+            'build_bench': [True, "Includes the bench directory.", CUSTOM],
             'build_type': ["", 'Argument passed to "make" for building LAMMPS itself', CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -140,7 +145,6 @@ class EB_LAMMPS(EasyBlock):
                     raise EasyBuildError("No makefile matching active compilers found in %s", pkglibdir)
 
                 # Make sure active compiler is used:
-
                 run_cmd('make -f %s CC="%s" CXX="%s" FC="%s"' % (makefile, cc, cxx, f90), log_all=True)
 
             try:
@@ -156,58 +160,74 @@ class EB_LAMMPS(EasyBlock):
             self.log.info("Building %s package", p)
             run_cmd("make no-%s" % p, log_all=True)
 
-        # Build QUIP LIBRARY:
-
-        #if self.cfg["build_quip_libs"]:
-        #    run_cmd("cd ../lib/quip")
-        #    run_cmd("cd ../../src/")
-
-        # Build KOKKOS:
-
-        #run_cmd("mkdir -p ../lib/kokos/build && pushd ../lib/kokos/build && cmake .. && make && popd " )
-
         # Save the list of built packages:
-
         run_cmd("echo Supported Packages: > list-packages.txt")
         run_cmd("make package-status | grep -a 'YES:' >> list-packages.txt")
         run_cmd("echo Not Supported Packages: >> list-packages.txt")
         run_cmd("make package-status | grep -a 'NO:' >> list-packages.txt")
         run_cmd("make package-update")
 
-        # Build LAMMPS itself:
+        # Parallel options for building:
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
 
+        # Build LAMMPS itself:
         build_type = self.cfg["build_type"]
-        run_cmd("make %s" % build_type, log_all=True)
+        run_cmd("make %s %s" % (paracmd, build_type), log_all=True)
 
         # Build shared libraries:
-
         if self.cfg["build_shared_libs"]:
-            run_cmd("make mode=shlib %s" % build_type, log_all=True)
+            lib_type = "mode=shlib"
+            #run_cmd("make %s %s %s" % (paracmd, lib_type, build_type), log_all=True)
+            run_cmd("make %s %s" % (lib_type, build_type), log_all=True)
 
         # Build static libraries:
-
         if self.cfg["build_static_libs"]:
-            run_cmd("make mode=lib %s" % build_type, log_all=True)
+            lib_type = "mode=lib"
+            #run_cmd("make %s %s %s" % (paracmd, lib_type, build_type), log_all=True)
+            run_cmd("make %s %s" % (lib_type, build_type), log_all=True)
 
     # Copy files and directories to the installation directory:
 
     def install_step(self):
         """Copying files in the right directory"""
+
         build_type = self.cfg["build_type"]
-        run_cmd("mkdir -p ../bin ; pwd; cp lmp_%s ../bin" % build_type)
-        run_cmd("ln -s lmp_%s ../bin/lmp" % build_type)
-        run_cmd("cp list-packages.txt ..")
-        if self.cfg["build_static_libs"] or self.cfg["build_shared_libs"]: 
-            run_cmd("mkdir -p ../lib; cp liblammps* ../lib")
+        os.chdir(self.cfg['start_dir'])
+        run_cmd("mkdir -p bin ; cp src/lmp_%s bin" % build_type)
+        self.files_check += ["bin/lmp_%s" % build_type]
+        run_cmd("ln -s bin/lmp_%s bin/lmp" % build_type)
+        run_cmd("cp src/list-packages.txt .")
+        if self.cfg["build_static_libs"] or self.cfg["build_shared_libs"]:
+            run_cmd("mv lib lib_tmp && mkdir -p lib include; cp src/liblammps* lib; cp src/lammps.h include")
+            self.dir_check += ["lib", "include"]
+        else:
+            run_cmd("rm -rf lib")
+        run_cmd("mkdir -p share && mv potentials share/")
+        self.dir_check += ["share"]
+
+        if self.cfg["build_doc"]:
+            run_cmd("mv doc share/")
+            self.dir_check += ["share/doc"]
+
+        if self.cfg["build_examples"]:
+            run_cmd("mkdir -p share/examples")
+            run_cmd("cd examples && for ii in `ls -1 | grep -v README`; do tar -czvf $ii.tar.gz $ii; done && cd ..")
+            run_cmd("mv examples/*.gz examples/README share/examples/")
+            self.dir_check += ["share/examples"]
+
+        if self.cfg["build_bench"]:
+            run_cmd("mv bench share/")
+
+        run_cmd("rm -rf bench cmake doc examples lib_tmp python src tools")
 
     # Perform sanity check:
-
     def sanity_check_step(self):
         """Custom sanity check for LAMMPS."""
-        build_type = self.cfg["build_type"]
         custom_paths = {
-              'files': ['README', 'LICENSE', 'list-packages.txt','bin/lmp_%s' % build_type ],
-              'dirs': ['bin', 'lib', 'examples', 'potentials'],
+              'files': [ x for x in self.files_check],
+              'dirs': [ x for x in self.dir_check],
         }
         super(EB_LAMMPS, self).sanity_check_step(custom_paths=custom_paths)
 
