@@ -60,6 +60,8 @@ class EB_MATLAB(PackedBinary):
     def extra_options():
         extra_vars = {
             'java_options': ['-Xmx256m', "$_JAVA_OPTIONS value set for install and in module file.", CUSTOM],
+            'tmpdir': [None, "Tempdir during installation, passed to matlab installer", CUSTOM],
+            'key': [None, "Installation key(s), make one install for each key. Single key or a list of keys", CUSTOM],
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -72,10 +74,6 @@ class EB_MATLAB(PackedBinary):
         licport = self.cfg['license_server_port']
         if licport is None:
             licport = os.getenv('EB_MATLAB_LICENSE_SERVER_PORT', '00000')
-
-        key = self.cfg['key']
-        if key is None:
-            key = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
 
         # create license file
         lictxt = '\n'.join([
@@ -91,13 +89,11 @@ class EB_MATLAB(PackedBinary):
             config = read_file(self.configfile)
 
             regdest = re.compile(r"^# destinationFolder=.*", re.M)
-            regkey = re.compile(r"^# fileInstallationKey=.*", re.M)
             regagree = re.compile(r"^# agreeToLicense=.*", re.M)
             regmode = re.compile(r"^# mode=.*", re.M)
             reglicpath = re.compile(r"^# licensePath=.*", re.M)
 
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
-            config = regkey.sub("fileInstallationKey=%s" % key, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
             config = reglicpath.sub("licensePath=%s" % licfile, config)
@@ -133,18 +129,45 @@ class EB_MATLAB(PackedBinary):
         if LooseVersion(self.version) >= LooseVersion('2016b'):
             change_dir(self.builddir)
 
-        cmd = "%s %s -v -inputFile %s %s" % (self.cfg['preinstallopts'], src, self.configfile, self.cfg['installopts'])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        # MATLAB installer ignores TMPDIR
+        tmpdir = ''
+        if self.cfg['tmpdir']:
+            tmpd = self.cfg['tmpdir']
+        else:
+            tmpd = os.getenv('TMPDIR', '')
+        if tmpd:
+            tmpdir = '-tmpdir %s' % tmpd
 
-        # check installer output for known signs of trouble
-        patterns = [
-            "Error: You have entered an invalid File Installation Key",
-        ]
-        for pattern in patterns:
-            regex = re.compile(pattern, re.I)
-            if regex.search(out):
-                raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
-                                     regex.pattern, cmd, out)
+        keys = self.cfg['key']
+        if keys is None:
+            keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
+        if isinstance(keys, str):
+            keys = keys.split(',')
+
+        # Make one install for each key
+        for key in keys:
+            cmd = ' '.join([
+                self.cfg['preinstallopts'],
+                src,
+                '-v',
+                tmpdir,
+                '-inputFile',
+                self.configfile,
+                '-fileInstallationKey',
+                key,
+                self.cfg['installopts'],
+            ])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+            # check installer output for known signs of trouble
+            patterns = [
+                "Error: You have entered an invalid File Installation Key",
+            ]
+            for pattern in patterns:
+                regex = re.compile(pattern, re.I)
+                if regex.search(out):
+                    raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
+                                         regex.pattern, cmd, out)
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
@@ -158,5 +181,6 @@ class EB_MATLAB(PackedBinary):
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
-        txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
+        if self.cfg['java_options']:
+            txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt
