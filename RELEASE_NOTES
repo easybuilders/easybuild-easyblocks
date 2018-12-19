@@ -3,13 +3,63 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 198 software-specific easyblocks and 32 generic easyblocks.
+The latest version of easybuild-easyblocks provides 199 software-specific easyblocks and 34 generic easyblocks.
+
+v3.8.0 (December 18th 2018)
+---------------------------
+
+feature release
+- new generic easyblocks:
+  - PythonBundle for installing a bundle of Python packages (#1553)
+  - MesonNinja for installing using Meson & Ninja (#1561)
+- new software specific easyblock for RepeatMasker (#1600)
+- minor enhancements, including:
+  - add -fno-delete-null-pointer-checks compiler flag for OpenFOAM versions older than v3.0 (#1311)
+  - add support for building Tau with OTF included as dependency (#1313)
+  - add support for Intel MPI version 2019 (#1546)
+  - also populate the include dir for CP2K (#1554)
+  - add custom easyconfig parameter in GCC easyblock to control use of gold linker: use_gold_linker (#1555)
+  - replace '-' with '_' in default 'import' check for Python packages (#1560)
+  - update WRF and WPS to support version 4 (#1563)
+  - adapt PSI easyblock for PSI4 > 1.2 (#1568)
+  - update Siesta easyblock to 4.1-b4 and add custom test_step (#1573)
+  - enhance Mothur easyblock to support use of Boost and HDF5 as dependencies (#1576)
+  - enhance sanity check for icc & ifort: also check for compilers_and_libraries_*/linux subdirectory (#1577)
+  - update Trinity easyblock for latest version 2.8 (#1579)
+  - add version check in sanity check step of SCOTCH easyblock (+ code cleanup) (#1580)
+  - add support in Clang easyblock to skip running of all tests (#1584)
+  - update WRF easyblock to allow serial HDF5 + pick up on parallel netCDF (#1592)
+  - avoid hardcoding 'PREFIX=<installdir>' in build/install options when using SCons easyblock (#1594)
+  - enable TensorFlow to detect any MPI runtime (#1597)
+  - enhance Bundle easyblock to allow installation of bundle components with additional easyblocks + build components in parallel (#1598)
+  - enhance Trilinos easyblock to support building against MKL (#1601)
+- various bug fixes, including:
+  - make FDTD_Solutions easyblock do the install by copying files instead of 'rpm rebuild' (#1307)
+  - re-add missing VT_(S)LIB_DIR env variable to itac module (#1309)
+  - fix in QuantumESPRESSO easyblock: ifort compiler needs -assume byterecl (#1556)
+  - extract targets from buildopts in Quantumespresso easyblock (#1558)
+  - fixes for TensorFlow easyblock (#1559)
+    - pass $PYTHONPATH while building TensorFlow
+    - disable cross-compilation mode if optarch is set
+    - fix sanity check for installing TensorFlow as extension
+  - added a test to disable compiling FFTW with MPI if the toolchain does not support MPI (#1562)
+  - fix permissions problem with CUDA nvvp tar files + correctly handle numactl symlink in LLVM subdir in PGI easyblock (#1569)
+  - fix TensorFlow test tempdir problem (#1572)
+  - tweak VMD easyblock so that configopts don't contain duplicate values (otherwise it fails to rebuild) (#1575)
+  - fix running netcdf4-python tests to also support installation as extension (#1578)
+  - added the openmp flags in the linker flags in MUMPS easyblock (#1585)
+  - avoid hardcoding --with-rdma configure option in MVAPICH2 easyblock (#1586)
+  - fix location of path-to-source argument in configure command of CMakeMake (#1591)
+  - fix GROMACS use of MKL for non-Intel compilers (e.g. gomkl toolchain) (#1596)
+- other changes
+  - inform Hound CI about Python 2 builtins (#1604)
+
 
 v3.7.1 (October 18th 2018)
 --------------------------
 
 bugfix/update release
-- new software specific easyblocks for fastStructure (#1529)
+- new software specific easyblock for fastStructure (#1529)
 - minor enhancements, including:
   - support bypassing use of system type obtained with recent config.guess in ConfigureMake (#1531)
   - enhance generated module file for FreeSurfer (#1543)
