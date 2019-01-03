@@ -314,7 +314,8 @@ class EB_GROMACS(CMakeMake):
             # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
             env.setvar('OMP_NUM_THREADS', '1')
 
-            self.cfg['runtest'] = 'check'
+            # run 'make check' in parallel since it involves more compilation
+            self.cfg['runtest'] = 'check -j %s' % self.cfg['parallel']
             super(EB_GROMACS, self).test_step()
 
     def install_step(self):
