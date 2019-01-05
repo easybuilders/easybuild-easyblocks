@@ -109,7 +109,7 @@ class EB_SuiteSparse(ConfigureMake):
             for line in fileinput.input(fp, inplace=1, backup='.orig'):
                 for (var, val) in cfgvars.items():
                     orig_line = line
-                    # for variables in cfgvars, substiture lines assignment 
+                    # for variables in cfgvars, substiture lines assignment
                     # in the file, whatever they are, by assignments to the
                     # values in cfgvars
                     line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
@@ -135,7 +135,7 @@ class EB_SuiteSparse(ConfigureMake):
             try:
                 if os.path.isdir(src):
                     shutil.copytree(src, dst)
-                    # symlink 
+                    # symlink
                     # - dst/Lib to dst/lib
                     # - dst/Include to dst/include
                     for c in ['Lib', 'Include']:
@@ -144,7 +144,7 @@ class EB_SuiteSparse(ConfigureMake):
                         if os.path.exists(nsrc):
                             os.symlink(nsrc, ndst)
                     # enable r-x permissions for group/others
-                    perms = stat.S_IRGRP|stat.S_IXGRP|stat.S_IROTH|stat.S_IXOTH
+                    perms = stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
                     adjust_permissions(dst, perms, add=True, recursive=True, onlydirs=True)
                 else:
                     shutil.copy2(src, dst)
@@ -154,7 +154,7 @@ class EB_SuiteSparse(ConfigureMake):
         # some extra symlinks are necessary for UMFPACK to work.
         paths = [
             os.path.join('AMD', 'include', 'amd.h'),
-            os.path.join('AMD' ,'include' ,'amd_internal.h'),
+            os.path.join('AMD', 'include', 'amd_internal.h'),
             os.path.join(self.config_name, '%s.h' % self.config_name),
             os.path.join('AMD', 'lib', 'libamd.a')
         ]
