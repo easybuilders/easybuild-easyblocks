@@ -71,6 +71,9 @@ class EB_SuiteSparse(ConfigureMake):
             'F77FLAGS': os.getenv('F77FLAGS'),
         }
 
+        # avoid that (system) Intel compilers are always considered
+        self.cfg.update('buildopts', 'AUTOCC=no')
+
         # Set BLAS and LAPACK libraries as specified in SuiteSparse README.txt
         self.cfg.update('buildopts', 'BLAS="%s"' % os.getenv('LIBBLAS_MT'))
         self.cfg.update('buildopts', 'LAPACK="%s"' % os.getenv('LIBLAPACK_MT'))
