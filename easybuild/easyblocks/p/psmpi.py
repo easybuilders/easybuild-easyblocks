@@ -36,22 +36,23 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import remove_file, write_file
+from easybuild.tools.filetools import mkdir, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
 PINGPONG_PGO_TEST = """
 /****************************************
- * Buggy, ugly and extremely simple MPI ping pong.
- * The goal is to trigger pscom internal routines
- * to generate profiles to be used by PGO-enabled
- * compilers.
+ * Potentially buggy, ugly and extremely simple MPI ping pong.
+ * The goal is to trigger pscom internal routines to generate
+ * profiles to be used by PGO-enabled compilers.
  *
  * Nothing more, nothing less.
  *
- * We try small and large messages to walk the path for
- * eager and rendezvous protocols
+ * We try small and large messages to walk the path for eager
+ * and rendezvous protocols
+ *
+ * author: Damian Alvarez (d.alvarez@fz-juelich.de)
  ****************************************/
 
 #include "mpi.h"
@@ -91,7 +92,12 @@ class EB_psmpi(EB_MPICH):
     * Determines the compiler to be used based on the toolchain
     * Enables threading if required by the easyconfig
     * Sets extra MPICH options if required by the easyconfig
+    * Generates a PGO profile and uses it if required
     """
+
+    def __init__(self, *args, **kwargs):
+        super(EB_psmpi, self).__init__(*args, **kwargs)
+        self.profdir = os.path.join(self.builddir, 'profile')
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -115,14 +121,10 @@ class EB_psmpi(EB_MPICH):
         """
         Set of steps to be performed after the initial installation, if PGO were enabled
         """
+        self.log.info("Running PGO steps...")
         # Remove old profiles
-        prof_dir = '%s/profile/' % self.builddir
-        old_profs = os.listdir(prof_dir)
-        for prof in [os.path.join(prof_dir, p) for p in old_profs]:
-            remove_file(prof)
-        new_profs = os.listdir(prof_dir)
-        if new_profs:
-            raise EasyBuildError("The configure PGO profiles were not wiped (%s)" % new_profs)
+        remove_dir(self.profdir)
+        mkdir(self.profdir)
 
         # Clean the old build
         run_cmd('make distclean')
@@ -135,9 +137,9 @@ class EB_psmpi(EB_MPICH):
         run_cmd('PSP_SHM=1 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
 
         # Check that the profiles are there
-        new_profs = os.listdir(prof_dir)
+        new_profs = os.listdir(self.profdir)
         if not new_profs:
-            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % prof_dir)
+            raise EasyBuildError("The PGO profiles where not found in the expected directory (%s)" % self.profdir)
 
         # Change PGO related options
         self.cfg['pgo'] = False
@@ -145,14 +147,17 @@ class EB_psmpi(EB_MPICH):
 
         # Reconfigure
         print_msg("configuring with PGO...")
+        self.log.info("Running configure_step with PGO...")
         self.configure_step()
 
         # Rebuild
         print_msg("building with PGO...")
+        self.log.info("Running build_step with PGO...")
         self.build_step()
 
         # Reinstall
         print_msg("installing with PGO...")
+        self.log.info("Running install_step with PGO...")
         self.install_step()
 
 
@@ -189,7 +194,7 @@ class EB_psmpi(EB_MPICH):
 
         # Add PGO related options, if enabled
         if self.cfg['pgo']:
-            self.cfg.update('configopts', ' --with-profile=gen --with-profdir=%(builddir)s/profile')
+            self.cfg.update('configopts', ' --with-profile=gen --with-profdir=%s' % self.profdir)
 
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
