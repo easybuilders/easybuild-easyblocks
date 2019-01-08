@@ -60,7 +60,6 @@ class EB_MATLAB(PackedBinary):
     def extra_options():
         extra_vars = {
             'java_options': ['-Xmx256m', "$_JAVA_OPTIONS value set for install and in module file.", CUSTOM],
-            'tmpdir': [None, "Tempdir during installation, passed to matlab installer", CUSTOM],
             'key': [None, "Installation key(s), make one install for each key. Single key or a list of keys", CUSTOM],
         }
         return PackedBinary.extra_options(extra_vars)
