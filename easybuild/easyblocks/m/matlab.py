@@ -129,19 +129,13 @@ class EB_MATLAB(PackedBinary):
         if LooseVersion(self.version) >= LooseVersion('2016b'):
             change_dir(self.builddir)
 
-        # MATLAB installer ignores TMPDIR
-        tmpdir = ''
-        if self.cfg['tmpdir']:
-            tmpd = self.cfg['tmpdir']
-        else:
-            tmpd = os.getenv('TMPDIR', '')
-        if tmpd:
-            tmpdir = '-tmpdir %s' % tmpd
+        # MATLAB installer ignores TMPDIR (always uses /tmp) and might need a large tmpdir
+        tmpdir = "-tmpdir %s" % tempfile.mkdtemp()
 
         keys = self.cfg['key']
         if keys is None:
             keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
-        if isinstance(keys, str):
+        if isinstance(keys, basestring):
             keys = keys.split(',')
 
         # Make one install for each key
