@@ -57,9 +57,12 @@ PINGPONG_PGO_TEST = """
 
 #include "mpi.h"
 #define MAX_LENGTH 1048576
+#define ITERATIONS 1000
 
 int main(int argc, char *argv[]){
-    int myid, vlength;
+    int myid, vlength, i, err, eslength;
+
+    char error_string[MPI_MAX_ERROR_STRING];
 
     double v0[MAX_LENGTH], v1[MAX_LENGTH];
 
@@ -70,15 +73,24 @@ int main(int argc, char *argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
     for (vlength=1; vlength<=MAX_LENGTH; vlength*=2){
-        MPI_Barrier(MPI_COMM_WORLD);
+        for (i=0; i<ITERATIONS; i++){
+            MPI_Barrier(MPI_COMM_WORLD);
+            // Not really needed, but it might be interesting to PGO this for benchmarking?
+            MPI_Wtime();
 
-        if (myid == 0){
-            MPI_Send(v0, vlength, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(v1, vlength, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &stat);
-        }
-        else{
-            MPI_Recv(v1, vlength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &stat);
-            MPI_Send(v0, vlength, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            if (myid == 0){
+                err = MPI_Send(v0, vlength*sizeof(double), MPI_BYTE, 1, 0, MPI_COMM_WORLD);
+                MPI_Error_string(err, error_string, &eslength);
+                err = MPI_Recv(v1, vlength*sizeof(double), MPI_BYTE, 1, 0, MPI_COMM_WORLD, &stat);
+                MPI_Error_string(err, error_string, &eslength);
+            }
+            else{
+                err = MPI_Recv(v1, vlength*sizeof(double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &stat);
+                MPI_Error_string(err, error_string, &eslength);
+                err = MPI_Send(v0, vlength*sizeof(double), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+                MPI_Error_string(err, error_string, &eslength);
+            }
+            MPI_Wtime();
         }
     }
     MPI_Finalize();
@@ -131,10 +143,14 @@ class EB_psmpi(EB_MPICH):
 
         # Compile and run example to generate profile
         print_msg("generating PGO profile...")
+        (out, _) = run_cmd('%s 2 hostname' % self.cfg['mpiexec_cmd'])
+        nodes = out.split()
+        if nodes[0] == nodes[1]:
+            raise EasyBuildError("The profile is generated with 1 node! Use 2 nodes to generate a proper profile!")
+
         write_file('pingpong.c', PINGPONG_PGO_TEST)
         run_cmd('%s/bin/mpicc pingpong.c -o pingpong' % self.installdir)
         run_cmd('PSP_SHM=0 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
-        run_cmd('PSP_SHM=1 %s 2 pingpong' % self.cfg['mpiexec_cmd'])
 
         # Check that the profiles are there
         new_profs = os.listdir(self.profdir)
