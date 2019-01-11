@@ -449,7 +449,11 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-            env.setvar("LDSHARED", "%s -shared" % self.toolchain.get_variable("CC", str))
+            curr_cc = os.getenv('CC')
+            python_ldshared = get_config_vars('LDSHARED')[0].split(' ')
+            if python_ldshared[0] != curr_cc:
+                self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing that...", python_ldshared, curr_cc)
+                env.setvar("LDSHARED", curr_cc + " -shared")
 
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
