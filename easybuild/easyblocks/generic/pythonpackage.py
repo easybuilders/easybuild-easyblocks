@@ -36,6 +36,7 @@ import re
 import sys
 import tempfile
 from distutils.version import LooseVersion
+from distutils.sysconfig import get_config_vars
 from vsc.utils import fancylogger
 from vsc.utils.missing import nub
 
@@ -450,10 +451,14 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
             curr_cc = os.getenv('CC')
-            python_ldshared = get_config_vars('LDSHARED')[0].split(' ')
-            if python_ldshared[0] != curr_cc:
-                self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
-                              python_ldshared, curr_cc)
+            python_ldshared = get_config_vars('LDSHARED')[0]
+            if python_ldshared:
+                if python_ldshared.split(' ')[0] != curr_cc:
+                    self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
+                                  python_ldshared, curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+            else:
+                self.log.info("No LDSHARED found for Python, setting to '%s -shared'", curr_cc)
                 env.setvar("LDSHARED", curr_cc + " -shared")
 
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
