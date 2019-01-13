@@ -36,6 +36,7 @@ import re
 import os
 import shutil
 import stat
+import tempfile
 
 from distutils.version import LooseVersion
 
