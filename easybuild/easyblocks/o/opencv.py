@@ -172,7 +172,7 @@ class EB_OpenCV(CMakeMake):
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             common_dir = os.path.join('3rdparty', 'ippicv', 'ippicv_lnx')
 
-            # for some recent OpenCV 3.x versions, libippicv.a is now a subdirectory named 'icv'
+            # for some recent OpenCV 3.x versions, libippicv.a is now in a subdirectory named 'icv'
             if LooseVersion(self.version) >= LooseVersion('3.4.4'):
                 ipp_libs = glob.glob(os.path.join(common_dir, 'icv', 'lib', 'intel64', 'libippicv.*'))
             else:
