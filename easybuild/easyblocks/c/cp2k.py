@@ -57,9 +57,6 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_avail_core_count
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
-# CP2K needs this version of libxc. CP2K 6.1 needs a more recent one (4.0.3)
-LIBXC_MIN_VERSION = '2.0.1'
-
 
 class EB_CP2K(EasyBlock):
     """
@@ -422,15 +419,15 @@ class EB_CP2K(EasyBlock):
         if libxc:
             cur_libxc_version = get_software_version('libxc')
             if LooseVersion(self.version) >= LooseVersion('6.1'):
-                LIBXC_MIN_VERSION = '4.0.3'
-                dflags = ' -D__LIBXC'
+                libxc_min_version = '4.0.3'
+                options['DFLAGS'] += ' -D__LIBXC'
             else:
-                dflags = ' -D__LIBXC2'
+                libxc_min_version = '2.0.1'
+                options['DFLAGS'] += ' -D__LIBXC2'
 
-            if LooseVersion(cur_libxc_version) < LooseVersion(LIBXC_MIN_VERSION):
-                raise EasyBuildError("This version of CP2K is not compatible with libxc < %s" % LIBXC_MIN_VERSION)
+            if LooseVersion(cur_libxc_version) < LooseVersion(libxc_min_version):
+                raise EasyBuildError("This version of CP2K is not compatible with libxc < %s" % libxc_min_version)
 
-            options['DFLAGS'] += dflags
             if LooseVersion(cur_libxc_version) >= LooseVersion('4.0.3'):
                 options['LIBS'] += ' -L%s/lib -lxcf03 -lxc' % libxc
             elif LooseVersion(cur_libxc_version) >= LooseVersion('2.2'):
