@@ -429,6 +429,7 @@ class EB_CP2K(EasyBlock):
                 raise EasyBuildError("This version of CP2K is not compatible with libxc < %s" % libxc_min_version)
 
             if LooseVersion(cur_libxc_version) >= LooseVersion('4.0.3'):
+                # cfr. https://www.cp2k.org/howto:compile#k_libxc_optional_wider_choice_of_xc_functionals
                 options['LIBS'] += ' -L%s/lib -lxcf03 -lxc' % libxc
             elif LooseVersion(cur_libxc_version) >= LooseVersion('2.2'):
                 options['LIBS'] += ' -L%s/lib -lxcf90 -lxc' % libxc
