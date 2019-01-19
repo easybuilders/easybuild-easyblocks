@@ -39,6 +39,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir
 from easybuild.tools.environment import setvar
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from vsc.utils.missing import nub
 
@@ -106,6 +107,14 @@ class CMakeMake(ConfigureMake):
 
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
+
+        # don't pick up on system Boost if Boost is included as dependency
+        # - specify Boost location via -DBOOST_ROOT
+        # - instruct CMake to not search for Boost headers/libraries in other places
+        # - disable search for Boost CMake package configuration file
+        boost_root = get_software_root('Boost')
+        if boost_root:
+            options.extend(['-DBOOST_ROOT=%s' % boost_root, '-DBoost_NO_SYSTEM_PATHS=ON', '-DBoost_NO_BOOST_CMAKE=ON'])
 
         options_string = ' '.join(options)
 
