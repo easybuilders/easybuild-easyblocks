@@ -265,7 +265,9 @@ class EB_Python(ConfigureMake):
         pyincdirs = glob.glob(os.path.join(self.installdir, 'include', 'python' + self.pyshortver + '*'))
         if len(pyincdirs) == 1:
             guesses['CPATH'].append(os.path.join('include', os.path.basename(pyincdirs[0])))
-        else:
+        elif pyincdirs:
+            # only fail if *multiple* hits were found
+            # under --module-only --force or --extended-dry-run, nothing may actually be installed (yet)
             raise EasyBuildError("Failed to isolate subdirectory with Python header files: %s", pyincdirs)
 
         return guesses
