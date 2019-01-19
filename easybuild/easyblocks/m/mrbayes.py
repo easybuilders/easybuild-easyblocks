@@ -31,6 +31,7 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Andy Georges (Ghent University)
+@author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
 """
 
 import os
@@ -55,7 +56,9 @@ class EB_MrBayes(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion("3.2"):
 
             # set correct start_dir dir, and change into it
-            self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'],'src')
+            # test whether it already contains 'src', since a reprod easyconfig would
+            if os.path.basename(self.cfg['start_dir']) != 'src':
+                self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
             try:
                 os.chdir(self.cfg['start_dir'])
             except OSError, err:
