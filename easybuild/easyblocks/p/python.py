@@ -31,7 +31,6 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import copy
 import glob
 import os
 import re
@@ -42,8 +41,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.modules import get_software_libdir, get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import remove_file, symlink
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
+from easybuild.tools.filetools import symlink
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -73,6 +72,12 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for Python easyblock."""
+        super(EB_Python, self).__init__(*args, **kwargs)
+
+        self.pyshortver = '.'.join(self.version.split('.')[:2])
 
     def prepare_for_extensions(self):
         """
@@ -183,13 +188,11 @@ class EB_Python(ConfigureMake):
 
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            pyver = '.'.join(self.version.split('.')[:2])
-            symlink(python_binary_path + pyver, python_binary_path)
+            symlink(python_binary_path + self.pyshortver, python_binary_path)
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
-        pyver = 'python' + '.'.join(self.version.split('.')[:2])
         shlib_ext = get_shared_lib_ext()
 
         try:
@@ -218,6 +221,7 @@ class EB_Python(ConfigureMake):
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
 
+        pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver)],
@@ -250,3 +254,18 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """
+        Return dictionary with additional entries for path-like environment variables;
+        also include <prefix>/include/python* to $CPATH.
+        """
+        guesses = super(EB_Python, self).make_module_req_guess()
+
+        pyincdir = os.path.join('include', 'python' + self.pyshortver)
+        if LooseVersion(self.version) >= LooseVersion('3'):
+            pyincdir += 'm'
+
+        guesses['CPATH'].append(pyincdir)
+
+        return guesses
