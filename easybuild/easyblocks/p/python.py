@@ -262,10 +262,10 @@ class EB_Python(ConfigureMake):
         """
         guesses = super(EB_Python, self).make_module_req_guess()
 
-        pyincdir = os.path.join('include', 'python' + self.pyshortver)
-        if LooseVersion(self.version) >= LooseVersion('3'):
-            pyincdir += 'm'
-
-        guesses['CPATH'].append(pyincdir)
+        pyincdirs = glob.glob(os.path.join(self.installdir, 'include', 'python' + self.pyshortver + '*'))
+        if len(pyincdirs) == 1:
+            guesses['CPATH'].append(os.path.join('include', os.path.basename(pyincdirs[0])))
+        else:
+            raise EasyBuildError("Failed to isolate subdirectory with Python header files: %s", pyincdirs)
 
         return guesses
