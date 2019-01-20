@@ -31,8 +31,16 @@ import glob
 import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+
+def find_glob_pattern(glob_pattern):
+    res = glob.glob(glob_pattern)
+    if len(res) != 1:
+        raise EasyBuildError("Was expecting exactly one match for '%s', found %d: %s", glob_pattern, len(res), res)
+    return res[0]
 
 
 class EB_Blender(CMakeMake):
@@ -64,10 +72,12 @@ class EB_Blender(CMakeMake):
             shlib_ext = get_shared_lib_ext()
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             site_packages = os.path.join(python_root, 'lib', 'python%s' % pyshortver, 'site-packages')
-            numpy_root = glob.glob(os.path.join(site_packages, 'numpy-*-py%s-linux-x86_64.egg' % pyshortver))[0]
-            requests_root = glob.glob(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))[0]
-            python_lib = glob.glob(os.path.join(python_root, 'lib', 'libpython%s*.%s' % (pyshortver, shlib_ext)))[0]
-            python_include_dir = glob.glob(os.path.join(python_root, 'include', 'python%s*' % pyshortver))[0]
+
+            numpy_root = find_glob_pattern(os.path.join(site_packages, 'numpy-*-py%s-linux-x86_64.egg' % pyshortver))
+            requests_root = find_glob_pattern(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))
+            python_lib = find_glob_pattern(
+                    os.path.join(python_root, 'lib', 'libpython%s*.%s' % (pyshortver, shlib_ext)))
+            python_include_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
 
             self.cfg.update('configopts', '-DPYTHON_VERSION=%s' % pyshortver)
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
