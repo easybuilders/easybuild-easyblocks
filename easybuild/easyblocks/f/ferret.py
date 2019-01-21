@@ -76,7 +76,7 @@ class EB_Ferret(ConfigureMake):
         ]
 
         for name in deps:
-            regex_subs.append([(r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name))])
+            regex_subs.append((r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             regex_subs.extend([
