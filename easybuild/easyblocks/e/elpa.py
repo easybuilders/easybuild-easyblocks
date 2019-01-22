@@ -122,7 +122,7 @@ class EB_ELPA(ConfigureMake):
         else:
             self.cfg.update('configopts', '--with-mpi=no')
             self.cfg.update('configopts', 'LIBS="%s"' %(os.environ['LIBLAPACK']))
-            
+
         for libtype in ['openmp', 'shared']:
             if self.cfg['with_%s' % libtype]:
                 self.cfg.update('configopts', '--enable-%s' % libtype)
@@ -132,7 +132,7 @@ class EB_ELPA(ConfigureMake):
 
         if self.cfg['with_single']:
             self.cfg.update('configopts', '--enable-single-precision')
-                
+
         for flag in ELPA_CPU_FEATURE_FLAGS:
             # many ELPA kernels are enabled by default, even when the
             # CPU does not support them, so we disable them all, except
@@ -163,9 +163,9 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('buildopts', 'LIBS="%s"' %(os.environ['LIBLAPACK']))
 
         self.cfg.update('buildopts','V=1')
-        
+
         return super(EB_ELPA, self).build_step(*args, **kwargs)
-    
+
     def sanity_check_step(self):
         """Custom sanity check for ELPA."""
 
