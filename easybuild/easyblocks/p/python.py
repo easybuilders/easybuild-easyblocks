@@ -254,20 +254,3 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """
-        Return dictionary with additional entries for path-like environment variables;
-        also include <prefix>/include/python* to $CPATH.
-        """
-        guesses = super(EB_Python, self).make_module_req_guess()
-
-        pyincdirs = glob.glob(os.path.join(self.installdir, 'include', 'python' + self.pyshortver + '*'))
-        if len(pyincdirs) == 1:
-            guesses['CPATH'].append(os.path.join('include', os.path.basename(pyincdirs[0])))
-        elif pyincdirs:
-            # only fail if *multiple* hits were found
-            # under --module-only --force or --extended-dry-run, nothing may actually be installed (yet)
-            raise EasyBuildError("Failed to isolate subdirectory with Python header files: %s", pyincdirs)
-
-        return guesses
