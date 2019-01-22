@@ -34,6 +34,7 @@ from vsc.utils.missing import nub
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
