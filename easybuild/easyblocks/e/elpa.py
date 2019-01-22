@@ -60,7 +60,7 @@ class EB_ELPA(ConfigureMake):
             if flag == 'sse4_2':
                 conf_opt = ['sse', 'sse-assembly']
             else:
-                conf_opt = [flag]      
+                conf_opt = [flag]
 
             for opt in conf_opt:
                 help_msg = "Configure with --enable-%s (if None, auto-detect support for %s)" % (opt, flag.upper())
