@@ -119,10 +119,10 @@ class EB_ELPA(ConfigureMake):
 
         if self.cfg['with_mpi']:
             self.cfg.update('configopts', '--with-mpi=yes')
-            self.cfg.update('configopts', 'LIBS="%s"' %(os.environ['LIBSCALAPACK']))
+            self.cfg.update('configopts', 'LIBS="%s"' % (os.environ['LIBSCALAPACK']))
         else:
             self.cfg.update('configopts', '--with-mpi=no')
-            self.cfg.update('configopts', 'LIBS="%s"' %(os.environ['LIBLAPACK']))
+            self.cfg.update('configopts', 'LIBS="%s"' % (os.environ['LIBLAPACK']))
 
         for libtype in ['openmp', 'shared']:
             if self.cfg['with_%s' % libtype]:
@@ -159,11 +159,11 @@ class EB_ELPA(ConfigureMake):
         Put build options in place
         """
         if self.cfg['with_mpi']:
-            self.cfg.update('buildopts', 'LIBS="%s"' %(os.environ['LIBSCALAPACK']))
+            self.cfg.update('buildopts', 'LIBS="%s"' % (os.environ['LIBSCALAPACK']))
         else:
-            self.cfg.update('buildopts', 'LIBS="%s"' %(os.environ['LIBLAPACK']))
+            self.cfg.update('buildopts', 'LIBS="%s"' % (os.environ['LIBLAPACK']))
 
-        self.cfg.update('buildopts','V=1')
+        self.cfg.update('buildopts', 'V=1')
 
         return super(EB_ELPA, self).build_step(*args, **kwargs)
 
