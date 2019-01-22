@@ -84,7 +84,6 @@ class EB_ELPA(ConfigureMake):
 
         # auto-detect CPU features that can be used and are not enabled/disabled explicitly,
         # but only if --optarch=GENERIC is not being used
-        cpu_arch = get_cpu_architecture()
         if self.cfg['auto_detect_cpu_features']:
 
             # if --optarch=GENERIC is used, we will not use no CPU feature
