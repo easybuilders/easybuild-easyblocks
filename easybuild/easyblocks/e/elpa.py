@@ -179,7 +179,7 @@ class EB_ELPA(ConfigureMake):
 
                 # append additional configure and build options
                 self.cfg.update('configopts',
-                                [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])4
+                                [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])
                 self.cfg.update('buildopts', [linalgopt + ' ' + common_build_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
