@@ -28,8 +28,6 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 
 @author: Micael Oliveira (MPSD-Hamburg)
 """
-import os
-
 from vsc.utils.missing import nub
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -148,7 +146,9 @@ class EB_ELPA(ConfigureMake):
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
 
-        # keep track of common configopts and of configopts specified in easyconfig file, so we can include them in each iteration later
+        # keep track of common configopts and of configopts specified
+        # in easyconfig file, so we can include them in each iteration
+        # later
         common_config_opts = self.cfg['configopts']
         common_build_opts = self.cfg['buildopts']
 
@@ -178,7 +178,8 @@ class EB_ELPA(ConfigureMake):
                     omp_configopt = '--disable-openmp'
 
                 # append additional configure and build options
-                self.cfg.update('configopts', [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])
+                self.cfg.update('configopts',
+                                [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])4
                 self.cfg.update('buildopts', [linalgopt + ' ' + common_build_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
