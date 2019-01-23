@@ -109,24 +109,17 @@ class EB_ELPA(ConfigureMake):
                     self.log.info("Enabling use of %s (should be supported based on CPU features)", flag.upper())
                     setattr(self, flag, True)
 
-    def configure_step(self, *args, **kwargs):
+    def run_all_steps(self, *args, **kwargs):
         """
-        Put configure options in place
+        Put configure options in place for different builds (serial, openmp, mpi, openmp+mpi).
         """
 
+        # the following configopts are common to all builds
         if self.toolchain.options['pic']:
             self.cfg.update('configopts', '--with-pic')
 
-        if self.cfg['with_mpi']:
-            self.cfg.update('configopts', '--with-mpi=yes')
-            self.cfg.update('configopts', 'LIBS="%s"' % (os.environ['LIBSCALAPACK']))
-        else:
-            self.cfg.update('configopts', '--with-mpi=no')
-            self.cfg.update('configopts', 'LIBS="%s"' % (os.environ['LIBLAPACK']))
-
-        for libtype in ['openmp', 'shared']:
-            if self.cfg['with_%s' % libtype]:
-                self.cfg.update('configopts', '--enable-%s' % libtype)
+        if self.cfg['with_shared']:
+            self.cfg.update('configopts', '--enable-shared')
 
         if self.cfg['with_generic_kernel']:
             self.cfg.update('configopts', '--enable-generic')
@@ -152,20 +145,46 @@ class EB_ELPA(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--disable-%s' % flag)
 
-        return super(EB_ELPA, self).configure_step(*args, **kwargs)
-
-    def build_step(self, *args, **kwargs):
-        """
-        Put build options in place
-        """
-        if self.cfg['with_mpi']:
-            self.cfg.update('buildopts', 'LIBS="%s"' % (os.environ['LIBSCALAPACK']))
-        else:
-            self.cfg.update('buildopts', 'LIBS="%s"' % (os.environ['LIBLAPACK']))
-
+        # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
 
-        return super(EB_ELPA, self).build_step(*args, **kwargs)
+        # keep track of common configopts and of configopts specified in easyconfig file, so we can include them in each iteration later
+        common_config_opts = self.cfg['configopts']
+        common_build_opts = self.cfg['buildopts']
+
+        self.cfg['configopts'] = []
+        self.cfg['buildopts'] = []
+
+        with_mpi_opts = [False]
+        if self.cfg['with_mpi']:
+            with_mpi_opts.append(True)
+
+        with_omp_opts = [False]
+        if self.cfg['with_openmp']:
+            with_omp_opts.append(True)
+
+        for with_mpi in with_mpi_opts:
+            if with_mpi:
+                mpi_configopt = '--with-mpi=yes'
+                linalgopt = 'LIBS="$LIBSCALAPACK"'
+            else:
+                mpi_configopt = '--with-mpi=no'
+                linalgopt = 'LIBS="$LIBLAPACK"'
+
+            for with_omp in with_omp_opts:
+                if with_omp:
+                    omp_configopt = '--enable-openmp'
+                else:
+                    omp_configopt = '--disable-openmp'
+
+                # append additional configure and build options
+                self.cfg.update('configopts', [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])
+                self.cfg.update('buildopts', [linalgopt + ' ' + common_build_opts])
+
+        self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
+        self.log.debug("List of build options to iterate over: %s", self.cfg['buildopts'])
+
+        return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for ELPA."""
@@ -176,24 +195,34 @@ class EB_ELPA(ConfigureMake):
 
         shlib_ext = get_shared_lib_ext()
 
-        if self.cfg['with_openmp']:
-            omp_suff = '_openmp'
-        else:
-            omp_suff = ''
-
-        if self.cfg['with_mpi']:
-            mpi_suff = ''
-        else:
-            mpi_suff = '_onenode'
-
         extra_files = []
 
-        extra_files.append('include/elpa%s%s-%s/elpa/elpa.h' % (mpi_suff, omp_suff, self.version))
-        extra_files.append('include/elpa%s%s-%s/modules/elpa.mod' % (mpi_suff, omp_suff, self.version))
+        with_mpi_opts = [False]
+        if self.cfg['with_mpi']:
+            with_mpi_opts.append(True)
 
-        extra_files.append('lib/libelpa%s%s.a' % (mpi_suff, omp_suff))
-        if self.cfg['with_shared']:
-            extra_files.append('lib/libelpa%s%s.%s' % (mpi_suff, omp_suff, shlib_ext))
+        with_omp_opts = [False]
+        if self.cfg['with_openmp']:
+            with_omp_opts.append(True)
+
+        for with_mpi in with_mpi_opts:
+            if with_mpi:
+                mpi_suff = ''
+            else:
+                mpi_suff = '_onenode'
+
+            for with_omp in with_omp_opts:
+                if with_omp:
+                    omp_suff = '_openmp'
+                else:
+                    omp_suff = ''
+
+                extra_files.append('include/elpa%s%s-%s/elpa/elpa.h' % (mpi_suff, omp_suff, self.version))
+                extra_files.append('include/elpa%s%s-%s/modules/elpa.mod' % (mpi_suff, omp_suff, self.version))
+
+                extra_files.append('lib/libelpa%s%s.a' % (mpi_suff, omp_suff))
+                if self.cfg['with_shared']:
+                    extra_files.append('lib/libelpa%s%s.%s' % (mpi_suff, omp_suff, shlib_ext))
 
         custom_paths['files'] = nub(extra_files)
 
