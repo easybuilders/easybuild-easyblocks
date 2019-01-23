@@ -454,7 +454,7 @@ class PythonPackage(ExtensionEasyBlock):
             python_ldshared = get_config_vars('LDSHARED')[0]
             if python_ldshared:
                 if python_ldshared.split(' ')[0] == curr_cc:
-                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CCi value ('%s'), so not touching it",
+                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
                                   python_ldshared, curr_cc)
                 else:
                     self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
