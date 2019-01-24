@@ -452,7 +452,7 @@ class PythonPackage(ExtensionEasyBlock):
 
             curr_cc = os.getenv('CC')
             python_ldshared = get_config_vars('LDSHARED')[0]
-            if python_ldshared:
+            if python_ldshared and curr_cc:
                 if python_ldshared.split(' ')[0] == curr_cc:
                     self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
                                   python_ldshared, curr_cc)
@@ -461,8 +461,11 @@ class PythonPackage(ExtensionEasyBlock):
                                   python_ldshared, curr_cc)
                     env.setvar("LDSHARED", curr_cc + " -shared")
             else:
-                self.log.info("No LDSHARED found for Python, setting to '%s -shared'", curr_cc)
-                env.setvar("LDSHARED", curr_cc + " -shared")
+                if curr_cc:
+                    self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+                else:
+                    self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
