@@ -431,6 +431,24 @@ class PythonPackage(ExtensionEasyBlock):
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
 
+        # ensure that LDSHARED uses CC
+        curr_cc = os.getenv('CC')
+        python_ldshared = get_config_vars('LDSHARED')[0]
+        if python_ldshared and curr_cc:
+            if python_ldshared.split(' ')[0] == curr_cc:
+                self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
+                              python_ldshared, curr_cc)
+            else:
+                self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
+                              python_ldshared, curr_cc)
+                env.setvar("LDSHARED", curr_cc + " -shared")
+        else:
+            if curr_cc:
+                self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
+                env.setvar("LDSHARED", curr_cc + " -shared")
+            else:
+                self.log.info("No value set for $CC, so not touching $LDSHARED either")
+
         # creates log entries for python being used, for debugging
         run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
         run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False, trace=False)
@@ -449,23 +467,6 @@ class PythonPackage(ExtensionEasyBlock):
                 library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
-
-            curr_cc = os.getenv('CC')
-            python_ldshared = get_config_vars('LDSHARED')[0]
-            if python_ldshared and curr_cc:
-                if python_ldshared.split(' ')[0] == curr_cc:
-                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
-                                  python_ldshared, curr_cc)
-                else:
-                    self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
-                                  python_ldshared, curr_cc)
-                    env.setvar("LDSHARED", curr_cc + " -shared")
-            else:
-                if curr_cc:
-                    self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
-                    env.setvar("LDSHARED", curr_cc + " -shared")
-                else:
-                    self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
