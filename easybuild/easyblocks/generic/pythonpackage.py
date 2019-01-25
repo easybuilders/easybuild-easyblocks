@@ -36,6 +36,7 @@ import re
 import sys
 import tempfile
 from distutils.version import LooseVersion
+from distutils.sysconfig import get_config_vars
 from vsc.utils import fancylogger
 from vsc.utils.missing import nub
 
@@ -179,6 +180,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
@@ -437,6 +439,25 @@ class PythonPackage(ExtensionEasyBlock):
                 config.close()
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+
+        # ensure that LDSHARED uses CC
+        if self.cfg.get('check_ldshared', False):
+            curr_cc = os.getenv('CC')
+            python_ldshared = get_config_vars('LDSHARED')[0]
+            if python_ldshared and curr_cc:
+                if python_ldshared.split(' ')[0] == curr_cc:
+                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
+                                  python_ldshared, curr_cc)
+                else:
+                    self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
+                                  python_ldshared, curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+            else:
+                if curr_cc:
+                    self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+                else:
+                    self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
         run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
