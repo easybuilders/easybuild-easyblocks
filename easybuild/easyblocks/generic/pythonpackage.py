@@ -334,6 +334,7 @@ class PythonPackage(ExtensionEasyBlock):
         # mainly for debugging
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
+
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
             out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
@@ -346,6 +347,13 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("Found pip version %s, OK", pip_version)
                 else:
                     raise EasyBuildError("Need pip version 8.0 or newer, found version %s", pip_version)
+
+                # pip 10.x introduced a nice new "build isolation" feature (enabled by default),
+                # which will download and install in a list of build dependencies specified in a pyproject.toml file
+                # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
+                # since we provide all required dependencies already, we disable this via --no-build-isolation
+                if LooseVersion(pip_version) >= LooseVersion('10.0'):
+                    self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
