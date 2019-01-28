@@ -5,6 +5,31 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 199 software-specific easyblocks and 34 generic easyblocks.
 
+v3.8.1 (January 29th 2019)
+--------------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - upgrade Ferret EasyBlock to Handle Ferret 7.3 (#1349)
+  - define $LDSHARED when installing Python packages when Python's value doesn't use toolchain compiler ($CC) (#1455)
+  - make openfoam easyblock handle debug build. (#1609)
+  - handle multiple installation keys for MATLAB (#1610)
+  - run 'make check' in parallel for GROMACS since it involves more compilation (#1611)
+  - update OpenCV easyblock for recent version (3.4.x >= 3.4.4 + 4.0.x) (#1616)
+  - enhance Python easyblock to also include <prefix>/include/python* in $CPATH (#1619)
+- various bug fixes, including:
+  - fixed incorrect LibInt reference, and added support for CP2K 6.1 (#1545)
+  - check current start_dir value before appending 'src' subdirectory in MrBayes easyblock (#1582)
+  - avoid that (system) Intel compilers are always considered when building SuiteSparse (#1612)
+  - fix missing import statement in ROOT easyblock (#1614)
+  - answer SELinux question with 'no' in Mathematica easyblock (#1617)
+  - revert change that adds 'include/python<version>*' to $CPATH for Python (#1620)
+  - disable 'build isolation' feature in pip > 10.x (#1623)
+- other changes
+  - cleanup in Perl and PerlModule easyblocks (#1603)
+  - bump copyright to 2019 (#1615)
+
+
 v3.8.0 (December 18th 2018)
 ---------------------------
 
