@@ -9,7 +9,6 @@ v3.8.1 (January 29th 2019)
 --------------------------
 
 bugfix/update release
-
 - minor enhancements, including:
   - upgrade Ferret EasyBlock to Handle Ferret 7.3 (#1349)
   - define $LDSHARED when installing Python packages when Python's value doesn't use toolchain compiler ($CC) (#1455)
