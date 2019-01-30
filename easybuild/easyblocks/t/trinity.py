@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -319,11 +319,16 @@ class EB_Trinity(EasyBlock):
         else:
             sep = '_r'
 
+        if version >= LooseVersion('2.8') and version < LooseVersion('2000'):
+            chrysalis_bin = 'Chrysalis/bin/Chrysalis'
+        else:
+            chrysalis_bin = 'Chrysalis/Chrysalis'
+
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
+            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', chrysalis_bin]],
             'dirs': [os.path.join(path, x) for x in ['Butterfly/src/bin', 'util']]
         }
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -76,6 +76,12 @@ class EB_OpenFOAM(EasyBlock):
             self.openfoamdir = '-'.join([self.name, '-'.join(self.version.split('-')[:2])])
         self.log.debug("openfoamdir: %s" % self.openfoamdir)
 
+        # Set build type to requested value
+        if self.toolchain.options['debug']:
+            self.build_type = 'Debug'
+        else:
+            self.build_type = 'Opt'
+
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
         super(EB_OpenFOAM, self).extract_step()
@@ -142,6 +148,9 @@ class EB_OpenFOAM(EasyBlock):
             if 'extend' in self.name.lower() and LooseVersion(self.version) < LooseVersion('2.0'):
                 extra_flags += ' -fpermissive'
 
+            if LooseVersion(self.version) < LooseVersion('3.0'):
+                extra_flags += ' -fno-delete-null-pointer-checks'
+
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             # make sure -no-prec-div is used with Intel compilers
             extra_flags = '-no-prec-div'
@@ -155,6 +164,12 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching out hardcoded $WM_* env vars in %s", script)
             # disable any third party stuff, we use EB controlled builds
             regex_subs = [(r"^(setenv|export) WM_THIRD_PARTY_USE_.*[ =].*$", r"# \g<0>")]
+
+            # this does not work for OpenFOAM Extend lower than 2.0
+            if 'extend' not in self.name.lower() or LooseVersion(self.version) >= LooseVersion('2.0'):
+                key = "WM_PROJECT_VERSION"
+                regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, self.version))]
+
             WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
             if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
@@ -162,12 +177,14 @@ class EB_OpenFOAM(EasyBlock):
             for env_var in WM_env_var:
                 regex_subs.append((r"^(setenv|export) (?P<var>%s)[ =](?P<val>.*)$" % env_var,
                                    r": ${\g<var>:=\g<val>}; export \g<var>"))
-
             apply_regex_substitutions(script, regex_subs)
 
         # inject compiler variables into wmake/rules files
         ldirs = glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'linux*'))
         langs = ['c', 'c++']
+
+        # NOTE: we do not want to change the Debug rules files becuse
+        # that would change the cOPT/c++OPT values from their empty setting.
         suffixes = ['', 'Opt']
         wmake_rules_files = [os.path.join(ldir, lang + suff) for ldir in ldirs for lang in langs for suff in suffixes]
 
@@ -216,6 +233,9 @@ class EB_OpenFOAM(EasyBlock):
 
         env.setvar("WM_COMPILER", self.wm_compiler)
         env.setvar("WM_MPLIB", self.wm_mplib)
+
+        # Set Compile options according to build type
+        env.setvar("WM_COMPILE_OPTION", self.build_type)
 
         # parallel build spec
         env.setvar("WM_NCOMPPROCS", str(self.cfg['parallel']))
@@ -321,7 +341,7 @@ class EB_OpenFOAM(EasyBlock):
         else:
             int_size = ''
 
-        psubdir = "linux64%sDP%sOpt" % (self.wm_compiler, int_size)
+        psubdir = "linux64%sDP%s%s" % (self.wm_compiler, int_size, self.build_type)
 
         openfoam_extend_v3 = 'extend' in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0')
         if openfoam_extend_v3 or LooseVersion(self.version) < LooseVersion("2"):
@@ -376,6 +396,9 @@ class EB_OpenFOAM(EasyBlock):
         txt = super(EB_OpenFOAM, self).make_module_extra()
 
         env_vars = [
+            # Set WM_COMPILE_OPTION in the module file
+            # $FOAM_BASH will then pick it up correctly.
+            ('WM_COMPILE_OPTION', self.build_type),
             ('WM_PROJECT_VERSION', self.version),
             ('FOAM_INST_DIR', self.installdir),
             ('WM_COMPILER', self.wm_compiler),

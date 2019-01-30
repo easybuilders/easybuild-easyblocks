@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,15 +32,13 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
-import fileinput
 import os
-import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -92,9 +90,7 @@ class EB_impi(IntelBase):
                 super(EB_impi, self).move_after_install()
         else:
             # impi up until version 4.0.0.x uses custom installation procedure.
-            silent = \
-"""
-[mpi]
+            silent = """[mpi]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s
 INSTALLMODE=NONRPM
@@ -117,19 +113,11 @@ EULA=accept
 
             # already in correct directory
             silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-            try:
-                f = open(silentcfg, 'w')
-                f.write(silent)
-                f.close()
-            except:
-                raise EasyBuildError("Writing silent cfg file %s failed.", silent)
-            self.log.debug("Contents of %s: %s" % (silentcfg, silent))
+            write_file(silentcfg, silent)
+            self.log.debug("Contents of %s: %s", silentcfg, silent)
 
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
-            try:
-                os.makedirs(tmpdir)
-            except:
-                raise EasyBuildError("Directory %s can't be created", tmpdir)
+            mkdir(tmpdir, parents=True)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
             run_cmd(cmd, log_all=True, simple=True)
@@ -146,10 +134,10 @@ EULA=accept
                 script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
             # fix broken env scripts after the move
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
-            for script in [os.path.join(script_path,'mpivars.csh') for script_path in script_paths]:
+            for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
             regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
-            for script in [os.path.join(script_path,'mpivars.sh') for script_path in script_paths]:
+            for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
     def sanity_check_step(self):
@@ -163,11 +151,22 @@ EULA=accept
         if LooseVersion(self.version) > LooseVersion('4.0'):
             mpi_mods.extend(["mpi_base.mod", "mpi_constants.mod", "mpi_sizeofs.mod"])
 
+        if LooseVersion(self.version) >= LooseVersion('2019'):
+            bin_dir = 'intel64/bin'
+            include_dir = 'intel64/include'
+            lib_dir = 'intel64/lib/release'
+        else:
+            bin_dir = 'bin%s' % suff
+            include_dir = 'include%s' % suff
+            lib_dir = 'lib%s' % suff
+            mpi_mods.extend(["i_malloc.h"])
+
         custom_paths = {
-            'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
-                     ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
-                     ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
-                     ["lib%s/libmpi.%s" % (suff, get_shared_lib_ext()), "lib%s/libmpi.a" % suff],
+            'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
+                    ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
+                    ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+                    ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 
@@ -184,19 +183,34 @@ EULA=accept
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
+                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
             }
         else:
-            lib_dirs = ['lib/em64t', 'lib64']
-            include_dirs = ['include64']
-            return {
-                'PATH': ['bin/intel64', 'bin64'],
+            guesses = {}
+            if LooseVersion(self.version) >= LooseVersion('2019'):
+                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # IntelMPI 2019 changed the default library to be the non-mt version.
+                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']]
+                include_dirs = ['intel64/include']
+                path_dirs = ['intel64/bin', 'intel64/libfabric/bin']
+                guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
+            else:
+                lib_dirs = ['lib/em64t', 'lib64']
+                include_dirs = ['include64']
+                path_dirs = ['bin/intel64', 'bin64']
+                guesses['MIC_LD_LIBRARY_PATH'] = ['mic/lib']
+
+            guesses.update({
+                'PATH': path_dirs,
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
-            }
+            })
+
+            return guesses
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""

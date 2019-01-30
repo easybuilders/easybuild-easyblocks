@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
-from easybuild.easyblocks.icc import EB_icc  #@UnresolvedImport
+from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -73,6 +73,22 @@ class EB_ifort(EB_icc, IntelBase):
             'dirs': [],
         }
 
+        # make very sure that expected 'compilers_and_libraries_<VERSION>/linux' subdir is there for recent versions,
+        # since we rely on it being there in make_module_req_guess
+        if self.comp_libs_subdir:
+            custom_paths['dirs'].append(self.comp_libs_subdir)
+
         custom_commands = ["which ifort"]
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """
+        Additional paths to consider for prepend-paths statements in module file
+        """
+        guesses = super(EB_ifort, self).make_module_req_guess()
+        if LooseVersion(self.version) >= LooseVersion('2016'):
+            # This enables the creation of fortran 2008 bindings in MPI
+            guesses['CPATH'].append('include')
+
+        return guesses

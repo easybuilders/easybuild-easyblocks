@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ module to use Tcl/Tk.
 """
 import os
 import shutil
+import glob
 import tempfile
 from distutils.version import LooseVersion
 
@@ -63,7 +64,16 @@ class EB_Tkinter(EB_Python):
         tmpdir = tempfile.mkdtemp(dir=self.builddir)
 
         pylibdir = os.path.join(self.installdir, os.path.dirname(det_pylibdir()))
-        tkparts = ["lib-tk", "lib-dynload/_tkinter.so"]
+        shlib_ext = get_shared_lib_ext()
+        tkinter_so = os.path.join(pylibdir, 'lib-dynload', '_tkinter*.' + shlib_ext)
+        tkinter_so_hits = glob.glob(tkinter_so)
+        if len(tkinter_so_hits) != 1:
+            raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
+        self.tkinter_so_basename = os.path.basename(tkinter_so_hits[0])
+        if LooseVersion(self.version) >= LooseVersion('3'):
+            tkparts = ["tkinter", os.path.join("lib-dynload", self.tkinter_so_basename)]
+        else:
+            tkparts = ["lib-tk", os.path.join("lib-dynload", self.tkinter_so_basename)]
 
         copy([os.path.join(pylibdir, x) for x in tkparts], tmpdir)
 
@@ -88,7 +98,7 @@ class EB_Tkinter(EB_Python):
         pylibdir = os.path.dirname(det_pylibdir())
 
         custom_paths = {
-            'files': ['%s/_tkinter.%s' % (pylibdir, shlib_ext)],
+            'files': ['%s/%s' % (pylibdir, self.tkinter_so_basename)],
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

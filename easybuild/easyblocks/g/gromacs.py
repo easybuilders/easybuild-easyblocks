@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,12 +43,13 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name , get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
 
 
 class EB_GROMACS(CMakeMake):
@@ -89,7 +90,11 @@ class EB_GROMACS(CMakeMake):
             optarch = optarch.get(comp_fam, '')
         optarch = optarch.upper()
 
-        if 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+        # The list of GMX_SIMD options can be found
+        # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
+        if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512_KNL'
+        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
         elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
@@ -100,6 +105,17 @@ class EB_GROMACS(CMakeMake):
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
             res = 'SSE2'
+        elif optarch == OPTARCH_GENERIC:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                res = 'SSE2'
+            else:
+                res = 'None'
+        elif optarch:
+            warn_msg = "--optarch configuration setting set to %s but not taken into account; " % optarch
+            warn_msg += "compiling GROMACS for the current host architecture (i.e. the default behavior)"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
 
         if res:
             self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
@@ -177,8 +193,11 @@ class EB_GROMACS(CMakeMake):
 
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
-            # build a release build
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+            # Select debug or release build
+            if self.toolchain.options.get('debug', None):
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Debug")
+            else:
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
@@ -231,7 +250,9 @@ class EB_GROMACS(CMakeMake):
             if get_software_root('imkl'):
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="$EBROOTMKL/mkl/include" ')
-                mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in ['libmkl_lapack.a']]
+                libs = os.getenv('LAPACK_STATIC_LIBS').split(',')
+                mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in libs if lib != 'libgfortran.a']
+                mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group']
                 self.cfg.update('configopts', '-DMKL_LIBRARIES="%s" ' % ';'.join(mkl_libs))
             else:
                 shlib_ext = get_shared_lib_ext()
@@ -294,6 +315,9 @@ class EB_GROMACS(CMakeMake):
             env.setvar('OMP_NUM_THREADS', '1')
 
             self.cfg['runtest'] = 'check'
+            if self.cfg['parallel']:
+                # run 'make check' in parallel since it involves more compilation
+                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
             super(EB_GROMACS, self).test_step()
 
     def install_step(self):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
-EXTS_FILTER_OCTAVE_PACKAGES = ("octave --eval 'pkg list' | grep %(ext_name)s", '')
+EXTS_FILTER_OCTAVE_PACKAGES = ("octave --eval 'pkg list' | grep packages/%(ext_name)s-%(ext_version)s", '')
 
 
 class EB_Octave(ConfigureMake):
