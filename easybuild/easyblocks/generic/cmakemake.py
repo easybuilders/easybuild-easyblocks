@@ -31,6 +31,7 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 import os
 
@@ -50,6 +51,7 @@ class CMakeMake(ConfigureMake):
         """Define extra easyconfig parameters specific to CMakeMake."""
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
+            'configure_cmd': ['cmake', "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
@@ -107,7 +109,8 @@ class CMakeMake(ConfigureMake):
 
         options_string = ' '.join(options)
 
-        command = "%s cmake %s %s %s" % (self.cfg['preconfigopts'], srcdir, options_string, self.cfg['configopts'])
+        command = "%s %s %s %s %s" % (self.cfg['preconfigopts'], self.cfg['configure_cmd'], srcdir, options_string,
+                                      self.cfg['configopts'])
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out

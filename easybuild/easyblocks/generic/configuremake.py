@@ -32,6 +32,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Toon Willems (Ghent University)
+@author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 
 from easybuild.framework.easyblock import EasyBlock
@@ -49,6 +50,9 @@ class ConfigureMake(EasyBlock):
         """Extra easyconfig parameters specific to ConfigureMake."""
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
+            'configure_cmd': ['./configure', "Configure command to use", CUSTOM],
+            'build_cmd': ['make', "Build command to use", CUSTOM],
+            'install_cmd': ['make install', "Build command to use", CUSTOM],
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
@@ -83,7 +87,8 @@ class ConfigureMake(EasyBlock):
         if prefix_opt is None:
             prefix_opt = '--prefix='
 
-        cmd = "%(preconfigopts)s %(cmd_prefix)s./configure %(prefix_opt)s%(installdir)s %(configopts)s" % {
+        cmd = "%(preconfigopts)s %(cmd_prefix)s%(configure_cmd)s %(prefix_opt)s%(installdir)s %(configopts)s" % {
+            'configure_cmd': self.cfg['configure_cmd'],
             'preconfigopts': self.cfg['preconfigopts'],
             'cmd_prefix': cmd_prefix,
             'prefix_opt': prefix_opt,
@@ -105,7 +110,7 @@ class ConfigureMake(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+        cmd = "%s %s %s %s" % (self.cfg['prebuildopts'], self.cfg['build_cmd'], paracmd, self.cfg['buildopts'])
 
         (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 
@@ -129,7 +134,7 @@ class ConfigureMake(EasyBlock):
         - typical: make install
         """
 
-        cmd = "%s make install %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
+        cmd = "%s %s %s" % (self.cfg['preinstallopts'], self.cfg['install_cmd'], self.cfg['installopts'])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
