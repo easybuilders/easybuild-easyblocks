@@ -31,11 +31,9 @@ EasyBuild support for building and installing Go packages, implemented as an eas
 import os
 import shutil
 
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
-from easybuild.tools.run import run_cmd, parse_log_for_error
+from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 
 class GoPackage(ExtensionEasyBlock):
@@ -45,6 +43,8 @@ class GoPackage(ExtensionEasyBlock):
 
     def configure_step(self):
         """Custom configure: fetch the sources of the dependencies."""
+        if not get_software_root("Go"):
+            raise EasyBuildError("Go packages require to have a Go module in the builddependencies.")
         cmd = "env GOPATH=%s go get -d ./..." % (self.builddir)
         run_cmd(cmd)
 
