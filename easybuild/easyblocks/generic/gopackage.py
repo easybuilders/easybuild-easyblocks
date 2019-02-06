@@ -44,7 +44,7 @@ class GoPackage(Tarball):
     def install_step(self):
         """Install procedure for Go packages."""
         if not get_software_root("Go"):
-            raise EasyBuildError("Go packages require to have a Go module in the builddependencies.")
+            raise EasyBuildError("Go packages require to have a Go module in the (build)dependencies.")
         cmd = "env GOBIN=%s GOPATH=%s go get ./..." % (self.installdir, self.builddir)
         run_cmd(cmd)
 
