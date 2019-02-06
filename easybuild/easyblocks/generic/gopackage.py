@@ -28,13 +28,11 @@ EasyBuild support for building and installing Go packages, implemented as an eas
 
 @author: Bob Dröge (University of Groningen)
 """
-import os
-import shutil
-
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
+
 
 class GoPackage(Tarball):
     """
