@@ -31,7 +31,7 @@ import glob
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTALL_CMD
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
@@ -40,6 +40,10 @@ from easybuild.tools.run import run_cmd
 
 class EB_TensorRT(PythonPackage, Binary):
     """Support for building/installing TensorRT."""
+    # Using both PythonPackage and Binary since the bulk consists of prebuilt
+    # binaries and libraries but also three whls that need to be installed.
+    # The easyconfig also contain python extensions to install.
+    # And we need self.python_cmd and self.pylibdir in the sanity_check.
 
     @staticmethod
     def extra_options():
@@ -58,7 +62,7 @@ class EB_TensorRT(PythonPackage, Binary):
         self.cfg['extract_sources'] = True
         self.cfg['keepsymlinks'] = True
 
-        # Setup for the PythonPackage easyblock
+        # Setup for the extensions step
         self.cfg['exts_defaultclass'] = 'PythonPackage'
 
         self.cfg['exts_default_options'] = {
@@ -98,13 +102,17 @@ class EB_TensorRT(PythonPackage, Binary):
         for whl in whls:
             whl_paths = glob.glob(os.path.join(self.installdir, whl))
             if len(whl_paths) == 1:
-                # --ignore-installed is required to ensure *this* wheel is installed
-                cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
+                cmd = PIP_INSTALL_CMD % {
+                    'installopts': self.cfg['installopts'],
+                    'loc': whl_paths[0],
+                    'prefix': self.installdir,
+                }
 
-                # if extensions are listed, assume they will provide all required dependencies,
-                # so use --no-deps to prevent pip from downloading & installing them
-                if self.cfg['exts_list']:
-                    cmd += ' --no-deps'
+                # Use --no-deps to prevent pip from downloading & installing
+                # any dependencies. They should be listed as extensions in
+                # the easyconfig.
+                # --ignore-installed is required to ensure *this* wheel is installed
+                cmd += " --ignore-installed --no-deps"
 
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
             else:
@@ -117,9 +125,8 @@ class EB_TensorRT(PythonPackage, Binary):
             'dirs': [self.pylibdir],
         }
 
-        custom_commands = [
-            "%s -c 'import tensorrt'" % self.python_cmd,
-        ]
+        custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
+
         res = super(EB_TensorRT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         return res
