@@ -81,7 +81,7 @@ class EB_SNPhylo(EasyBlock):
         predir = ''
         if LooseVersion(self.version) >= LooseVersion('20160204'):
             predir = 'SNPhylo'
-        
+
         try:
             mkdir(bindir, parents=True)
             for binfile in binfiles:
