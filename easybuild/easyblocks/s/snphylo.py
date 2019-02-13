@@ -32,6 +32,7 @@ import os
 import re
 import shutil
 import stat
+from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
@@ -76,11 +77,16 @@ class EB_SNPhylo(EasyBlock):
         """Install by copying files/directories."""
         bindir = os.path.join(self.installdir, 'bin')
         binfiles = ['snphylo.sh', 'snphylo.cfg', 'snphylo.template']
+
+        predir = ''
+        if LooseVersion(self.version) >= LooseVersion('20160204'):
+            predir = 'SNPhylo'
+        
         try:
             mkdir(bindir, parents=True)
             for binfile in binfiles:
-                shutil.copy2(os.path.join(self.builddir, binfile), bindir)
-            shutil.copytree(os.path.join(self.builddir, 'scripts'), os.path.join(self.installdir, 'scripts'))
+                shutil.copy2(os.path.join(self.builddir, predir, binfile), bindir)
+            shutil.copytree(os.path.join(self.builddir, predir, 'scripts'), os.path.join(self.installdir, 'scripts'))
         except OSError as err:
             raise EasyBuildError("Failed to copy SNPhylo files/dirs: %s", err)
 
