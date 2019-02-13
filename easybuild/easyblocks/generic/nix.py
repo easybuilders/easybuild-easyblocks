@@ -48,6 +48,7 @@ class Nix(EasyBlock):
         extra_vars.update({
             'nix_attribute': [None, "Nix attribute name.", CUSTOM],
             'nix_profile': [None, "Nix profile to install to.", CUSTOM],
+            'nix_cmd': [None, "Nix command to use.", CUSTOM],
         })
         return extra_vars
 
@@ -61,7 +62,10 @@ class Nix(EasyBlock):
 
     def install_step(self):
         """Copy all files in build directory to the install directory"""
-        cmd = "/bin/sudo -u nixuser -i nix-env -iA %s -p %s" % (self.cfg['nix_attribute'], self.cfg['nix_profile'])
+        if self.cfg['nix_attribute']:
+            cmd = "/bin/sudo -u nixuser -i nix-env -iA %s -p %s" % (self.cfg['nix_attribute'], self.cfg['nix_profile'])
+        else:
+            cmd = "%s -p %s" % (self.cfg['nix_cmd'], self.cfg['nix_profile'])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
         return out
