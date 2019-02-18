@@ -208,8 +208,8 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
+            'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
-            'TF_NEED_TENSORRT': ('0', '1')[bool(tensorrt_root)],
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
@@ -237,6 +237,13 @@ class EB_TensorFlow(PythonPackage):
             config_env_vars.update({
                 'TF_NCCL_VERSION': nccl_version,
             })
+            if tensorrt_root:
+                tensorrt_version = get_software_version('TensorRT')
+                config_env_vars.update({
+                    'TF_NEED_TENSORRT': '1',
+                    'TENSORRT_INSTALL_PATH': tensorrt_root,
+                    'TF_TENSORRT_VERSION': tensorrt_version,
+                })
 
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
