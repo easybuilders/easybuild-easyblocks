@@ -112,11 +112,11 @@ class EB_wxPython(PythonPackage):
         dirs.extend([self.pylibdir])
 
         if LooseVersion(self.version) < LooseVersion("4"):
-            libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk2u_core']]
+            libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext) for x in ['wx_baseu', 'wx_gtk2u_core']]
             files.extend([os.path.join('lib', f) for f in libfiles])
         else:
             if not get_software_root('wxWidgets'):
-                libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk3u_core']]
+                libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext) for x in ['wx_baseu', 'wx_gtk3u_core']]
                 files.extend([os.path.join(self.pylibdir, 'wx', f) for f in libfiles])
 
         custom_paths = {
