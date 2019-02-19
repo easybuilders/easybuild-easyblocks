@@ -48,28 +48,48 @@ class EB_wxPython(PythonPackage):
             prebuild_opts = self.cfg['prebuildopts']
             script = 'build.py'
             wxflag = ''
+            BUILD_CMD = "%(prebuild_opts)s %(pycmd)s %(script)s --prefix=%(prefix)s -v"
+            base_cmd = BUILD_CMD % {
+                'prebuild_opts': prebuild_opts,
+                'pycmd': self.python_cmd,
+                'script': script,
+                'prefix': self.installdir,
+            }
             if get_software_root('wxWidgets'):
                 wxflag = '--use_syswx'
             else:
-                cmd = prebuild_opts + " {0} {1} --prefix={2} -v build_wx".format(self.python_cmd, script, self.installdir)
+                cmd = base_cmd + " build_wx"
                 run_cmd(cmd, log_all=True, simple=True)
 
-            cmd = prebuild_opts + " {0} {1} --prefix={2} {3} -v build_py".format(self.python_cmd, script, self.installdir, wxflag)
+            cmd = base_cmd + " %s build_py" % wxflag
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Custom install procedure for wxPython."""
         # wxPython configure, build, and install with one script
         preinst_opts = self.cfg['preinstallopts']
+        INSTALL_CMD = "%(preinst_opts)s %(pycmd)s %(script)s --prefix=%(prefix)s"
         if LooseVersion(self.version) >= LooseVersion("4"):
             wxflag = ''
             if get_software_root('wxWidgets'):
                 wxflag = '--use_syswx'
             script = 'build.py'
-            cmd = preinst_opts + " {0} {1} --prefix={2} {3} -v install".format(self.python_cmd, script, self.installdir, wxflag)
+            cmd = INSTALL_CMD % {
+                'preinst_opts': preinst_opts,
+                'pycmd': self.python_cmd,
+                'script': script,
+                'prefix': self.installdir,
+            }
+            cmd = cmd + " %s -v install" % wxflag
         else:
             script = os.path.join('wxPython', 'build-wxpython.py')
-            cmd = preinst_opts + " {0} {1} --prefix={2} --wxpy_installdir={2} --install".format(self.python_cmd, script, self.installdir)
+            cmd = INSTALL_CMD % {
+                'preinst_opts': preinst_opts,
+                'pycmd': self.python_cmd,
+                'script': script,
+                'prefix': self.installdir,
+            }
+            cmd = cmd + " --wxpy_installdir=%s --install" % self.installdir
 
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -92,10 +112,12 @@ class EB_wxPython(PythonPackage):
         dirs.extend([self.pylibdir])
 
         if LooseVersion(self.version) < LooseVersion("4"):
-            files.extend([os.path.join('lib', 'lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk2u_core']])
+            libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk2u_core']]
+            files.extend([os.path.join('lib', f) for f in libfiles])
         else:
             if not get_software_root('wxWidgets'):
-                files.extend([os.path.join(self.pylibdir, 'wx', 'lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk3u_core']])
+                libfiles = ['lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk3u_core']]
+                files.extend([os.path.join(self.pylibdir, 'wx', f) for f in libfiles])
 
         custom_paths = {
             'files': files,
