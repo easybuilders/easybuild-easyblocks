@@ -32,7 +32,9 @@ EasyBuild support for wxPython, implemented as an easyblock
 import os
 import re
 
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -41,32 +43,74 @@ class EB_wxPython(PythonPackage):
     """Support for installing the wxPython Python package."""
 
     def build_step(self):
-        """No separate build step for wxPython."""
-        pass
+        """Custom build step for wxPython."""
+        if LooseVersion(self.version) >= LooseVersion("4"):
+            prebuild_opts = self.cfg['prebuildopts']
+            script = 'build.py'
+            wxflag = ''
+            if get_software_root('wxWidgets'):
+                wxflag = '--use_syswx'
+            else:
+                cmd = prebuild_opts + " {0} {1} --prefix={2} -v build_wx".format(self.python_cmd, script, self.installdir)
+                run_cmd(cmd, log_all=True, simple=True)
+
+            cmd = prebuild_opts + " {0} {1} --prefix={2} {3} -v build_py".format(self.python_cmd, script, self.installdir, wxflag)
+            run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
-        """Custom install procedure for wxPython, using provided build-wxpython.py script."""
+        """Custom install procedure for wxPython."""
         # wxPython configure, build, and install with one script
-        script = os.path.join('wxPython', 'build-wxpython.py')
-        cmd = "{0} {1} --prefix={2} --wxpy_installdir={2} --install".format(self.python_cmd, script, self.installdir)
+        preinst_opts = self.cfg['preinstallopts']
+        if LooseVersion(self.version) >= LooseVersion("4"):
+            wxflag = ''
+            if get_software_root('wxWidgets'):
+                wxflag = '--use_syswx'
+            script = 'build.py'
+            cmd = preinst_opts + " {0} {1} --prefix={2} {3} -v install".format(self.python_cmd, script, self.installdir, wxflag)
+        else:
+            script = os.path.join('wxPython', 'build-wxpython.py')
+            cmd = preinst_opts + " {0} {1} --prefix={2} --wxpy_installdir={2} --install".format(self.python_cmd, script, self.installdir)
+
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
         """Custom sanity check for wxPython."""
         majver = '.'.join(self.version.split('.')[:2])
         shlib_ext = get_shared_lib_ext()
-        py_bins = ['alacarte', 'alamode', 'crust', 'shell', 'wrap', 'wxrc']
+        py_bins = ['crust', 'shell', 'wxrc']
+        files = []
+        dirs = []
+        if LooseVersion(self.version) < LooseVersion("4"):
+            files.extend([os.path.join('bin', 'wxrc')])
+            dirs.extend(['include', 'share'])
+            py_bins.extend(['alacarte', 'alamode', 'wrap'])
+        else:
+            majver = '3.0'  # for some reason this is still 3.0 in ver 4.0.x
+            py_bins.extend(['slices', 'slicesshell'])
+
+        files.extend([os.path.join('bin', 'py%s' % x) for x in py_bins])
+        dirs.extend([self.pylibdir])
+
+        if LooseVersion(self.version) < LooseVersion("4"):
+            files.extend([os.path.join('lib', 'lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk2u_core']])
+        else:
+            if not get_software_root('wxWidgets'):
+                files.extend([os.path.join(self.pylibdir, 'wx', 'lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk3u_core']])
+
         custom_paths = {
-            'files': ['bin/wxrc'] + [os.path.join('bin', 'py%s' % x) for x in py_bins] +
-                     [os.path.join('lib/lib%s-%s.%s' % (x, majver, shlib_ext)) for x in ['wx_baseu', 'wx_gtk2u_core']],
-            'dirs': ['include', 'share', self.pylibdir],
+            'files': files,
+            'dirs': dirs,
         }
 
         # test using 'import wx' (i.e. don't use 'import wxPython')
         self.options['modulename'] = 'wx'
 
-        # also test importing wxversion
-        custom_commands = [(self.python_cmd, '-c "import wxversion"')]
+        if LooseVersion(self.version) < LooseVersion("4"):
+            # also test importing wxversion
+            custom_commands = [(self.python_cmd, '-c "import wxversion"')]
+        else:
+            # also test importing wx.lib.wxcairo
+            custom_commands = [(self.python_cmd, '-c "import wx.lib.wxcairo"')]
 
         super(EB_wxPython, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
@@ -74,8 +118,9 @@ class EB_wxPython(PythonPackage):
         """Custom update for $PYTHONPATH for wxPython."""
         txt = super(EB_wxPython, self).make_module_extra()
 
-        # make sure that correct subdir is also included to $PYTHONPATH
-        majver = '.'.join(self.version.split('.')[:2])
-        txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join(self.pylibdir, 'wx-%s-gtk2' % majver))
+        if LooseVersion(self.version) < LooseVersion("4"):
+            # make sure that correct subdir is also included to $PYTHONPATH
+            majver = '.'.join(self.version.split('.')[:2])
+            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join(self.pylibdir, 'wx-%s-gtk2' % majver))
 
         return txt
