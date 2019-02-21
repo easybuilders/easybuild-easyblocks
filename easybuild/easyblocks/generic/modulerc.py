@@ -91,7 +91,7 @@ class ModuleRC(EasyBlock):
         self.module_generator.modulerc(module_version=module_version_specs, filepath=modulerc)
 
         if not fake:
-            print_msg("created .modulerc file at %s" % modulerc, log=self.log)
+            print_msg("updated .modulerc file at %s" % modulerc, log=self.log)
 
             # symlink .modulerc in other locations (unless they're already linked)
             mod_symlink_dirs = ActiveMNS().det_module_symlink_paths(self.cfg)
