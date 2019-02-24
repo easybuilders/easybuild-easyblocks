@@ -34,24 +34,24 @@ import re
 import shutil
 import sys
 import tempfile
-from vsc.utils import fancylogger
 from unittest import TestLoader, main
-from vsc.utils.patterns import Singleton
-from vsc.utils.testing import EnhancedTestCase
 
+import easybuild.tools.module_naming_scheme.toolchain as mns_toolchain
+import easybuild.tools.options as eboptions
+import easybuild.tools.toolchain.utilities as tc_utils
+from easybuild.base import fancylogger
+from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.imod import EB_IMOD
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
-import easybuild.tools.module_naming_scheme.toolchain as mns_toolchain
-import easybuild.tools.options as eboptions
-import easybuild.tools.toolchain.utilities as tc_utils
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
+from easybuild.tools.config import Singleton
 from easybuild.tools.filetools import mkdir, read_file, write_file
 from easybuild.tools.module_naming_scheme import GENERAL_CLASS
 from easybuild.tools.options import set_tmpdir
@@ -72,7 +72,7 @@ def cleanup():
     mns_toolchain._toolchain_details_cache.clear()
 
 
-class ModuleOnlyTest(EnhancedTestCase):
+class ModuleOnlyTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt='', toolchain=None):
@@ -108,6 +108,11 @@ class ModuleOnlyTest(EnhancedTestCase):
         super(ModuleOnlyTest, self).tearDown()
 
         os.environ = self.orig_environ
+
+        try:
+            os.remove(self.eb_file)
+        except OSError as err:
+            self.log.error("Failed to remove %s: %s", self.eb_file, err)
 
     def test_make_module_pythonpackage(self):
         """Test make_module_step of PythonPackage easyblock."""
@@ -176,13 +181,6 @@ class ModuleOnlyTest(EnhancedTestCase):
         self.assertTrue(pick_python_cmd(2) is not None)
         self.assertTrue(pick_python_cmd(2, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
-
-    def tearDown(self):
-        """Cleanup."""
-        try:
-            os.remove(self.eb_file)
-        except OSError, err:
-            self.log.error("Failed to remove %s: %s", self.eb_file, err)
 
 
 def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extra_txt=''):
@@ -352,6 +350,7 @@ def suite():
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
     return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
+
 
 if __name__ == '__main__':
     main()

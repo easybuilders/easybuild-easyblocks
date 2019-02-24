@@ -32,20 +32,18 @@ import glob
 import os
 import re
 import tempfile
-from vsc.utils import fancylogger
 from unittest import TestCase, TestLoader, main
 
 import easybuild.tools.options as eboptions
+from easybuild.base import fancylogger
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
+from easybuild.tools.config import GENERAL_CLASS
 from easybuild.tools.filetools import write_file
 from easybuild.tools.options import set_tmpdir
-from easybuild.tools.module_naming_scheme import GENERAL_CLASS
-from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa
-from easybuild.tools.environment import modify_env, read_environment
 
 
 class InitTest(TestCase):
@@ -88,7 +86,7 @@ class InitTest(TestCase):
         """Cleanup."""
         try:
             os.remove(self.eb_file)
-        except OSError, err:
+        except OSError as err:
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
@@ -185,7 +183,7 @@ def suite():
     # dynamically generate a separate test for each of the available easyblocks
     easyblocks_path = get_paths_for("easyblocks")[0]
     all_pys = glob.glob('%s/*/*.py' % easyblocks_path)
-    easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and not '/test/' in eb]
+    easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and '/test/' not in eb]
 
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to InitTest
@@ -203,6 +201,7 @@ def suite():
         setattr(InitTest, innertest.__name__, innertest)
 
     return TestLoader().loadTestsFromTestCase(InitTest)
+
 
 if __name__ == '__main__':
     main()
