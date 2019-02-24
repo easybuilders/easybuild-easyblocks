@@ -37,10 +37,9 @@ import sys
 import tempfile
 from distutils.version import LooseVersion
 from distutils.sysconfig import get_config_vars
-from vsc.utils import fancylogger
-from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
+from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
@@ -48,6 +47,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, rmtree2, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.utilities import nub
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference

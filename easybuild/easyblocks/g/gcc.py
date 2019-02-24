@@ -39,7 +39,6 @@ import re
 import shutil
 from copy import copy
 from distutils.version import LooseVersion
-from vsc.utils.missing import any
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

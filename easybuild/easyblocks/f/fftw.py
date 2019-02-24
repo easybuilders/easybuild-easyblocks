@@ -28,15 +28,16 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 from distutils.version import LooseVersion
-from vsc.utils.missing import nub
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.utilities import nub
 
 
 # AVX*, FMA4 (AMD Bulldozer+ only), SSE2 (x86_64 only)

@@ -39,7 +39,6 @@ import os
 import re
 import shutil
 import tempfile
-import glob
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -47,11 +46,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, read_file, remove_file
+from easybuild.tools.filetools import find_flexlm_license, mkdir, read_file, remove_file, write_file
 from easybuild.tools.run import run_cmd
-
-from vsc.utils import fancylogger
-_log = fancylogger.getLogger('generic.intelbase')
 
 
 # different supported activation types (cfr. Intel documentation)
@@ -381,21 +377,14 @@ class IntelBase(EasyBlock):
                 raise EasyBuildError("silent_cfg_extras needs to be a dict")
 
         # we should be already in the correct directory
-        silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-        try:
-            f = open(silentcfg, 'w')
-            f.write(silent)
-            f.close()
-        except:
-            raise EasyBuildError("Writing silent cfg, failed", silent)
-        self.log.debug("Contents of %s:\n%s" % (silentcfg, silent))
+        silentcfg = os.path.join(os.getcwd(), 'silent.cfg')
+        write_file(silentcfg, silent)
+        self.log.debug("Contents of %s:\n%s", silentcfg, silent)
 
         # workaround for mktmp: create tmp dir and use it
         tmpdir = os.path.join(self.cfg['start_dir'], 'mytmpdir')
-        try:
-            os.makedirs(tmpdir)
-        except:
-            raise EasyBuildError("Directory %s can't be created", tmpdir)
+        mkdir(tmpdir, parents=True)
+
         tmppathopt = ''
         if self.cfg['usetmppath']:
             env.setvar('TMP_PATH', tmpdir)
