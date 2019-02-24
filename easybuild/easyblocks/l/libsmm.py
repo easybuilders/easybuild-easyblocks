@@ -68,7 +68,7 @@ class EB_libsmm(EasyBlock):
             dst = 'tools/build_libsmm'
             os.chdir(dst)
             self.log.debug('Change to directory %s' % dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to directory %s: %s", dst, err)
 
     def build_step(self):
@@ -187,7 +187,7 @@ tasks=%(tasks)s
                 f.write(txt)
                 f.close()
                 self.log.debug("config file %s for datatype %s ('%s'): %s" % (fn, dt, descr, txt))
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Failed to write %s: %s", fn, err)
 
             self.log.info("Building for datatype %s ('%s')..." % (dt, descr))

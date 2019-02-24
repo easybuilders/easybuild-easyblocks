@@ -88,7 +88,7 @@ class EB_Mathematica(Binary):
             mathpass_txt = f.read()
             f.close()
             self.log.info("Updated license file %s: %s" % (mathpass_path, mathpass_txt))
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to update %s with license server info: %s", mathpass_path, err)
 
         # restore $DISPLAY if required

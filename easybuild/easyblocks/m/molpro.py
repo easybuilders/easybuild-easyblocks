@@ -86,7 +86,7 @@ class EB_Molpro(ConfigureMake, Binary):
                 try:
                     os.symlink(self.cfg['license_file'], self.license_token)
                     self.log.debug("Symlinked %s to %s", self.cfg['license_file'], self.license_token)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to create symlink for license token at %s", self.license_token)
 
             else:
@@ -199,7 +199,7 @@ class EB_Molpro(ConfigureMake, Binary):
             """Build by running the command with the inputfiles"""
             try:
                 os.chdir(self.cfg['start_dir'])
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move (back) to %s: %s", self.cfg['start_dir'], err)
 
             for src in self.src:
@@ -237,7 +237,7 @@ class EB_Molpro(ConfigureMake, Binary):
             try:
                 os.remove(self.license_token)
                 self.log.debug("Symlink to license token %s removed", self.license_token)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to remove %s: %s", self.license_token, err)
 
     def make_module_req_guess(self):

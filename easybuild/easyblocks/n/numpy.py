@@ -227,7 +227,7 @@ class EB_numpy(FortranPythonPackage):
         try:
             pwd = os.getcwd()
             os.chdir(tmpdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
@@ -270,7 +270,7 @@ class EB_numpy(FortranPythonPackage):
         try:
             os.chdir(pwd)
             rmtree2(tmpdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
     def install_step(self):

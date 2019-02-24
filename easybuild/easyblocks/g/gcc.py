@@ -118,7 +118,7 @@ class EB_GCC(ConfigureMake):
             os.chdir(dirpath)
             self.log.debug("Created dir at %s" % dirpath)
             return dirpath
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Can't use dir %s to build in: %s", dirpath, err)
 
     def disable_lto_mpfr_old_gcc(self, objdir):
@@ -239,7 +239,7 @@ class EB_GCC(ConfigureMake):
                 if not os.path.exists(dst):
                     try:
                         shutil.copytree(src, dst)
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Failed to copy src %s to dst %s: %s", src, dst, err)
                     self.log.debug("Copied %s to %s, so GCC can build %s" % (src, dst, d['target_dir']))
                 else:
@@ -434,7 +434,7 @@ class EB_GCC(ConfigureMake):
                     libdir = os.path.join(stage2prefix, lib)
                     try:
                         os.chdir(libdir)
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix

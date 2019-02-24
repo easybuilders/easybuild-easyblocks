@@ -61,7 +61,7 @@ class EB_MrBayes(ConfigureMake):
                 self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
             try:
                 os.chdir(self.cfg['start_dir'])
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to correct source dir %s: %s", self.cfg['start_dir'], err)
 
             # run autoconf to generate configure script

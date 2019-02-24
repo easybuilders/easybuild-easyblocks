@@ -262,7 +262,7 @@ class EB_CP2K(EasyBlock):
 
             try:
                 os.mkdir(modincpath)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create directory for module include files: %s", err)
 
             # get list of modinc source files
@@ -623,7 +623,7 @@ class EB_CP2K(EasyBlock):
         makefiles = os.path.join(self.cfg['start_dir'], 'makefiles')
         try:
             os.chdir(makefiles)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Can't change to makefiles dir %s: %s", makefiles, err)
 
         # modify makefile for parallel build
@@ -634,7 +634,7 @@ class EB_CP2K(EasyBlock):
                 for line in fileinput.input('Makefile', inplace=1, backup='.orig.patchictce'):
                     line = re.sub(r"^PMAKE\s*=.*$", "PMAKE\t= $(SMAKE) -j %s" % parallel, line)
                     sys.stdout.write(line)
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Can't modify/write Makefile in %s: %s", makefiles, err)
 
         # update make options with MAKE
@@ -668,7 +668,7 @@ class EB_CP2K(EasyBlock):
             # change to root of build dir
             try:
                 os.chdir(self.builddir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to %s: %s", self.builddir, err)
 
             # use regression test reference output if available
@@ -695,7 +695,7 @@ class EB_CP2K(EasyBlock):
                     for line in fileinput.input(regtest_script, inplace=1, backup='.orig.refout'):
                         line = re.sub(r"^(dir_last\s*=\${dir_base})/.*$", r"\1/%s" % regtest_refdir, line)
                         sys.stdout.write(line)
-                except IOError, err:
+                except IOError as err:
                     raise EasyBuildError("Failed to modify '%s': %s", regtest_script, err)
 
             else:
