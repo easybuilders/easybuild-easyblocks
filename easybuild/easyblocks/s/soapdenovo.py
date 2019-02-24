@@ -52,7 +52,7 @@ class EB_SOAPdenovo(ConfigureMake):
             for suff in self.bin_suffixes:
                 srcfile = os.path.join(srcdir, "bin", "SOAPdenovo-%s" % suff)
                 shutil.copy2(srcfile, destdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
     def sanity_check_step(self):

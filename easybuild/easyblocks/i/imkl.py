@@ -229,7 +229,7 @@ class EB_imkl(IntelBase):
                     f.write(txt)
                     f.close()
                     self.log.info("File %s written" % dest)
-                except IOError, err:
+                except IOError as err:
                     raise EasyBuildError("Can't write file %s: %s", dest, err)
 
         # build the mkl interfaces, if desired
@@ -256,7 +256,7 @@ class EB_imkl(IntelBase):
             try:
                 os.chdir(interfacedir)
                 self.log.info("Changed to interfaces directory %s" % interfacedir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Can't change to interfaces directory %s", interfacedir)
 
             compopt = None
@@ -330,7 +330,7 @@ class EB_imkl(IntelBase):
                         intdir = os.path.join(interfacedir, lib)
                         os.chdir(intdir)
                         self.log.info("Changed to interface %s directory %s" % (lib, intdir))
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Can't change to interface %s directory %s: %s", lib, intdir, err)
 
                     fullcmd = "%s %s" % (cmd, ' '.join(buildopts + extraopts))
@@ -349,7 +349,7 @@ class EB_imkl(IntelBase):
                             if os.path.isfile(src):
                                 shutil.move(src, dest)
                                 self.log.info("Moved %s to %s" % (src, dest))
-                        except OSError, err:
+                        except OSError as err:
                             raise EasyBuildError("Failed to move %s to %s: %s", src, dest, err)
 
                     rmtree2(tmpbuild)

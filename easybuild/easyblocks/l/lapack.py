@@ -169,7 +169,7 @@ class EB_LAPACK(ConfigureMake):
                     self.log.debug("Symlinking %s to %s" % (fromfile, tofile))
                     os.symlink(frompath, topath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcdir, destdir, err)
 
     def load_module(self, mod_paths=None, purge=True):

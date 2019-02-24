@@ -65,7 +65,7 @@ class EB_BWA(ConfigureMake):
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
             shutil.copy2(manfile, manman1dir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
     def sanity_check_step(self):

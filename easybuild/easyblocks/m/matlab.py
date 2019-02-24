@@ -100,7 +100,7 @@ class EB_MATLAB(PackedBinary):
 
             write_file(self.configfile, config)
 
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to create installation config file %s: %s", self.configfile, err)
 
         self.log.debug('configuration file written to %s:\n %s', self.configfile, config)

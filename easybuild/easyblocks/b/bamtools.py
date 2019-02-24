@@ -56,7 +56,7 @@ class EB_BamTools(MakeCp, CMakeMake):
         try:
             mkdir(builddir)
             os.chdir(builddir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s", builddir, err)
 
         CMakeMake.configure_step(self, srcdir='..')

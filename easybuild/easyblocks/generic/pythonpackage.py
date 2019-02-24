@@ -499,7 +499,7 @@ class PythonPackage(ExtensionEasyBlock):
                     testinstalldir = tempfile.mkdtemp()
                     for pylibdir in self.all_pylibdirs:
                         mkdir(os.path.join(testinstalldir, pylibdir), parents=True)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
@@ -518,7 +518,7 @@ class PythonPackage(ExtensionEasyBlock):
             if testinstalldir:
                 try:
                     rmtree2(testinstalldir)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Removing testinstalldir %s failed: %s", testinstalldir, err)
 
     def install_step(self):

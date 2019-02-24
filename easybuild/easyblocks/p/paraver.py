@@ -88,7 +88,7 @@ class EB_Paraver(ConfigureMake):
         component = self.components[self.current_component]
         try:
             os.chdir(component)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s" % (component, err))
 
         self.log.info("Customized start directory for component %s: %s", component, os.getcwd())
@@ -124,7 +124,7 @@ class EB_Paraver(ConfigureMake):
                 try:
                     self.log.debug("Symlinking %s to %s", lib64dir, libdir)
                     os.symlink(lib64dir, libdir)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Symlinking lib64 to lib failed: %s" % err)
 
         self.current_component += 1
