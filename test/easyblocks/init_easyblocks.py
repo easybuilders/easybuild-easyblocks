@@ -189,12 +189,14 @@ def suite():
         # dynamically define new inner functions that can be added as class methods to InitTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            exec("def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock
         else:
-            exec("def innertest(self): template_init_test(self, '%s')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s')" % easyblock
+
+        exec(code, globals())
 
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))

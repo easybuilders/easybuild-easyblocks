@@ -51,9 +51,8 @@ from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
-from easybuild.tools.config import Singleton
+from easybuild.tools.config import GENERAL_CLASS, Singleton
 from easybuild.tools.filetools import mkdir, read_file, write_file
-from easybuild.tools.module_naming_scheme import GENERAL_CLASS
 from easybuild.tools.options import set_tmpdir
 
 
@@ -326,25 +325,27 @@ def suite():
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            exec("def innertest(self): template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            exec("def innertest(self): template_module_only_test(self, '%s', name='OpenMPI', version='system')" %
-                 easyblock)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', name='OpenMPI', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
-            exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt)
         elif os.path.basename(easyblock) == 'modulerc.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
-            test_definition = ' '.join([
-                "def innertest(self):",
-                "  template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt),
-            ])
-            exec(test_definition)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt)
         else:
-            exec("def innertest(self): template_module_only_test(self, '%s')" % easyblock)
+            code = "def innertest(self): template_module_only_test(self, '%s')" % easyblock
+
+        exec(code, globals())
+
         innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
