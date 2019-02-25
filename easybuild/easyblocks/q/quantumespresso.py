@@ -253,7 +253,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       line)
 
                 sys.stdout.write(line)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
         self.log.debug("Contents of patched %s: %s" % (fn, open(fn, "r").read()))
@@ -269,7 +269,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
                 sys.stdout.write(line)
 
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
         self.log.debug("Contents of patched %s: %s" % (fn, open(fn, "r").read()))
@@ -304,7 +304,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       line)
 
                     sys.stdout.write(line)
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
         # move non-espresso directories to where they're expected and create symlinks
@@ -329,7 +329,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 if linkname:
                     os.symlink(os.path.join(targetdir, dirname), os.path.join(targetdir, linkname))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move non-espresso directories: %s", err)
 
     def install_step(self):

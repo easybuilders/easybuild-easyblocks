@@ -48,7 +48,7 @@ class EB_flex(ConfigureMake):
                 if not os.path.exists(binpath):
                     os.symlink(os.path.join(self.installdir, "bin", "flex"), binpath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink binaries: %s", err)
 
     def sanity_check_step(self):

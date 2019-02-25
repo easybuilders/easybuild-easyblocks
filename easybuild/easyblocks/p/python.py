@@ -197,7 +197,7 @@ class EB_Python(ConfigureMake):
 
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
         abiflags = ''

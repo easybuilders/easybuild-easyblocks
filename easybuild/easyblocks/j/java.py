@@ -49,11 +49,11 @@ class EB_Java(PackedBinary):
             try: 
                 shutil.copy2(self.src[0]['path'], self.builddir)
                 adjust_permissions(os.path.join(self.builddir, self.src[0]['name']), stat.S_IXUSR, add=True)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed copying installer to builddir or adjunting permissions: %s", err)
             try:
                 os.chdir(self.builddir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to build dir: %s", err)
             run_cmd(os.path.join(self.builddir, self.src[0]['name']), log_all=True, simple=True, inp='')
         else:
@@ -64,7 +64,7 @@ class EB_Java(PackedBinary):
             try:
                 os.rmdir(self.installdir)
                 shutil.copytree(os.path.join(self.builddir, 'jdk%s' % self.version), self.installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to install by copying: %s", err)
         else:
             PackedBinary.install_step(self)

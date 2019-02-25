@@ -116,7 +116,7 @@ class EB_python_minus_meep(PythonPackage):
             shutil.copytree(src, dest)
             rmtree2(tmpdir)
             os.chdir(self.installdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy directory %s to %s: %s", src, dest, err)
 
     def sanity_check_step(self):

@@ -121,7 +121,7 @@ class EB_SuiteSparse(ConfigureMake):
                     if line != orig_line:
                         cfgvars.pop(var)
                 sys.stdout.write(line)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s in: %s", fp, err)
 
         # add remaining entries at the end
@@ -151,7 +151,7 @@ class EB_SuiteSparse(ConfigureMake):
                     adjust_permissions(dst, perms, add=True, recursive=True, onlydirs=True)
                 else:
                     shutil.copy2(src, dst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying src %s to dst %s failed: %s", src, dst, err)
 
         # some extra symlinks are necessary for UMFPACK to work.
@@ -170,7 +170,7 @@ class EB_SuiteSparse(ConfigureMake):
             if os.path.exists(src):
                 try:
                     os.symlink(src, os.path.join(dstdir, fn))
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to make symbolic link from %s to %s: %s", src, dst, err)
 
     def make_module_req_guess(self):

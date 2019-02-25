@@ -93,7 +93,7 @@ class EB_Boost(EasyBlock):
                     for line in fileinput.input("%s" % patchfile, inplace=1, backup='.orig'):
                         line = re.sub(r"TIME_UTC", r"TIME_UTC_", line)
                         sys.stdout.write(line)
-                except IOError, err:
+                except IOError as err:
                     raise EasyBuildError("Failed to patch %s: %s", patchfile, err)
 
     def configure_step(self):
