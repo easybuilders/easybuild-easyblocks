@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, rmtree2
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -253,11 +253,8 @@ class EB_imkl(IntelBase):
             fftw3libs = ['fftw3xc', 'fftw3xf']
 
             interfacedir = os.path.join(self.installdir, intsubdir)
-            try:
-                os.chdir(interfacedir)
-                self.log.info("Changed to interfaces directory %s" % interfacedir)
-            except OSError as err:
-                raise EasyBuildError("Can't change to interfaces directory %s", interfacedir)
+            change_dir(interfacedir)
+            self.log.info("Changed to interfaces directory %s" % interfacedir)
 
             compopt = None
             # determine whether we're using a non-Intel GCC-based or PGI-based toolchain

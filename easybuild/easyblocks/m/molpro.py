@@ -38,7 +38,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, read_file, symlink
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
 
@@ -83,12 +83,8 @@ class EB_Molpro(ConfigureMake, Binary):
                 # other approaches (like defining $MOLPRO_KEY) don't seem to work
                 self.cleanup_token_symlink = True
                 mkdir(os.path.dirname(self.license_token))
-                try:
-                    os.symlink(self.cfg['license_file'], self.license_token)
-                    self.log.debug("Symlinked %s to %s", self.cfg['license_file'], self.license_token)
-                except OSError as err:
-                    raise EasyBuildError("Failed to create symlink for license token at %s", self.license_token)
-
+                symlink(self.cfg['license_file'], self.license_token)
+                self.log.debug("Symlinked %s to %s", self.cfg['license_file'], self.license_token)
             else:
                 self.log.warning("No licence token found at either {0} or via 'license_file'".format(self.license_token))
         

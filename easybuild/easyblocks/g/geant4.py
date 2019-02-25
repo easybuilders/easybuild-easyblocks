@@ -43,7 +43,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.filetools import mkdir, read_file, write_file
+from easybuild.tools.filetools import copy_file, mkdir, read_file, write_file
 
 
 class EB_Geant4(CMakeMake):
@@ -247,11 +247,8 @@ class EB_Geant4(CMakeMake):
             self.log.info("The directory containing several important scripts to be copied was found: %s" % self.scriptdir)
 
             # copying config.sh to pwd
-            try:
-                self.log.info("copying config.sh to %s" % pwd)
-                shutil.copy2(os.path.join(self.scriptdir, 'config.sh'), pwd)
-            except IOError as err:
-                raise EasyBuildError("Failed to copy config.sh to %s", pwd)
+            self.log.info("copying config.sh to %s", pwd)
+            copy_file(os.path.join(self.scriptdir, 'config.sh'), pwd)
 
             # creating several scripts containing environment variables
             cmd = "%s/Configure -S -f config.sh -D g4conf=%s -D abssrc=%s" % (pwd, self.scriptdir, pwd)
