@@ -108,9 +108,9 @@ class EB_Molpro(ConfigureMake, Binary):
                     raise EasyBuildError("$MPI_INC_DIR not defined")
                 if self.toolchain.mpi_family() == toolchain.OPENMPI:
                     self.cfg.update('configopts', "-openmpi")
-                elif self.toolchain.mpi_family() == toolchain.INTELMPI:
-                    self.cfg.update('configopts', "-intel-mpi")
-                else:
+                # There is currently (v2012.1.52) no -intel-mpi option, only
+                # a -intel-mpi-lsf option, so nothing to do in that case.
+                elif self.toolchain.mpi_family() != toolchain.INTELMPI:
                     raise EasyBuildError("Failed to find out which MPI toolchain is in use: %s"
                                          % self.toolchain.mpi_family())
             else:
