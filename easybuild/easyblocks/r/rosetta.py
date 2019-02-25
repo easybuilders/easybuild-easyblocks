@@ -41,7 +41,7 @@ from easybuild.easyblocks.icc import get_icc_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file
+from easybuild.tools.filetools import extract_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
