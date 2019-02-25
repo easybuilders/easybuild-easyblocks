@@ -108,7 +108,7 @@ class EB_METIS(ConfigureMake):
                     src = os.path.join(self.cfg['start_dir'], 'Lib', f)
                     dst = os.path.join(includedir, f)
                     shutil.copy2(src, dst)
-                    os.chmod(dst, 0755)
+                    os.chmod(dst, 0o755)
             except OSError as err:
                 raise EasyBuildError("Copying file metis.h to include dir failed: %s", err)
 
@@ -143,6 +143,6 @@ class EB_METIS(ConfigureMake):
         custom_paths = {
             'files': ['bin/%s' % x for x in binfiles] + ['include/%s' % x for x in incfiles] +
                      ['lib/libmetis.%s' % x for x in self.lib_exts],
-            'dirs' : dirs,
+            'dirs': dirs,
         }
         super(EB_METIS, self).sanity_check_step(custom_paths=custom_paths)
