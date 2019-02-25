@@ -35,11 +35,11 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 """
 
 import os
-import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -91,24 +91,19 @@ class EB_MrBayes(ConfigureMake):
         """Install by copying bniaries to install dir."""
 
         bindir = os.path.join(self.installdir, 'bin')
-        os.makedirs(bindir)
+        mkdir(bindir)
 
-        for exe in ['mb']:
-            src = os.path.join(self.cfg['start_dir'], exe)
-            dst = os.path.join(bindir, exe)
-            try:
-                shutil.copy2(src, dst)
-                self.log.info("Successfully copied %s to %s" % (src, dst))
-            except (IOError,OSError), err:
-                raise EasyBuildError("Failed to copy %s to %s (%s)", src, dst, err)
+        src = os.path.join(self.cfg['start_dir'], 'mb')
+        dst = os.path.join(bindir, 'mb')
+        copy_file(src, dst)
+        self.log.info("Successfully copied %s to %s", src, dst)
 
     def sanity_check_step(self):
         """Custom sanity check for MrBayes."""
 
         custom_paths = {
-                        'files': ["bin/mb"],
-                        'dirs': []
-                       }
+            'files': ["bin/mb"],
+            'dirs': [],
+        }
 
         super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths)
-

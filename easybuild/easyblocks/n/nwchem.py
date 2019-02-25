@@ -110,7 +110,7 @@ class EB_NWChem(ConfigureMake):
                                              self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
                 # ok to remove, we'll recreate it anyway
                 remove_file(self.local_nwchemrc)
-        except (IOError, OSError), err:
+        except (IOError, OSError) as err:
             raise EasyBuildError("Failed to validate %s symlink: %s", self.home_nwchemrc, err)
 
         # building NWChem in a long path name is an issue, so let's try to make sure we have a short one

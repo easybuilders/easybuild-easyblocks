@@ -854,7 +854,7 @@ class EB_CP2K(EasyBlock):
                         copy_dir(path, target)
                         self.log.info("Regression test results dir %s copied to %s" % (d, self.installdir))
                         break
-            except (OSError, IOError), err:
+            except (OSError, IOError) as err:
                 raise EasyBuildError("Failed to copy regression test results dir: %s", err)
 
     def sanity_check_step(self):
