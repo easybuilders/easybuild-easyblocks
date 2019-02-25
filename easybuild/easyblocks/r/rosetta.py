@@ -199,11 +199,8 @@ class EB_Rosetta(EasyBlock):
 
         bindir = os.path.join(self.installdir, 'bin')
         libdir = os.path.join(self.installdir, 'lib')
-        try:
-            os.makedirs(bindir)
-            os.makedirs(libdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to created bin/lib dirs: %s, %s", bindir, libdir)
+        mkdir(bindir)
+        mkdir(libdir)
 
         for build_subdir in ['src', 'external']:
             builddir = os.path.join('build', build_subdir)
