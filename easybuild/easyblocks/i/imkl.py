@@ -254,7 +254,7 @@ class EB_imkl(IntelBase):
 
             interfacedir = os.path.join(self.installdir, intsubdir)
             change_dir(interfacedir)
-            self.log.info("Changed to interfaces directory %s" % interfacedir)
+            self.log.info("Changed to interfaces directory %s", interfacedir)
 
             compopt = None
             # determine whether we're using a non-Intel GCC-based or PGI-based toolchain
