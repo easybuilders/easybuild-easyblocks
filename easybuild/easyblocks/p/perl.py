@@ -32,6 +32,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
 # perldoc -lm seems to be the safest way to test if a module is available, based on exit code
@@ -69,7 +70,7 @@ class EB_Perl(ConfigureMake):
         """Test Perl build via 'make test'."""
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
-            if isinstance(self.cfg['runtest'], basestring):
+            if isinstance(self.cfg['runtest'], string_type):
                 cmd = "make %s" % self.cfg['runtest']
             else:
                 cmd = "make test"

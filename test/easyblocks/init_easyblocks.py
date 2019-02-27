@@ -116,14 +116,16 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     txt = f.read()
     f.close()
 
-    # make sure error reporting is done correctly (no more log.error, log.exception)
-    log_method_regexes = [
+    regexps = [
+        # make sure error reporting is done correctly (no more log.error, log.exception)
         re.compile(r"log\.error\("),
         re.compile(r"log\.exception\("),
         re.compile(r"log\.raiseException\("),
+        # check for use of 'basestring', which is Python 2.x only
+        re.compile(r"[^\w]basestring([^\w]|$)"),
     ]
-    for regex in log_method_regexes:
-        self.assertFalse(regex.search(txt), "No match for '%s' in %s" % (regex.pattern, easyblock))
+    for regexp in regexps:
+        self.assertFalse(regexp.search(txt), "No match for '%s' in %s" % (regexp.pattern, easyblock))
 
     # make sure that (named) arguments get passed down for prepare_step
     if re.search('def prepare_step', txt):
