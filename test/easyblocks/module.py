@@ -31,7 +31,6 @@ import copy
 import glob
 import os
 import re
-import shutil
 import sys
 import tempfile
 from unittest import TestLoader, TextTestRunner
@@ -52,7 +51,7 @@ from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS, Singleton
-from easybuild.tools.filetools import mkdir, read_file, write_file
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, remove_file, write_file
 from easybuild.tools.options import set_tmpdir
 
 
@@ -108,10 +107,7 @@ class ModuleOnlyTest(TestCase):
 
         os.environ = self.orig_environ
 
-        try:
-            os.remove(self.eb_file)
-        except OSError as err:
-            self.log.error("Failed to remove %s: %s", self.eb_file, err)
+        remove_file(self.eb_file)
 
     def test_make_module_pythonpackage(self):
         """Test make_module_step of PythonPackage easyblock."""
@@ -258,12 +254,17 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         try:
             app.run_all_steps(run_test_cases=False)
         finally:
-            os.chdir(orig_workdir)
+            change_dir(orig_workdir)
 
         if os.path.basename(easyblock) == 'modulerc.py':
             # .modulerc must be cleaned up to avoid causing trouble (e.g. "Duplicate version symbol" errors)
             modulerc = os.path.join(TMPDIR, 'modules', 'all', name, '.modulerc')
-            os.remove(modulerc)
+            if os.path.exists(modulerc):
+                remove_file(modulerc)
+
+            modulerc += '.lua'
+            if os.path.exists(modulerc):
+                remove_file(modulerc)
         else:
             modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
             luamodfile = '%s.lua' % modfile
@@ -280,8 +281,8 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
 
         # cleanup
         app.close_log()
-        os.remove(app.logfile)
-        shutil.rmtree(tmpdir)
+        remove_file(app.logfile)
+        remove_dir(tmpdir)
     else:
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
