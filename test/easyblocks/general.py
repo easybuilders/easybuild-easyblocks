@@ -29,8 +29,9 @@ General unit tests for the easybuild-easyblocks repo.
 """
 import os
 import shutil
+import sys
 import tempfile
-from unittest import TestLoader, main
+from unittest import TestLoader, TextTestRunner
 
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks import VERSION
@@ -185,4 +186,5 @@ def suite():
 
 
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    sys.exit(len(res.failures))

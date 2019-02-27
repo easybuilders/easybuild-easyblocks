@@ -34,7 +34,7 @@ import re
 import shutil
 import sys
 import tempfile
-from unittest import TestLoader, main
+from unittest import TestLoader, TextTestRunner
 
 import easybuild.tools.module_naming_scheme.toolchain as mns_toolchain
 import easybuild.tools.options as eboptions
@@ -354,4 +354,5 @@ def suite():
 
 
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    sys.exit(len(res.failures))

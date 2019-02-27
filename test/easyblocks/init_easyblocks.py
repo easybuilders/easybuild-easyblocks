@@ -31,8 +31,9 @@ Unit tests for initializing easyblocks.
 import glob
 import os
 import re
+import sys
 import tempfile
-from unittest import TestCase, TestLoader, main
+from unittest import TestCase, TestLoader, TextTestRunner
 
 import easybuild.tools.options as eboptions
 from easybuild.base import fancylogger
@@ -211,4 +212,5 @@ def suite():
 
 
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    sys.exit(len(res.failures))
