@@ -91,13 +91,21 @@ class EB_GCC(ConfigureMake):
 
         self.stagedbuild = False
 
-        if LooseVersion(self.version) >= LooseVersion("4.8.0") and self.cfg['clooguseisl'] and not self.cfg['withisl']:
-            raise EasyBuildError("Using ISL bundled with CLooG is unsupported in >=GCC-4.8.0. "
-                                 "Use a seperate ISL: set withisl=True")
+        # need to make sure version is an actual version
+        # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
+        # which results in deriving the actual compiler version
+        # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
+        version_regex = re.compile('^[0-9]+\.[0-9]+.*')
+        if version_regex.match(self.version):
+            version = LooseVersion(self.version)
 
-        # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
-        if LooseVersion(self.version) < LooseVersion("5.0.0") and self.cfg['withisl'] and not self.cfg['withcloog']:
-            raise EasyBuildError("Activating ISL without CLooG is pointless")
+            if version >= LooseVersion('4.8.0') and self.cfg['clooguseisl'] and not self.cfg['withisl']:
+                raise EasyBuildError("Using ISL bundled with CLooG is unsupported in >=GCC-4.8.0. "
+                                     "Use a seperate ISL: set withisl=True")
+
+            # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
+            if version < LooseVersion('5.0.0') and self.cfg['withisl'] and not self.cfg['withcloog']:
+                raise EasyBuildError("Activating ISL without CLooG is pointless")
 
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
         self.cfg.update('unwanted_env_vars', ['CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'OBJC_INCLUDE_PATH'])
