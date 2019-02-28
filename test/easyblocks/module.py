@@ -31,6 +31,7 @@ import copy
 import glob
 import os
 import re
+import stat
 import sys
 import tempfile
 from unittest import TestLoader, TextTestRunner
@@ -51,11 +52,12 @@ from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS, Singleton
-from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, remove_file, write_file
+from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, read_file, remove_dir
+from easybuild.tools.filetools import remove_file, write_file
 from easybuild.tools.options import set_tmpdir
 
 
-TMPDIR = tempfile.gettempdir()
+TMPDIR = tempfile.mkdtemp()
 
 
 def cleanup():
@@ -116,7 +118,7 @@ class ModuleOnlyTest(TestCase):
         app = app_class(EasyConfig(self.eb_file))
 
         # install dir should not be there yet
-        self.assertFalse(os.path.exists(app.installdir))
+        self.assertFalse(os.path.exists(app.installdir), "%s should not exist" % app.installdir)
 
         # create install dir and populate it with subdirs/files
         mkdir(app.installdir, parents=True)
@@ -128,8 +130,20 @@ class ModuleOnlyTest(TestCase):
         write_file(os.path.join(app.installdir, 'lib', 'python%s' % pyver, 'site-packages', 'foo.egg'), 'foo egg')
         write_file(os.path.join(app.installdir, 'lib64', 'pkgconfig', 'foo.pc'), 'libfoo: foo')
 
+        # PythonPackage relies on the fact that 'python' points to the right Python version
+        tmpdir = tempfile.mkdtemp()
+        python = os.path.join(tmpdir, 'python')
+        write_file(python, '#!/bin/bash\necho $0 $@\n%s "$@"' % sys.executable)
+        adjust_permissions(python, stat.S_IXUSR)
+        os.environ['PATH'] = '%s:%s' % (tmpdir, os.getenv('PATH', ''))
+
+        from easybuild.tools.filetools import which
+        print(which('python'))
+
         # create module file
         app.make_module_step()
+
+        remove_file(python)
 
         self.assertTrue(TMPDIR in app.installdir)
         self.assertTrue(TMPDIR in app.installdir_mod)
@@ -149,7 +163,7 @@ class ModuleOnlyTest(TestCase):
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
             (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python2.[0-9]/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]/site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
@@ -356,4 +370,5 @@ def suite():
 
 if __name__ == '__main__':
     res = TextTestRunner(verbosity=1).run(suite())
+    remove_dir(TMPDIR)
     sys.exit(len(res.failures))
