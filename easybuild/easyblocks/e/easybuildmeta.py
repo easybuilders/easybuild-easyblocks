@@ -159,8 +159,7 @@ class EB_EasyBuildMeta(PythonPackage):
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
             try:
-                exec("from %s import setup" % tool, globals())
-                del setup  # noqa
+                exec("from %s import setup" % tool)
                 setup_tool = tool
                 break
             except ImportError:
