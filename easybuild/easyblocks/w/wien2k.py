@@ -178,7 +178,7 @@ class EB_WIEN2k(EasyBlock):
             dc['cc'] = dc.pop('COMPILERC')
             dc['fortran'] = dc.pop('COMPILER')
             dc['parallel'] = dc.pop('COMPILERP')
-            write_file('WIEN2k_COMPILER', '\n'.join(['%s:%s' % (k, v) for k, v in dc.iteritems()]))
+            write_file('WIEN2k_COMPILER', '\n'.join(['%s:%s' % (k, v) for k, v in dc.items()]))
 
         # configure with patched configure script
         self.log.debug('%s part I (configure)' % self.cfgscript)

@@ -372,7 +372,7 @@ class IntelBase(EasyBlock):
 
         if silent_cfg_extras is not None:
             if isinstance(silent_cfg_extras, dict):
-                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.iteritems())
+                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.items())
             else:
                 raise EasyBuildError("silent_cfg_extras needs to be a dict")
 
