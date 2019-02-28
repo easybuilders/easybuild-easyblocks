@@ -95,7 +95,7 @@ class EB_GCC(ConfigureMake):
         # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
         # which results in deriving the actual compiler version
         # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
-        version_regex = re.compile('^[0-9]+\.[0-9]+.*')
+        version_regex = re.compile(r'^[0-9]+\.[0-9]+.*')
         if version_regex.match(self.version):
             version = LooseVersion(self.version)
 
