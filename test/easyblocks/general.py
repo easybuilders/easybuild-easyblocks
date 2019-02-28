@@ -106,8 +106,8 @@ class GeneralEasyblockTest(TestCase):
         framework_path = up(easybuild.framework.__file__, 3)
 
         # prepend path to easybuild-easyblocks repo to $PYTHONPATH, so we're in full(?) control
-        pythonpaths = os.environ.get('PYTHONPATH', '').split(os.pathsep)
-        os.environ['PYTHONPATH'] = os.pathsep.join([easyblocks_path, framework_path] + pythonpaths)
+        pythonpath = os.environ.get('PYTHONPATH', '')
+        os.environ['PYTHONPATH'] = os.pathsep.join([easyblocks_path, framework_path, pythonpath])
 
         # set up custom easyblocks repo
         custom_easyblocks_repo_path = os.path.join(self.tmpdir, 'myeasyblocks')
