@@ -42,7 +42,8 @@ install:
     # use framework 'develop' branch, except when testing 'master'
     - if [ "x$TRAVIS_BRANCH" = 'xmaster' ]; then BRANCH=master; else BRANCH=develop; fi
     - if [ "x$TRAVIS_BRANCH" = 'x4.x' ]; then BRANCH=4.x; else BRANCH=develop; fi
-    - git clone -b $BRANCH --depth 10 --single-branch https://github.com/hpcugent/easybuild-framework.git
+    - echo "Using easybuild-framework branch $BRANCH (\$TRAVIS_BRANCH: $TRAVIS_BRANCH)"
+    - git clone -b $BRANCH --depth 10 --single-branch https://github.com/easybuilders/easybuild-framework.git
     - cd easybuild-framework; git log -n 1; cd -
     - easy_install $PWD/easybuild-framework
     # install environment modules tool using 'install_eb_dep.sh' script provided by easybuild-framework
