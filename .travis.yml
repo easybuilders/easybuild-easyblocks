@@ -20,15 +20,15 @@ matrix:
     - python: 3.6
       env: LMOD_VERSION=6.6.3
     - python: 3.6
-      env: LMOD_VERSION=6.5.1 TEST_EASYBUILD_MODULE_SYNTAX=Tcl
+      env: LMOD_VERSION=6.5.1 EASYBUILD_MODULE_SYNTAX=Tcl
     - python: 3.6
       env: LMOD_VERSION=7.8.5
     - python: 3.6
-      env: LMOD_VERSION=7.8.5 TEST_EASYBUILD_MODULE_SYNTAX=Tcl
+      env: LMOD_VERSION=7.8.5 EASYBUILD_MODULE_SYNTAX=Tcl
     - python: 3.6
-      env: ENV_MOD_VERSION=3.2.10 TEST_EASYBUILD_MODULES_TOOL=EnvironmentModulesC TEST_EASYBUILD_MODULE_SYNTAX=Tcl
+      env: ENV_MOD_VERSION=3.2.10 EASYBUILD_MODULES_TOOL=EnvironmentModulesC EASYBUILD_MODULE_SYNTAX=Tcl
     - python: 3.6
-      env: ENV_MOD_VERSION=4.1.4 TEST_EASYBUILD_MODULE_SYNTAX=Tcl TEST_EASYBUILD_MODULES_TOOL=EnvironmentModules
+      env: ENV_MOD_VERSION=4.1.4 EASYBUILD_MODULES_TOOL=EnvironmentModules EASYBUILD_MODULE_SYNTAX=Tcl
 addons:
   apt:
     packages:
