@@ -58,7 +58,7 @@ VERSION = LooseVersion('%s')
 
 def det_path_for_import(module, pythonpath=None):
     """Determine filepath obtained when importing specified module."""
-    cmd_tmpl = "python -c 'import %(mod)s; print %(mod)s.__file__'"
+    cmd_tmpl = "python -c 'import %(mod)s; print(%(mod)s.__file__)'"
 
     if pythonpath:
         cmd_tmpl = "PYTHONPATH=%s:$PYTHONPATH %s" % (pythonpath, cmd_tmpl)
