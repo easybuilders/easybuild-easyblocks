@@ -37,17 +37,18 @@ import sys
 import tempfile
 from distutils.version import LooseVersion
 from distutils.sysconfig import get_config_vars
-from vsc.utils import fancylogger
-from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
+from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, rmtree2, which
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
+from easybuild.tools.utilities import nub
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
@@ -371,7 +372,7 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             # for extensions, self.src specifies the location of the source file
             # otherwise, self.src is a list of dicts, one element per source file
-            if isinstance(self.src, basestring):
+            if isinstance(self.src, string_type):
                 loc = self.src
             else:
                 loc = self.src[0]['path']
@@ -485,7 +486,7 @@ class PythonPackage(ExtensionEasyBlock):
     def test_step(self):
         """Test the built Python package."""
 
-        if isinstance(self.cfg['runtest'], basestring):
+        if isinstance(self.cfg['runtest'], string_type):
             self.testcmd = self.cfg['runtest']
 
         if self.cfg['runtest'] and self.testcmd is not None:

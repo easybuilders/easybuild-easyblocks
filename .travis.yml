@@ -5,16 +5,30 @@ env:
     - ENV_MOD_VERSION=3.2.10 EASYBUILD_MODULES_TOOL=EnvironmentModulesC EASYBUILD_MODULE_SYNTAX=Tcl
     - LMOD_VERSION=6.6.3
     - LMOD_VERSION=6.6.3 EASYBUILD_MODULE_SYNTAX=Tcl
-    - LMOD_VERSION=7.7.16
-    - LMOD_VERSION=7.7.16 EASYBUILD_MODULE_SYNTAX=Tcl
-    - ENV_MOD_VERSION=4.0.0 EASYBUILD_MODULES_TOOL=EnvironmentModules EASYBUILD_MODULE_SYNTAX=Tcl
+    - LMOD_VERSION=7.8.5
+    - LMOD_VERSION=7.8.5 EASYBUILD_MODULE_SYNTAX=Tcl
+    # Tmod 4.1.4 is used in RHEL8
+    - ENV_MOD_VERSION=4.1.4 EASYBUILD_MODULES_TOOL=EnvironmentModules EASYBUILD_MODULE_SYNTAX=Tcl
 matrix:
   # mark build as finished as soon as job has failed
   fast_finish: true
   include:
     # also test default configuration with Python 2.7
     - python: 2.7
+      env: LMOD_VERSION=7.8.5
+    # also test with Python 3.6
+    - python: 3.6
       env: LMOD_VERSION=6.6.3
+    - python: 3.6
+      env: LMOD_VERSION=6.5.1 EASYBUILD_MODULE_SYNTAX=Tcl
+    - python: 3.6
+      env: LMOD_VERSION=7.8.5
+    - python: 3.6
+      env: LMOD_VERSION=7.8.5 EASYBUILD_MODULE_SYNTAX=Tcl
+    - python: 3.6
+      env: ENV_MOD_VERSION=3.2.10 EASYBUILD_MODULES_TOOL=EnvironmentModulesC EASYBUILD_MODULE_SYNTAX=Tcl
+    - python: 3.6
+      env: ENV_MOD_VERSION=4.1.4 EASYBUILD_MODULES_TOOL=EnvironmentModules EASYBUILD_MODULE_SYNTAX=Tcl
 addons:
   apt:
     packages:
@@ -26,8 +40,11 @@ install:
     # install easybuild-framework (and dependencies)
     # prefer clone & easy_install over easy_install directly in order to obtain information of what was installed exactly
     # use framework 'develop' branch, except when testing 'master'
-    - if [ "x$TRAVIS_BRANCH" = 'xmaster' ]; then BRANCH=master; else BRANCH=develop; fi
-    - git clone -b $BRANCH --depth 10 --single-branch https://github.com/hpcugent/easybuild-framework.git
+    - BRANCH=develop
+    - if [ "x$TRAVIS_BRANCH" = 'xmaster' ]; then BRANCH=master; fi
+    - if [ "x$TRAVIS_BRANCH" = 'x4.x' ]; then BRANCH=4.x; fi
+    - echo "Using easybuild-framework branch $BRANCH (\$TRAVIS_BRANCH $TRAVIS_BRANCH)"
+    - git clone -b $BRANCH --depth 10 --single-branch https://github.com/easybuilders/easybuild-framework.git
     - cd easybuild-framework; git log -n 1; cd -
     - easy_install $PWD/easybuild-framework
     # install environment modules tool using 'install_eb_dep.sh' script provided by easybuild-framework

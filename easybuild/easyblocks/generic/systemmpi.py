@@ -139,7 +139,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
             # Extract any OpenMPI environment variables in the current environment and ensure they are added to the
             # final module
-            self.mpi_env_vars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("OMPI_"))
+            self.mpi_env_vars = dict((key, value) for key, value in os.environ.items() if key.startswith('OMPI_'))
 
             # Extract the C compiler used underneath the MPI implementation, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
@@ -177,7 +177,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
             # final module
             self.mpi_env_vars = {}
-            for key, value in os.environ.iteritems():
+            for key, value in os.environ.items():
                 i_mpi_key = key.startswith('I_MPI_') or key.startswith('MPICH_')
                 mpi_profile_key = key.startswith('MPI') and key.endswith('PROFILE')
                 if i_mpi_key or mpi_profile_key:

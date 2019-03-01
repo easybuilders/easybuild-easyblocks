@@ -40,7 +40,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir
 from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
-from vsc.utils.missing import nub
+from easybuild.tools.utilities import nub
 
 
 class CMakeMake(ConfigureMake):
