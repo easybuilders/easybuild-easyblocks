@@ -98,7 +98,7 @@ class MesonNinja(EasyBlock):
         Run tests using Ninja.
         """
         if self.cfg['runtest']:
-            cmd = "%s %s" % (self.cfg['pretestopts'], self.cfg['runtest'])
+            cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
             return out
 
