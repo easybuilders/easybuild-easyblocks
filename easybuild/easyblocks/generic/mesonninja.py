@@ -98,7 +98,8 @@ class MesonNinja(EasyBlock):
         Run tests using Ninja.
         """
         if self.cfg['runtest']:
-            (out, _) = run_cmd(self.cfg['runtest'], log_all=True, simple=False)
+            cmd = "%s %s" % (self.cfg['pretestopts'], self.cfg['runtest'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
             return out
 
     def install_step(self):
