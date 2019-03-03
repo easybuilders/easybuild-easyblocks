@@ -165,7 +165,7 @@ class EB_WRF(EasyBlock):
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, known_build_types)
 
         # Escape the "+" in "dm+sm" since it's being used in a regexp below.
-        bt = bt.replace('+', '\+')
+        bt = bt.replace('+', r'\+')
 
         # fetch option number based on build type option and selected build type
         if LooseVersion(self.version) >= LooseVersion('3.7'):
