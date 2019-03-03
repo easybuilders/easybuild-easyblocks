@@ -302,7 +302,7 @@ class EB_WRF(EasyBlock):
                 test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
                                                                 self.toolchain.mpi_cmd_for("./wrf.exe", n))
             else:
-                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe" % n
+                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
 
             def run_test():
                 """Run a single test and check for success."""
