@@ -158,7 +158,7 @@ class EB_WRF(EasyBlock):
 
         # fetch selected build type (and make sure it makes sense)
         known_build_types = ['serial', 'smpar', 'dmpar', 'dm+sm']
-        self.parallel_build_types = ["dmpar", "smpar", "dm+sm"]
+        self.parallel_build_types = ["dmpar", "dm+sm"]
         bt = self.cfg['buildtype']
 
         if bt not in known_build_types:
