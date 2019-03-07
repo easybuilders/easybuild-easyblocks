@@ -183,6 +183,7 @@ class PythonPackage(ExtensionEasyBlock):
             'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
+            'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
@@ -256,8 +257,9 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
 
-            # don't (try to) uninstall already availale versions of the package being installed
-            self.cfg.update('installopts', '--ignore-installed')
+            if self.cfg.get('pip_ignore_installed', True):
+                # don't (try to) uninstall already availale versions of the package being installed
+                self.cfg.update('installopts', '--ignore-installed')
 
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
