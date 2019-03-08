@@ -29,6 +29,12 @@ matrix:
       env: ENV_MOD_VERSION=3.2.10 EASYBUILD_MODULES_TOOL=EnvironmentModulesC EASYBUILD_MODULE_SYNTAX=Tcl
     - python: 3.6
       env: ENV_MOD_VERSION=4.1.4 EASYBUILD_MODULES_TOOL=EnvironmentModules EASYBUILD_MODULE_SYNTAX=Tcl
+    # also test most common configuration with Python 3.5 and 3.7
+    - python: 3.5
+      env: LMOD_VERSION=7.8.5
+    - python: 3.7
+      dist: xenial
+      env: LMOD_VERSION=7.8.5
 addons:
   apt:
     packages:
