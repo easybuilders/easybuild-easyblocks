@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,7 +63,7 @@ class EB_CPLEX(Binary):
             os.chdir(self.builddir)
             os.makedirs(tmpdir)
             os.makedirs(stagedir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to prepare for installation: %s", err)
 
         env.setvar('IATEMPDIR', tmpdir)
@@ -89,7 +89,7 @@ class EB_CPLEX(Binary):
 
         try:
             os.chmod(self.installdir, stat.S_IRWXU | stat.S_IXOTH | stat.S_IXGRP | stat.S_IROTH | stat.S_IRGRP)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Can't set permissions on %s: %s", self.installdir, err)
 
     def post_install_step(self):

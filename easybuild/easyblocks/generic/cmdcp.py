@@ -1,5 +1,5 @@
 ##
-# Copyright 2014 Ghent University
+# Copyright 2014-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,7 +57,7 @@ class CmdCp(MakeCp):
         """Build by running the command with the inputfiles"""
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move (back) to %s: %s", self.cfg['start_dir'], err)
 
         for src in self.src:

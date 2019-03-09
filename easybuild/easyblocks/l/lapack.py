@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -169,7 +169,7 @@ class EB_LAPACK(ConfigureMake):
                     self.log.debug("Symlinking %s to %s" % (fromfile, tofile))
                     os.symlink(frompath, topath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcdir, destdir, err)
 
     def load_module(self, mod_paths=None, purge=True):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -62,7 +62,7 @@ class EB_SHRiMP(ConfigureMake):
 
             os.chdir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy files to install dir: %s", err)
 
 

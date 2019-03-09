@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ import re
 import sys
 import tempfile
 from distutils.version import LooseVersion
+from distutils.sysconfig import get_config_vars
 from vsc.utils import fancylogger
 from vsc.utils.missing import nub
 
@@ -134,7 +135,7 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             break
         else:
             log.debug("Python command '%s' does not satisfy version requirements (maj: %s, min: %s), moving on",
-                      req_maj_ver, req_min_ver, python_cmd)
+                      python_cmd, req_maj_ver, req_min_ver)
 
     return res
 
@@ -178,18 +179,21 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
+            'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
+            'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
         })
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
@@ -209,13 +213,26 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
+        self.install_cmd_output = ''
+
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
         home = os.path.expanduser('~')
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
 
+        # use lowercase name as default value for expected module name (used in sanity check)
         if 'modulename' not in self.options:
-            self.options['modulename'] = self.name.lower()
+            self.options['modulename'] = self.name.lower().replace('-', '_')
+            self.log.info("Using default value for expected module name (lowercase software name): '%s'",
+                          self.options['modulename'])
+
+        # only for Python packages installed as extensions:
+        # inherit setting for detection of downloaded dependencies from parent,
+        # if 'download_dep_fail' was left unspecified
+        if self.is_extension and self.cfg.get('download_dep_fail') is None:
+            self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
+            self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
+                          self.cfg['download_dep_fail'])
 
         # determine install command
         self.use_setup_py = False
@@ -240,8 +257,9 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
 
-            # don't (try to) uninstall already availale versions of the package being installed
-            self.cfg.update('installopts', '--ignore-installed')
+            if self.cfg.get('pip_ignore_installed', True):
+                # don't (try to) uninstall already availale versions of the package being installed
+                self.cfg.update('installopts', '--ignore-installed')
 
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
@@ -320,6 +338,7 @@ class PythonPackage(ExtensionEasyBlock):
         # mainly for debugging
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
+
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
             out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
@@ -332,6 +351,13 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("Found pip version %s, OK", pip_version)
                 else:
                     raise EasyBuildError("Need pip version 8.0 or newer, found version %s", pip_version)
+
+                # pip 10.x introduced a nice new "build isolation" feature (enabled by default),
+                # which will download and install in a list of build dependencies specified in a pyproject.toml file
+                # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
+                # since we provide all required dependencies already, we disable this via --no-build-isolation
+                if LooseVersion(pip_version) >= LooseVersion('10.0'):
+                    self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
@@ -390,6 +416,9 @@ class PythonPackage(ExtensionEasyBlock):
     def configure_step(self):
         """Configure Python package build/install."""
 
+        if self.python_cmd is None:
+            self.prepare_python()
+
         if self.sitecfg is not None:
             # used by some extensions, like numpy, to find certain libs
 
@@ -412,6 +441,25 @@ class PythonPackage(ExtensionEasyBlock):
                 config.close()
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+
+        # ensure that LDSHARED uses CC
+        if self.cfg.get('check_ldshared', False):
+            curr_cc = os.getenv('CC')
+            python_ldshared = get_config_vars('LDSHARED')[0]
+            if python_ldshared and curr_cc:
+                if python_ldshared.split(' ')[0] == curr_cc:
+                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
+                                  python_ldshared, curr_cc)
+                else:
+                    self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
+                                  python_ldshared, curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+            else:
+                if curr_cc:
+                    self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+                else:
+                    self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
         run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
@@ -453,7 +501,7 @@ class PythonPackage(ExtensionEasyBlock):
                     testinstalldir = tempfile.mkdtemp()
                     for pylibdir in self.all_pylibdirs:
                         mkdir(os.path.join(testinstalldir, pylibdir), parents=True)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
@@ -472,7 +520,7 @@ class PythonPackage(ExtensionEasyBlock):
             if testinstalldir:
                 try:
                     rmtree2(testinstalldir)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Removing testinstalldir %s failed: %s", testinstalldir, err)
 
     def install_step(self):
@@ -490,7 +538,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        run_cmd(cmd, log_all=True, simple=True)
+        (self.install_cmd_output, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
@@ -520,7 +568,32 @@ class PythonPackage(ExtensionEasyBlock):
             orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
             exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
             kwargs.update({'exts_filter': exts_filter})
-        return super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        success, fail_msg = True, ''
+
+        if self.cfg.get('download_dep_fail', False):
+            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            patterns = [
+                'Downloading .*/packages/.*',  # setuptools
+                'Collecting .* \(from.*',  # pip
+            ]
+            downloaded_deps = []
+            for pattern in patterns:
+                downloaded_deps.extend(re.compile(pattern, re.M).findall(self.install_cmd_output))
+
+            if downloaded_deps:
+                success = False
+                fail_msg = "found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+                self.sanity_check_fail_msgs.append(fail_msg)
+        else:
+            self.log.debug("Detection of downloaded dependencies not enabled")
+
+        parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+
+        if parent_fail_msg:
+            parent_fail_msg += ', '
+
+        return (parent_success and success, parent_fail_msg + fail_msg)
 
     def make_module_req_guess(self):
         """

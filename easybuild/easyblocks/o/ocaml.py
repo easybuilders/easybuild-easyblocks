@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,7 +68,7 @@ class EB_OCaml(ConfigureMake):
 
         try:
             all_dirs = os.listdir(self.builddir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to check contents of %s: %s", self.builddir, err)
 
         opam_dirs = [d for d in all_dirs if d.startswith('opam')]
@@ -78,7 +78,7 @@ class EB_OCaml(ConfigureMake):
             self.with_opam = True
             try:
                 os.chdir(opam_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to %s: %s", opam_dir, err)
 
             run_cmd("./configure --prefix=%s" % self.installdir)

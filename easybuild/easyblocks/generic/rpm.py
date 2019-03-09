@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -73,7 +73,7 @@ def rebuild_rpm(rpm_path, targetdir):
         if not os.path.exists(targetdir):
             os.makedirs(targetdir)
             _log.debug("Created target directory for rebuilt RPMs %s" % targetdir)
-    except OSError, err:
+    except OSError as err:
         raise EasyBuildError("Failed to create directories for rebuilding RPM: %s", err)
 
     _log.debug("Rebuilding %s in %s to make it relocatable" % (rpm_path, targetdir))

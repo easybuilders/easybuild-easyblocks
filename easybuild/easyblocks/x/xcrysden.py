@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,7 +63,7 @@ class EB_XCrySDen(ConfigureMake):
         makesys_file = "Make.sys"
         try:
             shutil.copy2(makesys_tpl_file, makesys_file)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy %s: %s", makesys_tpl_file, err)
 
         self.tclroot = get_software_root("Tcl")

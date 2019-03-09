@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,11 +35,11 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 """
 
 import os
-import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -57,11 +57,11 @@ class EB_MrBayes(ConfigureMake):
 
             # set correct start_dir dir, and change into it
             # test whether it already contains 'src', since a reprod easyconfig would
-            if not self.cfg['start_dir'].endswith('src'):
+            if os.path.basename(self.cfg['start_dir']) != 'src':
                 self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
             try:
                 os.chdir(self.cfg['start_dir'])
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to correct source dir %s: %s", self.cfg['start_dir'], err)
 
             # run autoconf to generate configure script
@@ -91,24 +91,19 @@ class EB_MrBayes(ConfigureMake):
         """Install by copying bniaries to install dir."""
 
         bindir = os.path.join(self.installdir, 'bin')
-        os.makedirs(bindir)
+        mkdir(bindir)
 
-        for exe in ['mb']:
-            src = os.path.join(self.cfg['start_dir'], exe)
-            dst = os.path.join(bindir, exe)
-            try:
-                shutil.copy2(src, dst)
-                self.log.info("Successfully copied %s to %s" % (src, dst))
-            except (IOError,OSError), err:
-                raise EasyBuildError("Failed to copy %s to %s (%s)", src, dst, err)
+        src = os.path.join(self.cfg['start_dir'], 'mb')
+        dst = os.path.join(bindir, 'mb')
+        copy_file(src, dst)
+        self.log.info("Successfully copied %s to %s", src, dst)
 
     def sanity_check_step(self):
         """Custom sanity check for MrBayes."""
 
         custom_paths = {
-                        'files': ["bin/mb"],
-                        'dirs': []
-                       }
+            'files': ["bin/mb"],
+            'dirs': [],
+        }
 
         super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths)
-

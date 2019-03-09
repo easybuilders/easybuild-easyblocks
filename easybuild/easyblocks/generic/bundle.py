@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import copy
 import os
 
 import easybuild.tools.environment as env
@@ -47,14 +48,17 @@ class Bundle(EasyBlock):
     """
 
     @staticmethod
-    def extra_options():
-        extra_vars = {
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to bundles."""
+        if extra_vars is None:
+            extra_vars = {}
+        extra_vars.update({
             'altroot': [None, "Software name of dependency to use to define $EBROOT for this bundle", CUSTOM],
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
-        }
+        })
         return EasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -76,8 +80,24 @@ class Bundle(EasyBlock):
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
 
-        for comp_name, comp_version, comp_specs in self.cfg['components']:
+        for comp in self.cfg['components']:
+            comp_name, comp_version, comp_specs = comp[0], comp[1], {}
+            if len(comp) == 3:
+                comp_specs = comp[2]
+
             cfg = self.cfg.copy()
+
+            easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
+            if easyblock is None:
+                raise EasyBuildError("No easyblock specified for component %s v%s", cfg['name'], cfg['version'])
+            elif easyblock == 'Bundle':
+                raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
+
+            cfg.easyblock = get_easyblock_class(easyblock, name=cfg['name'])
+
+            # make sure that extra easyconfig parameters are known, so they can be set
+            extra_opts = cfg.easyblock.extra_options()
+            cfg.extend_params(copy.deepcopy(extra_opts))
 
             cfg['name'] = comp_name
             cfg['version'] = comp_version
@@ -124,6 +144,19 @@ class Bundle(EasyBlock):
 
         self.cfg.enable_templating = True
 
+    def check_checksums(self):
+        """
+        Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
+
+        :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
+        """
+        checksum_issues = []
+
+        for comp in self.comp_cfgs:
+            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+
+        return checksum_issues
+
     def configure_step(self):
         """Collect altroot/altversion info."""
         # pick up altroot/altversion, if they are defined
@@ -142,20 +175,18 @@ class Bundle(EasyBlock):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
         for idx, cfg in enumerate(self.comp_cfgs):
-            easyblock = cfg.get('easyblock') or self.cfg['default_easyblock']
-            if easyblock is None:
-                raise EasyBuildError("No easyblock specified for component %s v%s", cfg['name'], cfg['version'])
-            elif easyblock == 'Bundle':
-                raise EasyBuildError("The '%s' easyblock can not be used to install components in a bundle", easyblock)
 
             print_msg("installing bundle component %s v%s (%d/%d)..." % (cfg['name'], cfg['version'], idx+1, comp_cnt))
-            self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], easyblock)
+            self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
 
-            comp = get_easyblock_class(easyblock, name=cfg['name'])(cfg)
+            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
             comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
+
+            # make sure we can build in parallel
+            comp.set_parallel()
 
             # figure out correct start directory
             comp.guess_start_dir()
