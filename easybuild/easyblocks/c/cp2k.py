@@ -41,7 +41,6 @@ import fileinput
 import glob
 import re
 import os
-import shutil
 import sys
 from distutils.version import LooseVersion
 
@@ -50,7 +49,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import copy_dir, copy_file, mkdir, search_file, write_file
+from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -260,10 +259,7 @@ class EB_CP2K(EasyBlock):
             modincpath = os.path.join(os.path.dirname(os.path.normpath(self.cfg['start_dir'])), 'modinc')
             self.log.debug("Preparing module files in %s" % modincpath)
 
-            try:
-                os.mkdir(modincpath)
-            except OSError as err:
-                raise EasyBuildError("Failed to create directory for module include files: %s", err)
+            mkdir(modincpath, parents=True)
 
             # get list of modinc source files
             modincdir = os.path.join(imkl, self.cfg["modincprefix"], 'include')
@@ -387,7 +383,7 @@ class EB_CP2K(EasyBlock):
                     path = os.path.join(self.cfg['start_dir'], path)
                     if os.path.isdir(path):
                         libinttools_path = path
-                        os.chdir(libinttools_path)
+                        change_dir(libinttools_path)
                 if not libinttools_path:
                     raise EasyBuildError("No libinttools dir found")
 
@@ -413,7 +409,6 @@ class EB_CP2K(EasyBlock):
         else:
             # throw a warning, since CP2K without Libint doesn't make much sense
             self.log.warning("Libint module not loaded, so building without Libint support")
-
 
         libxc = get_software_root('libxc')
         if libxc:
@@ -621,10 +616,7 @@ class EB_CP2K(EasyBlock):
         """
 
         makefiles = os.path.join(self.cfg['start_dir'], 'makefiles')
-        try:
-            os.chdir(makefiles)
-        except OSError as err:
-            raise EasyBuildError("Can't change to makefiles dir %s: %s", makefiles, err)
+        change_dir(makefiles)
 
         # modify makefile for parallel build
         parallel = self.cfg['parallel']
@@ -648,7 +640,7 @@ class EB_CP2K(EasyBlock):
         # clean first
         run_cmd(cmd + " clean", log_all=True, simple=True, log_output=True)
 
-        #build_and_install
+        # build and install
         if self.cfg['library']:
             cmd += ' libcp2k'
         run_cmd(cmd + " all", log_all=True, simple=True, log_output=True)
@@ -666,10 +658,7 @@ class EB_CP2K(EasyBlock):
                 setvar('OMP_NUM_THREADS', self.cfg['omp_num_threads'])
 
             # change to root of build dir
-            try:
-                os.chdir(self.builddir)
-            except OSError as err:
-                raise EasyBuildError("Failed to change to %s: %s", self.builddir, err)
+            change_dir(self.builddir)
 
             # use regression test reference output if available
             # try and find an unpacked directory that starts with 'LAST-'
