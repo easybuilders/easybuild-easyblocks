@@ -240,6 +240,9 @@ class EB_CP2K(EasyBlock):
 
         options['LIBS'] = "-Wl,--start-group %s -Wl,--end-group" % options['LIBS']
 
+        # specify correct location for 'data' directory in final installation
+        options['DATA_DIR'] = os.path.join(self.installdir, 'data')
+
         # create arch file using options set
         archfile = os.path.join(self.cfg['start_dir'], 'arch', '%s.%s' % (self.typearch, self.cfg['type']))
         txt = self._generate_makefile(options)
@@ -650,6 +653,11 @@ class EB_CP2K(EasyBlock):
 
         if self.cfg['runtest']:
 
+            # we need to specify location of 'data' directory in *build* dir,
+            # since we've configured CP2K to look into the installation directory
+            # (where 'data' will be copied to in install step)
+            setvar('CP2K_DATA_DIR', os.path.join(self.cfg['start_dir'], 'data'))
+
             if not build_option('mpi_tests'):
                 self.log.info("Skipping testing of CP2K since MPI testing is disabled")
                 return
@@ -859,12 +867,3 @@ class EB_CP2K(EasyBlock):
             custom_paths['files'].append(os.path.join('include', 'libcp2k.h'))
             custom_paths['files'].append(os.path.join('include', 'libcp2k.mod'))
         super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Set up a CP2K_DATA_DIR environment variable to find CP2K provided basis sets"""
-
-        txt = super(EB_CP2K, self).make_module_extra()
-        datadir = os.path.join(self.installdir, 'data')
-        if os.path.exists(datadir):
-            txt += self.module_generator.set_environment('CP2K_DATA_DIR', datadir)
-        return txt
