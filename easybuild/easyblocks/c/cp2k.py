@@ -867,3 +867,17 @@ class EB_CP2K(EasyBlock):
             custom_paths['files'].append(os.path.join('include', 'libcp2k.h'))
             custom_paths['files'].append(os.path.join('include', 'libcp2k.mod'))
         super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Set up a CP2K_DATA_DIR environment variable to find CP2K provided basis sets"""
+
+        txt = super(EB_CP2K, self).make_module_extra()
+
+        # also define $CP2K_DATA_DIR in module,
+        # even though CP2K was already configured to pick up 'data' from install dir
+        # this could be useful for users to access the 'data' dir in a documented way (and it doesn't hurt)
+        datadir = os.path.join(self.installdir, 'data')
+        if os.path.exists(datadir):
+            txt += self.module_generator.set_environment('CP2K_DATA_DIR', datadir)
+
+        return txt
