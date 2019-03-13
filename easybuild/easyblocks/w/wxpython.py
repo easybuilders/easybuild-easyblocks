@@ -47,7 +47,10 @@ class EB_wxPython(PythonPackage):
         if LooseVersion(self.version) >= LooseVersion("4"):
             prebuild_opts = self.cfg['prebuildopts']
             script = 'build.py'
-            wxflag = ''
+            self.wxflag = ''
+            if get_software_root('wxWidgets'):
+                self.wxflag = '--use_syswx'
+
             BUILD_CMD = "%(prebuild_opts)s %(pycmd)s %(script)s --prefix=%(prefix)s -v"
             base_cmd = BUILD_CMD % {
                 'prebuild_opts': prebuild_opts,
@@ -55,13 +58,13 @@ class EB_wxPython(PythonPackage):
                 'script': script,
                 'prefix': self.installdir,
             }
-            if get_software_root('wxWidgets'):
-                wxflag = '--use_syswx'
-            else:
+
+            # Do we need to build wxWidgets inetrnally?
+            if self.wxflag == '':
                 cmd = base_cmd + " build_wx"
                 run_cmd(cmd, log_all=True, simple=True)
 
-            cmd = base_cmd + " %s build_py" % wxflag
+            cmd = base_cmd + " %s build_py" % self.wxflag
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
@@ -70,9 +73,6 @@ class EB_wxPython(PythonPackage):
         preinst_opts = self.cfg['preinstallopts']
         INSTALL_CMD = "%(preinst_opts)s %(pycmd)s %(script)s --prefix=%(prefix)s"
         if LooseVersion(self.version) >= LooseVersion("4"):
-            wxflag = ''
-            if get_software_root('wxWidgets'):
-                wxflag = '--use_syswx'
             script = 'build.py'
             cmd = INSTALL_CMD % {
                 'preinst_opts': preinst_opts,
@@ -80,7 +80,7 @@ class EB_wxPython(PythonPackage):
                 'script': script,
                 'prefix': self.installdir,
             }
-            cmd = cmd + " %s -v install" % wxflag
+            cmd = cmd + " %s -v install" % self.wxflag
         else:
             script = os.path.join('wxPython', 'build-wxpython.py')
             cmd = INSTALL_CMD % {
