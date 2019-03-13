@@ -105,7 +105,7 @@ class EB_Scalasca1(ConfigureMake):
                     os.chdir(entry)
                     build_dir_found = True
                     self.log.info("Stepped into build dir %s" % entry)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to step into build dir before starting actual build: %s", err)
         if not build_dir_found:
             raise EasyBuildError("Could not find build dir to step into.")

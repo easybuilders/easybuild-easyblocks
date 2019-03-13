@@ -62,7 +62,7 @@ class EB_SHRiMP(ConfigureMake):
 
             os.chdir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy files to install dir: %s", err)
 
 

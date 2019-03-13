@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, rmtree2
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -229,7 +229,7 @@ class EB_imkl(IntelBase):
                     f.write(txt)
                     f.close()
                     self.log.info("File %s written" % dest)
-                except IOError, err:
+                except IOError as err:
                     raise EasyBuildError("Can't write file %s: %s", dest, err)
 
         # build the mkl interfaces, if desired
@@ -253,11 +253,8 @@ class EB_imkl(IntelBase):
             fftw3libs = ['fftw3xc', 'fftw3xf']
 
             interfacedir = os.path.join(self.installdir, intsubdir)
-            try:
-                os.chdir(interfacedir)
-                self.log.info("Changed to interfaces directory %s" % interfacedir)
-            except OSError, err:
-                raise EasyBuildError("Can't change to interfaces directory %s", interfacedir)
+            change_dir(interfacedir)
+            self.log.info("Changed to interfaces directory %s", interfacedir)
 
             compopt = None
             # determine whether we're using a non-Intel GCC-based or PGI-based toolchain
@@ -330,7 +327,7 @@ class EB_imkl(IntelBase):
                         intdir = os.path.join(interfacedir, lib)
                         os.chdir(intdir)
                         self.log.info("Changed to interface %s directory %s" % (lib, intdir))
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Can't change to interface %s directory %s: %s", lib, intdir, err)
 
                     fullcmd = "%s %s" % (cmd, ' '.join(buildopts + extraopts))
@@ -349,7 +346,7 @@ class EB_imkl(IntelBase):
                             if os.path.isfile(src):
                                 shutil.move(src, dest)
                                 self.log.info("Moved %s to %s" % (src, dest))
-                        except OSError, err:
+                        except OSError as err:
                             raise EasyBuildError("Failed to move %s to %s: %s", src, dest, err)
 
                     rmtree2(tmpbuild)

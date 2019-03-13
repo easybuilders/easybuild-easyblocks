@@ -53,7 +53,7 @@ class EB_ant(PackedBinary):
         try:
             shutil.copy(os.path.join(junit_root, 'junit-%s.jar' % junit_ver),
                         os.path.join(os.getcwd(), "lib", "optional"))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy JUnit jar: %s", err)
 
         cmd = "sh build.sh -Ddist.dir=%s dist" % self.installdir

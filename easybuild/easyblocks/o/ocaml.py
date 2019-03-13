@@ -104,7 +104,7 @@ class EB_OCaml(ConfigureMake):
 
         try:
             all_dirs = os.listdir(self.builddir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to check contents of %s: %s", self.builddir, err)
 
         opam_dirs = [d for d in all_dirs if d.startswith('opam')]

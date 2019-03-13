@@ -429,7 +429,7 @@ class EB_WIEN2k(EasyBlock):
                 os.chdir(cwd)
                 rmtree2(tmpdir)
 
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to run WIEN2k benchmark tests: %s", err)
 
             self.log.debug("Current dir: %s" % os.getcwd())
@@ -459,7 +459,7 @@ class EB_WIEN2k(EasyBlock):
 
                 os.chdir(tmpdir)
                 self.log.info("Running test case %s in %s" % (test_name, tmpdir))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create temporary directory for test %s: %s", test_name, err)
 
             # try and find struct file for test
@@ -467,7 +467,7 @@ class EB_WIEN2k(EasyBlock):
 
             try:
                 shutil.copy2(test_fp, tmpdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy %s: %s", test_fp, err)
 
             # run test
@@ -492,7 +492,7 @@ class EB_WIEN2k(EasyBlock):
             try:
                 os.chdir(cwd)
                 rmtree2(tmpdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to clean up temporary test dir: %s", err)
 
     def install_step(self):

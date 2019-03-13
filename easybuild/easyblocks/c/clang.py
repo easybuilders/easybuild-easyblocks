@@ -175,7 +175,7 @@ class EB_Clang(CMakeMake):
                     old_path = os.path.join(src['finalpath'], dirname)
                     try:
                         shutil.move(old_path, new_path)
-                    except IOError, err:
+                    except IOError as err:
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
@@ -358,7 +358,7 @@ class EB_Clang(CMakeMake):
                 mandir = os.path.join(self.installdir, 'share', 'man', 'man1')
                 os.makedirs(mandir)
                 shutil.copy2(os.path.join(tools_src_dir, 'scan-build', 'scan-build.1'), mandir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
     def sanity_check_step(self):

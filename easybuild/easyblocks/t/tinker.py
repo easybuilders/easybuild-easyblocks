@@ -92,7 +92,7 @@ class EB_TINKER(EasyBlock):
         source_dir = os.path.join(self.cfg['start_dir'], 'source')
         try:
             os.chdir(source_dir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s", source_dir, err)
 
         run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'compile.make'))
@@ -113,12 +113,12 @@ class EB_TINKER(EasyBlock):
                     shutil.copy2(binary, os.path.join(tmpdir, 'bin', os.path.basename(binary)[:-2]))
                 shutil.copytree(os.path.join(self.cfg['start_dir'], 'test'), testdir)
                 shutil.copytree(os.path.join(self.cfg['start_dir'], 'params'), os.path.join(tmpdir, 'params'))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy binaries and tests to %s: %s", tmpdir, err)
 
             try:
                 os.chdir(testdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to %s to run tests: %s", testdir, err)
 
             # run all tests via the provided 'run' scripts
@@ -133,7 +133,7 @@ class EB_TINKER(EasyBlock):
         source_dir = os.path.join(self.cfg['start_dir'], 'source')
         try:
             os.chdir(source_dir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s", source_dir, err)
 
         mkdir(os.path.join(self.cfg['start_dir'], 'bin'))

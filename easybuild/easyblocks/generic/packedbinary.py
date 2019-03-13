@@ -58,6 +58,6 @@ class PackedBinary(Binary, EasyBlock):
                     shutil.copy2(srcpath, self.installdir)
                 else:
                     raise EasyBuildError("Path %s is not a file nor a directory?", srcpath)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy unpacked sources to install directory: %s", err)
 
