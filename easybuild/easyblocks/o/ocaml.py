@@ -44,14 +44,17 @@ OPAM_SUBDIR = 'opam'
 def det_opam_version():
     """Determine OPAM version (using 'opam --version')."""
 
+    opam_ver = None
+
     opam_version_cmd = 'opam --version'
     (out, ec) = run_cmd(opam_version_cmd)
     if ec == 0:
         res = re.search('^[0-9.]+$', out.strip())
         if res:
             opam_ver = res.group(0)
-        else:
-            raise EasyBuildError("Failed to determine OPAM version using '%s'!", opam_version_cmd)
+
+    if opam_ver is None:
+        raise EasyBuildError("Failed to determine OPAM version using '%s'!", opam_version_cmd)
 
     return opam_ver
 
