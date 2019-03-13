@@ -97,7 +97,7 @@ class EB_CP2K(EasyBlock):
                              "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use "
                             "all found at given prefix"), CUSTOM],
-            'modincprefix': ['', "IMKL prefix for modinc include dir", CUSTOM],
+            'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
             'plumed': [None, "Enable PLUMED support", CUSTOM],
@@ -182,8 +182,8 @@ class EB_CP2K(EasyBlock):
         else:
             raise EasyBuildError("Don't know how to tweak configuration for compiler family %s" % comp_fam)
 
-        # BLAS/FFTW
-        if get_software_root('IMKL'):
+        # BLAS/LAPACK/FFTW
+        if get_software_root('imkl'):
             options = self.configure_MKL(options)
         else:
             # BLAS
@@ -196,12 +196,12 @@ class EB_CP2K(EasyBlock):
             if 'fftw3' in os.getenv('LIBFFT', ''):
                 options = self.configure_FFTW3(options)
 
-        # LAPACK
-        if os.getenv('LIBLAPACK_MT', None) is not None:
-            options = self.configure_LAPACK(options)
+            # LAPACK
+            if os.getenv('LIBLAPACK_MT', None) is not None:
+                options = self.configure_LAPACK(options)
 
-        if os.getenv('LIBSCALAPACK', None) is not None:
-            options = self.configure_ScaLAPACK(options)
+            if os.getenv('LIBSCALAPACK', None) is not None:
+                options = self.configure_ScaLAPACK(options)
 
         # PLUMED
         plumed = get_software_root('PLUMED')
@@ -254,7 +254,7 @@ class EB_CP2K(EasyBlock):
 
         self.log.debug("Preparing module files")
 
-        imkl = get_software_root('IMKL')
+        imkl = get_software_root('imkl')
 
         if imkl:
 
@@ -294,7 +294,7 @@ class EB_CP2K(EasyBlock):
 
             return modincpath
         else:
-            raise EasyBuildError("Don't know how to prepare modinc, IMKL not found")
+            raise EasyBuildError("Don't know how to prepare modinc, imkl not found")
 
     def configure_common(self):
         """Common configuration for all toolchains"""
@@ -698,7 +698,8 @@ class EB_CP2K(EasyBlock):
             else:
                 self.log.info("No reference output found for regression test, just continuing without it...")
 
-            test_core_cnt = min(self.cfg.get('parallel', sys.maxint), 2)
+            # prefer using 4 cores, since some tests require/prefer square (n^2) numbers or powers of 2 (2^n)
+            test_core_cnt = min(self.cfg.get('parallel', sys.maxint), 4)
             if get_avail_core_count() < test_core_cnt:
                 raise EasyBuildError("Cannot run MPI tests as not enough cores (< %s) are available", test_core_cnt)
             else:
