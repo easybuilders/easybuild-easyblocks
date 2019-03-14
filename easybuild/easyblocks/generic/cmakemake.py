@@ -44,6 +44,9 @@ from easybuild.tools.run import run_cmd
 from vsc.utils.missing import nub
 
 
+DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
 
@@ -52,7 +55,7 @@ class CMakeMake(ConfigureMake):
         """Define extra easyconfig parameters specific to CMakeMake."""
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
-            'configure_cmd': ['cmake', "Configure command to use", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
@@ -113,7 +116,7 @@ class CMakeMake(ConfigureMake):
 
         command = ' '.join([
             self.cfg['preconfigopts'],
-            self.cfg['configure_cmd'],
+            self.cfg.get('configure_cmd', DEFAULT_CONFIGURE_CMD),
             options_string,
             self.cfg['configopts'],
             srcdir])
