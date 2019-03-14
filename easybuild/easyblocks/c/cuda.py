@@ -82,7 +82,7 @@ class EB_CUDA(Binary):
             install_script = "./cuda-installer"
             # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
             self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
-            self.installdir, self.installdir))
+                            self.installdir, self.installdir))
 
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
