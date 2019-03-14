@@ -56,16 +56,16 @@ class EB_CUTEst(EasyBlock):
 
         self.matlab_root = None
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Custom prepare step for CUTEst."""
-        super(EB_CUTEst, self).prepare_step()
+        super(EB_CUTEst, self).prepare_step(*args, **kwargs)
 
         # determine subdirectories for each component
         for comp in COMPONENTS:
             paths = glob.glob(os.path.join(self.installdir, comp + '-*'))
             if len(paths) == 1:
                 self.subdirs[comp] = os.path.basename(paths[0])
-            else:
+            elif not self.dry_run:
                 raise EasyBuildError("Failed to isolate %s subdirectory: %s", comp, paths)
 
         self.matlab_root = get_software_root('MATLAB')
