@@ -59,7 +59,7 @@ class EB_wxPython(PythonPackage):
                 'prefix': self.installdir,
             }
 
-            # Do we need to build wxWidgets inetrnally?
+            # Do we need to build wxWidgets internally?
             if self.wxflag == '':
                 cmd = base_cmd + " build_wx"
                 run_cmd(cmd, log_all=True, simple=True)
