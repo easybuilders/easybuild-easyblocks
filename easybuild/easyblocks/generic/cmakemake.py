@@ -103,7 +103,7 @@ class CMakeMake(ConfigureMake):
         for env_name, option in env_to_options.items():
             value = os.getenv(env_name)
             if value is not None:
-                if option.endswith('_COMPILER') and self.cfg['abs_path_compilers']:
+                if option.endswith('_COMPILER') and self.cfg.get('abs_path_compilers', False):
                     value = which(value)
                     self.log.info("Using absolute path to compiler command: %s", value)
                 options.append("-D%s='%s'" % (option, value))
