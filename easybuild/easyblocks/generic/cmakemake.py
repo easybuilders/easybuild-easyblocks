@@ -31,6 +31,7 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 import os
 
@@ -43,6 +44,9 @@ from easybuild.tools.run import run_cmd
 from vsc.utils.missing import nub
 
 
+DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
 
@@ -52,6 +56,7 @@ class CMakeMake(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
@@ -113,7 +118,12 @@ class CMakeMake(ConfigureMake):
 
         options_string = ' '.join(options)
 
-        command = ' '.join([self.cfg['preconfigopts'], 'cmake', options_string, self.cfg['configopts'], srcdir])
+        command = ' '.join([
+            self.cfg['preconfigopts'],
+            self.cfg.get('configure_cmd', DEFAULT_CONFIGURE_CMD),
+            options_string,
+            self.cfg['configopts'],
+            srcdir])
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out

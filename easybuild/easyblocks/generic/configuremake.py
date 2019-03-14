@@ -32,6 +32,7 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Toon Willems (Ghent University)
+@author: Maxime Boissonneault (Compute Canada - Universite Laval)
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 import os
@@ -59,6 +60,11 @@ CONFIG_GUESS_COMMIT_ID = "59e2ce0e6b46bb47ef81b68b600ed087e14fdaad"
 CONFIG_GUESS_SHA256 = "c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2cbffc74c"
 
 
+DEFAULT_CONFIGURE_CMD = './configure'
+DEFAULT_BUILD_CMD = 'make'
+DEFAULT_INSTALL_CMD = 'make install'
+
+
 class ConfigureMake(EasyBlock):
     """
     Support for building and installing applications with configure/make/make install
@@ -69,15 +75,18 @@ class ConfigureMake(EasyBlock):
         """Extra easyconfig parameters specific to ConfigureMake."""
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
-            'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
-            'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
-            'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
+            'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'build_type': [None, "Value to provide to --build option of configure script, e.g., x86_64-pc-linux-gnu "
                                  "(determined by config.guess shipped with EasyBuild if None,"
                                  " False implies to leave it up to the configure script)", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
             'host_type': [None, "Value to provide to --host option of configure script, e.g., x86_64-pc-linux-gnu "
                                 "(determined by config.guess shipped with EasyBuild if None,"
                                 " False implies to leave it up to the configure script)", CUSTOM],
+            'install_cmd': [DEFAULT_INSTALL_CMD, "Build command to use", CUSTOM],
+            'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
+            'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
         })
         return extra_vars
 
@@ -199,7 +208,7 @@ class ConfigureMake(EasyBlock):
         if prefix_opt is None:
             prefix_opt = '--prefix='
 
-        configure_command = cmd_prefix + './configure'
+        configure_command = cmd_prefix + self.cfg.get('configure_cmd', DEFAULT_CONFIGURE_CMD)
 
         # avoid using config.guess from an Autoconf generated package as it is frequently out of date;
         # use the version downloaded by EasyBuild instead, and provide the result to the configure command;
@@ -265,7 +274,12 @@ class ConfigureMake(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            self.cfg.get('build_cmd', DEFAULT_BUILD_CMD),
+            paracmd,
+            self.cfg['buildopts'],
+        ])
 
         (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 
@@ -289,7 +303,11 @@ class ConfigureMake(EasyBlock):
         - typical: make install
         """
 
-        cmd = "%s make install %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            self.cfg.get('install_cmd', DEFAULT_INSTALL_CMD),
+            self.cfg['installopts'],
+        ])
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
