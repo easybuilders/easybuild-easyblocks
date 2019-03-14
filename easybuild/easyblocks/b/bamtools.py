@@ -44,10 +44,12 @@ class EB_BamTools(MakeCp, CMakeMake):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters for BamTools."""
-        extra = MakeCp.extra_options()
+        extra_vars = MakeCp.extra_options()
+
         # files_to_copy is not mandatory here, since we overwrite it in install_step
-        extra['files_to_copy'][2] = CUSTOM
-        return extra
+        extra_vars['files_to_copy'][2] = CUSTOM
+
+        return CMakeMake.extra_options(extra_vars=extra_vars)
 
     def configure_step(self):
         """Configure BamTools build."""
