@@ -42,7 +42,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import symlink
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -51,6 +51,21 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
+
+SITECUSTOMIZE = """import sys
+import os
+import site
+
+# use prefixes from EBPYTHONPREFIXES, so they have lower priority than
+# virtualenv-installed packages, unlike PYTHONPATH
+
+if "EBPYTHONPREFIXES" in os.environ:
+    postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
+    for prefix in os.environ["EBPYTHONPREFIXES"].split(os.pathsep):
+        sitedir = os.path.join(prefix, postfix)
+        if os.path.isdir(sitedir):
+            site.addsitedir(sitedir)
+"""
 
 
 class EB_Python(ConfigureMake):
@@ -70,6 +85,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+            'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -78,6 +94,8 @@ class EB_Python(ConfigureMake):
         super(EB_Python, self).__init__(*args, **kwargs)
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
+        if self.cfg['ebpythonprefixes']:
+            self.pythonpath = os.path.join('easybuild', 'python')
 
     def prepare_for_extensions(self):
         """
@@ -190,6 +208,9 @@ class EB_Python(ConfigureMake):
         if not os.path.isfile(python_binary_path):
             symlink(python_binary_path + self.pyshortver, python_binary_path)
 
+        if self.cfg['ebpythonprefixes']:
+            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -254,3 +275,11 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self, *args, **kwargs):
+        """Add path to site.py to PYTHONPATH"""
+        txt = super(EB_Python, self).make_module_extra()
+        if self.cfg['ebpythonprefixes']:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
+
+        return txt
