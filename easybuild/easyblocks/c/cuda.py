@@ -69,15 +69,24 @@ class EB_CUDA(Binary):
         # define how to run the installer
         # script has /usr/bin/perl hardcoded, but we want to have control over which perl is being used
         if LooseVersion(self.version) <= LooseVersion("5"):
+            install_interpreter = "perl"
             install_script = "install-linux.pl"
             self.cfg.update('installopts', '--prefix=%s' % self.installdir)
-        else:
+        elif LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("10.1"):
+            install_interpreter = "perl"
             install_script = "cuda-installer.pl"
             # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
+        else:
+            install_interpreter = ""
+            install_script = "./cuda-installer"
+            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
+                            self.installdir, self.installdir))
 
-        cmd = "%(preinstallopts)s perl %(script)s %(installopts)s" % {
+        cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
+            'interpreter': install_interpreter,
             'script': install_script,
             'installopts': self.cfg['installopts']
         }
@@ -97,7 +106,8 @@ class EB_CUDA(Binary):
         ]
 
         # patch install script to handle Q&A autonomously
-        patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
+        if install_interpreter == "perl":
+            patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
         # this is workaround for not being able to specify --nox11 to the Perl install scripts
