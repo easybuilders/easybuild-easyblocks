@@ -208,7 +208,7 @@ class ConfigureMake(EasyBlock):
         if prefix_opt is None:
             prefix_opt = '--prefix='
 
-        configure_command = cmd_prefix + self.cfg.get('configure_cmd', DEFAULT_CONFIGURE_CMD)
+        configure_command = cmd_prefix + (self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD)
 
         # avoid using config.guess from an Autoconf generated package as it is frequently out of date;
         # use the version downloaded by EasyBuild instead, and provide the result to the configure command;
@@ -276,7 +276,7 @@ class ConfigureMake(EasyBlock):
 
         cmd = ' '.join([
             self.cfg['prebuildopts'],
-            self.cfg.get('build_cmd', DEFAULT_BUILD_CMD),
+            self.cfg.get('build_cmd') or DEFAULT_BUILD_CMD,
             paracmd,
             self.cfg['buildopts'],
         ])
@@ -305,7 +305,7 @@ class ConfigureMake(EasyBlock):
 
         cmd = ' '.join([
             self.cfg['preinstallopts'],
-            self.cfg.get('install_cmd', DEFAULT_INSTALL_CMD),
+            self.cfg.get('install_cmd') or DEFAULT_INSTALL_CMD,
             self.cfg['installopts'],
         ])
 

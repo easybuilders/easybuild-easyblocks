@@ -120,7 +120,7 @@ class CMakeMake(ConfigureMake):
 
         command = ' '.join([
             self.cfg['preconfigopts'],
-            self.cfg.get('configure_cmd', DEFAULT_CONFIGURE_CMD),
+            self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD,
             options_string,
             self.cfg['configopts'],
             srcdir])
