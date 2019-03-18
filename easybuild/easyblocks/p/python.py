@@ -30,6 +30,7 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
 import glob
 import os
@@ -41,6 +42,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_cmd
@@ -52,20 +54,39 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
 
-SITECUSTOMIZE = """import sys
+EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
+
+SITECUSTOMIZE = """
+# sitecustomize.py script installed by EasyBuild,
+# to support picking up Python packages which were installed
+# for multiple Python versions in the same directory
+
 import os
 import site
+import sys
 
-# use prefixes from EBPYTHONPREFIXES, so they have lower priority than
-# virtualenv-installed packages, unlike PYTHONPATH
+# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 
-if "EBPYTHONPREFIXES" in os.environ:
+# use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
+# virtualenv-installed packages, unlike $PYTHONPATH
+
+ebpythonprefixes = os.getenv('%(EBPYTHONPREFIXES)s')
+
+if ebpythonprefixes:
     postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
-    for prefix in os.environ["EBPYTHONPREFIXES"].split(os.pathsep):
+    if debug:
+        print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
+
+    for prefix in ebpythonprefixes.split(os.pathsep):
+        if debug:
+            print("[%(EBPYTHONPREFIXES)s] prefix: %%s" %% prefix)
         sitedir = os.path.join(prefix, postfix)
         if os.path.isdir(sitedir):
+            if debug:
+                print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
             site.addsitedir(sitedir)
-"""
+""" % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
 
 
 class EB_Python(ConfigureMake):
@@ -94,8 +115,11 @@ class EB_Python(ConfigureMake):
         super(EB_Python, self).__init__(*args, **kwargs)
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
+
+        self.pythonpath = None
         if self.cfg['ebpythonprefixes']:
-            self.pythonpath = os.path.join('easybuild', 'python')
+            easybuild_subdir = log_path()
+            self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
     def prepare_for_extensions(self):
         """
@@ -277,9 +301,10 @@ class EB_Python(ConfigureMake):
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, *args, **kwargs):
-        """Add path to site.py to PYTHONPATH"""
+        """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
-        if self.cfg['ebpythonprefixes']:
+
+        if self.pythonpath:
             txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
 
         return txt
