@@ -58,6 +58,8 @@ class EB_Perl(ConfigureMake):
             '-Dcc="{0}"'.format(os.getenv('CC')),
             '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
             '-Dinc_version_list=none',
+            # Guarantee that scripts are installed in the installation directory (and not in a guessed path)
+            '-Dscriptdirexp="{0}"/bin'.format(self.installdir),
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
