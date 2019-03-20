@@ -153,10 +153,13 @@ class EB_SAMtools(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for SAMtools."""
+
+        bins = [os.path.join('bin', os.path.basename(f)) for f in self.bin_files]
+        incs = [os.path.join('include', 'bam', os.path.basename(f)) for f in self.include_files]
+        libs = [os.path.join('lib', os.path.basename(f)) for f in self.lib_files]
+
         custom_paths = {
-            'files': [os.path.join('bin', os.path.basename(f)) for f in self.bin_files] +
-                     [os.path.join('include', 'bam', f) for f in self.include_files] +
-                     [os.path.join('lib', os.path.basename(f)) for f in self.lib_files],
+            'files': bins + incs + libs,
             'dirs': [os.path.join('include', os.path.basename(d)) for d in self.include_dirs],
         }
         super(EB_SAMtools, self).sanity_check_step(custom_paths=custom_paths)
