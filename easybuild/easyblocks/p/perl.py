@@ -60,6 +60,8 @@ class EB_Perl(ConfigureMake):
             '-Dinc_version_list=none',
             # Guarantee that scripts are installed in the installation directory (and not in a guessed path)
             '-Dscriptdirexp="{0}"/bin'.format(self.installdir),
+            '-Dscriptdir="{0}"/bin'.format(self.installdir),
+            '-Dinstallscript="{0}"/bin'.format(self.installdir),
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
