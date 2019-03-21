@@ -27,6 +27,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
+@author: Grigory Shamov (ComputeCanada, UManitoba)
 """
 import fileinput
 import os
@@ -63,6 +64,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if LooseVersion(self.version) >= LooseVersion("6"):
             self.install_subdir = "qe-%s" % self.version
+            #GAS using release tarball from GitHub for 6.4
+            if LooseVersion(self.version) >= LooseVersion("6.4"):
+        	self.install_subdir = "qe_release_%s" % self.version
         else:
             self.install_subdir = "espresso-%s" % self.version
 
@@ -346,12 +350,21 @@ class EB_QuantumESPRESSO(ConfigureMake):
         upftools = []
         if 'upf' in targets or 'all' in targets:
             upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                        "virtual.x"]
+                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",] 
+                        #GAS virtual.x is no longer a thing in 6.4
             if LooseVersion(self.version) > LooseVersion("5"):
                 upftools.extend(["interpolate.x", "upf2casino.x"])
             if LooseVersion(self.version) >= LooseVersion("6.3"):
                 upftools.extend(["fix_upf.x"])
+            if LooseVersion(self.version) < LooseVersion("6.4"):
+    		upftools.extend([ "virtual.x"])
+            #GAS has in 6.4
+            #casino2upf.x cpmd2upf.x fhi2upf.x fix_upf.x fpmd2upf.x interpolate.x ncpp2upf.x oldcp2upf.x 
+            #read_upf_tofile.x rrkj2upf.x upf2casino.x uspp2upf.x vdb2upf.x virtual_v2.x
+
+            if LooseVersion(self.version) >= LooseVersion("6.4"):
+                upftools.extend(["virtual_v2.x"])
+                
         upf_bins = [os.path.join('upftools', x) for x in upftools]
         for upf_bin in upf_bins:
             copy_file(os.path.join(self.cfg['start_dir'], upf_bin), bindir)
@@ -363,6 +376,15 @@ class EB_QuantumESPRESSO(ConfigureMake):
                          "wannier.x", "wfk2etsf.x"]
             if LooseVersion(self.version) > LooseVersion("5"):
                 wanttools.extend(["cmplx_bands.x", "decay.x", "sax2qexml.x", "sum_sgm.x"])
+
+            #GAS 6.4 has bands.x    cmplx_bands.x  current.x  disentangle.x  embed.x     
+            #  kgrid.x     plot.x     sax2qexml.x  sum_sgm.x  wannier.x   write_ham.x
+            #  blc2wan.x  conductor.x    decay.x    dos.x          gcube2plt.x  midpoint.x 
+            #  sax2qexml  sumpdos      unfold.x   wfk2etsf.x
+            if LooseVersion(self.version) >= LooseVersion("6.4"):
+                wanttools.extend(["bands.x", "embed.x", "write_ham.x", "unfold.x" ])
+            #  sax2qexml? Its a link        
+
         want_bins = [os.path.join('WANT', 'bin', x) for x in wanttools]
         for want_bin in want_bins:
             copy_file(os.path.join(self.cfg['start_dir'], want_bin), bindir)
@@ -394,7 +416,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         bins = ["iotk", "iotk.x", "iotk_print_kinds.x"]
 
         if 'cp' in targets or 'all' in targets:
-            bins.extend(["cp.x", "cppp.x", "wfdd.x"])
+            #bins.extend(["cp.x", "cppp.x", "wfdd.x"])
+            bins.extend(["cp.x",  "wfdd.x"]) #GAS
 
         # only for v4.x, not in v5.0 anymore, called gwl in 6.1 at least
         if 'gww' in targets or 'gwl' in targets:
@@ -405,6 +428,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if 'gipaw' in targets:
             bins.extend(["gipaw.x"])
+            
+	#GAS there is the new target hp in 6.4
+        if ( 'hp' in targets or 'all' in targets ) and (  LooseVersion(self.version) >= LooseVersion("6.4") ) :
+            bins.extend(["hp.x"])
 
         if 'neb' in targets or 'pwall' in targets or 'all' in targets:
             if LooseVersion(self.version) > LooseVersion("5"):
@@ -418,14 +445,24 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 bins.extend(["fqha.x", "q2qstar.x"])
 
         if 'pp' in targets or 'pwall' in targets or 'all' in targets:
+            #bins.extend(["average.x", "bands.x", "dos.x", "epsilon.x", "initial_state.x",
+            #             "plan_avg.x", "plotband.x", "plotproj.x", "plotrho.x", "pmw.x", "pp.x",
+            #             "projwfc.x", "sumpdos.x", "pw2wannier90.x", "pw_export.x", "pw2gw.x",
+            #             "wannier_ham.x", "wannier_plot.x"]) # GAS pw_export.x does not exist in 6.4
             bins.extend(["average.x", "bands.x", "dos.x", "epsilon.x", "initial_state.x",
                          "plan_avg.x", "plotband.x", "plotproj.x", "plotrho.x", "pmw.x", "pp.x",
-                         "projwfc.x", "sumpdos.x", "pw2wannier90.x", "pw_export.x", "pw2gw.x",
+                         "projwfc.x", "sumpdos.x", "pw2wannier90.x",  "pw2gw.x",
                          "wannier_ham.x", "wannier_plot.x"])
-            if LooseVersion(self.version) > LooseVersion("5"):
-                bins.extend(["pw2bgw.x", "bgw2pw.x"])
+            if  LooseVersion(self.version) > LooseVersion("5")  :
+                #bins.extend(["pw2bgw.x", "bgw2pw.x"])
+                #bgw2pw.x is not n 6.4 GAS
+                bins.extend(["pw2bgw.x"])
+        	if  LooseVersion(self.version) < LooseVersion("6.4") :
+        	    bins.extend(["bgw2pw.x"])
             else:
                 bins.extend(["pw2casino.x"])
+            if  LooseVersion(self.version) < LooseVersion("6.4") :
+        	bins.extend(["pw_export.x"])
 
         if 'pw' in targets or 'all' in targets:
             bins.extend(["dist.x", "ev.x", "kpoints.x", "pw.x", "pwi2xsf.x"])
@@ -447,13 +484,20 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         upftools = []
         if 'upf' in targets or 'all' in targets:
+            #upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
+            #            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
+            #            "virtual.x"] #GAS virtual is now virtual_v2.x
             upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                        "virtual.x"]
+                    "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
+                    ] # "virtual_v2.x"
             if LooseVersion(self.version) > LooseVersion("5"):
                 upftools.extend(["interpolate.x", "upf2casino.x"])
             if LooseVersion(self.version) >= LooseVersion("6.3"):
                 upftools.extend(["fix_upf.x"])
+            if LooseVersion(self.version) >= LooseVersion("6.4"):
+                upftools.extend(["virtual_v2.x"])
+            else:
+        	upftools.extend(["virtual.x"])
 
         if 'vdw' in targets:  # only for v4.x, not in v5.0 anymore
             bins.extend(["vdw.x"])
@@ -472,10 +516,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
                          "wannier.x", "wfk2etsf.x"]
             if LooseVersion(self.version) > LooseVersion("5"):
                 want_bins.extend(["cmplx_bands.x", "decay.x", "sax2qexml.x", "sum_sgm.x"])
+            if LooseVersion(self.version) >= LooseVersion("6.4"):
+                wanttools.extend(["bands.x", "embed.x", "write_ham.x", "unfold.x" ])
 
         if 'xspectra' in targets:
             bins.extend(["xspectra.x"])
-
 
         yambo_bins = []
         if 'yambo' in targets:
