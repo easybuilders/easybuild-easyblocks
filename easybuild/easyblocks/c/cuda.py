@@ -173,6 +173,15 @@ class EB_CUDA(Binary):
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
+    def make_module_extra(self):
+        """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
+        txt = super(EB_CUDA, self).make_module_extra()
+        txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
+        txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
+        txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)
+        self.log.debug("make_module_extra added this: %s", txt)
+        return txt
+
     def make_module_req_guess(self):
         """Specify CUDA custom values for PATH etc."""
 
@@ -198,9 +207,6 @@ class EB_CUDA(Binary):
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('lib64', 'stubs')],
             'CPATH': inc_path,
-            'CUDA_HOME': [''],
-            'CUDA_ROOT': [''],
-            'CUDA_PATH': [''],
         })
 
         return guesses
