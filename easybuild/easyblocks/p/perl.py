@@ -45,6 +45,8 @@ class EB_Perl(ConfigureMake):
     def extra_options():
         """Add extra config options specific to Perl."""
         extra_vars = {
+            'force_scripts_installdir': [False, "Force all scripts to be installed in the installation bin directory "
+                                                "via setting -Dscriptdirexp, -Dscriptdir, -Dinstallscript", CUSTOM],
             'use_perl_threads': [True, "Enable use of internal Perl threads via -Dusethreads configure option", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -58,11 +60,12 @@ class EB_Perl(ConfigureMake):
             '-Dcc="{0}"'.format(os.getenv('CC')),
             '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
             '-Dinc_version_list=none',
-            # Guarantee that scripts are installed in the installation directory (and not in a guessed path)
-            '-Dscriptdirexp="{0}"/bin'.format(self.installdir),
-            '-Dscriptdir="{0}"/bin'.format(self.installdir),
-            '-Dinstallscript="{0}"/bin'.format(self.installdir),
         ]
+        if self.cfg['force_scripts_installdir']:
+            # Guarantee that scripts are installed in the installation directory (and not in a guessed path)
+            configopts.append('-Dscriptdirexp="{0}"/bin'.format(self.installdir))
+            configopts.append('-Dscriptdir="{0}"/bin'.format(self.installdir))
+            configopts.append('-Dinstallscript="{0}"/bin'.format(self.installdir))
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
 
