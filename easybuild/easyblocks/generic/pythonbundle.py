@@ -110,11 +110,10 @@ class PythonBundle(Bundle):
         # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
         # this is relevant for installations of Python bundles for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        sanity_check_paths = self.cfg.get_ref('sanity_check_paths')
-        if not sanity_check_paths:
-            sanity_check_paths.update({
+        if not self.cfg['sanity_check_paths']:
+            self.cfg['sanity_check_paths'] = {
                 'files': [],
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
-            })
+            }
 
         super(Bundle, self).sanity_check_step(*args, **kwargs)
