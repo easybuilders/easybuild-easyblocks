@@ -31,7 +31,6 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
@@ -57,12 +56,3 @@ class EB_scipy(FortranPythonPackage):
             # which requires unsetting $LDFLAGS
             if self.toolchain.comp_family() in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
                 self.cfg.update('preinstallopts', "unset LDFLAGS && ")
-
-    def sanity_check_step(self, *args, **kwargs):
-        """Custom sanity check for scipy."""
-        custom_paths = {
-            'files': [],
-            'dirs': [self.pylibdir],
-        }
-        custom_commands = [(self.python_cmd, '-c "import scipy"')]
-        return super(EB_scipy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
