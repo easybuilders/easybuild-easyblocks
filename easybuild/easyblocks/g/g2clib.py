@@ -91,7 +91,7 @@ class EB_g2clib(ConfigureMake):
                 shutil.copyfile(os.path.join(self.cfg['start_dir'], fn),
                                 os.path.join(targetdir, fn))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy files to install dir: %s", err)
 
     def sanity_check_step(self):

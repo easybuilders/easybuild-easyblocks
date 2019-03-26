@@ -17,13 +17,14 @@ EasyBuild support for building SAMtools (SAM - Sequence Alignment/Map), implemen
 @author: Kenneth Hoste (Ghent University)
 """
 from distutils.version import LooseVersion
+import glob
 import os
-import shutil
 import stat
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file
+from easybuild.tools.filetools import adjust_permissions, copy_dir, copy_file
+
 
 class EB_SAMtools(ConfigureMake):
     """
@@ -42,8 +43,9 @@ class EB_SAMtools(ConfigureMake):
                           "misc/zoom2sam.pl", "misc/md5sum-lite", "misc/md5fa", "misc/maq2sam-short",
                           "misc/maq2sam-long", "misc/wgsim", "samtools"]
 
-        self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h", 
+        self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h",
                               "sam.h", "sam_header.h", "sample.h"]
+        self.include_dirs = []
 
         if LooseVersion(self.version) == LooseVersion('0.1.18'):
             # seqtk is no longer there in v0.1.19 and seqtk is not in 0.1.17
@@ -58,10 +60,10 @@ class EB_SAMtools(ConfigureMake):
 
         if LooseVersion(self.version) < LooseVersion('1.0'):
             self.bin_files += ["bcftools/vcfutils.pl", "bcftools/bcftools"]
-            self.include_files += [ "bgzf.h", "faidx.h",  "khash.h", "klist.h", "knetfile.h", "razf.h",
-                                    "kseq.h", "ksort.h", "kstring.h"]
+            self.include_files += ["bgzf.h", "faidx.h",  "khash.h", "klist.h", "knetfile.h", "razf.h",
+                                   "kseq.h", "ksort.h", "kstring.h"]
         elif LooseVersion(self.version) >= LooseVersion('1.0'):
-            self.bin_files += ["misc/plot-bamstats","misc/seq_cache_populate.pl"]
+            self.bin_files += ["misc/plot-bamstats", "misc/seq_cache_populate.pl"]
 
         if LooseVersion(self.version) < LooseVersion('1.2'):
             # kaln aligner removed in 1.2 (commit 19c9f6)
@@ -87,9 +89,35 @@ class EB_SAMtools(ConfigureMake):
         """
         Install by copying files to install dir
         """
+
+        # also install libhts.a & corresponding header files, if it's there
+        # may not always be there, for example for older versions, or when HTSlib is included as a dep
+        htslibs = glob.glob(os.path.join('htslib-*/libhts.a'))
+        if htslibs:
+            if len(htslibs) == 1:
+                htslib = htslibs[0]
+
+                self.log.info("Found %s, so also installing it", htslib)
+                self.lib_files.append(htslib)
+
+                # if the library is there, we also expect the header files to be there
+                hts_inc_dir = os.path.join(os.path.dirname(htslib), 'htslib')
+                if os.path.exists(hts_inc_dir):
+                    self.include_dirs.append(hts_inc_dir)
+                else:
+                    raise EasyBuildError("%s not found, don't know how to install header files for %s",
+                                         hts_inc_dir, htslib)
+            else:
+                raise EasyBuildError("Found multiple hits for libhts.a, don't know which one to copy: %s", htslibs)
+        else:
+            self.log.info("No libhts.a found, so not installing it")
+
         install_files = [
             ('include/bam', self.include_files),
             ('lib', self.lib_files),
+        ]
+        install_dirs = [
+            ('include', self.include_dirs),
         ]
 
         # v1.3 and more recent supports 'make install', but this only installs (some of) the binaries...
@@ -113,16 +141,25 @@ class EB_SAMtools(ConfigureMake):
                 dest = os.path.join(self.installdir, destdir, os.path.basename(fn))
                 copy_file(os.path.join(self.cfg['start_dir'], fn), dest)
 
-            # enable r-x permissions for group/others
-            perms = stat.S_IRGRP|stat.S_IXGRP|stat.S_IROTH|stat.S_IXOTH
-            adjust_permissions(self.installdir, perms, add=True, recursive=True)
+        self.log.info("Installing directory by copying them 'manually': %s", install_dirs)
+        for (destdir, dirnames) in install_dirs:
+            for dirname in dirnames:
+                dest = os.path.join(self.installdir, destdir, os.path.basename(dirname))
+                copy_dir(os.path.join(self.cfg['start_dir'], dirname), dest)
+
+        # enable r-x permissions for group/others
+        perms = stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+        adjust_permissions(self.installdir, perms, add=True, recursive=True)
 
     def sanity_check_step(self):
         """Custom sanity check for SAMtools."""
+
+        bins = [os.path.join('bin', os.path.basename(f)) for f in self.bin_files]
+        incs = [os.path.join('include', 'bam', os.path.basename(f)) for f in self.include_files]
+        libs = [os.path.join('lib', os.path.basename(f)) for f in self.lib_files]
+
         custom_paths = {
-            'files': [os.path.join('bin', os.path.basename(f)) for f in self.bin_files] +
-                     [os.path.join('include', 'bam', f) for f in self.include_files] +
-                     [os.path.join('lib', f) for f in self.lib_files],
-            'dirs': []
+            'files': bins + incs + libs,
+            'dirs': [os.path.join('include', os.path.basename(d)) for d in self.include_dirs],
         }
         super(EB_SAMtools, self).sanity_check_step(custom_paths=custom_paths)

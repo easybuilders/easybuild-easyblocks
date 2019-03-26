@@ -30,8 +30,10 @@ EasyBuild support for installing a software-specific .modulerc file
 import os
 
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import mkdir, symlink
+from easybuild.tools.config import install_path
+from easybuild.tools.filetools import mkdir, resolve_path, symlink
 
 
 class ModuleRC(EasyBlock):
@@ -89,7 +91,25 @@ class ModuleRC(EasyBlock):
         self.module_generator.modulerc(module_version=module_version_specs, filepath=modulerc)
 
         if not fake:
-            print_msg("created .modulerc file at %s" % modulerc, log=self.log)
+            print_msg("updated .modulerc file at %s" % modulerc, log=self.log)
+
+            # symlink .modulerc in other locations (unless they're already linked)
+            mod_symlink_dirs = ActiveMNS().det_module_symlink_paths(self.cfg)
+            mod_subdir = os.path.dirname(ActiveMNS().det_full_module_name(self.cfg))
+
+            mod_install_path = install_path('mod')
+            modulerc_filename = os.path.basename(modulerc)
+
+            for mod_symlink_dir in mod_symlink_dirs:
+                modulerc_symlink = os.path.join(mod_install_path, mod_symlink_dir, mod_subdir, modulerc_filename)
+                if os.path.islink(modulerc_symlink):
+                    if resolve_path(modulerc_symlink) == resolve_path(modulerc):
+                        print_msg("symlink %s to %s already exists", modulerc_symlink, modulerc)
+                    else:
+                        raise EasyBuildError("%s exists but is not a symlink to %s", modulerc_symlink, modulerc)
+                else:
+                    symlink(modulerc, modulerc_symlink)
+                    print_msg("created symlink %s to .modulerc file at %s", modulerc_symlink, modulerc, log=self.log)
 
         modpath = self.module_generator.get_modules_path(fake=fake)
         self.invalidate_module_caches(modpath)
