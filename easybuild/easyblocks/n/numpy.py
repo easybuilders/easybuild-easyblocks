@@ -39,6 +39,7 @@ import tempfile
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, rmtree2
@@ -297,6 +298,13 @@ class EB_numpy(FortranPythonPackage):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
+        # can't use self.pylibdir here, need to determine path on the fly using currently active 'python' command;
+        # this is important for numpy installations for multiple Python version (via multi_deps)
+        custom_paths = {
+            'files': [],
+            'dirs': [det_pylibdir()],
+        }
+
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion("1.10"):
@@ -313,7 +321,7 @@ class EB_numpy(FortranPythonPackage):
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
             custom_commands.append("python -c 'import numpy.core._dotblas'")
 
-        return super(EB_numpy, self).sanity_check_step(custom_commands=custom_commands)
+        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra_numpy_include(self):
         """
