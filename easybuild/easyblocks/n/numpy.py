@@ -167,7 +167,7 @@ class EB_numpy(FortranPythonPackage):
                 lapack = ', '.join([lapack, "cblas"])
                 cblaslib = os.path.join(cblasroot, 'lib')
                 # with numpy as extension, CBLAS might not be included in LDFLAGS because it's not part of a toolchain
-                if not cblaslib in libs:
+                if cblaslib not in libs:
                     libs = ':'.join([libs, cblaslib])
             else:
                 raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
@@ -297,13 +297,8 @@ class EB_numpy(FortranPythonPackage):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
-        custom_paths = {
-            'files': [],
-            'dirs': [self.pylibdir],
-        }
-        custom_commands = [
-            ('python', '-c "import numpy"'),
-        ]
+        custom_commands = []
+
         if LooseVersion(self.version) >= LooseVersion("1.10"):
             # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
             # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
@@ -313,16 +308,12 @@ class EB_numpy(FortranPythonPackage):
                 "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
                 "sys.exit((1, 0)[blas_ok])",
             ])
-            custom_commands.append(('python', '-c "%s"' % blas_check_pytxt))
+            custom_commands.append('python -c "%s"' % blas_check_pytxt)
         else:
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
-            custom_commands.append (('python', '-c "import numpy.core._dotblas"'))
+            custom_commands.append("python -c 'import numpy.core._dotblas'")
 
-        # make sure the installation path is in $PYTHONPATH so the sanity check commands can work
-        pythonpath = os.environ.get('PYTHONPATH', '')
-        os.environ['PYTHONPATH'] = ':'.join([self.pylibdir, pythonpath])
-
-        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_numpy, self).sanity_check_step(custom_commands=custom_commands)
 
     def make_module_extra_numpy_include(self):
         """
