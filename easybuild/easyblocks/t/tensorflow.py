@@ -45,7 +45,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_os_name, get_os_version
+from easybuild.tools.systemtools import get_os_name, get_os_version, get_cpu_architecture, X86_64
 
 
 # Wrapper for Intel(MPI) compilers, where required environment variables
@@ -81,8 +81,13 @@ class EB_TensorFlow(PythonPackage):
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
-            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
+
+        if get_cpu_architecture() == X86_64:
+            extra_vars['with_mkl_dnn'] = [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
+        else:
+            extra_vars['with_mkl_dnn'] = [False, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
+
         return PythonPackage.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
