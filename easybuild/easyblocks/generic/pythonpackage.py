@@ -289,10 +289,11 @@ class PythonPackage(ExtensionEasyBlock):
 
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
+
         # pylibdir is the 'main' Python lib directory
-        if self.pylibdir == UNKNOWN:
-            self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
+        self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
         self.log.debug("Python library dir: %s" % self.pylibdir)
+
         # on (some) multilib systems, the platform-specific library directory for the system Python is different
         # cfr. http://serverfault.com/a/88739/126446
         # so, we keep a list of different Python lib directories to take into account
