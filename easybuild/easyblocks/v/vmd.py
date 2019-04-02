@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 # Copyright 2015-2016 Stanford University
 #
 # This file is part of EasyBuild,

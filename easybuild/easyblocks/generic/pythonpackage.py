@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ import re
 import sys
 import tempfile
 from distutils.version import LooseVersion
+from distutils.sysconfig import get_config_vars
 from vsc.utils import fancylogger
 from vsc.utils.missing import nub
 
@@ -179,6 +180,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
@@ -334,6 +336,7 @@ class PythonPackage(ExtensionEasyBlock):
         # mainly for debugging
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
+
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
             out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
@@ -346,6 +349,13 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("Found pip version %s, OK", pip_version)
                 else:
                     raise EasyBuildError("Need pip version 8.0 or newer, found version %s", pip_version)
+
+                # pip 10.x introduced a nice new "build isolation" feature (enabled by default),
+                # which will download and install in a list of build dependencies specified in a pyproject.toml file
+                # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
+                # since we provide all required dependencies already, we disable this via --no-build-isolation
+                if LooseVersion(pip_version) >= LooseVersion('10.0'):
+                    self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
@@ -429,6 +439,25 @@ class PythonPackage(ExtensionEasyBlock):
                 config.close()
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+
+        # ensure that LDSHARED uses CC
+        if self.cfg.get('check_ldshared', False):
+            curr_cc = os.getenv('CC')
+            python_ldshared = get_config_vars('LDSHARED')[0]
+            if python_ldshared and curr_cc:
+                if python_ldshared.split(' ')[0] == curr_cc:
+                    self.log.info("Python's value for $LDSHARED ('%s') uses current $CC value ('%s'), not touching it",
+                                  python_ldshared, curr_cc)
+                else:
+                    self.log.info("Python's value for $LDSHARED ('%s') doesn't use current $CC value ('%s'), fixing",
+                                  python_ldshared, curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+            else:
+                if curr_cc:
+                    self.log.info("No $LDSHARED found for Python, setting to '%s -shared'", curr_cc)
+                    env.setvar("LDSHARED", curr_cc + " -shared")
+                else:
+                    self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
         run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)

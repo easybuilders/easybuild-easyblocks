@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,7 +57,7 @@ class EB_MrBayes(ConfigureMake):
 
             # set correct start_dir dir, and change into it
             # test whether it already contains 'src', since a reprod easyconfig would
-            if not self.cfg['start_dir'].endswith('src'):
+            if os.path.basename(self.cfg['start_dir']) != 'src':
                 self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
             try:
                 os.chdir(self.cfg['start_dir'])
