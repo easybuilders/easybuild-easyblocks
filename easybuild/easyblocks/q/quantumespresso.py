@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2018 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,8 +65,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion("6"):
             self.install_subdir = "qe-%s" % self.version
             #GAS using release tarball from GitHub for 6.4
-            if LooseVersion(self.version) >= LooseVersion("6.4"):
-        	self.install_subdir = "qe_release_%s" % self.version
+            #if LooseVersion(self.version) >= LooseVersion("6.4"):
+            #	self.install_subdir = "qe_release_%s" % self.version
         else:
             self.install_subdir = "espresso-%s" % self.version
 
