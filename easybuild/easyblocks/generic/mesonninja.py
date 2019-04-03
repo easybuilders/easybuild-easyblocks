@@ -68,6 +68,11 @@ class MesonNinja(EasyBlock):
             mkdir(builddir)
             change_dir(builddir)
 
+        # Make sure libdir doesn't get set to lib/x86_64-linux-gnu or something
+        # on Debian/Ubuntu multiarch systems and others.
+        if '-Dlibdir' not in self.cfg['configopts']:
+            self.cfg.update('configopts', '-Dlibdir=lib')
+
         cmd = "%(preconfigopts)s meson --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
             'configopts': self.cfg['configopts'],
             'installdir': self.installdir,
