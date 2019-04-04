@@ -139,7 +139,7 @@ class EB_CHARMM(EasyBlock):
         self.log.info("Copying CHARMM dir %s to %s" % (self.cfg['start_dir'], self.installdir))
         try:
             shutil.copytree(self.cfg['start_dir'], self.installdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy CHARMM dir to install dir: %s", err)
 
     def make_module_req_guess(self):

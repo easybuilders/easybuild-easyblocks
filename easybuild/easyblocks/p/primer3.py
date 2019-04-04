@@ -55,7 +55,7 @@ class EB_Primer3(ConfigureMake):
         if os.path.exists('src'):
             try:
                 os.chdir('src')
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to 'src' subdirectory: %s", err)
 
     def configure_step(self):

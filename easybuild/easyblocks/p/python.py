@@ -30,8 +30,8 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
-import copy
 import glob
 import os
 import re
@@ -42,8 +42,9 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.modules import get_software_libdir, get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import remove_file, symlink
+from easybuild.tools.config import log_path
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -52,6 +53,40 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
+
+EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
+
+SITECUSTOMIZE = """
+# sitecustomize.py script installed by EasyBuild,
+# to support picking up Python packages which were installed
+# for multiple Python versions in the same directory
+
+import os
+import site
+import sys
+
+# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
+
+# use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
+# virtualenv-installed packages, unlike $PYTHONPATH
+
+ebpythonprefixes = os.getenv('%(EBPYTHONPREFIXES)s')
+
+if ebpythonprefixes:
+    postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
+    if debug:
+        print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
+
+    for prefix in ebpythonprefixes.split(os.pathsep):
+        if debug:
+            print("[%(EBPYTHONPREFIXES)s] prefix: %%s" %% prefix)
+        sitedir = os.path.join(prefix, postfix)
+        if os.path.isdir(sitedir):
+            if debug:
+                print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
+            site.addsitedir(sitedir)
+""" % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
 
 
 class EB_Python(ConfigureMake):
@@ -71,8 +106,20 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+            'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for Python easyblock."""
+        super(EB_Python, self).__init__(*args, **kwargs)
+
+        self.pyshortver = '.'.join(self.version.split('.')[:2])
+
+        self.pythonpath = None
+        if self.cfg['ebpythonprefixes']:
+            easybuild_subdir = log_path()
+            self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
     def prepare_for_extensions(self):
         """
@@ -183,18 +230,19 @@ class EB_Python(ConfigureMake):
 
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            pyver = '.'.join(self.version.split('.')[:2])
-            symlink(python_binary_path + pyver, python_binary_path)
+            symlink(python_binary_path + self.pyshortver, python_binary_path)
+
+        if self.cfg['ebpythonprefixes']:
+            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
-        pyver = 'python' + '.'.join(self.version.split('.')[:2])
         shlib_ext = get_shared_lib_ext()
 
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
         abiflags = ''
@@ -218,6 +266,7 @@ class EB_Python(ConfigureMake):
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
 
+        pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver)],
@@ -250,3 +299,12 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self, *args, **kwargs):
+        """Add path to sitecustomize.py to $PYTHONPATH"""
+        txt = super(EB_Python, self).make_module_extra()
+
+        if self.pythonpath:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
+
+        return txt
