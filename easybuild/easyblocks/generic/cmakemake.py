@@ -40,6 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from vsc.utils.missing import nub
 
@@ -56,6 +57,8 @@ class CMakeMake(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
+            'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
+                                          "(even if Boost is included as a dependency)", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
@@ -115,6 +118,19 @@ class CMakeMake(ConfigureMake):
 
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
+
+        if not self.cfg.get('allow_system_boost', False):
+            # don't pick up on system Boost if Boost is included as dependency
+            # - specify Boost location via -DBOOST_ROOT
+            # - instruct CMake to not search for Boost headers/libraries in other places
+            # - disable search for Boost CMake package configuration file
+            boost_root = get_software_root('Boost')
+            if boost_root:
+                options.extend([
+                    '-DBOOST_ROOT=%s' % boost_root,
+                    '-DBoost_NO_SYSTEM_PATHS=ON',
+                    '-DBoost_NO_BOOST_CMAKE=ON',
+                ])
 
         options_string = ' '.join(options)
 
