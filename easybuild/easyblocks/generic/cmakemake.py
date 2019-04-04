@@ -52,6 +52,8 @@ class CMakeMake(ConfigureMake):
         """Define extra easyconfig parameters specific to CMakeMake."""
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
+            'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
+                                          "(even if Boost is included as a dependency)", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
@@ -108,13 +110,18 @@ class CMakeMake(ConfigureMake):
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
 
-        # don't pick up on system Boost if Boost is included as dependency
-        # - specify Boost location via -DBOOST_ROOT
-        # - instruct CMake to not search for Boost headers/libraries in other places
-        # - disable search for Boost CMake package configuration file
-        boost_root = get_software_root('Boost')
-        if boost_root:
-            options.extend(['-DBOOST_ROOT=%s' % boost_root, '-DBoost_NO_SYSTEM_PATHS=ON', '-DBoost_NO_BOOST_CMAKE=ON'])
+        if not self.cfg.get('allow_system_boost', False):
+            # don't pick up on system Boost if Boost is included as dependency
+            # - specify Boost location via -DBOOST_ROOT
+            # - instruct CMake to not search for Boost headers/libraries in other places
+            # - disable search for Boost CMake package configuration file
+            boost_root = get_software_root('Boost')
+            if boost_root:
+                options.extend([
+                    '-DBOOST_ROOT=%s' % boost_root,
+                    '-DBoost_NO_SYSTEM_PATHS=ON',
+                    '-DBoost_NO_BOOST_CMAKE=ON',
+                ])
 
         options_string = ' '.join(options)
 
