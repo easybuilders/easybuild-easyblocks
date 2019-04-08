@@ -379,16 +379,18 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
-        mkl_root = get_software_root('mkl-dnn')
-        if mkl_root:
-            cmd.extend(['--config=mkl'])
-            cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
-            cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
-        elif self.cfg['with_mkl_dnn']:
-            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
-            cmd.extend(['--config=mkl'])
-            cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
+        cudnn_root = get_software_root('cuDNN')
+        if not cudnn_root:
+            # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
+            mkl_root = get_software_root('mkl-dnn')
+            if mkl_root:
+                cmd.extend(['--config=mkl'])
+                cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
+                cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
+            elif self.cfg['with_mkl_dnn']:
+                # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
+                cmd.extend(['--config=mkl'])
+                cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
 
         # specify target of the build command as last argument
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
