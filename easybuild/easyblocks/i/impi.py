@@ -50,6 +50,7 @@ class EB_impi(IntelBase):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'external_libfabric': [False, 'Use external libfabric instead of shipped libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
             'set_mpi_wrapper_aliases_intel': [False, 'Set compiler for mpiicc/mpiicpc/mpiifort via aliases', CUSTOM],
@@ -192,10 +193,13 @@ EULA=accept
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
                 # IntelMPI 2019 changed the default library to be the non-mt version.
-                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib', 'libfabric/lib']]
+                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
                 include_dirs = ['intel64/include']
-                path_dirs = ['intel64/bin', 'intel64/libfabric/bin']
-                guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
+                path_dirs = ['intel64/bin']
+                if not self.cfg['external_libfabric']:
+                    lib_dirs.append('intel64/libfabric/lib')
+                    path_dirs.append('intel64/libfabric/bin')
+                    guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
             else:
                 lib_dirs = ['lib/em64t', 'lib64']
                 include_dirs = ['include64']
