@@ -379,8 +379,7 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        cudnn_root = get_software_root('cuDNN')
-        if not cudnn_root:
+        if get_cpu_architecture() == X86_64:
             # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
             mkl_root = get_software_root('mkl-dnn')
             if mkl_root:
