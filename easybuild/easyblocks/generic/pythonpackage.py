@@ -597,7 +597,7 @@ class PythonPackage(ExtensionEasyBlock):
         # but only for stand-alone installations, not for extensions;
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        if not self.is_extension and not self.cfg['sanity_check_paths']:
+        if not self.is_extension and not self.cfg['sanity_check_paths'] and kwargs.get('custom_paths') is None:
             self.cfg['sanity_check_paths'] = {
                 'files': [],
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
