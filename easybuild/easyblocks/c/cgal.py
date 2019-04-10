@@ -27,8 +27,11 @@ EasyBuild support for CGAL, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import os
+
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
@@ -60,8 +63,12 @@ class EB_CGAL(CMakeMake):
         shlib_ext = get_shared_lib_ext()
         libdirs = ('lib', 'lib64')
         libs = [tuple(os.path.join(d, 'libCGAL%s.%s' % (l, shlib_ext)) for d in libdirs) for l in ['', '_Core']]
+        if LooseVersion(self.version) > LooseVersion('4.12'):
+            dirs = ['include/CGAL', ('lib/cmake/CGAL', 'lib64/cmake/CGAL')]
+        else:
+            dirs = ['include/CGAL', ('lib/CGAL', 'lib64/CGAL')]
         custom_paths = {
             'files': ['bin/cgal_%s' % x for x in ['create_cmake_script', 'make_macosx_app']] + libs,
-            'dirs': ['include/CGAL', ('lib/CGAL', 'lib64/CGAL')],
+            'dirs': dirs,
         }
         super(EB_CGAL, self).sanity_check_step(custom_paths=custom_paths)
