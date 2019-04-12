@@ -65,9 +65,9 @@ class EB_CGAL(CMakeMake):
         libs = [os.path.join('lib64', 'libCGAL%s.%s' % (l, shlib_ext)) for l in ['', '_Core']]
         dirs = [os.path.join('include', 'CGAL')]
         if LooseVersion(self.version) >= LooseVersion('4.12'):
-            dirs += os.path.join('lib64', 'cmake', 'CGAL')
+            dirs.append(os.path.join('lib64', 'cmake', 'CGAL'))
         else:
-            dirs += os.path.join('lib64', 'CGAL')
+            dirs.apppend(os.path.join('lib64', 'CGAL'))
         custom_paths = {
             'files': [os.path.join('bin', 'cgal_%s') % x for x in ['create_cmake_script', 'make_macosx_app']] + libs,
             'dirs': dirs,
