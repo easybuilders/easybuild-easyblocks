@@ -29,7 +29,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, write_file
+from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -136,8 +137,15 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
+        # ldconfig is usually in /sbin or /usr/sbin
+        curr_path = os.environ.get('PATH', '')
+        setvar('PATH', os.pathsep.join(['/sbin', '/usr/sbin', curr_path]))
+        if not which('ldconfig'):
+            raise EasyBuildError("Unable to find the 'ldconfig' in PATH")
+
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         run_cmd("ldconfig -N " + os.path.join(self.installdir, 'lib64', 'stubs'))
+        setvar('PATH', curr_path)
 
         super(EB_CUDA, self).post_install_step()
 
