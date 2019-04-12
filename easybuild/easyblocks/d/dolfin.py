@@ -224,7 +224,7 @@ class EB_DOLFIN(CMakePythonPackage):
             try:
                 os.makedirs(instant_cache_dir)
                 os.makedirs(instant_error_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create Instant cache/error dirs: %s", err)
 
             env_vars = [

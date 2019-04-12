@@ -107,7 +107,7 @@ class EB_OpenFOAM(EasyBlock):
                             self.log.debug("Moving %s to %s", source, target)
                             shutil.move(source, target)
                     os.chdir(openfoam_installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move all files to %s: %s", openfoam_installdir, err)
 
     def patch_step(self, beginpath=None):

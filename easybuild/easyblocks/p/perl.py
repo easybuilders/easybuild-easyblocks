@@ -58,11 +58,19 @@ class EB_Perl(ConfigureMake):
             '-Dcc="{0}"'.format(os.getenv('CC')),
             '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
             '-Dinc_version_list=none',
+            '-Dprefix=%(installdir)s',
+            # guarantee that scripts are installed in /bin in the installation directory (and not in a guessed path)
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/1659
+            '-Dinstallscript=%(installdir)s/bin',
+            '-Dscriptdir=%(installdir)s/bin',
+            '-Dscriptdirexp=%(installdir)s/bin',
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
 
-        cmd = './Configure -de %s -Dprefix="%s"' % (' '.join(configopts), self.installdir)
+        configopts = (' '.join(configopts)) % {'installdir': self.installdir}
+
+        cmd = './Configure -de %s' % configopts
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

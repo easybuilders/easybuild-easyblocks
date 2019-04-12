@@ -27,8 +27,10 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 
 @author: Kenneth Hoste (Ghent University)
 """
+import os
+
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
+from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
@@ -72,6 +74,9 @@ class PythonBundle(Bundle):
 
         self.pylibdir = None
 
+        # figure out whether this bundle of Python packages is being installed for multiple Python versions
+        self.multi_python = 'Python' in self.cfg['multi_deps']
+
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Python packages."""
         super(Bundle, self).prepare_step(*args, **kwargs)
@@ -90,14 +95,25 @@ class PythonBundle(Bundle):
         """Extra statements to include in module file: update $PYTHONPATH."""
         txt = super(Bundle, self).make_module_extra(*args, **kwargs)
 
-        txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+        # update $EBPYTHONPREFIXES rather than $PYTHONPATH
+        # if this Python package was installed for multiple Python versions
+        if self.multi_python:
+            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+        else:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
-        custom_paths = {
-            'files': [],
-            'dirs': [self.pylibdir],
-        }
-        super(Bundle, self).sanity_check_step(*args, custom_paths=custom_paths, **kwargs)
+
+        # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
+        # this is relevant for installations of Python bundles for multiple Python versions (via multi_deps)
+        # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
+        if not self.cfg['sanity_check_paths']:
+            self.cfg['sanity_check_paths'] = {
+                'files': [],
+                'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
+            }
+
+        super(Bundle, self).sanity_check_step(*args, **kwargs)

@@ -75,7 +75,7 @@ class EB_PSI(CMakeMake):
             objdir = os.path.join(self.builddir, 'obj')
             os.makedirs(objdir)
             os.chdir(objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to prepare for configuration of PSI build: %s", err)
 
         env.setvar('F77FLAGS', os.getenv('F90FLAGS'))
@@ -197,7 +197,7 @@ class EB_PSI(CMakeMake):
                 # copy symlinks as symlinks to work around broken symlinks
                 shutil.copytree(os.path.join(self.builddir, subdir), os.path.join(self.installdir, subdir),
                                 symlinks=True)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy obj and unpacked sources to install dir: %s", err)
 
     def test_step(self):
@@ -222,7 +222,7 @@ class EB_PSI(CMakeMake):
 
         try:
             shutil.rmtree(testdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to remove test directory %s: %s", testdir, err)
 
     def sanity_check_step(self):

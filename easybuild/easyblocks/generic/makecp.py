@@ -132,5 +132,5 @@ class MakeCp(ConfigureMake):
                         else:
                             raise EasyBuildError("Can't copy non-existing path %s to %s", filepath, target)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir failed: %s", fil, err)
