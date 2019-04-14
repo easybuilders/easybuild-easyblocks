@@ -267,6 +267,11 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
 
+            # avoid that pip (ab)uses $HOME/.cache/pip
+            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
         else:
             self.use_setup_py = True
 
