@@ -45,7 +45,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_os_name, get_os_version, get_cpu_architecture, X86_64
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
 
 
 # Wrapper for Intel(MPI) compilers, where required environment variables
@@ -83,10 +83,9 @@ class EB_TensorFlow(PythonPackage):
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
         }
 
-        if get_cpu_architecture() == X86_64:
-            extra_vars['with_mkl_dnn'] = [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
-        else:
-            extra_vars['with_mkl_dnn'] = [False, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
+        # only install mkl-dnn by default on x86_64 systems
+        with_mkl_dnn_default = get_cpu_architecture() == X86_64
+        extra_vars['with_mkl_dnn'] = [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
 
         return PythonPackage.extra_options(extra_vars)
 
@@ -379,17 +378,16 @@ class EB_TensorFlow(PythonPackage):
         if cuda_root:
             cmd.append('--config=cuda')
 
-        if get_cpu_architecture() == X86_64:
-            # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
-            mkl_root = get_software_root('mkl-dnn')
-            if mkl_root:
-                cmd.extend(['--config=mkl'])
-                cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
-                cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
-            elif self.cfg['with_mkl_dnn']:
-                # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
-                cmd.extend(['--config=mkl'])
-                cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
+        # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
+        mkl_root = get_software_root('mkl-dnn')
+        if mkl_root:
+            cmd.extend(['--config=mkl'])
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
+            cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
+        elif self.cfg['with_mkl_dnn']:
+            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
+            cmd.extend(['--config=mkl'])
+            cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
 
         # specify target of the build command as last argument
         cmd.append('//tensorflow/tools/pip_package:build_pip_package')
