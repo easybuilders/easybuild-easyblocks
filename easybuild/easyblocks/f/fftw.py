@@ -30,11 +30,13 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 from distutils.version import LooseVersion
 from vsc.utils.missing import nub
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -211,6 +213,20 @@ class EB_FFTW(ConfigureMake):
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
         return super(EB_FFTW, self).run_all_steps(*args, **kwargs)
+
+    def test_step(self):
+        """Custom implementation of test step for FFTW."""
+
+        if self.toolchain.mpi_family() == toolchain.OPENMPI:
+
+            # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
+            # to avoid that some tests fail if only a handful of cores are available
+            ompi_ver = get_software_version('OpenMPI')
+            if LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+                if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+
+        super(EB_FFTW, self).test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for FFTW."""
