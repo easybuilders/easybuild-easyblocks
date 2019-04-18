@@ -76,16 +76,15 @@ class EB_TensorFlow(PythonPackage):
 
     @staticmethod
     def extra_options():
+        # We only want to install mkl-dnn by default on x86_64 systems
+        with_mkl_dnn_default = get_cpu_architecture() == X86_64
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
+            'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
-
-        # only install mkl-dnn by default on x86_64 systems
-        with_mkl_dnn_default = get_cpu_architecture() == X86_64
-        extra_vars['with_mkl_dnn'] = [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM]
 
         return PythonPackage.extra_options(extra_vars)
 
