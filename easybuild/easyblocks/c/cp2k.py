@@ -49,7 +49,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import copy_dir, copy_file, write_file
+from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir, write_file
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -97,7 +97,7 @@ class EB_CP2K(EasyBlock):
                              "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use "
                             "all found at given prefix"), CUSTOM],
-            'modincprefix': ['', "IMKL prefix for modinc include dir", CUSTOM],
+            'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
             'plumed': [None, "Enable PLUMED support", CUSTOM],
@@ -182,8 +182,8 @@ class EB_CP2K(EasyBlock):
         else:
             raise EasyBuildError("Don't know how to tweak configuration for compiler family %s" % comp_fam)
 
-        # BLAS/FFTW
-        if get_software_root('IMKL'):
+        # BLAS/LAPACK/FFTW
+        if get_software_root('imkl'):
             options = self.configure_MKL(options)
         else:
             # BLAS
@@ -196,12 +196,12 @@ class EB_CP2K(EasyBlock):
             if 'fftw3' in os.getenv('LIBFFT', ''):
                 options = self.configure_FFTW3(options)
 
-        # LAPACK
-        if os.getenv('LIBLAPACK_MT', None) is not None:
-            options = self.configure_LAPACK(options)
+            # LAPACK
+            if os.getenv('LIBLAPACK_MT', None) is not None:
+                options = self.configure_LAPACK(options)
 
-        if os.getenv('LIBSCALAPACK', None) is not None:
-            options = self.configure_ScaLAPACK(options)
+            if os.getenv('LIBSCALAPACK', None) is not None:
+                options = self.configure_ScaLAPACK(options)
 
         # PLUMED
         plumed = get_software_root('PLUMED')
@@ -240,6 +240,9 @@ class EB_CP2K(EasyBlock):
 
         options['LIBS'] = "-Wl,--start-group %s -Wl,--end-group" % options['LIBS']
 
+        # specify correct location for 'data' directory in final installation
+        options['DATA_DIR'] = os.path.join(self.installdir, 'data')
+
         # create arch file using options set
         archfile = os.path.join(self.cfg['start_dir'], 'arch', '%s.%s' % (self.typearch, self.cfg['type']))
         txt = self._generate_makefile(options)
@@ -251,7 +254,7 @@ class EB_CP2K(EasyBlock):
 
         self.log.debug("Preparing module files")
 
-        imkl = get_software_root('IMKL')
+        imkl = get_software_root('imkl')
 
         if imkl:
 
@@ -259,10 +262,7 @@ class EB_CP2K(EasyBlock):
             modincpath = os.path.join(os.path.dirname(os.path.normpath(self.cfg['start_dir'])), 'modinc')
             self.log.debug("Preparing module files in %s" % modincpath)
 
-            try:
-                os.mkdir(modincpath)
-            except OSError as err:
-                raise EasyBuildError("Failed to create directory for module include files: %s", err)
+            mkdir(modincpath, parents=True)
 
             # get list of modinc source files
             modincdir = os.path.join(imkl, self.cfg["modincprefix"], 'include')
@@ -294,7 +294,7 @@ class EB_CP2K(EasyBlock):
 
             return modincpath
         else:
-            raise EasyBuildError("Don't know how to prepare modinc, IMKL not found")
+            raise EasyBuildError("Don't know how to prepare modinc, imkl not found")
 
     def configure_common(self):
         """Common configuration for all toolchains"""
@@ -386,7 +386,7 @@ class EB_CP2K(EasyBlock):
                     path = os.path.join(self.cfg['start_dir'], path)
                     if os.path.isdir(path):
                         libinttools_path = path
-                        os.chdir(libinttools_path)
+                        change_dir(libinttools_path)
                 if not libinttools_path:
                     raise EasyBuildError("No libinttools dir found")
 
@@ -619,10 +619,7 @@ class EB_CP2K(EasyBlock):
         """
 
         makefiles = os.path.join(self.cfg['start_dir'], 'makefiles')
-        try:
-            os.chdir(makefiles)
-        except OSError as err:
-            raise EasyBuildError("Can't change to makefiles dir %s: %s", makefiles, err)
+        change_dir(makefiles)
 
         # modify makefile for parallel build
         parallel = self.cfg['parallel']
@@ -646,7 +643,7 @@ class EB_CP2K(EasyBlock):
         # clean first
         run_cmd(cmd + " clean", log_all=True, simple=True, log_output=True)
 
-        # build_and_install
+        # build and install
         if self.cfg['library']:
             cmd += ' libcp2k'
         run_cmd(cmd + " all", log_all=True, simple=True, log_output=True)
@@ -656,6 +653,11 @@ class EB_CP2K(EasyBlock):
 
         if self.cfg['runtest']:
 
+            # we need to specify location of 'data' directory in *build* dir,
+            # since we've configured CP2K to look into the installation directory
+            # (where 'data' will be copied to in install step)
+            setvar('CP2K_DATA_DIR', os.path.join(self.cfg['start_dir'], 'data'))
+
             if not build_option('mpi_tests'):
                 self.log.info("Skipping testing of CP2K since MPI testing is disabled")
                 return
@@ -664,10 +666,7 @@ class EB_CP2K(EasyBlock):
                 setvar('OMP_NUM_THREADS', self.cfg['omp_num_threads'])
 
             # change to root of build dir
-            try:
-                os.chdir(self.builddir)
-            except OSError as err:
-                raise EasyBuildError("Failed to change to %s: %s", self.builddir, err)
+            change_dir(self.builddir)
 
             # use regression test reference output if available
             # try and find an unpacked directory that starts with 'LAST-'
@@ -699,7 +698,8 @@ class EB_CP2K(EasyBlock):
             else:
                 self.log.info("No reference output found for regression test, just continuing without it...")
 
-            test_core_cnt = min(self.cfg.get('parallel', sys.maxint), 2)
+            # prefer using 4 cores, since some tests require/prefer square (n^2) numbers or powers of 2 (2^n)
+            test_core_cnt = min(self.cfg.get('parallel', sys.maxint), 4)
             if get_avail_core_count() < test_core_cnt:
                 raise EasyBuildError("Cannot run MPI tests as not enough cores (< %s) are available", test_core_cnt)
             else:
@@ -873,7 +873,12 @@ class EB_CP2K(EasyBlock):
         """Set up a CP2K_DATA_DIR environment variable to find CP2K provided basis sets"""
 
         txt = super(EB_CP2K, self).make_module_extra()
+
+        # also define $CP2K_DATA_DIR in module,
+        # even though CP2K was already configured to pick up 'data' from install dir
+        # this could be useful for users to access the 'data' dir in a documented way (and it doesn't hurt)
         datadir = os.path.join(self.installdir, 'data')
         if os.path.exists(datadir):
             txt += self.module_generator.set_environment('CP2K_DATA_DIR', datadir)
+
         return txt

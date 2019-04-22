@@ -158,11 +158,14 @@ class EB_WRF(EasyBlock):
 
         # fetch selected build type (and make sure it makes sense)
         known_build_types = ['serial', 'smpar', 'dmpar', 'dm+sm']
-        self.parallel_build_types = ["dmpar", "smpar", "dm+sm"]
+        self.parallel_build_types = ["dmpar", "dm+sm"]
         bt = self.cfg['buildtype']
 
         if bt not in known_build_types:
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, known_build_types)
+
+        # Escape the "+" in "dm+sm" since it's being used in a regexp below.
+        bt = bt.replace('+', r'\+')
 
         # fetch option number based on build type option and selected build type
         if LooseVersion(self.version) >= LooseVersion('3.7'):
@@ -302,7 +305,7 @@ class EB_WRF(EasyBlock):
                 test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
                                                                 self.toolchain.mpi_cmd_for("./wrf.exe", n))
             else:
-                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe" % n
+                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
 
             def run_test():
                 """Run a single test and check for success."""

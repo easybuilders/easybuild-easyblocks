@@ -85,9 +85,9 @@ class EB_LAPACK(ConfigureMake):
         """
 
         # copy build_step.inc file from examples
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             makeinc = 'gfortran'
-        elif self.toolchain.comp_family() == toolchain.INTELCOMP:  #@UndefinedVariable
+        elif self.toolchain.comp_family() == toolchain.INTELCOMP:  # @UndefinedVariable
             makeinc = 'ifort'
         else:
             raise EasyBuildError("Don't know which build_step.inc file to pick, unknown compiler being used...")
@@ -172,10 +172,10 @@ class EB_LAPACK(ConfigureMake):
         except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcdir, destdir, err)
 
-    def load_module(self, mod_paths=None, purge=True):
+    def load_module(self, *args, **kwargs):
         """Don't try to load (non-existing) LAPACK module when performing a test build."""
         if not self.cfg['test_only']:
-            super(EB_LAPACK, self).load_module(mod_paths=mod_paths, purge=purge)
+            super(EB_LAPACK, self).load_module(*args, **kwargs)
 
     def test_step(self):
         """
