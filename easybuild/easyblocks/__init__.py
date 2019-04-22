@@ -32,7 +32,6 @@ easybuild.easyblocks package declaration
 @author: Jens Timmerman (Ghent University)
 """
 import os
-import pkg_resources
 from distutils.version import LooseVersion
 from pkgutil import extend_path
 
@@ -84,4 +83,4 @@ if 'l' in dir():
 
 # let python know this is not the only place to look for easyblocks, so we can have multiple
 # easybuild/easyblocks paths in the Python search path, next to the official easyblocks distribution
-pkg_resources.declare_namespace(__name__)
+__path__ = extend_path(__path__, __name__)
