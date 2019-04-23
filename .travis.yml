@@ -62,5 +62,11 @@ script:
     - if [ ! -z $MOD_INIT ] && [ ! -z $LMOD_VERSION ]; then alias ml=foobar; fi
     # set up environment for modules tool (if $MOD_INIT is defined)
     - if [ ! -z $MOD_INIT ]; then source $MOD_INIT; type module; fi
+    # actively break "import setuptools" and "import pkg_resources",
+    # since EasyBuild should not have a runtime requirement on setuptools
+    - mkdir -p /tmp/$TRAVIS_JOB_ID
+    - echo 'raise ImportError("setuptools should no longer be relied on")' > /tmp/$TRAVIS_JOB_ID/setuptools.py
+    - echo 'raise ImportError("setuptools should no longer be relied on")' > /tmp/$TRAVIS_JOB_ID/pkg_resources.py
+    - export PYTHONPATH=/tmp/$TRAVIS_JOB_ID:$PYTHONPATH
     - export PYTHONPATH=$TRAVIS_BUILD_DIR
     - python -O -m test.easyblocks.suite
