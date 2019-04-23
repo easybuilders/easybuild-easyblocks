@@ -44,7 +44,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_20
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import get_gcc_version, get_platform_name
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 def get_tbb_gccprefix():

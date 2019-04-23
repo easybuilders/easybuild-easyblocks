@@ -39,6 +39,7 @@ from distutils.version import LooseVersion
 from distutils.sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
+from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock

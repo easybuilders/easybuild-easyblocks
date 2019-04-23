@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class EB_libxml2(ConfigureMake, PythonPackage):

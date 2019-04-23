@@ -34,13 +34,13 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
 from easybuild.easyblocks.impi import EB_impi
-from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
+
 
 class SystemMPI(Bundle, ConfigureMake, EB_impi):
     """
