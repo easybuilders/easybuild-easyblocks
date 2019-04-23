@@ -23,12 +23,12 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for creating a module that loads the build 
-environment flags for the current toolchain 
+EasyBuild support for creating a module that loads the build
+environment flags for the current toolchain
 
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 from easybuild.easyblocks.generic.bundle import Bundle
 
 

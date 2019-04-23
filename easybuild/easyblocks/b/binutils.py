@@ -39,7 +39,7 @@ from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class EB_binutils(ConfigureMake):
