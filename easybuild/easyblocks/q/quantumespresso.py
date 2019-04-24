@@ -60,7 +60,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Quantum ESPRESSO."""
         super(EB_QuantumESPRESSO, self).__init__(*args, **kwargs)
- 
+
         if LooseVersion(self.version) >= LooseVersion("6"):
             self.install_subdir = "qe-%s" % self.version
         else:
@@ -141,13 +141,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be " +
                                      "version %s or newer" % (self.version, elpa_min_ver))
 
-            if LooseVersion(elpa_v) < LooseVersion("2018"):
-                elpa_include = os.path.join(elpa, 'include')
+            if self.toolchain.options.get('openmp', False):
+                elpa_include = os.path.join(elpa, 'include', 'elpa_openmp-%s' % elpa_v)
             else:
-                if self.toolchain.options.get('openmp', False):
-                    elpa_include = os.path.join(elpa, 'include', 'elpa_openmp-%s' % elpa_v)
-                else:
-                    elpa_include = os.path.join(elpa, 'include', 'elpa-%s' % elpa_v)
+                elpa_include = os.path.join(elpa, 'include', 'elpa-%s' % elpa_v)
             repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
             self.cfg.update('configopts', '--with-elpa-include=%s' % elpa_include)
             if self.toolchain.options.get('openmp', False):
