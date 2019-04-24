@@ -142,16 +142,14 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                      "version %s or newer" % (self.version, elpa_min_ver))
 
             if self.toolchain.options.get('openmp', False):
-                elpa_include = os.path.join(elpa, 'include', 'elpa_openmp-%s' % elpa_v)
-            else:
-                elpa_include = os.path.join(elpa, 'include', 'elpa-%s' % elpa_v)
-            repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
-            self.cfg.update('configopts', '--with-elpa-include=%s' % elpa_include)
-            if self.toolchain.options.get('openmp', False):
+                elpa_include = 'elpa_openmp-%s' % elpa_v
                 elpa_lib = 'libelpa_openmp.a'
             else:
+                elpa_include = 'elpa-%s' % elpa_v
                 elpa_lib = 'libelpa.a'
-
+            elpa_include = os.path.join(elpa, 'include', elpa_include)
+            repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
+            self.cfg.update('configopts', '--with-elpa-include=%s' % elpa_include)
             elpa_lib = os.path.join(elpa, 'lib', elpa_lib)
             self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
 
