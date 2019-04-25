@@ -48,12 +48,10 @@ class EB_Advisor(IntelBase):
             self.subdir = 'advisor'
 
     def prepare_step(self, *args, **kwargs):
-        """Since 2019u3 there is no license check."""
+        """Since 2019u3 there is no license required."""
         if LooseVersion(self.version) >= LooseVersion('2019_update3'):
             kwargs['requires_runtime_license'] = False
-            super(EB_Advisor, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_Advisor, self).prepare_step(*args, **kwargs)
+        super(EB_Advisor, self).prepare_step(*args, **kwargs)
 
     def make_module_req_guess(self):
         """Find reasonable paths for Advisor"""
