@@ -4,7 +4,7 @@ EasyBuild support for building and installing OpenBLAS, implemented as an easybl
 @author: Andrew Edmondson (University of Birmingham)
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 
 
 class EB_OpenBLAS(ConfigureMake):
@@ -18,3 +18,18 @@ class EB_OpenBLAS(ConfigureMake):
             self.cfg['buildopts'] += ' TARGET=POWER8'
 
         super(EB_OpenBLAS, self).build_step()
+
+    def configure_step(self):
+        """ nothing to do for OpenBLAS """
+        pass
+
+    def sanity_check_step(self):
+        """ Custom sanity check for OpenBLAS """
+        custom_paths = {
+            'files': ['include/cblas.h', 'include/f77blas.h', 'include/lapacke_config.h', 'include/lapacke.h',
+                      'include/lapacke_mangling.h', 'include/lapacke_utils.h', 'include/openblas_config.h',
+                      'lib/libopenblas.a', 'lib/libopenblas.%s' % get_shared_lib_ext()],
+
+            'dirs': [''],
+        }
+        super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
