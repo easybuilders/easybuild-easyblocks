@@ -50,6 +50,14 @@ class EB_VTune(IntelBase):
         elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
 
+    def prepare_step(self, *args, **kwargs):
+        """Since 2019u3 there is no license check."""
+        if LooseVersion(self.version) >= LooseVersion('2019_update3'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_VTune, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_VTune, self).prepare_step(*args, **kwargs)
+
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
         super(EB_VTune, self).make_installdir(dontcreate=True)
