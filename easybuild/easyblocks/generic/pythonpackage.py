@@ -46,7 +46,7 @@ from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PAC
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, remove_dir, remove_file, which
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -564,10 +564,7 @@ class PythonPackage(ExtensionEasyBlock):
             paths = glob.glob(os.path.join(self.installdir, glob_pattern))
             self.log.info("Fixing shebang to '%s' for files that match '%s': %s", PYTHON_SHEBANG, glob_pattern, paths)
             for path in paths:
-                apply_regex_substitutions(path, [(r'^#!.*python$', PYTHON_SHEBANG)])
-
-                # remove backup that is made by apply_regex_substitutions
-                remove_file(path + '.orig.eb')
+                apply_regex_substitutions(path, [(r'^#!.*python[0-9.]*$', PYTHON_SHEBANG)], backup=False)
 
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
