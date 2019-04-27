@@ -31,6 +31,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import glob
 import os
 import re
 import sys
@@ -45,7 +46,7 @@ from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PAC
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, rmtree2, which
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -58,6 +59,8 @@ PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
+
+PYTHON_SHEBANG = '#!/usr/bin/env python'
 
 
 def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
@@ -182,6 +185,8 @@ class PythonPackage(ExtensionEasyBlock):
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
             'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'fix_python_shebang_for': [[], "List of files for which Python shebang should be fixed "
+                                           "to '#!/usr/bin/env python' (glob patterns supported)", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
@@ -527,10 +532,7 @@ class PythonPackage(ExtensionEasyBlock):
                 run_cmd(cmd, log_all=True, simple=True)
 
             if testinstalldir:
-                try:
-                    rmtree2(testinstalldir)
-                except OSError as err:
-                    raise EasyBuildError("Removing testinstalldir %s failed: %s", testinstalldir, err)
+                remove_dir(testinstalldir)
 
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
@@ -557,6 +559,12 @@ class PythonPackage(ExtensionEasyBlock):
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
             env.setvar('PYTHONPATH', pythonpath, verbose=False)
+
+        for glob_pattern in self.cfg.get('fix_python_shebang_for', []):
+            paths = glob.glob(os.path.join(self.installdir, glob_pattern))
+            self.log.info("Fixing shebang to '%s' for files that match '%s': %s", PYTHON_SHEBANG, glob_pattern, paths)
+            for path in paths:
+                apply_regex_substitutions(path, [(r'^#!.*python[0-9.]*$', PYTHON_SHEBANG)], backup=False)
 
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
