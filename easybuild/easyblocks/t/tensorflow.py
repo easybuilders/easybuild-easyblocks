@@ -362,9 +362,11 @@ class EB_TensorFlow(PythonPackage):
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
         pythonpath = os.getenv('PYTHONPATH', '')
-        env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+        env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
         cmd.append('--action_env=PYTHONPATH')
+        # Also export EBPYTHONPREFIXES to handle the new multi-deps python setup
+        cmd.append('--action_env=EBPYTHONPREFIXES')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
