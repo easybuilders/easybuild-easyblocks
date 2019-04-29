@@ -257,6 +257,8 @@ class EB_TensorFlow(PythonPackage):
         apply_regex_substitutions('configure.py', regex_subs)
 
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
+        # Tell Bazel to not use $HOME/.cache/bazel at all
+        env.setvar('TEST_TMPDIR', os.path.join(tmpdir, 'output_root'))
         run_cmd(cmd, log_all=True, simple=True)
 
     def build_step(self):
