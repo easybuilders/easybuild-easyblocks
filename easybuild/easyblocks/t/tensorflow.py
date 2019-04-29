@@ -365,8 +365,10 @@ class EB_TensorFlow(PythonPackage):
         env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
         cmd.append('--action_env=PYTHONPATH')
-        # Also export EBPYTHONPREFIXES to handle the new multi-deps python setup
-        cmd.append('--action_env=EBPYTHONPREFIXES')
+        # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
+        if 'EBPYTHONPREFIXES' in os.environ:
+            cmd.append('--action_env=EBPYTHONPREFIXES')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
