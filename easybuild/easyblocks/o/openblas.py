@@ -39,6 +39,6 @@ class EB_OpenBLAS(ConfigureMake):
                       'include/lapacke_mangling.h', 'include/lapacke_utils.h', 'include/openblas_config.h',
                       'lib/libopenblas.a', 'lib/libopenblas.%s' % get_shared_lib_ext()],
 
-            'dirs': [''],
+            'dirs': [],
         }
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
