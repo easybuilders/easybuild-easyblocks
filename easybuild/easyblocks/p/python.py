@@ -37,8 +37,10 @@ import os
 import re
 import fileinput
 import sys
+import tempfile
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -226,6 +228,12 @@ class EB_Python(ConfigureMake):
 
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
         super(EB_Python, self).install_step()
 
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
