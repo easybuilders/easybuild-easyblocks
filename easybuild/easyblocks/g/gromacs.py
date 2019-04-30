@@ -132,7 +132,7 @@ class EB_GROMACS(CMakeMake):
         # denormal results being flushed to zero. This will cause errors for very small
         # arguments without FMA support since some intermediate results might be denormal.
         # [https://redmine.gromacs.org/issues/2335]
-        # Set -fp-model precise on non-FMA CPUs to produce correct results.        
+        # Set -fp-model precise on non-FMA CPUs to produce correct results.
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             cpu_features = get_cpu_features()
             if 'fma' not in cpu_features:
