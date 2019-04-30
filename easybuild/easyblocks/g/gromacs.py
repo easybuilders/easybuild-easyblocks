@@ -31,6 +31,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Luca Marsella (CSCS)
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Oliver Stueker (Compute Canada/ACENET)
+@author: Davide Vanzo (Vanderbilt University)
 """
 import glob
 import os
@@ -49,7 +50,7 @@ from easybuild.tools.filetools import download_file, extract_file, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
 
 
 class EB_GROMACS(CMakeMake):
@@ -123,6 +124,23 @@ class EB_GROMACS(CMakeMake):
             self.log.info("No target architecture specified based on optarch configuration option ('%s')", optarch)
 
         return res
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for GROMACS."""
+
+        # With the intel toolchain the -ftz build flag is automatically added, causing
+        # denormal results being flushed to zero. This will cause errors for very small
+        # arguments without FMA support since some intermediate results might be denormal.
+        # [https://redmine.gromacs.org/issues/2335]
+        # Set -fp-model precise on non-FMA CPUs to produce correct results.        
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            cpu_features = get_cpu_features()
+            if 'fma' not in cpu_features:
+                self.log.info("FMA instruction not supported by this CPU: %s", cpu_features)
+                self.log.info("Setting precise=True intel toolchain option to remove -ftz build flag")
+                self.toolchain.options['precise'] = True
+
+        super(EB_GROMACS, self).prepare_step(*args, **kwargs)
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
