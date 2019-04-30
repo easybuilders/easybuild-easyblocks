@@ -256,6 +256,9 @@ class EB_TensorFlow(PythonPackage):
                        r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
         apply_regex_substitutions('configure.py', regex_subs)
 
+        # Tell Bazel to not use $HOME/.cache/bazel at all
+        # See https://docs.bazel.build/versions/master/output_directories.html
+        env.setvar('TEST_TMPDIR', os.path.join(tmpdir, 'output_root'))
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
