@@ -140,6 +140,8 @@ class EB_GROMACS(CMakeMake):
                 self.log.info("Setting precise=True intel toolchain option to remove -ftz build flag")
                 self.toolchain.options['precise'] = True
 
+        # This must be called after enforcing the precise option otherwise the
+        # change will be ignored.
         super(EB_GROMACS, self).prepare_step(*args, **kwargs)
 
     def configure_step(self):
