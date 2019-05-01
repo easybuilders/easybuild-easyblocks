@@ -53,6 +53,7 @@ class EB_CHARMM(EasyBlock):
         extra_vars = {
             'build_options': ["FULL", "Specify the options to the build script", CUSTOM],
             'system_size': ["medium", "Specify the supported systemsize: %s" % ', '.join(KNOWN_SYSTEM_SIZES), CUSTOM],
+            'runtest': [True, "Run tests after each build", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -115,12 +116,14 @@ class EB_CHARMM(EasyBlock):
 
     def test_step(self):
         """Run the testsuite"""
-        if self.toolchain.options.get('usempi', None):
-            cmd = "cd test && ./test.com M %s %s" % (self.cfg['parallel'], self.arch)
-        else:
-            cmd = "cd test && ./test.com %s" % self.arch
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        # Allow to skip the tests by setting runtest to False
+        if self.cfg['runtest']:
+            if self.toolchain.options.get('usempi', None):
+                cmd = "cd test && ./test.com M %s %s" % (self.cfg['parallel'], self.arch)
+            else:
+                cmd = "cd test && ./test.com %s" % self.arch
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            return out
 
     def sanity_check_step(self):
         """Custom sanity check for CHARMM."""
