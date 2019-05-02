@@ -137,7 +137,6 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
-        saved_path = os.environ.get('PATH', '')
         ldconfig = which('ldconfig')
         if ldconfig:
             self.log.info("ldconfig found at %s", ldconfig)
@@ -145,16 +144,17 @@ class EB_CUDA(Binary):
             # ldconfig is usually in /sbin or /usr/sbin
             for cand_path in ['/sbin', '/usr/sbin']:
                 if os.path.exists(os.path.join(cand_path, 'ldconfig')):
-                    self.log.info("ldconfig found at %s, so appending that location to $PATH" % cand_path)
-                    setvar('PATH', os.pathsep.join([saved_path, cand_path]))
+                    self.log.info("ldconfig found at %s, so using that.")
+                    ldconfig = os.path.join(cand_path, 'ldconfig')
+                    break
 
         # fail if we couldn't find ldconfig, because it's really needed
-        if not which('ldconfig'):
-            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s" % os.environ.get('PATH', ''))
+        if not ldconfig:
+            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s nor in /sbin or /usr/sbin" % os.environ.get('PATH', ''))
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
-        run_cmd("ldconfig -N " + os.path.join(self.installdir, 'lib64', 'stubs'))
-        setvar('PATH', saved_path)
+        cmd = " ".join(ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs'))
+        run_cmd(cmd)
 
         super(EB_CUDA, self).post_install_step()
 
