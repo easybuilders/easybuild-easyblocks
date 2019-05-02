@@ -143,8 +143,8 @@ class EB_CUDA(Binary):
             # ldconfig is usually in /sbin or /usr/sbin
             for cand_path in ['/sbin', '/usr/sbin']:
                 if os.path.exists(os.path.join(cand_path, 'ldconfig')):
-                    self.log.info("ldconfig found at %s, so using that." % cand_path)
                     ldconfig = os.path.join(cand_path, 'ldconfig')
+                    self.log.info("ldconfig found at %s." % ldconfig)
                     break
 
         # fail if we couldn't find ldconfig, because it's really needed
