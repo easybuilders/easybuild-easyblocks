@@ -29,7 +29,6 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -144,13 +143,14 @@ class EB_CUDA(Binary):
             # ldconfig is usually in /sbin or /usr/sbin
             for cand_path in ['/sbin', '/usr/sbin']:
                 if os.path.exists(os.path.join(cand_path, 'ldconfig')):
-                    self.log.info("ldconfig found at %s, so using that.")
+                    self.log.info("ldconfig found at %s, so using that." % cand_path)
                     ldconfig = os.path.join(cand_path, 'ldconfig')
                     break
 
         # fail if we couldn't find ldconfig, because it's really needed
         if not ldconfig:
-            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s nor in /sbin or /usr/sbin" % os.environ.get('PATH', ''))
+            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s " +
+                                 "nor in /sbin or /usr/sbin" % os.environ.get('PATH', ''))
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = " ".join(ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs'))
