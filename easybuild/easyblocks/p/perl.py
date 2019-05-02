@@ -67,7 +67,7 @@ class EB_Perl(ConfigureMake):
             '-Dscriptdirexp=%(installdir)s/bin',
             # guarantee that the install directory has the form lib/perlX/
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/1700
-            "-Dinstallstyle = 'lib/perl%s'" % majver,
+            "-Dinstallstyle='lib/perl%s'" % majver,
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
