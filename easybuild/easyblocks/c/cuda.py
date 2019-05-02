@@ -44,6 +44,7 @@ else
         exit $?
 fi """
 
+
 class EB_CUDA(Binary):
     """
     Support for installing CUDA.
@@ -130,30 +131,31 @@ class EB_CUDA(Binary):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_name)
             write_file(wrapper_f, WRAPPER_TEMPLATE % wrapper_comp)
-            adjust_permissions(wrapper_f, stat.S_IXUSR|stat.S_IRUSR|stat.S_IXGRP|stat.S_IRGRP|stat.S_IXOTH|stat.S_IROTH)
+            perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
+            adjust_permissions(wrapper_f, perms)
 
         # Prepare wrappers to handle a default host compiler other than g++
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
         ldconfig = which('ldconfig')
-        if ldconfig:
-            self.log.info("ldconfig found at %s", ldconfig)
-        else:
+        sbin_dirs = ['/sbin', '/usr/sbin']
+        if not ldconfig:
             # ldconfig is usually in /sbin or /usr/sbin
-            for cand_path in ['/sbin', '/usr/sbin']:
+            for cand_path in sbin_dirs:
                 if os.path.exists(os.path.join(cand_path, 'ldconfig')):
                     ldconfig = os.path.join(cand_path, 'ldconfig')
-                    self.log.info("ldconfig found at %s." % ldconfig)
                     break
 
         # fail if we couldn't find ldconfig, because it's really needed
-        if not ldconfig:
-            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s " +
-                                 "nor in /sbin or /usr/sbin" % os.environ.get('PATH', ''))
+        if ldconfig:
+            self.log.info("ldconfig found at %s", ldconfig)
+        else:
+            path = os.environ.get('PATH', '')
+            raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
-        cmd = " ".join(ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs'))
+        cmd = ' '.join([ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs')])
         run_cmd(cmd)
 
         super(EB_CUDA, self).post_install_step()
@@ -186,7 +188,6 @@ class EB_CUDA(Binary):
         if LooseVersion(self.version) >= LooseVersion('7'):
             custom_paths['files'].append(os.path.join("extras", "CUPTI", "lib64", "libcupti.%s") % shlib_ext)
             custom_paths['dirs'].append(os.path.join("extras", "CUPTI", "include"))
-
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
