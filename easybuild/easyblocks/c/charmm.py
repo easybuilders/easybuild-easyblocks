@@ -110,7 +110,7 @@ class EB_CHARMM(EasyBlock):
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             build_options += " IFORT"
 
-        cmd = ' '.join([self.cfg['prebuildopts'], './install.com', self.arch, self.cfg['system_size'], build_option
+        cmd = ' '.join([self.cfg['prebuildopts'], './install.com', self.arch, self.cfg['system_size'], build_options])
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=verbose)
         return out
 
