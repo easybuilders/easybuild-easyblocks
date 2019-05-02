@@ -150,7 +150,7 @@ class EB_CUDA(Binary):
 
         # fail if we couldn't find ldconfig, because it's really needed
         if not which('ldconfig'):
-            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s" os.environ.get('PATH', ''))
+            raise EasyBuildError("Unable to find 'ldconfig' in $PATH = %s" % os.environ.get('PATH', ''))
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         run_cmd("ldconfig -N " + os.path.join(self.installdir, 'lib64', 'stubs'))
