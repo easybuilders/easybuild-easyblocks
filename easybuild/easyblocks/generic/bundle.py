@@ -115,8 +115,6 @@ class Bundle(EasyBlock):
 
             self.comp_cfgs.append(cfg)
 
-        self.cfg.update('checksums', checksums_patches)
-
         self.cfg.enable_templating = True
 
     def check_checksums(self):
