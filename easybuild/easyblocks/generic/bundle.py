@@ -77,9 +77,6 @@ class Bundle(EasyBlock):
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
 
-        # list of checksums for patches (must be included after checksums for sources)
-        checksums_patches = []
-
         for comp in self.cfg['components']:
             comp_name, comp_version, comp_specs = comp[0], comp[1], {}
             if len(comp) == 3:
@@ -106,37 +103,15 @@ class Bundle(EasyBlock):
             # do not inherit easyblock to use from parent (since that would result in an infinite loop in install_step)
             cfg['easyblock'] = None
 
-            # reset list of sources/source_urls/checksums
-            cfg['sources'] = cfg['source_urls'] = cfg['checksums'] = []
-
             for key in self.cfg['default_component_specs']:
                 cfg[key] = self.cfg['default_component_specs'][key]
 
             for key in comp_specs:
                 cfg[key] = comp_specs[key]
 
-            # enable resolving of templates for component-specific EasyConfig instance
-            cfg.enable_templating = True
-
             # 'sources' is strictly required
-            if cfg['sources']:
-                # add component sources to list of sources
-                self.cfg.update('sources', cfg['sources'])
-            else:
+            if not cfg['sources']:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
-
-            if cfg['source_urls']:
-                # add per-component source_urls to list of bundle source_urls, expanding templates
-                self.cfg.update('source_urls', cfg['source_urls'])
-
-            if cfg['checksums']:
-                src_cnt = len(cfg['sources'])
-
-                # add per-component checksums for sources to list of checksums
-                self.cfg.update('checksums', cfg['checksums'][:src_cnt])
-
-                # add per-component checksums for patches to list of checksums for patches
-                checksums_patches.extend(cfg['checksums'][src_cnt:])
 
             self.comp_cfgs.append(cfg)
 
