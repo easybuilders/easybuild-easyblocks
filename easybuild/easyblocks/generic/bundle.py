@@ -129,7 +129,7 @@ class Bundle(EasyBlock):
                             # Update source_urls in the 'source' dict to use the one for the components
                             # (if it doesn't already exist)
                             source['source_urls'] = source.get('source_urls', cfg['source_urls'])
-                            self.cfg.update('sources', source)
+                            self.cfg.update('sources', [source])
                         else:
                             raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
                                                  "process it.", source, cfg['name'])
