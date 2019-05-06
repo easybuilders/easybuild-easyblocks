@@ -120,14 +120,15 @@ class Bundle(EasyBlock):
 
             # 'sources' is strictly required
             if cfg['sources']:
-                # add component sources to list of sources
-                self.cfg.update('sources', cfg['sources'])
+                # If per-component source URLs are provided, attach them directly to the relevant sources
+                if cfg['source_urls']:
+                    for source in cfg['sources']:
+                        self.cfg.update('sources', [{'filename': source, 'source_urls': cfg['source_urls']}])
+                else:
+                    # add component sources to list of sources
+                    self.cfg.update('sources', cfg['sources'])
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
-
-            if cfg['source_urls']:
-                # add per-component source_urls to list of bundle source_urls, expanding templates
-                self.cfg.update('source_urls', cfg['source_urls'])
 
             if cfg['checksums']:
                 src_cnt = len(cfg['sources'])
