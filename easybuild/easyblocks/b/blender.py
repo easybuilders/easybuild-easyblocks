@@ -40,6 +40,7 @@ class EB_Blender(CMakeMake):
     """Support for building Blender."""
 
     def find_glob_pattern(self, glob_pattern):
+        """Find unique file/dir matching glob_pattern (raises error if more than one match is found)"""
         if self.dry_run:
             return glob_pattern
         res = glob.glob(glob_pattern)
@@ -52,16 +53,18 @@ class EB_Blender(CMakeMake):
         self.cfg['separate_build_dir'] = True
 
         default_config_opts = {
-            'WITH_INSTALL_PORTABLE': 'OFF',
+            'CMAKE_CXX_FLAGS_RELEASE': '-DNDEBUG',
+            'CMAKE_C_FLAGS_RELEASE': '-DNDEBUG',
             'WITH_BUILDINFO': 'OFF',
             # disable SSE detection to give EasyBuild full control over optimization compiler flags being used
             'WITH_CPU_SSE': 'OFF',
-            'CMAKE_C_FLAGS_RELEASE': '-DNDEBUG',
-            'CMAKE_CXX_FLAGS_RELEASE': '-DNDEBUG',
-            # these are needed unless extra dependencies are added for them to work
+            # needed unless extra dependencies are added for it to work
             'WITH_GAMEENGINE': 'OFF',
+            'WITH_INSTALL_PORTABLE': 'OFF',
+            # needed unless extra dependencies are added for it to work
             'WITH_SYSTEM_GLEW': 'OFF',
         }
+
         for key in default_config_opts:
             opt = '-D%s=' % key
             if opt not in self.cfg['configopts']:
@@ -74,6 +77,7 @@ class EB_Blender(CMakeMake):
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             site_packages = os.path.join(python_root, 'lib', 'python%s' % pyshortver, 'site-packages')
 
+            # We assume that numpy/requests are included with the Python installation (no longer true for 2019a)
             numpy_root = self.find_glob_pattern(
                 os.path.join(site_packages, 'numpy-*-py%s-linux-x86_64.egg' % pyshortver))
             requests_root = self.find_glob_pattern(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))
@@ -104,10 +108,8 @@ class EB_Blender(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Blender."""
-
         custom_paths = {
             'files': ['bin/blender'],
             'dirs': [],
         }
-
         super(EB_Blender, self).sanity_check_step(custom_paths=custom_paths)
