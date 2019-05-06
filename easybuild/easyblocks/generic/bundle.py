@@ -123,7 +123,16 @@ class Bundle(EasyBlock):
                 # If per-component source URLs are provided, attach them directly to the relevant sources
                 if cfg['source_urls']:
                     for source in cfg['sources']:
-                        self.cfg.update('sources', [{'filename': source, 'source_urls': cfg['source_urls']}])
+                        if isinstance(source, basestring):
+                            self.cfg.update('sources', [{'filename': source, 'source_urls': cfg['source_urls']}])
+                        elif isinstance(source, dict):
+                            # Update source_urls in the 'source' dict to use the one for the components
+                            # (if it doesn't already exist)
+                            comp_source_urls = source.get('source_urls', cfg['source_urls'])
+                            self.cfg.update('sources', [source.update('source_urls', comp_source_urls)])
+                        else:
+                            raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
+                                                 "process it.", source, cfg['name'])
                 else:
                     # add component sources to list of sources
                     self.cfg.update('sources', cfg['sources'])
