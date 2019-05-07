@@ -15,7 +15,7 @@ class EB_OpenBLAS(ConfigureMake):
         """Custom build procedure for OpenBLAS."""
 
         self.cfg['buildopts'] += 'BINARY=64 USE_THREAD=1 USE_OPENMP=1 CC="%s" FC="%s"' % (
-            os.environ['CC'], os.environ['F77'])
+            os.environ['CC'], os.environ['FC'])
 
         if get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
