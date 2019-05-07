@@ -371,7 +371,8 @@ class PythonPackage(ExtensionEasyBlock):
                 # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
-                    self.cfg.update('installopts', '--no-build-isolation')
+                    if '--no-build-isolation' not in self.cfg['installopts']:
+                        self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
