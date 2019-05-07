@@ -89,7 +89,8 @@ class Bundle(EasyBlock):
 
             easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
             if easyblock is None:
-                raise EasyBuildError("No easyblock specified for component %s v%s", comp_cfg['name'], comp_cfg['version'])
+                raise EasyBuildError("No easyblock specified for component %s v%s", comp_cfg['name'],
+                                     comp_cfg['version'])
             elif easyblock == 'Bundle':
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
