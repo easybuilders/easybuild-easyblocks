@@ -167,7 +167,7 @@ class EB_Clang(CMakeMake):
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
         if self.cfg["build_lld"]:
-            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, '..', 'lld'))
 
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
