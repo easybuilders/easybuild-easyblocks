@@ -18,8 +18,10 @@ class EB_OpenBLAS(ConfigureMake):
             self.cfg.update('buildopts', 'BINARY=64')
         if 'USE_THREAD=' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'USE_THREAD=1')
+            self.cfg.update('installopts', 'USE_THREAD=1')
         if 'USE_OPENMP=' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'USE_OPENMP=1')
+            self.cfg.update('installopts', 'USE_OPENMP=1')
         if 'CC=' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'CC=%s' % os.environ['CC'])
         if 'FC=' not in self.cfg['buildopts']:
