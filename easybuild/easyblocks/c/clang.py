@@ -74,6 +74,7 @@ class EB_Clang(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'buildlld': [False, "Build the Clang lld linker", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
@@ -98,6 +99,9 @@ class EB_Clang(CMakeMake):
             default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
             if default_targets:
                 self.cfg['build_targets'] = build_targets = default_targets
+                # If CUDA is included as a dep, add it as a target
+                if get_software_root("CUDA"):
+                    self.cfg['build_targets'] += ["NVPTX"]
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             else:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
@@ -132,6 +136,7 @@ class EB_Clang(CMakeMake):
           tools/
             clang/        Unpack clang-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
+            lld/          Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -163,6 +168,9 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["usepolly"]:
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
+
+        if self.cfg["buildlld"]:
+            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
 
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
@@ -236,6 +244,12 @@ class EB_Clang(CMakeMake):
             self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=ON "
         else:
             self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=OFF "
+
+        if self.cfg["buildlld"]:
+            self.cfg['configopts'] += "-DLLVM_ENABLE_PROJECTS=lld "
+
+        if self.cfg["usepolly"] and "NVPTX" in self.cfg['build_targets']:
+            self.cfg['configopts'] += "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON  "
 
         self.cfg['configopts'] += '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(self.cfg['build_targets'])
 
