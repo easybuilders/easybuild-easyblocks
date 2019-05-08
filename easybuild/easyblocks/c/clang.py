@@ -242,7 +242,7 @@ class EB_Clang(CMakeMake):
         else:
             self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=OFF "
 
-        if self.cfg["buildlld"]:
+        if self.cfg["build_lld"]:
             self.cfg['configopts'] += "-DLLVM_ENABLE_PROJECTS=lld "
 
         # If CUDA is included as a dep, add it as a target
