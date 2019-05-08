@@ -529,7 +529,8 @@ class PythonPackage(ExtensionEasyBlock):
                 run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
             if self.testcmd:
-                cmd = "%s%s" % (extrapath, self.testcmd % {'python': self.python_cmd})
+                testcmd = self.testcmd % {'python': self.python_cmd}
+                cmd = ' '.join([extrapath, self.cfg['pretestopts'], testcmd, self.cfg['testopts']])
                 run_cmd(cmd, log_all=True, simple=True)
 
             if testinstalldir:
