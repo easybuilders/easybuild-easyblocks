@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2018-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,22 +23,15 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for software that uses the GNU installation procedure,
-i.e. configure/make/make install, implemented as an easyblock.
+EasyBuild support for building and installing Lua, implemented as an easyblock
 
-@author: Stijn De Weirdt (Ghent University)
-@author: Dries Verdegem (Ghent University)
+@author: Ruben Di Battista (Ecole Polytechnique)
 @author: Kenneth Hoste (Ghent University)
-@author: Pieter De Baets (Ghent University)
-@author: Jens Timmerman (Ghent University)
-@author: Toon Willems (Ghent University)
 """
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
-from easybuild.tools.run import run_cmd
 
 
 class EB_Lua(ConfigureMake):
@@ -53,33 +46,31 @@ class EB_Lua(ConfigureMake):
         Lua does not need a configure step. In this step we just patch the
         `luaconf.h` file in the sources to point to the correct Lua Root
         """
-        src_dir = self.src[0]['finalpath']
-        luaconf_h = os.path.join(src_dir, 'src', 'luaconf.h')
+        luaconf_h = os.path.join(self.start_dir, 'src', 'luaconf.h')
+        self.log.debug("Patching luaconf.h at %s", luaconf_h)
+        # note: make sure trailing slash is preserved!
+        apply_regex_substitutions(luaconf_h, [(r'/usr/local/', '%s/' % self.installdir)])
 
-        # Open file
-        self.log.debug("Patching luaconf.h at {}".format(luaconf_h))
-        installdir = os.path.join(self.installdir, '')  # Add trailing slash
-        apply_regex_substitutions(luaconf_h, [(r'/usr/local/', installdir)])
-
-    def test_step(self):
-        out = super(EB_Lua, self).test_step()
-
-        # Check if the path where lua looks for packages is correctly pointing
-        # to installdir
-        cmd = "src/lua -e 'io.write(package.path)'"
-
-        stdout, exitcode = run_cmd(cmd, log_all=True, simple=False)
-
-        if self.installdir not in stdout:
-            raise EasyBuildError("package.path seems to not point in the right path")
-
-        return out
-
-    def install_step(self):
-        """
-        Create the installation in correct location
-        - typical: make install
-        """
-
+        self.cfg.update('buildopts', 'linux')
+        self.cfg['runtest'] = 'test'
         self.cfg.update('installopts', 'INSTALL_TOP=%s' % self.installdir)
-        super(EB_Lua, self).install_step()
+
+    def sanity_check_step(self):
+        """
+        Custom sanity check for Lua.
+        """
+        custom_paths = {
+            'files': ['bin/lua'],
+            'dirs': [],
+        }
+        custom_commands = ["lua -e 'io.write(package.path)' | grep %s" % self.installdir]
+
+        super(EB_Lua, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """Also define $LUA_DIR in generated module file."""
+        txt = super(EB_Lua, self).make_module_extra()
+
+        txt += self.module_generator.set_environment('LUA_DIR', self.installdir)
+
+        return txt
