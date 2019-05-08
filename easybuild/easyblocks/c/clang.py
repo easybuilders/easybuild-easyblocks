@@ -74,7 +74,7 @@ class EB_Clang(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
-            'buildlld': [False, "Build the Clang lld linker", CUSTOM],
+            'build_lld': [False, "Build the Clang lld linker", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
@@ -166,7 +166,7 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
-        if self.cfg["buildlld"]:
+        if self.cfg["build_lld"]:
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
 
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
@@ -392,6 +392,9 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
             custom_paths['dirs'].extend(["include/polly"])
+
+        if self.cfg["build_lld"]:
+            custom_paths['files'].extend(["bin/lld"])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
