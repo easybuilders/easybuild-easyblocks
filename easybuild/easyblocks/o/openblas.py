@@ -29,7 +29,7 @@ class EB_OpenBLAS(ConfigureMake):
 
         if get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
-            self.cfg.update('buildopts', ' TARGET=POWER8')
+            self.cfg.update('buildopts', 'TARGET=POWER8')
 
         self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
