@@ -99,9 +99,6 @@ class EB_Clang(CMakeMake):
             default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
             if default_targets:
                 self.cfg['build_targets'] = build_targets = default_targets
-                # If CUDA is included as a dep, add it as a target
-                if get_software_root("CUDA"):
-                    self.cfg['build_targets'] += ["NVPTX"]
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             else:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
@@ -248,8 +245,11 @@ class EB_Clang(CMakeMake):
         if self.cfg["buildlld"]:
             self.cfg['configopts'] += "-DLLVM_ENABLE_PROJECTS=lld "
 
-        if self.cfg["usepolly"] and "NVPTX" in self.cfg['build_targets']:
-            self.cfg['configopts'] += "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON  "
+        # If CUDA is included as a dep, add it as a target
+        if get_software_root("CUDA") and "NVPTX" not in self.cfg['build_targets']:
+            self.cfg['build_targets'] += ["NVPTX"]
+            if self.cfg["usepolly"]:
+                self.cfg['configopts'] += "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON  "
 
         self.cfg['configopts'] += '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(self.cfg['build_targets'])
 
