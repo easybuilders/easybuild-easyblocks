@@ -11,26 +11,25 @@ from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_
 class EB_OpenBLAS(ConfigureMake):
     """Support for building/installing OpenBLAS."""
 
-    def build_step(self):
-        """Custom build procedure for OpenBLAS."""
+    def configure_step(self):
+        """ set up some options - but no configure command to run"""
 
-        self.cfg['buildopts'] += 'BINARY=64 USE_THREAD=1 USE_OPENMP=1 CC="%s" FC="%s"' % (
-            os.environ['CC'], os.environ['FC'])
+        if 'BINARY=' not in self.cfg['buildopts']:
+            self.cfg.update('buildopts', 'BINARY=64')
+        if 'USE_THREAD=' not in self.cfg['buildopts']:
+            self.cfg.update('buildopts', 'USE_THREAD=1')
+        if 'USE_OPENMP=' not in self.cfg['buildopts']:
+            self.cfg.update('buildopts', 'USE_OPENMP=1')
+        if 'CC=' not in self.cfg['buildopts']:
+            self.cfg.update('buildopts', 'CC=%s' % os.environ['CC'])
+        if 'FC=' not in self.cfg['buildopts']:
+            self.cfg.update('buildopts', 'FC=%s' % os.environ['FC'])
 
         if get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
-            self.cfg['buildopts'] += ' TARGET=POWER8'
+            self.cfg.update('buildopts', ' TARGET=POWER8')
 
-        super(EB_OpenBLAS, self).build_step()
-
-    def install_step(self):
-        """Custom install procedure for OpenBLAS."""
-        self.cfg['installopts'] += 'USE_THREAD=1 USE_OPENMP=1 PREFIX=%s' % self.installdir
-        super(EB_OpenBLAS, self).install_step()
-
-    def configure_step(self):
-        """ nothing to do for OpenBLAS """
-        pass
+        self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
