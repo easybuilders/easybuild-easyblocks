@@ -115,7 +115,7 @@ class EB_Clang(CMakeMake):
             polly/        Unpack polly-*.tar.gz here
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
-            lld/              Unpack lld-*.tar.gz here
+            lld/          Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
