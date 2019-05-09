@@ -111,7 +111,7 @@ class EB_Clang(CMakeMake):
           tools/
             clang/        Unpack clang-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
-            lld/          Unpack lld-*.tar.gz here
+        lld/              Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
