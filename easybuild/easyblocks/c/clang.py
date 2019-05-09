@@ -93,28 +93,6 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
 
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            else:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
-
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
         super(EB_Clang, self).check_readiness_step()
@@ -233,25 +211,47 @@ class EB_Clang(CMakeMake):
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
 
-        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s' " % gcc_prefix)
+        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
-        self.cfg['configopts'] += "-DCMAKE_BUILD_TYPE=Release "
+        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
         if self.cfg['assertions']:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=ON "
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=ON")
         else:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=OFF "
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
         if self.cfg["build_lld"]:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_PROJECTS=lld "
+            self.cfg.update('configopts', "-DLLVM_ENABLE_PROJECTS=lld ")
 
-        # If CUDA is included as a dep, add it as a target
-        if get_software_root("CUDA") and "NVPTX" not in self.cfg['build_targets']:
-            self.cfg['build_targets'] += ["NVPTX"]
-            if self.cfg["usepolly"]:
-                self.cfg['configopts'] += "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON  "
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                # If CUDA is included as a dep, add it as a target
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
-        self.cfg['configopts'] += '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(self.cfg['build_targets'])
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
+
+        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+            self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
+
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(build_targets))
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
