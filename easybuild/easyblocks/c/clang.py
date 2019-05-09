@@ -237,9 +237,6 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
-        if self.cfg["libcxx"]:
-            self.cfg.update('configopts', "-DCLANG_DEFAULT_CXX_STDLIB=libc++")
-
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
