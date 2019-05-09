@@ -31,6 +31,7 @@ Support for building and installing Clang, implemented as an easyblock.
 
 @author: Dmitri Gribenko (National Technical University of Ukraine "KPI")
 @author: Ward Poelmans (Ghent University)
+@author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 
 import glob
