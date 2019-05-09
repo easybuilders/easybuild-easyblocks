@@ -410,6 +410,10 @@ class EB_Clang(CMakeMake):
         if self.cfg["build_lld"]:
             custom_paths['files'].extend(["bin/lld"])
 
+        if self.cfg["libcxx"]:
+            custom_paths['files'].extend(["lib/libc++.so"])
+            custom_paths['files'].extend(["lib/libc++abi.so"])
+
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
