@@ -75,7 +75,8 @@ class EB_Clang(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
-            'build_lld': [False, "Build the Clang lld linker", CUSTOM],
+            'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
@@ -112,7 +113,9 @@ class EB_Clang(CMakeMake):
           tools/
             clang/        Unpack clang-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
-        lld/              Unpack lld-*.tar.gz here
+            libcxx/       Unpack libcxx-*.tar.gz here
+            libcxxabi/    Unpack libcxxabi-*.tar.gz here
+            lld/              Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -146,7 +149,11 @@ class EB_Clang(CMakeMake):
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
         if self.cfg["build_lld"]:
-            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, '..', 'lld'))
+            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+
+        if self.cfg["libcxx"]:
+            find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'tools', 'libcxx'))
+            find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'tools', 'libcxxabi'))
 
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
@@ -215,21 +222,30 @@ class EB_Clang(CMakeMake):
         self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
+        # Configure some default options
         self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+        self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
+        self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
+        self.cfg.update('configopts', '-DLLVM_ENABLE_EH=ON')
+        self.cfg.update('configopts', '-DCLANG_DEFAULT_OPENMP_RUNTIME=libomp')
+
         if self.cfg['assertions']:
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=ON")
         else:
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
-        if self.cfg["build_lld"]:
-            self.cfg.update('configopts', "-DLLVM_ENABLE_PROJECTS=lld")
+        if self.cfg["usepolly"]:
+            self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
+
+        if self.cfg["libcxx"]:
+            self.cfg.update('configopts', "-DCLANG_DEFAULT_CXX_STDLIB=libc++")
 
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
             default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
             if default_targets:
-                # If CUDA is included as a dep, add it as a target
+                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
                 if get_software_root("CUDA"):
                     default_targets += ["NVPTX"]
                 self.cfg['build_targets'] = build_targets = default_targets
