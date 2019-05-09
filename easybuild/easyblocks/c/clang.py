@@ -222,7 +222,7 @@ class EB_Clang(CMakeMake):
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
         if self.cfg["build_lld"]:
-            self.cfg.update('configopts', "-DLLVM_ENABLE_PROJECTS=lld ")
+            self.cfg.update('configopts', "-DLLVM_ENABLE_PROJECTS=lld")
 
         build_targets = self.cfg['build_targets']
         if build_targets is None:
@@ -252,7 +252,7 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"] and "NVPTX" in build_targets:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
 
-        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(build_targets))
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
