@@ -152,8 +152,8 @@ class EB_Clang(CMakeMake):
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
 
         if self.cfg["libcxx"]:
-            find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'tools', 'libcxx'))
-            find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'tools', 'libcxxabi'))
+            find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
+            find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
