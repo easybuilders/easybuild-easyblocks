@@ -172,8 +172,13 @@ class EB_PGI(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for PGI"""
         prefix = self.pgi_install_subdir
+        pgf = 'pgf77'
+        # version 19 drops pgf77
+        if LooseVersion(self.version) > LooseVersion('19'):
+            pgf = 'pgf90'
+
         custom_paths = {
-            'files': [os.path.join(prefix, 'bin', x) for x in ['pgcc', 'pgc++', 'pgf77', 'pgfortran', 'siterc']],
+            'files': [os.path.join(prefix, 'bin', x) for x in ['pgcc', 'pgc++', pgf, 'pgfortran', 'siterc']],
             'dirs': [os.path.join(prefix, 'bin'), os.path.join(prefix, 'lib'),
                      os.path.join(prefix, 'include'), os.path.join(prefix, 'man')]
         }
