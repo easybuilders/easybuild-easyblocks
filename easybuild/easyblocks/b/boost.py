@@ -227,7 +227,14 @@ class EB_Boost(EasyBlock):
         """Install Boost by copying file to install dir."""
 
         self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
-        copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
+        try:
+            copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
+        except EasyBuildError as return_error:
+            if "already exists" in return_error and self.multi_deps:
+                self.log.info("Main installation already exists, only copying over missing Python libraries.")
+                copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), self.installdir)
+            else:
+                raise EasyBuildError(return_error)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
