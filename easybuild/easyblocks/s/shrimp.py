@@ -58,7 +58,7 @@ class EB_SHRiMP(ConfigureMake):
             os.chdir(os.path.join(self.installdir, "utils"))
             for f in glob.glob("*.py"):
                 self.log.info("Fixing permissions of %s in utils" % f)
-                os.chmod(f, 0755)
+                os.chmod(f, 0o755)
 
             os.chdir(cwd)
 

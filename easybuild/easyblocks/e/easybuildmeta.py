@@ -159,7 +159,7 @@ class EB_EasyBuildMeta(PythonPackage):
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
             try:
-                exec "from %s import setup" % tool
+                exec("from %s import setup" % tool)
                 del setup
                 setup_tool = tool
                 break

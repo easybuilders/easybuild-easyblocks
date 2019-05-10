@@ -88,7 +88,7 @@ class InitTest(TestCase):
         """Cleanup."""
         try:
             os.remove(self.eb_file)
-        except OSError, err:
+        except OSError as err:
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 

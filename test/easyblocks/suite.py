@@ -30,6 +30,7 @@ Usage: "python -m easybuild.easyblocks.test.suite.py" or "./easybuild/easyblocks
 @author: Toon Willems (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
+from __future__ import print_function
 import glob
 import os
 import shutil
@@ -55,7 +56,7 @@ log.setLevelName('DEBUG')
 
 try:
     tmpdir = set_tmpdir(raise_error=True)
-except EasyBuildError, err:
+except EasyBuildError as err:
     sys.stderr.write("No execution rights on temporary files, specify another location via $TMPDIR: %s\n" % err)
     sys.exit(1)
 
@@ -71,7 +72,7 @@ try:
     xml_dir = 'test-reports'
     res = xmlrunner.XMLTestRunner(output=xml_dir, verbosity=1).run(SUITE)
     xml_msg = ", XML output of tests available in %s directory" % xml_dir
-except ImportError, err:
+except ImportError as err:
     sys.stderr.write("WARNING: xmlrunner module not available, falling back to using unittest...\n\n")
     res = unittest.TextTestRunner().run(SUITE)
 
@@ -81,7 +82,7 @@ del os.environ['EASYBUILD_TMP_LOGDIR']
 
 if not res.wasSuccessful():
     sys.stderr.write("ERROR: Not all tests were successful.\n")
-    print "Log available at %s" % log_fn, xml_msg
+    print("Log available at %s" % log_fn, xml_msg)
     sys.exit(2)
 else:
     for f in glob.glob('%s*' % log_fn):
