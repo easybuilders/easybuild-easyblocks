@@ -64,6 +64,7 @@ class EB_GROMACS(CMakeMake):
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'gmx_thread_mpi': ['OFF', "Build with GMX_THREAD_MPI", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
 
@@ -399,7 +400,7 @@ class EB_GROMACS(CMakeMake):
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
                                      self.cfg['mpi_numprocs'], self.cfg['parallel'])
 
-                self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF")
+                self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=%s" % self.cfg['gmx_thread_mpi'])
 
                 mpiexec = which(self.cfg['mpiexec'])
                 if mpiexec:
