@@ -230,9 +230,10 @@ class EB_Boost(EasyBlock):
         try:
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
         except EasyBuildError as return_error:
-            if "already exists" in return_error and self.cfg['multi_deps']:
+            if self.cfg['multi_deps']:
                 self.log.info("Main installation already exists, only copying over missing Python libraries.")
-                copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), self.installdir)
+                copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')),
+                     os.path.join(self.installdir, 'lib'))
             else:
                 raise EasyBuildError(return_error)
 
