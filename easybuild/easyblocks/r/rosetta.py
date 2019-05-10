@@ -163,7 +163,7 @@ class EB_Rosetta(EasyBlock):
         us_fp = os.path.join(self.srcdir, "tools/build/user.settings")
         try:
             self.log.debug("Creating '%s' with: %s" % (us_fp, txt))
-            f = file(us_fp, 'w')
+            f = open(us_fp, 'w')
             f.write(txt)
             f.close()
         except IOError as err:
