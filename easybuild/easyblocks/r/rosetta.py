@@ -161,13 +161,8 @@ class EB_Rosetta(EasyBlock):
             "}",
         ])
         us_fp = os.path.join(self.srcdir, "tools/build/user.settings")
-        try:
-            self.log.debug("Creating '%s' with: %s" % (us_fp, txt))
-            f = open(us_fp, 'w')
-            f.write(txt)
-            f.close()
-        except IOError as err:
-            raise EasyBuildError("Failed to write settings file %s: %s", us_fp, err)
+        self.log.debug("Creating '%s' with: %s", us_fp, txt)
+        write_file(us_fp, txt)
 
         # make sure specified compiler version is accepted by patching it in
         os_fp = os.path.join(self.srcdir, "tools/build/options.settings")
