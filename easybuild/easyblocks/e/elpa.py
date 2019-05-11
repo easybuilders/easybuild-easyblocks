@@ -47,7 +47,6 @@ class EB_ELPA(ConfigureMake):
         """Custom easyconfig parameters for ELPA."""
         extra_vars = {
             'auto_detect_cpu_features': [True, "Auto-detect available CPU features, and configure accordingly", CUSTOM],
-            'with_mpi': [True, "Enable building of ELPA MPI library", CUSTOM],
             'with_openmp': [True, "Enable building of ELPA OpenMP library", CUSTOM],
             'with_shared': [True, "Enable building of shared ELPA libraries", CUSTOM],
             'with_single': [True, "Enable building of single precision ELPA functions", CUSTOM],
@@ -71,11 +70,6 @@ class EB_ELPA(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ELPA."""
         super(EB_ELPA, self).__init__(*args, **kwargs)
-
-        # do not enable MPI if the toolchain does not support it
-        if not self.toolchain.mpi_family():
-            self.log.info("Disabling MPI support because the toolchain used does not support it.")
-            self.cfg['with_mpi'] = False
 
         for flag in ELPA_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
@@ -111,7 +105,7 @@ class EB_ELPA(ConfigureMake):
 
     def run_all_steps(self, *args, **kwargs):
         """
-        Put configure options in place for different builds (serial, openmp, mpi, openmp+mpi).
+        Put configure options in place for different builds (with and without openmp).
         """
 
         # make all builds verbose
@@ -165,21 +159,9 @@ class EB_ELPA(ConfigureMake):
         self.cfg['configopts'] = []
         self.cfg['buildopts'] = []
 
-        with_mpi_opts = [False]
-        if self.cfg['with_mpi']:
-            with_mpi_opts.append(True)
-
         with_omp_opts = [False]
         if self.cfg['with_openmp']:
             with_omp_opts.append(True)
-
-        for with_mpi in with_mpi_opts:
-            if with_mpi:
-                mpi_configopt = '--with-mpi=yes'
-                linalgopt = 'LIBS="$LIBSCALAPACK"'
-            else:
-                mpi_configopt = '--with-mpi=no'
-                linalgopt = 'LIBS="$LIBLAPACK"'
 
             for with_omp in with_omp_opts:
                 if with_omp:
@@ -189,52 +171,10 @@ class EB_ELPA(ConfigureMake):
 
                 # append additional configure and build options
                 self.cfg.update('configopts',
-                                [mpi_configopt + ' ' + omp_configopt + ' ' + linalgopt + ' ' + common_config_opts])
-                self.cfg.update('buildopts', [linalgopt + ' ' + common_build_opts])
+                                [omp_configopt + ' ' + common_config_opts])
+                self.cfg.update('buildopts', [common_build_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
         self.log.debug("List of build options to iterate over: %s", self.cfg['buildopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
-
-    def sanity_check_step(self):
-        """Custom sanity check for ELPA."""
-
-        custom_paths = {
-            'dirs': ['lib/pkgconfig', 'bin'],
-        }
-
-        shlib_ext = get_shared_lib_ext()
-
-        extra_files = []
-
-        with_mpi_opts = [False]
-        if self.cfg['with_mpi']:
-            with_mpi_opts.append(True)
-
-        with_omp_opts = [False]
-        if self.cfg['with_openmp']:
-            with_omp_opts.append(True)
-
-        for with_mpi in with_mpi_opts:
-            if with_mpi:
-                mpi_suff = ''
-            else:
-                mpi_suff = '_onenode'
-
-            for with_omp in with_omp_opts:
-                if with_omp:
-                    omp_suff = '_openmp'
-                else:
-                    omp_suff = ''
-
-                extra_files.append('include/elpa%s%s-%s/elpa/elpa.h' % (mpi_suff, omp_suff, self.version))
-                extra_files.append('include/elpa%s%s-%s/modules/elpa.mod' % (mpi_suff, omp_suff, self.version))
-
-                extra_files.append('lib/libelpa%s%s.a' % (mpi_suff, omp_suff))
-                if self.cfg['with_shared']:
-                    extra_files.append('lib/libelpa%s%s.%s' % (mpi_suff, omp_suff, shlib_ext))
-
-        custom_paths['files'] = nub(extra_files)
-
-        super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
