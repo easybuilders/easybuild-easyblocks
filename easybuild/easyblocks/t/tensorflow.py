@@ -45,7 +45,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import is_readable, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_os_name, get_os_version
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
 
 
 # Wrapper for Intel(MPI) compilers, where required environment variables
@@ -76,13 +76,16 @@ class EB_TensorFlow(PythonPackage):
 
     @staticmethod
     def extra_options():
+        # We only want to install mkl-dnn by default on x86_64 systems
+        with_mkl_dnn_default = get_cpu_architecture() == X86_64
         extra_vars = {
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
-            'with_mkl_dnn': [True, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
         }
+
         return PythonPackage.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -208,8 +211,8 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
+            'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
-            'TF_NEED_TENSORRT': ('0', '1')[bool(tensorrt_root)],
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
@@ -237,6 +240,13 @@ class EB_TensorFlow(PythonPackage):
             config_env_vars.update({
                 'TF_NCCL_VERSION': nccl_version,
             })
+            if tensorrt_root:
+                tensorrt_version = get_software_version('TensorRT')
+                config_env_vars.update({
+                    'TF_NEED_TENSORRT': '1',
+                    'TENSORRT_INSTALL_PATH': tensorrt_root,
+                    'TF_TENSORRT_VERSION': tensorrt_version,
+                })
 
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
@@ -246,6 +256,9 @@ class EB_TensorFlow(PythonPackage):
                        r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
         apply_regex_substitutions('configure.py', regex_subs)
 
+        # Tell Bazel to not use $HOME/.cache/bazel at all
+        # See https://docs.bazel.build/versions/master/output_directories.html
+        env.setvar('TEST_TMPDIR', os.path.join(tmpdir, 'output_root'))
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -352,9 +365,13 @@ class EB_TensorFlow(PythonPackage):
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
         pythonpath = os.getenv('PYTHONPATH', '')
-        env.setvar('PYTHONPATH', '%s:%s' % (os.path.join(self.installdir, self.pylibdir), pythonpath))
+        env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
         cmd.append('--action_env=PYTHONPATH')
+        # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
+        if 'EBPYTHONPREFIXES' in os.environ:
+            cmd.append('--action_env=EBPYTHONPREFIXES')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
@@ -446,7 +463,12 @@ class EB_TensorFlow(PythonPackage):
             pythonpath = os.getenv('PYTHONPATH', '')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
-            for mnist_py in ['mnist_softmax.py', 'mnist_with_summaries.py']:
+            mnist_pys = ['mnist_with_summaries.py']
+            if LooseVersion(self.version) < LooseVersion('1.13'):
+                # mnist_softmax.py was removed in TensorFlow 1.13.x
+                mnist_pys.append('mnist_softmax.py')
+
+            for mnist_py in mnist_pys:
                 datadir = tempfile.mkdtemp(suffix='-tf-%s-data' % os.path.splitext(mnist_py)[0])
                 logdir = tempfile.mkdtemp(suffix='-tf-%s-logs' % os.path.splitext(mnist_py)[0])
                 mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)

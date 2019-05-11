@@ -102,7 +102,7 @@ class EB_MXNet(MakeCp):
             rmtree2(newdir)
             try:
                 shutil.move(olddir, newdir)
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Failed to move %s to %s: %s", olddir, newdir, err)
 
         # the nnvm submodules has dmlc-core as a submodule too. Let's put a symlink in place.
@@ -191,7 +191,7 @@ class EB_MXNet(MakeCp):
         # for the extension we are doing the loading of the fake module ourself
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
         if not self.py_ext.sanity_check_step():

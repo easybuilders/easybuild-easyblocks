@@ -27,6 +27,7 @@ EasyBuild support for installing the Intel Advisor XE, implemented as an easyblo
 
 @author: Lumir Jasiok (IT4Innovations)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 
 from distutils.version import LooseVersion
@@ -45,6 +46,12 @@ class EB_Advisor(IntelBase):
             self.subdir = 'advisor_xe'
         else:
             self.subdir = 'advisor'
+
+    def prepare_step(self, *args, **kwargs):
+        """Since 2019u3 there is no license required."""
+        if LooseVersion(self.version) >= LooseVersion('2019_update3'):
+            kwargs['requires_runtime_license'] = False
+        super(EB_Advisor, self).prepare_step(*args, **kwargs)
 
     def make_module_req_guess(self):
         """Find reasonable paths for Advisor"""

@@ -3,7 +3,74 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 199 software-specific easyblocks and 34 generic easyblocks.
+The latest version of easybuild-easyblocks provides 200 software-specific easyblocks and 34 generic easyblocks.
+
+v3.9.0 (April 12th 2019)
+------------------------
+
+feature release
+- new software-specific easyblock for TensorRT (#1627)
+- minor enhancements, including:
+  - make sure CMake doesn't pick up on system Boost in CMakeMake generic easyblock (#1618)
+  - modified ConfigureMake and CMakeMake generic easyblocks to allow changing configure_cmd, build_cmd and install_cmd to fit various needs (#1628, #1658)
+  - update ANSYS easyblock to deal with changed versioning scheme (#1631)
+  - add extra path to builddir for SNPhylo >= 20160204 (#1632)
+  - add better support for TensorRT to TensorFlow (#1634)
+  - add support for newer versions of wxPython to wxPython easyblock (#1635)
+  - update OCaml easyblock to support OPAM 2.x (#1638)
+  - update sanity check in TensorFlow easyblock for TensorFlow 1.13.x (#1642)
+  - make ConfigureMake, MesonNinja and SCons generic easyblock aware of pretestopts (#1645)
+  - add support for installing Python packages with 'pip' without using --ignore-installed (#1647)
+  - add support to CMakeMake easyblock to specify compilers using absolute file path (#1652, #1655)
+  - stop checking for deprecated pgf77 in sanity check of PGI easyblock (#1653)
+  - acommodate version 10.1 in CUDA easyblock (#1654)
+  - install sitecustomize.py with Python to support Python package installations for multiple Python versions in a single directory (#1657)
+  - enhance SAMtools easyblock to also install libhts.a and include/htslib (when applicable) (#1661)
+  - tweak PythonPackage & PythonBundle to update $EBPYTHONPREFIXES rather than $PYTHONPATH for multi-Python installations + make sanity_check_step aware of multi_deps (#1664, #1678)
+  - replace -openmp with -fopenmp when building TINKER with Intel compilers (+ modernize easyblock) (#1668)
+  - make sure Meson is configured with -Dlibdir=lib so it doesn't install libraries in lib/x86_64-linux-gnu on Debian/Ubuntu multiarch systems (#1673)
+  - allow for external libfabric via ofi_libfabric parameter in impi easyblock (#1676)
+  - pass down compiler names and options to Qt5 5.8 & more recent via corresponding QMAKE_* configuration options (#1677)
+- various bug fixes, including:
+  - create symlinks to .modulerc in symlinked module directories (#1636)
+  - add missing import in FFTW easyblock (#1641)
+  - fix finding of Python 3 include subdir + libpython*.so in OpenBabel easyblock (#1633)
+  - add no_qa pattern for interactive installation command for ABAQUS (#1637)
+  - make serial, smpar and dm+sm builds of WRF work and pass tests (#1646)
+  - configure CP2K with correct DATA_DIR value rather than relying on $CP2K_DATA_DIR environment variable (#1650)
+  - CP2K fixes: only call configure_LAPACK/ScaLAPACK when imkl is not used, prefer using 2^2 MPI processes for tests (#1651)
+  - also take into account custom easyconfig parameters from CMakeMake in BamTools easyblock (#1656)
+  - make sure Perl scripts are installed in the right location (#1660)
+  - make sure setenv is used for CUDA_PATH etc. (#1663)
+  - cleanup sanity_check_paths in numpy & scipy easyblocks (#1665, #1667)
+  - always set self.pylibdir in PythonPackage.set_pylibdirs(), which is important when installing Python packages for multiple Python versions via multi_deps (#1671)
+  - fix custom definition of load_module method in LAPACK module (#1675)
+- other changes:
+  - replace 'except OSError, err:' pattern with 'except OSError as err:' (for compatibility with Python 3.x) (#1639)
+  - clean up Java easyblock to use filetools functionality (#1649)
+
+
+v3.8.1 (January 29th 2019)
+--------------------------
+
+bugfix/update release
+- minor enhancements, including:
+  - update Ferret easyblock to handle Ferret 7.3 (#1349)
+  - add support for defining $LDSHARED when installing Python packages if Python's value doesn't use toolchain compiler ($CC) (#1455)
+  - update CP2K easyblock to add support for CP2K 6.1, and fix incorrect LibInt references (#1545)
+  - make OpenFOAM easyblock handle debug build (#1609)
+  - handle multiple installation keys for MATLAB (#1610)
+  - run 'make check' in parallel for GROMACS since it involves more compilation (#1611)
+  - update OpenCV easyblock for recent versions (3.4.x >= 3.4.4 + 4.0.x) (#1616)
+- various bug fixes, including:
+  - check current start_dir value before appending 'src' subdirectory in MrBayes easyblock (#1582)
+  - avoid that (system) Intel compilers are always considered when building SuiteSparse (#1612)
+  - fix missing import statement in ROOT easyblock (#1614)
+  - answer SELinux question with 'no' in Mathematica easyblock (#1617)
+  - disable 'build isolation' feature in pip > 10.x in PythonPackage generic easyblock (#1623)
+- other changes
+  - cleanup in Perl and PerlModule easyblocks (#1603)
+
 
 v3.8.0 (December 18th 2018)
 ---------------------------

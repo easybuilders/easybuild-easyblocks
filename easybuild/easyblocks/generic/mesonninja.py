@@ -68,6 +68,13 @@ class MesonNinja(EasyBlock):
             mkdir(builddir)
             change_dir(builddir)
 
+        # Make sure libdir doesn't get set to lib/x86_64-linux-gnu or something
+        # on Debian/Ubuntu multiarch systems and others.
+        no_Dlibdir = '-Dlibdir' not in self.cfg['configopts']
+        no_libdir = '--libdir' not in self.cfg['configopts']
+        if no_Dlibdir and no_libdir:
+            self.cfg.update('configopts', '-Dlibdir=lib')
+
         cmd = "%(preconfigopts)s meson --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
             'configopts': self.cfg['configopts'],
             'installdir': self.installdir,
@@ -98,7 +105,8 @@ class MesonNinja(EasyBlock):
         Run tests using Ninja.
         """
         if self.cfg['runtest']:
-            (out, _) = run_cmd(self.cfg['runtest'], log_all=True, simple=False)
+            cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
             return out
 
     def install_step(self):

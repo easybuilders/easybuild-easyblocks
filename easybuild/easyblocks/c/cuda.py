@@ -29,7 +29,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, write_file
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -43,6 +43,7 @@ else
         nvcc -ccbin=%s "$@"
         exit $?
 fi """
+
 
 class EB_CUDA(Binary):
     """
@@ -69,15 +70,24 @@ class EB_CUDA(Binary):
         # define how to run the installer
         # script has /usr/bin/perl hardcoded, but we want to have control over which perl is being used
         if LooseVersion(self.version) <= LooseVersion("5"):
+            install_interpreter = "perl"
             install_script = "install-linux.pl"
             self.cfg.update('installopts', '--prefix=%s' % self.installdir)
-        else:
+        elif LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("10.1"):
+            install_interpreter = "perl"
             install_script = "cuda-installer.pl"
             # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
+        else:
+            install_interpreter = ""
+            install_script = "./cuda-installer"
+            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
+                            self.installdir, self.installdir))
 
-        cmd = "%(preinstallopts)s perl %(script)s %(installopts)s" % {
+        cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
+            'interpreter': install_interpreter,
             'script': install_script,
             'installopts': self.cfg['installopts']
         }
@@ -97,7 +107,8 @@ class EB_CUDA(Binary):
         ]
 
         # patch install script to handle Q&A autonomously
-        patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
+        if install_interpreter == "perl":
+            patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
         # this is workaround for not being able to specify --nox11 to the Perl install scripts
@@ -120,14 +131,32 @@ class EB_CUDA(Binary):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_name)
             write_file(wrapper_f, WRAPPER_TEMPLATE % wrapper_comp)
-            adjust_permissions(wrapper_f, stat.S_IXUSR|stat.S_IRUSR|stat.S_IXGRP|stat.S_IRGRP|stat.S_IXOTH|stat.S_IROTH)
+            perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
+            adjust_permissions(wrapper_f, perms)
 
         # Prepare wrappers to handle a default host compiler other than g++
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
+        ldconfig = which('ldconfig')
+        sbin_dirs = ['/sbin', '/usr/sbin']
+        if not ldconfig:
+            # ldconfig is usually in /sbin or /usr/sbin
+            for cand_path in sbin_dirs:
+                if os.path.exists(os.path.join(cand_path, 'ldconfig')):
+                    ldconfig = os.path.join(cand_path, 'ldconfig')
+                    break
+
+        # fail if we couldn't find ldconfig, because it's really needed
+        if ldconfig:
+            self.log.info("ldconfig found at %s", ldconfig)
+        else:
+            path = os.environ.get('PATH', '')
+            raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
+
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
-        run_cmd("ldconfig -N " + os.path.join(self.installdir, 'lib64', 'stubs'))
+        cmd = ' '.join([ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs')])
+        run_cmd(cmd)
 
         super(EB_CUDA, self).post_install_step()
 
@@ -160,8 +189,16 @@ class EB_CUDA(Binary):
             custom_paths['files'].append(os.path.join("extras", "CUPTI", "lib64", "libcupti.%s") % shlib_ext)
             custom_paths['dirs'].append(os.path.join("extras", "CUPTI", "include"))
 
-
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
+        txt = super(EB_CUDA, self).make_module_extra()
+        txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
+        txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
+        txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)
+        self.log.debug("make_module_extra added this: %s", txt)
+        return txt
 
     def make_module_req_guess(self):
         """Specify CUDA custom values for PATH etc."""
@@ -188,9 +225,6 @@ class EB_CUDA(Binary):
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('lib64', 'stubs')],
             'CPATH': inc_path,
-            'CUDA_HOME': [''],
-            'CUDA_ROOT': [''],
-            'CUDA_PATH': [''],
         })
 
         return guesses

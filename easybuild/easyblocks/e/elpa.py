@@ -57,6 +57,8 @@ class EB_ELPA(ConfigureMake):
         for flag in ELPA_CPU_FEATURE_FLAGS:
             if flag == 'sse4_2':
                 conf_opt = ['sse', 'sse-assembly']
+            elif flag == 'avx512f':
+                conf_opt = ['avx512']
             else:
                 conf_opt = [flag]
 
@@ -137,6 +139,11 @@ class EB_ELPA(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--disable-sse')
                     self.cfg.update('configopts', '--disable-sse-assembly')
+            elif flag == 'avx512f':
+                if getattr(self, 'avx512f'):
+                    self.cfg.update('configopts','--enable-avx512')
+                else:
+                    self.cfg.update('configopts', '--disable-avx512')
             else:
                 if getattr(self, flag):
                     self.cfg.update('configopts', '--enable-%s' % flag)

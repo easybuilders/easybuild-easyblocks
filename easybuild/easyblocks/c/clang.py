@@ -31,6 +31,7 @@ Support for building and installing Clang, implemented as an easyblock.
 
 @author: Dmitri Gribenko (National Technical University of Ukraine "KPI")
 @author: Ward Poelmans (Ghent University)
+@author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 
 import glob
@@ -74,6 +75,7 @@ class EB_Clang(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'build_lld': [False, "Build the Clang lld linker", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
@@ -91,28 +93,6 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
-
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            else:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -132,6 +112,7 @@ class EB_Clang(CMakeMake):
           tools/
             clang/        Unpack clang-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
+        lld/              Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -164,6 +145,9 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
+        if self.cfg["build_lld"]:
+            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, '..', 'lld'))
+
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
@@ -175,7 +159,7 @@ class EB_Clang(CMakeMake):
                     old_path = os.path.join(src['finalpath'], dirname)
                     try:
                         shutil.move(old_path, new_path)
-                    except IOError, err:
+                    except IOError as err:
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
@@ -228,16 +212,47 @@ class EB_Clang(CMakeMake):
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
 
-        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s' " % gcc_prefix)
+        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
-        self.cfg['configopts'] += "-DCMAKE_BUILD_TYPE=Release "
+        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
         if self.cfg['assertions']:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=ON "
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=ON")
         else:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=OFF "
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
-        self.cfg['configopts'] += '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(self.cfg['build_targets'])
+        if self.cfg["build_lld"]:
+            self.cfg.update('configopts', "-DLLVM_ENABLE_PROJECTS=lld")
+
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                # If CUDA is included as a dep, add it as a target
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
+
+        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+            self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
+
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
@@ -358,7 +373,7 @@ class EB_Clang(CMakeMake):
                 mandir = os.path.join(self.installdir, 'share', 'man', 'man1')
                 os.makedirs(mandir)
                 shutil.copy2(os.path.join(tools_src_dir, 'scan-build', 'scan-build.1'), mandir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
     def sanity_check_step(self):
@@ -378,6 +393,9 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
             custom_paths['dirs'].extend(["include/polly"])
+
+        if self.cfg["build_lld"]:
+            custom_paths['files'].extend(["bin/lld"])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])

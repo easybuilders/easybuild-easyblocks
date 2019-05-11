@@ -98,7 +98,7 @@ class EB_EasyBuildMeta(PythonPackage):
                     os.chdir(os.path.join(self.builddir, seldirs[0]))
                     super(EB_EasyBuildMeta, self).install_step()
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
 
     def post_install_step(self):
@@ -180,7 +180,7 @@ class EB_EasyBuildMeta(PythonPackage):
                     for (subdir, _) in subdirs:
                         # eggs always go in Python lib/pythonX/site-packages dir with setuptools
                         eb_dirs['setuptools'].append((os.path.join(sel_dirs[0], subdir), True))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to determine sanity check dir paths: %s", err)
 
         # set of sanity check paths to check for EasyBuild
