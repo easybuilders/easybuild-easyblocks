@@ -36,7 +36,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
-ELPA_CPU_FEATURE_FLAGS = ['avx', 'avx2', 'avx512', 'vsx', 'sse4_2']
+ELPA_CPU_FEATURE_FLAGS = ['avx', 'avx2', 'avx512f', 'vsx', 'sse4_2']
 
 
 class EB_ELPA(ConfigureMake):
