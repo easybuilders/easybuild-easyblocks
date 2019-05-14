@@ -54,6 +54,7 @@ class EB_Perl(ConfigureMake):
         """
         Configure Perl build: run ./Configure instead of ./configure with some different options
         """
+        majver = self.version.split('.')[0]
         configopts = [
             self.cfg['configopts'],
             '-Dcc="{0}"'.format(os.getenv('CC')),
@@ -65,6 +66,9 @@ class EB_Perl(ConfigureMake):
             '-Dinstallscript=%(installdir)s/bin',
             '-Dscriptdir=%(installdir)s/bin',
             '-Dscriptdirexp=%(installdir)s/bin',
+            # guarantee that the install directory has the form lib/perlX/
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/1700
+            "-Dinstallstyle='lib/perl%s'" % majver,
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
