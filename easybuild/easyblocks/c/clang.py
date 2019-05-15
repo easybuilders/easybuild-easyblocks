@@ -230,7 +230,7 @@ class EB_Clang(CMakeMake):
 
         # Configure some default options
         self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
-        if self..cfg["enable_rtti"]:
+        if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
             self.cfg.update('configopts', '-DLLVM_ENABLE_EH=ON')
