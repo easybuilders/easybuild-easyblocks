@@ -115,7 +115,7 @@ class EB_Flang(EB_Clang):
         self.log.info("Building")
         if parallel:
             run_cmd("make %s" % self.make_parallel_opts, log_all=True)
-        else
+        else:
             run_cmd("make", log_all=True)
 
     def build_step(self):
