@@ -38,7 +38,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -50,6 +50,8 @@ class EB_impi(IntelBase):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'rebuild_libfabric': [True, 'Rebuild the internal shipped libfabric instead of using the provided binary', CUSTOM],
+            'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
@@ -140,6 +142,22 @@ EULA=accept
             regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+
+        # Recompile libfabric if necessary
+        if impiver >= LooseVersion('2019.0.0') and self.cfg['rebuild_libfabric']:
+            if self.cfg['ofi_internal']:
+                os.chdir(os.path.join(self.installdir, 'libfabric'))
+                extract_file('src.tgz', './')
+                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+                cmds = [
+                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                    'make',
+                    'make install'
+                ]
+                for cmd in cmds:
+                    run_cmd(cmd, log_all=True, simple=True)
+            else:
+                self.log.info("rebuild_libfabric is True, ofi_internal is false. Ignoring the rebuild...")
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
