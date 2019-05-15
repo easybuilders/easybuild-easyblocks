@@ -97,7 +97,7 @@ class EB_imkl(IntelBase):
                 self.mpi_spec = mpi_spec_by_fam.get(mpi_fam)
                 debugstr = "MPI toolchain component"
             else:
-                # can't use toolchain.mpi_family, because of dummy toolchain
+                # can't use toolchain.mpi_family, because of system toolchain
                 if get_software_root('MPICH2') or get_software_root('MVAPICH2'):
                     self.mpi_spec = 'mpich2'
                 elif get_software_root('OpenMPI'):
@@ -258,7 +258,7 @@ class EB_imkl(IntelBase):
 
             compopt = None
             # determine whether we're using a non-Intel GCC-based or PGI-based toolchain
-            # can't use toolchain.comp_family, because of dummy toolchain used when installing imkl
+            # can't use toolchain.comp_family, because of system toolchain used when installing imkl
             if get_software_root('icc') is None:
                 # check for PGI first, since there's a GCC underneath PGI too...
                 if get_software_root('PGI'):

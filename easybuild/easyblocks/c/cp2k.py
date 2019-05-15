@@ -325,7 +325,7 @@ class EB_CP2K(EasyBlock):
             else:
                 self.log.debug("Cannot determine MPI2 compatibility based on MPI toolchain component: %s" % mpi_fam)
         else:
-            # can't use toolchain.mpi_family, because of dummy toolchain
+            # can't use toolchain.mpi_family, because of system toolchain
             mpi2libs = ['impi', 'MVAPICH2', 'OpenMPI', 'MPICH2', 'MPICH']
             for mpi2lib in mpi2libs:
                 if get_software_root(mpi2lib):

@@ -39,7 +39,6 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class SystemMPI(Bundle, ConfigureMake, EB_impi):
@@ -249,12 +248,12 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         and install path.
         """
         # First let's verify that the toolchain and the compilers under MPI match
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
-            # If someone is using dummy as the MPI toolchain lets assume that gcc is the compiler underneath MPI
+        if self.toolchain.is_system_toolchain():
+            # If someone is using system as the MPI toolchain lets assume that gcc is the compiler underneath MPI
             c_compiler_name = 'gcc'
             # Also need to fake the compiler version
             c_compiler_version = self.c_compiler_version
-            self.log.info("Found dummy toolchain so assuming GCC as compiler underneath MPI and faking the version")
+            self.log.info("Found system toolchain so assuming GCC as compiler underneath MPI and faking the version")
         else:
             c_compiler_name = self.toolchain.COMPILER_CC
             c_compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])
