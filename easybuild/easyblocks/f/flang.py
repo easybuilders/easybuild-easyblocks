@@ -139,7 +139,7 @@ class EB_Flang(EB_Clang):
             self.flang_build_dir,
             self.flang_source_dir,
             parallel=False,  # Can misbehave in parallel
-            additonal_options=[
+            additional_options=[
                 '-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib', 'libpgmath.%s' % shlib_ext),
                 # Supposed to resolve a problem when linking with flang
                 '-DCMAKE_BUILD_WITH_INSTALL_RPATH=1',
