@@ -131,16 +131,19 @@ class EB_Flang(EB_Clang):
             )
         # Build flang with the temporary llvm
         self.flang_build_dir = os.path.join(self.builddir, 'flang_obj')
+        shlib_ext = get_shared_lib_ext()
         self.build_with_temporary_llvm(
             self.flang_build_dir,
             self.flang_source_dir,
-            ['-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib',
-                                             'libpgmath.so')]
+            [
+                '-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib', 'libpgmath.%s' % shlib_ext),
+                # '-DCMAKE_BUILD_WITH_INSTALL_RPATH=1',
+            ]
         )
 
     def install_step(self):
         """Install flang binaries and necessary libraries."""
-
+        shlib_ext = get_shared_lib_ext()
         change_dir(self.pgmath_build_dir)
         super(EB_Clang, self).install_step()
         change_dir(self.flang_build_dir)
@@ -151,3 +154,30 @@ class EB_Flang(EB_Clang):
             os.path.join(self.installdir, 'bin', 'flang'),
         )
         # Also copy over the libomp libraries
+        copy_file(
+            os.path.join(self.llvm_obj_dir, 'lib', 'libomp.%s' % shlib_ext),
+            os.path.join(self.installdir, 'lib'),
+        )
+        copy_file(
+            os.path.join(self.llvm_obj_dir, 'lib', 'libomp.a'),
+            os.path.join(self.installdir, 'lib'),
+        )
+
+    def sanity_check_step(self):
+        """Custom sanity check for Flang."""
+        shlib_ext = get_shared_lib_ext()
+        custom_paths = {
+            'files': [
+                # flang related
+                "bin/flang", "bin/flang1", "bin/flang2",
+                "include/ieee_arithmetic.mod", "include/ieee_exceptions.mod", "include/ieee_features.mod",
+                "include/iso_c_binding.mod", "include/iso_fortran_env.mod",
+                "lib/libflang.a", "lib/libflang.%s" % shlib_ext, "lib/libflangmain.a", "lib/libflangrti.a",
+                "lib/libflangrti.%s" % shlib_ext,
+                # OpenMP related
+                "include/omp_lib.h", "include/omp_lib_kinds.mod", "include/omp_lib.mod",
+                "lib/libomp.a", "lib/libomp.%s" % shlib_ext, "lib/libompstub.a", "lib/libompstub.%s" % shlib_ext,
+                # libpgmath related
+                "lib/libpgmath.a", "lib/libpgmath.%s" % shlib_ext],
+            'dirs': [],
+        }
