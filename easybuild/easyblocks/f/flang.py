@@ -85,7 +85,7 @@ class EB_Flang(EB_Clang):
                     src['finalpath'] = new_path
                     break
 
-    def build_with_temporary_llvm(self, build_dir, src_dir, additional_options=[]):
+    def build_with_temporary_llvm(self, build_dir, src_dir, parallel=True, additional_options=[]):
         """Build Clang stage N using Clang stage N-1"""
 
         # Create and enter build directory.
@@ -113,7 +113,10 @@ class EB_Flang(EB_Clang):
         run_cmd("cmake %s %s" % (options, src_dir), log_all=True)
 
         self.log.info("Building")
-        run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+        if parallel:
+            run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+        else
+            run_cmd("make", log_all=True)
 
     def build_step(self):
         # First build llvm and the driver
@@ -135,7 +138,8 @@ class EB_Flang(EB_Clang):
         self.build_with_temporary_llvm(
             self.flang_build_dir,
             self.flang_source_dir,
-            [
+            parallel=False,  # Can misbehave in parallel
+            additonal_options=[
                 '-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib', 'libpgmath.%s' % shlib_ext),
                 # '-DCMAKE_BUILD_WITH_INSTALL_RPATH=1',
             ]
