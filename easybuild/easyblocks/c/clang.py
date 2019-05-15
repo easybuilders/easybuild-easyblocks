@@ -70,22 +70,18 @@ class EB_Clang(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.",
-                           CUSTOM],
-            'build_targets': [None, "Build targets for LLVM (host architecture if "
-                                    "None). Possible values: " +
+            'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
+            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
-            'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for "
-                                             "example, 'libomp')", CUSTOM],
+            'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for example, 'libomp')", CUSTOM],
             'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
             'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
-            # The sanitizer tests often fail on HPC systems due to the 'weird'
-            # environment.
+            # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
 
