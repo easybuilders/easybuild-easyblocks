@@ -61,7 +61,7 @@ class EB_SAS(EasyBlock):
             "SAS Home:": self.installdir,
             "Install SAS Software (default: Yes):": '',
             "Configure SAS Software (default: Yes):": '',
-            "SAS Installation Data File:": '',
+            "SAS Installation Data File:": self.license_file,
             "Press Enter to continue:": '',
             "Configure as a Unicode server (default: No):": 'N',
             "SAS/ACCESS Interface to MySQL (default: Yes):": 'N',
@@ -72,7 +72,6 @@ class EB_SAS(EasyBlock):
             "Port Number:": '',
             "Configure SAS Studio Basic (default: Yes):": 'N',
             "Press Enter to finish:": '',
-            "SAS Installation Data File:": self.license_file,
             "Global Standards Library:": os.path.join(self.installdir, 'cstGlobalLibrary'),
             "Sample Library:": os.path.join(self.installdir, 'cstSampleLibrary'),
         }
