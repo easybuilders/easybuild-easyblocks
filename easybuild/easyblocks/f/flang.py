@@ -96,7 +96,8 @@ class EB_Flang(EB_Clang):
         CXX = os.path.join(self.llvm_obj_dir, 'bin', 'clang++')
         FC = os.path.join(self.llvm_obj_dir, 'bin', 'flang')
         LLVM_CONFIG = os.path.join(self.llvm_obj_dir, 'bin', 'llvm-config')
-        LIBOMP = os.path.join(self.llvm_obj_dir, 'lib', 'libomp.so')
+        shlib_ext = get_shared_lib_ext()
+        LIBOMP = os.path.join(self.llvm_obj_dir, 'lib', 'libomp.%s' % shlib_ext)
 
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
         options += "-DCMAKE_C_COMPILER='%s' " % CC
