@@ -186,3 +186,4 @@ class EB_Flang(EB_Clang):
                 "lib/libpgmath.a", "lib/libpgmath.%s" % shlib_ext],
             'dirs': [],
         }
+        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths)
