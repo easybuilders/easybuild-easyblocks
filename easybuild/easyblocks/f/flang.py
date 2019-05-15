@@ -4,12 +4,11 @@ import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.c.clang import EB_Clang
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, copy_file, mkdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+
 
 class EB_Flang(EB_Clang):
     """Support for bootstrapping Flang."""
