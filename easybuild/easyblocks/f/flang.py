@@ -163,10 +163,6 @@ class EB_Flang(EB_Clang):
             os.path.join(self.llvm_obj_dir, 'lib', 'libomp.%s' % shlib_ext),
             os.path.join(self.installdir, 'lib'),
         )
-        copy_file(
-            os.path.join(self.llvm_obj_dir, 'lib', 'libomp.a'),
-            os.path.join(self.installdir, 'lib'),
-        )
 
     def sanity_check_step(self):
         """Custom sanity check for Flang."""
@@ -181,7 +177,7 @@ class EB_Flang(EB_Clang):
                 "lib/libflangrti.%s" % shlib_ext,
                 # OpenMP related
                 "include/omp_lib.h", "include/omp_lib_kinds.mod", "include/omp_lib.mod",
-                "lib/libomp.a", "lib/libomp.%s" % shlib_ext, "lib/libompstub.a", "lib/libompstub.%s" % shlib_ext,
+                "lib/libomp.%s" % shlib_ext, "lib/libompstub.a", "lib/libompstub.%s" % shlib_ext,
                 # libpgmath related
                 "lib/libpgmath.a", "lib/libpgmath.%s" % shlib_ext],
             'dirs': [],
