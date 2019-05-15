@@ -70,16 +70,22 @@ class EB_Clang(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+            'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.",
+                           CUSTOM],
+            'build_targets': [None, "Build targets for LLVM (host architecture if "
+                                    "None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for "
+                                             "example, 'libomp')", CUSTOM],
+            'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
             'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
-            # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
+            # The sanitizer tests often fail on HPC systems due to the 'weird'
+            # environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
 
@@ -224,10 +230,15 @@ class EB_Clang(CMakeMake):
 
         # Configure some default options
         self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
-        self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
-        self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
-        self.cfg.update('configopts', '-DLLVM_ENABLE_EH=ON')
-        self.cfg.update('configopts', '-DCLANG_DEFAULT_OPENMP_RUNTIME=libomp')
+        if self..cfg["enable_rtti"]:
+            self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
+            self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
+            self.cfg.update('configopts', '-DLLVM_ENABLE_EH=ON')
+        if self.cfg["default_openmp_runtime"]:
+            self.cfg.update(
+                'configopts',
+                '-DCLANG_DEFAULT_OPENMP_RUNTIME=%s' % self.cfg["default_openmp_runtime"]
+            )
 
         if self.cfg['assertions']:
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=ON")
@@ -411,8 +422,8 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend(["bin/lld"])
 
         if self.cfg["libcxx"]:
-            custom_paths['files'].extend(["lib/libc++.so"])
-            custom_paths['files'].extend(["lib/libc++abi.so"])
+            custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
+            custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
