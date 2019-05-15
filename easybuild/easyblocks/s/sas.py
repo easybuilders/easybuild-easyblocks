@@ -34,6 +34,19 @@ from easybuild.tools.run import run_cmd_qa
 class EB_SAS(EasyBlock):
     """Support for building/installing SAS."""
 
+    def __init__(self, *args, **kwargs):
+        """Custom constructor for SAS easyblock, initialize custom class variables."""
+
+        super(EB_SAS, self).__init__(*args, **kwargs)
+
+        # Use default SAS Installation Data File path
+        self.license_file = ''
+
+        # Set custom SAS Installation Data File path if defined and existing
+        if self.cfg['license_file'] is not None and os.path.isfile(self.cfg['license_file']):
+            self.license_file = self.cfg['license_file']
+            self.log.info("Custom SAS Installation Data File found: %s" % self.license_file)
+
     def configure_step(self):
         """No custom configurationprocedure for SAS."""
         pass
@@ -59,6 +72,9 @@ class EB_SAS(EasyBlock):
             "Port Number:": '',
             "Configure SAS Studio Basic (default: Yes):": 'N',
             "Press Enter to finish:": '',
+            "SAS Installation Data File:": self.license_file,
+            "Global Standards Library:": os.path.join(self.installdir, 'cstGlobalLibrary'),
+            "Sample Library:": os.path.join(self.installdir, 'cstSampleLibrary'),
         }
         std_qa = {
             "Incomplete Deployment\s*(.*[^:])+Selection:": '2',  # 2: Ignore previous deployment and start again
@@ -71,6 +87,7 @@ class EB_SAS(EasyBlock):
             "Select Language Support\s*(.*[^:]\n)+Selections:": '',
             "Select Regional Settings\s*(.*[^:]\n)+Selection:": '',
             "Select Support Option\s*(.*[^:]\n)+Selection:": '2',  # 2: Do Not Send
+            "Select SAS Foundation Products(.*[^:]\s*\n)+Selection:": '',
         }
         no_qa = [
             "\.\.\.$",
