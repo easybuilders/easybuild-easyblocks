@@ -45,7 +45,7 @@ class EB_SAS(EasyBlock):
         # Set custom SAS Installation Data File path if defined and existing
         if self.cfg['license_file'] is not None and os.path.isfile(self.cfg['license_file']):
             self.license_file = self.cfg['license_file']
-            self.log.info("Custom SAS Installation Data File found: %s" % self.license_file)
+            self.log.info("Custom SAS Installation Data File found: %s", self.license_file)
 
     def configure_step(self):
         """No custom configurationprocedure for SAS."""
