@@ -141,8 +141,9 @@ class EB_Flang(EB_Clang):
             parallel=False,  # Can misbehave in parallel
             additional_options=[
                 '-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib', 'libpgmath.%s' % shlib_ext),
-                # Supposed to resolve a problem when linking with flang
+                # Ensure libraries are rpath-ed to the install directory (most relevant for libomp.so link)
                 '-DCMAKE_BUILD_WITH_INSTALL_RPATH=1',
+                '-DCMAKE_INSTALL_RPATH=%s/lib' % self.installdir,
             ]
         )
 
