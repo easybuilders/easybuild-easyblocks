@@ -141,6 +141,15 @@ EULA=accept
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
+            # fix 'prefix=' in compiler wrapper scripts after moving installation (see install_step)
+            wrappers = ['mpif77', 'mpif90', 'mpigcc', 'mpigxx', 'mpiicc', 'mpiicpc', 'mpiifort']
+            regex_subs = [(r"^prefix=.*", r"prefix=%s" % self.installdir)]
+            for script_dir in script_paths:
+                for wrapper in wrappers:
+                    wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
+                    if os.path.exists(wrapper_path):
+                        apply_regex_substitutions(wrapper_path, regex_subs)
+
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
 
