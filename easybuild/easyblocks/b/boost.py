@@ -228,7 +228,7 @@ class EB_Boost(EasyBlock):
 
         self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
         # self.iter_idx will have already been bumped to prepare for the next iteration by the time we check it here
-        if self.cfg['multi_deps'] and self.iter_idx > 1:
+        if self.cfg['multi_deps'] and self.current_iteration > 0:
             self.log.info("Main installation should already exist, only copying over missing Python libraries.")
             copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'))
         else:
