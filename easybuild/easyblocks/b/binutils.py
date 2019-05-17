@@ -83,24 +83,24 @@ class EB_binutils(ConfigureMake):
         if zlibroot:
             self.cfg.update('configopts', '--with-system-zlib')
 
-        # statically link to zlib only if it is a build dependency
-        # see https://github.com/easybuilders/easybuild-easyblocks/issues/1350
-        build_deps = self.cfg.dependencies(build_only=True)
-        if any(dep['name'] == 'zlib' for dep in build_deps):
-            libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
+            # statically link to zlib only if it is a build dependency
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/1350
+            build_deps = self.cfg.dependencies(build_only=True)
+            if any(dep['name'] == 'zlib' for dep in build_deps):
+                libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
 
-            # for recent binutils versions, we need to override ZLIB in Makefile.in of components
-            if LooseVersion(self.version) >= LooseVersion('2.26'):
-                regex_subs = [
-                    (r"^(ZLIB\s*=\s*).*$", r"\1%s" % libz_path),
-                    (r"^(ZLIBINC\s*=\s*).*$", r"\1-I%s" % os.path.join(zlibroot, 'include')),
-                ]
-                for makefile in glob.glob(os.path.join(self.cfg['start_dir'], '*', 'Makefile.in')):
-                    apply_regex_substitutions(makefile, regex_subs)
+                # for recent binutils versions, we need to override ZLIB in Makefile.in of components
+                if LooseVersion(self.version) >= LooseVersion('2.26'):
+                    regex_subs = [
+                        (r"^(ZLIB\s*=\s*).*$", r"\1%s" % libz_path),
+                        (r"^(ZLIBINC\s*=\s*).*$", r"\1-I%s" % os.path.join(zlibroot, 'include')),
+                    ]
+                    for makefile in glob.glob(os.path.join(self.cfg['start_dir'], '*', 'Makefile.in')):
+                        apply_regex_substitutions(makefile, regex_subs)
 
-            # for older versions, injecting the path to the static libz library into $LIBS works
-            else:
-                libs += ' ' + libz_path
+                # for older versions, injecting the path to the static libz library into $LIBS works
+                else:
+                    libs += ' ' + libz_path
 
         self.cfg.update('preconfigopts', "env LIBS='%s'" % libs)
         self.cfg.update('prebuildopts', "env LIBS='%s'" % libs)
@@ -180,7 +180,7 @@ class EB_binutils(ConfigureMake):
                 os.path.join('include', 'libiberty.h'),
             ])
 
-        # if zlib is listed as a build dependency, it should get linked in statically
+        # if zlib is listed as a build dependency, it should have been linked in statically
         build_deps = self.cfg.dependencies(build_only=True)
         if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
