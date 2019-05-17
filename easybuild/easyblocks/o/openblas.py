@@ -28,7 +28,7 @@ class EB_OpenBLAS(ConfigureMake):
         for key in sorted(default_opts.keys()):
             for opts_key in ['buildopts', 'installopts']:
                 if '%s=' % key not in self.cfg[opts_key]:
-                    self.cfg.update(opts_key, '%s=%s' % (key, default_opts[key]))
+                    self.cfg.update(opts_key, "%s='%s'" % (key, default_opts[key]))
 
         self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
