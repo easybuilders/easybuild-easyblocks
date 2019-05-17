@@ -38,7 +38,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -50,6 +50,8 @@ class EB_impi(IntelBase):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
+            'libfabric_rebuild': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
@@ -122,6 +124,27 @@ EULA=accept
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
             run_cmd(cmd, log_all=True, simple=True)
+
+        # recompile libfabric (if requested)
+        if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
+            if self.cfg['ofi_internal']:
+                change_dir(os.path.join(self.installdir, 'libfabric'))
+                extract_file('src.tgz', os.getcwd())
+                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+
+                make = 'make'
+                if self.cfg['parallel']:
+                    make += ' -j %d' % self.cfg['parallel']
+
+                cmds = [
+                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                    make,
+                    'make install'
+                ]
+                for cmd in cmds:
+                    run_cmd(cmd, log_all=True, simple=True)
+            else:
+                raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
     def post_install_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
