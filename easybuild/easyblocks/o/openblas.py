@@ -14,22 +14,21 @@ class EB_OpenBLAS(ConfigureMake):
     def configure_step(self):
         """ set up some options - but no configure command to run"""
 
-        if 'BINARY=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'BINARY=64')
-        if 'USE_THREAD=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'USE_THREAD=1')
-            self.cfg.update('installopts', 'USE_THREAD=1')
-        if 'USE_OPENMP=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'USE_OPENMP=1')
-            self.cfg.update('installopts', 'USE_OPENMP=1')
-        if 'CC=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'CC=%s' % os.environ['CC'])
-        if 'FC=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'FC=%s' % os.environ['FC'])
-
+        default_opts = {
+            'BINARY': '64',
+            'CC': os.getenv('CC'),
+            'FC': os.getenv('FC'),
+            'USE_OPENMP': '1',
+            'USE_THREAD': '1',
+        }
         if get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
-            self.cfg.update('buildopts', 'TARGET=POWER8')
+            default_opts['TARGET'] = 'POWER8'
+
+        for key in sorted(default_opts.keys()):
+            for opts_key in ['buildopts', 'installopts']:
+                if '%s=' % key not in self.cfg[opts_key]:
+                    self.cfg.update(opts_key, '%s=%s' % (key, default_opts[key]))
 
         self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
