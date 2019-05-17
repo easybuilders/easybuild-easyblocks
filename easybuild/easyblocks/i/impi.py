@@ -50,7 +50,7 @@ class EB_impi(IntelBase):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'rebuild_libfabric': [True, 'Rebuild the internal shipped libfabric instead of using the provided binary', CUSTOM],
+            'rebuild_libfabric': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
             'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
@@ -142,6 +142,15 @@ EULA=accept
             regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+
+            # fix 'prefix=' in compiler wrapper scripts after moving installation (see install_step)
+            wrappers = ['mpif77', 'mpif90', 'mpigcc', 'mpigxx', 'mpiicc', 'mpiicpc', 'mpiifort']
+            regex_subs = [(r"^prefix=.*", r"prefix=%s" % self.installdir)]
+            for script_dir in script_paths:
+                for wrapper in wrappers:
+                    wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
+                    if os.path.exists(wrapper_path):
+                        apply_regex_substitutions(wrapper_path, regex_subs)
 
         # Recompile libfabric if necessary
         if impiver >= LooseVersion('2019.0.0') and self.cfg['rebuild_libfabric']:
