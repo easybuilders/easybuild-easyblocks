@@ -78,10 +78,15 @@ class EB_binutils(ConfigureMake):
 
             libs += ' '.join('-Wl,-rpath=%s' % libdir for libdir in libdirs)
 
-        # statically link to zlib if it is a (build) dependency
+        # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
         if zlibroot:
             self.cfg.update('configopts', '--with-system-zlib')
+
+        # statically link to zlib only if it is a build dependency
+        # see https://github.com/easybuilders/easybuild-easyblocks/issues/1350
+        build_deps = self.cfg.dependencies(build_only=True)
+        if any(dep['name'] == 'zlib' for dep in build_deps):
             libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
 
             # for recent binutils versions, we need to override ZLIB in Makefile.in of components
@@ -175,8 +180,9 @@ class EB_binutils(ConfigureMake):
                 os.path.join('include', 'libiberty.h'),
             ])
 
-        # if zlib is listed as a dependency, it should get linked in statically
-        if get_software_root('zlib'):
+        # if zlib is listed as a build dependency, it should get linked in statically
+        build_deps = self.cfg.dependencies(build_only=True)
+        if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
                 bin_path = os.path.join(self.installdir, 'bin', binary)
                 out, _ = run_cmd("file %s" % bin_path, simple=False)
