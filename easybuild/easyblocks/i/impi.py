@@ -133,7 +133,6 @@ EULA=accept
                 script_paths = [os.path.join('intel64', 'bin')]
             else:
                 script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
-            wrappers = ['mpif77', 'mpif90', 'mpigcc', 'mpigxx', 'mpiicc', 'mpiicpc', 'mpiifort']
             # fix broken env scripts after the move
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
@@ -141,9 +140,15 @@ EULA=accept
             regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+
+            # fix 'prefix=' in compiler wrapper scripts after moving installation (see install_step)
+            wrappers = ['mpif77', 'mpif90', 'mpigcc', 'mpigxx', 'mpiicc', 'mpiicpc', 'mpiifort']
             regex_subs = [(r"^prefix=.*", r"prefix=%s" % self.installdir)]
-            for script in [os.path.join(script_path, wrapper) for wrapper in wrappers for script_path in script_paths]:
-                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+            for script_dir in script_paths:
+                for wrapper in wrappers:
+                    wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
+                    if os.path.exists(wrapper_path):
+                        apply_regex_substitutions(wrapper_path, regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
