@@ -3,7 +3,47 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 200 software-specific easyblocks and 34 generic easyblocks.
+The latest version of easybuild-easyblocks provides 203 software-specific easyblocks and 35 generic easyblocks.
+
+v3.9.1 (May 20th 2019)
+----------------------
+
+update/bugfix release
+
+- one new generic easyblock: CMakeMakeCp (#1725)
+- new software-specific easyblock for Blender (#1595), Lua (#1396), OpenBLAS (#1693, #1697)
+  - OpenBLAS easyblock also supports installation on POWER systems
+- minor enhancements, including:
+  - enhance VMD easyblock to also build Surf & Stride + pick up netCDF for VMD >= 1.9.3 (#1314)
+  - update CGAL easyblock to support CGAL 4.12 & newer (#1679)
+  - update QuantumESPRESSO easyblock for v6.4.1 (#1692)
+  - enhance Advisor & VTune easyblocks, since no license is required starting with version 2019u3 (#1694, #1695)
+  - handle new multi-deps Python setup with $EBPYTHONPREFIXES for Tensorflow (#1702)
+  - make CHARMM easyblock pick up on prebuildopts and runtest (#1707)
+  - change default value for 'use_pip' to None, so we can discriminate from 'use_pip' being set to False explicitly (#1709)
+  - make PythonPackage aware of (pre)testopts (#1715)
+  - enable GPU offloading in Clang if CUDA is included as a dep (#1716)
+  - add support to Clang easyblock for also building libc++ and RTTI (#1717)
+  - rebuild internal libfabric for impi 2019.x & more recent (#1730)
+  - update Q&A patterns in SAS easyblock for version 9.4 + add support for custom license file path (#1731)
+- various bug fixes, including:
+  - only install mkl-dnn by default with TensorFlow on x86-64 systems (#1666)
+  - make sure ldconfig can be found before using it in CUDA easyblock (#1684)
+  - use temporary directory for pip cache (rather than $HOME/.cache/pip) in PythonPackage easyblock (#1687)
+  - allow oversubscription when testing FFTW on top of OpenMPI >= 3.0 (#1688)
+  - make sure ~/.cache/pip isn't used while installing Tkinter (#1691)
+  - set default exts_filter in PythonBundle, so already installed extensions in a bundle can be skipped (#1701)
+  - instruct Bazel to not use $HOME/.cache/bazel in TensorFlow easyblock (#1704)
+  - also set $XDG_CACHE_HOME during installation of Python, to ensure that 'pip' that comes along with it doesn't touch $HOME/.cache/pip (#1705)
+  - use fp-model precise if FMA instructions are missing in GROMACS easyblock (#1706)
+  - make sure Perl install dir follows a standard format (#1708)
+  - attach source_urls directly to sources for components in generic Bundle easyblock (#1711)
+  - avoid that --no-build-isolation option is specified multiple times in PythonPackage easyblock (#1713)
+  - fix prefix in impi compiler wrappers (#1727)
+  - only embed zlib in binutils if it is listed a build dependency (#1732)
+- other changes:
+  - fix Python classifiers in setup.py, should be (only) Python 2.6 & 2.7 (#1724)
+
 
 v3.9.0 (April 12th 2019)
 ------------------------
