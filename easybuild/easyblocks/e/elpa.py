@@ -147,6 +147,9 @@ class EB_ELPA(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--disable-%s' % flag)
 
+        if not self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', '--with-mpi=no')
+
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
 
