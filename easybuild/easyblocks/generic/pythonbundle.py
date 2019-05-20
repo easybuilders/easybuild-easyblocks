@@ -32,6 +32,7 @@ import os
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
+from easybuild.tools.toolchain.toolchain import DUMMY_TOOLCHAIN_NAME
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
@@ -83,7 +84,7 @@ class PythonBundle(Bundle):
         """Prepare for installing bundle of Python packages."""
         super(Bundle, self).prepare_step(*args, **kwargs)
 
-        if get_software_root('Python') is None:
+        if get_software_root('Python') is None and self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
             raise EasyBuildError("Python not included as dependency!")
 
         self.pylibdir = det_pylibdir()
