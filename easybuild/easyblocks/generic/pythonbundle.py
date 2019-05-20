@@ -30,7 +30,8 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, PythonPackage, det_pylibdir
+from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
@@ -54,6 +55,7 @@ class PythonBundle(Bundle):
         super(PythonBundle, self).__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'PythonPackage'
+        self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
         prev_enable_templating = self.cfg.enable_templating
