@@ -28,11 +28,13 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 
 @author: Micael Oliveira (MPSD-Hamburg)
 """
+from vsc.utils.missing import nub
+
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.systemtools import get_cpu_features
+from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 ELPA_CPU_FEATURE_FLAGS = ['avx', 'avx2', 'avx512f', 'vsx', 'sse4_2']
 
@@ -176,3 +178,41 @@ class EB_ELPA(ConfigureMake):
         self.log.debug("List of build options to iterate over: %s", self.cfg['buildopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+
+
+    def sanity_check_step(self):
+        """Custom sanity check for ELPA."""
+
+        custom_paths = {
+            'dirs': ['lib/pkgconfig', 'bin'],
+        }
+
+        shlib_ext = get_shared_lib_ext()
+
+        extra_files = []
+
+        with_omp_opts = [False]
+        if self.cfg['with_openmp']:
+            with_omp_opts.append(True)
+
+        if self.toolchain.options.get('usempi', None):
+            mpi_suff = ''
+        else:
+            mpi_suff = '_onenode'
+
+        for with_omp in with_omp_opts:
+            if with_omp:
+                omp_suff = '_openmp'
+            else:
+                omp_suff = ''
+
+            extra_files.append('include/elpa%s%s-%s/elpa/elpa.h' % (mpi_suff, omp_suff, self.version))
+            extra_files.append('include/elpa%s%s-%s/modules/elpa.mod' % (mpi_suff, omp_suff, self.version))
+
+            extra_files.append('lib/libelpa%s%s.a' % (mpi_suff, omp_suff))
+            if self.cfg['with_shared']:
+                extra_files.append('lib/libelpa%s%s.%s' % (mpi_suff, omp_suff, shlib_ext))
+
+        custom_paths['files'] = nub(extra_files)
+
+        super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
