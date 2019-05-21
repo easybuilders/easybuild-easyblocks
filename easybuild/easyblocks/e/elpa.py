@@ -166,19 +166,9 @@ class EB_ELPA(ConfigureMake):
 
         self.cfg['configopts'] = []
 
-        with_omp_opts = [False]
+        self.cfg.update('configopts', ['--disable-openmp ' + common_config_opts])
         if self.cfg['with_openmp']:
-            with_omp_opts.append(True)
-
-        for with_omp in with_omp_opts:
-            if with_omp:
-                omp_configopt = '--enable-openmp'
-            else:
-                omp_configopt = '--disable-openmp'
-
-            # append additional configure and build options
-            self.cfg.update('configopts',
-                            [omp_configopt + ' ' + common_config_opts])
+            self.cfg.update('configopts', ['--enable-openmp ' + common_config_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
