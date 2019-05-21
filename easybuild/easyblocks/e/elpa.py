@@ -151,6 +151,7 @@ class EB_ELPA(ConfigureMake):
         # We also set the LIBS environmet variable to detect the correct linalg library
         # depending on the MPI availability.
         if self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', '--with-mpi=yes')
             self.cfg.update('configopts', 'LIBS="$LIBSCALAPACK"')
         else:
             self.cfg.update('configopts', '--with-mpi=no')
