@@ -185,10 +185,6 @@ class EB_ELPA(ConfigureMake):
 
         extra_files = []
 
-        with_omp_opts = [False]
-        if self.cfg['with_openmp']:
-            with_omp_opts.append(True)
-
         # ELPA uses the following naming scheme:
         #  "onenode" suffix: no MPI support
         #  "openmp" suffix: OpenMP support
@@ -197,7 +193,7 @@ class EB_ELPA(ConfigureMake):
         else:
             mpi_suff = '_onenode'
 
-        for with_omp in with_omp_opts:
+        for with_omp in [False, self.cfg['with_openmp']]:
             if with_omp:
                 omp_suff = '_openmp'
             else:
