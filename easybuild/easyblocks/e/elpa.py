@@ -193,7 +193,7 @@ class EB_ELPA(ConfigureMake):
         else:
             mpi_suff = '_onenode'
 
-        for with_omp in [False, self.toolchain.options.get('openmp', False)]:
+        for with_omp in nub([False, self.toolchain.options.get('openmp', False)]):
             if with_omp:
                 omp_suff = '_openmp'
             else:
@@ -206,6 +206,6 @@ class EB_ELPA(ConfigureMake):
             if self.cfg['with_shared']:
                 extra_files.append('lib/libelpa%s%s.%s' % (mpi_suff, omp_suff, shlib_ext))
 
-        custom_paths['files'] = nub(extra_files)
+        custom_paths['files'] = extra_files
 
         super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
