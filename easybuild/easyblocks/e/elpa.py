@@ -160,13 +160,11 @@ class EB_ELPA(ConfigureMake):
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
 
-        # keep track of common configopts and of configopts specified in
-        # easyconfig file, so we can include them in each iteration later
+        # keep track of common configopts specified in easyconfig file,
+        # so we can include them in each iteration later
         common_config_opts = self.cfg['configopts']
-        common_build_opts = self.cfg['buildopts']
 
         self.cfg['configopts'] = []
-        self.cfg['buildopts'] = []
 
         with_omp_opts = [False]
         if self.cfg['with_openmp']:
@@ -181,10 +179,8 @@ class EB_ELPA(ConfigureMake):
             # append additional configure and build options
             self.cfg.update('configopts',
                             [omp_configopt + ' ' + common_config_opts])
-            self.cfg.update('buildopts', [common_build_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
-        self.log.debug("List of build options to iterate over: %s", self.cfg['buildopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
 
