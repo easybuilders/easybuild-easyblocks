@@ -148,7 +148,7 @@ class EB_ELPA(ConfigureMake):
                     self.cfg.update('configopts', '--disable-%s' % flag)
 
         # By default ELPA tries to use MPI and configure fails if it's not available
-        # so we turn it off if MPI is not available
+        # so we turn off MPI support unless MPI support is requested via the usempi toolchain option.
         # We also set the LIBS environmet variable to detect the correct linalg library
         # depending on the MPI availability.
         if self.toolchain.options.get('usempi', None):
@@ -160,9 +160,8 @@ class EB_ELPA(ConfigureMake):
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
 
-        # keep track of common configopts and of configopts specified
-        # in easyconfig file, so we can include them in each iteration
-        # later
+        # keep track of common configopts and of configopts specified in
+        # easyconfig file, so we can include them in each iteration later
         common_config_opts = self.cfg['configopts']
         common_build_opts = self.cfg['buildopts']
 
@@ -204,6 +203,9 @@ class EB_ELPA(ConfigureMake):
         if self.cfg['with_openmp']:
             with_omp_opts.append(True)
 
+        # ELPA uses the following naming scheme:
+        #  "onenode" suffix: no MPI support
+        #  "openmp" suffix: OpenMP support
         if self.toolchain.options.get('usempi', None):
             mpi_suff = ''
         else:
