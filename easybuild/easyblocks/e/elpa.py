@@ -47,7 +47,6 @@ class EB_ELPA(ConfigureMake):
         """Custom easyconfig parameters for ELPA."""
         extra_vars = {
             'auto_detect_cpu_features': [True, "Auto-detect available CPU features, and configure accordingly", CUSTOM],
-            'with_openmp': [True, "Enable building of ELPA OpenMP library", CUSTOM],
             'with_shared': [True, "Enable building of shared ELPA libraries", CUSTOM],
             'with_single': [True, "Enable building of single precision ELPA functions", CUSTOM],
             'with_generic_kernel': [True, "Enable building of ELPA generic kernels", CUSTOM],
@@ -167,7 +166,7 @@ class EB_ELPA(ConfigureMake):
         self.cfg['configopts'] = []
 
         self.cfg.update('configopts', ['--disable-openmp ' + common_config_opts])
-        if self.cfg['with_openmp']:
+        if self.toolchain.options.get('openmp', False):
             self.cfg.update('configopts', ['--enable-openmp ' + common_config_opts])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
@@ -193,7 +192,7 @@ class EB_ELPA(ConfigureMake):
         else:
             mpi_suff = '_onenode'
 
-        for with_omp in [False, self.cfg['with_openmp']]:
+        for with_omp in [False, self.toolchain.options.get('openmp', False)]:
             if with_omp:
                 omp_suff = '_openmp'
             else:
