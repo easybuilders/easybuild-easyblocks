@@ -147,8 +147,15 @@ class EB_ELPA(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--disable-%s' % flag)
 
-        if not self.toolchain.options.get('usempi', None):
+        # By default ELPA tries to use MPI and configure fails if it's not available
+        # so we turn it off if MPI is not available
+        # We also set the LIBS environmet variable to detect the correct linalg library
+        # depending on the MPI availability.
+        if self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', 'LIBS="$LIBSCALAPACK"')
+        else:
             self.cfg.update('configopts', '--with-mpi=no')
+            self.cfg.update('configopts', 'LIBS="$LIBLAPACK"')
 
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
@@ -181,7 +188,6 @@ class EB_ELPA(ConfigureMake):
         self.log.debug("List of build options to iterate over: %s", self.cfg['buildopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
-
 
     def sanity_check_step(self):
         """Custom sanity check for ELPA."""
