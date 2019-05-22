@@ -107,9 +107,6 @@ class EB_ELPA(ConfigureMake):
         Put configure options in place for different builds (with and without openmp).
         """
 
-        # make all builds verbose
-        self.cfg.update('preconfigopts', 'autoreconf &&')
-
         # the following configopts are common to all builds
         if self.toolchain.options['pic']:
             self.cfg.update('configopts', '--with-pic')
