@@ -101,9 +101,9 @@ class EB_Flang(EB_Clang):
                     # count moved sources
                     moved_sources += 1
                     break
-        # Verify that all of the unpacked sources were moved
+        # Verify that all of the unpacked sources (except the llvm source) were moved
         moved_sources_message = "%d of %d unpacked source directories were moved." % (moved_sources, len(self.src))
-        if len(self.src) == moved_sources:
+        if len(self.src) - 1 == moved_sources:
             self.log.info(moved_sources_message)
         else:
             raise EasyBuildError(moved_sources_message)
