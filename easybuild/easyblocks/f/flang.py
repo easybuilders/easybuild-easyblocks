@@ -1,3 +1,32 @@
+##
+# Copyright 2019-2019 Ghent University
+#
+# This file is part of EasyBuild,
+# originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
+# with support of Ghent University (http://ugent.be/hpc),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
+# and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
+#
+# https://github.com/easybuilders/easybuild
+#
+# EasyBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation v2.
+#
+# EasyBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
+##
+"""
+EasyBuild support for building and installing Flang, implemented as an easyblock
+
+@author: Alan O'Cais (Juelich Supercomputing Centre)
+"""
 import glob
 import os
 import shutil
@@ -5,7 +34,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.c.clang import EB_Clang
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, copy_file, mkdir
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, move_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -13,32 +42,27 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_Flang(EB_Clang):
     """Support for bootstrapping Flang."""
 
-    def __init__(self, *args, **kwargs):
-        """Initialize custom class variables for Flang."""
-
-        super(EB_Flang, self).__init__(*args, **kwargs)
-
     def disable_sanitizer_tests(self):
         # Not relevant for flang
         pass
 
     def extract_step(self):
         """
-        Prepare a combined LLVM source tree.  The layout is:
+        Prepare a combined (Flang fork) LLVM source tree.  The layout is:
         llvm/             Unpack flang-llvm-*.tar.gz here
           projects/
             openmp/       Unpack openmp-*.tar.xz here
           tools/
-            clang/        Unpack flang-flang-driver*.tar.gz here
+            clang/        Unpack flang-flang-driver*.tar.gz here (yes, it does need to be called 'clang'!)
         """
 
         # Extract everything into separate directories.
         super(EB_Clang, self).extract_step()
 
         # Find the full path to the directory that was unpacked from flang-llvm-*.tar.gz
-        for tmp in self.src:
-            if tmp['name'].startswith("flang-llvm-"):
-                self.llvm_src_dir = tmp['finalpath']
+        for srcfile in self.src:
+            if srcfile['name'].startswith("flang-llvm-"):
+                self.llvm_src_dir = srcfile['finalpath']
                 break
 
         if self.llvm_src_dir is None:
@@ -46,19 +70,15 @@ class EB_Flang(EB_Clang):
                 "Could not determine LLVM source root (LLVM source was not unpacked?)")
         src_dirs = {}
 
-        def find_source_dir(globpatterns, targetdir):
+        def find_source_dir(globpattern, targetdir):
             """Search for directory with globpattern and rename it to targetdir"""
-            if not isinstance(globpatterns, list):
-                globpatterns = [globpatterns]
+            glob_src_dirs = [glob_dir for glob_dir in glob.glob(globpattern)]
+            if len(glob_src_dirs) == 1:
+                src_dirs[glob_src_dirs[0]] = targetdir
+            else:
+                raise EasyBuildError("Failed to find exactly one source directory for pattern %s: %s",
+                                     globpattern, glob_src_dirs)
 
-            glob_src_dirs = [glob_dir for globpattern in globpatterns for glob_dir in
-                             glob.glob(globpattern)]
-            if len(glob_src_dirs) != 1:
-                raise EasyBuildError(
-                    "Failed to find exactly one source directory for pattern %s: %s",
-                    globpatterns,
-                    glob_src_dirs)
-            src_dirs[glob_src_dirs[0]] = targetdir
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             find_source_dir('openmp-*',
@@ -69,20 +89,24 @@ class EB_Flang(EB_Clang):
 
         # Place the flang code in a separate directory for the build step for after
         # we've built llvm
-        self.flang_source_dir = os.path.join(self.llvm_src_dir, '..', 'flang')
+        self.flang_source_dir = os.path.join(os.path.dirname(self.llvm_src_dir), 'flang')
         find_source_dir('flang-flang_*', self.flang_source_dir)
 
+        moved_sources = 0
         for src in self.src:
             for (dirname, new_path) in src_dirs.items():
                 if src['name'].startswith(dirname):
                     old_path = os.path.join(src['finalpath'], dirname)
-                    try:
-                        shutil.move(old_path, new_path)
-                    except IOError as err:
-                        raise EasyBuildError("Failed to move %s to %s: %s", old_path,
-                                             new_path, err)
-                    src['finalpath'] = new_path
+                    move_file(old_path, new_path)
+                    # count moved sources
+                    moved_sources += 1
                     break
+        # Verify that all of the unpacked sources were moved
+        moved_sources_message = "%d of %d unpacked source directories were moved." % (moved_sources, len(self.src))
+        if len(self.src) == moved_sources:
+            self.log.info(moved_sources_message)
+        else:
+            raise EasyBuildError(moved_sources_message)
 
     def build_with_temporary_llvm(self, build_dir, src_dir, parallel=True, additional_options=[]):
         """Build Clang stage N using Clang stage N-1"""
@@ -99,24 +123,27 @@ class EB_Flang(EB_Clang):
         shlib_ext = get_shared_lib_ext()
         LIBOMP = os.path.join(self.llvm_obj_dir, 'lib', 'libomp.%s' % shlib_ext)
 
-        options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
-        options += "-DCMAKE_C_COMPILER='%s' " % CC
-        options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
-        options += "-DCMAKE_Fortran_COMPILER='%s' " % FC
-        options += "-DLLVM_CONFIG='%s' " % LLVM_CONFIG
-        options += "-DFLANG_LIBOMP='%s' " % LIBOMP
-        for option in additional_options:
-            options += "%s " % option
-        options += self.cfg['configopts']
+        opts_map = {
+            'CMAKE_INSTALL_PREFIX': self.installdir,
+            'CMAKE_C_COMPILER': CC,
+            'CMAKE_CXX_COMPILER': CXX,
+            'CMAKE_Fortran_COMPILER': FC,
+            # Tell it where to find our temporary LLVM installation
+            'LLVM_CONFIG': LLVM_CONFIG,
+            # Say which OMP runtime to use
+            'FLANG_LIBOMP': LIBOMP
+        }
+        options = ' '.join('-D%s=%s' % item for item in sorted(opts_map.items()))
+        options += ' ' + ' '.join(additional_options) + ' ' + self.cfg['configopts']
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, src_dir), log_all=True)
 
         self.log.info("Building")
+        cmd = 'make'
         if parallel:
-            run_cmd("make %s" % self.make_parallel_opts, log_all=True)
-        else:
-            run_cmd("make", log_all=True)
+            cmd += ' ' + self.make_parallel_opts
+        run_cmd(cmd, log_all=True)
 
     def build_step(self):
         # First build llvm and the driver
@@ -143,7 +170,7 @@ class EB_Flang(EB_Clang):
                 '-DLIBPGMATH=%s' % os.path.join(self.pgmath_build_dir, 'lib', 'libpgmath.%s' % shlib_ext),
                 # Ensure libraries are rpath-ed to the install directory (most relevant for libomp.so link)
                 '-DCMAKE_BUILD_WITH_INSTALL_RPATH=1',
-                '-DCMAKE_INSTALL_RPATH=%s/lib' % self.installdir,
+                '-DCMAKE_INSTALL_RPATH=%s' % os.path.join(self.installdir, 'lib'),
             ]
         )
 
