@@ -29,7 +29,6 @@ EasyBuild support for building and installing Flang, implemented as an easyblock
 """
 import glob
 import os
-import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.c.clang import EB_Clang
@@ -78,7 +77,6 @@ class EB_Flang(EB_Clang):
             else:
                 raise EasyBuildError("Failed to find exactly one source directory for pattern %s: %s",
                                      globpattern, glob_src_dirs)
-
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             find_source_dir('openmp-*',
