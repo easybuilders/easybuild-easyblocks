@@ -31,6 +31,7 @@ EasyBuild support for CPLEX, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+from distutils.version import LooseVersion
 import glob
 import os
 import stat
@@ -131,8 +132,14 @@ class EB_CPLEX(Binary):
 
     def sanity_check_step(self):
         """Custom sanity check for CPLEX"""
+
+        binaries = ['cplex', 'cplexamp']
+        if LooseVersion(self.version) < LooseVersion('12.8'):
+            binaries.append('convert')
+
         custom_paths = {
-            'files': ["%s/%s" % (self.bindir, x) for x in ["convert", "cplex", "cplexamp"]],
+            'files': [os.path.join(self.bindir, x) for x in binaries],
             'dirs': [],
         }
+
         super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths)
