@@ -212,7 +212,7 @@ class IntelBase(EasyBlock):
                     remove_file(path)
                 else:
                     shutil.rmtree(path)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
 
     def setup_local_home_subdir(self):
@@ -249,7 +249,7 @@ class IntelBase(EasyBlock):
                 os.symlink(self.home_subdir_local, self.home_subdir)
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_subdir_local, self.home_subdir, err)
 
     def prepare_step(self, *args, **kwargs):
@@ -441,7 +441,7 @@ class IntelBase(EasyBlock):
                 self.log.debug("Moving %s to %s" % (source, target))
                 shutil.move(source, target)
             shutil.rmtree(os.path.join(self.installdir, self.name))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
 
     def sanity_check_rpath(self):

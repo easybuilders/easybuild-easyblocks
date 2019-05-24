@@ -41,11 +41,11 @@ from vsc.utils import fancylogger
 from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
-from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, rmtree2, which
+from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
@@ -183,12 +183,13 @@ class PythonPackage(ExtensionEasyBlock):
             'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
+            'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
-            'use_pip': [False, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
@@ -233,6 +234,9 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
                           self.cfg['download_dep_fail'])
 
+        # figure out whether this Python package is being installed for multiple Python versions
+        self.multi_python = 'Python' in self.cfg['multi_deps']
+
         # determine install command
         self.use_setup_py = False
         if self.cfg.get('use_easy_install', False):
@@ -256,11 +260,17 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
 
-            # don't (try to) uninstall already availale versions of the package being installed
-            self.cfg.update('installopts', '--ignore-installed')
+            if self.cfg.get('pip_ignore_installed', True):
+                # don't (try to) uninstall already availale versions of the package being installed
+                self.cfg.update('installopts', '--ignore-installed')
 
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
+
+            # avoid that pip (ab)uses $HOME/.cache/pip
+            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
             self.use_setup_py = True
@@ -284,10 +294,11 @@ class PythonPackage(ExtensionEasyBlock):
 
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
+
         # pylibdir is the 'main' Python lib directory
-        if self.pylibdir == UNKNOWN:
-            self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
+        self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
         self.log.debug("Python library dir: %s" % self.pylibdir)
+
         # on (some) multilib systems, the platform-specific library directory for the system Python is different
         # cfr. http://serverfault.com/a/88739/126446
         # so, we keep a list of different Python lib directories to take into account
@@ -355,7 +366,8 @@ class PythonPackage(ExtensionEasyBlock):
                 # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
-                    self.cfg.update('installopts', '--no-build-isolation')
+                    if '--no-build-isolation' not in self.cfg['installopts']:
+                        self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
@@ -499,7 +511,7 @@ class PythonPackage(ExtensionEasyBlock):
                     testinstalldir = tempfile.mkdtemp()
                     for pylibdir in self.all_pylibdirs:
                         mkdir(os.path.join(testinstalldir, pylibdir), parents=True)
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
@@ -512,14 +524,12 @@ class PythonPackage(ExtensionEasyBlock):
                 run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
             if self.testcmd:
-                cmd = "%s%s" % (extrapath, self.testcmd % {'python': self.python_cmd})
+                testcmd = self.testcmd % {'python': self.python_cmd}
+                cmd = ' '.join([extrapath, self.cfg['pretestopts'], testcmd, self.cfg['testopts']])
                 run_cmd(cmd, log_all=True, simple=True)
 
             if testinstalldir:
-                try:
-                    rmtree2(testinstalldir)
-                except OSError, err:
-                    raise EasyBuildError("Removing testinstalldir %s failed: %s", testinstalldir, err)
+                remove_dir(testinstalldir)
 
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
@@ -536,7 +546,12 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        (self.install_cmd_output, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+        (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+
+        # keep track of all output from install command, so we can check for auto-downloaded dependencies;
+        # take into account that install step may be run multiple times
+        # (for iterated installations over multiply Python versions)
+        self.install_cmd_output += out
 
         # restore PYTHONPATH if it was set
         if pythonpath is not None:
@@ -562,10 +577,6 @@ class PythonPackage(ExtensionEasyBlock):
         """
         Custom sanity check for Python packages
         """
-        if 'exts_filter' not in kwargs:
-            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
-            exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
-            kwargs.update({'exts_filter': exts_filter})
 
         success, fail_msg = True, ''
 
@@ -585,6 +596,29 @@ class PythonPackage(ExtensionEasyBlock):
                 self.sanity_check_fail_msgs.append(fail_msg)
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
+
+        # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths,
+        # but only for stand-alone installations, not for extensions;
+        # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
+        # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
+        if not self.is_extension and not self.cfg['sanity_check_paths'] and kwargs.get('custom_paths') is None:
+            self.cfg['sanity_check_paths'] = {
+                'files': [],
+                'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
+            }
+
+        # make sure 'exts_filter' is defined, which is used for sanity check
+        if self.multi_python:
+            # when installing for multiple Python versions, we must use 'python', not a full-path 'python' command!
+            if 'exts_filter' not in kwargs:
+                kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
+        else:
+            # 'python' is replaced by full path to active 'python' command
+            # (which is required especially when installing with system Python)
+            if 'exts_filter' not in kwargs:
+                orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+                exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
+                kwargs.update({'exts_filter': exts_filter})
 
         parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 
@@ -618,17 +652,23 @@ class PythonPackage(ExtensionEasyBlock):
     def make_module_extra(self, *args, **kwargs):
         """Add install path to EBPYTHONPREFIXES or PYTHONPATH (for unusual installations)"""
         txt = ''
-        self.set_pylibdirs()
-        python_version = get_software_version('Python')
-        if python_version is not None:
-            pyshortver = '.'.join(python_version.split('.')[:2])
-        if python_version is not None and self.all_pylibdirs == ['lib/python%s/site-packages'%pyshortver]:
-            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+
+        # update $EBPYTHONPREFIXES rather than $PYTHONPATH
+        # if this Python package was installed for multiple Python versions
+        if self.multi_python:
+            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
-            for path in self.all_pylibdirs:
-                fullpath = os.path.join(self.installdir, path)
-                # only extend $PYTHONPATH with existing, non-empty directories
-                if os.path.exists(fullpath) and os.listdir(fullpath):
-                    txt += self.module_generator.prepend_paths('PYTHONPATH', path)
+            self.set_pylibdirs()
+            python_version = get_software_version('Python')
+            if python_version is not None:
+                pyshortver = '.'.join(python_version.split('.')[:2])
+            if python_version is not None and self.all_pylibdirs == ['lib/python%s/site-packages'%pyshortver]:
+                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+            else:
+                for path in self.all_pylibdirs:
+                    fullpath = os.path.join(self.installdir, path)
+                    # only extend $PYTHONPATH with existing, non-empty directories
+                    if os.path.exists(fullpath) and os.listdir(fullpath):
+                        txt += self.module_generator.prepend_paths('PYTHONPATH', path)
 
         return super(PythonPackage, self).make_module_extra(txt, *args, **kwargs)

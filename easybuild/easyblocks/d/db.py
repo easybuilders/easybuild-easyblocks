@@ -41,6 +41,6 @@ class EB_DB(ConfigureMake):
         """Configure build: change to build dir and call configure script."""
         try:
             os.chdir('build_unix')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to build dir: %s", err)
         super(EB_DB, self).configure_step(cmd_prefix='../dist/')

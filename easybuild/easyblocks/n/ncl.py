@@ -58,7 +58,7 @@ class EB_NCL(EasyBlock):
 
         try:
             os.chdir('config')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the 'config' dir: %s", err)
 
         cmd = "make -f Makefile.ini"
@@ -115,7 +115,7 @@ class EB_NCL(EasyBlock):
         # configure
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the build dir %s: %s", self.cfg['start_dir'], err)
 
         # instead of running the Configure script that asks a zillion questions,

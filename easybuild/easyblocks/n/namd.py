@@ -186,7 +186,7 @@ class EB_NAMD(MakeCp):
                     shutil.copytree(fullsrc, os.path.join(self.installdir, item), symlinks=False)
                 elif os.path.isfile(fullsrc):
                     shutil.copy2(fullsrc, self.installdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy NAMD build from %s to install directory: %s", srcdir, err)
 
     def make_module_extra(self):

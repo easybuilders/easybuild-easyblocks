@@ -82,7 +82,7 @@ class EB_MUMPS(ConfigureMake):
             dst = os.path.join(self.cfg['start_dir'], 'Makefile.inc')
             shutil.copy2(src, dst)
             self.log.debug("Successfully copied Makefile.inc to builddir.")
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying Makefile.inc to builddir failed: %s", err)
 
         # check whether dependencies are available, and prepare
@@ -136,7 +136,7 @@ class EB_MUMPS(ConfigureMake):
                 src = os.path.join(self.cfg['start_dir'], path)
                 dst = os.path.join(self.installdir, path)
                 shutil.copytree(src, dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, dst, err)
 
     def sanity_check_step(self):

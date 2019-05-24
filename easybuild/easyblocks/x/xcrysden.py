@@ -76,7 +76,7 @@ class EB_XCrySDen(ConfigureMake):
         makesys_file = "Make.sys"
         try:
             shutil.copy2(makesys_tpl_file, makesys_file)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy %s: %s", makesys_tpl_file, err)
 
         self.tclroot = get_library_root("tcl%s" % self.tclver)
