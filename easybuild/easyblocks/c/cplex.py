@@ -57,7 +57,15 @@ class EB_CPLEX(Binary):
         super(EB_CPLEX, self).__init__(*args, **kwargs)
 
         self.bindir = None
+        self.with_python = False
         self.multi_python = 'Python' in self.cfg['multi_deps']
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_CPLEX, self).prepare_step(*args, **kwargs)
+
+        if get_software_root('Python'):
+            self.with_python = True
 
     def install_step(self):
         """CPLEX has an interactive installer, so use Q&A"""
@@ -94,23 +102,28 @@ class EB_CPLEX(Binary):
         adjust_permissions(self.installdir, perms, recursive=False, relative=False)
 
         # also install Python bindings if Python is included as a dependency
-        if get_software_root('Python'):
+        if self.with_python:
             cwd = change_dir(os.path.join(self.installdir, 'python'))
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
             change_dir(cwd)
 
     def det_bindir(self):
         """Determine CPLEX bin subdirectory."""
-        change_dir(self.installdir)
-        binglob = 'cplex/bin/x86-64*'
-        bins = glob.glob(binglob)
 
-        if len(bins) == 1:
-            self.bindir = bins[0]
-        elif len(bins) > 1:
-            raise EasyBuildError("More than one possible path for bin found: %s", bins)
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(self.installdir) and os.listdir(self.installdir):
+            bin_glob = 'cplex/bin/x86-64*'
+            change_dir(self.installdir)
+            bins = glob.glob(bin_glob)
+
+            if len(bins) == 1:
+                self.bindir = bins[0]
+            elif len(bins) > 1:
+                raise EasyBuildError("More than one possible path for bin found: %s", bins)
+            else:
+                raise EasyBuildError("No bins found using %s in %s", bin_glob, self.installdir)
         else:
-            raise EasyBuildError("No bins found using %s in %s", binglob, self.installdir)
+            self.bindir = 'UNKNOWN'
 
     def make_module_extra(self):
         """Add bin dirs and lib dirs and set CPLEX_HOME and CPLEXDIR"""
@@ -119,10 +132,15 @@ class EB_CPLEX(Binary):
         if self.bindir is None:
             self.det_bindir()
 
-        cwd = change_dir(self.installdir)
-        bins = glob.glob(os.path.join('*', 'bin', 'x86-64*'))
-        libs = glob.glob(os.path.join('*', 'lib', 'x86-64*', '*pic'))
-        change_dir(cwd)
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(self.installdir):
+            cwd = change_dir(self.installdir)
+            bins = glob.glob(os.path.join('*', 'bin', 'x86-64*'))
+            libs = glob.glob(os.path.join('*', 'lib', 'x86-64*', '*pic'))
+            change_dir(cwd)
+        else:
+            bins = []
+            libs = []
 
         txt += self.module_generator.prepend_paths('PATH', [path for path in bins])
         txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins+libs])
@@ -130,7 +148,7 @@ class EB_CPLEX(Binary):
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
 
-        if get_software_root('Python'):
+        if self.with_python:
             if self.multi_python:
                 txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
             else:
@@ -155,9 +173,7 @@ class EB_CPLEX(Binary):
         }
         custom_commands = []
 
-        if get_software_root('Python'):
-            # it's important to call det_pylibdir() again here w.r.t. multi-Python installations
-            custom_paths['dirs'].append(det_pylibdir())
+        if self.with_python:
             custom_commands.append("python -c 'import cplex'")
             custom_commands.append("python -c 'import docplex'")
 
