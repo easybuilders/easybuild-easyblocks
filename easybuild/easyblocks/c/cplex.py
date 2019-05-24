@@ -33,12 +33,10 @@ EasyBuild support for CPLEX, implemented as an easyblock
 """
 import glob
 import os
-import shutil
 import stat
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd_qa
 
@@ -73,8 +71,8 @@ class EB_CPLEX(Binary):
 
         qanda = {
             "PRESS <ENTER> TO CONTINUE:": '',
-            'Press Enter to continue viewing the license agreement, or enter' \
-            ' "1" to accept the agreement, "2" to decline it, "3" to print it,' \
+            'Press Enter to continue viewing the license agreement, or enter'
+            ' "1" to accept the agreement, "2" to decline it, "3" to print it,'
             ' or "99" to go back to the previous screen.:': '1',
             'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
             'IS THIS CORRECT? (Y/N):': 'y',
@@ -134,7 +132,7 @@ class EB_CPLEX(Binary):
     def sanity_check_step(self):
         """Custom sanity check for CPLEX"""
         custom_paths = {
-            'files':["%s/%s" % (self.bindir, x) for x in ["convert", "cplex", "cplexamp"]],
-            'dirs':[],
+            'files': ["%s/%s" % (self.bindir, x) for x in ["convert", "cplex", "cplexamp"]],
+            'dirs': [],
         }
         super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths)
