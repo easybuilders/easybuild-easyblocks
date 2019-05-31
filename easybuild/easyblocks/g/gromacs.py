@@ -468,18 +468,29 @@ class EB_GROMACS(CMakeMake):
             libnames.extend([libname + mpisuff for libname in libnames])
 
         suff = ''
-        # add the _d suffix to the suffix, in case of the double precission
-        if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg['configopts'], re.I):
-            suff = '_d'
 
-        libs = ['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames]
+        # make sure that configopts is a list:
+        configopts = self.cfg['configopts']
+        if type(configopts) is str:
+            configopts = [configopts]
+
+        libs = []
+        binaries = []
+
+        for cfgopts in configopts:
+            # add the _d suffix to the suffix, in case of the double precission
+            if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', cfgopts, re.I):
+                suff = '_d'
+
+            libs += ['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames]
+            binaries += [b + suff for b in bins]
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
             dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
 
         custom_paths = {
-            'files': [os.path.join('bin', b + suff) for b in bins] + [os.path.join(self.lib_subdir, l) for l in libs],
+            'files': [os.path.join('bin', b) for b in binaries] + [os.path.join(self.lib_subdir, l) for l in libs],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
