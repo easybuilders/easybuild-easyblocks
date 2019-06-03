@@ -63,6 +63,8 @@ class EB_Boost(EasyBlock):
 
         self.objdir = None
 
+        self.pyvers = []
+
     @staticmethod
     def extra_options():
         """Add extra easyconfig parameters for Boost."""
@@ -94,6 +96,16 @@ class EB_Boost(EasyBlock):
                         sys.stdout.write(line)
                 except IOError as err:
                     raise EasyBuildError("Failed to patch %s: %s", patchfile, err)
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+
+        super(EB_Boost, self).prepare_step(*args, **kwargs)
+
+        # keep track of Python version(s) used during installation,
+        # so we can perform a complete sanity check
+        if get_software_root('Python'):
+            self.pyvers.append(get_software_version('Python'))
 
     def configure_step(self):
         """Configure Boost build using custom tools"""
@@ -246,9 +258,9 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi']:
             custom_paths['files'].append(os.path.join('lib', 'libboost_mpi.%s' % shlib_ext))
 
-        if get_software_root('Python'):
-            pymajorver = get_software_version('Python').split('.')[0]
-            pyminorver = get_software_version('Python').split('.')[1]
+        for pyver in self.pyvers:
+            pymajorver = pyver.split('.')[0]
+            pyminorver = pyver.split('.')[1]
             if LooseVersion(self.version) >= LooseVersion("1.67.0"):
                 suffix = '%s%s' % (pymajorver, pyminorver)
             elif int(pymajorver) >= 3:
