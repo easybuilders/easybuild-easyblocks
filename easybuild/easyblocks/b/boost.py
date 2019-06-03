@@ -238,7 +238,7 @@ class EB_Boost(EasyBlock):
         """Install Boost by copying files to install dir."""
 
         self.log.info("Copying %s to installation dir %s", self.objdir, self.installdir)
-        if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.current_iteration > 0:
+        if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.iter_idx > 0:
             self.log.info("Main installation should already exist, only copying over missing Python libraries.")
             copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'))
         else:
