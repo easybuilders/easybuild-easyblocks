@@ -490,7 +490,8 @@ class EB_GROMACS(CMakeMake):
             dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
 
         custom_paths = {
-            'files': [os.path.join('bin', b) for b in bin_files] + [os.path.join(self.lib_subdir, l) for l in lib_files],
+            'files': [os.path.join('bin', b) for b in bin_files] + 
+                     [os.path.join(self.lib_subdir, l) for l in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
