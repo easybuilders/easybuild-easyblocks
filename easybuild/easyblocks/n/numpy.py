@@ -48,6 +48,21 @@ from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
 
 
+def parse_numpy_test_suite_output(full_testsuite_output):
+    # Parse the last line of the testcmd_output which contains the summary from the numpy test suite
+    testsuite_summary = full_testsuite_output.splitlines()[-1]
+    # Summary looks like:
+    # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
+    regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
+    search_results_list = re.findall(regexp, testsuite_summary)
+    # Convert this list to a dict
+    numpy_testsuite_summary = {}
+    for item in search_results_list:
+        numpy_testsuite_summary[item[1]] = int(item[0])
+
+    return numpy_testsuite_summary
+
+
 class EB_numpy(FortranPythonPackage):
     """Support for installing the numpy Python package as part of a Python installation."""
 
@@ -214,9 +229,16 @@ class EB_numpy(FortranPythonPackage):
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
-        super(EB_numpy, self).test_step()
 
-        # temporarily install numpy, it doesn't alow to be used straight from the source dir
+        # Let's handle the output from the numpy test suite ourselves
+        testcmd_output, testcmd_exit_code = super(EB_numpy, self).test_step(return_testcmd_output=True)
+
+        numpy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
+
+        if 'failed' in numpy_testsuite_summary or 'error' in numpy_testsuite_summary:
+            raise EasyBuildError("Found errors or failures in numpy testsuite output:\n %s", numpy_testsuite_summary)
+
+        # temporarily install numpy, it doesn't allow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
         abs_pylibdirs = [os.path.join(tmpdir, pylibdir) for pylibdir in self.all_pylibdirs]
         for pylibdir in abs_pylibdirs:
@@ -229,7 +251,7 @@ class EB_numpy(FortranPythonPackage):
             pwd = os.getcwd()
             os.chdir(tmpdir)
         except OSError as err:
-            raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
+            raise EasyBuildError("Failed to change to %s: %s", tmpdir, err)
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
         size = 1000

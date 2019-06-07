@@ -494,7 +494,7 @@ class PythonPackage(ExtensionEasyBlock):
                             self.cfg['buildopts']])
             run_cmd(cmd, log_all=True, simple=True)
 
-    def test_step(self):
+    def test_step(self, return_testcmd_output=False):
         """Test the built Python package."""
 
         if isinstance(self.cfg['runtest'], basestring):
@@ -526,10 +526,16 @@ class PythonPackage(ExtensionEasyBlock):
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
                 cmd = ' '.join([extrapath, self.cfg['pretestopts'], testcmd, self.cfg['testopts']])
-                run_cmd(cmd, log_all=True, simple=True)
+                if return_testcmd_output:
+                    testcmd_output, testcmd_exit_code = run_cmd(cmd, log_all=True, simple=False)
+                else:
+                    run_cmd(cmd, log_all=True, simple=True)
 
             if testinstalldir:
                 remove_dir(testinstalldir)
+
+            if return_testcmd_output:
+                return testcmd_output, testcmd_exit_code
 
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
