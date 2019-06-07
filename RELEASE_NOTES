@@ -3,7 +3,23 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 203 software-specific easyblocks and 35 generic easyblocks.
+The latest version of easybuild-easyblocks provides 204 software-specific easyblocks and 35 generic easyblocks.
+
+v3.9.2 (June 9th 2019)
+----------------------
+
+update/bugfix release
+
+- new software-specific easyblock for ELPA (#1621)
+- minor enhancements, including:
+  - allow Boost to build both Python2 and Python3 libraries (#1718)
+  - update CPLEX sanity check: convert tool was removed in CPLEX 12.8 (#1737)
+  - don't try to patch CROSSTOOL script for recent Bazel versions (since it's no longer there) (#1741)
+- various bug fixes, including:
+  - fix version check on using '-log' option to 'Allwmake' in OpenFOAM easyblock (#1739)
+  - fix GROMACS easyblock for list-type configopts (#1740)
+  - fix configure step for GROMACS version < 4.6 (#1742)
+
 
 v3.9.1 (May 20th 2019)
 ----------------------
