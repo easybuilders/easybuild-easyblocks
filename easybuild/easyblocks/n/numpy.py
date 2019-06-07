@@ -66,7 +66,7 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        self.testcmd = "cd .. && LDFLAGS='-shared -Wall' FFLAGS='-fPIC' %(python)s -c 'import numpy; numpy.test(verbose=2)'"
+        self.testcmd = "cd .. && LDFLAGS='-shared -Wall' %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
