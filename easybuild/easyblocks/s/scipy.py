@@ -48,7 +48,8 @@ class EB_scipy(FortranPythonPackage):
         super(EB_scipy, self).__init__(*args, **kwargs)
 
         self.testinstall = True
-        self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
+        # unsetting LDFLAGS during the tests is required since we are compiling (like below)
+        self.testcmd = "cd .. && unset LDFLAGS && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
@@ -62,13 +63,15 @@ class EB_scipy(FortranPythonPackage):
 
     def test_step(self):
         """Run available scipy unit tests"""
+        if self.cfg['runtest']:
+            # Let's handle the output from the scipy test suite ourselves
+            testcmd_output, testcmd_exit_code = super(EB_scipy, self).test_step(return_testcmd_output=True)
+            scipy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
-        # Let's handle the output from the scipy test suite ourselves
-        testcmd_output, testcmd_exit_code = super(EB_scipy, self).test_step(return_testcmd_output=True)
-        scipy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
-
-        if 'failed' in scipy_testsuite_summary or 'error' in scipy_testsuite_summary:
-            raise EasyBuildError("Found errors or failures in scipy testsuite output:\n %s", scipy_testsuite_summary)
+            if 'failed' in scipy_testsuite_summary or 'error' in scipy_testsuite_summary:
+                raise EasyBuildError("Found errors or failures in scipy testsuite output:\n %s", scipy_testsuite_summary)
+        else:
+            super(EB_scipy, self).test_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for scipy."""

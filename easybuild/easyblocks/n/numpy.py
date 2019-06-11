@@ -81,7 +81,8 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
+        # unsetting LDFLAGS during the tests is required since we are compiling
+        self.testcmd = "cd .. && unset LDFLAGS && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
