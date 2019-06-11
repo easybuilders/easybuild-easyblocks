@@ -49,8 +49,8 @@ from distutils.version import LooseVersion
 
 
 def parse_numpy_test_suite_output(full_testsuite_output):
-    # Parse the last line of the testcmd_output which contains the summary from the numpy test suite
-    testsuite_summary = full_testsuite_output.splitlines()[-1]
+    # Parse the last (non-empty) line of the testcmd_output which contains the summary from the test suite
+    testsuite_summary = [i for i in full_testsuite_output.split('\n') if i != ''][-1]
     # Summary looks like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
     regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
