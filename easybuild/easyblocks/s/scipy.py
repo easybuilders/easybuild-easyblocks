@@ -35,6 +35,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
+from easybuild.easyblocks.n.numpy import parse_numpy_test_suite_output
 import easybuild.tools.toolchain as toolchain
 
 
@@ -57,6 +58,16 @@ class EB_scipy(FortranPythonPackage):
             # which requires unsetting $LDFLAGS
             if self.toolchain.comp_family() in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
                 self.cfg.update('preinstallopts', "unset LDFLAGS && ")
+
+    def test_step(self):
+        """Run available scipy unit tests"""
+
+        # Let's handle the output from the scipy test suite ourselves
+        testcmd_output, testcmd_exit_code = super(EB_scipy, self).test_step(return_testcmd_output=True)
+        scipy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
+
+        if 'failed' in scipy_testsuite_summary or 'error' in scipy_testsuite_summary:
+            raise EasyBuildError("Found errors or failures in scipy testsuite output:\n %s", scipy_testsuite_summary)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for scipy."""
