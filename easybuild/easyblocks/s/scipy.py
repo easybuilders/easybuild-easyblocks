@@ -69,7 +69,8 @@ class EB_scipy(FortranPythonPackage):
             scipy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
             if 'failed' in scipy_testsuite_summary or 'error' in scipy_testsuite_summary:
-                raise EasyBuildError("Found errors or failures in scipy testsuite output:\n %s", scipy_testsuite_summary)
+                raise EasyBuildError("Found errors or failures in scipy testsuite output:\n %s",
+                                     scipy_testsuite_summary)
         else:
             super(EB_scipy, self).test_step()
 
