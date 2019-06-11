@@ -230,13 +230,17 @@ class EB_numpy(FortranPythonPackage):
     def test_step(self):
         """Run available numpy unit tests, and more."""
 
-        # Let's handle the output from the numpy test suite ourselves
-        testcmd_output, testcmd_exit_code = super(EB_numpy, self).test_step(return_testcmd_output=True)
+        if self.cfg['runtest']:
+            # Let's handle the output from the numpy test suite ourselves
+            testcmd_output, testcmd_exit_code = super(EB_numpy, self).test_step(return_testcmd_output=True)
 
-        numpy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
+            numpy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
-        if 'failed' in numpy_testsuite_summary or 'error' in numpy_testsuite_summary:
-            raise EasyBuildError("Found errors or failures in numpy testsuite output:\n %s", numpy_testsuite_summary)
+            if 'failed' in numpy_testsuite_summary or 'error' in numpy_testsuite_summary:
+                raise EasyBuildError("Found errors or failures in numpy testsuite output:\n %s",
+                                     numpy_testsuite_summary)
+        else:
+            super(EB_numpy, self).test_step()
 
         # temporarily install numpy, it doesn't allow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
