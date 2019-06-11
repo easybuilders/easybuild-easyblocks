@@ -53,6 +53,12 @@ def parse_numpy_test_suite_output(full_testsuite_output):
     testsuite_summary = [i for i in full_testsuite_output.split('\n') if i.startswith('===')][-1]
     # Summary looks like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
+
+    # Verify that the summary looks like we expect
+    if 'passed' not in testsuite_summary and 'seconds' not in testsuite_summary:
+        raise EasyBuildError("Could not extract summary from test suite output, got\n%s", testsuite_summary)
+
+    # Use regex to help parse it
     regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
     search_results_list = re.findall(regexp, testsuite_summary)
     # Convert this list to a dict
