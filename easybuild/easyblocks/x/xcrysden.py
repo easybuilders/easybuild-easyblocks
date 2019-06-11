@@ -52,8 +52,7 @@ class EB_XCrySDen(ConfigureMake):
         and set make target and installation prefix.
         """
 
-        # check dependencies
-        deps = ["Mesa", "Tcl", "Tk"]
+        deps = ['Tcl', 'Tk']
         for dep in deps:
             if not get_software_root(dep):
                 raise EasyBuildError("Module for dependency %s not loaded.", dep)
@@ -73,7 +72,7 @@ class EB_XCrySDen(ConfigureMake):
 
         # patch Make.sys
         settings = {
-                    'CFLAGS': os.getenv('CFLAGS'),
+                    'CFLAGS': os.getenv('CFLAGS') + ' -DUSE_INTERP_RESULT ',
                     'CC': os.getenv('CC'),
                     'FFLAGS': os.getenv('F90FLAGS'),
                     'FC': os.getenv('F90'),
@@ -81,9 +80,6 @@ class EB_XCrySDen(ConfigureMake):
                     'TCL_INCDIR': "-I%s/include" % self.tclroot,
                     'TK_LIB': "-L%s/lib -ltk%s" % (self.tkroot, self.tkver),
                     'TK_INCDIR': "-I%s/include" % self.tkroot,
-                    'GLU_LIB': "-L%s/lib -lGLU" % get_software_root("Mesa"),
-                    'GL_LIB': "-L%s/lib -lGL" % get_software_root("Mesa"),
-                    'GL_INCDIR': "-I%s/include" % get_software_root("Mesa"),
                     'FFTW3_LIB': "-L%s %s -L%s %s" % (os.getenv('FFTW_LIB_DIR'), os.getenv('LIBFFT'),
                                                       os.getenv('LAPACK_LIB_DIR'), os.getenv('LIBLAPACK_MT')),
                     'FFTW3_INCDIR': "-I%s" % os.getenv('FFTW_INC_DIR'),
@@ -92,6 +88,12 @@ class EB_XCrySDen(ConfigureMake):
                     'COMPILE_FFTW': 'no',
                     'COMPILE_MESCHACH': 'no'
                    }
+
+        mesa_root = get_software_root('Mesa')
+        if mesa_root:
+            settings['GLU_LIB'] = "-L%s/lib -lGLU" % mesa_root
+            settings['GL_LIB'] = "-L%s/lib -lGL" % mesa_root
+            settings['GL_INCDIR'] = "-I%s/include" % mesa_root
 
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
