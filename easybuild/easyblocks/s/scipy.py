@@ -48,8 +48,9 @@ class EB_scipy(FortranPythonPackage):
         super(EB_scipy, self).__init__(*args, **kwargs)
 
         self.testinstall = True
-        # unsetting LDFLAGS during the tests is required since we are compiling (like below)
-        self.testcmd = "cd .. && unset LDFLAGS && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
+        # unset flags that can influence the testsuite
+        self.testcmd = "unset LDFLAGS && unset CFLAGS && unset FFLAGS && "
+        self.testcmd += "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""

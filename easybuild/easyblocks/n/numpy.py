@@ -49,18 +49,19 @@ from distutils.version import LooseVersion
 
 
 def parse_numpy_test_suite_output(full_testsuite_output):
-    # Parse the last line of the testcmd_output which contains the summary from the test suite
-    testsuite_summary = [i for i in full_testsuite_output.split('\n') if i.startswith('===')][-1]
+    # Grab the line of the testcmd_output which contains the summary from the test suite.
     # Summary looks like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
+    testsuite_summary = [i for i in full_testsuite_output.split('\n') if
+                         i.startswith('===') and 'passed' in i and 'seconds' in i]
 
-    # Verify that the summary looks like we expect
-    if 'passed' not in testsuite_summary or 'seconds' not in testsuite_summary:
-        raise EasyBuildError("Could not extract summary from test suite output, got\n%s", testsuite_summary)
+    # Verify we got a summary like expected (should be a list with a single element)
+    if not testsuite_summary:
+        raise EasyBuildError("Could not extract summary from test suite output")
 
     # Use regex to help parse it
     regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
-    search_results_list = re.findall(regexp, testsuite_summary)
+    search_results_list = re.findall(regexp, testsuite_summary[-1])
     # Convert this list to a dict
     numpy_testsuite_summary = {}
     for item in search_results_list:
@@ -87,8 +88,9 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        # unsetting LDFLAGS during the tests is required since we are compiling
-        self.testcmd = "cd .. && unset LDFLAGS && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
+        # unset flags that can influence the testsuite
+        self.testcmd = "unset LDFLAGS && unset CFLAGS && unset FFLAGS && "
+        self.testcmd += "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
