@@ -134,12 +134,18 @@ class CMakeMake(ConfigureMake):
 
         options_string = ' '.join(options)
 
-        command = ' '.join([
-            self.cfg['preconfigopts'],
-            self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD,
-            options_string,
-            self.cfg['configopts'],
-            srcdir])
+        if self.cfg.get('configure_cmd'):
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    self.cfg.get('configure_cmd'),
+                    self.cfg['configopts']])
+        else:
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    DEFAULT_CONFIGURE_CMD,
+                    options_string,
+                    self.cfg['configopts'],
+                    srcdir])
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
