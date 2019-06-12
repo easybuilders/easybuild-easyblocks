@@ -308,7 +308,7 @@ class EB_OpenFOAM(EasyBlock):
             run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
         else:
             cmd = 'Allwmake'
-            if LooseVersion(self.version) >= LooseVersion('1606'):
+            if LooseVersion(self.version.strip('v+')) > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)

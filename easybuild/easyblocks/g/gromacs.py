@@ -191,6 +191,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "--without-gsl")
 
             # actually run configure via ancestor (not direct parent)
+            self.cfg['configure_cmd'] = "./configure"
             ConfigureMake.configure_step(self)
 
             # Now patch GROMACS for PLUMED between configure and build
@@ -468,18 +469,30 @@ class EB_GROMACS(CMakeMake):
             libnames.extend([libname + mpisuff for libname in libnames])
 
         suff = ''
-        # add the _d suffix to the suffix, in case of the double precission
-        if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg['configopts'], re.I):
-            suff = '_d'
 
-        libs = ['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames]
+        # make sure that configopts is a list:
+        configopts_list = self.cfg['configopts']
+        if isinstance(configopts_list, str):
+            configopts_list = [configopts_list]
+
+        lib_files = []
+        bin_files = []
+
+        for configopts in configopts_list:
+            # add the _d suffix to the suffix, in case of the double precission
+            if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
+                suff = '_d'
+
+            lib_files.extend(['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames])
+            bin_files.extend([b + suff for b in bins])
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
             dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
 
         custom_paths = {
-            'files': [os.path.join('bin', b + suff) for b in bins] + [os.path.join(self.lib_subdir, l) for l in libs],
+            'files': [os.path.join('bin', b) for b in bin_files] +
+                [os.path.join(self.lib_subdir, l) for l in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
