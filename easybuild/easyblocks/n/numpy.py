@@ -53,11 +53,11 @@ def parse_numpy_test_suite_output(full_testsuite_output):
     # Summary looks like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
     testsuite_summary = [i for i in full_testsuite_output.split('\n') if
-                         i.startswith('===') and 'passed' in i and 'seconds' in i]
+                         i.startswith('=') and 'passed' in i and 'seconds' in i]
 
     # Verify we got a summary like expected (should be a list with a single element)
     if not testsuite_summary:
-        raise EasyBuildError("Could not extract summary from test suite output")
+        raise EasyBuildError("Could not extract summary from test suite output, is it written over multiple lines?")
 
     # Use regex to help parse it
     regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
