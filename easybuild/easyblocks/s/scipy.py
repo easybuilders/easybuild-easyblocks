@@ -49,7 +49,7 @@ class EB_scipy(FortranPythonPackage):
 
         self.testinstall = True
         # unset flags that can influence the testsuite
-        self.testcmd = "unset LDFLAGS && unset CFLAGS && unset FFLAGS && "
+        self.testcmd = "unset LDFLAGS && "
         self.testcmd += "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
 
     def configure_step(self):
