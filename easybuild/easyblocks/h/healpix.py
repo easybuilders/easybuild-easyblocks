@@ -63,9 +63,9 @@ class EB_HEALPix(ConfigureMake):
             raise EasyBuildError("Failed to determine root for CFITSIO, module not loaded?")
 
         self.comp_fam = self.toolchain.comp_family()
-        if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             cxx_config = '4'  # linux_icc
-        elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
+        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
             cxx_config = '2'  # generic_gcc
         else:
             raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
@@ -121,7 +121,7 @@ class EB_HEALPix(ConfigureMake):
         else:
             custom_paths = {
                 'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
-                                                           'plmgen', 'sky_ng_sim','sky_ng_sim_bin', 'smoothing',
+                                                           'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
                                                            'synfast', 'ud_grade']] +
                          [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif',
                                                                        'psht_healpix_f']] +
