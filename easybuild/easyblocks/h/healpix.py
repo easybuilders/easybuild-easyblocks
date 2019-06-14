@@ -96,8 +96,8 @@ class EB_HEALPix(ConfigureMake):
             r"PGPLOT.[\s\n]*Do you want to enable this option \?[\s\n]*\([^)]*\) \(y\|N\)": 'N',
             r"the parallel implementation[\s\n]*Enter choice.*": '1',
             r"do you want the HEALPix/C library to include CFITSIO-related functions \? \(Y\|n\):": 'Y',
-            r"\(recommended if the Healpix-F90 library is to be linked to external codes\)  \(Y\|n\):": 'Y', # PIC -> yes
-            r"Do you rather want a shared/dynamic library.*": 'n', # shared instead static? -> NO
+            r"\(recommended if the Healpix-F90 library is to be linked to external codes\)  \(Y\|n\):": 'Y',  # PIC -> Y
+            r"Do you rather want a shared/dynamic library.*": 'n',  # shared instead static? -> N
         }
         run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True)
 
@@ -120,9 +120,9 @@ class EB_HEALPix(ConfigureMake):
             super(EB_HEALPix, self).sanity_check_step()
         else:
             custom_paths = {
-                'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif',
-                                                           'median_filter', 'plmgen', 'sky_ng_sim',
-                                                           'sky_ng_sim_bin', 'smoothing', 'synfast', 'ud_grade']] +
+                'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
+                                                           'plmgen', 'sky_ng_sim','sky_ng_sim_bin', 'smoothing',
+                                                           'synfast', 'ud_grade']] +
                          [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif',
                                                                        'psht_healpix_f']] +
                          [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
