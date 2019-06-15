@@ -78,6 +78,7 @@ class EB_GCC(ConfigureMake):
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
+            'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
             'use_gold_linker': [True, "Configure GCC to use GOLD as default linker", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withisl': [False, "Build GCC with ISL support", CUSTOM],
@@ -580,7 +581,10 @@ class EB_GCC(ConfigureMake):
             self.run_configure_cmd(cmd)
 
         # build with bootstrapping for self-containment
-        self.cfg.update('buildopts', 'bootstrap')
+        if self.cfg['profiled']:
+            self.cfg.update('buildopts', 'profiledbootstrap')
+        else:
+            self.cfg.update('buildopts', 'bootstrap')
 
         # call standard build_step
         super(EB_GCC, self).build_step()
