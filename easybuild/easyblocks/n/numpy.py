@@ -52,19 +52,20 @@ def parse_numpy_test_suite_output(full_testsuite_output):
     # Grab the line of the testcmd_output which contains the summary from the test suite.
     # Summary looks like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
-    testsuite_summary = [i for i in full_testsuite_output.split('\n') if
-                         i.startswith('=') and 'passed' in i and 'seconds' in i]
+    summary_regex = re.compile('^=.*passed.*in.*seconds', re.M)
+    res = summary_regex.search(full_testsuite_output)
+    if res:
+        testsuite_summary = res.group(0)
+    else:
+        raise EasyBuildError("Failed to extract summary from test suite output using pattern '%s': %s",
+                             summary_regex.pattern, full_testsuite_output)
 
-    # Verify we got a summary like expected (should be a list with a single element)
-    if not testsuite_summary:
-        raise EasyBuildError("Could not extract summary from test suite output, is it written over multiple lines?")
-
-    # Use regex to help parse it
+    # Use regex to help parse it (looking for a pair of char clusters that appear before a ',' or before ' in')
     regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
-    search_results_list = re.findall(regexp, testsuite_summary[-1])
+    summary_results_as_list = re.findall(regexp, testsuite_summary)
     # Convert this list to a dict
     numpy_testsuite_summary = {}
-    for item in search_results_list:
+    for item in summary_results_as_list:
         numpy_testsuite_summary[item[1]] = int(item[0])
 
     return numpy_testsuite_summary
@@ -88,7 +89,8 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        # unset flags that can influence the testsuite
+        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+        # see http://projects.scipy.org/numpy/ticket/182
         self.testcmd = "unset LDFLAGS && "
         self.testcmd += "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 

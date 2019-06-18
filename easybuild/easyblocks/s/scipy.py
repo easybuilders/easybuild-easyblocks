@@ -48,7 +48,8 @@ class EB_scipy(FortranPythonPackage):
         super(EB_scipy, self).__init__(*args, **kwargs)
 
         self.testinstall = True
-        # unset flags that can influence the testsuite
+        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+        # see http://projects.scipy.org/numpy/ticket/182
         self.testcmd = "unset LDFLAGS && "
         self.testcmd += "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
 
