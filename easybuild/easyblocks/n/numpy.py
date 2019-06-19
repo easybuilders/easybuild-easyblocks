@@ -60,8 +60,8 @@ def parse_numpy_test_suite_output(full_testsuite_output):
         raise EasyBuildError("Failed to extract summary from test suite output using pattern '%s': %s",
                              summary_regex.pattern, full_testsuite_output)
 
-    # Use regex to help parse it (looking for a pair of char clusters that appear before a ',' or before ' in')
-    regexp = r"([\w]+)\ ([\w]+)(?:\ in|,)"
+    # Use regex to help parse it, match all "<count> <label>" instances in test summary
+    regexp = r"([\d]+)\ ([\w]+)(?:\ in|,)"
     summary_results_as_list = re.findall(regexp, testsuite_summary)
     # Convert this list to a dict
     numpy_testsuite_summary = {}
@@ -79,6 +79,7 @@ class EB_numpy(FortranPythonPackage):
         """Easyconfig parameters specific to numpy."""
         extra_vars = ({
             'blas_test_time_limit': [500, "Time limit (in ms) for 1000x1000 matrix dot product BLAS test", CUSTOM],
+            'ignore_test_failures': [True, "Ignore failures/errors in test suite.", CUSTOM],
         })
         return FortranPythonPackage.extra_options(extra_vars=extra_vars)
 
@@ -248,8 +249,11 @@ class EB_numpy(FortranPythonPackage):
             numpy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
             if 'failed' in numpy_testsuite_summary or 'error' in numpy_testsuite_summary:
-                raise EasyBuildError("Found errors or failures in numpy testsuite output:\n %s",
-                                     numpy_testsuite_summary)
+                failure_text = "Found errors or failures in numpy testsuite output:\n %s" % numpy_testsuite_summary
+                if self.cfg['ignore_test_failures']:
+                    self.log.warning("Ignoring: ", failure_text)
+                else:
+                    raise EasyBuildError(failure_text)
         else:
             super(EB_numpy, self).test_step()
 
