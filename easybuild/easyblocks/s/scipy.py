@@ -36,6 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.n.numpy import parse_numpy_test_suite_output
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 import easybuild.tools.toolchain as toolchain
 
