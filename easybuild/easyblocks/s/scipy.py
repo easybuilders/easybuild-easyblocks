@@ -51,8 +51,7 @@ class EB_scipy(FortranPythonPackage):
         })
         return FortranPythonPackage.extra_options(extra_vars=extra_vars)
 
-
-def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Set scipy-specific test command."""
         super(EB_scipy, self).__init__(*args, **kwargs)
 
