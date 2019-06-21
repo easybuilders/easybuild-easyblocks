@@ -54,6 +54,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'hybrid': [False, "Enable hybrid build (with OpenMP)", CUSTOM],
             'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
+            'ntypx': [10, "Max number of different types of atom", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -232,6 +233,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
             make_ext = '.inc'
         else:
             make_ext = '.sys'
+
+        if self.cfg['ntypx']:
+          regex_subs = [(r"^ntypx\s*=\s*\d+", r"ntypx = %s" % ntypx)]
+           apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+           print('REGEX: {}'.format(regex_subs))
 
         # patch make.sys file
         fn = os.path.join(self.cfg['start_dir'], 'make' + make_ext)
