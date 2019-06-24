@@ -78,15 +78,21 @@ class EB_SNPhylo(EasyBlock):
         bindir = os.path.join(self.installdir, 'bin')
         binfiles = ['snphylo.sh', 'snphylo.cfg', 'snphylo.template']
 
-        predir = ''
+        # Starting from v20160204:
+        #   * the source archive has a different directory tree
+        #   * snphylo.sh looks for scripts in $EBROOTSNPHYLO/bin/scripts
         if LooseVersion(self.version) >= LooseVersion('20160204'):
             predir = 'SNPhylo'
+            scripts_path = os.path.join(self.installdir, 'bin', 'scripts')
+        else:
+            predir = ''
+            scripts_path = os.path.join(self.installdir, 'scripts')
 
         mkdir(bindir, parents=True)
         for binfile in binfiles:
             copy_file(os.path.join(self.builddir, predir, binfile), bindir)
 
-        copy_dir(os.path.join(self.builddir, predir, 'scripts'), os.path.join(self.installdir, 'scripts'))
+        copy_dir(os.path.join(self.builddir, predir, 'scripts'), scripts_path)
 
     def sanity_check_step(self):
         """Custom sanity check for SNPhylo."""
