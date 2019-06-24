@@ -44,6 +44,12 @@ from easybuild.tools.run import run_cmd
 class EB_SNPhylo(EasyBlock):
     """Support for building and installing SNPhylo."""
 
+    def __init__(self, *args, **kwargs):
+        """Set custom class variables."""
+        super(EB_SNPhylo, self).__init__(*args, **kwargs)
+
+        self.scripts_path = os.path.join('bin', 'scripts')
+
     def configure_step(self):
         """No configure step for SNPhylo."""
         pass
@@ -78,26 +84,22 @@ class EB_SNPhylo(EasyBlock):
         bindir = os.path.join(self.installdir, 'bin')
         binfiles = ['snphylo.sh', 'snphylo.cfg', 'snphylo.template']
 
-        # Starting from v20160204:
-        #   * the source archive has a different directory tree
-        #   * snphylo.sh looks for scripts in $EBROOTSNPHYLO/bin/scripts
+        # Starting from v20160204 the source archive has a different directory tree
         if LooseVersion(self.version) >= LooseVersion('20160204'):
             predir = 'SNPhylo'
-            scripts_path = os.path.join(self.installdir, 'bin', 'scripts')
         else:
             predir = ''
-            scripts_path = os.path.join(self.installdir, 'scripts')
 
         mkdir(bindir, parents=True)
         for binfile in binfiles:
             copy_file(os.path.join(self.builddir, predir, binfile), bindir)
 
-        copy_dir(os.path.join(self.builddir, predir, 'scripts'), scripts_path)
+        copy_dir(os.path.join(self.builddir, predir, 'scripts'), os.path.join(self.installdir, self.scripts_path))
 
     def sanity_check_step(self):
         """Custom sanity check for SNPhylo."""
         custom_paths = {
             'files': ['bin/snphylo.sh', 'bin/snphylo.cfg', 'bin/snphylo.template'],
-            'dirs': ['scripts'],
+            'dirs': [self.scripts_path],
         }
         super(EB_SNPhylo, self).sanity_check_step(custom_paths=custom_paths)
