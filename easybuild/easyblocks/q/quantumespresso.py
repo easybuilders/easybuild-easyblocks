@@ -55,6 +55,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
             'ntypx': [False, "Max number of different types of atom", CUSTOM],
+            'nsx': [False, "max number of atomic species (CP)", CUSTOM],
+            'npk': [False, "max number of k-points", CUSTOM],
+            'lmaxx': [False, "max non local angular momentum (l=0 to lmaxx)", CUSTOM],
+            'lqmax': [False, "max number of angular momenta of Q", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -236,6 +240,18 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if self.cfg['ntypx']:
           regex_subs = [(r"ntypx\s*=\s*\d+", r"ntypx = %s" % self.cfg['ntypx'])]
+          apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+        if self.cfg['nsx']:
+          regex_subs = [(r"nsx\s*=\s*\w+", r"nsx = %s" % self.cfg['nsx'])]
+          apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+        if self.cfg['npk']:
+          regex_subs = [(r"npk\s*=\s*\d+", r"npk = %s" % self.cfg['npk'])]
+          apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+        if self.cfg['lmaxx']:
+          regex_subs = [(r"lmaxx\s*=\s*\d+", r"lmaxx = %s" % self.cfg['lmaxx'])]
+          apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+        if self.cfg['lqmax']:
+          regex_subs = [(r"lqmax\s*=\s*\S+", r"lqmax = %s" % self.cfg['lqmax'])]
           apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
 
         # patch make.sys file
