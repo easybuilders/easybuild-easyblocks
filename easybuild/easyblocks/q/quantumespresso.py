@@ -238,21 +238,19 @@ class EB_QuantumESPRESSO(ConfigureMake):
         else:
             make_ext = '.sys'
 
+        # patch Modules/parameter.f90 file to set compilation parameters
+        regex_para = []
         if self.cfg['ntypx']:
-            regex_subs = [(r"ntypx\s*=\s*\d+", r"ntypx = %s" % self.cfg['ntypx'])]
-            apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+            regex_para.append((r"ntypx\s*=\s*\S+", r"ntypx = %s" % self.cfg['ntypx']))
         if self.cfg['nsx']:
-            regex_subs = [(r"nsx\s*=\s*\w+", r"nsx = %s" % self.cfg['nsx'])]
-            apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+            regex_para.append((r"nsx\s*=\s*\S+", r"nsx = %s" % self.cfg['nsx']))
         if self.cfg['npk']:
-            regex_subs = [(r"npk\s*=\s*\d+", r"npk = %s" % self.cfg['npk'])]
-            apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+            regex_para.append((r"npk\s*=\s*\S+", r"npk = %s" % self.cfg['npk']))
         if self.cfg['lmaxx']:
-            regex_subs = [(r"lmaxx\s*=\s*\d+", r"lmaxx = %s" % self.cfg['lmaxx'])]
-            apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+            regex_para.append((r"lmaxx\s*=\s*\S+", r"lmaxx = %s" % self.cfg['lmaxx']))
         if self.cfg['lqmax']:
-            regex_subs = [(r"lqmax\s*=\s*\S+", r"lqmax = %s" % self.cfg['lqmax'])]
-            apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_subs)
+            regex_para.append((r"lqmax\s*=\s*\S+", r"lqmax = %s" % self.cfg['lqmax']))
+        apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_para)
 
         # patch make.sys file
         fn = os.path.join(self.cfg['start_dir'], 'make' + make_ext)
