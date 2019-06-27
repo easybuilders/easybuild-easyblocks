@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPacka
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.n.numpy import parse_numpy_test_suite_output
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 import easybuild.tools.toolchain as toolchain
 
 
@@ -83,6 +83,7 @@ class EB_scipy(FortranPythonPackage):
                 failure_text = "Found errors or failures in scipy testsuite output:\n %s" % scipy_testsuite_summary
                 if self.cfg['ignore_test_failures']:
                     self.log.warning("Ignoring: ", failure_text)
+                    print_warning("Ignoring: %s" % failure_text)
                 else:
                     raise EasyBuildError(failure_text)
         else:
