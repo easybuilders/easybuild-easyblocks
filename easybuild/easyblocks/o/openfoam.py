@@ -305,7 +305,7 @@ class EB_OpenFOAM(EasyBlock):
                 r"\s*\^\s*",  # warning indicator
                 "Cleaning .*",
             ]
-            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
+            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True, maxhits=500)
         else:
             cmd = 'Allwmake'
             if LooseVersion(self.version.strip('v+')) > LooseVersion('1606'):
