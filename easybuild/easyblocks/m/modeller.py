@@ -63,6 +63,7 @@ class EB_Modeller(EasyBlock):
              'Select the type of your computer from the list above [3]:': '',
              default_install_path: self.installdir,
              'http://salilab.org/modeller/registration.html:': self.cfg["key"],
+             'https://salilab.org/modeller/registration.html:': self.cfg["key"],
              'Press <Enter> to begin the installation:': '',
              'Press <Enter> to continue:': ''
              }
