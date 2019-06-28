@@ -48,8 +48,8 @@ class EB_Modeller(EasyBlock):
 
     def install_step(self):
         """Interactive install of Modeller."""
-    
-        if self.cfg['key'] is None: 
+
+        if self.cfg['key'] is None:
             raise EasyBuildError("Easyconfig parameter 'key' is not defined")
 
         cmd = "%s/Install" % self.cfg['start_dir']
