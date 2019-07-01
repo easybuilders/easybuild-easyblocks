@@ -39,7 +39,7 @@ class EB_SWIG(ConfigureMake):
         """Set some extra environment variables before configuring."""
 
         # disable everything by default
-        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "pike ",
+        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "go", "pike ",
                   "ocaml","php", "ruby", "mzscheme", "guile", "gcj", "java",
                   "octave", "perl5", "python3", "tcl"]:
             self.cfg.update('configopts', "--without-%s" % x)
