@@ -149,18 +149,14 @@ class EB_HEALPix(ConfigureMake):
         return txt
 
     def sanity_check_step(self):
-        """sanity checks"""
+        """Custom sanity check for HEALPix."""
+        binaries = [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
+                                                     'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
+                                                     'synfast', 'ud_grade']]
+        libraries = [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif']]
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
-                                                       'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
-                                                       'synfast', 'ud_grade']] +
-                     [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif']] +
-                     [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
-            'dirs': [
-                os.path.join(self.installdir, 'include'),
-                os.path.join(self.installdir, 'src/cxx', self.target_string, 'bin'),
-                os.path.join(self.installdir, 'src/cxx', self.target_string, 'lib'),
-                os.path.join(self.installdir, 'src/cxx', self.target_string, 'include'),
-            ],
+            'files': binaries + libraries + [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
+            'dirs': ['include'] +
+                    [os.path.join('src', 'cxx', self.target_string, x) for x in ['bin', 'include', 'lib']],
         }
         super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
