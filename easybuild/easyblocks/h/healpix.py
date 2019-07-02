@@ -26,6 +26,7 @@
 EasyBuild support for building and installing HEALPix, implemented as an easyblock
 
 @author: Kenneth Hoste (HPC-UGent)
+@author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 import os
 import re
@@ -36,6 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
+from distutils.version import LooseVersion
 
 
 class EB_HEALPix(ConfigureMake):
@@ -61,9 +63,9 @@ class EB_HEALPix(ConfigureMake):
             raise EasyBuildError("Failed to determine root for CFITSIO, module not loaded?")
 
         self.comp_fam = self.toolchain.comp_family()
-        if self.comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             cxx_config = '4'  # linux_icc
-        elif self.comp_fam == toolchain.GCC:  #@UndefinedVariable
+        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
             cxx_config = '2'  # generic_gcc
         else:
             raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
@@ -93,6 +95,9 @@ class EB_HEALPix(ConfigureMake):
             r"Available configurations for C\+\+ compilation are:[\s\n\S]*Choose one number:": cxx_config,
             r"PGPLOT.[\s\n]*Do you want to enable this option \?[\s\n]*\([^)]*\) \(y\|N\)": 'N',
             r"the parallel implementation[\s\n]*Enter choice.*": '1',
+            r"do you want the HEALPix/C library to include CFITSIO-related functions \? \(Y\|n\):": 'Y',
+            r"\(recommended if the Healpix-F90 library is to be linked to external codes\)  \(Y\|n\):": 'Y',  # PIC -> Y
+            r"Do you rather want a shared/dynamic library.*": 'n',  # shared instead static? -> N
         }
         run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True)
 
@@ -108,15 +113,19 @@ class EB_HEALPix(ConfigureMake):
         pass
 
     def sanity_check_step(self):
-        """Custom sanity check for HEALPix."""
-
-        custom_paths = {
-            'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif',
-                                                       'median_filter', 'plmgen', 'sky_ng_sim',
-                                                       'sky_ng_sim_bin', 'smoothing', 'synfast', 'ud_grade']] +
-                     [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif',
-                                                                   'psht_healpix_f']] +
-                     [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
-            'dirs': [os.path.join('include')],
-        }
-        super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
+        """Custom sanity check for HEALPix < 3.50"""
+        # since 3.50 files changed, so we specify it in easyconfig.
+        # "else" section below is for backward-compatibility, ATM only easyconfig for 2.20a-icte is known
+        if LooseVersion(self.version) >= LooseVersion('3.50'):
+            super(EB_HEALPix, self).sanity_check_step()
+        else:
+            custom_paths = {
+                'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
+                                                           'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
+                                                           'synfast', 'ud_grade']] +
+                         [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif',
+                                                                       'psht_healpix_f']] +
+                         [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
+                'dirs': [os.path.join('include')],
+            }
+            super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
