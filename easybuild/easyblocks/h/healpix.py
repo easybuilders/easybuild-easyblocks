@@ -64,23 +64,16 @@ class EB_HEALPix(ConfigureMake):
         #   4: optimized_gcc
         #   5: osx
         #   6: osx_icc
-        self.cxx_config = None
         self.target_string = None
 
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            self.cxx_config = '3'  # linux_icc
             self.target_string = 'linux_icc'
         elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
 
             self.target_string = self.cfg['gcc_target']
-            if self.target_string == 'basic_gcc':
-                self.cxx_config = '1'
-            elif self.target_string == 'generic_gcc':
-                self.cxx_config = '2'
-            elif self.target_string == 'optimized_gcc':
-                self.cxx_config = '4'
-            else:
+
+            if self.target_string not in ['basic_gcc', 'generic_gcc', 'optimized_gcc']:
                 raise EasyBuildError("Unknown GCC target specified: %s", self.target_string)
         else:
             raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
@@ -120,7 +113,8 @@ class EB_HEALPix(ConfigureMake):
             r"enter command for library archiving \([^)]*\):": '',
             r"archive creation \(and indexing\) command \([^)]*\):": '',
             r"A static library is produced by default. Do you also want a shared library.*": 'y',
-            r"Available configurations for C\+\+ compilation are:[\s\n\S]*Choose one number:": self.cxx_config,
+            r"Available configurations for C\+\+ compilation are:[\s\n\S]*" +
+            r"(?P<nr>[0-9]+): %s[\s\n\S]*Choose one number:" % self.target_string: '%(nr)s',
             r"PGPLOT.[\s\n]*Do you want to enable this option \?[\s\n]*\([^)]*\) \(y\|N\)": 'N',
             r"the parallel implementation[\s\n]*Enter choice.*": '1',
             r"do you want the HEALPix/C library to include CFITSIO-related functions \? \(Y\|n\):": 'Y',
