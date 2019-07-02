@@ -165,4 +165,12 @@ class EB_HEALPix(ConfigureMake):
             'dirs': ['include'] + [os.path.join('src', 'cxx', self.target_string, x) for x in target_subdirs],
         }
 
-        super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('3'):
+            custom_commands.extend([
+                "cd %s && make test &> build/testresults.txt" % self.installdir,
+                '[ "$(cat %s/build/testresults.txt | grep -c \'test completed\')" -eq "4" ]' % self.installdir,
+                '[ "$(cat %s/build/testresults.txt | grep -c \'normal completion\')" -eq "10" ]' % self.installdir,
+            ])
+
+        super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
