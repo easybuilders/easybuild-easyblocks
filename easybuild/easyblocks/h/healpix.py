@@ -29,6 +29,7 @@ EasyBuild support for building and installing HEALPix, implemented as an easyblo
 @author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 import os
+from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -153,9 +154,15 @@ class EB_HEALPix(ConfigureMake):
                                                      'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
                                                      'synfast', 'ud_grade']]
         libraries = [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif']]
+
+        target_subdirs = ['bin', 'lib']
+        if LooseVersion(self.version) >= LooseVersion('3'):
+            # 'include' subdir is only there for recent HEALPix versions
+            target_subdirs.append('include')
+
         custom_paths = {
             'files': binaries + libraries + [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
-            'dirs': ['include'] +
-                    [os.path.join('src', 'cxx', self.target_string, x) for x in ['bin', 'include', 'lib']],
+            'dirs': ['include'] + [os.path.join('src', 'cxx', self.target_string, x) for x in target_subdirs],
         }
+
         super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
