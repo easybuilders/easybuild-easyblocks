@@ -56,7 +56,34 @@ class EB_HEALPix(ConfigureMake):
         super(EB_HEALPix, self).__init__(*args, **kwargs)
 
         self.build_in_installdir = True
+
+        # target:
+        #   1: basic_gcc
+        #   2: generic_gcc
+        #   3: linux_icc
+        #   4: optimized_gcc
+        #   5: osx
+        #   6: osx_icc
+        self.cxx_config = None
         self.target_string = None
+
+        self.comp_fam = self.toolchain.comp_family()
+        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            self.cxx_config = '3'  # linux_icc
+            self.target_string = 'linux_icc'
+        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
+
+            self.target_string = self.cfg['gcc_target']
+            if self.target_string == 'basic_gcc':
+                self.cxx_config = '1'
+            elif self.target_string == 'generic_gcc':
+                self.cxx_config = '2'
+            elif self.target_string == 'optimized_gcc':
+                self.cxx_config = '4'
+            else:
+                raise EasyBuildError("Unknown GCC target specified: %s", self.target_string)
+        else:
+            raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
 
     def extract_step(self):
         """Extract sources."""
@@ -70,35 +97,6 @@ class EB_HEALPix(ConfigureMake):
         cfitsio = get_software_root('CFITSIO')
         if not cfitsio:
             raise EasyBuildError("Failed to determine root for CFITSIO, module not loaded?")
-
-        # target:
-        #   1: basic_gcc
-        #   2: generic_gcc
-        #   3: linux_icc
-        #   4: optimized_gcc
-        #   5: osx
-        #   6: osx_icc
-
-        self.comp_fam = self.toolchain.comp_family()
-        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            cxx_config = '3'  # linux_icc
-            self.target_string = 'linux_icc'
-        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
-            if self.cfg['gcc_target'] == 'basic_gcc':
-                cxx_config = '1'
-                self.target_string = 'basic_gcc'
-            elif self.cfg['gcc_target'] == 'generic_gcc':
-                cxx_config = '2'
-                self.target_string = 'generic_gcc'
-            elif self.cfg['gcc_target'] == 'optimized_gcc':
-                cxx_config = '4'
-                self.target_string = 'optimized_gcc'
-            else:
-                # by default let's go with generic_gcc:
-                cxx_config = '2'
-                self.target_string = 'generic_gcc'
-        else:
-            raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
 
         cmd = "./configure -L"
         qa = {
@@ -122,7 +120,7 @@ class EB_HEALPix(ConfigureMake):
             r"enter command for library archiving \([^)]*\):": '',
             r"archive creation \(and indexing\) command \([^)]*\):": '',
             r"A static library is produced by default. Do you also want a shared library.*": 'y',
-            r"Available configurations for C\+\+ compilation are:[\s\n\S]*Choose one number:": cxx_config,
+            r"Available configurations for C\+\+ compilation are:[\s\n\S]*Choose one number:": self.cxx_config,
             r"PGPLOT.[\s\n]*Do you want to enable this option \?[\s\n]*\([^)]*\) \(y\|N\)": 'N',
             r"the parallel implementation[\s\n]*Enter choice.*": '1',
             r"do you want the HEALPix/C library to include CFITSIO-related functions \? \(Y\|n\):": 'Y',
