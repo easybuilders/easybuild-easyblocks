@@ -37,17 +37,27 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
-from distutils.version import LooseVersion
+from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_HEALPix(ConfigureMake):
     """Support for building/installing HEALPix."""
+
+    @staticmethod
+    def extra_options():
+        """There 3 variants of GCC build"""
+        extra_vars = {
+            'gcc_target': ['generic_gcc', "Use generic_gcc target", CUSTOM],
+        }
+
+        return ConfigureMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for HEALPix."""
         super(EB_HEALPix, self).__init__(*args, **kwargs)
 
         self.build_in_installdir = True
+        self.target_string = None
 
     def extract_step(self):
         """Extract sources."""
@@ -62,11 +72,32 @@ class EB_HEALPix(ConfigureMake):
         if not cfitsio:
             raise EasyBuildError("Failed to determine root for CFITSIO, module not loaded?")
 
+        # target:
+        #   1: basic_gcc
+        #   2: generic_gcc
+        #   3: linux_icc
+        #   4: optimized_gcc
+        #   5: osx
+        #   6: osx_icc
+
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            cxx_config = '4'  # linux_icc
+            cxx_config = '3'  # linux_icc
+            self.target_string = 'linux_icc'
         elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
-            cxx_config = '2'  # generic_gcc
+            if self.cfg['gcc_target'] == 'basic_gcc':
+                cxx_config = '1'
+                self.target_string = 'basic_gcc'
+            elif self.cfg['gcc_target'] == 'generic_gcc':
+                cxx_config = '2'
+                self.target_string = 'generic_gcc'
+            elif self.cfg['gcc_target'] == 'optimized_gcc':
+                cxx_config = '4'
+                self.target_string = 'optimized_gcc'
+            else:
+                # by default let's go with generic_gcc:
+                cxx_config = '2'
+                self.target_string = 'generic_gcc'
         else:
             raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
 
@@ -112,20 +143,27 @@ class EB_HEALPix(ConfigureMake):
         """No dedicated install procedure for HEALPix."""
         pass
 
+    def make_module_extra(self):
+        """additional paths"""
+        txt = super(EB_HEALPix, self).make_module_extra()
+        txt += self.module_generator.prepend_paths('PATH', os.path.join('src/cxx', self.target_string, 'bin'))
+        txt += self.module_generator.prepend_paths('LIBRARY_PATH', os.path.join('src/cxx', self.target_string, 'lib'))
+        txt += self.module_generator.prepend_paths('CPATH', os.path.join('src/cxx', self.target_string, 'include'))
+        return txt
+
     def sanity_check_step(self):
-        """Custom sanity check for HEALPix < 3.50"""
-        # since 3.50 files changed, so we specify it in easyconfig.
-        # "else" section below is for backward-compatibility, ATM only easyconfig for 2.20a-icte is known
-        if LooseVersion(self.version) >= LooseVersion('3.50'):
-            super(EB_HEALPix, self).sanity_check_step()
-        else:
-            custom_paths = {
-                'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
-                                                           'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
-                                                           'synfast', 'ud_grade']] +
-                         [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif',
-                                                                       'psht_healpix_f']] +
-                         [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
-                'dirs': [os.path.join('include')],
-            }
-            super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
+        """sanity checks"""
+        custom_paths = {
+            'files': [os.path.join('bin', x) for x in ['alteralm', 'anafast', 'hotspot', 'map2gif', 'median_filter',
+                                                       'plmgen', 'sky_ng_sim', 'sky_ng_sim_bin', 'smoothing',
+                                                       'synfast', 'ud_grade']] +
+                     [os.path.join('lib', 'lib%s.a' % x) for x in ['chealpix', 'gif', 'healpix', 'hpxgif']] +
+                     [os.path.join('lib', 'libchealpix.%s' % get_shared_lib_ext())],
+            'dirs': [
+                os.path.join(self.installdir, 'include'),
+                os.path.join(self.installdir, 'src/cxx', self.target_string, 'bin'),
+                os.path.join(self.installdir, 'src/cxx', self.target_string, 'lib'),
+                os.path.join(self.installdir, 'src/cxx', self.target_string, 'include'),
+            ],
+        }
+        super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths)
