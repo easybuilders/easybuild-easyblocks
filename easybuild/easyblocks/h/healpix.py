@@ -46,7 +46,7 @@ class EB_HEALPix(ConfigureMake):
     def extra_options():
         """There 3 variants of GCC build"""
         extra_vars = {
-            'gcc_target': ['generic_gcc', "Use generic_gcc target", CUSTOM],
+            'gcc_target': ['generic_gcc', "Target to use when using a GCC-based compiler toolchain", CUSTOM],
         }
 
         return ConfigureMake.extra_options(extra_vars)
@@ -143,9 +143,14 @@ class EB_HEALPix(ConfigureMake):
     def make_module_extra(self):
         """additional paths"""
         txt = super(EB_HEALPix, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PATH', os.path.join('src/cxx', self.target_string, 'bin'))
-        txt += self.module_generator.prepend_paths('LIBRARY_PATH', os.path.join('src/cxx', self.target_string, 'lib'))
-        txt += self.module_generator.prepend_paths('CPATH', os.path.join('src/cxx', self.target_string, 'include'))
+        paths = {
+            'CPATH': 'include',
+            'LIBRARY_PATH': 'lib',
+            'PATH': 'bin',
+        }
+        for key in sorted(paths):
+            txt += self.module_generator.prepend_paths(key, os.path.join('src', 'cxx', self.target_string, paths[key]))
+
         return txt
 
     def sanity_check_step(self):
