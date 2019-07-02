@@ -29,15 +29,14 @@ EasyBuild support for building and installing HEALPix, implemented as an easyblo
 @author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 import os
-import re
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_HEALPix(ConfigureMake):
