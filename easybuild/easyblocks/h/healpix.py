@@ -169,8 +169,8 @@ class EB_HEALPix(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('3'):
             custom_commands.extend([
                 "cd %s && make test &> build/testresults.txt" % self.installdir,
-                '[ "$(cat %s/build/testresults.txt | grep -c \'test completed\')" -eq "4" ]' % self.installdir,
-                '[ "$(cat %s/build/testresults.txt | grep -c \'normal completion\')" -eq "10" ]' % self.installdir,
+                'test $(grep -c "test completed" %s/build/testresults.txt) -eq 4' % self.installdir,
+                'test $(grep -c "normal completion" %s/build/testresults.txt) -eq 10' % self.installdir,
             ])
 
         super(EB_HEALPix, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
