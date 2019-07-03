@@ -67,17 +67,17 @@ class EB_HEALPix(ConfigureMake):
         #   6: osx_icc
         self.target_string = None
 
-        self.comp_fam = self.toolchain.comp_family()
-        if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             self.target_string = 'linux_icc'
-        elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
+        elif comp_fam in [toolchain.DUMMY, toolchain.GCC]:  # @UndefinedVariable
 
             self.target_string = self.cfg['gcc_target']
 
             if self.target_string not in ['basic_gcc', 'generic_gcc', 'optimized_gcc']:
                 raise EasyBuildError("Unknown GCC target specified: %s", self.target_string)
         else:
-            raise EasyBuildError("Don't know how which C++ configuration for the used toolchain.")
+            raise EasyBuildError("Don't know how which C++ configuration to use for toolchain family '%s'", comp_fam)
 
     def extract_step(self):
         """Extract sources."""
