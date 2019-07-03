@@ -46,7 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, mkdir, read_file, rmtree2, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, extract_file, mkdir, read_file, rmtree2, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -275,28 +275,27 @@ class EB_WIEN2k(EasyBlock):
                         'Please enter the full path to your temporary directory:': '/tmp',
                     })
 
+                std_qa = {}
                 elparoot = get_software_root('ELPA')
                 if elparoot:
+
+                    apply_regex_substitutions(self.cfgscript, [(r'cat elpahelp2$', 'cat -n elpahelp2')])
+
                     elpa_dict = {
                         'root': elparoot,
                         'version': get_software_version('ELPA'),
                         'variant': 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa'}
 
-                    # find correct line number
-                    elpa_line = '0'
                     elpa_dir = "%(root)s/include/%(variant)s-%(version)s" % elpa_dict
-                    elpa_find_dirs_cmd = 'find %s -mindepth 1 -type d -name "elpa*"' % elparoot
-                    (elpa_dirs, _) = run_cmd(elpa_find_dirs_cmd, log_all=True, simple=False)
-                    for num, line in enumerate(elpa_dirs.split('\n'), 1):
-                        if line == elpa_dir:
-                            elpa_line = str(num)
+                    std_qa.update({
+                        r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir: "%(number)s",
+                    })
 
                     qanda.update({
                         'Do you want to use ELPA? (y,N):': 'y',
                         'Do you want to automatically search for ELPA installations? (Y,n):': 'n',
                         'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) '
                         'or accept present path (Enter):': elparoot,
-                        '/elpa': elpa_line,
                         'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64)!:': 'lib',
                         'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp)!:':
                             elpa_dict['variant'],
@@ -323,12 +322,12 @@ class EB_WIEN2k(EasyBlock):
             "Please enter the full path of the perl program:",
         ]
 
-        std_qa = {
+        std_qa.update({
             r'S\s+Save and Quit[\s\n]+To change an item select option.[\s\n]+Selection:': 'S',
             'Recommended setting for parallel f90 compiler: .* Current selection: Your compiler:': os.getenv('MPIF90'),
             r'process or you can change single items in "Compiling Options".[\s\n]+Selection:': 'S',
             r'A\s+Compile all programs (suggested)[\s\n]+Q\s*Quit[\s\n]+Selection:': 'Q',
-        }
+        })
 
         run_cmd_qa(cmd, qanda, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 
