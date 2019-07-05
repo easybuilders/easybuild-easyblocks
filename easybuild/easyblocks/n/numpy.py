@@ -35,6 +35,7 @@ import glob
 import os
 import re
 import tempfile
+from vsc.utils import fancylogger
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -49,26 +50,38 @@ from distutils.version import LooseVersion
 
 
 def parse_numpy_test_suite_output(full_testsuite_output):
+    """Extract summary of numpy test suite from provided output."""
+
+    res = None
+    log = fancylogger.getLogger('parse_numpy_test_suite_output', fname=False)
+
     # Grab the line of the testcmd_output which contains the summary from the test suite.
-    # Summary looks like:
+    # Summary is expected to look like:
     # ========== 4860 passed, 14 skipped, 88 deselected, 7 xfailed, 4 error in 63.72 seconds ==========
     summary_regex = re.compile('^=.*passed.*in.*seconds', re.M)
     res = summary_regex.search(full_testsuite_output)
     if res:
-        testsuite_summary = res.group(0)
+        summary_line = res.group(0)
+
+        # Use regex to help parse it, match all "<count> <label>" instances in test summary
+        count_regex = re.compile(r"([\d]+)\ ([\w]+)(?:\ in|,)")
+        summary_results_as_list = count_regex.findall(summary_line)
+
+        # convert this list to a dict
+        res = {}
+        for count, label in summary_results_as_list:
+            try:
+                res[label] = int(count)
+            except (TypeError, ValueError) as err:
+                log.warning("Failed to convert '%s' to integer: %s", count, err)
+                res = None
+                break
+
     else:
-        raise EasyBuildError("Failed to extract summary from test suite output using pattern '%s': %s",
-                             summary_regex.pattern, full_testsuite_output)
+        log.warning("Failed to extract summary from test suite output using pattern '%s': %s",
+                    summary_regex.pattern, full_testsuite_output)
 
-    # Use regex to help parse it, match all "<count> <label>" instances in test summary
-    regexp = r"([\d]+)\ ([\w]+)(?:\ in|,)"
-    summary_results_as_list = re.findall(regexp, testsuite_summary)
-    # Convert this list to a dict
-    numpy_testsuite_summary = {}
-    for item in summary_results_as_list:
-        numpy_testsuite_summary[item[1]] = int(item[0])
-
-    return numpy_testsuite_summary
+    return res
 
 
 class EB_numpy(FortranPythonPackage):
@@ -92,8 +105,7 @@ class EB_numpy(FortranPythonPackage):
         self.testinstall = True
         # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
         # see http://projects.scipy.org/numpy/ticket/182
-        self.testcmd = "unset LDFLAGS && "
-        self.testcmd += "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
+        self.testcmd = "unset LDFLAGS && cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
@@ -246,17 +258,15 @@ class EB_numpy(FortranPythonPackage):
             # Let's handle the output from the numpy test suite ourselves
             testcmd_output, testcmd_exit_code = super(EB_numpy, self).test_step(return_testcmd_output=True)
 
-            numpy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
+            testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
-            if 'failed' in numpy_testsuite_summary or 'error' in numpy_testsuite_summary:
-                failure_text = "Found errors or failures in numpy testsuite output:\n %s" % numpy_testsuite_summary
+            if testsuite_summary and ('failed' in testsuite_summary or 'error' in testsuite_summary):
+                failure_text = "Found errors or failures in numpy testsuite output:\n %s" % testsuite_summary
                 if self.cfg['ignore_test_failures']:
                     self.log.warning("Ignoring: ", failure_text)
                     print_warning("Ignoring: %s" % failure_text)
                 else:
                     raise EasyBuildError(failure_text)
-        else:
-            super(EB_numpy, self).test_step()
 
         # temporarily install numpy, it doesn't allow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()

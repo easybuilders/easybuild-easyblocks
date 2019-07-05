@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
-from easybuild.easyblocks.n.numpy import parse_numpy_test_suite_output
+from easybuild.easyblocks.numpy import parse_numpy_test_suite_output
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 import easybuild.tools.toolchain as toolchain
@@ -59,8 +59,7 @@ class EB_scipy(FortranPythonPackage):
         self.testinstall = True
         # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
         # see http://projects.scipy.org/numpy/ticket/182
-        self.testcmd = "unset LDFLAGS && "
-        self.testcmd += "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
+        self.testcmd = "unset LDFLAGS && cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
@@ -77,17 +76,15 @@ class EB_scipy(FortranPythonPackage):
         if self.cfg['runtest']:
             # Let's handle the output from the scipy test suite ourselves
             testcmd_output, testcmd_exit_code = super(EB_scipy, self).test_step(return_testcmd_output=True)
-            scipy_testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
+            testsuite_summary = parse_numpy_test_suite_output(testcmd_output)
 
-            if 'failed' in scipy_testsuite_summary or 'error' in scipy_testsuite_summary:
-                failure_text = "Found errors or failures in scipy testsuite output:\n %s" % scipy_testsuite_summary
+            if testsuite_summary and ('failed' in testsuite_summary or 'error' in testsuite_summary):
+                failure_text = "Found errors or failures in scipy testsuite output:\n %s" % testsuite_summary
                 if self.cfg['ignore_test_failures']:
                     self.log.warning("Ignoring: ", failure_text)
                     print_warning("Ignoring: %s" % failure_text)
                 else:
                     raise EasyBuildError(failure_text)
-        else:
-            super(EB_scipy, self).test_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for scipy."""
