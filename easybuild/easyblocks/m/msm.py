@@ -38,7 +38,7 @@ from easybuild.tools.modules import get_software_root
 
 class EB_MSM(MakeCp):
     """Support for building and installing MSM."""
-    
+
     def __init__(self, *args, **kwargs):
         """Initialize MSM specific variables and purge previous installations."""
         super(EB_MSM, self).__init__(*args, **kwargs)
@@ -76,11 +76,11 @@ class EB_MSM(MakeCp):
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
         fslmachtype = out.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
-        
+
         env.setvar('FSLDEVDIR', self.installdir)
         env.setvar('FSLCONFDIR', os.path.join(fsl_root, 'fsl', 'config'))
         env.setvar('FSLMACHTYPE', fslmachtype)
-        
+
     def build_step(self):
         """Build MSM one component at a time."""
 
@@ -91,7 +91,7 @@ class EB_MSM(MakeCp):
             paracmd = "-j %s" % self.cfg['parallel']
 
         cmd = ' '.join(['make', paracmd, 'install'])
-        
+
         for comp in components:
             target_dir = os.path.join(self.sources_root, 'src', comp)
             self.log.debug("Building %s in directory %s" % (comp, target_dir))
@@ -100,7 +100,7 @@ class EB_MSM(MakeCp):
                 run_cmd(cmd, log_all=True, simple=True, log_output=True)
             except OSError as err:
                 raise EasyBuildError("Running cmd '%s' in %s failed: %s", cmd, target_dir, err)
-        
+
     def make_installdir(self):
         """Override installdir creation"""
         self.log.warning("Not removing installation directory %s" % self.installdir)
