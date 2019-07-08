@@ -5,6 +5,28 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 204 software-specific easyblocks and 35 generic easyblocks.
 
+v3.9.3 (July 8th 2019)
+----------------------
+
+update/bugfix release
+
+- minor enhancements, including:
+  - also install docs and demos in Rosetta easyblock (#1745)
+  - update HEALPix easyblock to work with latest version of HEALPix' configure.sh (#1752)
+  - make HPCG log pattern more generic, it changed in 3.1 (#1753)
+  - allow bootstrapping GCC with profile-guided optimizations (#1756)
+  - only require vsc-base for EasyBuild 2.x and 3.x in EasyBuildMeta easyblock (#1757)
+  - extend question patterns with 'https' URL entry in Modeller easyblock for recent verisons (#1762)
+  - modextrapaths implemented on easyblock level, sanity_check_step, gcc_target added in HEALPix easyblock (#1763)
+  - update OpenBLAS easyblock to be aware of POWER9 support in OpenBLAS 0.3.6 (#1765)
+- various bug fixes, including:
+  - stick to Ubuntu Trusty when testing with Python 2.6 in Travis (#1751)
+  - fix scripts installation path in SNPhylo easyblock (#1759)
+  - be more patient when running interactive Allwmake.firstInstall command for recent OpenFOAM-Extend versions (#1761)
+  - also add --without-go configure option for SWIG as we "disable everything by default" (#1754)
+  - don't assume cmake arguments when configure_cmd is set in CMakeMake easyblock (#1750)
+
+
 v3.9.2 (June 9th 2019)
 ----------------------
 

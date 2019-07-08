@@ -229,7 +229,7 @@ class EB_Rosetta(EasyBlock):
 
         os.chdir(self.cfg['start_dir'])
 
-        def extract_and_copy(dirname_tmpl, optional=False):
+        def extract_and_copy(dirname_tmpl, optional=False, symlinks=False):
             """Copy specified directory, after extracting it (if required)."""
             try:
                 srcdir = os.path.join(self.cfg['start_dir'], dirname_tmpl % '')
@@ -240,19 +240,22 @@ class EB_Rosetta(EasyBlock):
                         srcdir = extract_file(src_tarball, self.cfg['start_dir'])
 
                 if os.path.exists(srcdir):
-                    shutil.copytree(srcdir, os.path.join(self.installdir, os.path.basename(srcdir)))
+                    shutil.copytree(srcdir, os.path.join(self.installdir, os.path.basename(srcdir)),
+                                    symlinks=symlinks)
                 elif not optional:
                     raise EasyBuildError("Neither source directory '%s', nor source tarball '%s' found.",
                                          srcdir, src_tarball)
             except OSError as err:
                 raise EasyBuildError("Getting Rosetta %s dir ready failed: %s", dirname_tmpl, err)
 
-        # (extract and) copy database and biotools (if it's there)
+        # (extract and) copy database, docs, demos (incl tutorials) and biotools (if it's there)
         if os.path.exists(os.path.join(self.cfg['start_dir'], 'main', 'database')):
             extract_and_copy(os.path.join('main', 'database') + '%s')
         else:
             extract_and_copy('rosetta_database%s')
 
+        extract_and_copy('demos%s', optional=True, symlinks=True)
+        extract_and_copy('documentation%s', optional=True, symlinks=True)
         extract_and_copy('BioTools%s', optional=True)
         if os.path.exists(os.path.join(self.cfg['start_dir'], 'tools')):
             extract_and_copy('tools%s', optional=True)
