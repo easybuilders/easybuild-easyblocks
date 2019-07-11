@@ -72,6 +72,8 @@ class EB_XCrySDen(ConfigureMake):
 
         # patch Make.sys
         settings = {
+                    # USE_INTERP_RESULT re-enables a API in the Tcl headers that was dropped in Tcl >= 8.6.
+                    # https://www.tcl.tk/man/tcl8.6/TclLib/Interp.htm
                     'CFLAGS': os.getenv('CFLAGS') + ' -DUSE_INTERP_RESULT ',
                     'CC': os.getenv('CC'),
                     'FFLAGS': os.getenv('F90FLAGS'),
