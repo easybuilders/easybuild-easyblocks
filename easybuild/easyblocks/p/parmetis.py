@@ -39,6 +39,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ParMETIS(EasyBlock):
@@ -48,8 +49,8 @@ class EB_ParMETIS(EasyBlock):
         """Configure ParMETIS build.
         For versions of ParMETIS < 4 , METIS is a seperate build
         New versions of ParMETIS include METIS
-        
-        Run 'cmake' in the build dir to get rid of a 'user friendly' 
+
+        Run 'cmake' in the build dir to get rid of a 'user friendly'
         help message that is displayed without this step.
         """
         if LooseVersion(self.version) >= LooseVersion("4"):
@@ -180,7 +181,15 @@ class EB_ParMETIS(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for ParMETIS."""
 
-        custom_paths = {
+        if '-DSHARED=1' in self.cfg['configopts']:
+            shlib_ext = get_shared_lib_ext()
+            custom_paths = {
+                        'files': ['include/%smetis.h' % x for x in ["", "par"]] +
+                                 ['lib/libparmetis.%s' % shlib_ext],
+                        'dirs':['Lib']
+                       }
+        else:
+            custom_paths = {
                         'files': ['include/%smetis.h' % x for x in ["", "par"]] +
                                  ['lib/lib%smetis.a' % x for x in ["", "par"]],
                         'dirs':['Lib']
