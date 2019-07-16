@@ -167,8 +167,12 @@ class EB_ParMETIS(EasyBlock):
         # and header files in the Lib directory (capital L). The following symlink are hence created.
         try:
             llibdir = os.path.join(self.installdir, 'Lib')
+            if os.path.lexists(llibdir):
+                os.remove(llibdir)
             os.symlink(libdir, llibdir)
             for f in ['metis.h', 'parmetis.h']:
+                if os.path.lexists(os.path.join(libdir, f)):
+                    os.remove(os.path.join(libdir, f))
                 os.symlink(os.path.join(includedir, f), os.path.join(libdir, f))
         except OSError as err:
             raise EasyBuildError("Something went wrong during symlink creation: %s", err)
