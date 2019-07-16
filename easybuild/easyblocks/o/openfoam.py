@@ -361,6 +361,11 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # remove Boussinesq and sonic since for OpenFOAM >= 7, since those solvers are deprecated
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            bins = [x for x in bins if "Boussinesq" not in x and "sonic" not in x]
+
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),
