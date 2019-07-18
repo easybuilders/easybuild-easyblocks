@@ -186,13 +186,13 @@ class EB_ParMETIS(EasyBlock):
             custom_paths = {
                         'files': ['include/%smetis.h' % x for x in ["", "par"]] +
                                  ['lib/libparmetis.%s' % shlib_ext],
-                        'dirs':['Lib']
+                        'dirs': ['Lib']
                        }
         else:
             custom_paths = {
                         'files': ['include/%smetis.h' % x for x in ["", "par"]] +
                                  ['lib/lib%smetis.a' % x for x in ["", "par"]],
-                        'dirs':['Lib']
+                        'dirs': ['Lib']
                        }
 
         super(EB_ParMETIS, self).sanity_check_step(custom_paths=custom_paths)
