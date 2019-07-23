@@ -51,6 +51,7 @@ class EB_MSM(MakeCp):
         # This is necessary here since directories must be created before building
         # and not removed before the installation step.
         remove_dir(self.installdir)
+        mkdir(self.installdir)
 
         # Create directories recursively
         dirpath = self.installdir
