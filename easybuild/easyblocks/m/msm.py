@@ -55,12 +55,9 @@ class EB_MSM(MakeCp):
         # Create directories recursively
         dirpath = self.installdir
         for d in ['extras', 'include']:
-            try:
-                dirpath = os.path.join(dirpath, d)
-                mkdir(dirpath)
-                self.log.debug("Created directory: %s" % dirpath)
-            except OSError as err:
-                raise EasyBuildError("Cannot create directory %s: %s", dirpath, err)
+            dirpath = os.path.join(dirpath, d)
+            mkdir(dirpath)
+            self.log.debug("Created directory: %s" % dirpath)
 
         source_dir = os.path.join(self.sources_root, 'extras', 'ELC1.04', 'ELC')
         dest_dir = os.path.join(self.installdir, 'extras', 'include', 'ELC')
