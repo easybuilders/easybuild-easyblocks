@@ -54,8 +54,8 @@ class EB_MSM(MakeCp):
 
         # Create directories recursively
         dirpath = self.installdir
-        for d in ['extras', 'include']:
-            dirpath = os.path.join(dirpath, d)
+        for dirname in ['extras', 'include']:
+            dirpath = os.path.join(dirpath, dirname)
             mkdir(dirpath)
             self.log.debug("Created directory: %s" % dirpath)
 
