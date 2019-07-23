@@ -92,11 +92,8 @@ class EB_MSM(MakeCp):
         for comp in components:
             target_dir = os.path.join(self.sources_root, 'src', comp)
             self.log.debug("Building %s in directory %s" % (comp, target_dir))
-            try:
-                change_dir(target_dir)
-                run_cmd(cmd, log_all=True, simple=True, log_output=True)
-            except OSError as err:
-                raise EasyBuildError("Running cmd '%s' in %s failed: %s", cmd, target_dir, err)
+            change_dir(target_dir)
+            run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def make_installdir(self):
         """Override installdir creation"""
