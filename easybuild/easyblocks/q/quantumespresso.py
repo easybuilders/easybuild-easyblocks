@@ -240,16 +240,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # patch Modules/parameter.f90 file to set compilation parameters
         regex_para = []
-        if self.cfg['ntypx']:
-            regex_para.append((r"ntypx\s*=\s*\S+", r"ntypx = %s" % self.cfg['ntypx']))
-        if self.cfg['nsx']:
-            regex_para.append((r"nsx\s*=\s*\S+", r"nsx = %s" % self.cfg['nsx']))
-        if self.cfg['npk']:
-            regex_para.append((r"npk\s*=\s*\S+", r"npk = %s" % self.cfg['npk']))
-        if self.cfg['lmaxx']:
-            regex_para.append((r"lmaxx\s*=\s*\S+", r"lmaxx = %s" % self.cfg['lmaxx']))
-        if self.cfg['lqmax']:
-            regex_para.append((r"lqmax\s*=\s*\S+", r"lqmax = %s" % self.cfg['lqmax']))
+        for key in ['lmaxx', 'lqmax', 'npk', 'nsx', 'ntypx']:
+            if self.cfg[key]:
+                regex_para.append((key + r'\s*=[^,&!]+', '{0} = {1}'.format(key, self.cfg[key])))
         apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_para)
 
         # patch make.sys file
