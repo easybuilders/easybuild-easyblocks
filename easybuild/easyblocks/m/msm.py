@@ -91,7 +91,7 @@ class EB_MSM(MakeCp):
 
         for comp in components:
             target_dir = os.path.join(self.sources_root, 'src', comp)
-            self.log.debug("Building %s in directory %s" % (comp, target_dir))
+            self.log.debug("Building %s in directory %s", comp, target_dir)
             change_dir(target_dir)
             run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
