@@ -40,17 +40,17 @@ class EB_MSM(MakeCp):
     """Support for building and installing MSM."""
 
     def __init__(self, *args, **kwargs):
-        """Initialize MSM specific variables and purge previous installations."""
+        """Initialize MSM specific variables."""
         super(EB_MSM, self).__init__(*args, **kwargs)
         self.sources_root = os.path.join(self.builddir, 'MSM_HOCR-%s' % self.version)
+
+    def configure_step(self):
+        """Create directories, copy required files and set env vars."""
 
         # Ensure that nothing has been left over from previous installation attempts.
         # This is necessary here since directories must be created before building
         # and not removed before the installation step.
         remove_dir(self.installdir)
-
-    def configure_step(self):
-        """Create directories, copy required files and set env vars."""
 
         # Create directories recursively
         dirpath = self.installdir
