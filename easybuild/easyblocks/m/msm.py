@@ -40,27 +40,25 @@ class EB_MSM(MakeCp):
     """Support for building and installing MSM."""
 
     def __init__(self, *args, **kwargs):
-        """Initialize MSM specific variables and purge previous installations."""
+        """Initialize MSM specific variables."""
         super(EB_MSM, self).__init__(*args, **kwargs)
         self.sources_root = os.path.join(self.builddir, 'MSM_HOCR-%s' % self.version)
+
+    def configure_step(self):
+        """Create directories, copy required files and set env vars."""
 
         # Ensure that nothing has been left over from previous installation attempts.
         # This is necessary here since directories must be created before building
         # and not removed before the installation step.
         remove_dir(self.installdir)
-
-    def configure_step(self):
-        """Create directories, copy required files and set env vars."""
+        mkdir(self.installdir)
 
         # Create directories recursively
         dirpath = self.installdir
-        for d in ['extras', 'include']:
-            try:
-                dirpath = os.path.join(dirpath, d)
-                mkdir(dirpath)
-                self.log.debug("Created directory: %s" % dirpath)
-            except OSError as err:
-                raise EasyBuildError("Cannot create directory %s: %s", dirpath, err)
+        for dirname in ['extras', 'include']:
+            dirpath = os.path.join(dirpath, dirname)
+            mkdir(dirpath)
+            self.log.debug("Created directory: %s" % dirpath)
 
         source_dir = os.path.join(self.sources_root, 'extras', 'ELC1.04', 'ELC')
         dest_dir = os.path.join(self.installdir, 'extras', 'include', 'ELC')
@@ -94,12 +92,9 @@ class EB_MSM(MakeCp):
 
         for comp in components:
             target_dir = os.path.join(self.sources_root, 'src', comp)
-            self.log.debug("Building %s in directory %s" % (comp, target_dir))
-            try:
-                change_dir(target_dir)
-                run_cmd(cmd, log_all=True, simple=True, log_output=True)
-            except OSError as err:
-                raise EasyBuildError("Running cmd '%s' in %s failed: %s", cmd, target_dir, err)
+            self.log.debug("Building %s in directory %s", comp, target_dir)
+            change_dir(target_dir)
+            run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def make_installdir(self):
         """Override installdir creation"""
