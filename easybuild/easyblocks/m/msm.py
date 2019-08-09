@@ -120,12 +120,12 @@ class EB_MSM(MakeCp):
 
         self.cfg['files_to_copy'] = [(['src/MSM/%s' % f for f in self.binfiles], 'bin')]
         super(EB_MSM, self).install_step()
-    
+
     def sanity_check_step(self):
         """Custom sanity check for MSM."""
 
         custom_paths = {
-            'files':['bin/%s' % f for f in self.binfiles],
+            'files': ['bin/%s' % f for f in self.binfiles],
             'dirs': ['doc', 'include', 'lib']
         }
         super(EB_MSM, self).sanity_check_step(custom_paths=custom_paths)
