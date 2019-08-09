@@ -34,15 +34,27 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, change_dir, mkdir, remove_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
+from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_MSM(MakeCp):
     """Support for building and installing MSM."""
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Change default values of options"""
+        extra = MakeCp.extra_options()
+        # files_to_copy is not mandatory here
+        extra['files_to_copy'][2] = CUSTOM
+        return extra
 
     def __init__(self, *args, **kwargs):
         """Initialize MSM specific variables."""
         super(EB_MSM, self).__init__(*args, **kwargs)
         self.sources_root = os.path.join(self.builddir, 'MSM_HOCR-%s' % self.version)
+        self.binfiles = [
+            'estimate_metric_distortion', 'msm', 'msmapplywarp',
+            'msm_metric_sim', 'msmresample', 'surfconvert'
+        ]
 
     def configure_step(self):
         """Create directories, copy required files and set env vars."""
@@ -98,6 +110,22 @@ class EB_MSM(MakeCp):
 
     def make_installdir(self):
         """Override installdir creation"""
+
         self.log.warning("Not removing installation directory %s" % self.installdir)
         self.cfg['keeppreviousinstall'] = True
         super(EB_MSM, self).make_installdir()
+
+    def install_step(self):
+        """Define files to be copied at installation."""
+
+        self.cfg['files_to_copy'] = [([os.path.join('src', 'MSM', f) for f in self.binfiles], 'bin')]
+        super(EB_MSM, self).install_step()
+
+    def sanity_check_step(self):
+        """Custom sanity check for MSM."""
+
+        custom_paths = {
+            'files': [os.path.join('bin', f) for f in self.binfiles],
+            'dirs': ['doc', 'include', 'lib']
+        }
+        super(EB_MSM, self).sanity_check_step(custom_paths=custom_paths)
