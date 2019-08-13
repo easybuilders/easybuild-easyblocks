@@ -162,7 +162,7 @@ class Bundle(EasyBlock):
 
         :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
         """
-        checksum_issues = []
+        checksum_issues = super(Bundle, self).check_checksums()
 
         for comp in self.comp_cfgs:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
