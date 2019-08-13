@@ -112,4 +112,8 @@ class EB_Blender(CMakeMake):
             'files': ['bin/blender'],
             'dirs': [],
         }
-        super(EB_Blender, self).sanity_check_step(custom_paths=custom_paths)
+
+        # make sure Cycles render engine is available
+        custom_commands = ["blender -b -E help | grep CYCLES"]
+
+        super(EB_Blender, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
