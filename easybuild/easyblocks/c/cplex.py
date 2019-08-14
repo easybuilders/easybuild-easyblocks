@@ -129,9 +129,6 @@ class EB_CPLEX(Binary):
         """Add bin dirs and lib dirs and set CPLEX_HOME and CPLEXDIR"""
         txt = super(EB_CPLEX, self).make_module_extra()
 
-        if self.bindir is None:
-            self.det_bindir()
-
         # avoid failing miserably under --module-only --force
         if os.path.exists(self.installdir):
             cwd = change_dir(self.installdir)
@@ -143,7 +140,7 @@ class EB_CPLEX(Binary):
             libs = []
 
         txt += self.module_generator.prepend_paths('PATH', [path for path in bins])
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins+libs])
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins + libs])
 
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
