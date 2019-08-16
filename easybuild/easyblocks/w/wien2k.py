@@ -46,7 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, mkdir, read_file, rmtree2, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, extract_file, mkdir, read_file, rmtree2, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -209,19 +209,35 @@ class EB_WIEN2k(EasyBlock):
                  'Shared Memory Architecture? (y/N):': 'N',
                  'Set MPI_REMOTE to  0 / 1:': '0',
                  'You need to KNOW details about your installed  MPI and FFTW ) (y/n)': 'y',
+                 'Do you want to use FFTW (recommended, but for sequential code not required)? (Y,n):': 'y',
                  'Please specify whether you want to use FFTW3 (default) or FFTW2  (FFTW3 / FFTW2):': fftw_spec,
                  'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3):': fftw_root,
                  'is this correct? enter Y (default) or n:': 'Y',
             })
 
             libxcroot = get_software_root('libxc')
-            libxcquestion = 'LIBXC (that you have installed%s)? (y,N):' % \
-                            (' before' if LooseVersion(self.version) < LooseVersion("17") else '')
+
+            if LooseVersion(self.version) < LooseVersion("17"):
+                libxcstr1 = ' before'
+                libxcstr3 = ''
+            elif LooseVersion(self.version) > LooseVersion("19"):
+                libxcstr1 = ' - usually not needed'
+                libxcstr3 = 'root-'
+            else:
+                libxcstr1 = ''
+                libxcstr3 = ''
+
+            libxcquestion1 = 'LIBXC (that you have installed%s)? (y,N):' % libxcstr1
+            libxcquestion2 = 'Do you want to automatically search for LIBXC installations? (Y,n):'
+            libxcquestion3 = 'Please enter the %sdirectory of your LIBXC-installation!:' % libxcstr3
+            libxcquestion4 = 'Please enter the lib-directory of your LIBXC-installation (usually lib or lib64)!:'
+
             if libxcroot:
                 qanda.update({
-                    libxcquestion: 'y',
-                    'Do you want to automatically search for LIBXC installations? (Y,n):': 'n',
-                    'Please enter the directory of your LIBXC-installation!:': libxcroot,
+                    libxcquestion1: 'y',
+                    libxcquestion2: 'n',
+                    libxcquestion3: libxcroot,
+                    libxcquestion4: 'lib'
                 })
             else:
                 qanda.update({libxcquestion: ''})
@@ -259,13 +275,30 @@ class EB_WIEN2k(EasyBlock):
                         'Please enter the full path to your temporary directory:': '/tmp',
                     })
 
+                std_qa = {}
                 elparoot = get_software_root('ELPA')
                 if elparoot:
+
+                    apply_regex_substitutions(self.cfgscript, [(r'cat elpahelp2$', 'cat -n elpahelp2')])
+
+                    elpa_dict = {
+                        'root': elparoot,
+                        'version': get_software_version('ELPA'),
+                        'variant': 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa'}
+
+                    elpa_dir = "%(root)s/include/%(variant)s-%(version)s" % elpa_dict
+                    std_qa.update({
+                        r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir: "%(number)s",
+                    })
+
                     qanda.update({
                         'Do you want to use ELPA? (y,N):': 'y',
                         'Do you want to automatically search for ELPA installations? (Y,n):': 'n',
                         'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) '
                         'or accept present path (Enter):': elparoot,
+                        'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64)!:': 'lib',
+                        'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp)!:':
+                            elpa_dict['variant'],
                     })
                 else:
                     qanda.update({'Do you want to use ELPA? (y,N):': 'n'})
@@ -289,12 +322,12 @@ class EB_WIEN2k(EasyBlock):
             "Please enter the full path of the perl program:",
         ]
 
-        std_qa = {
+        std_qa.update({
             r'S\s+Save and Quit[\s\n]+To change an item select option.[\s\n]+Selection:': 'S',
             'Recommended setting for parallel f90 compiler: .* Current selection: Your compiler:': os.getenv('MPIF90'),
             r'process or you can change single items in "Compiling Options".[\s\n]+Selection:': 'S',
             r'A\s+Compile all programs (suggested)[\s\n]+Q\s*Quit[\s\n]+Selection:': 'Q',
-        }
+        })
 
         run_cmd_qa(cmd, qanda, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 

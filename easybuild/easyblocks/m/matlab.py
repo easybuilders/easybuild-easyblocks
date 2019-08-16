@@ -69,21 +69,22 @@ class EB_MATLAB(PackedBinary):
     def configure_step(self):
         """Configure MATLAB installation: create license file."""
 
-        licserv = self.cfg['license_server']
-        if licserv is None:
-            licserv = os.getenv('EB_MATLAB_LICENSE_SERVER', 'license.example.com')
-        licport = self.cfg['license_server_port']
-        if licport is None:
-            licport = os.getenv('EB_MATLAB_LICENSE_SERVER_PORT', '00000')
+        licfile = self.cfg['license_file']
+        if licfile is None:
+            licserv = self.cfg['license_server']
+            if licserv is None:
+                licserv = os.getenv('EB_MATLAB_LICENSE_SERVER', 'license.example.com')
+            licport = self.cfg['license_server_port']
+            if licport is None:
+                licport = os.getenv('EB_MATLAB_LICENSE_SERVER_PORT', '00000')
+            # create license file
+            lictxt = '\n'.join([
+                "SERVER %s 000000000000 %s" % (licserv, licport),
+                "USE_SERVER",
+            ])
 
-        # create license file
-        lictxt = '\n'.join([
-            "SERVER %s 000000000000 %s" % (licserv, licport),
-            "USE_SERVER",
-        ])
-
-        licfile = os.path.join(self.builddir, 'matlab.lic')
-        write_file(licfile, lictxt)
+            licfile = os.path.join(self.builddir, 'matlab.lic')
+            write_file(licfile, lictxt)
 
         try:
             shutil.copyfile(os.path.join(self.cfg['start_dir'], 'installer_input.txt'), self.configfile)
