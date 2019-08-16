@@ -211,7 +211,7 @@ class Bundle(EasyBlock):
 
             # find match entries in self.src for this component
             for source in comp.cfg['sources']:
-                if isinstance(source, basestring):
+                if isinstance(source, string_type):
                     comp_src_fn = source
                 elif isinstance(source, dict):
                     if 'filename' in source:
