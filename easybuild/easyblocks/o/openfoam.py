@@ -181,7 +181,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # inject compiler variables into wmake/rules files
         ldirs = glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'linux*'))
-        if LooseVersion(self.version) >= LooseVersion('v1906'):
+        if self.version.startswith('v') and LooseVersion(self.version) >= LooseVersion('v1906'):
             ldirs += glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'General', '*'))
         langs = ['c', 'c++']
 
@@ -212,7 +212,7 @@ class EB_OpenFOAM(EasyBlock):
             'c++OPT': os.environ['CXXFLAGS'],
         }
         for wmake_rules_file in wmake_rules_files:
-            # the cOpt and c++Opt files don't exist in the General directories
+            # the cOpt and c++Opt files don't exist in the General directories (which are included for recent versions)
             if not os.path.isfile(wmake_rules_file):
                 continue
             fullpath = os.path.join(self.builddir, self.openfoamdir, wmake_rules_file)
