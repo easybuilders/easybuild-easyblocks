@@ -3,7 +3,26 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 204 software-specific easyblocks and 35 generic easyblocks.
+The latest version of easybuild-easyblocks provides 205 software-specific easyblocks and 35 generic easyblocks.
+
+v3.9.4 (August 23rd 2019)
+-------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for MSM (#1770, #1775, #1776)
+- minor enhancements, including:
+  - allow specifying the license file directly in MATLAB easyblock (#1712)
+  - enhance CPLEX easyblock to also build Python bindings (#1738)
+  - workaround for XCrySDen for Tcl 8.6 (#1749)
+  - update WIEN2k easyblock to support version 19.1 (#1758)
+  - use dict-type checksums for CUDA, with custom source filename (#1766)
+  - enhance sanity check for Blender to make sure that Cycles render engine is available (#1779)
+- various bug fixes, including:
+  - only check for qtwebengine if Qt easyblock if glibc is sufficiently recent (#1771)
+  - correctly define comp.src in Bundle easyblock, to fix compatibility with easyblocks that leverage self.src (#1777)
+  - fix Bundle.check_checksums to checksums for extensions are also checked (#1778)
+
 
 v3.9.3 (July 8th 2019)
 ----------------------
