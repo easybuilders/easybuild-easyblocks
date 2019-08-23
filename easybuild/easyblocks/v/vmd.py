@@ -118,6 +118,7 @@ class EB_VMD(ConfigureMake):
             'LINUXAMD64',
             "TCLINC='-I%s'" % tclinc,
             "TCLLIB='-L%s'" % tcllib,
+            "TCLLDFLAGS='-ltcl%s'" % tclshortver,
             "NETCDFINC='-I%s'" % netcdfinc,
             "NETCDFLIB='-L%s'" % netcdflib,
             self.cfg['buildopts'],
