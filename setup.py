@@ -61,7 +61,7 @@ log.set_verbosity(1)
 try:
     from setuptools import setup
     log.info("Installing with setuptools.setup...")
-except ImportError, err:
+except ImportError:
     log.info("Failed to import setuptools.setup, so falling back to distutils.setup")
     from distutils.core import setup
 
@@ -92,6 +92,9 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Software Development :: Build Tools",
     ],
     platforms = "Linux",

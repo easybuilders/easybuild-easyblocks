@@ -28,7 +28,7 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 
 @author: Micael Oliveira (MPSD-Hamburg)
 """
-from vsc.utils.missing import nub
+from easybuild.tools.utilities import nub
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
