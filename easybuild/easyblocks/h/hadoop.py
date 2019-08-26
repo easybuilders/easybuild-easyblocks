@@ -32,6 +32,7 @@ import os
 import re
 import shutil
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -62,7 +63,12 @@ class EB_Hadoop(Tarball):
                 lib_root = get_software_root(native_lib)
                 if not lib_root:
                     raise EasyBuildError("%s not found. Failing install" % native_lib)
+
                 cmd += ' -Drequire.%s=true -D%s.prefix=%s' % (native_lib, native_lib, lib_root)
+
+                if native_lib == 'zlib':
+                    # for zlib, $ZLIB_HOME must be set
+                    env.setvar('ZLIB_HOME', lib_root)
 
             if self.cfg['parallel'] > 1:
                 cmd += " -T%d" % self.cfg['parallel']
