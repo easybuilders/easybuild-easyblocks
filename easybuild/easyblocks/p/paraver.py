@@ -42,14 +42,6 @@ from easybuild.tools.modules import get_software_libdir, get_software_root
 class EB_Paraver(ConfigureMake):
     """Support for building/installing Paraver."""
 
-    def __init__(self, *args, **kwargs):
-        """Easyblock constructor."""
-        super(EB_Paraver, self).__init__(*args, **kwargs)
-
-        self.boost = None
-        self.wx_config = None
-        self.wxpropgrid = None
-
     def run_all_steps(self, *args, **kwargs):
         """
         Put configure/build/install options in place for the 3 different components of Paraver.
@@ -83,21 +75,24 @@ class EB_Paraver(ConfigureMake):
 
         return super(EB_Paraver, self).run_all_steps(*args, **kwargs)
 
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for Paraver: check required dependencies and collect information on them."""
-        super(EB_Paraver, self).prepare_step(*args, **kwargs)
+    def configure_step(self):
+        """Custom configuration procedure for Paraver: template configuration options before using them."""
 
-        self.boost = get_software_root('Boost')
-        if not self.boost:
+        # first, check (required) dependencies
+        # this is done in configure_step to avoid breaking 'installation' with --module-only --force
+        boost_root = get_software_root('Boost')
+        if not boost_root:
             raise EasyBuildError("Boost is not available as a dependency")
 
+        wx_config = None
         wxwidgets = get_software_root('wxWidgets')
         if wxwidgets:
-            self.wx_config = os.path.join(wxwidgets, 'bin', 'wx-config')
+            wx_config = os.path.join(wxwidgets, 'bin', 'wx-config')
         elif LooseVersion(self.version) >= LooseVersion('4.7'):
             raise EasyBuildError("wxWidgets is not available as a dependency")
 
         # determine value to pass to --with-wxpropgrid (library name)
+        wxpropgrid = None
         wxpropertygrid_root = get_software_root('wxPropertyGrid')
         if wxpropertygrid_root:
             wxpropertygrid_libdir = os.path.join(wxpropertygrid_root, get_software_libdir('wxPropertyGrid'))
@@ -105,15 +100,12 @@ class EB_Paraver(ConfigureMake):
             wxpropgrid_libs = glob.glob(os.path.join(wxpropertygrid_libdir, libname_pattern))
             if len(wxpropgrid_libs) == 1:
                 # exclude the 'lib' prefix and '.so' suffix to determine value to be passed to --with-wxpropgrid
-                self.wxpropgrid = os.path.basename(wxpropgrid_libs[0])[3:-3]
+                wxpropgrid = os.path.basename(wxpropgrid_libs[0])[3:-3]
             else:
                 tup = (libname_pattern, wxpropertygrid_libdir, wxpropgrid_libs)
                 raise EasyBuildError("Expected to find exactly one %s library in %s, found %s" % tup)
         else:
             self.log.info("wxPropertyGrid not included as dependency, assuming that's OK...")
-
-    def configure_step(self):
-        """Custom configuration procedure for Paraver: template configuration options before using them."""
 
         if LooseVersion(self.version) < LooseVersion('4.7'):
             component = self.components[self.current_component]
@@ -123,17 +115,17 @@ class EB_Paraver(ConfigureMake):
             print_msg("starting with component %s" % component, log=self.log)
 
             self.cfg['configopts'] = self.cfg['configopts'] % {
-                'boost': self.boost,
+                'boost': boost_root,
                 'installdir': self.installdir,
-                'wxpropgrid': self.wxpropgrid,
+                'wxpropgrid': wxpropgrid,
             }
         else:
-            self.cfg.update('configopts', '--with-boost=%s' % self.boost)
+            self.cfg.update('configopts', '--with-boost=%s' % boost_root)
             self.cfg.update('configopts', '--with-paraver=%s' % self.installdir)
-            self.cfg.update('configopts', '--with-wx-config=%s' % self.wx_config)
+            self.cfg.update('configopts', '--with-wx-config=%s' % wx_config)
             # wxPropertyGrid is not required with recent wxWidgets
-            if self.wxpropgrid:
-                self.cfg.update('configopts', '--with-wxpropgrid=%s' % self.wxpropgrid)
+            if wxpropgrid:
+                self.cfg.update('configopts', '--with-wxpropgrid=%s' % wxpropgrid)
 
         super(EB_Paraver, self).configure_step()
 
