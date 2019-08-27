@@ -36,6 +36,7 @@ import os
 import re
 import sys
 from distutils import log
+from distutils.core import setup
 
 sys.path.append('easybuild')
 from easyblocks import VERSION
@@ -57,13 +58,6 @@ API_VERSION += suff
 
 # log levels: 0 = WARN (default), 1 = INFO, 2 = DEBUG
 log.set_verbosity(1)
-
-try:
-    from setuptools import setup
-    log.info("Installing with setuptools.setup...")
-except ImportError:
-    log.info("Failed to import setuptools.setup, so falling back to distutils.setup")
-    from distutils.core import setup
 
 # Utility function to read README file
 def read(fname):
