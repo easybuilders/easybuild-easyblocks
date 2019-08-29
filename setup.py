@@ -41,20 +41,7 @@ from distutils.core import setup
 sys.path.append('easybuild')
 from easyblocks import VERSION
 
-API_VERSION = str(VERSION).split('.')[0]
-suff = ''
-
-rc_regexp = re.compile("^.*(rc[0-9]*)$")
-res = rc_regexp.search(str(VERSION))
-if res:
-    suff = res.group(1)
-
-dev_regexp = re.compile("^.*[0-9](.?dev[0-9])$")
-res = dev_regexp.search(str(VERSION))
-if res:
-    suff = res.group(1)
-
-API_VERSION += suff
+FRAMEWORK_MAJVER = str(VERSION).split('.')[0]
 
 # log levels: 0 = WARN (default), 1 = INFO, 2 = DEBUG
 log.set_verbosity(1)
@@ -63,7 +50,7 @@ log.set_verbosity(1)
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-log.info("Installing version %s (required versions: API >= %s)" % (VERSION, API_VERSION))
+log.info("Installing version %s (required versions: API >= %s)" % (VERSION, FRAMEWORK_MAJVER))
 
 setup(
     name = "easybuild-easyblocks",
@@ -92,9 +79,5 @@ setup(
         "Topic :: Software Development :: Build Tools",
     ],
     platforms = "Linux",
-    install_requires = [
-        'setuptools >= 0.6',
-        "easybuild-framework >= %s" % API_VERSION,
-    ],
-    zip_safe = False,
+    requires=["easybuild_framework(>=%s.0)" % FRAMEWORK_MAJVER],
 )
