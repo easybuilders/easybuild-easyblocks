@@ -360,11 +360,19 @@ class EB_OpenFOAM(EasyBlock):
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
-               [os.path.join(toolsdir, "buoyant%sSimpleFoam" % x) for x in ["", "Boussinesq"]] + \
-               [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine", "sonic"]] + \
+               [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
+               [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
+        if LooseVersion(self.version) < LooseVersion('7'):
+            bins.extend([
+                os.path.join(toolsdir, "buoyantBoussinesqSimpleFoam"),
+                os.path.join(toolsdir, "sonicFoam")
+            ])
+
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),
