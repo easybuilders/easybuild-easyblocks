@@ -185,7 +185,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # inject compiler variables into wmake/rules files
         ldirs = glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'linux*'))
-        if self.version.startswith('v') and LooseVersion(self.version) >= LooseVersion('v1906'):
+        if self.looseversion >= LooseVersion('1906'):
             ldirs += glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'General', '*'))
         langs = ['c', 'c++']
 
