@@ -62,7 +62,7 @@ install:
     - echo "Using easybuild-framework branch $BRANCH (\$TRAVIS_BRANCH $TRAVIS_BRANCH)"
     - git clone -b $BRANCH --depth 10 --single-branch https://github.com/easybuilders/easybuild-framework.git
     - cd easybuild-framework; git log -n 1; cd -
-    - easy_install $PWD/easybuild-framework
+    - pip install $PWD/easybuild-framework
     # install environment modules tool using 'install_eb_dep.sh' script provided by easybuild-framework
     - if [ ! -z $ENV_MOD_VERSION ]; then source $(which install_eb_dep.sh) modules-${ENV_MOD_VERSION} $HOME; fi
     - if [ ! -z $LMOD_VERSION ]; then source $(which install_eb_dep.sh) lua-5.1.4.8 $HOME; fi
@@ -77,6 +77,14 @@ script:
     - mkdir -p /tmp/$TRAVIS_JOB_ID
     - echo 'raise ImportError("setuptools should no longer be relied on")' > /tmp/$TRAVIS_JOB_ID/setuptools.py
     - echo 'raise ImportError("setuptools should no longer be relied on")' > /tmp/$TRAVIS_JOB_ID/pkg_resources.py
-    - export PYTHONPATH=/tmp/$TRAVIS_JOB_ID:$PYTHONPATH
-    - export PYTHONPATH=$TRAVIS_BUILD_DIR
+    - export PYTHONPATH=$TRAVIS_BUILD_DIR:/tmp/$TRAVIS_JOB_ID:$PYTHONPATH
     - python -O -m test.easyblocks.suite
+    # check for packaging issues by installing easybuild-easyblocks repo,
+    # and checking whether "eb --list-easyblocks" works as expected
+    - unset PYTHONPATH
+    - cd $TRAVIS_BUILD_DIR; pip install .
+    # make sure correct 'python' command is used
+    # 'python2' may also be available, and is picked prior to 'python'
+    - export EB_PYTHON=python
+    - cd $HOME; eb --list-easyblocks > eb_list_easyblocks.out
+    - grep 'ConfigureMake\>' eb_list_easyblocks.out && grep EB_GCC eb_list_easyblocks.out
