@@ -83,5 +83,8 @@ script:
     # and checking whether "eb --list-easyblocks" works as expected
     - unset PYTHONPATH
     - cd $TRAVIS_BUILD_DIR; pip install .
+    # make sure correct 'python' command is used
+    # 'python2' may also be available, and is picked prior to 'python'
+    - export EB_PYTHON=python
     - cd $HOME; eb --list-easyblocks > eb_list_easyblocks.out
     - grep 'ConfigureMake\>' eb_list_easyblocks.out && grep EB_GCC eb_list_easyblocks.out
