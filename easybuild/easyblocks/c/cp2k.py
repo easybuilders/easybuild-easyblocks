@@ -699,7 +699,7 @@ class EB_CP2K(EasyBlock):
                 self.log.info("No reference output found for regression test, just continuing without it...")
 
             # prefer using 4 cores, since some tests require/prefer square (n^2) numbers or powers of 2 (2^n)
-            test_core_cnt = min(self.cfg.get('parallel', sys.maxint), 4)
+            test_core_cnt = min(self.cfg['parallel'], 4)
             if get_avail_core_count() < test_core_cnt:
                 raise EasyBuildError("Cannot run MPI tests as not enough cores (< %s) are available", test_core_cnt)
             else:
