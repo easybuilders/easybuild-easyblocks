@@ -49,22 +49,8 @@ class EB_CUDA(Binary):
     """
     Support for installing CUDA.
     """
-
-    @staticmethod
-    def extra_options():
-        """Create a set of wrappers based on a list determined by the easyconfig file"""
-        extra_vars = {
-            'host_compilers': [None, "Host compilers for which a wrapper will be generated", CUSTOM]
-        }
-        return Binary.extra_options(extra_vars)
-
-    def fetch_sources(self, sources=None, checksums=None):
-        """
-        We need to modify the source filename based on the architecture
-        """
-        if sources is None:
-            sources = self.cfg['sources']
-
+    def __init__(self, *args, **kwargs):
+        """ Init the cuda easyblock adding a new cudaarch template var """
         myarch = get_cpu_architecture()
         if myarch == X86_64:
             cudaarch = ''
@@ -73,11 +59,18 @@ class EB_CUDA(Binary):
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
-        modified_sources = []
-        for source in sources:
-            modified_sources.append(source % {'cudaarch': cudaarch})
+        super(EB_CUDA, self).__init__(*args, **kwargs)
 
-        return Binary.fetch_sources(self, modified_sources, checksums)
+        self.cfg.template_values['cudaarch'] = cudaarch
+        self.cfg.generate_template_values()
+
+    @staticmethod
+    def extra_options():
+        """Create a set of wrappers based on a list determined by the easyconfig file"""
+        extra_vars = {
+            'host_compilers': [None, "Host compilers for which a wrapper will be generated", CUSTOM],
+        }
+        return Binary.extra_options(extra_vars)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
