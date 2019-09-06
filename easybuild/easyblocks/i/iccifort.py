@@ -31,11 +31,12 @@ EasyBuild support for installing the Intel compiler suite, implemented as an eas
 @author: Bart Oldeman (McGill University, Compute Canada)
 """
 
+from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 
 
-class EB_iccifort(EB_ifort, EB_icc):
+class EB_iccifort(EB_ifort, EB_icc, IntelBase):
     """
     Class that can be used to install iccifort
     """
