@@ -54,6 +54,16 @@ class EB_Perl(ConfigureMake):
         """
         Configure Perl build: run ./Configure instead of ./configure with some different options
         """
+        # avoid that $CPATH or $C_INCLUDE_PATH include an empty entry, since that makes Perl build fail miserably
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/8859
+        for key in ['CPATH', 'C_INCLUDE_PATH']:
+            value = os.getenv(key, None)
+            if value is not None:
+                paths = value.split(os.pathsep)
+                if '' in paths:
+                    self.log.info("Found empty entry in $%s, filtering it out...", key)
+                    os.environ[key] = os.pathsep.join(p for p in paths if p)
+
         majver = self.version.split('.')[0]
         configopts = [
             self.cfg['configopts'],
