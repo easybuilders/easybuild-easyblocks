@@ -77,7 +77,7 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--without-verbs')
 
         # handle dependencies
-        for dep in ['CUDA', 'hwloc', 'UCX']:
+        for dep in ['CUDA', 'hwloc', 'libevent', 'PMIx', 'UCX']:
             if config_opt_unused(dep.lower()):
                 dep_root = get_software_root(dep)
                 if dep_root:
