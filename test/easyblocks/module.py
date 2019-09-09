@@ -218,7 +218,10 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         app_class = get_easyblock_class(ebname)
 
         # easyblocks deriving from IntelBase require a license file to be found for --module-only
-        if app_class == IntelBase or IntelBase in app_class.__bases__:
+        bases = list(app_class.__bases__)
+        for base in copy.copy(bases):
+            bases.extend(base.__bases__)
+        if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
 
