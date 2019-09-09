@@ -34,6 +34,7 @@ import glob
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.py2vs3 import string_type
 
 
 class MakeCp(ConfigureMake):
@@ -72,17 +73,18 @@ class MakeCp(ConfigureMake):
             for fil in files_to_copy:
                 if isinstance(fil, tuple):
                     # ([src1, src2], targetdir)
-                    if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], basestring):
+                    if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], string_type):
                         files_specs = fil[0]
                         target = os.path.join(self.installdir, fil[1])
                     else:
                         raise EasyBuildError("Only tuples of format '([<source files>], <target dir>)' supported.")
                 # 'src_file' or 'src_dir'
-                elif isinstance(fil, basestring):
+                elif isinstance(fil, string_type):
                     files_specs = [fil]
                     target = self.installdir
                 else:
-                    raise EasyBuildError("Found neither string nor tuple as file to copy: '%s' (type %s)", fil, type(fil))
+                    raise EasyBuildError("Found neither string nor tuple as file to copy: '%s' (type %s)",
+                                         fil, type(fil))
 
                 if not os.path.exists(target):
                     os.makedirs(target)

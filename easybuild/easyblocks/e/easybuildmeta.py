@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root_env_var_name
-from easybuild.tools.ordereddict import OrderedDict
+from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
 
 
@@ -164,8 +164,7 @@ class EB_EasyBuildMeta(PythonPackage):
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
             try:
-                exec "from %s import setup" % tool
-                del setup
+                exec("from %s import setup" % tool)
                 setup_tool = tool
                 break
             except ImportError:

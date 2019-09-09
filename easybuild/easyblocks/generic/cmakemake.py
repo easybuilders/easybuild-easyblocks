@@ -42,7 +42,7 @@ from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from vsc.utils.missing import nub
+from easybuild.tools.utilities import nub
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'

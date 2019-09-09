@@ -31,21 +31,20 @@ EasyBuild support for building and installing FSL, implemented as an easyblock
 import difflib
 import os
 import re
-import shutil
 from distutils.version import LooseVersion
-from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 from easybuild.tools.filetools import read_file, copy_dir
+from easybuild.tools.utilities import nub
 
 
 class EB_FSL(EasyBlock):
     """Support for building and installing FSL."""
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         """Specify building in install dir, initialize custom variables."""
 
         super(EB_FSL, self).__init__(*args, **kwargs)
@@ -109,7 +108,6 @@ class EB_FSL(EasyBlock):
             copy_dir(srcdir, tgtdir)
             self.log.debug("Copied %s to %s" % (srcdir, tgtdir))
 
-
     def build_step(self):
         """Build FSL using supplied script."""
 
@@ -154,8 +152,9 @@ class EB_FSL(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for FSL"""
 
-        custom_paths =  {'files':[],
-                         'dirs':["fsl/%s" % x for x in ["bin", "data", "etc", "extras", "include", "lib"]]
-                        }
+        custom_paths = {
+            'files': [],
+            'dirs': ['fsl/%s' % x for x in ['bin', 'data', 'etc', 'extras', 'include', 'lib']],
+        }
 
         super(EB_FSL, self).sanity_check_step(custom_paths=custom_paths)
