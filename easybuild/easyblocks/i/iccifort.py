@@ -45,3 +45,14 @@ class EB_iccifort(EB_ifort, EB_icc, IntelBase):
         """Custom sanity check paths for iccifort."""
         EB_icc.sanity_check_step(self)
         EB_ifort.sanity_check_step(self)
+
+    def make_module_extra(self):
+        txt = super(EB_iccifort, self).make_module_extra()
+
+        # also define $EBROOT* and $EBVERSION* for icc/ifort
+        txt += self.module_generator.set_environment('EBROOTICC', self.installdir)
+        txt += self.module_generator.set_environment('EBROOTIFORT', self.installdir)
+        txt += self.module_generator.set_environment('EBVERSIONICC', self.version)
+        txt += self.module_generator.set_environment('EBVERSIONIFORT', self.version)
+
+        return txt
