@@ -114,6 +114,9 @@ class EB_OpenMPI(ConfigureMake):
         for key in ['mpifort', 'mpif90']:
             if expected[key] == 'gfortran':
                 expected[key] = "GNU Fortran"
+        # for PGI, correct pattern is "pgfortran" with mpif90
+        if expected['mpif90'] == 'pgf90':
+            expected['mpif90'] = 'pgfortran'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
