@@ -410,11 +410,18 @@ class EB_TensorFlow(PythonPackage):
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
         # find .whl file that was built, and install it using 'pip install'
         if ("-rc" in self.version):
             whl_version = self.version.replace("-rc", "rc")
         else:
             whl_version = self.version
+
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
