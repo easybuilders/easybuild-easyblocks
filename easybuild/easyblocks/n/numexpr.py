@@ -28,7 +28,6 @@ EasyBuild support for building and installing numexpr, implemented as an easyblo
 import os
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_features
@@ -77,7 +76,8 @@ class EB_numexpr(PythonPackage):
             elif 'avx' in cpu_features:
                 mkl_vml_lib = 'mkl_vml_avx'
             else:
-                raise EasyBuildError("Dont know which VML library to specify since processor does not support AVX.")
+                # use default kernels as fallback for non-AVX systems
+                mkl_vml_lib = 'mkl_vml_def'
 
             mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
 
