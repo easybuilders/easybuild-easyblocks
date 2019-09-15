@@ -61,6 +61,13 @@ SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(instal
 UNKNOWN = 'UNKNOWN'
 
 
+def det_python_version(python_cmd):
+    """Determine version of specified 'python' command."""
+    pycode = 'import sys; print("%s.%s.%s" % sys.version_info[:3])'
+    out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
+    return out.strip()
+
+
 def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
     """
     Pick 'python' command to use, based on specified version requirements.
@@ -95,19 +102,17 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             else:
                 req_majmin_ver = '%s.%s' % (req_maj_ver, req_min_ver)
 
-            pycode = 'import sys; print("%s.%s" % sys.version_info[:2])'
-            out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
-            out = out.strip()
+            pyver = det_python_version(python_cmd)
 
             # (strict) check for major version
-            maj_ver = out.split('.')[0]
+            maj_ver = pyver.split('.')[0]
             if maj_ver != str(req_maj_ver):
                 log.debug("Major Python version does not match: %s vs %s", maj_ver, req_maj_ver)
                 return False
 
             # check for minimal minor version
-            if LooseVersion(out) < LooseVersion(req_majmin_ver):
-                log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", out, req_majmin_ver)
+            if LooseVersion(pyver) < LooseVersion(req_majmin_ver):
+                log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
                 return False
 
         # all check passed
@@ -181,7 +186,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'check_ldshared': [True, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
+            'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
@@ -452,6 +457,17 @@ class PythonPackage(ExtensionEasyBlock):
                 config.close()
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+
+        # conservatively auto-enable checking of $LDSHARED if it is not explicitely enabled or disabled
+        # only do this for sufficiently recent Python versions (>= 3.7 or Python 2.x >= 2.7.15)
+        if self.cfg.get('check_ldshared') is None:
+            pyver = det_python_version(self.python_cmd)
+            recent_py2 = pyver.startswith('2') and LooseVersion(pyver) >= LooseVersion('2.7.15')
+            if recent_py2 or LooseVersion(pyver) >= LooseVersion('3.7'):
+                self.log.info("Checking of $LDSHARED auto-enabled for sufficiently recent Python version %s", pyver)
+                self.cfg['check_ldshared'] = True
+            else:
+                self.log.info("Not auto-enabling checking of $LDSHARED, Python version %s is not recent enough", pyver)
 
         # ensure that LDSHARED uses CC
         if self.cfg.get('check_ldshared', False):
