@@ -41,6 +41,13 @@ class CrayToolchain(Bundle):
     """
     Compiler toolchain: generate module file only, nothing to build/install
     """
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment (skip loaded of dependencies)."""
+
+        kwargs['load_tc_deps_modules'] = False
+
+        super(CrayToolchain, self).prepare_step(*args, **kwargs)
+
     def make_module_dep(self):
         """
         Generate load/swap statements for dependencies in the module file
