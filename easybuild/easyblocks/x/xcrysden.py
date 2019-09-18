@@ -101,7 +101,7 @@ class EB_XCrySDen(ConfigureMake):
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
             for (key, value) in list(settings.items()):
-                regexp = re.compile('^%s(\s+=).*' % key)
+                regexp = re.compile(r'^%s(\s+=).*' % key)
                 if regexp.search(line):
                     line = regexp.sub('%s\\1 %s' % (key, value), line)
                     # remove replaced key/value pairs
