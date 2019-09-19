@@ -69,7 +69,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # version may start with 'v' for some variants of OpenFOAM
         # we need to strip this off to avoid problems when comparing LooseVersion instances in Python 3
-        self.looseversion = LooseVersion(self.version.lstrip('v'))
+        self.looseversion = LooseVersion(self.version.strip('v+'))
 
         if 'extend' in self.name.lower():
             if self.looseversion >= LooseVersion('3.0'):
@@ -317,7 +317,7 @@ class EB_OpenFOAM(EasyBlock):
             run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
         else:
             cmd = 'Allwmake'
-            if LooseVersion(self.version) >= LooseVersion('1606'):
+            if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
@@ -370,6 +370,14 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
+        if self.looseversion < LooseVersion('7'):
+            bins.extend([
+                os.path.join(toolsdir, "buoyantBoussinesqSimpleFoam"),
+                os.path.join(toolsdir, "sonicFoam")
+            ])
+
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),
