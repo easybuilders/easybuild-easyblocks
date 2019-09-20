@@ -37,17 +37,18 @@ import sys
 import tempfile
 from distutils.version import LooseVersion
 from distutils.sysconfig import get_config_vars
-from vsc.utils import fancylogger
-from vsc.utils.missing import nub
 
 import easybuild.tools.environment as env
+from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
+from easybuild.tools.utilities import nub
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
@@ -58,6 +59,13 @@ PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
+
+
+def det_python_version(python_cmd):
+    """Determine version of specified 'python' command."""
+    pycode = 'import sys; print("%s.%s.%s" % sys.version_info[:3])'
+    out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
+    return out.strip()
 
 
 def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
@@ -94,19 +102,17 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             else:
                 req_majmin_ver = '%s.%s' % (req_maj_ver, req_min_ver)
 
-            pycode = 'import sys; print("%s.%s" % sys.version_info[:2])'
-            out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
-            out = out.strip()
+            pyver = det_python_version(python_cmd)
 
             # (strict) check for major version
-            maj_ver = out.split('.')[0]
+            maj_ver = pyver.split('.')[0]
             if maj_ver != str(req_maj_ver):
                 log.debug("Major Python version does not match: %s vs %s", maj_ver, req_maj_ver)
                 return False
 
             # check for minimal minor version
-            if LooseVersion(out) < LooseVersion(req_majmin_ver):
-                log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", out, req_majmin_ver)
+            if LooseVersion(pyver) < LooseVersion(req_majmin_ver):
+                log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
                 return False
 
         # all check passed
@@ -180,7 +186,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
-            'check_ldshared': [False, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
+            'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
@@ -383,7 +389,7 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             # for extensions, self.src specifies the location of the source file
             # otherwise, self.src is a list of dicts, one element per source file
-            if isinstance(self.src, basestring):
+            if isinstance(self.src, string_type):
                 loc = self.src
             else:
                 loc = self.src[0]['path']
@@ -452,6 +458,17 @@ class PythonPackage(ExtensionEasyBlock):
             except IOError:
                 raise EasyBuildError("Creating %s failed", self.sitecfgfn)
 
+        # conservatively auto-enable checking of $LDSHARED if it is not explicitely enabled or disabled
+        # only do this for sufficiently recent Python versions (>= 3.7 or Python 2.x >= 2.7.15)
+        if self.cfg.get('check_ldshared') is None:
+            pyver = det_python_version(self.python_cmd)
+            recent_py2 = pyver.startswith('2') and LooseVersion(pyver) >= LooseVersion('2.7.15')
+            if recent_py2 or LooseVersion(pyver) >= LooseVersion('3.7'):
+                self.log.info("Checking of $LDSHARED auto-enabled for sufficiently recent Python version %s", pyver)
+                self.cfg['check_ldshared'] = True
+            else:
+                self.log.info("Not auto-enabling checking of $LDSHARED, Python version %s is not recent enough", pyver)
+
         # ensure that LDSHARED uses CC
         if self.cfg.get('check_ldshared', False):
             curr_cc = os.getenv('CC')
@@ -497,7 +514,7 @@ class PythonPackage(ExtensionEasyBlock):
     def test_step(self):
         """Test the built Python package."""
 
-        if isinstance(self.cfg['runtest'], basestring):
+        if isinstance(self.cfg['runtest'], string_type):
             self.testcmd = self.cfg['runtest']
 
         if self.cfg['runtest'] and self.testcmd is not None:

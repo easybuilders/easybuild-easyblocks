@@ -39,7 +39,6 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class EB_libxml2(ConfigureMake, PythonPackage):
@@ -68,7 +67,7 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         if python:
             self.with_python_bindings = True
 
-        if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
+        if not self.toolchain.is_system_toolchain():
             self.cfg.update('configopts', "CC='%s' CXX='%s'" % (os.getenv('CC'), os.getenv('CXX')))
 
         if self.toolchain.options.get('pic', False):

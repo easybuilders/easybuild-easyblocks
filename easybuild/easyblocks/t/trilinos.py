@@ -117,7 +117,10 @@ class EB_Trilinos(CMakeMake):
             if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
                 libdirs += ";%s/lib64" % get_software_root('GCC')
             self.cfg.update('configopts', '-D%s_LIBRARY_DIRS="%s"' % (dep, libdirs))
-            libs = os.getenv('%s_MT_STATIC_LIBS' % dep).split(',')
+            if self.cfg['openmp']:
+                libs = os.getenv('%s_MT_STATIC_LIBS' % dep).split(',')
+            else:
+                libs = os.getenv('%s_STATIC_LIBS' % dep).split(',')
             lib_names = ';'.join([lib_re.search(l).group(1) for l in libs])
             if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
                 # explicitely specify static lib!

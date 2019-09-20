@@ -110,7 +110,7 @@ class EB_SuiteSparse(ConfigureMake):
 
         try:
             for line in fileinput.input(fp, inplace=1, backup='.orig'):
-                for (var, val) in cfgvars.items():
+                for (var, val) in list(cfgvars.items()):
                     orig_line = line
                     # for variables in cfgvars, substiture lines assignment
                     # in the file, whatever they are, by assignments to the

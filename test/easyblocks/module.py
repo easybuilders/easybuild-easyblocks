@@ -31,33 +31,33 @@ import copy
 import glob
 import os
 import re
-import shutil
+import stat
 import sys
 import tempfile
-from vsc.utils import fancylogger
-from unittest import TestLoader, main
-from vsc.utils.patterns import Singleton
-from vsc.utils.testing import EnhancedTestCase
+from unittest import TestLoader, TextTestRunner
 
+import easybuild.tools.module_naming_scheme.toolchain as mns_toolchain
+import easybuild.tools.options as eboptions
+import easybuild.tools.toolchain.utilities as tc_utils
+from easybuild.base import fancylogger
+from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.imod import EB_IMOD
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
-import easybuild.tools.module_naming_scheme.toolchain as mns_toolchain
-import easybuild.tools.options as eboptions
-import easybuild.tools.toolchain.utilities as tc_utils
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
-from easybuild.tools.filetools import mkdir, read_file, write_file
-from easybuild.tools.module_naming_scheme import GENERAL_CLASS
+from easybuild.tools.config import GENERAL_CLASS, Singleton
+from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, read_file, remove_dir
+from easybuild.tools.filetools import remove_file, write_file
 from easybuild.tools.options import set_tmpdir
 
 
-TMPDIR = tempfile.gettempdir()
+TMPDIR = tempfile.mkdtemp()
 
 
 def cleanup():
@@ -72,7 +72,7 @@ def cleanup():
     mns_toolchain._toolchain_details_cache.clear()
 
 
-class ModuleOnlyTest(EnhancedTestCase):
+class ModuleOnlyTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt='', toolchain=None):
@@ -109,6 +109,8 @@ class ModuleOnlyTest(EnhancedTestCase):
 
         os.environ = self.orig_environ
 
+        remove_file(self.eb_file)
+
     def test_make_module_pythonpackage(self):
         """Test make_module_step of PythonPackage easyblock."""
         app_class = get_easyblock_class('PythonPackage')
@@ -116,7 +118,7 @@ class ModuleOnlyTest(EnhancedTestCase):
         app = app_class(EasyConfig(self.eb_file))
 
         # install dir should not be there yet
-        self.assertFalse(os.path.exists(app.installdir))
+        self.assertFalse(os.path.exists(app.installdir), "%s should not exist" % app.installdir)
 
         # create install dir and populate it with subdirs/files
         mkdir(app.installdir, parents=True)
@@ -128,8 +130,20 @@ class ModuleOnlyTest(EnhancedTestCase):
         write_file(os.path.join(app.installdir, 'lib', 'python%s' % pyver, 'site-packages', 'foo.egg'), 'foo egg')
         write_file(os.path.join(app.installdir, 'lib64', 'pkgconfig', 'foo.pc'), 'libfoo: foo')
 
+        # PythonPackage relies on the fact that 'python' points to the right Python version
+        tmpdir = tempfile.mkdtemp()
+        python = os.path.join(tmpdir, 'python')
+        write_file(python, '#!/bin/bash\necho $0 $@\n%s "$@"' % sys.executable)
+        adjust_permissions(python, stat.S_IXUSR)
+        os.environ['PATH'] = '%s:%s' % (tmpdir, os.getenv('PATH', ''))
+
+        from easybuild.tools.filetools import which
+        print(which('python'))
+
         # create module file
         app.make_module_step()
+
+        remove_file(python)
 
         self.assertTrue(TMPDIR in app.installdir)
         self.assertTrue(TMPDIR in app.installdir_mod)
@@ -149,7 +163,7 @@ class ModuleOnlyTest(EnhancedTestCase):
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
             (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python2.[0-9]/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]/site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
@@ -176,13 +190,6 @@ class ModuleOnlyTest(EnhancedTestCase):
         self.assertTrue(pick_python_cmd(2) is not None)
         self.assertTrue(pick_python_cmd(2, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
-
-    def tearDown(self):
-        """Cleanup."""
-        try:
-            os.remove(self.eb_file)
-        except OSError, err:
-            self.log.error("Failed to remove %s: %s", self.eb_file, err)
 
 
 def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extra_txt=''):
@@ -211,7 +218,10 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         app_class = get_easyblock_class(ebname)
 
         # easyblocks deriving from IntelBase require a license file to be found for --module-only
-        if app_class == IntelBase or IntelBase in app_class.__bases__:
+        bases = list(app_class.__bases__)
+        for base in copy.copy(bases):
+            bases.extend(base.__bases__)
+        if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
 
@@ -261,12 +271,17 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         try:
             app.run_all_steps(run_test_cases=False)
         finally:
-            os.chdir(orig_workdir)
+            change_dir(orig_workdir)
 
         if os.path.basename(easyblock) == 'modulerc.py':
             # .modulerc must be cleaned up to avoid causing trouble (e.g. "Duplicate version symbol" errors)
             modulerc = os.path.join(TMPDIR, 'modules', 'all', name, '.modulerc')
-            os.remove(modulerc)
+            if os.path.exists(modulerc):
+                remove_file(modulerc)
+
+            modulerc += '.lua'
+            if os.path.exists(modulerc):
+                remove_file(modulerc)
         else:
             modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
             luamodfile = '%s.lua' % modfile
@@ -283,8 +298,8 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
 
         # cleanup
         app.close_log()
-        os.remove(app.logfile)
-        shutil.rmtree(tmpdir)
+        remove_file(app.logfile)
+        remove_dir(tmpdir)
     else:
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
@@ -328,30 +343,35 @@ def suite():
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            exec("def innertest(self): template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            exec("def innertest(self): template_module_only_test(self, '%s', name='OpenMPI', version='system')" %
-                 easyblock)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', name='OpenMPI', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
-            exec("def innertest(self): template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt))
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt)
         elif os.path.basename(easyblock) == 'modulerc.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
-            test_definition = ' '.join([
-                "def innertest(self):",
-                "  template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt),
-            ])
-            exec(test_definition)
+            code = "def innertest(self): "
+            code += "template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt)
         else:
-            exec("def innertest(self): template_module_only_test(self, '%s')" % easyblock)
+            code = "def innertest(self): template_module_only_test(self, '%s')" % easyblock
+
+        exec(code, globals())
+
         innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
     return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
 
+
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    remove_dir(TMPDIR)
+    sys.exit(len(res.failures))
