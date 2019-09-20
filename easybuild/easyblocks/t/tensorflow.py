@@ -217,16 +217,22 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
         if cuda_root:
+            cuda_version = get_software_version('CUDA')
+            cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
                 'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
-                'TF_CUDA_VERSION': get_software_version('CUDA'),
+                'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
             if cudnn_root:
+                cudnn_version = get_software_version('cuDNN')
+                cudnn_maj_min_patch_ver = '.'.join(cudnn_version.split('.')[:3])
+
                 config_env_vars.update({
                     'CUDNN_INSTALL_PATH': cudnn_root,
-                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                    'TF_CUDNN_VERSION': cudnn_maj_min_patch_ver,
                 })
             else:
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
