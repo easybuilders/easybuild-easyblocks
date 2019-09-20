@@ -3,7 +3,32 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 205 software-specific easyblocks and 35 generic easyblocks.
+The latest version of easybuild-easyblocks provides 208 software-specific easyblocks and 35 generic easyblocks.
+
+v4.0.0 (September 20th 2019)
+----------------------------
+
+feature release
+
+- fixes due to backwards-incompatible changes in easyBuild-framework v4.0.0
+  - use is_system_toolchain() rather than checking toolchain name against DUMMY_TOOLCHAIN_NAME constant (#1690, #1728)
+- fix compatibility of various easyblocks with Python 3 (#1640, #1644, #1648, #1721, #1794, #1808, #1795, #1796, #1807, #1809)
+- new software-specific easyblocks for OpenMPI (#1789, #1801), iccifort (#1799) and numexpr (#1803, #1804)
+- various other enhancements, including:
+  - removed checks for Boussinesq and sonic solvers for OpenFOAM 7, since those have been deprecated (#1733)
+  - update Paraver easyblock to support recent versions (#1790)
+- various bug fixes, including:
+  - update the PyPI trove classifiers (#1723)
+  - make the plugins build use the correct Tcl library version in VMD easyblock (#1786)
+  - use *_MT libs for BLAS/LAPACK only if openmp is enabled in Trilinos easyblock (#1791)
+  - filter out empty entries in $CPATH or $C_INCLUDE_PATH when building Perl, since that breaks the build (#1800)
+  - set $XDG_CACHE_HOME in TensorFlow easyblock to avoid that pip (ab)uses $HOME/.cache (#1802)
+  - don't load modules for dependencies in CrayToolchain.prepare_step (#1805)
+- other changes:
+  - drop requirement for setuptools as runtime dependency (#1689)
+  - enable 'check_ldshared' in generic PythonPackage easyblock by default for recent Python versions (#1788)
+  - stop trying to use setuptools.setup in setup.py, always use distutils.core.setup instead (#1793)
+
 
 v3.9.4 (August 23rd 2019)
 -------------------------
