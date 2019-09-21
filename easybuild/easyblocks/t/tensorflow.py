@@ -220,9 +220,15 @@ class EB_TensorFlow(PythonPackage):
             cuda_version = get_software_version('CUDA')
             cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
 
+            # $GCC_HOST_COMPILER_PATH should be set to path of the actual compiler (not the MPI compiler wrapper)
+            if use_mpi:
+                compiler_path = which(os.getenv('CC_SEQ'))
+            else:
+                compiler_path = which(os.getenv('CC'))
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
+                'GCC_HOST_COMPILER_PATH': compiler_path,
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
