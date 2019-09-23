@@ -53,7 +53,7 @@ class EB_CUDA(Binary):
     def extra_options():
         """Create a set of wrappers based on a list determined by the easyconfig file"""
         extra_vars = {
-            'host_compilers': [None, "Host compilers for which a wrapper will be generated", CUSTOM],
+            'host_compilers': [None, "Host compilers for which a wrapper will be generated", CUSTOM]
         }
         return Binary.extra_options(extra_vars)
 
