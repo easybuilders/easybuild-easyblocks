@@ -49,6 +49,7 @@ class EB_CUDA(Binary):
     """
     Support for installing CUDA.
     """
+
     @staticmethod
     def extra_options():
         """Create a set of wrappers based on a list determined by the easyconfig file"""
