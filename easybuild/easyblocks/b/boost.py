@@ -167,19 +167,25 @@ class EB_Boost(EasyBlock):
 
             write_file('user-config.jam', txt, append=True)
 
-    def build_boost_variant(self, bjamoptions, paracmd):
+    def build_boost_variant(self, bjamcmd, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
         # build with specified options
-        cmd = "%s ./bjam %s %s %s" % (self.cfg['prebuildopts'], bjamoptions, paracmd, self.cfg['buildopts'])
+        cmd = "%s ./%s %s %s %s" % (self.cfg['prebuildopts'], bjamcmd, bjamoptions, paracmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # install built Boost library
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # clean up before proceeding with next build
-        run_cmd("./bjam --clean-all", log_all=True, simple=True)
+        run_cmd("./%s --clean-all" % bjamcmd, log_all=True, simple=True)
 
     def build_step(self):
         """Build Boost with bjam tool."""
+
+        if LooseVersion(self.version) >= LooseVersion("1.71.0"):
+            bjamcmd = 'b2'
+        else:
+            bjamcmd = 'bjam'
 
         bjamoptions = " --prefix=%s" % self.objdir
 
@@ -216,22 +222,23 @@ class EB_Boost(EasyBlock):
 
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
-            self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
+            self.build_boost_variant(bjamcmd, bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
 
         if self.cfg['boost_multi_thread']:
             self.log.info("Building boost with multi threading")
-            self.build_boost_variant(bjamoptions + " threading=multi --layout=tagged", paracmd)
+            self.build_boost_variant(bjamcmd, bjamoptions + " threading=multi --layout=tagged", paracmd)
 
         # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
         if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi with multi threading")
             extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
-            self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
+            self.build_boost_variant(bjamcmd, bjamoptions + extra_bjamoptions, paracmd)
 
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
