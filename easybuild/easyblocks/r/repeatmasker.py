@@ -25,6 +25,7 @@
 """
 EasyBuild support for building and installing RepeatMasker, implemented as an easyblock
 """
+from distutils.version import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
@@ -73,12 +74,20 @@ class EB_RepeatMasker(Tarball):
 
         patch_perl_script_autoflush('configure')
 
-        search_engine_map = {
-            'CrossMatch': '1',
-            'RMBlast': '2',
-            'WUBlast': '3',
-            'HMMER': '4',
-        }
+        if LooseVersion(self.version) >= LooseVersion('4.0.9'):
+            search_engine_map = {
+                'CrossMatch': '1',
+                'RMBlast': '2',
+                'HMMER': '3',
+                'WUBlast': '4',
+            }
+        else:
+            search_engine_map = {
+                'CrossMatch': '1',
+                'RMBlast': '2',
+                'WUBlast': '3',
+                'HMMER': '4',
+            }
         search_engine_bindir = os.path.join(get_software_root(search_engine), 'bin')
 
         cmd = "perl ./configure"
