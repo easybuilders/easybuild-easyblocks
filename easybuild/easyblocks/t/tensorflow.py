@@ -31,6 +31,7 @@ EasyBuild support for building and installing TensorFlow, implemented as an easy
 """
 import glob
 import os
+import re
 import stat
 import tempfile
 from distutils.version import LooseVersion
@@ -42,7 +43,7 @@ from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, which, write_file
+from easybuild.tools.filetools import is_readable, read_file, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
@@ -217,16 +218,55 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
         if cuda_root:
+            cuda_version = get_software_version('CUDA')
+            cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
+
+            # $GCC_HOST_COMPILER_PATH should be set to path of the actual compiler (not the MPI compiler wrapper)
+            if use_mpi:
+                compiler_path = which(os.getenv('CC_SEQ'))
+            else:
+                compiler_path = which(os.getenv('CC'))
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
+                'GCC_HOST_COMPILER_PATH': compiler_path,
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
-                'TF_CUDA_VERSION': get_software_version('CUDA'),
+                'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
+
+            # for recent TensorFlow versions, $TF_CUDA_PATHS and $TF_CUBLAS_VERSION must also be set
+            if LooseVersion(self.version) > LooseVersion('1.14'):
+
+                # figure out correct major/minor version for CUBLAS from cublas_api.h
+                cublas_api_header_glob_pattern = os.path.join(cuda_root, 'targets', '*', 'include', 'cublas_api.h')
+                matches = glob.glob(cublas_api_header_glob_pattern)
+                if len(matches) == 1:
+                    cublas_api_header_path = matches[0]
+                    cublas_api_header_txt = read_file(cublas_api_header_path)
+                else:
+                    raise EasyBuildError("Failed to isolate path to cublas_api.h: %s", matches)
+
+                cublas_ver_parts = []
+                for key in ['CUBLAS_VER_MAJOR', 'CUBLAS_VER_MINOR', 'CUBLAS_VER_PATCH']:
+                    regex = re.compile("^#define %s ([0-9]+)" % key, re.M)
+                    res = regex.search(cublas_api_header_txt)
+                    if res:
+                        cublas_ver_parts.append(res.group(1))
+                    else:
+                        raise EasyBuildError("Failed to find pattern '%s' in %s", regex.pattern, cublas_api_header_path)
+
+                config_env_vars.update({
+                    'TF_CUDA_PATHS': cuda_root,
+                    'TF_CUBLAS_VERSION': '.'.join(cublas_ver_parts),
+                })
+
             if cudnn_root:
+                cudnn_version = get_software_version('cuDNN')
+                cudnn_maj_min_patch_ver = '.'.join(cudnn_version.split('.')[:3])
+
                 config_env_vars.update({
                     'CUDNN_INSTALL_PATH': cudnn_root,
-                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                    'TF_CUDNN_VERSION': cudnn_maj_min_patch_ver,
                 })
             else:
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
