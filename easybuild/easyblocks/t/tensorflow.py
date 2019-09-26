@@ -235,7 +235,7 @@ class EB_TensorFlow(PythonPackage):
             })
 
             # for recent TensorFlow versions, $TF_CUDA_PATHS and $TF_CUBLAS_VERSION must also be set
-            if LooseVersion(self.version) > LooseVersion('1.14'):
+            if LooseVersion(self.version) >= LooseVersion('1.14'):
 
                 # figure out correct major/minor version for CUBLAS from cublas_api.h
                 cublas_api_header_glob_pattern = os.path.join(cuda_root, 'targets', '*', 'include', 'cublas_api.h')
