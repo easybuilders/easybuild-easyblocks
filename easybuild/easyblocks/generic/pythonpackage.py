@@ -215,6 +215,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
+        self.require_python = True
         self.python_cmd = None
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
@@ -341,11 +342,14 @@ class PythonPackage(ExtensionEasyBlock):
         if python:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        else:
+        elif self.require_python:
             raise EasyBuildError("Failed to pick Python command to use")
+        else:
+            self.log.warning("No Python command found!")
 
-        # set Python lib directories
-        self.set_pylibdirs()
+        if self.python_cmd:
+            # set Python lib directories
+            self.set_pylibdirs()
 
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
@@ -674,7 +678,7 @@ class PythonPackage(ExtensionEasyBlock):
         # if this Python package was installed for multiple Python versions
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
-        else:
+        elif self.python_cmd:
             self.set_pylibdirs()
             for path in self.all_pylibdirs:
                 fullpath = os.path.join(self.installdir, path)
