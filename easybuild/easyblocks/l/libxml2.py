@@ -57,6 +57,7 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         """
         PythonPackage.__init__(self, *args, **kwargs)
         self.with_python_bindings = False
+        self.require_python = False
 
     def configure_step(self):
         """
