@@ -50,7 +50,7 @@ class EB_MotionCor2(EasyBlock):
         for dep in self.cfg.dependencies():
             if dep['name'] == 'CUDA':
                 self.cuda_mod_name = dep['short_mod_name']
-                self.cuda_name = self.cuda_mod_name.rsplit('/', 1)[0]
+                self.cuda_name = os.path.dirname(self.cuda_mod_name)
                 cuda_ver = dep['version']
                 break
 
