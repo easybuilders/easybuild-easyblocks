@@ -83,7 +83,10 @@ class EB_MotionCor2(EasyBlock):
         copy_file(src_mc2_bin, dst_mc2_bin)
 
         exe_perms = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-        adjust_permissions(dst_mc2_bin, exe_perms, add=True)
+        read_perms = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        perms = read_perms | exe_perms
+
+        adjust_permissions(dst_mc2_bin, perms, add=True)
 
         # Install a wrapper that loads CUDA before starting the binary
         wrapper = os.path.join(bindir, 'motioncor2')
