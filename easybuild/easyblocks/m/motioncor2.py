@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2019-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,6 @@ import stat
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
-from easybuild.tools.modules import get_software_version
 
 
 class EB_MotionCor2(EasyBlock):
@@ -47,9 +46,18 @@ class EB_MotionCor2(EasyBlock):
     def __init__(self, *args, **kwargs):
         super(EB_MotionCor2, self).__init__(*args, **kwargs)
 
-    def extract_step(self):
-        """Extract the files"""
-        super(EB_MotionCor2, self).extract_step()
+        self.cuda_mod_name, self.cuda_name = None, None
+        for dep in self.cfg.dependencies():
+            if dep['name'] == 'CUDA':
+                self.cuda_mod_name = dep['short_mod_name']
+                self.cuda_name = self.cuda_mod_name.rsplit('/', 1)[0]
+                cuda_ver = dep['version']
+                break
+
+        if self.cuda_mod_name is None:
+            raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
+        cuda_short_ver = "".join(cuda_ver.split('.')[:2])
+        self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, cuda_short_ver)
 
     def configure_step(self):
         """No configuration, this is binary software"""
@@ -64,18 +72,6 @@ class EB_MotionCor2(EasyBlock):
         Install binary and a wrapper that loads correct CUDA version.
         """
 
-        cuda_mod_name = ""
-        for dep in self.toolchain.dependencies:
-            if dep['name'] == 'CUDA':
-                cuda_mod_name = dep['short_mod_name']
-                cuda_name = cuda_mod_name.split('/')[0]
-                break
-
-        if cuda_mod_name == "":
-            raise EasyBuildError("CUDA must be a direct dependency of MotionCor2")
-        cuda_ver = get_software_version('CUDA')
-        self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, "".join(cuda_ver.split('.')[:2]))
-
         src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
         if not os.path.exists(src_mc2_bin):
             raise EasyBuildError("Specified CUDA version has no corresponding MotionCor2 binary")
@@ -85,7 +81,9 @@ class EB_MotionCor2(EasyBlock):
 
         dst_mc2_bin = os.path.join(bindir, self.motioncor2_bin)
         copy_file(src_mc2_bin, dst_mc2_bin)
-        adjust_permissions(dst_mc2_bin, stat.S_IRWXU, add=True)
+
+        exe_perms = stat.S_IXUSR|stat.S_IXGRP|stat.S_IXOTH
+        adjust_permissions(dst_mc2_bin, exe_perms, add=True)
 
         # Install a wrapper that loads CUDA before starting the binary
         wrapper = os.path.join(bindir, 'motioncor2')
@@ -94,12 +92,12 @@ class EB_MotionCor2(EasyBlock):
             '',
             '# Wrapper for MotionCor2 binary that loads the required',
             '# version of CUDA',
-            'module unload %s' % cuda_name,
-            'module add %s' % cuda_mod_name,
+            'module unload %s' % self.cuda_name,
+            'module add %s' % self.cuda_mod_name,
             'exec %s "$@"' % dst_mc2_bin
         ])
         write_file(wrapper, txt)
-        adjust_permissions(wrapper, stat.S_IRWXU, add=True)
+        adjust_permissions(wrapper, exe_perms, add=True)
 
     def sanity_check_step(self):
         """
@@ -107,8 +105,8 @@ class EB_MotionCor2(EasyBlock):
         """
 
         custom_paths = {
-                        'files': [os.path.join('bin', x) for x in ['motioncor2', self.motioncor2_bin]],
-                        'dirs': []
-                       }
+            'files': [os.path.join('bin', x) for x in ['motioncor2', self.motioncor2_bin]],
+            'dirs': []
+        }
 
         super(EB_MotionCor2, self).sanity_check_step(custom_paths)
