@@ -678,7 +678,7 @@ class PythonPackage(ExtensionEasyBlock):
         # if this Python package was installed for multiple Python versions
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
-        elif self.python_cmd:
+        elif self.require_python:
             self.set_pylibdirs()
             for path in self.all_pylibdirs:
                 fullpath = os.path.join(self.installdir, path)
