@@ -218,12 +218,11 @@ class ConfigureMake(EasyBlock):
         # if so, we're at the mercy of the gods
         build_type_option = ''
         host_type_option = ''
+
         # note: reading contents of 'configure' script in bytes mode,
         # to avoid problems when non-UTF-8 characters are included
         # see https://github.com/easybuilders/easybuild-easyblocks/pull/1817
-        configure_txt = read_file(configure_command, mode='rb')
-
-        if os.path.exists(configure_command) and AUTOCONF_GENERATED_MSG in configure_txt:
+        if os.path.exists(configure_command) and AUTOCONF_GENERATED_MSG in read_file(configure_command, mode='rb'):
 
             build_type = self.cfg.get('build_type')
             host_type = self.cfg.get('host_type')
