@@ -56,6 +56,8 @@ from easybuild.tools.utilities import nub
 EASY_INSTALL_TARGET = "easy_install"
 EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
+if fancylogger.getLogger().level == fancylogger.logging.DEBUG:
+    PIP_INSTALL_CMD += ' --verbose'
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
