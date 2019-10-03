@@ -421,6 +421,10 @@ class EB_TensorFlow(PythonPackage):
 
         cmd.append(self.cfg['buildopts'])
 
+        # building TensorFlow v2.0 requires passing --config=v2 to "bazel build" command...
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
+            cmd.append('--config=v2')
+
         if cuda_root:
             cmd.append('--config=cuda')
 
@@ -510,7 +514,11 @@ class EB_TensorFlow(PythonPackage):
             pythonpath = os.getenv('PYTHONPATH', '')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
-            mnist_pys = ['mnist_with_summaries.py']
+            mnist_pys = []
+
+            if LooseVersion(self.version) < LooseVersion('2.0'):
+                mnist_pys.append('mnist_with_summaries.py')
+
             if LooseVersion(self.version) < LooseVersion('1.13'):
                 # mnist_softmax.py was removed in TensorFlow 1.13.x
                 mnist_pys.append('mnist_softmax.py')
