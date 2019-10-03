@@ -42,7 +42,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -85,6 +85,7 @@ class EB_TensorFlow(PythonPackage):
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -100,6 +101,17 @@ class EB_TensorFlow(PythonPackage):
             'use_pip': True,
         }
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+
+        self.test_script = None
+
+        # locate test script (if specified)
+        if self.cfg['test_script']:
+            # try to locate test script via obtain_file (just like sources & patches files)
+            self.test_script = self.obtain_file(self.cfg['test_script'])
+            if self.test_script and os.path.exists(self.test_script):
+                self.log.info("Test script found: %s", self.test_script)
+            else:
+                raise EasyBuildError("Specified test script %s not found!", self.cfg['test_script'])
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
@@ -529,5 +541,14 @@ class EB_TensorFlow(PythonPackage):
                 mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
                 cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+            # run test script (if any)
+            if self.test_script:
+                # copy test script to build dir before running it, to avoid that a file named 'tensorflow.py'
+                # (a customized TensorFlow easyblock for example) breaks 'import tensorflow'
+                test_script = os.path.join(self.builddir, os.path.basename(self.test_script))
+                copy_file(self.test_script, test_script)
+
+                run_cmd("python %s" % test_script, log_all=True, simple=True, log_ok=True)
 
         return res
