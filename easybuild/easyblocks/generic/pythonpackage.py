@@ -44,6 +44,7 @@ from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PAC
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
@@ -56,8 +57,6 @@ from easybuild.tools.utilities import nub
 EASY_INSTALL_TARGET = "easy_install"
 EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
-if fancylogger.getLogger().level == fancylogger.logging.DEBUG:
-    PIP_INSTALL_CMD += ' --verbose'
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
@@ -223,6 +222,10 @@ class PythonPackage(ExtensionEasyBlock):
         self.all_pylibdirs = [UNKNOWN]
 
         self.install_cmd_output = ''
+
+        if build_option('debug'):
+            global PIP_INSTALL_CMD
+            PIP_INSTALL_CMD += ' --verbose'
 
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
         home = os.path.expanduser('~')
