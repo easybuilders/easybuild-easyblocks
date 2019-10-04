@@ -43,6 +43,26 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_QScintilla(ConfigureMake):
     """Support for building/installing QScintilla."""
 
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment for building & installing QScintilla."""
+
+        super(EB_QScintilla, self).prepare_step(*args, **kwargs)
+
+        pyqt5 = get_software_root('PyQt5')
+        pyqt = get_software_root('PyQt')
+        if pyqt5:
+            self.pyqt_root = pyqt5
+            self.pyqt_pkg_name = "PyQt5"
+        elif pyqt:
+            self.pyqt_root = pyqt
+            self.pyqt_pkg_name = "PyQt4"
+        else:
+            raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
+
+        # PyQt5 is supported by QScintilla from version 2.11, otherwise there are some additional hacks/patches needed
+        if LooseVersion(self.version) < LooseVersion('2.11') and pyqt5:
+            raise EasyBuildError("PyQt5 is supported by QScintilla in version 2.11 and greater.")
+
     def configure_step(self):
         """Custom configuration procedure for QScintilla."""
 
@@ -86,35 +106,26 @@ class EB_QScintilla(ConfigureMake):
             except OSError as err:
                 raise EasyBuildError("Failed to change to %s: %s", pydir, err)
 
-            pyqt5 = get_software_root('PyQt5')
-            pyqt = get_software_root('PyQt')
-            if pyqt5:
-                self.pyqt_root = pyqt5
-                self.pyqt_version = "PyQt5"
-            elif pyqt:
-                self.pyqt_root = pyqt
-                self.pyqt_version = "PyQt4"
-            else:
-                raise EasyBuildError("Failed to determine PyQt installation prefix, PyQt/PyQt5 not included as dependency?")
-
             # apparently this directory has to be there
-            qsci_sipdir = os.path.join(self.installdir, 'share', 'sip', self.pyqt_version)
+            qsci_sipdir = os.path.join(self.installdir, 'share', 'sip', self.pyqt_pkg_name)
             mkdir(qsci_sipdir, parents=True)
 
-            pylibdir = os.path.join(det_pylibdir(), self.pyqt_version)
+            pylibdir = os.path.join(det_pylibdir(), self.pyqt_pkg_name)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
                 '--qsci-sipdir %s' % qsci_sipdir,
                 '--qsci-incdir %s' % os.path.join(self.installdir, 'include'),
                 '--qsci-libdir %s' % os.path.join(self.installdir, 'lib'),
-                '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_version),
+                '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name),
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
                 '--no-dist-info',
             ]
-            if pyqt5:
-                 cfgopts.append("--pyqt=PyQt5")
+
+            # This flag was added in version 2.11
+            if LooseVersion(self.version) >= LooseVersion('2.11'):
+                cfgopts.append("--pyqt=%s" % self.pyqt_pkg_name)
 
             run_cmd("python configure.py %s" % ' '.join(cfgopts))
 
@@ -137,7 +148,7 @@ class EB_QScintilla(ConfigureMake):
         """Custom sanity check for QScintilla."""
 
         if LooseVersion(self.version) >= LooseVersion('2.10'):
-            if self.pyqt_version == 'PyQt5':
+            if self.pyqt_pkg_name == 'PyQt5':
                 qsci_lib = 'libqscintilla2_qt5'
             else:
                 qsci_lib = 'libqscintilla2_qt4'
@@ -151,12 +162,14 @@ class EB_QScintilla(ConfigureMake):
         # also install Python bindings if Python is included as a dependency
         python = get_software_root('Python')
 
-        run_cmd("python -c 'import sys; print(sys.path)'")
         custom_commands = []
         if python:
-            custom_paths['dirs'] += [os.path.join(det_pylibdir(), self.pyqt_version), os.path.join('qsci', 'api', 'python'),
-                                     os.path.join('share', 'sip', self.pyqt_version)]
-            custom_commands = ["python -c 'import "+self.pyqt_version+".Qsci'"]
+            custom_paths['dirs'].extend([
+                os.path.join(det_pylibdir(), self.pyqt_pkg_name),
+                os.path.join('qsci', 'api', 'python'),
+                os.path.join('share', 'sip', self.pyqt_pkg_name),
+            ])
+            custom_commands.append("python -c 'import %s.Qsci'" % self.pyqt_pkg_name)
 
         super(EB_QScintilla, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
