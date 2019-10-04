@@ -120,8 +120,10 @@ class EB_QScintilla(ConfigureMake):
                 '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name),
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
-                '--no-dist-info',
             ]
+
+            if LooseVersion(self.version) >= LooseVersion('2.10.7'):
+                cfgopts.append('--no-dist-info')
 
             # This flag was added in version 2.11
             if LooseVersion(self.version) >= LooseVersion('2.11'):
