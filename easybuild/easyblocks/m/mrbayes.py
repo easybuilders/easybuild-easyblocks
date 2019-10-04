@@ -57,16 +57,17 @@ class EB_MrBayes(ConfigureMake):
 
             # set correct start_dir dir, and change into it
             # test whether it already contains 'src', since a reprod easyconfig would
-            if os.path.basename(self.cfg['start_dir']) != 'src':
-                self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
-            try:
-                os.chdir(self.cfg['start_dir'])
-            except OSError as err:
-                raise EasyBuildError("Failed to change to correct source dir %s: %s", self.cfg['start_dir'], err)
+            if LooseVersion(self.version) < LooseVersion("3.2.7"):
+                if os.path.basename(self.cfg['start_dir']) != 'src':
+                    self.cfg['start_dir'] = os.path.join(self.cfg['start_dir'], 'src')
+                try:
+                    os.chdir(self.cfg['start_dir'])
+                except OSError as err:
+                    raise EasyBuildError("Failed to change to correct source dir %s: %s", self.cfg['start_dir'], err)
 
-            # run autoconf to generate configure script
-            cmd = "autoconf"
-            run_cmd(cmd)
+                # run autoconf to generate configure script
+                cmd = "autoconf"
+                run_cmd(cmd)
 
             # set config opts
             beagle = get_software_root('beagle-lib')
@@ -93,7 +94,10 @@ class EB_MrBayes(ConfigureMake):
         bindir = os.path.join(self.installdir, 'bin')
         mkdir(bindir)
 
-        src = os.path.join(self.cfg['start_dir'], 'mb')
+        if LooseVersion(self.version) < LooseVersion("3.2.7"):
+            src = os.path.join(self.cfg['start_dir'], 'mb')
+        else:
+            src = os.path.join(self.cfg['start_dir'], 'src', 'mb')
         dst = os.path.join(bindir, 'mb')
         copy_file(src, dst)
         self.log.info("Successfully copied %s to %s", src, dst)
