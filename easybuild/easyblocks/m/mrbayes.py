@@ -32,6 +32,7 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 @author: Jens Timmerman (Ghent University)
 @author: Andy Georges (Ghent University)
 @author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
+@author: Ali Kerrache (Compute Canada, WestGrid, University of Manitoba)
 """
 
 import os
