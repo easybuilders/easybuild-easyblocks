@@ -449,7 +449,7 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False:
+                        if self.cfg['generic'] or (build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False):
                             cmd += "--enable-fat "
 
                     elif lib == "ppl":
@@ -476,7 +476,7 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False:
+                        if self.cfg['generic'] or (build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] is not False):
                             cmd += "--without-gcc-arch "
 
                     elif lib == "cloog":
