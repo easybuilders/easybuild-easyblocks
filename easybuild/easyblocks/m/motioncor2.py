@@ -44,7 +44,6 @@ class EB_MotionCor2(EasyBlock):
      - running the actual binary
     """
 
-
     def prepare_step(self, *args, **kwargs):
         super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
 
