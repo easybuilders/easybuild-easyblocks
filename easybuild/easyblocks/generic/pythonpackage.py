@@ -223,10 +223,6 @@ class PythonPackage(ExtensionEasyBlock):
 
         self.install_cmd_output = ''
 
-        if build_option('debug'):
-            global PIP_INSTALL_CMD
-            PIP_INSTALL_CMD += ' --verbose'
-
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
         home = os.path.expanduser('~')
         if os.path.exists(os.path.join(home, 'site.cfg')):
@@ -263,6 +259,9 @@ class PythonPackage(ExtensionEasyBlock):
 
         elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
+
+            if build_option('debug'):
+                self.cfg.update('installopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
             # the default is use_pip_for_deps=False
