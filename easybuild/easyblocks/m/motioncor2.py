@@ -44,7 +44,7 @@ class EB_MotionCor2(EasyBlock):
     """
 
     def prepare_step(self):
-        super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
+        super(EB_MotionCor2, self).prepare_step()
 
         self.cuda_mod_name, self.cuda_name = None, None
         for dep in self.cfg.dependencies():
