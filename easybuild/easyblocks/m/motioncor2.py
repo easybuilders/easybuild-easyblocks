@@ -47,12 +47,15 @@ class EB_MotionCor2(EasyBlock):
     def __init__(self, *args, **kwargs):
         super(EB_MotionCor2, self).__init__(*args, **kwargs)
 
-        self.cuda_mod_name, self.cuda_name, self.cuda_ver = None, None, None
+        self.cuda_mod_name, self.cuda_name = None, None
+        self.motioncor2_bin = None
         for dep in self.cfg.dependencies():
             if dep['name'] == 'CUDA':
                 self.cuda_mod_name = dep['short_mod_name']
                 self.cuda_name = os.path.dirname(self.cuda_mod_name)
-                self.cuda_ver = dep['version']
+                cuda_ver = dep['version']
+                cuda_short_ver = "".join(cuda_ver.split('.')[:2])
+                self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, cuda_short_ver)
                 break
 
     def prepare_step(self, *args, **kwargs):
@@ -63,9 +66,6 @@ class EB_MotionCor2(EasyBlock):
         # make the test using get_software_root here.
         if not get_software_root('CUDA'):
             raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
-
-        cuda_short_ver = "".join(self.cuda_ver.split('.')[:2])
-        self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, cuda_short_ver)
 
     def configure_step(self):
         """No configuration, this is binary software"""
