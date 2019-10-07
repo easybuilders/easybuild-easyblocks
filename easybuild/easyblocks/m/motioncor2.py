@@ -34,6 +34,7 @@ import stat
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
+from easybuild.tools.modules import get_software_root
 
 
 class EB_MotionCor2(EasyBlock):
