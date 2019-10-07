@@ -59,7 +59,7 @@ class EB_MotionCor2(EasyBlock):
         super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
 
         # This is technically already done in __init__
-        # but to make sure template_module_only_test doesn't fail we need to 
+        # but to make sure template_module_only_test doesn't fail we need to
         # make the test using get_software_root here.
         if not get_software_root('CUDA'):
             raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
