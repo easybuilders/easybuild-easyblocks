@@ -44,8 +44,12 @@ class EB_MotionCor2(EasyBlock):
      - running the actual binary
     """
 
-    def __init__(self, *args, **kwargs):
-        super(EB_MotionCor2, self).__init__(*args, **kwargs)
+
+    def prepare_step(self, *args, **kwargs):
+        super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
+
+        if not get_software_root('CUDA'):
+            raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
 
         self.cuda_mod_name, self.cuda_name = None, None
         self.motioncor2_bin = None
@@ -57,15 +61,6 @@ class EB_MotionCor2(EasyBlock):
                 cuda_short_ver = "".join(cuda_ver.split('.')[:2])
                 self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, cuda_short_ver)
                 break
-
-    def prepare_step(self, *args, **kwargs):
-        super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
-
-        # This is technically already done in __init__
-        # but to make sure template_module_only_test doesn't fail we need to
-        # make the test using get_software_root here.
-        if not get_software_root('CUDA'):
-            raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
 
     def configure_step(self):
         """No configuration, this is binary software"""
