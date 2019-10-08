@@ -270,8 +270,9 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
             # QScintilla easyblock requires that either PyQt or PyQt5 are available as dependency
             # (PyQt is easier, since PyQt5 is only supported for sufficiently recent QScintilla versions)
             'qscintilla.py': [('PyQt', '4.12')],
-            # MotionCor2 easyblock requires CUDA as dependency
+            # MotionCor2 and Gctf easyblock requires CUDA as dependency
             'motioncor2.py': [('CUDA', '10.1.105')],
+            'gctf.py': [('CUDA', '10.1.105')],
         }
         easyblock_fn = os.path.basename(easyblock)
         for (dep_name, dep_version) in req_deps.get(easyblock_fn, []):
