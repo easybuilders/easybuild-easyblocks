@@ -44,14 +44,22 @@ class EB_MotionCor2(EasyBlock):
      - running the actual binary
     """
 
+    def __init__(self, *args, **kwargs):
+        """Constructor of MotionCor2 easyblock."""
+        super(EB_MotionCor2, self).__init__(*args, **kwargs)
+
+        self.cuda_mod_name, self.cuda_name = None, None
+        self.motioncor2_bin = None
+
     def prepare_step(self, *args, **kwargs):
+        """
+        Determine name of MotionCor2 binary to install based on CUDA version.
+        """
         super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
 
         if not get_software_root('CUDA'):
             raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
 
-        self.cuda_mod_name, self.cuda_name = None, None
-        self.motioncor2_bin = None
         for dep in self.cfg.dependencies():
             if dep['name'] == 'CUDA':
                 self.cuda_mod_name = dep['short_mod_name']
