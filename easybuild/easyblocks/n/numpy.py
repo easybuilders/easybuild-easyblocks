@@ -35,10 +35,10 @@ import glob
 import os
 import re
 import tempfile
-from vsc.utils import fancylogger
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
