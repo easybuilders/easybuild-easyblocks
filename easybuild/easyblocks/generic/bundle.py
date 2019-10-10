@@ -40,6 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.py2vs3 import string_type
 
 
 class Bundle(EasyBlock):
@@ -124,7 +125,7 @@ class Bundle(EasyBlock):
                 # If per-component source URLs are provided, attach them directly to the relevant sources
                 if comp_cfg['source_urls']:
                     for source in comp_cfg['sources']:
-                        if isinstance(source, basestring):
+                        if isinstance(source, string_type):
                             self.cfg.update('sources', [{'filename': source, 'source_urls': comp_cfg['source_urls']}])
                         elif isinstance(source, dict):
                             # Update source_urls in the 'source' dict to use the one for the components
@@ -162,7 +163,7 @@ class Bundle(EasyBlock):
 
         :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
         """
-        checksum_issues = []
+        checksum_issues = super(Bundle, self).check_checksums()
 
         for comp in self.comp_cfgs:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
@@ -205,8 +206,33 @@ class Bundle(EasyBlock):
 
             # need to run fetch_patches to ensure per-component patches are applied
             comp.fetch_patches()
-            # location of first unpacked source is used to determine where to apply patch(es)
-            comp.src = [{'finalpath': comp.cfg['start_dir']}]
+
+            comp.src = []
+
+            # find match entries in self.src for this component
+            for source in comp.cfg['sources']:
+                if isinstance(source, string_type):
+                    comp_src_fn = source
+                elif isinstance(source, dict):
+                    if 'filename' in source:
+                        comp_src_fn = source['filename']
+                    else:
+                        raise EasyBuildError("Encountered source file specified as dict without 'filename': %s", source)
+                else:
+                    raise EasyBuildError("Specification of unknown type for source file: %s", source)
+
+                found = False
+                for src in self.src:
+                    if src['name'] == comp_src_fn:
+                        self.log.info("Found spec for source %s for component %s: %s", comp_src_fn, comp.name, src)
+                        comp.src.append(src)
+                        found = True
+                        break
+                if not found:
+                    raise EasyBuildError("Failed to find spec for source %s for component %s", comp_src_fn, comp.name)
+
+                # location of first unpacked source is used to determine where to apply patch(es)
+                comp.src[-1]['finalpath'] = comp.cfg['start_dir']
 
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:

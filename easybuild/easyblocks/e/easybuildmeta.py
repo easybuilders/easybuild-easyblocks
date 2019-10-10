@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root_env_var_name
-from easybuild.tools.ordereddict import OrderedDict
+from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
 
 
@@ -51,7 +51,7 @@ class EB_EasyBuildMeta(PythonPackage):
         self.real_initial_environ = None
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
+        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
             # deliberately include vsc-install & vsc-base twice;
             # first time to ensure the specified vsc-install/vsc-base package is available when framework gets installed
             self.easybuild_pkgs.insert(0, 'vsc-base')
@@ -124,7 +124,12 @@ class EB_EasyBuildMeta(PythonPackage):
         easy_install_pth = os.path.join(self.installdir, self.pylibdir, 'easy-install.pth')
         if os.path.exists(easy_install_pth):
             easy_install_pth_txt = read_file(easy_install_pth)
-            for pkg in [p for p in self.easybuild_pkgs if p not in ['setuptools', 'vsc-install']]:
+
+            ignore_pkgs = ['setuptools', 'vsc-install']
+            if LooseVersion(self.version) > LooseVersion('3.999'):
+                ignore_pkgs.append('vsc-base')
+
+            for pkg in [p for p in self.easybuild_pkgs if p not in ignore_pkgs]:
                 if pkg == 'vsc-base':
                     # don't include strict version check for vsc-base
                     pkg_regex = re.compile(r"^\./%s" % pkg.replace('-', '_'), re.M)
@@ -143,7 +148,7 @@ class EB_EasyBuildMeta(PythonPackage):
             'easybuild-easyblocks': [('easybuild/easyblocks', True)],
             'easybuild-easyconfigs': [('easybuild/easyconfigs', False)],
         }
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
+        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('3.999'):
             subdirs_by_pkg.update({
                 'vsc-base': [('vsc/utils', True)],
             })
@@ -159,8 +164,7 @@ class EB_EasyBuildMeta(PythonPackage):
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
             try:
-                exec "from %s import setup" % tool
-                del setup
+                exec("from %s import setup" % tool)
                 setup_tool = tool
                 break
             except ImportError:

@@ -80,7 +80,7 @@ class EB_HPCG(ConfigureMake):
             # find log file, check for success
             success_regex = re.compile(r"Scaled Residual \[[0-9.e-]+\]")
             try:
-                hpcg_logs = glob.glob('hpcg_log*txt')
+                hpcg_logs = glob.glob('hpcg*txt')
                 if len(hpcg_logs) == 1:
                     txt = open(hpcg_logs[0], 'r').read()
                     self.log.debug("Contents of HPCG log file %s: %s" % (hpcg_logs[0], txt))

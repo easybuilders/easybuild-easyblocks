@@ -42,7 +42,7 @@ from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from vsc.utils.missing import nub
+from easybuild.tools.utilities import nub
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
@@ -134,12 +134,19 @@ class CMakeMake(ConfigureMake):
 
         options_string = ' '.join(options)
 
-        command = ' '.join([
-            self.cfg['preconfigopts'],
-            self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD,
-            options_string,
-            self.cfg['configopts'],
-            srcdir])
+        if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    DEFAULT_CONFIGURE_CMD,
+                    options_string,
+                    self.cfg['configopts'],
+                    srcdir])
+        else:
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    self.cfg.get('configure_cmd'),
+                    self.cfg['configopts']])
+
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
