@@ -80,6 +80,8 @@ def parse_numpy_test_suite_output(full_testsuite_output):
     else:
         log.warning("Failed to extract summary from test suite output using pattern '%s': %s",
                     summary_regex.pattern, full_testsuite_output)
+        # If we can't extract a dict, make sure to return None
+        res = None
 
     return res
 

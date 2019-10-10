@@ -46,7 +46,7 @@ class EB_scipy(FortranPythonPackage):
 
     @staticmethod
     def extra_options():
-        """Easyconfig parameters specific to numpy."""
+        """Easyconfig parameters specific to scipy."""
         extra_vars = ({
             'ignore_test_failures': [True, "Ignore test failures/errors in test suite.", CUSTOM],
         })
