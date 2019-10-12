@@ -37,7 +37,7 @@ from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import mkdir, symlink, remove_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -181,17 +181,17 @@ class EB_ParMETIS(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for ParMETIS."""
 
-        if '-DSHARED=1' in self.cfg['configopts']:
+        # Paths to libraries depend on SHARED configuration option
+        config_trues = ['1', 'ON', 'YES', 'TRUE', 'Y']  # strings that evaluate as True in CMake
+        if set(['-DSHARED=%s' % opt for opt in config_trues]) & set(self.cfg['configopts']):
             shlib_ext = get_shared_lib_ext()
-            custom_paths = {
-                        'files': ['include/%smetis.h' % x for x in ["", "par"]] +
-                                 ['lib/libparmetis.%s' % shlib_ext],
-                        'dirs': ['Lib']
-                       }
+            parmetis_libs = ['lib/libparmetis.%s' % shlib_ext] + ['lib/libmetis.a']
         else:
-            custom_paths = {
+            parmetis_libs = ['lib/lib%smetis.a' % x for x in ["", "par"]]
+
+        custom_paths = {
                         'files': ['include/%smetis.h' % x for x in ["", "par"]] +
-                                 ['lib/lib%smetis.a' % x for x in ["", "par"]],
+                                 parmetis_libs,
                         'dirs': ['Lib']
                        }
 
