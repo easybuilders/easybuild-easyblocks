@@ -182,9 +182,9 @@ class EB_ParMETIS(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for ParMETIS."""
 
-        # Paths to libraries depend on SHARED configuration option
-        config_trues = ['1', 'ON', 'YES', 'TRUE', 'Y']  # strings that evaluate as True in CMake
-        if set(['-DSHARED=%s' % opt for opt in config_trues]) & set(self.cfg['configopts']):
+        # Paths to libraries defined depending on SHARED configuration option
+        config_shared = ['-DSHARED=%s' % val for val in ['1', 'ON', 'YES', 'TRUE', 'Y']]  # True values in CMake
+        if set(config_shared) & set([opt for configopt in self.cfg['configopts'] for opt in configopt.split()]):
             shlib_ext = get_shared_lib_ext()
             parmetis_libs = ['lib/libparmetis.%s' % shlib_ext] + ['lib/libmetis.a']
         else:
