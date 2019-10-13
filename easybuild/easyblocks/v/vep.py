@@ -101,10 +101,8 @@ class EB_VEP(EasyBlock):
         }
 
         if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
-            perl_majver = get_major_perl_version()
-            perl_ver = get_software_version('Perl')
             custom_paths['files'] += ['lib/perl%s/site_perl/%s/x86_64-linux-thread-multi/Bio/EnsEMBL/XS.pm'\
-                                     % (perl_majver, perl_ver)]
+                                     % (get_major_perl_version(), get_software_version('Perl'))]
 
         custom_commands = ['vep --help']
 
@@ -114,9 +112,13 @@ class EB_VEP(EasyBlock):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
+        perl_libpath = [self.api_mods_subdir]
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_libpath += ['lib/perl%s/site_perl/%s' % (perl_majver, get_software_version('Perl'))]
+
         guesses = super(EB_VEP, self).make_module_req_guess()
         guesses = {
             'PATH': '',
-            'PERL%sLIB' % perl_majver: self.api_mods_subdir,
+            'PERL%sLIB' % perl_majver: perl_libpath,
         }
         return guesses
