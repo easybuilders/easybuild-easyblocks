@@ -31,6 +31,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -93,10 +94,18 @@ class EB_VEP(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""
+
         custom_paths = {
             'files': ['vep'],
             'dirs': ['modules/Bio/EnsEMBL/VEP'],
         }
+
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_majver = get_major_perl_version()
+            perl_ver = get_software_version('Perl')
+            custom_paths['files'] += ['lib/perl%s/site_perl/%s/x86_64-linux-thread-multi/Bio/EnsEMBL/XS.pm'\
+                                     % (perl_majver, perl_ver)]
+
         custom_commands = ['vep --help']
 
         super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
