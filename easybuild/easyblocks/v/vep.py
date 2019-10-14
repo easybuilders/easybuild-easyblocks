@@ -101,8 +101,11 @@ class EB_VEP(EasyBlock):
         }
 
         if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
-            custom_paths['files'] += ['lib/perl%s/site_perl/%s/x86_64-linux-thread-multi/Bio/EnsEMBL/XS.pm'\
-                                     % (get_major_perl_version(), get_software_version('Perl'))]
+            perl_majver = get_major_perl_version()
+            perl_ver = get_software_version('Perl')
+            perl_libpath = os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)
+            bio_ensembl_xs_ext = os.path.join(perl_libpath, 'x86_64-linux-thread-multi', 'Bio', 'EnsEMBL', 'XS.pm')
+            custom_paths['files'].extend([bio_ensembl_xs_ext])
 
         custom_commands = ['vep --help']
 
@@ -114,7 +117,8 @@ class EB_VEP(EasyBlock):
 
         perl_libpath = [self.api_mods_subdir]
         if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
-            perl_libpath += ['lib/perl%s/site_perl/%s' % (perl_majver, get_software_version('Perl'))]
+            perl_ver = get_software_version('Perl')
+            perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
 
         guesses = super(EB_VEP, self).make_module_req_guess()
         guesses = {
