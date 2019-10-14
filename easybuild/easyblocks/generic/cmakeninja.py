@@ -20,4 +20,3 @@ class CMakeNinja(CMakeMake, MesonNinja):
     def install_step(self, *args, **kwargs):
         MesonNinja.install_step(self, *args, **kwargs)
 
-#TODO: sanity_check_step
