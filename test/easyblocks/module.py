@@ -54,6 +54,7 @@ from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS, Singleton
 from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.filetools import remove_file, write_file
+from easybuild.tools.modules import get_software_root_env_var_name, get_software_version_env_var_name
 from easybuild.tools.options import set_tmpdir
 
 
@@ -261,6 +262,24 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)
+
+        # take into account that for some easyblock, particular dependencies are hard required early on
+        # (in prepare_step for exampel);
+        # we just set the corresponding $EBROOT* environment variables here to fool it...
+        req_deps = {
+            # QScintilla easyblock requires that either PyQt or PyQt5 are available as dependency
+            # (PyQt is easier, since PyQt5 is only supported for sufficiently recent QScintilla versions)
+            'qscintilla.py': [('PyQt', '4.12')],
+            # MotionCor2 and Gctf easyblock requires CUDA as dependency
+            'motioncor2.py': [('CUDA', '10.1.105')],
+            'gctf.py': [('CUDA', '10.1.105')],
+        }
+        easyblock_fn = os.path.basename(easyblock)
+        for (dep_name, dep_version) in req_deps.get(easyblock_fn, []):
+            dep_root_envvar = get_software_root_env_var_name(dep_name)
+            os.environ[dep_root_envvar] = '/value/should/not/matter'
+            dep_version_envvar = get_software_version_env_var_name(dep_name)
+            os.environ[dep_version_envvar] = dep_version
 
         # initialize easyblock
         # if this doesn't fail, the test succeeds

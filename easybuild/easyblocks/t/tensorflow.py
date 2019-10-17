@@ -31,6 +31,7 @@ EasyBuild support for building and installing TensorFlow, implemented as an easy
 """
 import glob
 import os
+import re
 import stat
 import tempfile
 from distutils.version import LooseVersion
@@ -41,8 +42,8 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, which, write_file
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
+from easybuild.tools.filetools import is_readable, read_file, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
@@ -84,6 +85,7 @@ class EB_TensorFlow(PythonPackage):
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -99,6 +101,17 @@ class EB_TensorFlow(PythonPackage):
             'use_pip': True,
         }
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+
+        self.test_script = None
+
+        # locate test script (if specified)
+        if self.cfg['test_script']:
+            # try to locate test script via obtain_file (just like sources & patches files)
+            self.test_script = self.obtain_file(self.cfg['test_script'])
+            if self.test_script and os.path.exists(self.test_script):
+                self.log.info("Test script found: %s", self.test_script)
+            else:
+                raise EasyBuildError("Specified test script %s not found!", self.cfg['test_script'])
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
@@ -217,16 +230,55 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
         }
         if cuda_root:
+            cuda_version = get_software_version('CUDA')
+            cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
+
+            # $GCC_HOST_COMPILER_PATH should be set to path of the actual compiler (not the MPI compiler wrapper)
+            if use_mpi:
+                compiler_path = which(os.getenv('CC_SEQ'))
+            else:
+                compiler_path = which(os.getenv('CC'))
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
-                'GCC_HOST_COMPILER_PATH': which(os.getenv('CC')),
+                'GCC_HOST_COMPILER_PATH': compiler_path,
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
-                'TF_CUDA_VERSION': get_software_version('CUDA'),
+                'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
+
+            # for recent TensorFlow versions, $TF_CUDA_PATHS and $TF_CUBLAS_VERSION must also be set
+            if LooseVersion(self.version) >= LooseVersion('1.14'):
+
+                # figure out correct major/minor version for CUBLAS from cublas_api.h
+                cublas_api_header_glob_pattern = os.path.join(cuda_root, 'targets', '*', 'include', 'cublas_api.h')
+                matches = glob.glob(cublas_api_header_glob_pattern)
+                if len(matches) == 1:
+                    cublas_api_header_path = matches[0]
+                    cublas_api_header_txt = read_file(cublas_api_header_path)
+                else:
+                    raise EasyBuildError("Failed to isolate path to cublas_api.h: %s", matches)
+
+                cublas_ver_parts = []
+                for key in ['CUBLAS_VER_MAJOR', 'CUBLAS_VER_MINOR', 'CUBLAS_VER_PATCH']:
+                    regex = re.compile("^#define %s ([0-9]+)" % key, re.M)
+                    res = regex.search(cublas_api_header_txt)
+                    if res:
+                        cublas_ver_parts.append(res.group(1))
+                    else:
+                        raise EasyBuildError("Failed to find pattern '%s' in %s", regex.pattern, cublas_api_header_path)
+
+                config_env_vars.update({
+                    'TF_CUDA_PATHS': cuda_root,
+                    'TF_CUBLAS_VERSION': '.'.join(cublas_ver_parts),
+                })
+
             if cudnn_root:
+                cudnn_version = get_software_version('cuDNN')
+                cudnn_maj_min_patch_ver = '.'.join(cudnn_version.split('.')[:3])
+
                 config_env_vars.update({
                     'CUDNN_INSTALL_PATH': cudnn_root,
-                    'TF_CUDNN_VERSION': get_software_version('cuDNN'),
+                    'TF_CUDNN_VERSION': cudnn_maj_min_patch_ver,
                 })
             else:
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
@@ -381,6 +433,10 @@ class EB_TensorFlow(PythonPackage):
 
         cmd.append(self.cfg['buildopts'])
 
+        # building TensorFlow v2.0 requires passing --config=v2 to "bazel build" command...
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
+            cmd.append('--config=v2')
+
         if cuda_root:
             cmd.append('--config=cuda')
 
@@ -470,7 +526,11 @@ class EB_TensorFlow(PythonPackage):
             pythonpath = os.getenv('PYTHONPATH', '')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
-            mnist_pys = ['mnist_with_summaries.py']
+            mnist_pys = []
+
+            if LooseVersion(self.version) < LooseVersion('2.0'):
+                mnist_pys.append('mnist_with_summaries.py')
+
             if LooseVersion(self.version) < LooseVersion('1.13'):
                 # mnist_softmax.py was removed in TensorFlow 1.13.x
                 mnist_pys.append('mnist_softmax.py')
@@ -481,5 +541,14 @@ class EB_TensorFlow(PythonPackage):
                 mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
                 cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+            # run test script (if any)
+            if self.test_script:
+                # copy test script to build dir before running it, to avoid that a file named 'tensorflow.py'
+                # (a customized TensorFlow easyblock for example) breaks 'import tensorflow'
+                test_script = os.path.join(self.builddir, os.path.basename(self.test_script))
+                copy_file(self.test_script, test_script)
+
+                run_cmd("python %s" % test_script, log_all=True, simple=True, log_ok=True)
 
         return res

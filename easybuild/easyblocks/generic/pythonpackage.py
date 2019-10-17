@@ -44,6 +44,7 @@ from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PAC
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
@@ -215,6 +216,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
+        self.require_python = True
         self.python_cmd = None
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
@@ -257,6 +259,9 @@ class PythonPackage(ExtensionEasyBlock):
 
         elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
+
+            if build_option('debug'):
+                self.cfg.update('installopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
             # the default is use_pip_for_deps=False
@@ -341,11 +346,14 @@ class PythonPackage(ExtensionEasyBlock):
         if python:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        else:
+        elif self.require_python:
             raise EasyBuildError("Failed to pick Python command to use")
+        else:
+            self.log.warning("No Python command found!")
 
-        # set Python lib directories
-        self.set_pylibdirs()
+        if self.python_cmd:
+            # set Python lib directories
+            self.set_pylibdirs()
 
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
@@ -674,7 +682,7 @@ class PythonPackage(ExtensionEasyBlock):
         # if this Python package was installed for multiple Python versions
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
-        else:
+        elif self.require_python:
             self.set_pylibdirs()
             for path in self.all_pylibdirs:
                 fullpath = os.path.join(self.installdir, path)
