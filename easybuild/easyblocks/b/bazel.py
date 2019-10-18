@@ -25,6 +25,7 @@
 """
 EasyBuild support for building and installing Bazel, implemented as an easyblock
 """
+from distutils.version import LooseVersion
 import glob
 import os
 
@@ -64,20 +65,23 @@ class EB_Bazel(EasyBlock):
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
 
             # replace hardcoded paths in CROSSTOOL
-            regex_subs = [
-                (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
-                (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
-                (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_fixed),
-                (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
-            ]
-            for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
-                path = which(tool)
-                if path:
-                    regex_subs.append((os.path.join('/usr', 'bin', tool), path))
-                else:
-                    raise EasyBuildError("Failed to determine path to '%s'", tool)
 
-            apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
+            # CROSSTOOL script is no longer there in Bazel 0.24.0
+            if LooseVersion(self.version) < LooseVersion('0.24.0'):
+                regex_subs = [
+                    (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
+                    (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
+                    (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_fixed),
+                    (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
+                ]
+                for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
+                    path = which(tool)
+                    if path:
+                        regex_subs.append((os.path.join('/usr', 'bin', tool), path))
+                    else:
+                        raise EasyBuildError("Failed to determine path to '%s'", tool)
+
+                apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
 
             # replace hardcoded paths in (unix_)cc_configure.bzl
             regex_subs = [

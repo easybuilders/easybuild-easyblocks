@@ -191,6 +191,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "--without-gsl")
 
             # actually run configure via ancestor (not direct parent)
+            self.cfg['configure_cmd'] = "./configure"
             ConfigureMake.configure_step(self)
 
             # Now patch GROMACS for PLUMED between configure and build

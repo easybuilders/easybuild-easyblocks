@@ -181,6 +181,8 @@ class EB_OpenFOAM(EasyBlock):
 
         # inject compiler variables into wmake/rules files
         ldirs = glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'linux*'))
+        if LooseVersion(self.version) >= LooseVersion('v1906'):
+            ldirs += glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'General', '*'))
         langs = ['c', 'c++']
 
         # NOTE: we do not want to change the Debug rules files becuse
@@ -210,6 +212,9 @@ class EB_OpenFOAM(EasyBlock):
             'c++OPT': os.environ['CXXFLAGS'],
         }
         for wmake_rules_file in wmake_rules_files:
+            # the cOpt and c++Opt files don't exist in the General directories
+            if not os.path.isfile(wmake_rules_file):
+                continue
             fullpath = os.path.join(self.builddir, self.openfoamdir, wmake_rules_file)
             self.log.debug("Patching compiler variables in %s", fullpath)
             regex_subs = []
@@ -305,10 +310,10 @@ class EB_OpenFOAM(EasyBlock):
                 r"\s*\^\s*",  # warning indicator
                 "Cleaning .*",
             ]
-            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
+            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True, maxhits=500)
         else:
             cmd = 'Allwmake'
-            if LooseVersion(self.version) >= LooseVersion('1606'):
+            if LooseVersion(self.version.strip('v+')) > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
@@ -361,6 +366,11 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # remove Boussinesq and sonic since for OpenFOAM >= 7, since those solvers are deprecated
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            bins = [x for x in bins if "Boussinesq" not in x and "sonic" not in x]
+
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),

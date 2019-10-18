@@ -168,8 +168,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
-            repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
-            repls.append(('FFLAGS', '-assume byterecl', True))
+            repls.append(('F90FLAGS', '-fpp -assume byterecl -no-ip', True))
+            repls.append(('FFLAGS', '-assume byterecl -no-ip', True))
         elif comp_fam == toolchain.GCC:
             repls.append(('F90FLAGS', '-cpp', True))
 
@@ -397,6 +397,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         #GAS there is the new target hp in 6.4
         if ( 'hp' in targets or 'all' in targets ) and (  LooseVersion(self.version) >= LooseVersion("6.4") ) :
             bins.extend(["hp.x"])
+        #GAS the thermo_pw is an addon to 6.4.1
+        if ( 'thermo_pw' in targets ) and (  LooseVersion(self.version) >= LooseVersion("6.4.1") ) :
+            bins.extend(["thermo_pw.x"])
+        
 
         if 'neb' in targets or 'pwall' in targets or 'all' in targets:
             if LooseVersion(self.version) > LooseVersion("5"):
@@ -495,6 +499,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
             d3q_bins = ['d3_asr3.x', 'd3_import3py.x', 'd3_lw.x', 'd3_q2r.x',
                         'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
                         'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+            #GAS 6.4.1 doesnt seem to build d3_import3py?
+            if LooseVersion(self.version) >= LooseVersion("6.4.1"):
+        	d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
+                    	    'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
+                    	    'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+            	
+
 
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins + upftools + want_bins + yambo_bins + d3q_bins],
