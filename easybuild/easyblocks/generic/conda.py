@@ -57,11 +57,6 @@ class Conda(Binary):
         if self.src:
             super(Conda, self).extract_step()
 
-    def set_conda_env(self):
-        """Set up environment for using 'conda'."""
-        env.setvar('CONDA_ENV', self.installdir)
-        env.setvar('CONDA_DEFAULT_ENV', self.installdir)
-
     def install_step(self):
         """Install software using 'conda env create' or 'conda create' & 'conda install'."""
 
@@ -77,15 +72,12 @@ class Conda(Binary):
             else:
                 env_spec = self.cfg['remote_environment']
 
-            self.set_conda_env()
-
             # use --force to ignore existing installation directory
             cmd = "%s conda env create --force %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
 
-	    self.set_conda_env()
             if self.cfg['requirements']:
 
                 install_args = "-y %s " % self.cfg['requirements']
