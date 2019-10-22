@@ -184,7 +184,8 @@ class EB_ParMETIS(EasyBlock):
 
         # Paths to libraries defined depending on SHARED configuration option
         config_shared = ['-DSHARED=%s' % val for val in ['1', 'ON', 'YES', 'TRUE', 'Y']]  # True values in CMake
-        if set(config_shared) & set([opt for configopt in self.cfg['configopts'] for opt in configopt.split()]):
+        config_optlist = [opt.upper() for configopt in self.cfg['configopts'] for opt in configopt.split()]
+        if set(config_shared) & set(config_optlist):
             shlib_ext = get_shared_lib_ext()
             parmetis_libs = ['lib/libparmetis.%s' % shlib_ext] + ['lib/libmetis.a']
         else:
