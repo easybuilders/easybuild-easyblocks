@@ -84,25 +84,24 @@ class Conda(Binary):
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
-            cmd = "%s conda create --force -y -p %s" % (self.cfg['preinstallopts'], self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
 
+	    self.set_conda_env()
             if self.cfg['requirements']:
-                self.set_conda_env()
 
                 install_args = "-y %s " % self.cfg['requirements']
                 if self.cfg['channels']:
                     install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
 
-                cmd = "conda install %s" % (install_args)
-                run_cmd(cmd, log_all=True, simple=True)
-
                 self.log.info("Installed conda requirements")
+
+            cmd = "%s conda create --force -y -p %s %s" % (self.cfg['preinstallopts'], self.installdir, install_args)
+            run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
         txt = super(Conda, self).make_module_extra()
         txt += self.module_generator.set_environment('CONDA_ENV', self.installdir)
+        txt += self.module_generator.set_environment('CONDA_PREFIX', self.installdir)
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
