@@ -28,13 +28,7 @@ EasyBuild support for installing a software-specific .modulerc file
 @author: Kenneth Hoste (Ghent University)
 @author: Maxime Boissonneault (Compute Canada)
 """
-import os
-
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig.easyconfig import ActiveMNS
-from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.config import install_path
-from easybuild.tools.filetools import mkdir, resolve_path, symlink
 
 
 class ModuleOnly(EasyBlock):
