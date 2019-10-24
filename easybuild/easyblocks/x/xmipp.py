@@ -110,6 +110,11 @@ class EB_Xmipp(SCons):
         if cuda_root:
             params.update({'CUDA_BIN': os.path.join(cuda_root, 'bin')})
             params.update({'CUDA_LIB': os.path.join(cuda_root, 'lib64')})
+            params.update({'NVCC': os.environ['CUDA_CXX']})
+            # Their default for NVCC is to use g++-5, fix that
+            nvcc_flags = '--x cu -D_FORCE_INLINES -Xcompiler -fPIC '
+            nvcc_flags = nvcc_flags + '-Wno-deprecated-gpu-targets -std=c++11'
+            params.update({'NVCC_CXXFLAGS': nvcc_flags})
             self.use_cuda = True
 
         for dep in ['CUDA', 'MATLAB']:
@@ -118,6 +123,8 @@ class EB_Xmipp(SCons):
 
         if get_software_root('OpenCV'):
             params.update({'OPENCV': True})
+            if self.use_cuda:
+                params.update({'OPENCVSUPPORTSCUDA': True})
             if LooseVersion(get_software_version('OpenCV')) >= LooseVersion('3'):
                 params.update({'OPENCV3': True})
 
