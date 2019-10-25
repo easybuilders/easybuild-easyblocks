@@ -34,7 +34,7 @@ import stat
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir
-from easybuild.tools.filetools import synlink, write_file
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from distutils.version import LooseVersion
 
