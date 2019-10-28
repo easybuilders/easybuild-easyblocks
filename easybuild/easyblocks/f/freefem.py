@@ -40,7 +40,7 @@ class EB_FreeFem_plus__plus_(ConfigureMake):
 
     def configure_step(self):
         """FreeFem++ configure should run twice. First PETSc configured, then PETSc have to be build,
-        then configure FreeFem++ with the builded PETSc."""
+        then configure FreeFem++ with the built PETSc."""
 
         # first Autoreconf has to be run
         if not get_software_root('Autoconf'):
