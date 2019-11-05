@@ -433,12 +433,10 @@ class EB_TensorFlow(PythonPackage):
 
         cmd.append(self.cfg['buildopts'])
 
-        # building TensorFlow v2.0 requires passing --config=v2 to "bazel build" command...
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
-            cmd.append('--config=v2')
-
-        if cuda_root:
-            cmd.append('--config=cuda')
+        # TF 2 (final) sets this in configure
+        if LooseVersion(self.version) < LooseVersion('2.0'):
+            if cuda_root:
+                cmd.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
