@@ -38,12 +38,12 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, read_file, which, write_file
+from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
@@ -490,16 +490,21 @@ class EB_TensorFlow(PythonPackage):
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
 
-        # Fix for https://github.com/tensorflow/tensorflow/issues/6341
-        # If the site-packages/google/__init__.py file is missing, make
-        # it an empty file.
-        # This fixes the "No module named google.protobuf" error that
-        # sometimes shows up during sanity_check
+        # Fix for https://github.com/tensorflow/tensorflow/issues/6341 on Python < 3.3
+        # If the site-packages/google/__init__.py file is missing, make it an empty file.
+        # This fixes the "No module named google.protobuf" error that sometimes shows up during sanity_check
+        # For Python >= 3.3 the logic is reversed: The __init__.py must not exist.
+        # See e.g. http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html
         google_protobuf_dir = os.path.join(self.installdir, self.pylibdir, 'google', 'protobuf')
         google_init_file = os.path.join(self.installdir, self.pylibdir, 'google', '__init__.py')
-        if os.path.isdir(google_protobuf_dir) and not is_readable(google_init_file):
-            self.log.debug("Creating (empty) missing %s", google_init_file)
-            write_file(google_init_file, '')
+        if LooseVersion(det_python_version(self.python_cmd)) < LooseVersion('3.3'):
+            if os.path.isdir(google_protobuf_dir) and not is_readable(google_init_file):
+                self.log.debug("Creating (empty) missing %s", google_init_file)
+                write_file(google_init_file, '')
+        else:
+            if os.path.exists(google_init_file):
+                self.log.debug("Removing %s for Python >= 3.3", google_init_file)
+                remove_file(google_init_file)
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
