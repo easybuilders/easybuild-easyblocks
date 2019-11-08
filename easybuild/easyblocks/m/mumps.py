@@ -152,7 +152,7 @@ class EB_MUMPS(ConfigureMake):
                 src = os.path.join(self.cfg['start_dir'], path)
                 dst = os.path.join(self.installdir, path)
                 shutil.copytree(src, dst)
-            if self.toolchain.options.get('usempi', None) == False:
+            if self.toolchain.options.get('usempi', None) is False:
                 src = os.path.join(self.cfg['start_dir'], 'libseq', 'libmpiseq.a')
                 dst = os.path.join(self.installdir, 'lib', 'libmpiseq.a')
                 shutil.copy2(src, dst)
