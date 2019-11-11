@@ -30,7 +30,6 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 """
 import os
 
-import easybuild.tools.environment as env
 from distutils.version import LooseVersion
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
@@ -179,7 +178,8 @@ class EB_Scipion(ExtensionEasyBlock):
         datadir = os.path.join(self.installdir, 'data', 'tests')
         mkdir(datadir, parents=True)
         mkdir(os.path.join(self.installdir, 'bin'))
-        symlink(os.path.join('..', 'scipion'), os.path.join(self.installdir, 'bin', 'scipion'), use_abspath_source=False)
+        linktarget = os.path.join(self.installdir, 'bin', 'scipion')
+        symlink(os.path.join('..', 'scipion'), linktarget, use_abspath_source=False)
 
     def run(self, *args, **kwargs):
         """Perform the actual Scipion package configure/installation procedure"""
