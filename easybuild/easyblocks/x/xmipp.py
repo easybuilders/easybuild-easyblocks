@@ -1,5 +1,5 @@
 ##
-# Copyright 2019 Ghent University
+# Copyright 2015-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,6 +25,9 @@
 """
 EasyBuild support for building and installing Xmipp, implemented as an easyblock
 
+@author: Jens Timmerman (Ghent University)
+@author: Pablo Escobar (sciCORE, SIB, University of Basel)
+@author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
 import os
@@ -50,12 +53,13 @@ class EB_Xmipp(SCons):
         self.srcdir = os.path.join(self.builddir, 'src')
         self.cfg['start_dir'] = self.builddir
         self.use_cuda = False
+        self.cfgfile = os.path.join(self.builddir, 'xmipp.conf')
 
     def extract_step(self):
         """Extract Xmipp sources."""
         # Xmipp assumes that everything is unpacked in a "src" dir
         mkdir(self.srcdir)
-        self.cfg.update('unpack_options', '--directory src')
+        self.cfg.update('unpack_options', '--directory %s' % os.path.basename(self.srcdir))
         super(EB_Xmipp, self).extract_step()
         for module in self.xmipp_modules:
             symlink('%s-%s' % (module, self.version), os.path.join(self.srcdir, module), use_abspath_source=False)
@@ -79,10 +83,15 @@ class EB_Xmipp(SCons):
         """Custom configuration procedure for Xmipp."""
 
         # Initialize the config file and then patch it with the correct values
-        self.cfgfile = os.path.join(self.builddir, 'xmipp.conf')
-        cmd = '%s src/xmipp/xmipp config' % self.cfg['preconfigopts']
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            os.path.join(self.srcdir, 'xmipp', 'xmipp'),
+            'config',
+            self.cfg['configopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
+        # Parameters to be set in the config file
         params = {
             'CC': os.environ['CC'],
             'CXX': os.environ['CXX'],
@@ -95,7 +104,7 @@ class EB_Xmipp(SCons):
         }
 
         deps = [
-            # dep name, is required dep?
+            # Name of dependency, name of env var to set, required or not
             ('HDF5', None, True),
             ('SQLite', None, True),
             ('LibTIFF', None, True),
@@ -103,8 +112,6 @@ class EB_Xmipp(SCons):
             ('Java', 'JAVA_HOME', True),
             ('MATLAB', 'MATLAB_DIR', False),
         ]
-
-        regex_subs = []
 
         cuda_root = get_software_root('CUDA')
         if cuda_root:
@@ -145,6 +152,9 @@ class EB_Xmipp(SCons):
         jnipath = os.pathsep.join([jnipath, os.path.join(jnipath, 'linux')])
         params.update({'JNI_CPPPATH': jnipath})
 
+        regex_subs = []
+
+        # Set the variables in the config file to match the environment from EasyBuild
         for (key, val) in params.items():
             regex_subs.extend([(r'^%s\s*=.*$' % key, r'%s = %s' % (key, val))])
 
@@ -165,19 +175,26 @@ class EB_Xmipp(SCons):
     def build_step(self):
         """Custom build step for Xmipp."""
 
-        # First build cuFFTAdvisor
+        # First build cuFFTAdvisor, XmippCore depends on this when CUDA is enabled.
         if self.use_cuda:
             cwd = change_dir(os.path.join(self.srcdir, 'cuFFTAdvisor'))
-            cmd = '%s make all' % self.cfg['preinstallopts']
+            cmd = ' '.join([
+                self.cfg['prebuildopts'],
+                'make',
+                'all',
+                self.cfg['buildopts'],
+            ])
             run_cmd(cmd, log_all=True, simple=True)
             change_dir(cwd)
             xmipp_lib = os.path.join(self.srcdir, 'xmipp', 'lib')
             mkdir(xmipp_lib)
-            copy_file(os.path.join(self.srcdir, 'cuFFTAdvisor', 'build', 'libcuFFTAdvisor.so'), xmipp_lib)
+            shlib_ext = get_shared_lib_ext()
+            libname = 'libcuFFTAdvisor.%s' % shlib_ext
+            copy_file(os.path.join(self.srcdir, 'cuFFTAdvisor', 'build', libname), xmipp_lib)
 
         self.cfg.update('buildopts', '--verbose')
         for module in self.xmipp_modules:
-            moddir = os.path.join('src', module)
+            moddir = os.path.join(os.path.basename(self.srcdir), module)
             symlink(self.cfgfile, os.path.join(self.srcdir, module, 'install', 'xmipp.conf'))
             cwd = change_dir(moddir)
             super(EB_Xmipp, self).build_step()
@@ -188,7 +205,13 @@ class EB_Xmipp(SCons):
 
         # Use the xmipp script to do the install, there's too much
         # to replicate here.
-        cmd = '%s src/xmipp/xmipp install %s' % (self.cfg['preinstallopts'], self.installdir)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            os.path.join(self.srcdir, 'xmipp', 'xmipp'),
+            'install',
+            self.installdir,
+            self.cfg['installopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
         # Remove the bash and fish files. Everything should be in the module
@@ -204,8 +227,8 @@ class EB_Xmipp(SCons):
         libs = ['XmippCore', 'XmippJNI', 'XmippParallel', 'Xmipp']
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins] +
-                     [os.path.join('bindings', 'python', 'xmippViz.py')] +
-                     [os.path.join('lib', 'lib%s.%s') % (x, shlib_ext) for x in libs],
+                 [os.path.join('bindings', 'python', 'xmippViz.py')] +
+                 [os.path.join('lib', 'lib%s.%s') % (x, shlib_ext) for x in libs],
             'dirs': ['resources'],
         }
         return super(EB_Xmipp, self).sanity_check_step(custom_paths=custom_paths)
@@ -218,7 +241,7 @@ class EB_Xmipp(SCons):
         return txt
 
     def make_module_req_guess(self):
-        """Custom guesses for environment variables (PATH, ...) for Xmipp."""
+        """Custom guesses for environment variables for Xmipp."""
         guesses = super(EB_Xmipp, self).make_module_req_guess()
         guesses.update({
             'LD_LIBRARY_PATH': ['lib', os.path.join('bindings', 'python')],
