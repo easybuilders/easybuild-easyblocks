@@ -87,8 +87,7 @@ class MakeCp(ConfigureMake):
                 files_specs = [fil]
                 target = self.installdir
             else:
-                raise EasyBuildError("Found neither string nor tuple as file to copy: '%s' (type %s)",
-                                        fil, type(fil))
+                raise EasyBuildError("Found neither string nor tuple as file to copy: '%s' (type %s)", fil, type(fil))
 
             mkdir(target, parents=True)
 
