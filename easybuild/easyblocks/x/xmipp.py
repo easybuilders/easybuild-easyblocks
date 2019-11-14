@@ -137,7 +137,6 @@ class EB_Xmipp(SCons):
                 else:
                     raise EasyBuildError("Failed to isolate path to cuFFTAdvisor-*: %s", matches)
 
-
         for dep in ['CUDA', 'MATLAB']:
             use_dep = bool(get_software_root(dep))
             params.update({dep: use_dep})
