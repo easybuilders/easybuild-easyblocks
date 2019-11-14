@@ -55,10 +55,6 @@ class MakeCp(ConfigureMake):
         extra.update(extra_vars)
         return ConfigureMake.extra_options(extra_vars=extra)
 
-    def __init__(self, *args, **kwargs):
-        """Constructor for MakeCp easyblock."""
-        super(MakeCp, self).__init__(*args, **kwargs)
-
     def configure_step(self, cmd_prefix=''):
         """
         Configure build if required
