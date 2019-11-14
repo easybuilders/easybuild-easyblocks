@@ -30,6 +30,7 @@ EasyBuild support for building and installing Xmipp, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
+import glob
 import os
 
 import easybuild.tools.environment as env
@@ -125,6 +126,17 @@ class EB_Xmipp(SCons):
             nvcc_flags = nvcc_flags + '-Wno-deprecated-gpu-targets -std=c++11'
             params.update({'NVCC_CXXFLAGS': nvcc_flags})
             self.use_cuda = True
+
+            # Make sure cuFFTAdvisor is available even if unpacked under
+            # a different name
+            if not os.path.isdir('cuFFTAdvisor'):
+                matches = glob.glob(os.path.join(self.srcdir, 'cuFFTAdvisor-*'))
+                if len(matches) == 1:
+                    cufft = os.path.basename(matches[0])
+                    symlink(cufft, os.path.join(self.srcdir, 'cuFFTAdvisor'), use_abspath_source=False)
+                else:
+                    raise EasyBuildError("Failed to isolate path to cuFFTAdvisor-*: %s", matches)
+
 
         for dep in ['CUDA', 'MATLAB']:
             use_dep = bool(get_software_root(dep))
