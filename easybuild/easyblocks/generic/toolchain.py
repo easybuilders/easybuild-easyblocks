@@ -34,13 +34,24 @@ EasyBuild support for installing compiler toolchains, implemented as an easybloc
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.modules import get_software_root_env_var_name, get_software_version_env_var_name
 
 
 class Toolchain(Bundle):
-    """
-    Compiler toolchain: generate module file only, nothing to build/install
-    """
+    """Compiler toolchain easyblock: nothing to install, just generate module file."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to toolchains."""
+        if extra_vars is None:
+            extra_vars = {}
+        extra_vars.update({
+            'set_env_external_modules': [False, "Include setenv statements for toolchain components that use "
+                                                "an external module, based on available metadata", CUSTOM],
+        })
+        return Bundle.extra_options(extra_vars=extra_vars)
+
     def make_module_extra(self):
         """
         Define $EBROOT* and $EBVERSION* environment for toolchain components marked as external module,
@@ -51,43 +62,43 @@ class Toolchain(Bundle):
         # include $EBROOT* and $EBVERSION* definitions for toolchain components marked as external modules (if any)
         # in the generated module file for this toolchain;
         # this is required to let the EasyBuild framework set up the build environment based on the toolchain
-        for dep in [d for d in self.cfg['dependencies'] if d['external_module']]:
+        if self.cfg.get('set_env_external_modules', False):
+            for dep in [d for d in self.cfg['dependencies'] if d['external_module']]:
 
-            mod_name = dep['full_mod_name']
-            metadata = dep['external_module_metadata']
-            names, versions, prefix = metadata.get('name'), metadata.get('version'), metadata.get('prefix')
+                mod_name = dep['full_mod_name']
+                metadata = dep['external_module_metadata']
+                names, versions, prefix = metadata.get('name'), metadata.get('version'), metadata.get('prefix')
 
-            if names:
-                self.log.info("Adding environment variables for %s provided by external module %s", names, mod_name)
+                if names:
+                    self.log.info("Adding environment variables for %s provided by external module %s", names, mod_name)
 
-                # define $EBVERSION* if version is available
-                print mod_name, versions
-                if versions:
-                    for name, version in zip(names, versions):
-                        env_var = get_software_version_env_var_name(name)
-                        self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, version)
-                        txt += self.module_generator.set_environment(env_var, version)
+                    # define $EBVERSION* if version is available
+                    if versions:
+                        for name, version in zip(names, versions):
+                            env_var = get_software_version_env_var_name(name)
+                            self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, version)
+                            txt += self.module_generator.set_environment(env_var, version)
 
-                # define $EBROOT* if prefix is available
-                if prefix:
-                    # prefix can be specified via environment variable (+ subdir) or absolute path
-                    prefix_parts = prefix.split(os.path.sep)
-                    if prefix_parts[0] in os.environ:
-                        env_var = prefix_parts[0]
-                        prefix_path = os.environ[env_var]
-                        rel_path = os.path.sep.join(prefix_parts[1:])
-                        if rel_path:
-                            prefix_path = os.path.join(prefix_path, rel_path, '')
+                    # define $EBROOT* if prefix is available
+                    if prefix:
+                        # prefix can be specified via environment variable (+ subdir) or absolute path
+                        prefix_parts = prefix.split(os.path.sep)
+                        if prefix_parts[0] in os.environ:
+                            env_var = prefix_parts[0]
+                            prefix_path = os.environ[env_var]
+                            rel_path = os.path.sep.join(prefix_parts[1:])
+                            if rel_path:
+                                prefix_path = os.path.join(prefix_path, rel_path, '')
 
-                        self.log.debug("Derived prefix for software named %s from $%s (rel path: %s): %s",
-                                    name, env_var, rel_path, prefix_path)
-                    else:
-                        prefix_path = prefix
-                        self.log.debug("Using specified path as prefix for software named %s: %s", name, prefix_path)
+                            self.log.debug("Derived prefix for software named %s from $%s (rel path: %s): %s",
+                                        name, env_var, rel_path, prefix_path)
+                        else:
+                            prefix_path = prefix
+                            self.log.debug("Using specified path as prefix for software named %s: %s", name, prefix_path)
 
-                    for name in names:
-                        env_var = get_software_root_env_var_name(name)
-                        self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, prefix_path)
-                        txt += self.module_generator.set_environment(env_var, prefix_path)
+                        for name in names:
+                            env_var = get_software_root_env_var_name(name)
+                            self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, prefix_path)
+                            txt += self.module_generator.set_environment(env_var, prefix_path)
 
         return txt
