@@ -91,10 +91,11 @@ class Toolchain(Bundle):
                                 prefix_path = os.path.join(prefix_path, rel_path, '')
 
                             self.log.debug("Derived prefix for software named %s from $%s (rel path: %s): %s",
-                                        name, env_var, rel_path, prefix_path)
+                                           name, env_var, rel_path, prefix_path)
                         else:
                             prefix_path = prefix
-                            self.log.debug("Using specified path as prefix for software named %s: %s", name, prefix_path)
+                            self.log.debug("Using specified path as prefix for software named %s: %s",
+                                           name, prefix_path)
 
                         for name in names:
                             env_var = get_software_root_env_var_name(name)
