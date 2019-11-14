@@ -82,6 +82,8 @@ class EB_Xmipp(SCons):
     def configure_step(self):
         """Custom configuration procedure for Xmipp."""
 
+        # Tell xmipp config that there is no Scipion.
+        env.setvar('XMIPP_NOSCIPION', 'True')
         # Initialize the config file and then patch it with the correct values
         cmd = ' '.join([
             self.cfg['preconfigopts'],
