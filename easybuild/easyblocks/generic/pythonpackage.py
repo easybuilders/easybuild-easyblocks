@@ -209,6 +209,7 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
@@ -656,6 +657,16 @@ class PythonPackage(ExtensionEasyBlock):
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
+
+        if self.cfg.get('sanity_pip_check', False):
+            pip_version = det_pip_version()
+            if pip_version:
+                if LooseVersion(pip_version) >= LooseVersion(pip_version):
+                    run_cmd("pip check")
+                else:
+                    raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
+            else:
+                raise EasyBuildError("Failed to determine pip version!")
 
         parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 
