@@ -663,7 +663,7 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('sanity_pip_check', False):
             pip_version = det_pip_version()
             if pip_version:
-                if LooseVersion(pip_version) >= LooseVersion(pip_version):
+                if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
                     run_cmd("pip check")
                 else:
                     raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
