@@ -78,10 +78,11 @@ class EB_netCDF(CMakeMake):
                     self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s ' % (dep.upper(), incdir))
                     if dep == 'HDF5':
                         env.setvar('HDF5_ROOT', dep_root)
+                        self.cfg.update('configopts', '-DUSE_HDF5=ON')
                         libhdf5 = os.path.join(dep_root, dep_libdir, 'libhdf5.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_LIB=%s ' % libhdf5)
+                        self.cfg.update('configopts', '-DHDF5_C_LIBRARY=%s ' % libhdf5)
                         libhdf5_hl = os.path.join(dep_root, dep_libdir, 'libhdf5_hl.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_HL_LIB=%s ' % libhdf5_hl)
+                        self.cfg.update('configopts', '-DHDF5_HL_LIBRARY=%s ' % libhdf5_hl)
                     elif dep == 'PnetCDF':
                         self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')
                     else:
