@@ -76,12 +76,6 @@ class EB_Scipion(ExtensionEasyBlock):
             'MPI_CC': os.environ.get('MPICC', 'UNKNOWN'),
             'MPI_CXX': os.environ.get('MPICXX', 'UNKNOWN'),
             'MPI_LINKERFORPROGRAMS': os.environ.get('MPICXX', 'UNKNOWN'),
-            # Set MPI_LIBDIR/INCLUDE/BINDIR to dummy values.
-            # Makes it easier to detect if they are still misused someplace.
-            # To be removed or changed to the real values later...
-            'MPI_LIBDIR': '/dummy',
-            'MPI_INCLUDE': '/dummy',
-            'MPI_BINDIR': '/dummy',
         }
 
         package_params = {
