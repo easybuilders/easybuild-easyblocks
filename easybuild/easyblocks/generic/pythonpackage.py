@@ -179,7 +179,9 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
 
 def det_pip_version():
     """Determine version of currently active 'pip' command."""
+
     pip_version = None
+    log = fancylogger.getLogger('det_pylibdir', fname=False)
 
     out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
