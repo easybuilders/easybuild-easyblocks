@@ -1,5 +1,5 @@
 ##
-# Copyright 2018 Ghent University
+# Copyright 2019-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,11 +48,6 @@ class EB_Scipion(ExtensionEasyBlock):
         # strip off 'scipion-*' part to avoid having everything in a subdirectory
         self.unpack_options = '--strip-components=1'
 
-        # scipion.cfg file is in start_dir which isn't set until later
-        # so it gets initialized in configure_step instead.
-        self.cfgdir = ""
-        self.cfgfile = ""
-
     def configure_step(self):
         """Custom configuration procedure for Scipion."""
         # Setup scipion.conf, protocols.conf, and host.conf
@@ -60,12 +55,17 @@ class EB_Scipion(ExtensionEasyBlock):
         # dependencies, stupid but that's the way it works at the
         # moment.
 
-        # Initialize config dir/file
-        self.cfgdir = os.path.join(self.builddir, 'config')
-        self.cfgfile = os.path.join(self.cfgdir, 'scipion.conf')
+        cfgfile = os.path.join(self.builddir, 'config', 'scipion.conf')
 
         # Create the config files and then make the subtitutions
-        cmd = '%s ./scipion --config %s config' % (self.cfg['preconfigopts'], self.cfgfile)
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            './scipion',
+            '--config',
+            cfgfile,
+            'config',
+            self.cfg['configopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
         # Things that go into the BUILD seaction of scipion.conf
@@ -94,7 +94,7 @@ class EB_Scipion(ExtensionEasyBlock):
 
         # EM package dependencies and the corresponding scipion.conf variable
         deps = [
-            # dep name, is required dep?
+            # dep name, environment variable to define, is required dep?
             ('frealign', 'FREALIGN_HOME', False),
             ('Gctf', 'GCTF_HOME', False),
             ('MotionCor2', 'MOTIONCOR2_HOME', False),
@@ -103,14 +103,13 @@ class EB_Scipion(ExtensionEasyBlock):
             ('Xmipp', 'XMIPP_HOME', True),
         ]
 
-        if LooseVersion(self.version) >= LooseVersion('2'):
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
             deps.append(('EMAN2', 'EMAN2_HOME', False))
         else:
             deps.append(('EMAN2', 'EMAN2DIR', False))
 
         if get_software_root('ctffind'):
-            # note: check whether ctffind 4.x is being used
-            if LooseVersion(get_software_version('ctffind')) >= LooseVersion('4'):
+            if LooseVersion(get_software_version('ctffind')) >= LooseVersion('4.0'):
                 deps.append(('ctffind', 'CTFFIND4_HOME', False))
             else:
                 deps.append(('ctffind', 'CTFFIND_HOME', False))
@@ -155,7 +154,11 @@ class EB_Scipion(ExtensionEasyBlock):
 
         cf = configparser.ConfigParser()
         cf.optionxform = str  # keep case
-        cf.read(self.cfgfile)
+
+        try:
+            cf.read(cfgfile)
+        except (IOError, OSError) as err:
+            raise EasyBuildError("Failed to read %s: %s", cfgfile, err)
 
         # Update BUILD settings
         for key in build_params:
@@ -165,10 +168,13 @@ class EB_Scipion(ExtensionEasyBlock):
         for key in package_params:
             cf.set('PACKAGES', key, package_params[key])
 
-        cf.write(open(self.cfgfile, 'w'))
+        try:
+            cf.write(open(cfgfile, 'w'))
+        except (IOError, OSError) as err:
+            raise EasyBuildError("Failed to write %s: %s", cfgfile, err)
 
     def build_step(self):
-        """No build, this is pure python code"""
+        """No build step, this is pure python code"""
         pass
 
     def install_step(self):
@@ -188,8 +194,9 @@ class EB_Scipion(ExtensionEasyBlock):
         super(EB_Scipion, self).run(unpack_src=True)
         self.builddir = self.ext_dir
 
-        # configure, build, test, install
+        # configure, build, install
         self.configure_step()
+        self.build_step()
         self.install_step()
 
     def sanity_check_step(self):
