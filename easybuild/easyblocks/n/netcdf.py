@@ -69,7 +69,8 @@ class EB_netCDF(CMakeMake):
 
         else:
             self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
-            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z')]:
+            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
+                                   ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
                 dep_libdir = get_software_libdir(dep)
                 if dep_root:
@@ -81,6 +82,8 @@ class EB_netCDF(CMakeMake):
                         self.cfg.update('configopts', '-DHDF5_LIB=%s ' % libhdf5)
                         libhdf5_hl = os.path.join(dep_root, dep_libdir, 'libhdf5_hl.%s' % shlib_ext)
                         self.cfg.update('configopts', '-DHDF5_HL_LIB=%s ' % libhdf5_hl)
+                    elif dep == 'PnetCDF':
+                        self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')
                     else:
                         libso = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                         self.cfg.update('configopts', '-D%s_LIBRARY=%s ' % (dep.upper(), libso))
