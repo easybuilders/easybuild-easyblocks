@@ -31,11 +31,9 @@ EasyBuild support for installing compiler toolchains, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import os
-
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.modules import get_software_root_env_var_name, get_software_version_env_var_name
+from easybuild.tools.toolchain.toolchain import env_vars_external_module
 
 
 class Toolchain(Bundle):
@@ -67,39 +65,15 @@ class Toolchain(Bundle):
 
                 mod_name = dep['full_mod_name']
                 metadata = dep['external_module_metadata']
-                names, versions, prefix = metadata.get('name'), metadata.get('version'), metadata.get('prefix')
+                names, versions = metadata.get('name'), metadata.get('version')
 
                 if names:
                     self.log.info("Adding environment variables for %s provided by external module %s", names, mod_name)
 
-                    # define $EBVERSION* if version is available
-                    if versions:
-                        for name, version in zip(names, versions):
-                            env_var = get_software_version_env_var_name(name)
-                            self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, version)
-                            txt += self.module_generator.set_environment(env_var, version)
-
-                    # define $EBROOT* if prefix is available
-                    if prefix:
-                        # prefix can be specified via environment variable (+ subdir) or absolute path
-                        prefix_parts = prefix.split(os.path.sep)
-                        if prefix_parts[0] in os.environ:
-                            env_var = prefix_parts[0]
-                            prefix_path = os.environ[env_var]
-                            rel_path = os.path.sep.join(prefix_parts[1:])
-                            if rel_path:
-                                prefix_path = os.path.join(prefix_path, rel_path, '')
-
-                            self.log.debug("Derived prefix for software named %s from $%s (rel path: %s): %s",
-                                           name, env_var, rel_path, prefix_path)
-                        else:
-                            prefix_path = prefix
-                            self.log.debug("Using specified path as prefix for software named %s: %s",
-                                           name, prefix_path)
-
-                        for name in names:
-                            env_var = get_software_root_env_var_name(name)
-                            self.log.info("Defining $%s for external module %s: %s", env_var, mod_name, prefix_path)
-                            txt += self.module_generator.set_environment(env_var, prefix_path)
+                    for name, version in zip(names, versions):
+                        env_vars = env_vars_external_module(name, version, metadata)
+                        for key in env_vars:
+                            self.log.info("Defining $%s for external module %s: %s", key, mod_name, env_vars[key])
+                            txt += self.module_generator.set_environment(key, env_vars[key])
 
         return txt
