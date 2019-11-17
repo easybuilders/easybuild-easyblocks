@@ -65,7 +65,11 @@ class Toolchain(Bundle):
 
                 mod_name = dep['full_mod_name']
                 metadata = dep['external_module_metadata']
-                names, versions = metadata.get('name'), metadata.get('version')
+                names, versions = metadata.get('name', []), metadata.get('version')
+
+                # if no versions are available, use None as version (for every software name)
+                if versions is None:
+                    versions = [None] * len(names)
 
                 if names:
                     self.log.info("Adding environment variables for %s provided by external module %s", names, mod_name)
