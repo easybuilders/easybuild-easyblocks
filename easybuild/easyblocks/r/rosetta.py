@@ -41,7 +41,7 @@ from easybuild.easyblocks.icc import get_icc_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, mkdir
+from easybuild.tools.filetools import extract_file, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -143,13 +143,8 @@ class EB_Rosetta(EasyBlock):
             "}",
         ])
         us_fp = os.path.join(self.srcdir, "tools/build/user.settings")
-        try:
-            self.log.debug("Creating '%s' with: %s" % (us_fp, txt))
-            f = file(us_fp, 'w')
-            f.write(txt)
-            f.close()
-        except IOError as err:
-            raise EasyBuildError("Failed to write settings file %s: %s", us_fp, err)
+        self.log.debug("Creating '%s' with: %s", us_fp, txt)
+        write_file(us_fp, txt)
 
         # make sure specified compiler version is accepted by patching it in
         os_fp = os.path.join(self.srcdir, "tools/build/options.settings")

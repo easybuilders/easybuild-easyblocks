@@ -31,7 +31,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -57,6 +57,21 @@ class EB_CUDA(Binary):
             'host_compilers': [None, "Host compilers for which a wrapper will be generated", CUSTOM]
         }
         return Binary.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """ Init the cuda easyblock adding a new cudaarch template var """
+        myarch = get_cpu_architecture()
+        if myarch == X86_64:
+            cudaarch = ''
+        elif myarch == POWER:
+            cudaarch = '_ppc64le'
+        else:
+            raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
+
+        super(EB_CUDA, self).__init__(*args, **kwargs)
+
+        self.cfg.template_values['cudaarch'] = cudaarch
+        self.cfg.generate_template_values()
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""

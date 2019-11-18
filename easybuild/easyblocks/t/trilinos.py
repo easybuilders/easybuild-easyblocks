@@ -30,7 +30,6 @@ EasyBuild support for Trilinos, implemented as an easyblock
 import os
 import random
 import re
-import string
 
 from distutils.version import LooseVersion
 
@@ -41,6 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -229,7 +229,7 @@ class EB_Trilinos(CMakeMake):
         # + if the build directory is a long path, problems like "Argument list too long" may occur
         # cfr. https://github.com/trilinos/Trilinos/issues/2434
         # so, try to create build directory with shorter path length to build in
-        salt = ''.join(random.choice(string.letters) for _ in range(5))
+        salt = ''.join(random.choice(ascii_letters) for _ in range(5))
         self.short_start_dir = os.path.join(build_path(), self.name + '-' + salt)
         if os.path.exists(self.short_start_dir):
             raise EasyBuildError("Short start directory %s for Trilinos already exists?!", self.short_start_dir)

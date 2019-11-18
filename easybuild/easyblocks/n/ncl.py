@@ -81,20 +81,21 @@ class EB_NCL(EasyBlock):
             ctof_libs = '-lm -L%s/lib/intel64 -lifcore -lifport' % ifort
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
+
         macrodict = {
-                     'CCompiler': os.getenv('CC'),
-                     'FCompiler': os.getenv('F90'),
-                     'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
-                     'FcOptions': os.getenv('FFLAGS'),
-                     'COptimizeFlag': os.getenv('CFLAGS'),
-                     'FOptimizeFlag': os.getenv('FFLAGS'),
-                     'ExtraSysLibraries': os.getenv('LDFLAGS'),
-                     'CtoFLibraries': ctof_libs
-                    }
+            'CCompiler': os.getenv('CC'),
+            'FCompiler': os.getenv('F90'),
+            'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
+            'FcOptions': os.getenv('FFLAGS'),
+            'COptimizeFlag': os.getenv('CFLAGS'),
+            'FOptimizeFlag': os.getenv('FFLAGS'),
+            'ExtraSysLibraries': os.getenv('LDFLAGS'),
+            'CtoFLibraries': ctof_libs,
+        }
 
         # replace config entries that are already there
         for line in fileinput.input(cfg_filename, inplace=1, backup='%s.orig' % cfg_filename):
-            for (key, val) in macrodict.items():
+            for (key, val) in list(macrodict.items()):
                 regexp = re.compile("(#define %s\s*).*" % key)
                 match = regexp.search(line)
                 if match:

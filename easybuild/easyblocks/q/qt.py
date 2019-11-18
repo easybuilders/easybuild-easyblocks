@@ -36,7 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_glibc_version, get_shared_lib_ext
 
 
 class EB_Qt(ConfigureMake):
@@ -168,8 +168,12 @@ class EB_Qt(ConfigureMake):
         }
 
         if self.cfg['check_qtwebengine']:
-            qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
-            custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
+            glibc_version = get_glibc_version()
+            if LooseVersion(glibc_version) > LooseVersion("2.16"):
+                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
+                custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
+            else:
+                self.log.debug("Skipping check for qtwebengine, since it requires a more recent glibc.")
 
         if LooseVersion(self.version) >= LooseVersion('4'):
             custom_paths['files'].append('bin/xmlpatterns')

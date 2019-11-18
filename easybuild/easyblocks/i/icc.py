@@ -71,7 +71,11 @@ class EB_icc(IntelBase):
 
         self.comp_libs_subdir = None
 
-        if LooseVersion(self.version) >= LooseVersion('2016'):
+        # need to make sure version is an actual version
+        # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
+        # which results in deriving the actual compiler version
+        # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
+        if re.match(r'^[0-9]+.*', self.version) and LooseVersion(self.version) >= LooseVersion('2016'):
 
             self.comp_libs_subdir = os.path.join('compilers_and_libraries_%s' % self.version, 'linux')
 
