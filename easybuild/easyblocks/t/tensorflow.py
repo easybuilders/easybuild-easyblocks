@@ -506,6 +506,17 @@ class EB_TensorFlow(PythonPackage):
                 self.log.debug("Removing %s for Python >= 3.3", google_init_file)
                 remove_file(google_init_file)
 
+        # Fix cuda header paths
+        # This is needed for building custom TensorFlow ops
+        if LooseVersion(self.version) < LooseVersion('1.14'):
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            regex_subs = [(r'#include "cuda/include/', r'#include "')]
+            base_path = os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages', 'tensorflow',
+                                     'include', 'tensorflow')
+            for header in glob.glob(os.path.join(base_path, 'stream_executor', 'cuda', 'cuda*.h')) + glob.glob(
+                    os.path.join(base_path, 'core', 'util', 'cuda*.h')):
+                apply_regex_substitutions(header, regex_subs)
+
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
         custom_paths = {
