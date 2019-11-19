@@ -14,10 +14,8 @@ EasyBuild support for cuDNN, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
 """
-import os
-import shutil
-
 from easybuild.easyblocks.generic.tarball import Tarball
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
 
 
