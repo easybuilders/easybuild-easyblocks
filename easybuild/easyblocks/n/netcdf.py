@@ -69,22 +69,36 @@ class EB_netCDF(CMakeMake):
 
         else:
             self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
+
             for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
                                    ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
                 dep_libdir = get_software_libdir(dep)
+
                 if dep_root:
                     incdir = os.path.join(dep_root, 'include')
                     self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s ' % (dep.upper(), incdir))
+
                     if dep == 'HDF5':
                         env.setvar('HDF5_ROOT', dep_root)
                         self.cfg.update('configopts', '-DUSE_HDF5=ON')
-                        libhdf5 = os.path.join(dep_root, dep_libdir, 'libhdf5.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_C_LIBRARY=%s ' % libhdf5)
-                        libhdf5_hl = os.path.join(dep_root, dep_libdir, 'libhdf5_hl.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_HL_LIBRARY=%s ' % libhdf5_hl)
+
+                        hdf5cmvars = {
+                            'hdf5': ('LIB', 'C_LIBRARY'),
+                            'hdf5_hl': ('HL_LIB', 'HL_LIBRARY'),
+                        }
+
+                        for libname in hdf5cmvars:
+                            if LooseVersion(self.version) < LooseVersion("4.4"):
+                                cmvar = hdf5cmvars[libname][0]
+                            else:
+                                cmvar = hdf5cmvars[libname][1]
+                            libhdf5 = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
+                            self.cfg.update('configopts', '-DHDF5_%s=%s ' % (cmvar, libhdf5))
+
                     elif dep == 'PnetCDF':
                         self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')
+
                     else:
                         libso = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                         self.cfg.update('configopts', '-D%s_LIBRARY=%s ' % (dep.upper(), libso))
