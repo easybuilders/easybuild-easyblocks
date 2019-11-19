@@ -397,6 +397,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         #GAS there is the new target hp in 6.4
         if ( 'hp' in targets or 'all' in targets ) and (  LooseVersion(self.version) >= LooseVersion("6.4") ) :
             bins.extend(["hp.x"])
+        #GAS the thermo_pw is an addon to 6.4.1
+        if ( 'thermo_pw' in targets ) and (  LooseVersion(self.version) >= LooseVersion("6.4.1") ) :
+            bins.extend(["thermo_pw.x"])
+        
 
         if 'neb' in targets or 'pwall' in targets or 'all' in targets:
             if LooseVersion(self.version) > LooseVersion("5"):
