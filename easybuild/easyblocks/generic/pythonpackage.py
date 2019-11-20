@@ -181,7 +181,8 @@ def det_pip_version():
     """Determine version of currently active 'pip' command."""
 
     pip_version = None
-    log = fancylogger.getLogger('det_pylibdir', fname=False)
+    log = fancylogger.getLogger('det_pip_version', fname=False)
+    log.info("Determining pip version...")
 
     out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
@@ -189,6 +190,7 @@ def det_pip_version():
     res = pip_version_regex.search(out)
     if res:
         pip_version = res.group(1)
+        log.info("Found pip version: %s", pip_version)
     else:
         log.warning("Failed to determine pip version from '%s' using pattern '%s'", out, pip_version_regex.pattern)
 
@@ -664,7 +666,7 @@ class PythonPackage(ExtensionEasyBlock):
             pip_version = det_pip_version()
             if pip_version:
                 if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
-                    run_cmd("pip check")
+                    run_cmd("pip check", trace=False)
                 else:
                     raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
             else:
