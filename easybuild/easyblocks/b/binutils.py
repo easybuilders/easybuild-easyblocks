@@ -39,7 +39,6 @@ from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class EB_binutils(ConfigureMake):
@@ -59,7 +58,7 @@ class EB_binutils(ConfigureMake):
 
         libs = ''
 
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             # determine list of 'lib' directories to use rpath for;
             # this should 'harden' the resulting binutils to bootstrap GCC
             # (no trouble when other libstdc++ is build etc)

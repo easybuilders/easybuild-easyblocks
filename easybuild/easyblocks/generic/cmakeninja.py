@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2019-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -22,4 +22,24 @@
 # You should have received a copy of the GNU General Public License
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
-__path__ = __import__('pkgutil').extend_path(__path__, __name__)
+"""
+EasyBuild support for software that uses
+CMake configure step and Ninja build install.
+
+@author: Kenneth Hoste (Ghent University)
+@author: Pavel Grochal (INUITS)
+"""
+from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.generic.mesonninja import MesonNinja
+
+
+class CMakeNinja(CMakeMake, MesonNinja):
+
+    def configure_step(self, *args, **kwargs):
+        CMakeMake.configure_step(self, *args, **kwargs)
+
+    def build_step(self, *args, **kwargs):
+        MesonNinja.build_step(self, *args, **kwargs)
+
+    def install_step(self, *args, **kwargs):
+        MesonNinja.install_step(self, *args, **kwargs)

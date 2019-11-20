@@ -65,6 +65,11 @@ class EB_Boost(EasyBlock):
 
         self.pyvers = []
 
+        if LooseVersion(self.version) >= LooseVersion("1.71.0"):
+            self.bjamcmd = 'b2'
+        else:
+            self.bjamcmd = 'bjam'
+
     @staticmethod
     def extra_options():
         """Add extra easyconfig parameters for Boost."""
@@ -170,13 +175,14 @@ class EB_Boost(EasyBlock):
     def build_boost_variant(self, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
         # build with specified options
-        cmd = "%s ./bjam %s %s %s" % (self.cfg['prebuildopts'], bjamoptions, paracmd, self.cfg['buildopts'])
+        cmd = "%s ./%s %s %s %s" % (self.cfg['prebuildopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # install built Boost library
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # clean up before proceeding with next build
-        run_cmd("./bjam --clean-all", log_all=True, simple=True)
+        run_cmd("./%s --clean-all" % self.bjamcmd, log_all=True, simple=True)
 
     def build_step(self):
         """Build Boost with bjam tool."""
@@ -231,7 +237,8 @@ class EB_Boost(EasyBlock):
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):

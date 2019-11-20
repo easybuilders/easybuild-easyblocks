@@ -27,9 +27,11 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 
 @author: Ward Poelmans (Ghent University)
 @author: Oliver Stueker (Compute Canada/ACENET)
+@author: Ali Kerrache (University of Manitoba, WestGrid/Compute Canada)
 """
 import glob
 import os
+
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
@@ -37,7 +39,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 from distutils.version import LooseVersion
-
 
 class EB_OpenBabel(CMakeMake):
     """Support for installing the OpenBabel package."""
@@ -96,8 +97,14 @@ class EB_OpenBabel(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for OpenBabel."""
+        version = LooseVersion(self.version)
+        if version < LooseVersion("3.0.0"):
+            babel_exec = os.path.join('bin', 'babel')
+        else:
+            babel_exec = os.path.join('bin', 'obabel')
+
         custom_paths = {
-            'files': ['bin/babel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
+            'files': [babel_exec, 'lib/libopenbabel.%s' % get_shared_lib_ext()],
             'dirs': ['share/openbabel'],
         }
         super(EB_OpenBabel, self).sanity_check_step(custom_paths=custom_paths)

@@ -36,6 +36,8 @@ import sys
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import read_file, write_file
+from easybuild.tools.modules import get_software_root, get_software_version
 
 def get_library_root(libname):
     """ Find directory for liblibname.so or liblibname.a in $LIBRARY_PATH """
@@ -84,6 +86,9 @@ class EB_XCrySDen(ConfigureMake):
 
         # patch Make.sys
         settings = {
+                    # USE_INTERP_RESULT re-enables a API in the Tcl headers that was dropped in Tcl >= 8.6.
+                    # https://www.tcl.tk/man/tcl8.6/TclLib/Interp.htm
+                    #'CFLAGS': os.getenv('CFLAGS') + ' -DUSE_INTERP_RESULT ',
                     'CFLAGS': os.getenv('CFLAGS'),
                     'CC': os.getenv('CC'),
                     'FFLAGS': os.getenv('F90FLAGS'),
@@ -108,23 +113,27 @@ class EB_XCrySDen(ConfigureMake):
         if self.tclver == '8.6':
             settings['CFLAGS'] += ' -DUSE_INTERP_RESULT'
 
+        mesa_root = get_software_root('Mesa')
+        if mesa_root:
+            settings['GLU_LIB'] = "-L%s/lib -lGLU" % mesa_root
+            settings['GL_LIB'] = "-L%s/lib -lGL" % mesa_root
+            settings['GL_INCDIR'] = "-I%s/include" % mesa_root
+
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
-            for (k, v) in settings.items():
-                regexp = re.compile('^%s(\s+=).*'% k)
+            for (key, value) in list(settings.items()):
+                regexp = re.compile(r'^%s(\s+=).*' % key)
                 if regexp.search(line):
-                    line = regexp.sub('%s\\1 %s' % (k, v), line)
+                    line = regexp.sub('%s\\1 %s' % (key, value), line)
                     # remove replaced key/value pairs
-                    settings.pop(k)
+                    settings.pop(key)
             sys.stdout.write(line)
 
-        f = open(makesys_file, "a")
         # append remaining key/value pairs
-        for (k, v) in settings.items():
-            f.write("%s = %s\n" % (k, v))
-        f.close()
+        makesys_file_txt = '\n'.join("%s = %s" % s for s in sorted(settings.items()))
+        write_file(makesys_file, makesys_file_txt, append=True)
 
-        self.log.debug("Patched Make.sys: %s" % open(makesys_file, "r").read())
+        self.log.debug("Patched Make.sys: %s" % read_file(makesys_file))
 
         # set make target to 'xcrysden', such that dependencies are not downloaded/built
         self.cfg.update('buildopts', 'xcrysden')
@@ -137,15 +146,16 @@ class EB_XCrySDen(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for XCrySDen."""
 
-        custom_paths = {'files': ["bin/%s" % x for x in ["ptable", "pwi2xsf", "pwo2xsf", "unitconv", "xcrysden"]] +
-                                 ["lib/%s-%s/%s" % (self.name.lower(), self.version, x)
-                                  for x in ["atomlab", "calplane", "cube2xsf", "fhi_coord2xcr", "fhi_inpini2ftn34",
-                                            "fracCoor", "fsReadBXSF", "ftnunit", "gengeom", "kPath", "multislab",
-                                            "nn", "pwi2xsf", "pwi2xsf_old", "pwKPath", "recvec", "savestruct",
-                                            "str2xcr", "wn_readbakgen", "wn_readbands", "xcrys", "xctclsh",
-                                            "xsf2xsf"]],
-                        'dirs':[]
-                       }
+        binfiles = [os.path.join('bin', x) for x in ['ptable', 'pwi2xsf', 'pwo2xsf', 'unitconv', 'xcrysden']]
+        libfiles = ['atomlab', 'calplane', 'cube2xsf', 'fhi_coord2xcr', 'fhi_inpini2ftn34',
+                    'fracCoor', 'fsReadBXSF', 'ftnunit', 'gengeom', 'kPath', 'multislab',
+                    'nn', 'pwi2xsf', 'pwi2xsf_old', 'pwKPath', 'recvec', 'savestruct',
+                    'str2xcr', 'wn_readbakgen', 'wn_readbands', 'xcrys', 'xctclsh', 'xsf2xsf']
+
+        custom_paths = {
+            'files': binfiles + [os.path.join('lib', self.name.lower() + '-' + self.version, x) for x in libfiles],
+            'dirs': [],
+        }
 
         super(EB_XCrySDen, self).sanity_check_step(custom_paths=custom_paths)
 
