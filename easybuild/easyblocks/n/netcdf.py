@@ -87,6 +87,7 @@ class EB_netCDF(CMakeMake):
                         self.cfg.update('configopts', '-DUSE_HDF5=ON')
 
                         hdf5cmvars = {
+                            # library name: (cmake option suffix in netcdf<4.4, cmake option suffix in netcfd>=4.4)
                             'hdf5': ('LIB', 'C_LIBRARY'),
                             'hdf5_hl': ('HL_LIB', 'HL_LIBRARY'),
                         }
