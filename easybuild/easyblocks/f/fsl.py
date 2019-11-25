@@ -67,7 +67,8 @@ class EB_FSL(EasyBlock):
 
         best_cfg = None
 
-        # Predefined makefiles for various configs have disappeared in v6.0.2. The next part of the EasyBlock has thereby become obsolete.
+        # Predefined makefiles for various configs have disappeared in v6.0.2.
+        # The next part of the EasyBlock has thereby become obsolete.
         # See https://github.com/easybuilders/easybuild-easyblocks/issues/1859
         if LooseVersion(self.version) < LooseVersion('6.0.2'):
 
