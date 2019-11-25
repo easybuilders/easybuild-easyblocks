@@ -67,10 +67,8 @@ class EB_FSL(EasyBlock):
 
         best_cfg = None
 
-        # Predefined configs have disappeared in v6.0.2. The next part of the EasyBlock has thereby become obsolete.
-        # At this time, most of the 'configuration' is done by applying FSL-6.0.2_Makefile_fixes.patch, which essentially takes care of 
-        # injecting the right EBVARCFLAGS, EBROOTXXX variables for deps, etc.
-        # Thus, for v6.0.2 (and probably all upcoming versions) the EasyBlock shouldn't do any additional configuration
+        # Predefined makefiles for various configs have disappeared in v6.0.2. The next part of the EasyBlock has thereby become obsolete.
+        # See https://github.com/easybuilders/easybuild-easyblocks/issues/1859
         if LooseVersion(self.version) < LooseVersion('6.0.2'):
 
             # Patch files for ver. < 5.0.10 patch multiple config directories
