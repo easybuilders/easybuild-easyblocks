@@ -68,7 +68,12 @@ class CmdCp(MakeCp):
             # find (first) regex match, then complete matching command template
             cmd = None
             for regex, regex_cmd in self.cfg['cmds_map']:
-                if re.match(regex, os.path.basename(src)):
+                try:
+                    regex = re.compile(regex)
+                except re.error as err:
+                    raise EasyBuildError("Failed to compile regular expression '%s': %s", regex, err)
+
+                if regex.match(os.path.basename(src)):
                     cmd = regex_cmd % {'source': src, 'target': target}
                     break
             if cmd is None:
