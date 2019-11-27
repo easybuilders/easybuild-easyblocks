@@ -81,8 +81,10 @@ class EB_NCL(EasyBlock):
             if os.path.exists('%s/lib/intel64/' % ifort) and os.access('%s/lib/intel64/' % ifort, os.R_OK):
                 ctof_libs += '-lm -L%s/lib/intel64/ -lifcore -lifport' % ifort
             else:
-                self.log.warning("Can't find a libdir for ifortran libraries -lifcore -lifport: "
-                "%s/lib/intel64 doesn't exist or is not accessible." % (ifort, ifort))
+                self.log.warning(
+                    "Can't find a libdir for ifortran libraries -lifcore -lifport: "
+                    "%s/lib/intel64 doesn't exist or is not accessible." % (ifort, ifort)
+                )
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
 
@@ -144,8 +146,9 @@ class EB_NCL(EasyBlock):
             elif os.path.exists('%s/lib64' % root) and os.access('%s/lib64' % root, os.R_OK):
                 libs += ' -L%s/lib64 ' % root
             else:
-                self.log.warning("Can't find a libdir for dependency %s: "
-                "%s/lib and %s/lib64 don't exist." % (dep, root, root))
+                self.log.warning(
+                    "Can't find a libdir for dependency %s: %s/lib and %s/lib64 don't exist." % (dep, root, root)
+                )
 
             if os.path.exists('%s/include' % root) and os.access('%s/include' % root, os.R_OK):
                 includes += ' -I%s/include ' % root
@@ -166,13 +169,15 @@ class EB_NCL(EasyBlock):
                 elif os.path.exists('%s/lib64' % root) and os.access('%s/lib64' % root, os.R_OK):
                     libs += ' -L%s/lib64 %s ' % (root, libs_map[dep])
                 else:
-                    self.log.warning("Can't find a libdir for dependency %s: "
-                    "%s/lib and %s/lib64 don't exist." % (dep, root, root))
+                    self.log.warning(
+                        "Can't find a libdir for dependency %s: %s/lib and %s/lib64 don't exist." % (dep, root, root)
+                    )
 
                 if os.path.exists('%s/include' % root) and os.access('%s/include' % root, os.R_OK):
                     includes += ' -I%s/include ' % root
-                    self.log.warning("Can't find an include dir for dependency %s: "
-                    "%s/include doesn't exist." % (dep, root))
+                    self.log.warning(
+                        "Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root)
+                    )
 
         cfgtxt="""#ifdef FirstSite
 #endif /* FirstSite */
