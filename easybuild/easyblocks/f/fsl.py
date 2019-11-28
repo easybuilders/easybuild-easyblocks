@@ -75,7 +75,7 @@ class EB_FSL(EasyBlock):
             # Patch files for ver. < 5.0.10 patch multiple config directories
             if LooseVersion(self.version) >= LooseVersion('5.0.10'):
                 # Check if a specific machine type directory is patched
-                systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
+                systype_regex = re.compile(r"^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
                 patched_cfgs = []
 
