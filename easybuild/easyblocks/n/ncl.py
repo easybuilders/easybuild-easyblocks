@@ -83,7 +83,7 @@ class EB_NCL(EasyBlock):
             else:
                 self.log.warning(
                     "Can't find a libdir for ifortran libraries -lifcore -lifport: "
-                    "%s/lib/intel64 doesn't exist or is not accessible." % (ifort, ifort)
+                    "%s/lib/intel64 doesn't exist or is not accessible." % ifort
                 )
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
