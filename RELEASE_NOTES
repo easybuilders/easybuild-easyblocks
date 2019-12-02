@@ -3,7 +3,32 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 210 software-specific easyblocks and 36 generic easyblocks.
+The latest version of easybuild-easyblocks provides 211 software-specific easyblocks and 36 generic easyblocks.
+
+v4.1.0 (December 3rd 2019)
+--------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for cuDNN, to allow setting cudnnarch (#1855)
+- refactored software-specific easyblock for Xmipp, based on Scons (#1837)
+- minor enhancements, including:
+  - add prebuildopts to bazel build command (#1838)
+  - add GitHub Actions workflow to run easybuild-easyblocks test suite (#1844)
+  - add support to Toolchain generic easyblock for defining $EB* environment variables for toolchain components that use an external module (#1849)
+  - add support for running 'pip check' during sanity check in generic PythonPackage easyblock (#1853)
+- various bug fixes, including:
+  - handle cuda-installer.log in CUDA easyblock (#1835)
+  - minor fix to name of Gctf binary (#1840)
+  - move BLAS toolchain existence check earlier in SuperLU easyblock (#1842)
+  - fixes for TensorFlow easyblocks w.r.t. Bazel build options & __init__ in top-level google-protobuf package dir (#1843)
+  - fix support for sequential version in MUMPS easyblock (#1845)
+  - change default value of files_to_copy to None in MakeCp generic easyblock + code cleanup & use change_dir, copy_dir, copy_file and mkdir function from filetools (#1848)
+  - prepend -L$EBROOTZLIB/lib to LDFLAGS in SCOTCH easyblock (#1850)
+  - improve configuration in netcdf and netcdf4_python easyblocks (#1852)
+  - fix cuda header paths for TensorFlow versions < 1.14 (#1854)
+  - handle incorrect regex better in generic CmdCp easyblock (#1861)
+
 
 v4.0.1 (October 15th 2019)
 --------------------------
