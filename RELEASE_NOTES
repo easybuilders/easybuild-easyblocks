@@ -5,7 +5,7 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 211 software-specific easyblocks and 36 generic easyblocks.
 
-v4.1.0 (December 3rd 2019)
+v4.1.0 (December 4th 2019)
 --------------------------
 
 update/bugfix release
@@ -27,6 +27,7 @@ update/bugfix release
   - improve configuration in netCDF and netcdf4_python easyblocks (#1852)
   - fix CUDA header paths for TensorFlow versions < 1.14 (#1854)
   - handle incorrect regex better in generic CmdCp easyblock (#1861)
+  - add missing docstrings in cmakeninja easyblock (#1867)
 other changes:
   - add GitHub Actions workflow to run easybuild-easyblocks test suite (#1844)
 
