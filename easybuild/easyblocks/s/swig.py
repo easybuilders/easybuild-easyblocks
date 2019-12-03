@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ class EB_SWIG(ConfigureMake):
         """Set some extra environment variables before configuring."""
 
         # disable everything by default
-        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "pike ",
+        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "go", "pike ",
                   "ocaml","php", "ruby", "mzscheme", "guile", "gcj", "java",
                   "octave", "perl5", "python3", "tcl"]:
             self.cfg.update('configopts', "--without-%s" % x)

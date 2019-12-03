@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,6 @@ import os
 import re
 import shutil
 import tempfile
-import glob
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -47,11 +46,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, read_file, remove_file
+from easybuild.tools.filetools import find_flexlm_license, mkdir, read_file, remove_file, write_file
 from easybuild.tools.run import run_cmd
-
-from vsc.utils import fancylogger
-_log = fancylogger.getLogger('generic.intelbase')
 
 
 # different supported activation types (cfr. Intel documentation)
@@ -84,6 +80,7 @@ INSTALL_MODE_2015 = 'NONRPM'
 # silent.cfg parameter name for license file/server specification
 LICENSE_FILE_NAME = 'ACTIVATION_LICENSE_FILE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
 LICENSE_FILE_NAME_2012 = 'PSET_LICENSE_FILE'  # previous license file parameter used in older versions
+LICENSE_SERIAL_NUMBER = 'ACTIVATION_SERIAL_NUMBER'
 
 COMP_ALL = 'ALL'
 COMP_DEFAULTS = 'DEFAULTS'
@@ -153,6 +150,7 @@ class IntelBase(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
             'license_activation': [ACTIVATION_LIC_SERVER, "License activation type", CUSTOM],
+            'serial_number': [None, "Serial number for the product", CUSTOM],
             'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
                                          CUSTOM],
             # 'usetmppath':
@@ -205,7 +203,7 @@ class IntelBase(EasyBlock):
                     remove_file(path)
                 else:
                     shutil.rmtree(path)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
 
     def setup_local_home_subdir(self):
@@ -242,7 +240,7 @@ class IntelBase(EasyBlock):
                 os.symlink(self.home_subdir_local, self.home_subdir)
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_subdir_local, self.home_subdir, err)
 
     def prepare_step(self, *args, **kwargs):
@@ -253,8 +251,11 @@ class IntelBase(EasyBlock):
 
         # Decide if we need a license or not (default is True because of defaults of individual Booleans)
         self.requires_runtime_license = self.cfg['requires_runtime_license'] and requires_runtime_license
+        self.serial_number = self.cfg['serial_number']
 
-        if self.requires_runtime_license:
+        if self.serial_number:
+            self.log.info("Using provided serial number (%s) and ignoring other licenses", self.serial_number)
+        elif self.requires_runtime_license:
             default_lic_env_var = 'INTEL_LICENSE_FILE'
             license_specs = ensure_iterable_license_specs(self.cfg['license_file'])
             lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
@@ -272,8 +273,8 @@ class IntelBase(EasyBlock):
 
                 # if we have multiple retained lic specs, specify to 'use a license which exists on the system'
                 if len(lic_specs) > 1:
-                    self.log.debug("More than one license specs found, using '%s' license activation instead of '%s'",
-                                   ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
+                    self.log.debug("More than one license specs found, using '%s' license activation instead of "
+                                   "'%s'", ACTIVATION_EXIST_LIC, self.cfg['license_activation'])
                     self.cfg['license_activation'] = ACTIVATION_EXIST_LIC
 
                     # $INTEL_LICENSE_FILE should always be set during installation with existing license
@@ -310,26 +311,32 @@ class IntelBase(EasyBlock):
         if silent_cfg_names_map is None:
             silent_cfg_names_map = {}
 
-        if self.requires_runtime_license:
-            # license file entry is only applicable with license file or server type of activation
-            # also check whether specified activation type makes sense
-            lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
-            other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
-            lic_file_entry = ""
-            if self.cfg['license_activation'] in lic_file_server_activations:
-                lic_file_entry = "%(license_file_name)s=%(license_file)s"
-            elif not self.cfg['license_activation'] in other_activations:
-                raise EasyBuildError("Unknown type of activation specified: %s (known :%s)",
-                                     self.cfg['license_activation'], ACTIVATION_TYPES)
+        if self.serial_number or self.requires_runtime_license:
+            lic_entry = ""
+            if self.serial_number:
+                lic_entry = "%(license_serial_number)s=%(serial_number)s"
+                self.cfg['license_activation'] = ACTIVATION_SERIAL
+            else:
+                # license file entry is only applicable with license file or server type of activation
+                # also check whether specified activation type makes sense
+                lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
+                other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
+                if self.cfg['license_activation'] in lic_file_server_activations:
+                    lic_entry = "%(license_file_name)s=%(license_file)s"
+                elif not self.cfg['license_activation'] in other_activations:
+                    raise EasyBuildError("Unknown type of activation specified: %s (known :%s)",
+                                         self.cfg['license_activation'], ACTIVATION_TYPES)
             silent = '\n'.join([
                 "%(activation_name)s=%(activation)s",
-                lic_file_entry,
+                lic_entry,
                 ""  # Add a newline at the end, so we can easily append if needed
             ]) % {
                 'activation_name': silent_cfg_names_map.get('activation_name', ACTIVATION_NAME),
-                'license_file_name': silent_cfg_names_map.get('license_file_name', LICENSE_FILE_NAME),
                 'activation': self.cfg['license_activation'],
+                'license_file_name': silent_cfg_names_map.get('license_file_name', LICENSE_FILE_NAME),
                 'license_file': self.license_file,
+                'license_serial_number': silent_cfg_names_map.get('license_serial_number', LICENSE_SERIAL_NUMBER),
+                'serial_number': self.serial_number,
             }
         else:
             self.log.debug("No license required, so not including license specifications in silent.cfg")
@@ -365,26 +372,19 @@ class IntelBase(EasyBlock):
 
         if silent_cfg_extras is not None:
             if isinstance(silent_cfg_extras, dict):
-                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.iteritems())
+                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.items())
             else:
                 raise EasyBuildError("silent_cfg_extras needs to be a dict")
 
         # we should be already in the correct directory
-        silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-        try:
-            f = open(silentcfg, 'w')
-            f.write(silent)
-            f.close()
-        except:
-            raise EasyBuildError("Writing silent cfg, failed", silent)
-        self.log.debug("Contents of %s:\n%s" % (silentcfg, silent))
+        silentcfg = os.path.join(os.getcwd(), 'silent.cfg')
+        write_file(silentcfg, silent)
+        self.log.debug("Contents of %s:\n%s", silentcfg, silent)
 
         # workaround for mktmp: create tmp dir and use it
         tmpdir = os.path.join(self.cfg['start_dir'], 'mytmpdir')
-        try:
-            os.makedirs(tmpdir)
-        except:
-            raise EasyBuildError("Directory %s can't be created", tmpdir)
+        mkdir(tmpdir, parents=True)
+
         tmppathopt = ''
         if self.cfg['usetmppath']:
             env.setvar('TMP_PATH', tmpdir)
@@ -397,7 +397,14 @@ class IntelBase(EasyBlock):
         env.setvar('INSTALL_PATH', self.installdir)
 
         # perform installation
-        cmd = "./install.sh %s -s %s" % (tmppathopt, silentcfg)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            './install.sh',
+            tmppathopt,
+            '-s ' + silentcfg,
+            self.cfg['installopts'],
+        ])
+
         return run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def move_after_install(self):
@@ -418,7 +425,7 @@ class IntelBase(EasyBlock):
                 self.log.debug("Moving %s to %s" % (source, target))
                 shutil.move(source, target)
             shutil.rmtree(os.path.join(self.installdir, self.name))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
 
     def sanity_check_rpath(self):
@@ -433,12 +440,6 @@ class IntelBase(EasyBlock):
         if self.requires_runtime_license:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
                                                        allow_abs=True, expand_relpaths=False)
-
-        if self.cfg['m32']:
-            nlspath = os.path.join('idb', '32', 'locale', '%l_%t', '%N')
-        else:
-            nlspath = os.path.join('idb', 'intel64', 'locale', '%l_%t', '%N')
-        txt += self.module_generator.prepend_paths('NLSPATH', nlspath)
 
         return txt
 

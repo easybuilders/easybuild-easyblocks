@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,15 +44,13 @@ from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_20
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import get_gcc_version, get_platform_name
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 def get_tbb_gccprefix():
     """
     Find the correct gcc version for the lib dir of TBB
     """
-    # using get_software_version('GCC') won't work, while the compiler toolchain is dummy:dummy, which does not
-    # load dependencies.
+    # using get_software_version('GCC') won't work if the system toolchain is used
     gccversion = get_software_version('GCC')
     # manual approach to at least have the system version of gcc
     if not gccversion:
@@ -85,21 +83,21 @@ class EB_tbb(IntelBase, ConfigureMake):
         else:
             raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
 
-        if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
+        if not self.toolchain.is_system_toolchain():
             # open-source TBB version
             self.build_in_installdir = True
             self.cfg['requires_runtime_license'] = False
 
     def extract_step(self):
         """Extract sources."""
-        if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
+        if not self.toolchain.is_system_toolchain():
             # strip off 'tbb-<version>' subdirectory
             self.cfg['unpack_options'] = "--strip-components=1"
         super(EB_tbb, self).extract_step()
 
     def configure_step(self):
         """Configure TBB build/installation."""
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             IntelBase.configure_step(self)
         else:
             # no custom configure step when building from source
@@ -107,7 +105,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
     def build_step(self):
         """Configure TBB build/installation."""
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             IntelBase.build_step(self)
         else:
             # build with: make compiler={icl, icc, gcc, clang}
@@ -116,7 +114,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
     def install_step(self):
         """Custom install step, to add extra symlinks"""
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             silent_cfg_names_map = None
             silent_cfg_extras = None
 
@@ -175,7 +173,7 @@ class EB_tbb(IntelBase, ConfigureMake):
             'files': [],
             'dirs': [],
         }
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             custom_paths['dirs'].extend(['tbb/bin', 'tbb/lib', 'tbb/libs'])
         else:
             custom_paths['files'].extend([
@@ -204,7 +202,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
     def cleanup_step(self):
         """Cleanup step"""
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
+        if self.toolchain.is_system_toolchain():
             IntelBase.cleanup_step(self)
         else:
             ConfigureMake.cleanup_step(self)

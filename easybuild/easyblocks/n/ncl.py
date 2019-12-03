@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,7 +58,7 @@ class EB_NCL(EasyBlock):
 
         try:
             os.chdir('config')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the 'config' dir: %s", err)
 
         cmd = "make -f Makefile.ini"
@@ -84,20 +84,21 @@ class EB_NCL(EasyBlock):
                 ctof_libs = '-lm -L%s/compiler/lib/intel64 -lifcore -lifport' % ifort
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
+
         macrodict = {
-                     'CCompiler': os.getenv('CC'),
-                     'FCompiler': os.getenv('F90'),
-                     'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
-                     'FcOptions': os.getenv('FFLAGS'),
-                     'COptimizeFlag': os.getenv('CFLAGS'),
-                     'FOptimizeFlag': os.getenv('FFLAGS'),
-                     'ExtraSysLibraries': os.getenv('LDFLAGS'),
-                     'CtoFLibraries': ctof_libs
-                    }
+            'CCompiler': os.getenv('CC'),
+            'FCompiler': os.getenv('F90'),
+            'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
+            'FcOptions': os.getenv('FFLAGS'),
+            'COptimizeFlag': os.getenv('CFLAGS'),
+            'FOptimizeFlag': os.getenv('FFLAGS'),
+            'ExtraSysLibraries': os.getenv('LDFLAGS'),
+            'CtoFLibraries': ctof_libs,
+        }
 
         # replace config entries that are already there
         for line in fileinput.input(cfg_filename, inplace=1, backup='%s.orig' % cfg_filename):
-            for (key, val) in macrodict.items():
+            for (key, val) in list(macrodict.items()):
                 regexp = re.compile("(#define %s\s*).*" % key)
                 match = regexp.search(line)
                 if match:
@@ -118,7 +119,7 @@ class EB_NCL(EasyBlock):
         # configure
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the build dir %s: %s", self.cfg['start_dir'], err)
 
         # instead of running the Configure script that asks a zillion questions,

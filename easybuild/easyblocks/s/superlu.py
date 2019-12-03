@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University, University of Luxembourg
+# Copyright 2009-2019 Ghent University, University of Luxembourg
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,7 +77,12 @@ class EB_SuperLU(CMakeMake):
         # Set the BLAS library to use
         # For this, use the BLA_VENDOR option from the FindBLAS module of CMake
         # Check for all possible values at https://cmake.org/cmake/help/latest/module/FindBLAS.html
-        toolchain_blas = self.toolchain.definition().get('BLAS', None)[0]
+        toolchain_blas_list = self.toolchain.definition().get('BLAS', None)
+        if toolchain_blas_list is None:
+            # This toolchain has no BLAS library
+            raise EasyBuildError("No BLAS library found in the toolchain")
+
+        toolchain_blas = toolchain_blas_list[0]
         if toolchain_blas == 'imkl':
             imkl_version = get_software_version('imkl')
             if LooseVersion(imkl_version) >= LooseVersion('10'):
@@ -96,12 +101,8 @@ class EB_SuperLU(CMakeMake):
         elif toolchain_blas == 'OpenBLAS':
             # Unfortunately, OpenBLAS is not recognized by FindBLAS from CMake,
             # we have to specify the OpenBLAS library manually
-            openblas_lib = os.path.join( get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a" )
+            openblas_lib = os.path.join(get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a")
             self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
-
-        elif toolchain_blas == None:
-            # This toolchain has no BLAS library
-            raise EasyBuildError("No BLAS library found in the toolchain")
 
         else:
             # This BLAS library is not supported yet
@@ -123,8 +124,16 @@ class EB_SuperLU(CMakeMake):
         """
         super(EB_SuperLU, self).install_step()
 
-        expected_libpath = os.path.join(self.installdir, "lib", "libsuperlu.%s" % self.lib_ext)
-        actual_libpath   = os.path.join(self.installdir, "lib", "libsuperlu_%s.%s" % (self.cfg['version'], self.lib_ext))
+        self.libbits = 'lib'
+        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+            self.libbits = 'lib64'
+
+        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+            raise EasyBuildError("No lib or lib64 subdirectory exist in %s", self.installdir)
+
+        expected_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu.%s" % self.lib_ext)
+        actual_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu_%s.%s" %
+                                      (self.cfg['version'], self.lib_ext))
 
         if not os.path.exists(expected_libpath):
             try:
@@ -132,13 +141,12 @@ class EB_SuperLU(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to create symlink '%s' -> '%s: %s", expected_libpath, actual_libpath, err)
 
-
     def sanity_check_step(self):
         """
         Check for main library files for SuperLU
         """
         custom_paths = {
-            'files': ["include/supermatrix.h", "lib/libsuperlu.%s" % self.lib_ext],
+            'files': ["include/supermatrix.h", os.path.join(self.libbits, "libsuperlu.%s" % self.lib_ext)],
             'dirs': [],
         }
         super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)

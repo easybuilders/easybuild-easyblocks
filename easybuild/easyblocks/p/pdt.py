@@ -53,7 +53,8 @@ class EB_PDT(ConfigureMake):
 
         # determine values for compiler flags to use
         known_compilers = {
-            toolchain.DUMMY: '-GNU',  # Assume that dummy toolchain uses a system-provided GCC
+            # assume that system toolchain uses a system-provided GCC
+            toolchain.SYSTEM: '-GNU',
             toolchain.GCC: '-GNU',
             toolchain.INTELCOMP: '-icpc',
         }
