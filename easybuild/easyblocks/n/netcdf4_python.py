@@ -56,6 +56,14 @@ class EB_netcdf4_minus_python(PythonPackage):
         if netcdf:
             env.setvar('NETCDF4_DIR', netcdf)
 
+        libjpeg = get_software_root('libjpeg-turbo')
+        if libjpeg:
+            env.setvar('JPEG_DIR', libjpeg)
+
+        curl = get_software_root('cURL')
+        if curl:
+            env.setvar('CURL_DIR', curl)
+
         super(EB_netcdf4_minus_python, self).configure_step()
 
     def test_step(self):
