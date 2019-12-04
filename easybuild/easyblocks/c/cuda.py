@@ -101,6 +101,22 @@ class EB_CUDA(Binary):
             self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
                             self.installdir, self.installdir))
 
+        if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
+            # Workaround for
+            # https://devtalk.nvidia.com/default/topic/1063995/cuda-setup-and-installation/cuda-10-1-243-10-1-update-2-ppc64le-run-file-installation-issue/
+            install_script = " && ".join([
+                "mkdir -p %(installdir)s/targets/ppc64le-linux/include",
+                "([ -e %(installdir)s/include ] || ln -s targets/ppc64le-linux/include %(installdir)s/include)",
+                "cp -r %(builddir)s/builds/cublas/src %(installdir)s/.",
+                install_script
+                ]) % {
+                    'installdir': self.installdir,
+                    'builddir': self.builddir
+                }
+
+        # Use C locale to avoid localized questions and crash on CUDA 10.1
+        install_script = "export LANG=C && " + install_script
+
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
             'interpreter': install_interpreter,
