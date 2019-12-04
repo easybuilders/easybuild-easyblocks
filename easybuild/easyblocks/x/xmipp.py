@@ -240,8 +240,8 @@ class EB_Xmipp(SCons):
         libs = ['XmippCore', 'XmippJNI', 'XmippParallel', 'Xmipp']
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins] +
-                [os.path.join('bindings', 'python', 'xmippViz.py')] +
-                [os.path.join('lib', 'lib%s.%s') % (x, shlib_ext) for x in libs],
+            [os.path.join('bindings', 'python', 'xmippViz.py')] +
+            [os.path.join('lib', 'lib%s.%s') % (x, shlib_ext) for x in libs],
             'dirs': ['resources'],
         }
         return super(EB_Xmipp, self).sanity_check_step(custom_paths=custom_paths)
