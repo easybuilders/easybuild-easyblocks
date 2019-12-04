@@ -47,6 +47,7 @@ from easybuild.tools.utilities import nub
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
+
 def setup_cmake_env(tc):
     """Setup env variables that cmake needs in an EasyBuild context."""
 
