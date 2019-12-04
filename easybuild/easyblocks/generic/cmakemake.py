@@ -47,6 +47,19 @@ from easybuild.tools.utilities import nub
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
+def setup_cmake_env(self):
+    """Setup env variables that cmake needs in an EasyBuild context."""
+
+    # Set the search paths for CMake
+    tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
+    tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
+    cpaths = os.getenv('CPATH', '').split(os.pathsep)
+    lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+    include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+    library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
+    setvar("CMAKE_INCLUDE_PATH", include_paths)
+    setvar("CMAKE_LIBRARY_PATH", library_paths)
+
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
@@ -68,15 +81,7 @@ class CMakeMake(ConfigureMake):
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        # Set the search paths for CMake
-        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
-        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
-        cpaths = os.getenv('CPATH', '').split(os.pathsep)
-        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
-        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
-        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
-        setvar("CMAKE_INCLUDE_PATH", include_paths)
-        setvar("CMAKE_LIBRARY_PATH", library_paths)
+        setup_cmake_env(self)
 
         if builddir is None and self.cfg.get('separate_build_dir', False):
             builddir = os.path.join(self.builddir, 'easybuild_obj')

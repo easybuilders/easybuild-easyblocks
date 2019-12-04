@@ -44,6 +44,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
@@ -284,6 +285,10 @@ class EB_OpenFOAM(EasyBlock):
 
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
+
+        # Some parts of OpenFOAM uses CMake to build
+        # make sure the basic environment is correct
+        setup_cmake_env(self)
 
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):
