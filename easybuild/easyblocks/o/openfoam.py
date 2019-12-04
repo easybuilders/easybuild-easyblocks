@@ -288,7 +288,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # Some parts of OpenFOAM uses CMake to build
         # make sure the basic environment is correct
-        setup_cmake_env(self)
+        setup_cmake_env(self.toolchain)
 
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):

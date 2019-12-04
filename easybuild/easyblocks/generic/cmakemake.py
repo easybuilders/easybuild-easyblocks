@@ -47,12 +47,12 @@ from easybuild.tools.utilities import nub
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
-def setup_cmake_env(self):
+def setup_cmake_env(tc):
     """Setup env variables that cmake needs in an EasyBuild context."""
 
     # Set the search paths for CMake
-    tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
-    tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
+    tc_ipaths = tc.get_variable("CPPFLAGS", list)
+    tc_lpaths = tc.get_variable("LDFLAGS", list)
     cpaths = os.getenv('CPATH', '').split(os.pathsep)
     lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
     include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
@@ -81,7 +81,7 @@ class CMakeMake(ConfigureMake):
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        setup_cmake_env(self)
+        setup_cmake_env(self.toolchain)
 
         if builddir is None and self.cfg.get('separate_build_dir', False):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
