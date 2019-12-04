@@ -29,7 +29,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
+from easybuild.tools.filetools import read_file, remove_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
@@ -130,9 +131,18 @@ class EB_CUDA(Binary):
         if 'DISPLAY' in os.environ:
             os.environ.pop('DISPLAY')
 
+        # cuda-installer creates /tmp/cuda-installer.log (ignoring TMPDIR)
+        # Try to remove it before running the installer.
+        # This will fail with a usable error if it can't be removed
+        # instead of segfaulting in the cuda-installer.
+        remove_file('/tmp/cuda-installer.log')
+
         # overriding maxhits default value to 300 (300s wait for nothing to change in the output without seeing a known
         # question)
         run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
+
+        # Remove the cuda-installer log file
+        remove_file('/tmp/cuda-installer.log')
 
         # check if there are patches to apply
         if len(self.src) > 1:

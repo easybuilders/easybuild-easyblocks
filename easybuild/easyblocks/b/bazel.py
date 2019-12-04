@@ -100,7 +100,8 @@ class EB_Bazel(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        run_cmd('./compile.sh', log_all=True, simple=True, log_ok=True)
+        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for Bazel."""
