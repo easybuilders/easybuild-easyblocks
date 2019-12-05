@@ -3,7 +3,34 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 210 software-specific easyblocks and 36 generic easyblocks.
+The latest version of easybuild-easyblocks provides 211 software-specific easyblocks and 36 generic easyblocks.
+
+v4.1.0 (December 4th 2019)
+--------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for cuDNN, to allow setting cudnnarch (#1855)
+- refactored software-specific easyblock for Xmipp, based on Scons (#1837)
+- minor enhancements, including:
+  - add prebuildopts to Bazel build command (#1838)
+  - add support to Toolchain generic easyblock for defining $EB* environment variables for toolchain components that use an external module (#1849)
+  - add support for running 'pip check' during sanity check in generic PythonPackage easyblock (#1853)
+- various bug fixes, including:
+  - clean up /tmp/cuda-installer.log in CUDA easyblock, to avoid segfault in cuda-installer (#1835)
+  - minor fix to name of Gctf binary (#1840)
+  - move BLAS toolchain existence check earlier in SuperLU easyblock (#1842)
+  - fixes for TensorFlow easyblocks w.r.t. Bazel build options & __init__ in top-level google-protobuf package dir (#1843)
+  - fix support for sequential version in MUMPS easyblock (#1845)
+  - change default value of files_to_copy to None in MakeCp generic easyblock + code cleanup & use change_dir, copy_dir, copy_file and mkdir function from filetools (#1848)
+  - prepend -L$EBROOTZLIB/lib to LDFLAGS in SCOTCH easyblock (#1850)
+  - improve configuration in netCDF and netcdf4_python easyblocks (#1852)
+  - fix CUDA header paths for TensorFlow versions < 1.14 (#1854)
+  - handle incorrect regex better in generic CmdCp easyblock (#1861)
+  - add missing docstrings in cmakeninja easyblock (#1867)
+other changes:
+  - add GitHub Actions workflow to run easybuild-easyblocks test suite (#1844)
+
 
 v4.0.1 (October 15th 2019)
 --------------------------
@@ -13,8 +40,8 @@ update/bugfix release
 - one new generic easyblock: CMakeNinja (#1829)
 - new software-specific easyblock for Gctf (#1827), MotionCor2 (#1819)
 - minor enhancements, including:
-  - update OpenFOAM easyblock for changes in version 1906 w.r.t. wamke rules (#1772)
-  - add %(cudaarch)s template variable so that it can be used in sources (#1797)
+  - update OpenFOAM easyblock for changes in version 1906 w.r.t. wmake rules (#1772)
+  - add %(cudaarch)s template variable so that it can be used in CUDA sources (#1797)
   - update Boost easyblock for versions >=1.71.0 (#1814)
   - update RepeatMasker easyblock for version 4.0.9 (#1815)
   - add --verbose flag to 'pip install' when running EB in debug mode (#1822)
