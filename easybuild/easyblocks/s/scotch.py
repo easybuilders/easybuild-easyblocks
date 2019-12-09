@@ -81,6 +81,8 @@ class EB_SCOTCH(EasyBlock):
             (r"^CCD\s*=.*$", "CCD\t= $(MPICC)"),
             # append -lpthread to LDFLAGS
             (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=\g<ldflags> -lpthread"),
+            # prepend -L${EBROOTZLIB}/lib to LDFLAGS
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=-L${EBROOTZLIB}/lib \g<ldflags>"),
         ]
         apply_regex_substitutions(makefile_inc, regex_subs)
 
