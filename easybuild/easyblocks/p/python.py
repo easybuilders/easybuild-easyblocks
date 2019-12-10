@@ -109,6 +109,7 @@ class EB_Python(ConfigureMake):
         extra_vars = {
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'use_lto': [False, "Build with Link Time Optimization. Potentially unstable on some toolchains", CUSTOM],
             'optimized': [True, "Enable expensive, stable optimizations (PGO, etc)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -157,6 +158,9 @@ class EB_Python(ConfigureMake):
                 self.cfg.update('configopts', "--enable-unicode=ucs2")
             else:
                 raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
+
+        if self.cfg['use_lto'] and LooseVersion(self.version) >= LooseVersion('3.7.0'):
+            self.cfg.update('configopts', "--with-lto")
 
         # Enable further optimizations at the cost of a longer build
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.3'):
