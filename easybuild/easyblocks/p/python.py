@@ -141,15 +141,21 @@ class EB_Python(ConfigureMake):
 
     def configure_step(self):
         """Set extra configure options."""
-        self.cfg.update('configopts', "--with-threads --enable-shared")
+        self.cfg.update('configopts', "--enable-shared")
 
+        # Explicitely enable thread support on < 3.7 (always on 3.7+)
+        if LooseVersion(self.version) < LooseVersion('3.7'):
+            self.cfg.update('configopts', "--with-threads")
+
+        # Explicitely enable unicode on Python 2, always on for Python 3
         # Need to be careful to match the unicode settings to the underlying python
-        if sys.maxunicode == 1114111:
-            self.cfg.update('configopts', "--enable-unicode=ucs4")
-        elif sys.maxunicode == 65535:
-            self.cfg.update('configopts', "--enable-unicode=ucs2")
-        else:
-            raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
+        if LooseVersion(self.version) < LooseVersion('3.0'):
+            if sys.maxunicode == 1114111:
+                self.cfg.update('configopts', "--enable-unicode=ucs4")
+            elif sys.maxunicode == 65535:
+                self.cfg.update('configopts', "--enable-unicode=ucs2")
+            else:
+                raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
 
         modules_setup_dist = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup.dist')
 
