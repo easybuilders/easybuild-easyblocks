@@ -27,7 +27,10 @@ EasyBuild support for building and installing cryptography, implemented as an ea
 
 @author: Alexander Grund
 """
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.run import run_cmd
 
 
 class EB_cryptography(PythonPackage):
@@ -38,6 +41,17 @@ class EB_cryptography(PythonPackage):
         super(EB_cryptography, self).__init__(*args, **kwargs)
 
         # cryptography compiles a library using pthreads but does not link against it
-        # which causes 'undefined symbol: pthread_atfork', see issue #9446
+        # which causes 'undefined symbol: pthread_atfork'
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/9446
+        # and upstream: https://github.com/pyca/cryptography/issues/5084
         self.cfg['preinstallopts'] += 'CFLAGS="$CFLAGS -pthread"'
         self.log.info("Adding -pthread to preinstallopts of cryptography. Final value: %s", self.cfg['preinstallopts'])
+
+    def sanity_check_step(self, *args, **kwargs):
+        """Custom sanity check"""
+        success, fail_msg = super(EB_cryptography, self).sanity_check_step(*args, **kwargs)
+        if success:
+            # Check module added in v0.7 leading to issue #9446 (see above)
+            if LooseVersion(self.version) >= LooseVersion("0.7"):
+                run_cmd("python -c 'from cryptography.hazmat.bindings.openssl import binding'")
+        return success, fail_msg
