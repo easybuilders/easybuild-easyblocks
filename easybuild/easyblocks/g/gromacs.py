@@ -238,12 +238,14 @@ class EB_GROMACS(CMakeMake):
             self.cfg.update('configopts', "-DGMX_X11=OFF")
 
             # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
-            gmx_simd = self.get_gromacs_arch()
-            if gmx_simd:
-                if LooseVersion(self.version) < LooseVersion('5.0'):
-                    self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
-                else:
-                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
+            # it does not make sense for Cray, because OPTARCH is defined by the Cray Toolchain
+            if self.toolchain.toolchain_family() != toolchain.CRAYPE:
+                gmx_simd = self.get_gromacs_arch()
+                if gmx_simd:
+                    if LooseVersion(self.version) < LooseVersion('5.0'):
+                        self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                    else:
+                        self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'
