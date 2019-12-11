@@ -153,9 +153,9 @@ class EB_CUDA(Binary):
         # instead of segfaulting in the cuda-installer.
         remove_file('/tmp/cuda-installer.log')
 
-        # overriding maxhits default value to 300 (300s wait for nothing to change in the output without seeing a known
-        # question)
-        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
+        # overriding maxhits default value to 1000 (seconds to wait for nothing to change in the output
+        # without seeing a known question)
+        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=1000)
 
         # Remove the cuda-installer log file
         remove_file('/tmp/cuda-installer.log')
