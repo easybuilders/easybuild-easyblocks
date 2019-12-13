@@ -26,10 +26,12 @@
 EasyBuild support for Hypre, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Mikael OEhman (Chalmers University of Technology)
 """
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Hypre(ConfigureMake):
@@ -40,11 +42,11 @@ class EB_Hypre(ConfigureMake):
 
         self.cfg.update('configopts', '--with-MPI-include=%s' % os.getenv('MPI_INC_DIR'))
 
-        for dep in ["BLAS", "LAPACK"]:
-            libs = ' '.join(os.getenv('%s_STATIC_LIBS' % dep).split(','))
-            self.cfg.update('configopts', '--with-%s-libs="%s"' % (dep.lower(), libs))
-            self.cfg.update('configopts', '--with-%s-lib-dirs="%s"' % (dep.lower(),
-                                                                      os.getenv('%s_LIB_DIR' % dep)))
+        # Only supports external libraries when building a shared library.
+        self.cfg.update('configopts', '--enable-shared')
+
+        # While there are a --with-{blas|lapack}-libs flag, it's not useable, because of how Hypre treats it.
+        # We need to patch the code anyway to prevent it from building it's own blas packages. 
 
         super(EB_Hypre, self).configure_step()
 
@@ -52,7 +54,7 @@ class EB_Hypre(ConfigureMake):
         """Custom sanity check for Hypre."""
 
         custom_paths = {
-                        'files':['lib/libHYPRE.a'],
+                        'files':['lib/libHYPRE.' + get_shared_lib_ext()],
                         'dirs':['include']
                        }
 
