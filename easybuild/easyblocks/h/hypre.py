@@ -46,7 +46,7 @@ class EB_Hypre(ConfigureMake):
         self.cfg.update('configopts', '--enable-shared')
 
         # While there are a --with-{blas|lapack}-libs flag, it's not useable, because of how Hypre treats it.
-        # We need to patch the code anyway to prevent it from building it's own blas packages. 
+        # We need to patch the code anyway to prevent it from building it's own blas packages.
 
         super(EB_Hypre, self).configure_step()
 
@@ -54,8 +54,8 @@ class EB_Hypre(ConfigureMake):
         """Custom sanity check for Hypre."""
 
         custom_paths = {
-                        'files':['lib/libHYPRE.' + get_shared_lib_ext()],
-                        'dirs':['include']
+                        'files': ['lib/libHYPRE.' + get_shared_lib_ext()],
+                        'dirs': ['include']
                        }
 
         super(EB_Hypre, self).sanity_check_step(custom_paths=custom_paths)
