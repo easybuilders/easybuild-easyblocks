@@ -164,7 +164,10 @@ class EB_WPS(EasyBlock):
                 build_type_option = " Linux x86_64, Intel compiler"
 
             elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
-                build_type_option = "Linux x86_64 g95 compiler"
+                if LooseVersion(self.version) >= LooseVersion("3.6"):
+                    build_type_option = "Linux x86_64, gfortran"
+                else:
+                    build_type_option = "Linux x86_64 g95"
 
             else:
                 raise EasyBuildError("Don't know how to figure out build type to select.")
@@ -214,6 +217,9 @@ class EB_WPS(EasyBlock):
             'FC': os.getenv('MPIF90'),
             'CC': os.getenv('MPICC'),
         }
+        if self.toolchain.options.get('openmp', None):
+            comps.update({'LDFLAGS': '%s %s' % (self.toolchain.get_flag('openmp'), os.environ['LDFLAGS'])})
+
         regex_subs = [(r"^(%s\s*=\s*).*$" % key, r"\1 %s" % val) for (key, val) in comps.items()]
         apply_regex_substitutions('configure.wps', regex_subs)
 
