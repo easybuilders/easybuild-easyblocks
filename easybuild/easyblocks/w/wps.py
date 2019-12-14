@@ -107,10 +107,16 @@ class EB_WPS(EasyBlock):
         else:
             raise EasyBuildError("WRF module not loaded?")
 
-        # patch compile script so that WRF is found
-        self.compile_script = "compile"
-        regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
-        apply_regex_substitutions(self.compile_script, regex_subs)
+        self.compile_script = 'compile'
+
+        if LooseVersion(self.version) >= LooseVersion('4.0.3'):
+            # specify install location of WRF via $WRF_DIR (supported since WPS 4.0.3)
+            # see https://github.com/wrf-model/WPS/pull/102
+            env.setvar('WRF_DIR', wrfdir)
+        else:
+            # patch compile script so that WRF is found
+            regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
+            apply_regex_substitutions(self.compile_script, regex_subs)
 
         # libpng dependency check
         libpng = get_software_root('libpng')
