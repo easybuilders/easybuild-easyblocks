@@ -73,11 +73,11 @@ class EB_ESMF(ConfigureMake):
         # specify decent LAPACK lib
         env.setvar('ESMF_LAPACK', 'user')
         ldflags = os.getenv('LDFLAGS')
-        liblapack_mt = os.getenv('LIBLAPACK_MT')
-        if liblapack_mt is None:
-            raise EasyBuildError("$LIBLAPACK_MT not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
+        liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
+        if liblapack is None:
+            raise EasyBuildError("$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
         else:
-            env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack_mt)
+            env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
 
         # specify netCDF
         netcdf = get_software_root('netCDF')
