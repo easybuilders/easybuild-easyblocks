@@ -49,6 +49,7 @@ from easybuild.tools.modules import get_software_libdir, get_software_root, get_
 from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+import easybuild.tools.toolchain as toolchain
 
 
 EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
@@ -109,7 +110,11 @@ class EB_Python(ConfigureMake):
         extra_vars = {
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
-            'use_lto': [False, "Build with Link Time Optimization. Potentially unstable on some toolchains", CUSTOM],
+            'use_lto': [
+                None,
+                "Build with Link Time Optimization. Potentially unstable on some toolchains. Default: Auto-detect",
+                CUSTOM
+                ],
             'optimized': [True, "Enable expensive, stable optimizations (PGO, etc)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -141,6 +146,17 @@ class EB_Python(ConfigureMake):
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
 
+    def auto_detect_lto_support(self):
+        """Return True, if LTO should be enabled for current toolchain"""
+        result = False
+        # GCC >= 8 should be stable enough for LTO
+        if self.toolchain.comp_family() == toolchain.GCC:
+            gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+            if gcc_ver and LooseVersion(gcc_ver) >= LooseVersion('8.0'):
+                self.log.info("Auto-enabling LTO since GCC >= v8.0 is used as toolchain compiler")
+                result = True
+        return result
+
     def configure_step(self):
         """Set extra configure options."""
         self.cfg.update('configopts', "--enable-shared")
@@ -159,11 +175,17 @@ class EB_Python(ConfigureMake):
             else:
                 raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
 
-        if self.cfg['use_lto'] and LooseVersion(self.version) >= LooseVersion('3.7.0'):
-            self.cfg.update('configopts', "--with-lto")
+        # LTO introduced in 3.7.0
+        if LooseVersion(self.version) >= LooseVersion('3.7.0'):
+            use_lto = self.cfg['use_lto']
+            if use_lto is None:
+                use_lto = self.auto_detect_lto_support()
+            if use_lto:
+                self.cfg.update('configopts', "--with-lto")
 
         # Enable further optimizations at the cost of a longer build
-        if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.3'):
+        # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
+        if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
             self.cfg.update('configopts', "--enable-optimizations")
 
         modules_setup_dist = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup.dist')
