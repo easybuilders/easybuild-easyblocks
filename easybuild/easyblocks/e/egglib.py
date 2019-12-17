@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ class EB_EggLib(PythonPackage, ConfigureMake):
         cpp_subdir = os.path.join(self.builddir, 'egglib-cpp-%s' % self.version)
         try:
             os.chdir(cpp_subdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to: %s", err)
 
         ConfigureMake.configure_step(self)
@@ -69,7 +69,7 @@ class EB_EggLib(PythonPackage, ConfigureMake):
         py_subdir = os.path.join(self.builddir, 'egglib-py-%s' % self.version)
         try:
             os.chdir(py_subdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to: %s", err)
 
         PythonPackage.build_step(self)

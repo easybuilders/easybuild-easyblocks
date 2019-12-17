@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,16 +30,15 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
-import fileinput
 import os
-import re
-import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -51,12 +50,22 @@ class EB_impi(IntelBase):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
+            'libfabric_rebuild': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
+            'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
             'set_mpi_wrapper_aliases_intel': [False, 'Set compiler for mpiicc/mpiicpc/mpiifort via aliases', CUSTOM],
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
+
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_impi, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_impi, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -84,9 +93,7 @@ class EB_impi(IntelBase):
                 super(EB_impi, self).move_after_install()
         else:
             # impi up until version 4.0.0.x uses custom installation procedure.
-            silent = \
-"""
-[mpi]
+            silent = """[mpi]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s
 INSTALLMODE=NONRPM
@@ -109,22 +116,35 @@ EULA=accept
 
             # already in correct directory
             silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-            try:
-                f = open(silentcfg, 'w')
-                f.write(silent)
-                f.close()
-            except:
-                raise EasyBuildError("Writing silent cfg file %s failed.", silent)
-            self.log.debug("Contents of %s: %s" % (silentcfg, silent))
+            write_file(silentcfg, silent)
+            self.log.debug("Contents of %s: %s", silentcfg, silent)
 
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
-            try:
-                os.makedirs(tmpdir)
-            except:
-                raise EasyBuildError("Directory %s can't be created", tmpdir)
+            mkdir(tmpdir, parents=True)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
             run_cmd(cmd, log_all=True, simple=True)
+
+        # recompile libfabric (if requested)
+        if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
+            if self.cfg['ofi_internal']:
+                change_dir(os.path.join(self.installdir, 'libfabric'))
+                extract_file('src.tgz', os.getcwd())
+                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+
+                make = 'make'
+                if self.cfg['parallel']:
+                    make += ' -j %d' % self.cfg['parallel']
+
+                cmds = [
+                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                    make,
+                    'make install'
+                ]
+                for cmd in cmds:
+                    run_cmd(cmd, log_all=True, simple=True)
+            else:
+                raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
     def post_install_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
@@ -132,15 +152,26 @@ EULA=accept
 
         impiver = LooseVersion(self.version)
         if impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
+            if impiver >= LooseVersion('2018.0.128'):
+                script_paths = [os.path.join('intel64', 'bin')]
+            else:
+                script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
             # fix broken env scripts after the move
-            for script in [os.path.join('intel64', 'bin', 'mpivars.csh'), os.path.join('mic', 'bin', 'mpivars.csh')]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^setenv I_MPI_ROOT.*", "setenv I_MPI_ROOT %s" % self.installdir, line)
-                    sys.stdout.write(line)
-            for script in [os.path.join('intel64', 'bin', 'mpivars.sh'), os.path.join('mic', 'bin', 'mpivars.sh')]:
-                for line in fileinput.input(os.path.join(self.installdir, script), inplace=1, backup='.orig.easybuild'):
-                    line = re.sub(r"^I_MPI_ROOT=.*", "I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir, line)
-                    sys.stdout.write(line)
+            regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
+            for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
+                apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
+
+            # fix 'prefix=' in compiler wrapper scripts after moving installation (see install_step)
+            wrappers = ['mpif77', 'mpif90', 'mpigcc', 'mpigxx', 'mpiicc', 'mpiicpc', 'mpiifort']
+            regex_subs = [(r"^prefix=.*", r"prefix=%s" % self.installdir)]
+            for script_dir in script_paths:
+                for wrapper in wrappers:
+                    wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
+                    if os.path.exists(wrapper_path):
+                        apply_regex_substitutions(wrapper_path, regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
@@ -153,11 +184,22 @@ EULA=accept
         if LooseVersion(self.version) > LooseVersion('4.0'):
             mpi_mods.extend(["mpi_base.mod", "mpi_constants.mod", "mpi_sizeofs.mod"])
 
+        if LooseVersion(self.version) >= LooseVersion('2019'):
+            bin_dir = 'intel64/bin'
+            include_dir = 'intel64/include'
+            lib_dir = 'intel64/lib/release'
+        else:
+            bin_dir = 'bin%s' % suff
+            include_dir = 'include%s' % suff
+            lib_dir = 'lib%s' % suff
+            mpi_mods.extend(["i_malloc.h"])
+
         custom_paths = {
-            'files': ["bin%s/mpi%s" % (suff, x) for x in ["icc", "icpc", "ifort"]] +
-                     ["include%s/mpi%s.h" % (suff, x) for x in ["cxx", "f", "", "o", "of"]] +
-                     ["include%s/%s" % (suff, x) for x in ["i_malloc.h"] + mpi_mods] +
-                     ["lib%s/libmpi.%s" % (suff, get_shared_lib_ext()), "lib%s/libmpi.a" % suff],
+            'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
+                    ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
+                    ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+                    ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 
@@ -174,23 +216,41 @@ EULA=accept
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
+                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
             }
         else:
-            lib_dirs = ['lib/em64t', 'lib64']
-            include_dirs = ['include64']
-            return {
-                'PATH': ['bin/intel64', 'bin64'],
+            guesses = {}
+            if LooseVersion(self.version) >= LooseVersion('2019'):
+                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # IntelMPI 2019 changed the default library to be the non-mt version.
+                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
+                include_dirs = ['intel64/include']
+                path_dirs = ['intel64/bin']
+                if self.cfg['ofi_internal']:
+                    lib_dirs.append('intel64/libfabric/lib')
+                    path_dirs.append('intel64/libfabric/bin')
+                    guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
+            else:
+                lib_dirs = ['lib/em64t', 'lib64']
+                include_dirs = ['include64']
+                path_dirs = ['bin/intel64', 'bin64']
+                guesses['MIC_LD_LIBRARY_PATH'] = ['mic/lib']
+
+            guesses.update({
+                'PATH': path_dirs,
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
+                'MANPATH': ['man'],
                 'CPATH': include_dirs,
-                'MIC_LD_LIBRARY_PATH' : ['mic/lib'],
-            }
+            })
 
-    def make_module_extra(self):
+            return guesses
+
+    def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
-        txt = super(EB_impi, self).make_module_extra()
+        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:
@@ -211,12 +271,13 @@ EULA=accept
         if self.cfg['set_mpi_wrapper_aliases_gcc'] or self.cfg['set_mpi_wrappers_all']:
             # force mpigcc/mpigxx to use GCC compilers, as would be expected based on their name
             txt += self.module_generator.set_alias('mpigcc', 'mpigcc -cc=gcc')
-            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cc=g++')
+            txt += self.module_generator.set_alias('mpigxx', 'mpigxx -cxx=g++')
 
         if self.cfg['set_mpi_wrapper_aliases_intel'] or self.cfg['set_mpi_wrappers_all']:
             # do the same for mpiicc/mpiipc/mpiifort to be consistent, even if they may not exist
             txt += self.module_generator.set_alias('mpiicc', 'mpiicc -cc=icc')
-            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cc=icpc')
-            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -cc=ifort')
+            txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cxx=icpc')
+            # -fc also works, but -f90 takes precedence
+            txt += self.module_generator.set_alias('mpiifort', 'mpiifort -f90=ifort')
 
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -130,7 +130,7 @@ class EB_ATLAS(ConfigureMake):
             objdir = "obj"
             os.makedirs(objdir)
             os.chdir(objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to create obj directory to build in: %s", err)
 
         # specify compilers
@@ -170,7 +170,7 @@ class EB_ATLAS(ConfigureMake):
         if self.cfg['sharedlibs']:
             try:
                 os.chdir('lib')
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to 'lib' directory for building the shared libs.", err)
 
             self.log.debug("Building shared libraries")
@@ -179,7 +179,7 @@ class EB_ATLAS(ConfigureMake):
 
             try:
                 os.chdir('..')
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to get back to previous dir after building shared libs: %s ", err)
 
     def install_step(self):

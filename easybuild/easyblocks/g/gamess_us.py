@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -151,6 +151,8 @@ class EB_GAMESS_minus_US(EasyBlock):
                 mpilib_path = os.path.join(mpilib_root, 'intel64')
             else:
                 mpilib = mpilib.lower()
+        else:
+            mpilib, mpilib_root = '', ''
 
         # run interactive 'config' script to generate install.info file
         cmd = "%(preconfigopts)s ./config %(configopts)s" % {
@@ -165,10 +167,12 @@ class EB_GAMESS_minus_US(EasyBlock):
             "hit <return> to continue to the math library setup.": '',
             "MKL pathname? ": mathlib_root,
             "MKL version (or 'skip')? ": 'skip',
+            "MKL version (or 'proceed')? ": 'proceed',  # changed in gamess-20170420R1
             "please hit <return> to compile the GAMESS source code activator": '',
             "please hit <return> to set up your network for Linux clusters.": '',
             "communication library ('sockets' or 'mpi')? ": self.cfg['ddi_comm'],
             "Enter MPI library (impi, mvapich2, mpt, sockets):": mpilib,
+            "Enter MPI library (impi, mpich, mpich2, mvapich2, mpt, sockets):": mpilib,  # changed in gamess-20170420R1
             "Please enter your %s's location: " % mpilib: mpilib_root,
             "Do you want to try LIBCCHEM?  (yes/no): ": 'no',
             "Enter full path to OpenBLAS libraries (without 'lib' subdirectory):": mathlib_root,
@@ -177,7 +181,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             r"GAMESS directory\? \[.*\] ": self.builddir,
             r"GAMESS build directory\? \[.*\] ": self.installdir,  # building in install directory
             r"Enter only the main version number, such as .*\nVersion\? ": fortran_ver,
-            r"gfortran version.\nPlease enter only the first decimal place, such as .*:": fortran_ver,
+            r".+gfortran version.\n( \n)?Please enter only the first decimal place, such as .*:": fortran_ver,
             "Enter your choice of 'mkl' or .* 'none': ": mathlib,
         }
         run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
@@ -201,7 +205,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                     line = re.sub(r"^(\s*set\s*SCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
                     line = re.sub(r"^(\s*set\s*USERSCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
                 sys.stdout.write(line)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", rungms, err)
 
     def build_step(self):
@@ -215,6 +219,16 @@ class EB_GAMESS_minus_US(EasyBlock):
             raise EasyBuildError("The libddi.a library (%s) was never built", libddi)
         else:
             self.log.info("The libddi.a library (%s) was successfully built." % libddi)
+
+        ddikick =  os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
+        if os.path.isfile(ddikick):
+            self.log.info("The ddikick.x executable (%s) was successfully built." % ddikick)
+
+            if self.cfg['ddi_comm'] == 'sockets':
+                src = ddikick
+                dst = os.path.join(self.cfg['start_dir'], 'ddikick.x')
+                self.log.info("Moving ddikick.x executable from %s to %s." % (src, dst))
+                os.rename(src, dst)
 
         compall_cmd = os.path.join(self.cfg['start_dir'], 'compall')
         compall = "%s %s %s" % (self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts'])
@@ -235,14 +249,14 @@ class EB_GAMESS_minus_US(EasyBlock):
             try:
                 cwd = os.getcwd()
                 os.chdir(self.testdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to temporary directory for running tests: %s", err)
 
             # copy input files for exam<id> standard tests
             for test_input in glob.glob(os.path.join(self.installdir, 'tests', 'standard', 'exam*.inp')):
                 try:
                     shutil.copy2(test_input, os.getcwd())
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
 
             rungms = os.path.join(self.installdir, 'rungms')
@@ -273,7 +287,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             os.chdir(cwd)
             try:
                 shutil.rmtree(self.testdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to remove test directory %s: %s", self.testdir, err)
 
     def install_step(self):

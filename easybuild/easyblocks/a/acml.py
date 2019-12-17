@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -98,9 +98,8 @@ class EB_ACML(EasyBlock):
         txt += self.module_generator.set_environment('ACML_BASEDIR', basepaths[0])
         txt += self.module_generator.set_environment('ACML_BASEDIR_MT', basepaths[1])
 
-        for key in ['CPATH', 'FPATH']:
-            for path in basepaths:
-                txt += self.module_generator.prepend_paths(key, os.path.join(path, 'include'))
+        for path in basepaths:
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join(path, 'include'))
 
         for key in ['LD_LIBRARY_PATH', 'LIBRARY_PATH']:
             for path in basepaths:

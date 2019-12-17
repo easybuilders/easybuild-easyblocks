@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # the Hercules foundation (http://www.herculesstichting.be/in_English)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ EasyBuild support for Mono, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+from distutils.version import LooseVersion
 import re
 import os
 import shutil
@@ -171,8 +172,14 @@ class EB_Mono(ConfigureMake, Rpm):
     def sanity_check_step(self):
         """Custom sanity check for Mono."""
 
+        binaries = ['bin/mono', 'bin/xbuild']
+        if LooseVersion(self.version) >= LooseVersion('2.11'):
+            binaries.append('bin/mcs')
+        else:
+            binaries.append('bin/gmcs')
+
         custom_paths = {
-            'files': ['bin/mono', 'bin/gmcs', 'bin/xbuild'],
-            'dirs': ['include/mono-%s.0/mono' % self.version.split('.')[0], 'lib'],
+            'files': binaries,
+            'dirs': ['include/mono-2.0/mono', 'lib'],
         }
         ConfigureMake.sanity_check_step(self, custom_paths=custom_paths)

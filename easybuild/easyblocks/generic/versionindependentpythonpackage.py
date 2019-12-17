@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,10 +47,10 @@ class VersionIndependentPythonPackage(PythonPackage):
         """No build procedure."""
         pass
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Set pylibdir"""
         self.pylibdir = 'lib'
-        super(VersionIndependentPythonPackage, self).prepare_step()
+        super(VersionIndependentPythonPackage, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """Custom install procedure to skip selection of python package versions."""
@@ -60,7 +60,7 @@ class VersionIndependentPythonPackage(PythonPackage):
 
         try:
             os.mkdir(full_pylibdir)
-        except OSError, err:
+        except OSError as err:
             # this will raise an error and not return
             raise EasyBuildError("Failed to install: %s", err)
 
@@ -96,5 +96,5 @@ class VersionIndependentPythonPackage(PythonPackage):
                             self.log.debug("Patching shebang header line in %s to '%s'" % (script, new_shebang))
                             txt = shebang_re.sub(new_shebang, txt)
                             open(script, 'w').write(txt)
-                    except IOError, err:
+                    except IOError as err:
                         raise EasyBuildError("Failed to patch shebang header line in %s: %s", script, err)

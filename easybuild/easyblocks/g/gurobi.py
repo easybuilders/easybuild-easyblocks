@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -9,7 +9,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,9 +30,12 @@ EasyBuild support for installing Gurobi, implemented as an easyblock
 """
 import os
 
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
+from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class EB_Gurobi(Tarball):
@@ -48,17 +51,29 @@ class EB_Gurobi(Tarball):
 
         copy_file(self.cfg['license_file'], os.path.join(self.installdir, 'gurobi.lic'))
 
+        if get_software_root('Python'):
+            run_cmd("python setup.py install --prefix=%s" % self.installdir)
+
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
         custom_paths = {
             'files': ['bin/%s' % f for f in ['grbprobe', 'grbtune', 'gurobi_cl', 'gurobi.sh']],
             'dirs': [],
         }
-        super(EB_Gurobi, self).sanity_check_step(custom_paths=custom_paths)
+
+        custom_commands = []
+        if get_software_root('Python'):
+            custom_commands.append("python -c 'import gurobipy'")
+
+        super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for Gurobi."""
         txt = super(EB_Gurobi, self).make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
         txt += self.module_generator.set_environment('GRB_LICENSE_FILE', os.path.join(self.installdir, 'gurobi.lic'))
+
+        if get_software_root('Python'):
+            txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
+
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,22 +31,14 @@ EasyBuild support for ant, implemented as an easyblock
 import os
 import shutil
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
-class EB_ant(EasyBlock):
+class EB_ant(PackedBinary):
     """Support for building and installing ant."""
-
-    def configure_step(self):
-        """No configure step for ant."""
-        pass
-
-    def build_step(self):
-        """No build step for ant."""
-        pass
 
     def install_step(self):
         """Custom install procedure for ant."""
@@ -61,7 +53,7 @@ class EB_ant(EasyBlock):
         try:
             shutil.copy(os.path.join(junit_root, 'junit-%s.jar' % junit_ver),
                         os.path.join(os.getcwd(), "lib", "optional"))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy JUnit jar: %s", err)
 
         cmd = "sh build.sh -Ddist.dir=%s dist" % self.installdir

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ EasyBuild support for building and installing numpy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import glob
 import os
 import re
 import tempfile
@@ -38,9 +39,10 @@ import tempfile
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, rmtree2
+from easybuild.tools.filetools import change_dir, mkdir, rmtree2
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
@@ -63,7 +65,6 @@ class EB_numpy(FortranPythonPackage):
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
-        self.installopts = ''
         self.testinstall = True
         self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
@@ -167,7 +168,7 @@ class EB_numpy(FortranPythonPackage):
                 lapack = ', '.join([lapack, "cblas"])
                 cblaslib = os.path.join(cblasroot, 'lib')
                 # with numpy as extension, CBLAS might not be included in LDFLAGS because it's not part of a toolchain
-                if not cblaslib in libs:
+                if cblaslib not in libs:
                     libs = ':'.join([libs, cblaslib])
             else:
                 raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
@@ -221,13 +222,13 @@ class EB_numpy(FortranPythonPackage):
         for pylibdir in abs_pylibdirs:
             mkdir(pylibdir, parents=True)
         pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
-        cmd = self.compose_install_command(tmpdir, extrapath=pythonpath, installopts=self.installopts)
+        cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
         run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
         try:
             pwd = os.getcwd()
             os.chdir(tmpdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
@@ -270,38 +271,8 @@ class EB_numpy(FortranPythonPackage):
         try:
             os.chdir(pwd)
             rmtree2(tmpdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
-
-    def sanity_check_step(self, *args, **kwargs):
-        """Custom sanity check for numpy."""
-
-        custom_paths = {
-            'files': [],
-            'dirs': [self.pylibdir],
-        }
-        custom_commands = [
-            ('python', '-c "import numpy"'),
-        ]
-        if LooseVersion(self.version) >= LooseVersion("1.10"):
-            # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
-            # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
-            blas_check_pytxt = '; '.join([
-                "import sys",
-                "import numpy",
-                "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
-                "sys.exit((1, 0)[blas_ok])",
-            ])
-            custom_commands.append(('python', '-c "%s"' % blas_check_pytxt))
-        else:
-            # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
-            custom_commands.append (('python', '-c "import numpy.core._dotblas"'))
-
-        # make sure the installation path is in $PYTHONPATH so the sanity check commands can work
-        pythonpath = os.environ.get('PYTHONPATH', '')
-        os.environ['PYTHONPATH'] = ':'.join([self.pylibdir, pythonpath])
-
-        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def install_step(self):
         """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
@@ -317,3 +288,65 @@ class EB_numpy(FortranPythonPackage):
 
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
+
+    def run(self):
+        """Install numpy as an extension"""
+        super(EB_numpy, self).run()
+
+        return self.make_module_extra_numpy_include()
+
+    def sanity_check_step(self, *args, **kwargs):
+        """Custom sanity check for numpy."""
+
+        # can't use self.pylibdir here, need to determine path on the fly using currently active 'python' command;
+        # this is important for numpy installations for multiple Python version (via multi_deps)
+        custom_paths = {
+            'files': [],
+            'dirs': [det_pylibdir()],
+        }
+
+        custom_commands = []
+
+        if LooseVersion(self.version) >= LooseVersion("1.10"):
+            # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
+            # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
+            blas_check_pytxt = '; '.join([
+                "import sys",
+                "import numpy",
+                "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
+                "sys.exit((1, 0)[blas_ok])",
+            ])
+            custom_commands.append('python -c "%s"' % blas_check_pytxt)
+        else:
+            # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
+            custom_commands.append("python -c 'import numpy.core._dotblas'")
+
+        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra_numpy_include(self):
+        """
+        Return update statements for $CPATH specifically for numpy
+        """
+        numpy_core_subdir = os.path.join('numpy', 'core')
+        numpy_core_dirs = []
+        cwd = change_dir(self.installdir)
+        for pylibdir in self.all_pylibdirs:
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, numpy_core_subdir)))
+            numpy_core_dirs.extend(glob.glob(os.path.join(pylibdir, 'numpy*.egg', numpy_core_subdir)))
+        change_dir(cwd)
+
+        txt = ''
+        for numpy_core_dir in numpy_core_dirs:
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join(numpy_core_dir, 'include'))
+            for lib_env_var in ('LD_LIBRARY_PATH', 'LIBRARY_PATH'):
+                txt += self.module_generator.prepend_paths(lib_env_var, os.path.join(numpy_core_dir, 'lib'))
+
+        return txt
+
+    def make_module_extra(self):
+        """
+        Add additional update statements in module file specific to numpy
+        """
+        txt = super(EB_numpy, self).make_module_extra()
+        txt += self.make_module_extra_numpy_include()
+        return txt

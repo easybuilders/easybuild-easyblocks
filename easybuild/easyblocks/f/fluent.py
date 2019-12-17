@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,12 +31,12 @@ import os
 import stat
 from distutils.version import LooseVersion
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.run import run_cmd
 
 
-class EB_FLUENT(EasyBlock):
+class EB_FLUENT(PackedBinary):
     """Support for installing FLUENT."""
 
     def __init__(self, *args, **kwargs):
@@ -44,17 +44,8 @@ class EB_FLUENT(EasyBlock):
         super(EB_FLUENT, self).__init__(*args, **kwargs)
         self.fluent_verdir = 'v%s' % ''.join(self.version.split('.')[:2])
 
-    def configure_step(self):
-        """No configuration for FLUENT."""
-        pass
-
-    def build_step(self):
-        """No building for FLUENT."""
-        pass
-
     def install_step(self):
         """Custom install procedure for FLUENT."""
-
         extra_args =''
         # only include -noroot flag for older versions
         if LooseVersion(self.version) < LooseVersion('15.0'):
@@ -78,8 +69,11 @@ class EB_FLUENT(EasyBlock):
         guesses = super(EB_FLUENT, self).make_module_req_guess()
 
         guesses.update({
-            "PATH": [os.path.join(self.fluent_verdir, "fluent", "bin")],
-            "LD_LIBRARY_PATH": [os.path.join(self.fluent_verdir, "fluent", "lib")],
+            'PATH': [
+                os.path.join(self.fluent_verdir, 'fluent', 'bin'),
+                os.path.join(self.fluent_verdir, 'Framework', 'bin', 'Linux64'),
+            ],
+            'LD_LIBRARY_PATH': [os.path.join(self.fluent_verdir, 'fluent', 'lib')],
         })
 
         return guesses

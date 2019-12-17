@@ -1,5 +1,5 @@
 ##
-# Copyright 2014 Ghent University
+# Copyright 2014-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ class EB_Go(ConfigureMake):
         srcdir = os.path.join(self.cfg['start_dir'], 'src')
         try:
             os.chdir(srcdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s", srcdir, err)
 
         # $GOROOT_FINAL only specifies the location of the final installation, which gets baked into the binaries
@@ -81,5 +81,5 @@ class EB_Go(ConfigureMake):
         try:
             rmtree2(self.installdir)
             shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy installation to %s: %s", self.installdir, err)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,11 +32,9 @@ implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import shutil
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import copy_dir, rmtree2
 
 
 class Tarball(EasyBlock):
@@ -59,15 +57,10 @@ class Tarball(EasyBlock):
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
-        if src is None:
-            src = self.cfg['start_dir']
-
-        # shutil.copytree cannot handle destination dirs that exist already.
-        # On the other hand, Python2.4 cannot create entire paths during copytree.
-        # Therefore, only the final directory is deleted.
         rmtree2(self.installdir)
-        try:
-            # self.cfg['keepsymlinks'] is False by default except when explicitly put to True in .eb file
-            shutil.copytree(src, self.installdir, symlinks=self.cfg['keepsymlinks'])
-        except OSError, err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, self.installdir, err)
+        copy_dir(src or self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
+
+    def sanity_check_rpath(self):
+        """Skip the rpath sanity check, this is binary software"""
+        self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Tarball)",
+                      self.__class__.__name__)

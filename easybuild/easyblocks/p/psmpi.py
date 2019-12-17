@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2016 Ghent University, Forschungszentrum Juelich
+# Copyright 2016-2019 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ class EB_psmpi(EB_MPICH):
         extra_vars.update({
             'mpich_opts': [None, "Optional options to configure MPICH", CUSTOM],
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
+            'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
         })
         return extra_vars
 
@@ -92,8 +93,14 @@ class EB_psmpi(EB_MPICH):
             self.cfg.update('configopts', ' --with-mpichconf="%s"' % self.cfg['mpich_opts'])
 
         # Lastly, set pscom related variables
-        self.cfg.update('preconfigopts', ('PSCOM_LDFLAGS=-L{0}/lib '+
-                'PSCOM_CPPFLAGS=-I{0}/include').format(get_software_root('pscom')))
+        if self.cfg['pscom_allin_path'] is None:
+            pscom_path = get_software_root('pscom')
+        else:
+            pscom_path = self.cfg['pscom_allin_path'].strip()
+            self.cfg.update('configopts', ' --with-pscom-allin="%s"' % pscom_path)
+
+        pscom_flags = 'PSCOM_LDFLAGS=-L{0}/lib PSCOM_CPPFLAGS=-I{0}/include'.format(pscom_path)
+        self.cfg.update('preconfigopts', pscom_flags)
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
 

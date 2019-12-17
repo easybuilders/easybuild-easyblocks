@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,31 +33,23 @@ EasyBuild support for BiSearch, implemented as an easyblock
 """
 import os
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.run import run_cmd_qa
 
 
-class EB_BiSearch(EasyBlock):
+class EB_BiSearch(PackedBinary):
     """
     Support for building BiSearch.
     Basically just run the interactive installation script install.sh.
     """
 
-    def configure_step(self):
-        """(no configure)"""
-        pass
-
-    def build_step(self):
-        """(empty, building is performed in make_install step)"""
-        pass
-
     def install_step(self):
         cmd = "./install.sh"
 
         qanda = {
-                 'Please enter the BiSearch root directory: ': self.installdir,
-                 'Please enter the path of c++ compiler [/usr/bin/g++]: ': os.getenv('CXX')
-                }
+            'Please enter the BiSearch root directory: ': self.installdir,
+            'Please enter the path of c++ compiler [/usr/bin/g++]: ': os.getenv('CXX')
+        }
 
         no_qa = [r'Compiling components\s*\.*']
 
@@ -65,11 +57,8 @@ class EB_BiSearch(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for BiSearch."""
-
         custom_paths = {
-                        'files':["bin/%s" % x for x in ["fpcr", "indexing_cdna",
-                                                        "indexing_genome", "makecomp"]],
-                        'dirs':[]
-                       }
-
+            'files':['bin/%s' % x for x in ['fpcr', 'indexing_cdna', 'indexing_genome', 'makecomp']],
+            'dirs':[],
+        }
         super(EB_BiSearch, self).sanity_check_step(custom_paths=custom_paths)

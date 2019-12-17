@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2016 Ghent University
+# Copyright 2015-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,21 +28,13 @@ EasyBuild support for building and installing Samcef, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 """
 import stat
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.run import run_cmd_qa
 
 
-class EB_Samcef(EasyBlock):
+class EB_Samcef(PackedBinary):
     """Support for building/installing Samcef."""
-
-    def configure_step(self):
-        """No configuration step for Samcef."""
-        pass
-
-    def build_step(self):
-        """No build step for Samcef."""
-        pass
 
     def install_step(self):
         """Custom install procedure for Samcef."""

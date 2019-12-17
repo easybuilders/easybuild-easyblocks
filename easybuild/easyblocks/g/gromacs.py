@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,24 +30,27 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Benjamin Roberts (The University of Auckland)
 @author: Luca Marsella (CSCS)
 @author: Guilherme Peretti-Pezzi (CSCS)
+@author: Oliver Stueker (Compute Canada/ACENET)
+@author: Davide Vanzo (Vanderbilt University)
 """
 import glob
 import os
 import re
 import shutil
 from distutils.version import LooseVersion
-from vsc.utils.missing import any
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import download_file, extract_file, which
-from easybuild.tools.modules import get_software_libdir, get_software_root
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name , get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
 
 
 class EB_GROMACS(CMakeMake):
@@ -70,8 +73,94 @@ class EB_GROMACS(CMakeMake):
         self.lib_subdir = ''
         self.pre_env = ''
 
+    def get_gromacs_arch(self):
+        """Determine value of GMX_SIMD CMake flag based on optarch string.
+
+        Refs:
+        [0] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#typical-installation
+        [1] http://manual.gromacs.org/documentation/2016.3/install-guide/index.html#simd-support
+        [2] http://www.gromacs.org/Documentation/Acceleration_and_parallelization
+        """
+        # default: fall back on autodetection
+        res = None
+
+        optarch = build_option('optarch') or ''
+        # take into account that optarch value is a dictionary if it is specified by compiler family
+        if isinstance(optarch, dict):
+            comp_fam = self.toolchain.comp_family()
+            optarch = optarch.get(comp_fam, '')
+        optarch = optarch.upper()
+
+        # The list of GMX_SIMD options can be found
+        # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
+        if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512_KNL'
+        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+            res = 'AVX_512'
+        elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
+            res = 'AVX2_256'
+        elif 'AVX' in optarch:
+            res = 'AVX_256'
+        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch:
+            # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
+            # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
+            # and SSE4.1 is not supported by AMD Magny-Cours[1].
+            res = 'SSE2'
+        elif optarch == OPTARCH_GENERIC:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                res = 'SSE2'
+            else:
+                res = 'None'
+        elif optarch:
+            warn_msg = "--optarch configuration setting set to %s but not taken into account; " % optarch
+            warn_msg += "compiling GROMACS for the current host architecture (i.e. the default behavior)"
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
+
+        if res:
+            self.log.info("Target architecture based on optarch configuration option ('%s'): %s", optarch, res)
+        else:
+            self.log.info("No target architecture specified based on optarch configuration option ('%s')", optarch)
+
+        return res
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for GROMACS."""
+
+        # With the intel toolchain the -ftz build flag is automatically added, causing
+        # denormal results being flushed to zero. This will cause errors for very small
+        # arguments without FMA support since some intermediate results might be denormal.
+        # [https://redmine.gromacs.org/issues/2335]
+        # Set -fp-model precise on non-FMA CPUs to produce correct results.
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            cpu_features = get_cpu_features()
+            if 'fma' not in cpu_features:
+                self.log.info("FMA instruction not supported by this CPU: %s", cpu_features)
+                self.log.info("Setting precise=True intel toolchain option to remove -ftz build flag")
+                self.toolchain.options['precise'] = True
+
+        # This must be called after enforcing the precise option otherwise the
+        # change will be ignored.
+        super(EB_GROMACS, self).prepare_step(*args, **kwargs)
+
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
+
+        # check whether PLUMED is loaded as a dependency
+        plumed_root = get_software_root('PLUMED')
+        if plumed_root:
+            # Need to check if PLUMED has an engine for this version
+            engine = 'gromacs-%s' % self.version
+
+            (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
+            if not re.search(engine, out):
+                raise EasyBuildError("There is no support in PLUMED version %s for GROMACS %s: %s",
+                                     get_software_version('PLUMED'), self.version, out)
+
+            # PLUMED patching must be done at different stages depending on
+            # version of GROMACS. Just prepare first part of cmd here
+            plumed_cmd = "plumed-patch -p -e %s" % engine
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
@@ -102,17 +191,42 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "--without-gsl")
 
             # actually run configure via ancestor (not direct parent)
+            self.cfg['configure_cmd'] = "./configure"
             ConfigureMake.configure_step(self)
 
+            # Now patch GROMACS for PLUMED between configure and build
+            if plumed_root:
+                run_cmd(plumed_cmd, log_all=True, simple=True)
+
         else:
-            # build a release build
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+            # Now patch GROMACS for PLUMED before cmake
+            if plumed_root:
+                if LooseVersion(self.version) >= LooseVersion('5.1'):
+                    # Use shared or static patch depending on
+                    # setting of self.toolchain.options.get('dynamic')
+                    # and adapt cmake flags accordingly as per instructions
+                    # from "plumed patch -i"
+                    if self.toolchain.options.get('dynamic', False):
+                        mode = 'shared'
+                    else:
+                        mode = 'static'
+                    plumed_cmd = plumed_cmd + ' -m %s' % mode
+
+                run_cmd(plumed_cmd, log_all=True, simple=True)
+
+            # Select debug or release build
+            if self.toolchain.options.get('debug', None):
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Debug")
+            else:
+                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
+                if plumed_root:
+                    self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=OFF")
 
             if self.cfg['double_precision']:
                 self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
@@ -122,6 +236,14 @@ class EB_GROMACS(CMakeMake):
 
             # disable GUI tools
             self.cfg.update('configopts', "-DGMX_X11=OFF")
+
+            # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
+            gmx_simd = self.get_gromacs_arch()
+            if gmx_simd:
+                if LooseVersion(self.version) < LooseVersion('5.0'):
+                    self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                else:
+                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'
@@ -149,7 +271,9 @@ class EB_GROMACS(CMakeMake):
             if get_software_root('imkl'):
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="$EBROOTMKL/mkl/include" ')
-                mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in ['libmkl_lapack.a']]
+                libs = os.getenv('LAPACK_STATIC_LIBS').split(',')
+                mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in libs if lib != 'libgfortran.a']
+                mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group']
                 self.cfg.update('configopts', '-DMKL_LIBRARIES="%s" ' % ';'.join(mkl_libs))
             else:
                 shlib_ext = get_shared_lib_ext()
@@ -212,6 +336,9 @@ class EB_GROMACS(CMakeMake):
             env.setvar('OMP_NUM_THREADS', '1')
 
             self.cfg['runtest'] = 'check'
+            if self.cfg['parallel']:
+                # run 'make check' in parallel since it involves more compilation
+                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
             super(EB_GROMACS, self).test_step()
 
     def install_step(self):
@@ -342,18 +469,30 @@ class EB_GROMACS(CMakeMake):
             libnames.extend([libname + mpisuff for libname in libnames])
 
         suff = ''
-        # add the _d suffix to the suffix, in case of the double precission
-        if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg['configopts'], re.I):
-            suff = '_d'
 
-        libs = ['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames]
+        # make sure that configopts is a list:
+        configopts_list = self.cfg['configopts']
+        if isinstance(configopts_list, str):
+            configopts_list = [configopts_list]
+
+        lib_files = []
+        bin_files = []
+
+        for configopts in configopts_list:
+            # add the _d suffix to the suffix, in case of the double precission
+            if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
+                suff = '_d'
+
+            lib_files.extend(['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames])
+            bin_files.extend([b + suff for b in bins])
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
             dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
 
         custom_paths = {
-            'files': [os.path.join('bin', b + suff) for b in bins] + [os.path.join(self.lib_subdir, l) for l in libs],
+            'files': [os.path.join('bin', b) for b in bin_files] +
+                [os.path.join(self.lib_subdir, l) for l in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)

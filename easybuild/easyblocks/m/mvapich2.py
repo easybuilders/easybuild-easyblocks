@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2019 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -67,7 +67,9 @@ class EB_MVAPICH2(EB_MPICH):
 
         # additional configuration options
         add_configopts = []
-        add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
+
+        if self.cfg['rdma_type']:
+            add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
 
         # enable specific support options (if desired)
         if self.cfg['withmpe']:

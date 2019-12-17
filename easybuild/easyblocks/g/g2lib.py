@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ class EB_g2lib(ConfigureMake):
             os.mkdir(targetdir)
             fn = "libg2.a"
             shutil.copyfile(os.path.join(self.cfg['start_dir'], fn), os.path.join(targetdir, fn))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy files to install dir: %s", err)
 
     def sanity_check_step(self):

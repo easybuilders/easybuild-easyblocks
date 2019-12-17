@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd
+from distutils.version import LooseVersion
 
 
 class EB_HPCG(ConfigureMake):
@@ -48,8 +49,11 @@ class EB_HPCG(ConfigureMake):
         mkdir("obj")
         # configure with most generic configuration available, i.e. hybrid
         # this is not specific to GCC or OpenMP, we take full control over that via $CXX and $CXXFLAGS
-        cmd = "../configure ../setup/Make.MPI_GCC_OMP" 
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True, path='obj')
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            arg = "MPI_GCC_OMP"
+        else:
+            arg = "../setup/Make.MPI_GCC_OMP"
+        run_cmd("../configure %s" % arg, log_all=True, simple=True, log_ok=True, path='obj')
 
     def build_step(self):
         """Run build in build subdirectory."""
@@ -76,7 +80,7 @@ class EB_HPCG(ConfigureMake):
             # find log file, check for success
             success_regex = re.compile(r"Scaled Residual \[[0-9.e-]+\]")
             try:
-                hpcg_logs = glob.glob('hpcg_log*txt')
+                hpcg_logs = glob.glob('hpcg*txt')
                 if len(hpcg_logs) == 1:
                     txt = open(hpcg_logs[0], 'r').read()
                     self.log.debug("Contents of HPCG log file %s: %s" % (hpcg_logs[0], txt))
@@ -87,7 +91,7 @@ class EB_HPCG(ConfigureMake):
                                              success_regex.pattern, hpcg_logs[0])
                 else:
                     raise EasyBuildError("Failed to find exactly one HPCG log file: %s", hpcg_logs)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to check for success in HPCG log file: %s", err)
 
     def install_step(self):
@@ -96,7 +100,7 @@ class EB_HPCG(ConfigureMake):
         bindir = os.path.join(self.installdir, 'bin')
         try:
             shutil.copytree(objbindir, bindir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy HPCG files to %s: %s", bindir, err)
 
     def sanity_check_step(self):

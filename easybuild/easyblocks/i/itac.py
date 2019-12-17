@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ EULA=accept
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
             try:
                 os.makedirs(tmpdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
@@ -130,7 +130,7 @@ EULA=accept
         else:
             guesses.update({
                 'PATH': ['bin', 'bin/intel64', 'bin64'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64'],
+                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
             })
         return guesses
 
@@ -140,4 +140,6 @@ EULA=accept
         txt += self.module_generator.set_environment('VT_ROOT', self.installdir)
         txt += self.module_generator.set_environment('VT_MPI', self.cfg['preferredmpi'])
         txt += self.module_generator.set_environment('VT_ADD_LIBS', "-ldwarf -lelf -lvtunwind -lnsl -lm -ldl -lpthread")
+        txt += self.module_generator.set_environment('VT_LIB_DIR', self.installdir + "/lib")
+        txt += self.module_generator.set_environment('VT_SLIB_DIR', self.installdir + "/slib")
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,11 +26,13 @@
 EasyBuild support for building and installing ESMF, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import os
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import BUILD
@@ -76,28 +78,30 @@ class EB_ESMF(ConfigureMake):
         # specify netCDF
         netcdf = get_software_root('netCDF')
         if netcdf:
-            env.setvar('ESMF_NETCDF', 'user')
-            netcdf_libs = ['-L%s/lib' % netcdf, '-lnetcdf']
-
-            # Fortran
-            netcdff = get_software_root('netCDF-Fortran')
-            if netcdff:
-                netcdf_libs = ["-L%s/lib" % netcdff] + netcdf_libs + ["-lnetcdff"]
+            if LooseVersion(self.version) >= LooseVersion('7.1.0'):
+                env.setvar('ESMF_NETCDF', 'nc-config')
             else:
-                netcdf_libs.append('-lnetcdff')
+                env.setvar('ESMF_NETCDF', 'user')
+                netcdf_libs = ['-L%s/lib' % netcdf, '-lnetcdf']
 
-            # C++
-            netcdfcxx = get_software_root('netCDF-C++')
-            if netcdfcxx:
-                netcdf_libs = ["-L%s/lib" % netcdfcxx] + netcdf_libs + ["-lnetcdf_c++"]
-            else:
-                netcdfcxx = get_software_root('netCDF-C++4')
-                if netcdfcxx:
-                    netcdf_libs = ["-L%s/lib" % netcdfcxx] + netcdf_libs + ["-lnetcdf_c++4"]
+                # Fortran
+                netcdff = get_software_root('netCDF-Fortran')
+                if netcdff:
+                    netcdf_libs = ["-L%s/lib" % netcdff] + netcdf_libs + ["-lnetcdff"]
                 else:
-                    netcdf_libs.append('-lnetcdf_c++')
+                    netcdf_libs.append('-lnetcdff')
 
-            env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
+                # C++
+                netcdfcxx = get_software_root('netCDF-C++')
+                if netcdfcxx:
+                    netcdf_libs = ["-L%s/lib" % netcdfcxx] + netcdf_libs + ["-lnetcdf_c++"]
+                else:
+                    netcdfcxx = get_software_root('netCDF-C++4')
+                    if netcdfcxx:
+                        netcdf_libs = ["-L%s/lib" % netcdfcxx] + netcdf_libs + ["-lnetcdf_c++4"]
+                    else:
+                        netcdf_libs.append('-lnetcdf_c++')
+                env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
 
         # 'make info' provides useful debug info
         cmd = "make info"

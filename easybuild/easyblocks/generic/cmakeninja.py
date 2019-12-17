@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2019-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,18 +23,27 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing a Pythonpackage independend of a python version as an easyblock.
+EasyBuild support for software that uses
+CMake configure step and Ninja build install.
 
-This easyblock is no longer supported, and is replaced by VersionIndependentPythonPackage (fixes a typo in the class name).
-
-@author: Kenneth Hoste, Jens Timmerman (Ghent University)
+@author: Kenneth Hoste (Ghent University)
+@author: Pavel Grochal (INUITS)
 """
-from easybuild.easyblocks.generic.versionindependentpythonpackage import VersionIndependentPythonPackage
+from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.generic.mesonninja import MesonNinja
 
 
-class VersionIndependendPythonPackage(VersionIndependentPythonPackage):
-    """No longer supported class for building/installing python packages without requiring a specific python package."""
+class CMakeNinja(CMakeMake, MesonNinja):
+    """Support for configuring with CMake, building and installing with MesonNinja."""
 
-    def prepare_step(self):
-        """Indicate that this easyblock is no longer supported."""
-        self.log.nosupport("Replaced by VersionIndependentPythonPackage easyblock", '2.0')
+    def configure_step(self, *args, **kwargs):
+        """Configure using CMake."""
+        CMakeMake.configure_step(self, *args, **kwargs)
+
+    def build_step(self, *args, **kwargs):
+        """Build using MesonNinja."""
+        MesonNinja.build_step(self, *args, **kwargs)
+
+    def install_step(self, *args, **kwargs):
+        """Install using MesonNinja."""
+        MesonNinja.install_step(self, *args, **kwargs)

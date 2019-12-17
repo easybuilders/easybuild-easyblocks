@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,11 +36,12 @@ import re
 import os
 import shutil
 import sys
+import stat
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, write_file
+from easybuild.tools.filetools import mkdir, write_file, adjust_permissions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.modules import get_software_libdir
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -69,6 +70,9 @@ class EB_SuiteSparse(ConfigureMake):
             'F77': os.getenv('MPIF77'),
             'F77FLAGS': os.getenv('F77FLAGS'),
         }
+
+        # avoid that (system) Intel compilers are always considered
+        self.cfg.update('buildopts', 'AUTOCC=no')
 
         # Set BLAS and LAPACK libraries as specified in SuiteSparse README.txt
         self.cfg.update('buildopts', 'BLAS="%s"' % os.getenv('LIBBLAS_MT'))
@@ -106,9 +110,9 @@ class EB_SuiteSparse(ConfigureMake):
 
         try:
             for line in fileinput.input(fp, inplace=1, backup='.orig'):
-                for (var, val) in cfgvars.items():
+                for (var, val) in list(cfgvars.items()):
                     orig_line = line
-                    # for variables in cfgvars, substiture lines assignment 
+                    # for variables in cfgvars, substiture lines assignment
                     # in the file, whatever they are, by assignments to the
                     # values in cfgvars
                     line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
@@ -117,7 +121,7 @@ class EB_SuiteSparse(ConfigureMake):
                     if line != orig_line:
                         cfgvars.pop(var)
                 sys.stdout.write(line)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s in: %s", fp, err)
 
         # add remaining entries at the end
@@ -134,7 +138,7 @@ class EB_SuiteSparse(ConfigureMake):
             try:
                 if os.path.isdir(src):
                     shutil.copytree(src, dst)
-                    # symlink 
+                    # symlink
                     # - dst/Lib to dst/lib
                     # - dst/Include to dst/include
                     for c in ['Lib', 'Include']:
@@ -142,15 +146,18 @@ class EB_SuiteSparse(ConfigureMake):
                         ndst = os.path.join(dst, c.lower())
                         if os.path.exists(nsrc):
                             os.symlink(nsrc, ndst)
+                    # enable r-x permissions for group/others
+                    perms = stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
+                    adjust_permissions(dst, perms, add=True, recursive=True, onlydirs=True)
                 else:
                     shutil.copy2(src, dst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying src %s to dst %s failed: %s", src, dst, err)
 
         # some extra symlinks are necessary for UMFPACK to work.
         paths = [
             os.path.join('AMD', 'include', 'amd.h'),
-            os.path.join('AMD' ,'include' ,'amd_internal.h'),
+            os.path.join('AMD', 'include', 'amd_internal.h'),
             os.path.join(self.config_name, '%s.h' % self.config_name),
             os.path.join('AMD', 'lib', 'libamd.a')
         ]
@@ -163,7 +170,7 @@ class EB_SuiteSparse(ConfigureMake):
             if os.path.exists(src):
                 try:
                     os.symlink(src, os.path.join(dstdir, fn))
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to make symbolic link from %s to %s: %s", src, dst, err)
 
     def make_module_req_guess(self):

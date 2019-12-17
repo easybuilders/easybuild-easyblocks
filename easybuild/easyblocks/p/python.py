@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2016 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,22 +30,65 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
-import copy
+import glob
 import os
 import re
 import fileinput
 import sys
+import tempfile
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_libdir, get_software_libdir, get_software_root, get_software_version
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import log_path
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
+
+# magic value for unlimited stack size
+UNLIMITED = 'unlimited'
+
+EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
+
+SITECUSTOMIZE = """
+# sitecustomize.py script installed by EasyBuild,
+# to support picking up Python packages which were installed
+# for multiple Python versions in the same directory
+
+import os
+import site
+import sys
+
+# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
+
+# use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
+# virtualenv-installed packages, unlike $PYTHONPATH
+
+ebpythonprefixes = os.getenv('%(EBPYTHONPREFIXES)s')
+
+if ebpythonprefixes:
+    postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
+    if debug:
+        print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
+
+    for prefix in ebpythonprefixes.split(os.pathsep):
+        if debug:
+            print("[%(EBPYTHONPREFIXES)s] prefix: %%s" %% prefix)
+        sitedir = os.path.join(prefix, postfix)
+        if os.path.isdir(sitedir):
+            if debug:
+                print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
+            site.addsitedir(sitedir)
+""" % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
 
 
 class EB_Python(ConfigureMake):
@@ -59,6 +102,26 @@ class EB_Python(ConfigureMake):
     e.g., you can include numpy and scipy in a default Python installation
     but also provide newer updated numpy and scipy versions by creating a PythonPackage-derived easyblock for it.
     """
+
+    @staticmethod
+    def extra_options():
+        """Add extra config options specific to Python."""
+        extra_vars = {
+            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+            'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for Python easyblock."""
+        super(EB_Python, self).__init__(*args, **kwargs)
+
+        self.pyshortver = '.'.join(self.version.split('.')[:2])
+
+        self.pythonpath = None
+        if self.cfg['ebpythonprefixes']:
+            easybuild_subdir = log_path()
+            self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
     def prepare_for_extensions(self):
         """
@@ -135,52 +198,121 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).configure_step()
 
+    def build_step(self, *args, **kwargs):
+        """Custom build procedure for Python, ensure stack size limit is set to 'unlimited' (if desired)."""
+
+        if self.cfg['ulimit_unlimited']:
+            # determine current stack size limit
+            (out, _) = run_cmd("ulimit -s")
+            curr_ulimit_s = out.strip()
+
+            # figure out hard limit for stack size limit;
+            # this determines whether or not we can use "ulimit -s unlimited"
+            (out, _) = run_cmd("ulimit -s -H")
+            max_ulimit_s = out.strip()
+
+            if curr_ulimit_s == UNLIMITED:
+                self.log.info("Current stack size limit is %s: OK", curr_ulimit_s)
+            elif max_ulimit_s == UNLIMITED:
+                self.log.info("Current stack size limit is %s, setting it to %s for build...",
+                              curr_ulimit_s, UNLIMITED)
+                self.cfg.update('prebuildopts', "ulimit -s %s && " % UNLIMITED)
+            else:
+                msg = "Current stack size limit is %s, and can not be set to %s due to hard limit of %s;"
+                msg += " setting stack size limit to %s instead, "
+                msg += " this may break part of the compilation (e.g. hashlib)..."
+                print_warning(msg % (curr_ulimit_s, UNLIMITED, max_ulimit_s, max_ulimit_s))
+                self.cfg.update('prebuildopts', "ulimit -s %s && " % max_ulimit_s)
+
+        super(EB_Python, self).build_step(*args, **kwargs)
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
         super(EB_Python, self).install_step()
 
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            pythonver = '.'.join(self.version.split('.')[0:2])
-            srcbin = "%s%s" % (python_binary_path, pythonver)
-            try:
-                os.symlink(srcbin, python_binary_path)
-            except OSError, err:
-                raise EasyBuildError("Failed to symlink %s to %s: %s", srcbin, python_binary_path, err)
+            symlink(python_binary_path + self.pyshortver, python_binary_path)
+
+        if self.cfg['ebpythonprefixes']:
+            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
-        pyver = "python%s" % '.'.join(self.version.split('.')[0:2])
+        shlib_ext = get_shared_lib_ext()
 
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("which python", log_all=True, simple=False)
+            run_cmd("which python", log_all=True, simple=False, trace=False)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
-            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False)
+            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not abiflags:
                 raise EasyBuildError("Failed to determine abiflags: %s", abiflags)
             else:
                 abiflags = abiflags.strip()
 
+        # make sure hashlib is installed correctly, there should be no errors/output when 'import hashlib' is run
+        # (python will exit with 0 regardless of whether or not errors are printed...)
+        # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6484
+        cmd = "python -c 'import hashlib'"
+        (out, _) = run_cmd(cmd)
+        regex = re.compile('error', re.I)
+        if regex.search(out):
+            raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
+        else:
+            self.log.info("No errors found in output of %s: %s", cmd, out)
+
+        pyver = 'python' + self.pyshortver
         custom_paths = {
-            'files': ["bin/%s" % pyver, "lib/lib%s%s.%s" % (pyver, abiflags, get_shared_lib_ext())],
-            'dirs': ["include/%s%s" % (pyver, abiflags), "lib/%s" % pyver],
+            'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
+            'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver)],
         }
 
         # cleanup
         self.clean_up_fake_module(fake_mod_data)
 
         custom_commands = [
-            ('python', '--version'),
-            ('python', '-c "import _ctypes"'),  # make sure that foreign function interface (libffi) works
-            ('python', '-c "import _ssl"'),  # make sure SSL support is enabled one way or another
-            ('python', '-c "import readline"'),  # make sure readline support was built correctly
+            "python --version",
+            "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
+            "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
+            "python -c 'import readline'",  # make sure readline support was built correctly
         ]
 
+        if get_software_root('Tk'):
+            # also check whether importing tkinter module works, name is different for Python v2.x and v3.x
+            if LooseVersion(self.version) >= LooseVersion('3'):
+                tkinter = 'tkinter'
+            else:
+                tkinter = 'Tkinter'
+            custom_commands.append("python -c 'import %s'" % tkinter)
+
+            # check whether _tkinter*.so is found, exact filename doesn't matter
+            tkinter_so = os.path.join(self.installdir, 'lib', pyver, 'lib-dynload', '_tkinter*.' + shlib_ext)
+            tkinter_so_hits = glob.glob(tkinter_so)
+            if len(tkinter_so_hits) == 1:
+                self.log.info("Found exactly one _tkinter*.so: %s", tkinter_so_hits[0])
+            else:
+                raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
+
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self, *args, **kwargs):
+        """Add path to sitecustomize.py to $PYTHONPATH"""
+        txt = super(EB_Python, self).make_module_extra()
+
+        if self.pythonpath:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
+
+        return txt

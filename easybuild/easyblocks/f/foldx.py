@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -8,7 +8,7 @@
 # Flemish Research Foundation (FWO) (http://www.fwo.be/en)
 # and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# http://github.com/hpcugent/easybuild
+# https://github.com/easybuilders/easybuild
 #
 # EasyBuild is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,6 +66,6 @@ class EB_FoldX(Tarball):
                         self.log.debug("Copied %s to install dir %s" % (item, self.installdir))
                 else:
                     self.log.warning("Skipping non-file %s in %s, not copying it." % (item, self.cfg['start_dir']))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying binaries in %s to install dir 'bin' failed: %s", self.cfg['start_dir'], err)
 
