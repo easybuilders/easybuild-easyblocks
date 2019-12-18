@@ -1,5 +1,5 @@
 # This easyblock was created by the BEAR Software team at the University of Birmingham
-
+import os
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
 
