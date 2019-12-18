@@ -10,7 +10,9 @@ class EB_Mesa(MesonNinja):
         Customise the configopts based on the platform
         """
         arch = get_cpu_architecture()
-        if arch == X86_64:
+        if os.environ.get('BB_CPU') == 'sandybridge':
+            self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+        elif arch == X86_64:
             self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr' -Dswr-arches=avx,avx2,skx,knl")
         elif arch == POWER:
             self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
