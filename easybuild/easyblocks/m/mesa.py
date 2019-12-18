@@ -14,4 +14,3 @@ class Mesa(MesonNinja):
             self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr' -Dswr-arches=avx,avx2,skx,knl")
         elif arch == POWER:
             self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
-
