@@ -380,8 +380,8 @@ class EB_WPS(EasyBlock):
     def make_module_req_guess(self):
         """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
         return {
-            'PATH': [self.name],
-            'LD_LIBRARY_PATH': [self.name],
+            'PATH': [self.wps_subdir],
+            'LD_LIBRARY_PATH': [self.wps_subdir],
             'MANPATH': [],
         }
 
