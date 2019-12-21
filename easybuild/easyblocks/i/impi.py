@@ -51,7 +51,7 @@ class EB_impi(IntelBase):
     def extra_options():
         extra_vars = {
             'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
-            'libfabric_rebuild': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
+            'libfabric_rebuild': [True, 'Try to rebuild the internal libfabric instead of using the provided binary', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
@@ -126,7 +126,8 @@ EULA=accept
             run_cmd(cmd, log_all=True, simple=True)
 
         # recompile libfabric (if requested)
-        if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
+        if (impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild'] and
+            os.path.exists(os.path.join(self.installdir, 'libfabric'))):
             if self.cfg['ofi_internal']:
                 change_dir(os.path.join(self.installdir, 'libfabric'))
                 extract_file('src.tgz', os.getcwd())
