@@ -126,10 +126,12 @@ EULA=accept
             run_cmd(cmd, log_all=True, simple=True)
 
         # recompile libfabric (if requested)
+        # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
+        libfabric_path = os.path.join(self.installdir, 'libfabric')
         if (impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild'] and
-                os.path.exists(os.path.join(self.installdir, 'libfabric'))):
+                os.path.exists(os.path.join(libfabric_path, 'src.tgz'))):
             if self.cfg['ofi_internal']:
-                change_dir(os.path.join(self.installdir, 'libfabric'))
+                change_dir(libfabric_path)
                 extract_file('src.tgz', os.getcwd())
                 libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
