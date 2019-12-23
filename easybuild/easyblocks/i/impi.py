@@ -128,24 +128,28 @@ EULA=accept
         # recompile libfabric (if requested)
         # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
         libfabric_path = os.path.join(self.installdir, 'libfabric')
-        if (impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild'] and
-                os.path.exists(os.path.join(libfabric_path, 'src.tgz'))):
+        if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
             if self.cfg['ofi_internal']:
-                change_dir(libfabric_path)
-                extract_file('src.tgz', os.getcwd())
-                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+                libfabric_src_tgz_fn = 'src.tgz'
+                if os.path.exists(os.path.join(libfabric_path, libfabric_src_tgz_fn)):
+                    change_dir(libfabric_path)
+                    extract_file(libfabric_src_tgz_fn, os.getcwd())
+                    libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
-                make = 'make'
-                if self.cfg['parallel']:
-                    make += ' -j %d' % self.cfg['parallel']
+                    make = 'make'
+                    if self.cfg['parallel']:
+                        make += ' -j %d' % self.cfg['parallel']
 
-                cmds = [
-                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
-                    make,
-                    'make install'
-                ]
-                for cmd in cmds:
-                    run_cmd(cmd, log_all=True, simple=True)
+                    cmds = [
+                        './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                        make,
+                        'make install'
+                    ]
+                    for cmd in cmds:
+                        run_cmd(cmd, log_all=True, simple=True)
+                else:
+                    self.log.info("Rebuild of libfabric is requested, but %s does not exist, so skipping...",
+                                  libfabric_src_tgz_fn)
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
