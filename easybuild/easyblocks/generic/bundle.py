@@ -74,6 +74,8 @@ class Bundle(EasyBlock):
         # list of sources for bundle itself *must* be empty
         if self.cfg['sources']:
             raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
+        if self.cfg['patches']:
+            raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
@@ -109,7 +111,7 @@ class Bundle(EasyBlock):
             comp_cfg['easyblock'] = None
 
             # reset list of sources/source_urls/checksums
-            comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = []
+            comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
 
             for key in self.cfg['default_component_specs']:
                 comp_cfg[key] = self.cfg['default_component_specs'][key]
@@ -150,6 +152,9 @@ class Bundle(EasyBlock):
 
                 # add per-component checksums for patches to list of checksums for patches
                 checksums_patches.extend(comp_cfg['checksums'][src_cnt:])
+
+            if comp_cfg['patches']:
+                self.cfg.update('patches', comp_cfg['patches'])
 
             self.comp_cfgs.append(comp_cfg)
 
