@@ -175,6 +175,10 @@ class Bundle(EasyBlock):
 
         return checksum_issues
 
+    def patch_step(self):
+        """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
+        pass
+
     def configure_step(self):
         """Collect altroot/altversion info."""
         # pick up altroot/altversion, if they are defined
