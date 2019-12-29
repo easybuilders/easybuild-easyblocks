@@ -27,8 +27,6 @@ EasyBuild support for building and installing Desmond, implemented as an easyblo
 
 @author: Samuel Moors, Vrije Universiteit Brussel (VUB)
 """
-from distutils.version import LooseVersion
-import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.filetools import rmtree2
