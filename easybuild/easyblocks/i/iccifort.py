@@ -35,7 +35,11 @@ from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 
 
-class EB_iccifort(EB_ifort, EB_icc):
+# EB_icc is derived from because its make_module_req_guess deliberately omits 'include' for CPATH:
+# including it causes problems, e.g. with complex.h and std::complex
+# cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
+# EB_ifort adds 'include' there but only needed if icc and ifort are separate
+class EB_iccifort(EB_icc):
     """
     Class that can be used to install iccifort
     """
