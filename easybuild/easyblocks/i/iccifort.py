@@ -55,3 +55,10 @@ class EB_iccifort(EB_ifort, EB_icc):
         txt += self.module_generator.set_environment('EBVERSIONIFORT', self.version)
 
         return txt
+
+    def make_module_req_guess(self):
+        # Use EB_icc because its make_module_req_guess deliberately omits 'include' for CPATH:
+        # including it causes problems, e.g. with complex.h and std::complex
+        # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
+        # whereas EB_ifort adds 'include' but that's only needed if icc and ifort are separate
+        return EB_icc.make_module_req_guess(self)
