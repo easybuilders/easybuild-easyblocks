@@ -108,14 +108,11 @@ class EB_Python(ConfigureMake):
     def extra_options():
         """Add extra config options specific to Python."""
         extra_vars = {
-            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
-            'use_lto': [
-                None,
-                "Build with Link Time Optimization. Potentially unstable on some toolchains. Default: Auto-detect",
-                CUSTOM
-                ],
-            'optimized': [True, "Enable expensive, stable optimizations (PGO, etc)", CUSTOM],
+            'optimized': [True, "Build with expensive, stable optimizations (PGO, etc.) (version >= 3.5.4)", CUSTOM],
+            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+            'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
+                        "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
