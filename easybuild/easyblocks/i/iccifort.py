@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel compiler suite, implemented as an eas
 @author: Bart Oldeman (McGill University, Compute Canada)
 """
 
+import os
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 
