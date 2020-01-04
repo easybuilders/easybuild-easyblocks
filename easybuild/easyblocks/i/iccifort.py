@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2019 Bart Oldeman, McGill University, Compute Canada
+# Copyright 2019-2020 Bart Oldeman, McGill University, Compute Canada
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.

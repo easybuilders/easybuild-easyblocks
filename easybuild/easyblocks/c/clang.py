@@ -1,6 +1,6 @@
 ##
 # Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
