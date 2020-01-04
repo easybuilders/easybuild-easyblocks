@@ -67,7 +67,8 @@ class EB_iccifort(EB_ifort, EB_icc):
         # remove entries from LIBRARY_PATH that icc and co already know about at compile time
         # only do this for iccifort merged installations so that icc can still find ifort
         # libraries and vice versa for split installations
-        compiler_library_paths = [os.path.join(self.comp_libs_subdir, p)
-                                  for p in ('lib', 'compiler/lib/intel64', 'lib/ia32', 'lib/intel64')]
-        guesses['LIBRARY_PATH'] = [p for p in guesses['LIBRARY_PATH'] if p not in compiler_library_paths]
+        if self.comp_libs_subdir is not None:
+            compiler_library_paths = [os.path.join(self.comp_libs_subdir, p)
+                                      for p in ('lib', 'compiler/lib/intel64', 'lib/ia32', 'lib/intel64')]
+            guesses['LIBRARY_PATH'] = [p for p in guesses['LIBRARY_PATH'] if p not in compiler_library_paths]
         return guesses
