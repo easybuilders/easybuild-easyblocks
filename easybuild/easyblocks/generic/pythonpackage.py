@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -615,12 +615,32 @@ class PythonPackage(ExtensionEasyBlock):
         self.test_step()
         self.install_step()
 
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonPackage, self).load_module(*args, **kwargs)
+
+        # don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # required here to ensure that it is defined for stand-alone installations,
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
         """
 
         success, fail_msg = True, ''
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/;
+        # must be set here to ensure that it is defined when running sanity check for extensions,
+        # since load_module is not called for every extension,
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
