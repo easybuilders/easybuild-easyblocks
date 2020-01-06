@@ -217,6 +217,14 @@ class EB_EasyBuildMeta(PythonPackage):
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
+    def make_module_extra(self):
+        """
+        Set $EB_PYTHON to ensure that this EasyBuild installation uses the same Python executable it was installed with.
+        """
+        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+        txt += self.module_generator.set_environment('EB_PYTHON', self.python_cmd)
+        return txt
+
     def make_module_step(self, fake=False):
         """Create module file, before copy of original environment that was tampered with is restored."""
         modpath = super(EB_EasyBuildMeta, self).make_module_step(fake=fake)
