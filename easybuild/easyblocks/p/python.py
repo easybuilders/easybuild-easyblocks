@@ -185,7 +185,9 @@ class EB_Python(ConfigureMake):
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
             self.cfg.update('configopts', "--enable-optimizations")
 
-        modules_setup_dist = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup.dist')
+        modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
+        if LooseVersion(self.version) < LooseVersion('3.8.0'):
+            modules_setup += '.dist'
 
         libreadline = get_software_root('libreadline')
         if libreadline:
@@ -196,7 +198,7 @@ class EB_Python(ConfigureMake):
                 readline_static_lib = os.path.join(libreadline, readline_libdir, 'libreadline.a')
                 ncurses_static_lib = os.path.join(ncurses, ncurses_libdir, 'libncurses.a')
                 readline = "readline readline.c %s %s" % (readline_static_lib, ncurses_static_lib)
-                for line in fileinput.input(modules_setup_dist, inplace='1', backup='.readline'):
+                for line in fileinput.input(modules_setup, inplace='1', backup='.readline'):
                     line = re.sub(r"^#readline readline.c.*", readline, line)
                     sys.stdout.write(line)
             else:
@@ -204,7 +206,7 @@ class EB_Python(ConfigureMake):
 
         openssl = get_software_root('OpenSSL')
         if openssl:
-            for line in fileinput.input(modules_setup_dist, inplace='1', backup='.ssl'):
+            for line in fileinput.input(modules_setup, inplace='1', backup='.ssl'):
                 line = re.sub(r"^#SSL=.*", "SSL=%s" % openssl, line)
                 line = re.sub(r"^#(\s*-DUSE_SSL -I)", r"\1", line)
                 line = re.sub(r"^#(\s*-L\$\(SSL\)/lib )", r"\1 -L$(SSL)/lib64 ", line)
