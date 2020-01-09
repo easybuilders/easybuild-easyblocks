@@ -130,7 +130,8 @@ class CMakeMake(ConfigureMake):
 
         if srcdir is None:
             if self.cfg.get('srcdir', None) is not None:
-                srcdir = self.cfg['srcdir']
+                # Note that the join returns srcdir if it is absolute
+                srcdir = os.path.join(default_srcdir, self.cfg['srcdir'])
             else:
                 srcdir = default_srcdir
 
