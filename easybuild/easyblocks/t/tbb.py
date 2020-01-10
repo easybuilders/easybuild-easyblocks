@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel Threading Building Blocks (TBB) libra
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Simon Branford (University of Birmingham)
 """
 
 import glob
@@ -43,7 +44,7 @@ from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTA
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.systemtools import get_gcc_version, get_platform_name
+from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
 
 
 def get_tbb_gccprefix():
@@ -76,10 +77,13 @@ class EB_tbb(IntelBase, ConfigureMake):
 
         self.libpath = 'UNKNOWN'
         platform_name = get_platform_name()
+        myarch = get_cpu_architecture()
         if platform_name.startswith('x86_64'):
             self.arch = "intel64"
         elif platform_name.startswith('i386') or platform_name.startswith('i686'):
             self.arch = 'ia32'
+        elif myarch == POWER:
+            self.arch = 'ppc64'
         else:
             raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
 
