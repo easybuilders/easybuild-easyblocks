@@ -41,7 +41,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -239,10 +240,40 @@ class EB_TensorFlow(PythonPackage):
             else:
                 compiler_path = which(os.getenv('CC'))
 
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+
+            if cfg_cuda_cc and ec_cuda_cc:
+                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s) are overruled by " % ec_cuda_cc
+                warning_msg += "--cuda-compute-capabilities configuration option (%s)" % cfg_cuda_cc
+                print_warning(warning_msg)
+            elif not cuda_cc:
+                warning_msg = "No CUDA compute capabilities specified, so using TensorFlow default "
+                warning_msg += "(which may not optional for your system).\nYou should use "
+                warning_msg += "the --cuda-compute-capabilities configuration option or the cuda_compute_capabilities "
+                warning_msg += "easyconfig parameter to specify a list of CUDA compute capabilities to compile with."
+                print_warning(warning_msg)
+
+            # TensorFlow 1.12.1 requires compute capability >= 3.5
+            # see https://github.com/tensorflow/tensorflow/pull/25767
+            if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+                faulty_comp_caps = [x for x in cuda_cc if LooseVersion(x) < LooseVersion('3.5')]
+                if faulty_comp_caps:
+                    error_msg = "TensorFlow >= 1.12.1 requires CUDA compute capabilities >= 3.5, "
+                    error_msg += "found one or more older ones: %s"
+                    raise EasyBuildError(error_msg, ', '.join(faulty_comp_caps))
+
+            if cuda_cc:
+                self.log.info("Compiling with specified list of CUDA compute capabilities: %s", ', '.join(cuda_cc))
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
                 'GCC_HOST_COMPILER_PATH': compiler_path,
-                'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
+                'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
 
