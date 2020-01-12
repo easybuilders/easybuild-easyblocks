@@ -82,8 +82,8 @@ class EB_Trinity(EasyBlock):
         self.log.info("Begin Butterfly")
 
         setvar("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF8")
-
-        dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
+        dst = os.path.join(self.cfg['start_dir'], 'Butterfly')
+        #dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
         try:
             os.chdir(dst)
         except OSError as err:
