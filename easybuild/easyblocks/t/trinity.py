@@ -243,7 +243,6 @@ class EB_Trinity(EasyBlock):
             self.inchworm()
             self.chrysalis()
             self.kmer()
-
             if version < LooseVersion('2.9'):
                 self.butterfly()
 
@@ -301,8 +300,7 @@ class EB_Trinity(EasyBlock):
             cmd = "make TRINITY_COMPILER=%s %s" % (trinity_compiler, explicit_make_args)
             run_cmd(cmd)
 
-            # butterfly is not included in standard build
-            # butterfly included as .jar since 2.9.0
+            # butterfly is not included in standard build before v2.9.0
             if version < LooseVersion('2.9'):
                 self.butterfly()
 
@@ -321,7 +319,7 @@ class EB_Trinity(EasyBlock):
            (version >= LooseVersion('2.9') and version < LooseVersion('3.0'))):
             sep = '-v'
         elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
-            sep = "-Trinity-v"
+            sep = '-Trinity-v'
         else:
             sep = '_r'
         # Chrysalis
@@ -339,7 +337,6 @@ class EB_Trinity(EasyBlock):
         else:
             chrysalis_bin = 'Chrysalis'
             chrysalis_files = ['Chrysalis']
-
         chrysalis_bin_files = [os.path.join(chrysalis_bin, x) for x in chrysalis_files]
 
         # Inchworm
@@ -351,7 +348,6 @@ class EB_Trinity(EasyBlock):
         else:
             inchworm_bin = 'Inchworm/bin'
             inchworm_files = ['inchworm']
-
         inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]
 
         path = 'trinityrnaseq%s%s' % (sep, self.version)
