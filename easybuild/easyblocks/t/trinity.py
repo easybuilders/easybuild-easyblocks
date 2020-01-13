@@ -25,19 +25,13 @@
 """
 EasyBuild support for building and installing Trinity, implemented as an easyblock
 
-This is a contribution from DeepThought HPC Service, Flinders University, Adelaide, Australia
-Homepage:     https://staff.flinders.edu.au/research/deep-thought 
-Authors::     @author: Robert Qiao <rob.qiao@flinders.edu.au>
-License::     GPLv2.0
- 
-Adapted from trinity.py from easyblock v4.1.0 
-Original Authors:
 @author: Stijn De Weirdt (Ghent University)
 @author: Dries Verdegem (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
+@author: Robert Qiao (DeepThought HPC Service, Flinders University, Adelaide, Australia)
 """
 import glob
 import os
@@ -75,7 +69,6 @@ class EB_Trinity(EasyBlock):
         }
         return EasyBlock.extra_options(extra_vars)
 
-    # Butterfly included as .jar since 2.9.0 
     def butterfly(self):
         """Install procedure for Butterfly."""
 
@@ -250,7 +243,7 @@ class EB_Trinity(EasyBlock):
             self.inchworm()
             self.chrysalis()
             self.kmer()
-	    # Butterfly included as .jar since 2.9.0  
+
             if version < LooseVersion('2.9'):
                 self.butterfly()
 
@@ -304,7 +297,7 @@ class EB_Trinity(EasyBlock):
             explicit_make_args = ''
             if version >= LooseVersion('2.0') and version < LooseVersion('3.0'):
                 explicit_make_args = 'all plugins'
-                 
+
             cmd = "make TRINITY_COMPILER=%s %s" % (trinity_compiler, explicit_make_args)
             run_cmd(cmd)
 
@@ -330,8 +323,8 @@ class EB_Trinity(EasyBlock):
         elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
             sep = "-Trinity-v"
         else:
-            sep = '_r'
-	
+            sep = '_r
+'
         # Chrysalis
         if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
             chrysalis_bin = 'Chrysalis/bin'
@@ -350,7 +343,7 @@ class EB_Trinity(EasyBlock):
 
         chrysalis_bin_files = [os.path.join(chrysalis_bin, x) for x in chrysalis_files]
 
-	# Inchworm 	
+        # Inchworm
         if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
             inchworm_bin = 'Inchworm/bin' 
             inchworm_files = ['FastaToDeBruijn',
@@ -360,7 +353,7 @@ class EB_Trinity(EasyBlock):
             inchworm_bin = 'Inchworm/bin'
             inchworm_files = ['inchworm']
 
-        inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]    
+        inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]
 
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
