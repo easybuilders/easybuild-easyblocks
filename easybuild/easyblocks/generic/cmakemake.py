@@ -73,7 +73,7 @@ class CMakeMake(ConfigureMake):
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
-            'buildtype': [None, "Build type for CMake, e.g. Release or Debug."
+            'build_type': [None, "Build type for CMake, e.g. Release or Debug."
                                 "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
@@ -104,8 +104,8 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if self.cfg['buildtype'] is not None:
-            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['buildtype'])
+        if self.cfg['build_type'] is not None:
+            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
