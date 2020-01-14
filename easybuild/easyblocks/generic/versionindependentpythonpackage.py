@@ -47,10 +47,11 @@ class VersionIndependentPythonPackage(PythonPackage):
         """No build procedure."""
         pass
 
-    def prepare_step(self, *args, **kwargs):
-        """Set pylibdir"""
+    def set_pylibdirs(self):
+        """Set pylibdir."""
+        super(VersionIndependentPythonPackage, self).set_pylibdirs()
         self.pylibdir = 'lib'
-        super(VersionIndependentPythonPackage, self).prepare_step(*args, **kwargs)
+        self.all_pylibdirs = ['lib']
 
     def install_step(self):
         """Custom install procedure to skip selection of python package versions."""
