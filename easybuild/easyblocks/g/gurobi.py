@@ -43,13 +43,20 @@ class EB_Gurobi(Tarball):
 
     def install_step(self):
         """Install Gurobi and license file."""
-        # make sure license file is available
-        if self.cfg['license_file'] is None or not os.path.exists(self.cfg['license_file']):
-            raise EasyBuildError("No existing license file specified: %s", self.cfg['license_file'])
+
+        # Check if the client license file is already defined in the standard Gurobi variable
+        licfile = os.getenv("GRB_LICENSE_FILE")
+        if licfile is None:
+            # make sure license file is available
+            if self.cfg['license_file'] is None or not os.path.exists(self.cfg['license_file']):
+                raise EasyBuildError("No existing license file specified: %s", self.cfg['license_file'])
+        elif not os.path.exists(licfile):
+            raise EasyBuildError("Environment variable GRB_LICENSE_FILE value \"%s\" isn't a valid path", licfile)
 
         super(EB_Gurobi, self).install_step()
 
-        copy_file(self.cfg['license_file'], os.path.join(self.installdir, 'gurobi.lic'))
+        if licfile is None:
+            copy_file(self.cfg['license_file'], os.path.join(self.installdir, 'gurobi.lic'))
 
         if get_software_root('Python'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
@@ -71,7 +78,11 @@ class EB_Gurobi(Tarball):
         """Custom extra module file entries for Gurobi."""
         txt = super(EB_Gurobi, self).make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
-        txt += self.module_generator.set_environment('GRB_LICENSE_FILE', os.path.join(self.installdir, 'gurobi.lic'))
+
+        # Only define GRB_LICENSE_FILE env var if it doesn't already exist
+        if not os.getenv("GRB_LICENSE_FILE"):
+            txt += self.module_generator.set_environment('GRB_LICENSE_FILE',
+                                                         os.path.join(self.installdir, 'gurobi.lic'))
 
         if get_software_root('Python'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
