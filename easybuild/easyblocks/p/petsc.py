@@ -112,13 +112,16 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('configopts', '--with-fc="%s"' % os.getenv('F90'))
 
             # compiler flags
+            # Don't build with MPI c++ bindings as this leads to a hard dependency
+            # on libmpi and libmpi_cxx even for C code and non-MPI code
+            cxxflags = os.getenv('CXXFLAGS') + ' -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
             if LooseVersion(self.version) >= LooseVersion("3.5"):
                 self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--CXXFLAGS="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
                 self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
             else:
                 self.cfg.update('configopts', '--with-cflags="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--with-cxxflags="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
             if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
