@@ -68,10 +68,7 @@ class EB_netCDF(CMakeMake):
             ConfigureMake.configure_step(self)
 
         else:
-            if self.toolchain.options['debug']:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=DEBUG ')
-            else:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
+            self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
 
             for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
                                    ('PnetCDF', 'pnetcdf')]:

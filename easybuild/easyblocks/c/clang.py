@@ -70,7 +70,8 @@ class EB_Clang(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
@@ -84,9 +85,9 @@ class EB_Clang(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
-        }
-
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['build_type'][0] = 'Release'
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
@@ -226,7 +227,6 @@ class EB_Clang(CMakeMake):
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # Configure some default options
-        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
         if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')

@@ -48,10 +48,12 @@ class EB_OpenCV(CMakeMake):
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters specific to OpenCV."""
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['build_type'][0] = 'Release'
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OpenCV."""
@@ -89,9 +91,6 @@ class EB_OpenCV(CMakeMake):
 
     def configure_step(self):
         """Custom configuration procedure for OpenCV."""
-
-        if 'CMAKE_BUILD_TYPE' not in self.cfg['configopts']:
-            self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=Release')
 
         # enable Python support if unspecified and Python is a dependency
         if 'BUILD_PYTHON_SUPPORT' not in self.cfg['configopts']:
