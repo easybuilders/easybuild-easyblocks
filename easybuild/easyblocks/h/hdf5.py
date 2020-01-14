@@ -84,6 +84,9 @@ class EB_HDF5(ConfigureMake):
             mpich_mpi_families = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]
             if self.toolchain.mpi_family() in mpich_mpi_families:
                 self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DMPICH_IGNORE_CXX_SEEK"')
+            # Skip MPI cxx extensions to avoid hard dependency
+            if self.toolchain.mpi_family() in toolchain.OPENMPI:
+                self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DOMPI_SKIP_MPICXX"')
         else:
             self.cfg.update('configopts', "--disable-parallel")
 
