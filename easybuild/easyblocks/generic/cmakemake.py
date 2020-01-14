@@ -74,7 +74,7 @@ class CMakeMake(ConfigureMake):
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release or Debug."
-                                "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
+                                 "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],

@@ -98,11 +98,8 @@ class EB_Trilinos(CMakeMake):
         else:
             self.cfg.update('configopts', "-DBUILD_SHARED_LIBS:BOOL=OFF")
 
-        # release or debug get_version
-        if self.toolchain.options['debug']:
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE:STRING=DEBUG")
-        else:
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE:STRING=RELEASE")
+        # release or debug gversion
+        self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
 
         # enable full testing
         self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
