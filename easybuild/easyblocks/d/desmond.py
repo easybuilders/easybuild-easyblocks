@@ -27,6 +27,7 @@ EasyBuild support for building and installing Desmond, implemented as an easyblo
 
 @author: Samuel Moors, Vrije Universiteit Brussel (VUB)
 """
+import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.filetools import remove_dir
@@ -39,7 +40,10 @@ class EB_Desmond(Tarball):
     def install_step(self):
         """Custom install procedure for Desmond."""
         if os.path.exists(self.installdir):
-            self.log.warning("Found existing install directory %s, removing it to avoid problems", self.installdir)
+            self.log.warning(
+                "Found existing install directory %s, removing it to avoid problems",
+                self.installdir,
+            )
             remove_dir(self.installdir)
 
         qa = {
