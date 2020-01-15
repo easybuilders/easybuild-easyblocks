@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for building and installing Desmond, implemented as an easyblo
 """
 
 from easybuild.easyblocks.generic.tarball import Tarball
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import remove_dir
 from easybuild.tools.run import run_cmd_qa
 
 
@@ -38,7 +38,9 @@ class EB_Desmond(Tarball):
 
     def install_step(self):
         """Custom install procedure for Desmond."""
-        rmtree2(self.installdir)
+        if os.path.exists(self.installdir):
+            self.log.warning("Found existing install directory %s, removing it to avoid problems", self.installdir)
+            remove_dir(self.installdir)
 
         qa = {
             '[Press ENTER to continue]': '',
