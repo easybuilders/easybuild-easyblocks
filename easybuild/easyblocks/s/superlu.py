@@ -45,24 +45,20 @@ class EB_SuperLU(CMakeMake):
 
     @staticmethod
     def extra_options():
-        """
-        Define custom easyconfig parameters for SuperLU.
-        """
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'build_shared_libs': [False, "Build shared library (instead of static library)", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """
         Set the CMake options for SuperLU
         """
-        self.cfg['separate_build_dir'] = True
-
         if self.cfg['build_shared_libs']:
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
             self.lib_ext = get_shared_lib_ext()
-
         else:
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
             self.lib_ext = 'a'

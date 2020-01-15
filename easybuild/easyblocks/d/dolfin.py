@@ -50,7 +50,7 @@ class EB_DOLFIN(CMakePythonPackage):
     @staticmethod
     def extra_options():
         extra_vars = CMakePythonPackage.extra_options()
-        extra_vars['build_type'][0] = 'Release'
+        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -59,7 +59,6 @@ class EB_DOLFIN(CMakePythonPackage):
 
         self.boost_dir = None
         self.saved_configopts = None
-        self.cfg['separate_build_dir'] = True
 
     def configure_step(self):
         """Set DOLFIN-specific configure options and configure with CMake."""

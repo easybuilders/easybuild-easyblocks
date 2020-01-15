@@ -93,16 +93,17 @@ class EB_LAMMPS(CMakeMake):
     @staticmethod
     def extra_options(**kwargs):
         """Custom easyconfig parameters for LAMMPS"""
-
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'general_packages': [None, "List of general packages without `PKG_` prefix.", MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -124,7 +125,6 @@ class EB_LAMMPS(CMakeMake):
         cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc)
 
         # cmake has its own folder
-        self.cfg['separate_build_dir'] = True
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
 
         # Enable following packages, if not configured in easycofig

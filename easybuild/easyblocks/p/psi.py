@@ -65,7 +65,8 @@ class EB_PSI(CMakeMake):
             # always include running PSI unit tests (takes about 2h or less)
             'runtest': ["tests TESTFLAGS='-u -q'", "Run tests included with PSI, without interruption.", BUILD],
         })
-        extra_vars['build_type'][0] = 'Release'
+        # Doesn't work with out-of-source build
+        extra_vars['separate_build_dir'][0] = False
         return extra_vars
 
     def configure_step(self):

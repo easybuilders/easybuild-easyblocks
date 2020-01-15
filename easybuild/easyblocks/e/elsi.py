@@ -48,17 +48,16 @@ class EB_ELSI(CMakeMake):
     @staticmethod
     def extra_options():
         """Define custom easyconfig parameters for ELSI."""
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
             'build_shared_libs': [True, "Build shared libraries instead of static", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """Custom configure procedure for ELSI."""
-
-        self.cfg['separate_build_dir'] = True
-
         if self.cfg['build_shared_libs']:
             self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=ON")
 

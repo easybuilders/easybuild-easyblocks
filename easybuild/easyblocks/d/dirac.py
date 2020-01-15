@@ -43,7 +43,7 @@ class EB_DIRAC(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
-        extra_vars['build_type'][0] = 'release'  # TODO: Verify if this is really lowercase
+        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def configure_step(self):
@@ -57,7 +57,6 @@ class EB_DIRAC(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to remove existing install directory %s: %s", self.installdir, err)
 
-        self.cfg['separate_build_dir'] = True
         self.cfg.update('configopts', "-DENABLE_MPI=ON")
 
         # complete configuration with configure_method of parent

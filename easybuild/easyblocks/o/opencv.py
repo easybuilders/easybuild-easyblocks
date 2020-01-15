@@ -52,7 +52,7 @@ class EB_OpenCV(CMakeMake):
         extra_vars.update({
             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
         })
-        extra_vars['build_type'][0] = 'Release'
+        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -61,8 +61,6 @@ class EB_OpenCV(CMakeMake):
 
         # can't be set before prepare_step is run
         self.pylibdir = None
-
-        self.cfg['separate_build_dir'] = True
 
     def prepare_step(self, *args, **kwargs):
         """Prepare environment for installing OpenCV."""

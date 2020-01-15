@@ -45,10 +45,12 @@ class EB_ROOT(CMakeMake):
         """
         Define extra options needed by Geant4
         """
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'arch': [None, "Target architecture", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """Custom configuration for ROOT, add configure options."""
@@ -87,7 +89,6 @@ class EB_ROOT(CMakeMake):
             if get_software_root('X11'):
                 self.cfg.update('configopts', '-Dx11=ON')
 
-            self.cfg['separate_build_dir'] = True
             CMakeMake.configure_step(self)
         else:
             if self.cfg['arch'] is None:

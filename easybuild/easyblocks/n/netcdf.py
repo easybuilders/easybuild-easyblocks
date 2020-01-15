@@ -47,6 +47,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_netCDF(CMakeMake):
     """Support for building/installing netCDF"""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Configure build: set config options and configure"""
 
