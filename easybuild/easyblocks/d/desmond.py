@@ -47,40 +47,45 @@ class EB_Desmond(Tarball):
             remove_dir(self.installdir)
 
         qa = {
-            '[Press ENTER to continue]': '',
+            "[Press ENTER to continue]": "",
         }
         std_qa = {
-            r'SCHRODINGER directory:.*': self.installdir + '\ny',  # answer yes to create the directory
-            r'    Your SCHRODINGER directory will be.*\n.*\nOK\?.*': 'y',
-            r'Scratch directory\?.*': '/tmp',
-            r'Are these choices correct\?.*': 'y',
-            r'Create an application launcher for.*': 'n',
+            r"SCHRODINGER directory:.*": self.installdir
+            + "\ny",  # answer yes to create the directory
+            r"    Your SCHRODINGER directory will be.*\n.*\nOK\?.*": "y",
+            r"Scratch directory\?.*": "/tmp",
+            r"Are these choices correct\?.*": "y",
+            r"Create an application launcher for.*": "n",
         }
-        cmd = './INSTALL'
-        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=500)
+        cmd = "./INSTALL"
+        run_cmd_qa(
+            cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=500
+        )
 
     def sanity_check_step(self):
         """Custom sanity check for Desmond."""
 
         custom_paths = {
-            'files': ['desmond', 'maestro', 'bioluminate', 'materials'],
-            'dirs': [],
+            "files": ["desmond", "maestro", "bioluminate", "materials"],
+            "dirs": [],
         }
 
-        custom_commands = ['desmond -h']
+        custom_commands = ["desmond -h"]
 
-        super(EB_Desmond, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super(EB_Desmond, self).sanity_check_step(
+            custom_paths=custom_paths, custom_commands=custom_commands
+        )
 
     def make_module_req_guess(self):
         """Custom guesses for path-like environment variables for Desmond."""
         guesses = super(EB_Desmond, self).make_module_req_guess()
 
-        guesses['PATH'] = ['']
+        guesses["PATH"] = [""]
 
         return guesses
 
     def make_module_extra(self):
         """Set up SCHRODINGER environment variable"""
         txt = super(EB_Desmond, self).make_module_extra()
-        txt += self.module_generator.set_environment('SCHRODINGER', self.installdir)
+        txt += self.module_generator.set_environment("SCHRODINGER", self.installdir)
         return txt
