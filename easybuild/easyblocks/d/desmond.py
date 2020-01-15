@@ -41,8 +41,7 @@ class EB_Desmond(Tarball):
         """Custom install procedure for Desmond."""
         if os.path.exists(self.installdir):
             self.log.warning(
-                "Found existing install directory %s, removing it to avoid problems",
-                self.installdir,
+                "Found existing install directory %s, removing it to avoid problems", self.installdir,
             )
             remove_dir(self.installdir)
 
@@ -50,17 +49,14 @@ class EB_Desmond(Tarball):
             "[Press ENTER to continue]": "",
         }
         std_qa = {
-            r"SCHRODINGER directory:.*": self.installdir
-            + "\ny",  # answer yes to create the directory
+            r"SCHRODINGER directory:.*": self.installdir + "\ny",  # answer yes to create the directory
             r"    Your SCHRODINGER directory will be.*\n.*\nOK\?.*": "y",
             r"Scratch directory\?.*": "/tmp",
             r"Are these choices correct\?.*": "y",
             r"Create an application launcher for.*": "n",
         }
         cmd = "./INSTALL"
-        run_cmd_qa(
-            cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=500
-        )
+        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=500)
 
     def sanity_check_step(self):
         """Custom sanity check for Desmond."""
@@ -72,9 +68,7 @@ class EB_Desmond(Tarball):
 
         custom_commands = ["desmond -h"]
 
-        super(EB_Desmond, self).sanity_check_step(
-            custom_paths=custom_paths, custom_commands=custom_commands
-        )
+        super(EB_Desmond, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """Custom guesses for path-like environment variables for Desmond."""
