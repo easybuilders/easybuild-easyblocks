@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -84,13 +84,16 @@ class EB_HDF5(ConfigureMake):
             mpich_mpi_families = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]
             if self.toolchain.mpi_family() in mpich_mpi_families:
                 self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DMPICH_IGNORE_CXX_SEEK"')
+            # Skip MPI cxx extensions to avoid hard dependency
+            if self.toolchain.mpi_family() == toolchain.OPENMPI:
+                self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DOMPI_SKIP_MPICXX"')
         else:
             self.cfg.update('configopts', "--disable-parallel")
 
         # make options
         self.cfg.update('buildopts', fcomp)
 
-        # set RUNPARALLEL if MPI is not enabled (or not supported by this toolchain)
+        # set RUNPARALLEL if MPI is enabled in this toolchain
         if self.toolchain.options.get('usempi', None):
             env.setvar('RUNPARALLEL', 'mpirun -np \$\${NPROCS:=2}')
 
