@@ -65,11 +65,6 @@ class EB_DOLFIN(CMakePythonPackage):
 
         shlib_ext = get_shared_lib_ext()
 
-        # compilers
-        self.cfg.update('configopts', "-DCMAKE_C_COMPILER='%s' " % os.getenv('CC'))
-        self.cfg.update('configopts', "-DCMAKE_CXX_COMPILER='%s' " % os.getenv('CXX'))
-        self.cfg.update('configopts', "-DCMAKE_Fortran_COMPILER='%s' " % os.getenv('F90'))
-
         # compiler flags
         cflags = os.getenv('CFLAGS')
         cxxflags = os.getenv('CXXFLAGS')
