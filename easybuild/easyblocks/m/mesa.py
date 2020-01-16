@@ -11,7 +11,7 @@ class EB_Mesa(MesonNinja):
         """
         arch = get_cpu_architecture()
         if arch == X86_64:
-            self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr')
+            self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
         elif arch == POWER:
             self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
         return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
