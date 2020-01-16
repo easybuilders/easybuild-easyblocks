@@ -51,16 +51,13 @@ class EB_ELSI(CMakeMake):
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
-            'build_shared_libs': [True, "Build shared libraries instead of static", CUSTOM],
         })
+        extra_vars['build_shared_libs'][0] = True
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def configure_step(self):
         """Custom configure procedure for ELSI."""
-        if self.cfg['build_shared_libs']:
-            self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=ON")
-
         if self.cfg['runtest']:
             self.cfg.update('configopts', "-DENABLE_TESTS=ON")
             self.cfg.update('configopts', "-DENABLE_C_TESTS=ON")
@@ -148,10 +145,8 @@ class EB_ELSI(CMakeMake):
             modules.append('elsi_sips')
             libs.append('sips')
 
-        libext = get_shared_lib_ext() if self.cfg['build_shared_libs'] else 'a'
-
         module_paths = [os.path.join('include', '%s.mod' % mod) for mod in modules]
-        lib_paths = [os.path.join('lib', 'lib%s.%s' % (lib, libext)) for lib in libs]
+        lib_paths = [os.path.join('lib', 'lib%s.%s' % (lib, self.lib_ext)) for lib in libs]
 
         custom_paths = {
             'files': module_paths + lib_paths,

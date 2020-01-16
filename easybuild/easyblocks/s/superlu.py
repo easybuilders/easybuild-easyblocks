@@ -32,9 +32,7 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 
 
@@ -46,9 +44,7 @@ class EB_SuperLU(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'build_shared_libs': [False, "Build shared library (instead of static library)", CUSTOM],
-        })
+        extra_vars['build_shared_libs'][0] = False
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
@@ -56,13 +52,6 @@ class EB_SuperLU(CMakeMake):
         """
         Set the CMake options for SuperLU
         """
-        if self.cfg['build_shared_libs']:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
-            self.lib_ext = get_shared_lib_ext()
-        else:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
-            self.lib_ext = 'a'
-
         # Make sure not to build the slow BLAS library included in the package
         self.cfg.update('configopts', '-Denable_blaslib=OFF')
 

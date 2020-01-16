@@ -103,6 +103,7 @@ class EB_LAMMPS(CMakeMake):
             'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
         })
         extra_vars['separate_build_dir'][0] = False
+        extra_vars['build_shared_libs'][0] = True
         return extra_vars
 
     def prepare_step(self, *args, **kwargs):
@@ -128,10 +129,7 @@ class EB_LAMMPS(CMakeMake):
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
 
         # Enable following packages, if not configured in easycofig
-        default_options = [
-            'BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB',
-            'BUILD_SHARED_LIBS', 'BUILD_TOOLS',
-        ]
+        default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)

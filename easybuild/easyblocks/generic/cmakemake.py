@@ -42,6 +42,7 @@ from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -73,6 +74,9 @@ class CMakeMake(ConfigureMake):
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
+            'build_shared_libs': [None, "Build shared library (instead of static library)"
+                                        "Can be overwritten by configopts"
+                                        "None can be used to add no flag (usually results in static library)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release or Debug."
                                  "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
@@ -110,6 +114,17 @@ class CMakeMake(ConfigureMake):
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
             options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        # Set flag for shared libs if requested
+        # Not adding one allows the project to choose a default
+        # If build_shared_libs is set, then self.lib_ext will be set accordingly for use in e.g. sanity checks
+        build_shared_libs = self.cfg['build_shared_libs']
+        if build_shared_libs:
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
+            self.lib_ext = get_shared_lib_ext()
+        elif build_shared_libs is not None:
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
+            self.lib_ext = 'a'
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',

@@ -52,7 +52,7 @@ class EB_Trilinos(CMakeMake):
     def extra_options():
         """Add extra config options specific to Trilinos."""
         extra_vars = {
-            'shared_libs': [False, "Build shared libs; if False, build static libs", CUSTOM],
+            'shared_libs': [None, "Deprecated. Use build_shared_libs", CUSTOM],
             'openmp': [True, "Enable OpenMP support", CUSTOM],
             'all_exts': [True, "Enable all Trilinos packages", CUSTOM],
             'skip_exts': [[], "List of Trilinos packages to skip", CUSTOM],
@@ -93,10 +93,9 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
 
         # shared libraries
-        if self.cfg['shared_libs']:
-            self.cfg.update('configopts', "-DBUILD_SHARED_LIBS:BOOL=ON")
-        else:
-            self.cfg.update('configopts', "-DBUILD_SHARED_LIBS:BOOL=OFF")
+        if self.cfg['shared_libs'] is not None:
+            self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
+            self.cfg['build_shared_libs'] = self.cfg['shared_libs']
 
         # release or debug gversion
         self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'

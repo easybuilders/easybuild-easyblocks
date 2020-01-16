@@ -225,7 +225,7 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
                 if plumed_root:
-                    self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=OFF")
+                    self.cfg['build_shared_libs'] = False
 
             if self.cfg['double_precision']:
                 self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
