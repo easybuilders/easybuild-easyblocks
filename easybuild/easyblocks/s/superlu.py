@@ -63,10 +63,6 @@ class EB_SuperLU(CMakeMake):
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
             self.lib_ext = 'a'
 
-        # Add -fPIC flag if necessary
-        pic_flag = ('OFF', 'ON')[self.toolchain.options['pic']]
-        self.cfg.update('configopts', '-DCMAKE_POSITION_INDEPENDENT_CODE=%s' % pic_flag)
-
         # Make sure not to build the slow BLAS library included in the package
         self.cfg.update('configopts', '-Denable_blaslib=OFF')
 

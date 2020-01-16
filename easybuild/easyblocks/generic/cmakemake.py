@@ -107,6 +107,10 @@ class CMakeMake(ConfigureMake):
         if self.cfg['build_type'] is not None:
             options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
 
+        # Add -fPIC flag if necessary
+        if self.toolchain.options['pic']:
+            options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
             'CFLAGS': 'CMAKE_C_FLAGS',
