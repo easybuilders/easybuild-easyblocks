@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -174,7 +174,8 @@ class EB_ABAQUS(Binary):
                     "\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
                     "\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
                 }
-                run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
+                run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
     def sanity_check_step(self):
         """Custom sanity check for ABAQUS."""

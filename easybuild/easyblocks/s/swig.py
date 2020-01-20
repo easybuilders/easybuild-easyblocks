@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,6 @@ EasyBuild support for SWIG, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
 
@@ -39,8 +38,8 @@ class EB_SWIG(ConfigureMake):
         """Set some extra environment variables before configuring."""
 
         # disable everything by default
-        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "pike ",
-                  "ocaml","php", "ruby", "mzscheme", "guile", "gcj", "java",
+        for x in ["r", "clisp", "allegrocl", "lua", "csharp", "chicken", "go", "pike ",
+                  "ocaml", "php", "ruby", "mzscheme", "guile", "gcj", "java",
                   "octave", "perl5", "python3", "tcl"]:
             self.cfg.update('configopts', "--without-%s" % x)
 
@@ -48,7 +47,7 @@ class EB_SWIG(ConfigureMake):
         if python:
             self.cfg.update('configopts', "--with-python=%s/bin/python" % python)
         else:
-            raise EasyBuildError("Python module not loaded?")
+            self.cfg.update('configopts', '--without-python')
 
         super(EB_SWIG, self).configure_step()
 
@@ -56,8 +55,7 @@ class EB_SWIG(ConfigureMake):
         """Custom sanity check for SWIG."""
 
         custom_paths = {
-                        'files':["bin/ccache-swig","bin/swig"],
-                        'dirs':[]
-                       }
-
+            'files': ['bin/ccache-swig', 'bin/swig'],
+            'dirs': [],
+        }
         super(EB_SWIG, self).sanity_check_step(custom_paths=custom_paths)

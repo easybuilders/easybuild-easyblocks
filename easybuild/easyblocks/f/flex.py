@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ class EB_flex(ConfigureMake):
                 if not os.path.exists(binpath):
                     os.symlink(os.path.join(self.installdir, "bin", "flex"), binpath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink binaries: %s", err)
 
     def sanity_check_step(self):

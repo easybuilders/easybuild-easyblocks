@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -91,7 +91,7 @@ EULA=accept
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
             try:
                 os.makedirs(tmpdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
@@ -125,7 +125,7 @@ EULA=accept
         if self.cfg['m32']:
             guesses.update({
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib', 'slib'],
+                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib'],
             })
         else:
             guesses.update({
@@ -140,7 +140,6 @@ EULA=accept
         txt += self.module_generator.set_environment('VT_ROOT', self.installdir)
         txt += self.module_generator.set_environment('VT_MPI', self.cfg['preferredmpi'])
         txt += self.module_generator.set_environment('VT_ADD_LIBS', "-ldwarf -lelf -lvtunwind -lnsl -lm -ldl -lpthread")
-        if LooseVersion(self.version) >= LooseVersion('9.0'):
-            txt += self.module_generator.set_environment('VT_LIB_DIR', self.installdir + "/lib")
-            txt += self.module_generator.set_environment('VT_SLIB_DIR', self.installdir + "/slib")
+        txt += self.module_generator.set_environment('VT_LIB_DIR', self.installdir + "/lib")
+        txt += self.module_generator.set_environment('VT_SLIB_DIR', self.installdir + "/slib")
         return txt

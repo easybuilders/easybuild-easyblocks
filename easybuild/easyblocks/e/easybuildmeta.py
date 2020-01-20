@@ -1,5 +1,5 @@
 # #
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root_env_var_name
-from easybuild.tools.ordereddict import OrderedDict
+from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
 
 
@@ -51,7 +51,7 @@ class EB_EasyBuildMeta(PythonPackage):
         self.real_initial_environ = None
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
+        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
             # deliberately include vsc-install & vsc-base twice;
             # first time to ensure the specified vsc-install/vsc-base package is available when framework gets installed
             self.easybuild_pkgs.insert(0, 'vsc-base')
@@ -98,7 +98,7 @@ class EB_EasyBuildMeta(PythonPackage):
                     os.chdir(os.path.join(self.builddir, seldirs[0]))
                     super(EB_EasyBuildMeta, self).install_step()
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
 
     def post_install_step(self):
@@ -124,7 +124,12 @@ class EB_EasyBuildMeta(PythonPackage):
         easy_install_pth = os.path.join(self.installdir, self.pylibdir, 'easy-install.pth')
         if os.path.exists(easy_install_pth):
             easy_install_pth_txt = read_file(easy_install_pth)
-            for pkg in [p for p in self.easybuild_pkgs if p not in ['setuptools', 'vsc-install']]:
+
+            ignore_pkgs = ['setuptools', 'vsc-install']
+            if LooseVersion(self.version) > LooseVersion('3.999'):
+                ignore_pkgs.append('vsc-base')
+
+            for pkg in [p for p in self.easybuild_pkgs if p not in ignore_pkgs]:
                 if pkg == 'vsc-base':
                     # don't include strict version check for vsc-base
                     pkg_regex = re.compile(r"^\./%s" % pkg.replace('-', '_'), re.M)
@@ -143,7 +148,7 @@ class EB_EasyBuildMeta(PythonPackage):
             'easybuild-easyblocks': [('easybuild/easyblocks', True)],
             'easybuild-easyconfigs': [('easybuild/easyconfigs', False)],
         }
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
+        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('3.999'):
             subdirs_by_pkg.update({
                 'vsc-base': [('vsc/utils', True)],
             })
@@ -159,8 +164,7 @@ class EB_EasyBuildMeta(PythonPackage):
         for tool in eb_dirs.keys():
             self.log.debug("Trying %s.." % tool)
             try:
-                exec "from %s import setup" % tool
-                del setup
+                exec("from %s import setup" % tool)
                 setup_tool = tool
                 break
             except ImportError:
@@ -180,7 +184,7 @@ class EB_EasyBuildMeta(PythonPackage):
                     for (subdir, _) in subdirs:
                         # eggs always go in Python lib/pythonX/site-packages dir with setuptools
                         eb_dirs['setuptools'].append((os.path.join(sel_dirs[0], subdir), True))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to determine sanity check dir paths: %s", err)
 
         # set of sanity check paths to check for EasyBuild
@@ -212,6 +216,14 @@ class EB_EasyBuildMeta(PythonPackage):
                 self.log.debug("Unset $%s in current env and copy of original env to make sanity check work" % env_var)
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """
+        Set $EB_PYTHON to ensure that this EasyBuild installation uses the same Python executable it was installed with.
+        """
+        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+        txt += self.module_generator.set_environment('EB_PYTHON', self.python_cmd)
+        return txt
 
     def make_module_step(self, fake=False):
         """Create module file, before copy of original environment that was tampered with is restored."""

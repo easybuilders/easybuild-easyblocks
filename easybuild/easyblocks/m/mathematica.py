@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,6 +68,7 @@ class EB_Mathematica(Binary):
         qa = {
             r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
             r"Create directory (y/n)? >": 'y',
+            r"Should the installer attempt to make this change (y/n)? >": 'n',
             r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"), 
         }
         no_qa = [
@@ -87,7 +88,7 @@ class EB_Mathematica(Binary):
             mathpass_txt = f.read()
             f.close()
             self.log.info("Updated license file %s: %s" % (mathpass_path, mathpass_txt))
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to update %s with license server info: %s", mathpass_path, err)
 
         # restore $DISPLAY if required

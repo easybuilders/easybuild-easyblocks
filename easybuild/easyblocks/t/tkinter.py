@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,17 +28,18 @@ module to use Tcl/Tk.
 
 @author: Adam Huffman (The Francis Crick Institute)
 @author: Ward Poelmans (Free University of Brussels)
+@author: Kenneth Hoste (HPC-UGent)
 """
-import os
-import shutil
 import glob
+import os
 import tempfile
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy, mkdir, rmtree2
+from easybuild.tools.filetools import copy, move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -54,6 +55,11 @@ class EB_Tkinter(EB_Python):
         tk = get_software_root('Tk')
         if not tk:
             raise EasyBuildError("Tk is mandatory to build Tkinter")
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         super(EB_Tkinter, self).configure_step()
 
@@ -77,14 +83,11 @@ class EB_Tkinter(EB_Python):
 
         copy([os.path.join(pylibdir, x) for x in tkparts], tmpdir)
 
-        rmtree2(self.installdir)
+        remove_dir(self.installdir)
 
-        mkdir(pylibdir, parents=True)
-        try:
-            shutil.move(os.path.join(tmpdir, tkparts[0]), pylibdir)
-            shutil.move(os.path.join(tmpdir, os.path.basename(tkparts[1])), pylibdir)
-        except (IOError, OSError) as err:
-            raise EasyBuildError("Failed to move Tkinter back to the install directory: %s", err)
+        move_file(os.path.join(tmpdir, tkparts[0]), os.path.join(pylibdir, tkparts[0]))
+        tkinter_so = os.path.basename(tkparts[1])
+        move_file(os.path.join(tmpdir, tkinter_so), os.path.join(pylibdir, tkinter_so))
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
@@ -94,11 +97,8 @@ class EB_Tkinter(EB_Python):
             tkinter = 'Tkinter'
         custom_commands = ["python -c 'import %s'" % tkinter]
 
-        shlib_ext = get_shared_lib_ext()
-        pylibdir = os.path.dirname(det_pylibdir())
-
         custom_paths = {
-            'files': ['%s/%s' % (pylibdir, self.tkinter_so_basename)],
+            'files': [os.path.join(os.path.dirname(det_pylibdir()), self.tkinter_so_basename)],
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

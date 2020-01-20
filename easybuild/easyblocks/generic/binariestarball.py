@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,6 +55,6 @@ class BinariesTarball(Tarball):
                     self.log.debug("Copied %s to %s and fixed permissions" % (item, bindir))
                 else:
                     self.log.warning("Skipping non-file %s in %s, not copying it." % (item, self.cfg['start_dir']))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying binaries in %s to install dir 'bin' failed: %s", self.cfg['start_dir'], err)
 

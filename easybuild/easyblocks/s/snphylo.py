@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,16 +32,23 @@ import os
 import re
 import shutil
 import stat
+from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, mkdir
+from easybuild.tools.filetools import adjust_permissions, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 
 class EB_SNPhylo(EasyBlock):
     """Support for building and installing SNPhylo."""
+
+    def __init__(self, *args, **kwargs):
+        """Set custom class variables."""
+        super(EB_SNPhylo, self).__init__(*args, **kwargs)
+
+        self.scripts_path = os.path.join('bin', 'scripts')
 
     def configure_step(self):
         """No configure step for SNPhylo."""
@@ -76,18 +83,23 @@ class EB_SNPhylo(EasyBlock):
         """Install by copying files/directories."""
         bindir = os.path.join(self.installdir, 'bin')
         binfiles = ['snphylo.sh', 'snphylo.cfg', 'snphylo.template']
-        try:
-            mkdir(bindir, parents=True)
-            for binfile in binfiles:
-                shutil.copy2(os.path.join(self.builddir, binfile), bindir)
-            shutil.copytree(os.path.join(self.builddir, 'scripts'), os.path.join(self.installdir, 'scripts'))
-        except OSError as err:
-            raise EasyBuildError("Failed to copy SNPhylo files/dirs: %s", err)
+
+        # Starting from v20160204 the source archive has a different directory tree
+        if LooseVersion(self.version) >= LooseVersion('20160204'):
+            predir = 'SNPhylo'
+        else:
+            predir = ''
+
+        mkdir(bindir, parents=True)
+        for binfile in binfiles:
+            copy_file(os.path.join(self.builddir, predir, binfile), bindir)
+
+        copy_dir(os.path.join(self.builddir, predir, 'scripts'), os.path.join(self.installdir, self.scripts_path))
 
     def sanity_check_step(self):
         """Custom sanity check for SNPhylo."""
         custom_paths = {
             'files': ['bin/snphylo.sh', 'bin/snphylo.cfg', 'bin/snphylo.template'],
-            'dirs': ['scripts'],
+            'dirs': [self.scripts_path],
         }
         super(EB_SNPhylo, self).sanity_check_step(custom_paths=custom_paths)

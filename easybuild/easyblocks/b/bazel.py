@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,6 +25,7 @@
 """
 EasyBuild support for building and installing Bazel, implemented as an easyblock
 """
+from distutils.version import LooseVersion
 import glob
 import os
 
@@ -64,20 +65,23 @@ class EB_Bazel(EasyBlock):
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
 
             # replace hardcoded paths in CROSSTOOL
-            regex_subs = [
-                (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
-                (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
-                (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_fixed),
-                (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
-            ]
-            for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
-                path = which(tool)
-                if path:
-                    regex_subs.append((os.path.join('/usr', 'bin', tool), path))
-                else:
-                    raise EasyBuildError("Failed to determine path to '%s'", tool)
 
-            apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
+            # CROSSTOOL script is no longer there in Bazel 0.24.0
+            if LooseVersion(self.version) < LooseVersion('0.24.0'):
+                regex_subs = [
+                    (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
+                    (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
+                    (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_fixed),
+                    (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
+                ]
+                for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
+                    path = which(tool)
+                    if path:
+                        regex_subs.append((os.path.join('/usr', 'bin', tool), path))
+                    else:
+                        raise EasyBuildError("Failed to determine path to '%s'", tool)
+
+                apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
 
             # replace hardcoded paths in (unix_)cc_configure.bzl
             regex_subs = [
@@ -92,11 +96,20 @@ class EB_Bazel(EasyBlock):
             self.log.info("Not patching Bazel build scripts, installation prefix for binutils/GCC not found")
 
         # enable building in parallel
-        env.setvar('EXTRA_BAZEL_ARGS', '--jobs=%d' % self.cfg['parallel'])
+        bazel_args = '--jobs=%d' % self.cfg['parallel']
+
+        # Bazel provides a JDK by itself for some architectures
+        # We want to enforce it using the JDK we provided via modules
+        # This is required for Power where Bazel does not have a JDK, but requires it for building itself
+        # See https://github.com/bazelbuild/bazel/issues/10377
+        bazel_args += ' --host_javabase=@local_jdk//:jdk'
+
+        env.setvar('EXTRA_BAZEL_ARGS', bazel_args)
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        run_cmd('./compile.sh', log_all=True, simple=True, log_ok=True)
+        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for Bazel."""

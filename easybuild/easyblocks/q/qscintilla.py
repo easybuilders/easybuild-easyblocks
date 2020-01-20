@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,6 +26,7 @@
 EasyBuild support for building and installing QScintilla, implemented as an easyblock
 
 author: Kenneth Hoste (HPC-UGent)
+author: Maxime Boissonneault (Compute Canada)
 """
 import os
 from distutils.version import LooseVersion
@@ -41,6 +42,26 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_QScintilla(ConfigureMake):
     """Support for building/installing QScintilla."""
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment for building & installing QScintilla."""
+
+        super(EB_QScintilla, self).prepare_step(*args, **kwargs)
+
+        pyqt5 = get_software_root('PyQt5')
+        pyqt = get_software_root('PyQt')
+        if pyqt5:
+            self.pyqt_root = pyqt5
+            self.pyqt_pkg_name = "PyQt5"
+        elif pyqt:
+            self.pyqt_root = pyqt
+            self.pyqt_pkg_name = "PyQt4"
+        else:
+            raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
+
+        # PyQt5 is supported by QScintilla from version 2.11, otherwise there are some additional hacks/patches needed
+        if LooseVersion(self.version) < LooseVersion('2.11') and pyqt5:
+            raise EasyBuildError("PyQt5 is supported by QScintilla in version 2.11 and greater.")
 
     def configure_step(self):
         """Custom configuration procedure for QScintilla."""
@@ -59,7 +80,7 @@ class EB_QScintilla(ConfigureMake):
             (r'\$\$\[QT_INSTALL_LIBS\]', os.path.join(self.installdir, 'lib')),
             (r'\$\$\[QT_INSTALL_TRANSLATIONS\]', os.path.join(self.installdir, 'trans')),
         ]
-        apply_regex_substitutions('qscintilla.pro', regex_subs) 
+        apply_regex_substitutions('qscintilla.pro', regex_subs)
 
         run_cmd("qmake qscintilla.pro")
 
@@ -73,7 +94,7 @@ class EB_QScintilla(ConfigureMake):
 
     def install_step(self):
         """Custom install procedure for QScintilla."""
-        
+
         super(EB_QScintilla, self).install_step()
 
         # also install Python bindings if Python is included as a dependency
@@ -86,31 +107,35 @@ class EB_QScintilla(ConfigureMake):
                 raise EasyBuildError("Failed to change to %s: %s", pydir, err)
 
             # apparently this directory has to be there
-            qsci_sipdir = os.path.join(self.installdir, 'share', 'sip', 'PyQt4')
+            qsci_sipdir = os.path.join(self.installdir, 'share', 'sip', self.pyqt_pkg_name)
             mkdir(qsci_sipdir, parents=True)
 
-            pylibdir = os.path.join(det_pylibdir(), 'PyQt4')
-
-            pyqt = get_software_root('PyQt')
-            if pyqt is None:
-                raise EasyBuildError("Failed to determine PyQt installation prefix, PyQt not included as dependency?")
+            pylibdir = os.path.join(det_pylibdir(), self.pyqt_pkg_name)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
                 '--qsci-sipdir %s' % qsci_sipdir,
                 '--qsci-incdir %s' % os.path.join(self.installdir, 'include'),
                 '--qsci-libdir %s' % os.path.join(self.installdir, 'lib'),
-                '--pyqt-sipdir %s' % os.path.join(pyqt, 'share', 'sip', 'PyQt4'),
+                '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name),
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
             ]
+
+            if LooseVersion(self.version) >= LooseVersion('2.10.7'):
+                cfgopts.append('--no-dist-info')
+
+            # This flag was added in version 2.11
+            if LooseVersion(self.version) >= LooseVersion('2.11'):
+                cfgopts.append("--pyqt=%s" % self.pyqt_pkg_name)
+
             run_cmd("python configure.py %s" % ' '.join(cfgopts))
 
             super(EB_QScintilla, self).build_step()
             super(EB_QScintilla, self).install_step()
 
             target_dir = os.path.join(self.installdir, pylibdir)
-            pyqt_pylibdir = os.path.join(pyqt, pylibdir)
+            pyqt_pylibdir = os.path.join(self.pyqt_root, pylibdir)
             try:
                 os.chdir(target_dir)
                 for entry in [x for x in os.listdir(pyqt_pylibdir) if not x.startswith('__init__.py')]:
@@ -125,21 +150,35 @@ class EB_QScintilla(ConfigureMake):
         """Custom sanity check for QScintilla."""
 
         if LooseVersion(self.version) >= LooseVersion('2.10'):
-            qsci_lib = 'libqscintilla2_qt4'
+            if self.pyqt_pkg_name == 'PyQt5':
+                qsci_lib = 'libqscintilla2_qt5'
+            else:
+                qsci_lib = 'libqscintilla2_qt4'
         else:
             qsci_lib = 'libqscintilla2'
 
         custom_paths = {
             'files': [os.path.join('lib', qsci_lib + '.' + get_shared_lib_ext())],
-            'dirs': ['data', os.path.join('include', 'Qsci'), os.path.join(det_pylibdir(), 'PyQt4'),
-                     os.path.join('qsci', 'api', 'python'), os.path.join('share', 'sip', 'PyQt4'), 'trans'],
+            'dirs': ['data', os.path.join('include', 'Qsci'), 'trans'],
         }
-        custom_commands = ["python -c 'import PyQt4.Qsci'"]
+        # also install Python bindings if Python is included as a dependency
+        python = get_software_root('Python')
+
+        custom_commands = []
+        if python:
+            custom_paths['dirs'].extend([
+                os.path.join(det_pylibdir(), self.pyqt_pkg_name),
+                os.path.join('qsci', 'api', 'python'),
+                os.path.join('share', 'sip', self.pyqt_pkg_name),
+            ])
+            custom_commands.append("python -c 'import %s.Qsci'" % self.pyqt_pkg_name)
 
         super(EB_QScintilla, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom extra module file entries for QScintilla."""
         txt = super(EB_QScintilla, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
+        python = get_software_root('Python')
+        if python:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
         return txt

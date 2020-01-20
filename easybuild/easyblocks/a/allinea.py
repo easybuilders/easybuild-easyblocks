@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,7 +78,7 @@ class EB_Allinea(Binary):
         lic_path = os.path.join(self.installdir, 'licences')
         try:
             shutil.copy2(self.cfg['license_file'], lic_path)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy license file to %s: %s", lic_path, err)
 
         # copy templates
@@ -93,7 +93,7 @@ class EB_Allinea(Binary):
             try:
                 # use shutil.copy (not copy2) so that permissions of copied file match with rest of installation
                 shutil.copy(path, templ_path)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy template %s to %s: %s", templ, templ_path, err)
 
         # copy system.config if requested

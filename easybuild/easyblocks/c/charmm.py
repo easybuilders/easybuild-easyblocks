@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,6 +53,7 @@ class EB_CHARMM(EasyBlock):
         extra_vars = {
             'build_options': ["FULL", "Specify the options to the build script", CUSTOM],
             'system_size': ["medium", "Specify the supported systemsize: %s" % ', '.join(KNOWN_SYSTEM_SIZES), CUSTOM],
+            'runtest': [True, "Run tests after each build", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -109,18 +110,20 @@ class EB_CHARMM(EasyBlock):
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             build_options += " IFORT"
 
-        cmd = "./install.com %s %s %s" % (self.arch, self.cfg['system_size'], build_options)
+        cmd = ' '.join([self.cfg['prebuildopts'], './install.com', self.arch, self.cfg['system_size'], build_options])
         (out, _) = run_cmd(cmd, log_all=True, simple=False, log_output=verbose)
         return out
 
     def test_step(self):
         """Run the testsuite"""
-        if self.toolchain.options.get('usempi', None):
-            cmd = "cd test && ./test.com M %s %s" % (self.cfg['parallel'], self.arch)
-        else:
-            cmd = "cd test && ./test.com %s" % self.arch
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        # Allow to skip the tests by setting runtest to False
+        if self.cfg['runtest']:
+            if self.toolchain.options.get('usempi', None):
+                cmd = "cd test && ./test.com M %s %s" % (self.cfg['parallel'], self.arch)
+            else:
+                cmd = "cd test && ./test.com %s" % self.arch
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            return out
 
     def sanity_check_step(self):
         """Custom sanity check for CHARMM."""
@@ -139,7 +142,7 @@ class EB_CHARMM(EasyBlock):
         self.log.info("Copying CHARMM dir %s to %s" % (self.cfg['start_dir'], self.installdir))
         try:
             shutil.copytree(self.cfg['start_dir'], self.installdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy CHARMM dir to install dir: %s", err)
 
     def make_module_req_guess(self):

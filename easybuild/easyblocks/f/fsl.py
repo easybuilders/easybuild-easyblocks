@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,18 +31,20 @@ EasyBuild support for building and installing FSL, implemented as an easyblock
 import difflib
 import os
 import re
-import shutil
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import read_file, copy_dir
+from easybuild.tools.utilities import nub
 
 
 class EB_FSL(EasyBlock):
     """Support for building and installing FSL."""
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         """Specify building in install dir, initialize custom variables."""
 
         super(EB_FSL, self).__init__(*args, **kwargs)
@@ -63,22 +65,53 @@ class EB_FSL(EasyBlock):
         fslmachtype = out.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
-        # prepare config
-        # either using matching config, or copy closest match
-        cfgdir = os.path.join(self.fsldir, "config")
-        try:
-            cfgs = os.listdir(cfgdir)
-            best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
+        best_cfg = None
 
-            self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+        # Predefined makefiles for various configs have disappeared in v6.0.2.
+        # The next part of the EasyBlock has thereby become obsolete.
+        # See https://github.com/easybuilders/easybuild-easyblocks/issues/1859
+        if LooseVersion(self.version) < LooseVersion('6.0.2'):
 
+            # Patch files for ver. < 5.0.10 patch multiple config directories
+            if LooseVersion(self.version) >= LooseVersion('5.0.10'):
+                # Check if a specific machine type directory is patched
+                systype_regex = re.compile(r"^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
+
+                patched_cfgs = []
+
+                for patch in self.patches:
+                    patchfile = read_file(patch['path'])
+                    res = systype_regex.findall(patchfile)
+                    patched_cfgs.extend([i[0] for i in res])
+
+                # Check that at least one config has been found
+                if patched_cfgs:
+                    # Check that a single config has been patched
+                    if len(nub(patched_cfgs)) == 1:
+                        best_cfg = patched_cfgs[0]
+                        self.log.debug("Found patched config dir: %s", best_cfg)
+                    else:
+                        raise EasyBuildError("Patch files are editing multiple config dirs: %s", patched_cfgs)
+                else:
+                    self.log.debug("No config dir found in patch files")
+
+            # If no patched config is found, pick best guess
+            cfgdir = os.path.join(self.fsldir, "config")
+            try:
+                if not best_cfg:
+                    cfgs = os.listdir(cfgdir)
+                    best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
+                    self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+            except OSError as err:
+                raise EasyBuildError("Unable to access configuration directory: %s", cfgdir, err)
+
+            # Prepare config
+            # Either use patched config or copy closest match
             if fslmachtype != best_cfg:
                 srcdir = os.path.join(cfgdir, best_cfg)
                 tgtdir = os.path.join(cfgdir, fslmachtype)
-                shutil.copytree(srcdir, tgtdir)
+                copy_dir(srcdir, tgtdir)
                 self.log.debug("Copied %s to %s" % (srcdir, tgtdir))
-        except OSError, err:
-            raise EasyBuildError("Failed to copy closest matching config dir: %s", err)
 
     def build_step(self):
         """Build FSL using supplied script."""
@@ -124,8 +157,9 @@ class EB_FSL(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for FSL"""
 
-        custom_paths =  {'files':[],
-                         'dirs':["fsl/%s" % x for x in ["bin", "data", "etc", "extras", "include", "lib"]]
-                        }
+        custom_paths = {
+            'files': [],
+            'dirs': ['fsl/%s' % x for x in ['bin', 'data', 'etc', 'extras', 'include', 'lib']],
+        }
 
         super(EB_FSL, self).sanity_check_step(custom_paths=custom_paths)

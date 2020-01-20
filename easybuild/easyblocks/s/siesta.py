@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,8 +68,10 @@ class EB_Siesta(ConfigureMake):
         arch_make = os.path.join(obj_dir, 'arch.make')
         bindir = os.path.join(start_dir, 'bin')
 
+        loose_ver = LooseVersion(self.version)
+
         par = ''
-        if LooseVersion(self.version) >= LooseVersion('4.1'):
+        if loose_ver >= LooseVersion('4.1'):
             par = '-j %s' % self.cfg['parallel']
 
         # enable OpenMP support if desired
@@ -115,7 +117,7 @@ class EB_Siesta(ConfigureMake):
         # Populate start_dir with makefiles
         run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
 
-        if LooseVersion(self.version) < LooseVersion('4.1-b2'):
+        if loose_ver < LooseVersion('4.1-b2'):
             # MPI?
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', '--enable-mpi')
@@ -135,7 +137,7 @@ class EB_Siesta(ConfigureMake):
             # Configure is run in obj_dir, configure script is in ../Src
             super(EB_Siesta, self).configure_step(cmd_prefix='../Src/')
 
-            if LooseVersion(self.version) > LooseVersion('4.0'):
+            if loose_ver > LooseVersion('4.0'):
                 regex_subs_Makefile = [
                     (r'CFLAGS\)-c', r'CFLAGS) -c'),
                 ]
@@ -171,9 +173,10 @@ class EB_Siesta(ConfigureMake):
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF"),
+                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
                 ])
-                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nNETCDF_LIBS = -lnetcdff"))
+                netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
+                regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
 
         apply_regex_substitutions(arch_make, regex_subs)
 
@@ -190,11 +193,12 @@ class EB_Siesta(ConfigureMake):
             # Make the utils
             change_dir(os.path.join(start_dir, 'Util'))
 
-            # clean_all.sh might be missing executable bit...
-            adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
-            run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
+            if loose_ver >= LooseVersion('4'):
+                # clean_all.sh might be missing executable bit...
+                adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
+                run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
 
-            if LooseVersion(self.version) >= LooseVersion('4.1'):
+            if loose_ver >= LooseVersion('4.1'):
                 regex_subs_TS = [
                     (r"^default:.*$", r""),
                     (r"^EXE\s*=.*$", r""),
@@ -205,52 +209,58 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'TS', 'tshs2tshs', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_TS)
 
-            # SUFFIX rules in wrong place
-            regex_subs_suffix = [
-                (r'^(\.SUFFIXES:.*)$', r''),
-                (r'^(include\s*\$\(ARCH_MAKE\).*)$', r'\1\n.SUFFIXES:\n.SUFFIXES: .c .f .F .o .a .f90 .F90'),
-            ]
-            makefile = os.path.join(start_dir, 'Util', 'Sockets', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_suffix)
-            makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_suffix)
+            if loose_ver >= LooseVersion('4'):
+                # SUFFIX rules in wrong place
+                regex_subs_suffix = [
+                    (r'^(\.SUFFIXES:.*)$', r''),
+                    (r'^(include\s*\$\(ARCH_MAKE\).*)$', r'\1\n.SUFFIXES:\n.SUFFIXES: .c .f .F .o .a .f90 .F90'),
+                ]
+                makefile = os.path.join(start_dir, 'Util', 'Sockets', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_suffix)
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_suffix)
 
             regex_subs_UtilLDFLAGS = [
                 (r'(\$\(FC\)\s*-o\s)', r'$(FC) %s %s -o ' % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])),
             ]
             makefile = os.path.join(start_dir, 'Util', 'Optimizer', 'Makefile')
             apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
-            makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
-            apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
+            if loose_ver >= LooseVersion('4'):
+                makefile = os.path.join(start_dir, 'Util', 'JobList', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, regex_subs_UtilLDFLAGS)
 
             # remove clean at the end of default target
-            if self.version == '4.0.1' or self.version == '4.1-b3':
-                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
-                apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
-                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
-                apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
+            # And yes, they are re-introducing this bug.
+            is_ver40_to_401 = loose_ver >= LooseVersion('4.0') and loose_ver < LooseVersion('4.0.2')
+            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1-b3')):
+                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                    apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
+                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
+                    apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
 
+            # build_all.sh might be missing executable bit...
+            adjust_permissions('./build_all.sh', stat.S_IXUSR, recursive=False, relative=True)
             run_cmd('./build_all.sh', log_all=True, simple=True, log_output=True)
 
             # Now move all the built utils to the temp installdir
             expected_utils = [
-                'Bands/eigfat2plot',
                 'CMLComp/ccViz',
-                'Contrib/APostnikov/eig2bxsf', 'Contrib/APostnikov/rho2xsf',
-                'Contrib/APostnikov/vib2xsf', 'Contrib/APostnikov/fmpdos',
-                'Contrib/APostnikov/xv2xsf', 'Contrib/APostnikov/md2axsf',
-                'COOP/mprop', 'COOP/fat',
+                'Contrib/APostnikov/eig2bxsf', 'Contrib/APostnikov/fmpdos',
+                'Contrib/APostnikov/md2axsf', 'Contrib/APostnikov/rho2xsf',
+                'Contrib/APostnikov/vib2xsf', 'Contrib/APostnikov/xv2xsf',
+                'COOP/fat', 'COOP/mprop',
                 'Denchar/Src/denchar',
-                'DensityMatrix/dm2cdf', 'DensityMatrix/cdf2dm',
+                'DensityMatrix/cdf2dm', 'DensityMatrix/dm2cdf',
                 'Eig2DOS/Eig2DOS',
-                'Gen-basis/ioncat', 'Gen-basis/gen-basis',
-                'Grid/cdf2grid', 'Grid/cdf_laplacian', 'Grid/cdf2xsf',
-                'Grid/grid2cube',
-                'Grid/grid_rotate', 'Grid/g2c_ng', 'Grid/grid2cdf', 'Grid/grid2val',
+                'Gen-basis/gen-basis', 'Gen-basis/ioncat',
+                'Gen-basis/ionplot.sh',
+                'Grid/cdf2grid', 'Grid/cdf2xsf', 'Grid/cdf_laplacian',
+                'Grid/g2c_ng', 'Grid/grid2cdf', 'Grid/grid2cube',
+                'Grid/grid2val', 'Grid/grid_rotate',
                 'Helpers/get_chem_labels',
                 'HSX/hs2hsx', 'HSX/hsx2hs',
-                'JobList/Src/getResults', 'JobList/Src/countJobs',
-                'JobList/Src/runJobs', 'JobList/Src/horizontal',
+                'JobList/Src/countJobs', 'JobList/Src/getResults',
+                'JobList/Src/horizontal', 'JobList/Src/runJobs',
                 'Macroave/Src/macroave',
                 'ON/lwf2cdf',
                 'Optimizer/simplex', 'Optimizer/swarm',
@@ -259,33 +269,69 @@ class EB_Siesta(ConfigureMake):
                 'SiestaSubroutine/FmixMD/Src/driver',
                 'SiestaSubroutine/FmixMD/Src/para',
                 'SiestaSubroutine/FmixMD/Src/simple',
-                'STM/simple-stm/plstm', 'STM/ol-stm/Src/stm',
-                'VCA/mixps', 'VCA/fractional',
-                'Vibra/Src/vibra', 'Vibra/Src/fcbuild',
-                'WFS/info_wfsx', 'WFS/wfsx2wfs',
-                'WFS/readwfx', 'WFS/wfsnc2wfsx', 'WFS/readwf', 'WFS/wfs2wfsx',
+                'STM/ol-stm/Src/stm', 'STM/simple-stm/plstm',
+                'VCA/fractional', 'VCA/mixps',
+                'Vibra/Src/fcbuild', 'Vibra/Src/vibra',
+                'WFS/info_wfsx',
+                'WFS/readwf', 'WFS/readwfx', 'WFS/wfs2wfsx',
+                'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
 
-            if LooseVersion(self.version) <= LooseVersion('4.0'):
+            if loose_ver >= LooseVersion('3.2'):
                 expected_utils.extend([
-                    'Bands/new.gnubands',
-                    'TBTrans/tbtrans',
+                    'Bands/eigfat2plot',
                 ])
 
-            if LooseVersion(self.version) >= LooseVersion('4.0'):
+            if loose_ver >= LooseVersion('4.0'):
                 expected_utils.extend([
                     'SiestaSubroutine/ProtoNEB/Src/protoNEB',
                     'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
                     'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
+                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
+                if self.toolchain.options.get('usempi', None):
+                    expected_utils.extend([
+                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
+                    ])
 
-            if LooseVersion(self.version) >= LooseVersion('4.1'):
+            if loose_ver < LooseVersion('4.1'):
+                if loose_ver >= LooseVersion('4.0'):
+                    expected_utils.extend([
+                        'COOP/dm_creator',
+                        'TBTrans_rep/tbtrans',
+                    ])
+                else:
+                    expected_utils.extend([
+                        'TBTrans/tbtrans',
+                    ])
+
+            if loose_ver < LooseVersion('4.0.2'):
+                expected_utils.extend([
+                    'Bands/new.gnubands',
+                ])
+            else:
                 expected_utils.extend([
                     'Bands/gnubands',
+                ])
+                # Need to revisit this when 4.1 is officialy released.
+                # This is based on b1-b3 releases
+                if loose_ver < LooseVersion('4.1'):
+                    expected_utils.extend([
+                        'Contour/grid1d', 'Contour/grid2d',
+                        'Optical/optical', 'Optical/optical_input',
+                        'sies2arc/sies2arc',
+                    ])
+
+            if loose_ver >= LooseVersion('4.1'):
+                expected_utils.extend([
+                    'DensityMatrix/dmbs2dm', 'DensityMatrix/dmUnblock',
                     'Grimme/fdf2grimme',
                     'SpPivot/pvtsp',
-                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs', 'TS/TBtrans/tbtrans',
+                    'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
+                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs',
                 ])
 
             for util in expected_utils:
@@ -295,14 +341,24 @@ class EB_Siesta(ConfigureMake):
             # Build transiesta
             change_dir(obj_dir)
 
-            run_cmd('make clean', log_all=True, simple=True, log_output=True)
+            ts_clean_target = 'clean'
+            if loose_ver >= LooseVersion('4.1-b4'):
+                ts_clean_target += '-transiesta'
+
+            run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)
             run_cmd('make %s transiesta' % par, log_all=True, simple=True, log_output=True)
 
             copy_file(os.path.join(obj_dir, 'transiesta'), bindir)
 
+
     def build_step(self):
         """No build step for Siesta."""
         pass
+
+    def test_step(self):
+        """Custom test step for Siesta."""
+        change_dir(os.path.join(self.cfg['start_dir'], 'Obj', 'Tests'))
+        super(EB_Siesta, self).test_step()
 
     def install_step(self):
         """Custom install procedure for Siesta: copy binaries."""
@@ -327,6 +383,9 @@ class EB_Siesta(ConfigureMake):
         custom_commands = []
         if self.toolchain.options.get('usempi', None):
             # make sure Siesta was indeed built with support for running in parallel
-            custom_commands.append("echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL")
+            # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
+            mpi_test_cmd = "cd %s && " % self.builddir
+            mpi_test_cmd = mpi_test_cmd + "echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL"
+            custom_commands.append(mpi_test_cmd)
 
         super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

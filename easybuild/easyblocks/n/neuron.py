@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -106,7 +106,7 @@ class EB_NEURON(ConfigureMake):
             try:
                 pwd = os.getcwd()
                 os.chdir(pypath)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to %s: %s", pypath, err)
 
             cmd = "python setup.py install --prefix=%s" % self.installdir
@@ -114,7 +114,7 @@ class EB_NEURON(ConfigureMake):
 
             try:
                 os.chdir(pwd)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
 
@@ -144,7 +144,7 @@ class EB_NEURON(ConfigureMake):
 
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             self.log.debug("Loading fake module failed: %s" % err)
 
         # test NEURON demo
@@ -176,7 +176,7 @@ class EB_NEURON(ConfigureMake):
                 (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
 
                 os.chdir(cwd)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to run parallel hello world: %s", err)
 
             valid = True

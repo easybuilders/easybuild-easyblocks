@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
@@ -94,7 +94,7 @@ class EB_MUMmer(ConfigureMake):
                     srcfile = os.path.join(srcdir, filename)
                     shutil.copy2(srcfile, destdir)
 
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
     def make_module_extra(self):

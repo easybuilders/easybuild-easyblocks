@@ -10,6 +10,7 @@ import os
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import mkdir, symlink
 from easybuild.tools.run import run_cmd
 
 
@@ -28,9 +29,23 @@ class EB_Chimera(PackedBinary):
 
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to %s: %s", self.cfg['start_dir'], err)
 
-        cmd = "./chimera.bin -q -d %s" % self.installdir
-
+        # Chimera comes bundled with its dependencies, and follows a
+        # UNIX file system layout with 'bin', 'include', 'lib', etc.  To
+        # avoid conflicts with other modules, the Chimera module must
+        # not add the 'bin', 'include', 'lib', etc. directories to PATH,
+        # CPATH, LD_LIBRARY_PATH, etc.  We achieve this by installing
+        # Chimera in a subdirectory (called 'chimera') instead of the
+        # root directory.
+        cmd = "./chimera.bin -q -d %s" % os.path.join(self.installdir,
+                                                      'chimera')
         run_cmd(cmd, log_all=True, simple=True)
+
+        # Create a symlink to the Chimera startup script; this symlink
+        # will end up in PATH.  The startup script sets up the
+        # environment, so that Chimera finds its dependencies.
+        mkdir(os.path.join(self.installdir, 'bin'))
+        symlink(os.path.join(self.installdir, 'chimera', 'bin', 'chimera'),
+                os.path.join(self.installdir, 'bin', 'chimera'))

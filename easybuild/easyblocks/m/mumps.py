@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,12 +55,17 @@ class EB_MUMPS(ConfigureMake):
         else:
             make_inc_suff = 'SEQ'
 
+        if self.toolchain.options.get('openmp', None):
+            optl = self.toolchain.get_flag('openmp')
+        else:
+            optl = ""
+
         # select Makefile.inc template and prepare compiler specific compiler flags
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
             make_inc_templ = 'Makefile.INTEL.%s'
             optf = "-Dintel_ -DALLOW_NON_INIT -nofor-main"
-            optl = "-nofor-main"
+            optl = "%s -nofor-main" % optl
         elif comp_fam == toolchain.GCC:  #@UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
                 make_inc_templ = 'Makefile.debian.%s'
@@ -68,7 +73,6 @@ class EB_MUMPS(ConfigureMake):
                 make_inc_templ = 'Makefile.gfortran.%s'
 
             optf = "-DALLOW_NON_INIT"
-            optl = ""
         else:
             raise EasyBuildError("Unknown compiler family, don't know to prepare for building with specified toolchain.")
 
@@ -78,7 +82,7 @@ class EB_MUMPS(ConfigureMake):
             dst = os.path.join(self.cfg['start_dir'], 'Makefile.inc')
             shutil.copy2(src, dst)
             self.log.debug("Successfully copied Makefile.inc to builddir.")
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying Makefile.inc to builddir failed: %s", err)
 
         # check whether dependencies are available, and prepare
@@ -122,6 +126,22 @@ class EB_MUMPS(ConfigureMake):
             'OPTL': "$LDFLAGS %s" % optl,
             'OPTC': "$CFLAGS",
         }
+        # support sequential version, which builds a dummy MPI library mpiseq
+        if make_inc_suff == 'SEQ':
+            lmpiseq = "-L$LAPACK_LIB_DIR $LIBLAPACK -L%s/libseq -lmpiseq" % self.cfg['start_dir']
+            optl = " ".join([optl, lmpiseq])
+            mumps_make_opts.update({
+                'LSCOTCH': "-L$EBROOTSCOTCH/lib -lesmumps -lscotch -lscotcherr",
+                'ORDERINGSF': "-Dpord -Dscotch %s" % dmetis,
+                'CC': "$CC",
+                'FC': "$F77",
+                'FL': "$F77",
+                'INCSEQ': "-I%s/libseq" % self.cfg['start_dir'],
+                'LIBSEQ': lmpiseq,
+                'SCALAP': "",
+                'LIBPAR': "",
+                'OPTL': "$LDFLAGS %s" % optl,
+            })
         for (key, val) in mumps_make_opts.items():
             self.cfg.update('buildopts', '%s="%s"' % (key, val))
 
@@ -132,7 +152,11 @@ class EB_MUMPS(ConfigureMake):
                 src = os.path.join(self.cfg['start_dir'], path)
                 dst = os.path.join(self.installdir, path)
                 shutil.copytree(src, dst)
-        except OSError, err:
+            if self.toolchain.options.get('usempi', None) is False:
+                src = os.path.join(self.cfg['start_dir'], 'libseq', 'libmpiseq.a')
+                dst = os.path.join(self.installdir, 'lib', 'libmpiseq.a')
+                shutil.copy2(src, dst)
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, dst, err)
 
     def sanity_check_step(self):

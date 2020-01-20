@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -162,7 +162,7 @@ class EB_TAU(ConfigureMake):
 
         # determine value for optional packages option template
         self.opt_pkgs_opts = ''
-        for dep, opt in [('PAPI', 'papi'), ('PDT', 'pdt'), ('binutils', 'bfd')]:
+        for dep, opt in [('OTF', 'otf'), ('PAPI', 'papi'), ('PDT', 'pdt'), ('binutils', 'bfd')]:
             root = get_software_root(dep)
             if root:
                 self.opt_pkgs_opts += ' -%s=%s' % (opt, root)

@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,11 +69,22 @@ class EB_icc(IntelBase):
 
         self.debuggerpath = None
 
-        if LooseVersion(self.version) >= LooseVersion('2016') and self.cfg['components'] is None:
-            # we need to use 'ALL' by default, using 'DEFAULTS' results in key things not being installed (e.g. bin/icc)
-            self.cfg['components'] = [COMP_ALL]
-            self.log.debug("Nothing specified for components, but required for version 2016, using %s instead",
-                           self.cfg['components'])
+        self.comp_libs_subdir = None
+
+        # need to make sure version is an actual version
+        # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
+        # which results in deriving the actual compiler version
+        # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
+        if re.match(r'^[0-9]+.*', self.version) and LooseVersion(self.version) >= LooseVersion('2016'):
+
+            self.comp_libs_subdir = os.path.join('compilers_and_libraries_%s' % self.version, 'linux')
+
+            if self.cfg['components'] is None:
+                # we need to use 'ALL' by default,
+                # using 'DEFAULTS' results in key things not being installed (e.g. bin/icc)
+                self.cfg['components'] = [COMP_ALL]
+                self.log.debug("Nothing specified for components, but required for version 2016, using %s instead",
+                               self.cfg['components'])
 
     def install_step(self):
         """
@@ -120,6 +131,11 @@ class EB_icc(IntelBase):
             'files': sanity_check_files,
             'dirs': [],
         }
+
+        # make very sure that expected 'compilers_and_libraries_<VERSION>/linux' subdir is there for recent versions,
+        # since we rely on it being there in make_module_req_guess
+        if self.comp_libs_subdir:
+            custom_paths['dirs'].append(self.comp_libs_subdir)
 
         custom_commands = ["which icc"]
 
@@ -189,7 +205,7 @@ class EB_icc(IntelBase):
             else:
                 # new directory layout for Intel Parallel Studio XE 2016
                 # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
-                prefix = 'compilers_and_libraries_%s/linux' % self.version
+                prefix = self.comp_libs_subdir
                 # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
                 self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
 

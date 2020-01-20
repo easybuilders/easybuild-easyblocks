@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,7 +78,7 @@ class EB_Trinity(EasyBlock):
         dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
         try:
             os.chdir(dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Butterfly: failed to change to dst dir %s: %s", dst, err)
 
         cmd = "ant"
@@ -103,7 +103,7 @@ class EB_Trinity(EasyBlock):
             dst = os.path.join(self.cfg['start_dir'], 'Chrysalis')
             try:
                 os.chdir(dst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Chrysalis: failed to change to dst dir %s: %s", dst, err)
 
             run_cmd("make clean")
@@ -128,7 +128,7 @@ class EB_Trinity(EasyBlock):
             dst = os.path.join(self.cfg['start_dir'], 'Inchworm')
             try:
                 os.chdir(dst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Inchworm: failed to change to dst dir %s: %s", dst, err)
 
             run_cmd('./configure --prefix=%s' % dst)
@@ -155,13 +155,13 @@ class EB_Trinity(EasyBlock):
             try:
                 # remove original symlink
                 os.unlink(orig_jellyfishdir)
-            except OSError, err:
+            except OSError as err:
                 self.log.warning("jellyfish plugin: failed to remove dir %s: %s" % (orig_jellyfishdir, err))
             try:
                 # create new one
                 os.symlink(jellyfishdir, orig_jellyfishdir)
                 os.chdir(orig_jellyfishdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("jellyfish plugin: failed to change dir %s: %s", orig_jellyfishdir, err)
 
             run_cmd('./configure --prefix=%s' % orig_jellyfishdir)
@@ -191,7 +191,7 @@ class EB_Trinity(EasyBlock):
         dst = os.path.join(self.cfg['start_dir'], 'trinity-plugins', 'kmer')
         try:
             os.chdir(dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Meryl: failed to change to dst dir %s: %s", dst, err)
 
         cmd = "./configure.sh"
@@ -213,7 +213,7 @@ class EB_Trinity(EasyBlock):
         dst = os.path.join(self.cfg['start_dir'], 'trinity-plugins', plugindir)
         try:
             os.chdir(dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("%s plugin: failed to change to dst dir %s: %s", plugindir, dst, err)
 
         if not cc:
@@ -305,7 +305,7 @@ class EB_Trinity(EasyBlock):
         if not self.cfg['withsampledata']:
             try:
                 shutil.rmtree(os.path.join(self.cfg['start_dir'], 'sample_data'))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to remove sample data: %s", err)
 
     def sanity_check_step(self):
@@ -319,11 +319,16 @@ class EB_Trinity(EasyBlock):
         else:
             sep = '_r'
 
+        if version >= LooseVersion('2.8') and version < LooseVersion('2000'):
+            chrysalis_bin = 'Chrysalis/bin/Chrysalis'
+        else:
+            chrysalis_bin = 'Chrysalis/Chrysalis'
+
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', 'Chrysalis/Chrysalis']],
+            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', chrysalis_bin]],
             'dirs': [os.path.join(path, x) for x in ['Butterfly/src/bin', 'util']]
         }
 

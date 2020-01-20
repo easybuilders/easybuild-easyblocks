@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,26 +55,25 @@ class EB_SHRiMP(ConfigureMake):
 
             cwd = os.getcwd()
 
-            os.chdir(os.path.join(self.installdir, "utils"))
+            os.chdir(os.path.join(self.installdir, 'utils'))
             for f in glob.glob("*.py"):
                 self.log.info("Fixing permissions of %s in utils" % f)
-                os.chmod(f, 0755)
+                os.chmod(f, 0o755)
 
             os.chdir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy files to install dir: %s", err)
-
 
     def sanity_check_step(self):
         """Custom sanity check for SHRiMP."""
 
         custom_paths = {
-                        'files':['bin/%s' % x for x in ["fasta2fastq", "gmapper", "mergesam",
-                                                        "prettyprint", "probcalc", "probcalc_mp",
-                                                        "shrimp2sam", "shrimp_var"]],
-                        'dirs':['utils']
-                       }
+            'files': ['bin/%s' % x for x in ['fasta2fastq', 'gmapper', 'mergesam',
+                                             'prettyprint', 'probcalc', 'probcalc_mp',
+                                             'shrimp2sam', 'shrimp_var']],
+            'dirs': ['utils'],
+        }
 
         super(EB_SHRiMP, self).sanity_check_step(custom_paths=custom_paths)
 

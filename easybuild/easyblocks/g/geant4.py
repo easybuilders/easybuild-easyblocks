@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.filetools import mkdir, read_file, write_file
+from easybuild.tools.filetools import copy_file, mkdir, read_file, write_file
 
 
 class EB_Geant4(CMakeMake):
@@ -233,7 +233,7 @@ class EB_Geant4(CMakeMake):
             try:
                 scriptdirbase = os.path.join(pwd, '.config', 'bin')
                 filelist = os.listdir(scriptdirbase)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to determine self.g4system: %s", err)
     
             if len(filelist) != 1:
@@ -247,11 +247,8 @@ class EB_Geant4(CMakeMake):
             self.log.info("The directory containing several important scripts to be copied was found: %s" % self.scriptdir)
 
             # copying config.sh to pwd
-            try:
-                self.log.info("copying config.sh to %s" % pwd)
-                shutil.copy2(os.path.join(self.scriptdir, 'config.sh'), pwd)
-            except IOError, err:
-                raise EasyBuildError("Failed to copy config.sh to %s", pwd)
+            self.log.info("copying config.sh to %s", pwd)
+            copy_file(os.path.join(self.scriptdir, 'config.sh'), pwd)
 
             # creating several scripts containing environment variables
             cmd = "%s/Configure -S -f config.sh -D g4conf=%s -D abssrc=%s" % (pwd, self.scriptdir, pwd)
@@ -283,7 +280,7 @@ class EB_Geant4(CMakeMake):
                     target = os.path.join(self.installdir, target)
                     try:
                         os.symlink(source, target)
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Failed to symlink %s to %s: %s", source, target, err)
         else:
             pwd = self.cfg['start_dir']
@@ -292,7 +289,7 @@ class EB_Geant4(CMakeMake):
                 datasrc = os.path.join(pwd, '..')
                 self.datadst = os.path.join(self.installdir, 'data')
                 os.mkdir(self.datadst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create data destination dir %s: %s", self.datadst, err)
 
             datalist = ['G4ABLA%s' % self.cfg['G4ABLAVersion'],
@@ -305,7 +302,7 @@ class EB_Geant4(CMakeMake):
                 for dat in datalist:
                     self.log.info("Copying %s to %s" % (dat, self.datadst))
                     shutil.copytree(os.path.join(datasrc, dat), os.path.join(self.datadst, dat))
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Something went wrong during data copying (%s) to %s: %s", dat, self.datadst, err)
 
             try:
@@ -317,7 +314,7 @@ class EB_Geant4(CMakeMake):
                         shutil.copytree(os.path.join(pwd, fil), os.path.join(self.installdir, fil))
                     elif os.path.isfile(os.path.join(pwd, fil)):
                         shutil.copy2(os.path.join(pwd, fil), os.path.join(self.installdir, fil))
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Something went wrong during copying of %s to %s: %s", fil, self.installdir, err)
 
             try:
@@ -329,7 +326,7 @@ class EB_Geant4(CMakeMake):
                         shutil.copytree(os.path.join(self.scriptdir, fil), os.path.join(self.installdir, fil))
                     elif os.path.isfile(os.path.join(self.scriptdir, fil)):
                         shutil.copy2(os.path.join(self.scriptdir, fil), os.path.join(self.installdir, fil))
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Something went wrong during copying of (%s) to %s: %s", fil, self.installdir, err)
 
             cmd = "%(pwd)s/Configure -f %(pwd)s/config.sh -d -install" % {'pwd': pwd}

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2018 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,21 +31,23 @@ Unit tests for initializing easyblocks.
 import glob
 import os
 import re
+import sys
 import tempfile
-from vsc.utils import fancylogger
-from unittest import TestCase, TestLoader, main
+from unittest import TestCase, TestLoader, TextTestRunner
 
 import easybuild.tools.options as eboptions
+from easybuild.base import fancylogger
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
+from easybuild.tools.config import GENERAL_CLASS
 from easybuild.tools.filetools import write_file
 from easybuild.tools.options import set_tmpdir
-from easybuild.tools.module_naming_scheme import GENERAL_CLASS
-from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa
-from easybuild.tools.environment import modify_env, read_environment
+# these imports are required because of checks done in template_init_test
+from easybuild.tools.environment import modify_env, read_environment  # noqa
+from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa  # noqa
 
 
 class InitTest(TestCase):
@@ -88,7 +90,7 @@ class InitTest(TestCase):
         """Cleanup."""
         try:
             os.remove(self.eb_file)
-        except OSError, err:
+        except OSError as err:
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
@@ -115,14 +117,20 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     txt = f.read()
     f.close()
 
-    # make sure error reporting is done correctly (no more log.error, log.exception)
-    log_method_regexes = [
+    regexps = [
+        # make sure error reporting is done correctly (no more log.error, log.exception)
         re.compile(r"log\.error\("),
         re.compile(r"log\.exception\("),
         re.compile(r"log\.raiseException\("),
+        # check for use of 'basestring', which is Python 2.x only (should use string_type from tools.py2vs3 instead)
+        re.compile(r"[^\w]basestring([^\w]|$)"),
+        # check for use of '.iteritems()', which is Python 2.x only (should use .items instead)
+        re.compile(r"\.iteritems\(\)"),
+        # sys.maxint is no longer there in Python 3
+        re.compile(r"sys\.maxint"),
     ]
-    for regex in log_method_regexes:
-        self.assertFalse(regex.search(txt), "No match for '%s' in %s" % (regex.pattern, easyblock))
+    for regexp in regexps:
+        self.assertFalse(regexp.search(txt), "No match for '%s' in %s" % (regexp.pattern, easyblock))
 
     # make sure that (named) arguments get passed down for prepare_step
     if re.search('def prepare_step', txt):
@@ -185,18 +193,20 @@ def suite():
     # dynamically generate a separate test for each of the available easyblocks
     easyblocks_path = get_paths_for("easyblocks")[0]
     all_pys = glob.glob('%s/*/*.py' % easyblocks_path)
-    easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and not '/test/' in eb]
+    easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and '/test/' not in eb]
 
     for easyblock in easyblocks:
         # dynamically define new inner functions that can be added as class methods to InitTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            exec("def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            exec("def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock
         else:
-            exec("def innertest(self): template_init_test(self, '%s')" % easyblock)
+            code = "def innertest(self): template_init_test(self, '%s')" % easyblock
+
+        exec(code, globals())
 
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
@@ -204,5 +214,7 @@ def suite():
 
     return TestLoader().loadTestsFromTestCase(InitTest)
 
+
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    sys.exit(len(res.failures))

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2018 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,8 +30,6 @@ implemented as an easyblock.
 @author: Bernd Mohr (Juelich Supercomputing Centre)
 @author: Markus Geimer (Juelich Supercomputing Centre)
 """
-import os
-
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
@@ -59,7 +57,8 @@ class EB_Score_minus_P(ConfigureMake):
         if tc_fam != toolchain.CRAYPE:
             # --with-nocross-compiler-suite=(gcc|ibm|intel|pgi|studio)
             comp_opts = {
-                toolchain.DUMMY: 'gcc',  # Assume that dummy toolchain uses a system-provided GCC
+                # assume that system toolchain uses a system-provided GCC
+                toolchain.SYSTEM: 'gcc',
                 toolchain.GCC: 'gcc',
                 toolchain.IBMCOMP: 'ibm',
                 toolchain.INTELCOMP: 'intel',

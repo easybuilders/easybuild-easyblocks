@@ -1,5 +1,5 @@
 ##
-# Copyright 2014 Ghent University
+# Copyright 2014-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
@@ -48,8 +48,8 @@ class EB_Modeller(EasyBlock):
 
     def install_step(self):
         """Interactive install of Modeller."""
-    
-        if self.cfg['key'] is None: 
+
+        if self.cfg['key'] is None:
             raise EasyBuildError("Easyconfig parameter 'key' is not defined")
 
         cmd = "%s/Install" % self.cfg['start_dir']
@@ -63,6 +63,7 @@ class EB_Modeller(EasyBlock):
              'Select the type of your computer from the list above [3]:': '',
              default_install_path: self.installdir,
              'http://salilab.org/modeller/registration.html:': self.cfg["key"],
+             'https://salilab.org/modeller/registration.html:': self.cfg["key"],
              'Press <Enter> to begin the installation:': '',
              'Press <Enter> to continue:': ''
              }
