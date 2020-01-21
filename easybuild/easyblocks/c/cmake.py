@@ -109,9 +109,10 @@ class EB_CMake(ConfigureMake):
         """
         Custom sanity check for CMake.
         """
-        custom_paths = {
+        paths = {
             'files': ["bin/%s" % x for x in ['ccmake', 'cmake', 'cpack', 'ctest']],
             'dirs': [],
         }
+        commands = [('cmake', '--help'), ('ccmake', '--help')]
 
-        super(EB_CMake, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_CMake, self).sanity_check_step(custom_paths=paths, custom_commands=commands)
