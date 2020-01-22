@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2019 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,8 +39,9 @@ from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_cmd, parse_log_for_error
+from easybuild.easyblocks.generic._config_guess import ConfigGuessUpdater
 
 
 def make_R_install_option(opt, values, cmdline=False):
@@ -74,12 +75,12 @@ class RPackage(ExtensionEasyBlock):
         extra_vars.update({
             'exts_subdir': ['', "Subdirectory where R extensions should be installed info", CUSTOM],
             'unpack_sources': [False, "Unpack sources before installation", CUSTOM],
+            'update_config_guess': [False, "Update the config.guess file(s) in this package", CUSTOM],
         })
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initliaze RPackage-specific class variables."""
-
         super(RPackage, self).__init__(*args, **kwargs)
 
         self.configurevars = []
@@ -215,10 +216,21 @@ class RPackage(ExtensionEasyBlock):
             lib_install_prefix = os.path.join(self.installdir, self.cfg['exts_subdir'])
             mkdir(lib_install_prefix, parents=True)
 
-        if self.patches:
+        if self.patches or self.cfg['update_config_guess']:
             super(RPackage, self).run(unpack_src=True)
         else:
             super(RPackage, self).run()
+        
+        if self.cfg['update_config_guess']:
+            cgu = ConfigGuessUpdater(self.cfg)
+            for root, dirs, files in os.walk(self.builddir):
+                for name in files:
+                    if name == 'config.guess':
+                        cgu.config_guess = os.path.join(root, name)
+                        if not cgu.check_config_guess():
+                            updated = cgu.obtain_config_guess()
+                            self.log.warning("Using updated config.guess for %s", cgu.config_guess)
+                            copy_file(updated, cgu.config_guess)
 
         if self.src:
             self.ext_src = self.src
