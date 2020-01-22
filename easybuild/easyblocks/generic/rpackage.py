@@ -42,6 +42,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_cmd, parse_log_for_error
 from easybuild.easyblocks.generic._config_guess import ConfigGuessUpdater
+from easybuild.tools.build_log import print_warning
 
 
 def make_R_install_option(opt, values, cmdline=False):
@@ -135,7 +136,7 @@ class RPackage(ExtensionEasyBlock):
 
         if self.cfg['unpack_sources']:
             loc = self.start_dir
-        elif self.patches:
+        elif self.patches or self.cfg['update_config_guess']:
             loc = self.ext_dir
         else:
             loc = self.ext_src
@@ -229,7 +230,7 @@ class RPackage(ExtensionEasyBlock):
                         cgu.config_guess = os.path.join(root, name)
                         if not cgu.check_config_guess():
                             updated = cgu.obtain_config_guess()
-                            self.log.warning("Using updated config.guess for %s", cgu.config_guess)
+                            print_warning("Using updated config.guess for %s", cgu.config_guess)
                             copy_file(updated, cgu.config_guess)
 
         if self.src:

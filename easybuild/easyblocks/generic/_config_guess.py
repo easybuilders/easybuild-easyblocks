@@ -11,6 +11,7 @@ from easybuild.tools.config import source_paths
 from easybuild.tools.filetools import read_file, remove_file, verify_checksum
 from easybuild.easyblocks import VERSION as EASYBLOCKS_VERSION
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, adjust_permissions, compute_checksum, download_file
+from easybuild.tools.build_log import print_warning
 
 # download location & SHA256 for config.guess script
 # note: if this is updated, don't forget to trash the cached download from generic/Configure/<eb_version>/!
@@ -110,13 +111,12 @@ class ConfigGuessUpdater(EasyBlock):
 
             if config_guess_version != CONFIG_GUESS_VERSION:
                 tup = (self.config_guess, config_guess_version, CONFIG_GUESS_VERSION)
-                self.log.warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
+                print_warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
                 return False
 
             if config_guess_checksum != CONFIG_GUESS_SHA256:
                 tup = (self.config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
-                self.log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s"
-                                 % tup)
+                print_warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
                 return False
 
         return True
