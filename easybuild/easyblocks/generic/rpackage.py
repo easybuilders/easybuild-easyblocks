@@ -220,10 +220,10 @@ class RPackage(ExtensionEasyBlock):
             super(RPackage, self).run(unpack_src=True)
         else:
             super(RPackage, self).run()
-        
+
         if self.cfg['update_config_guess']:
             cgu = ConfigGuessUpdater(self.cfg)
-            for root, dirs, files in os.walk(self.builddir):
+            for root, _, files in os.walk(self.builddir):
                 for name in files:
                     if name == 'config.guess':
                         cgu.config_guess = os.path.join(root, name)

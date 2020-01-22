@@ -36,7 +36,6 @@ i.e. configure/make/make install, implemented as an easyblock.
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 import os
-import stat
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM

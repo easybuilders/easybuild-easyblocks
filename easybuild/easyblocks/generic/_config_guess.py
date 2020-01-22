@@ -3,6 +3,7 @@
 
 import os
 import re
+import stat
 from datetime import datetime
 
 from easybuild.framework.easyblock import EasyBlock
@@ -17,6 +18,7 @@ CONFIG_GUESS_VERSION = '2018-08-29'
 CONFIG_GUESS_URL_STUB = "https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb="
 CONFIG_GUESS_COMMIT_ID = "59e2ce0e6b46bb47ef81b68b600ed087e14fdaad"
 CONFIG_GUESS_SHA256 = "c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2cbffc74c"
+
 
 class ConfigGuessUpdater(EasyBlock):
     def __init__(self, *args, **kwargs):
@@ -113,7 +115,8 @@ class ConfigGuessUpdater(EasyBlock):
 
             if config_guess_checksum != CONFIG_GUESS_SHA256:
                 tup = (self.config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
-                self.log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
+                self.log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s"
+                                 % tup)
                 return False
 
         return True
