@@ -44,9 +44,6 @@ class EB_SAMtools(ConfigureMake):
                     "misc/zoom2sam.pl", "misc/md5sum-lite", "misc/md5fa", "misc/maq2sam-short",
                     "misc/maq2sam-long", "misc/wgsim", "samtools"]
 
-            self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h", 
-                    "sam.h", "sam_header.h", "sample.h"]
-            self.include_dirs = []
         else:
             self.bin_files = ["misc/blast2sam.pl",
                           "misc/bowtie2sam.pl", "misc/export2sam.pl", "misc/interpolate_sam.pl",
@@ -55,8 +52,8 @@ class EB_SAMtools(ConfigureMake):
                           "misc/zoom2sam.pl", "misc/md5sum-lite", "misc/md5fa", "misc/maq2sam-short",
                           "misc/maq2sam-long", "misc/wgsim", "samtools"]
 
-            self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h", "sam.h", "sample.h"]
-            self.include_dirs = []
+        self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h", "sam.h", "sample.h"]
+        self.include_dirs = []
 
         if LooseVersion(self.version) == LooseVersion('0.1.18'):
             # seqtk is no longer there in v0.1.19 and seqtk is not in 0.1.17
@@ -83,6 +80,10 @@ class EB_SAMtools(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion('1.4'):
             # errmod.h and kprobaln.h removed from 1.4
             self.include_files += ["errmod.h", "kprobaln.h"]
+
+        if LooseVersion(self.version) < LooseVersion('1.10'):
+            self.include_files += ["sam_header.h"]
+            self.bin_files += ["misc/varfilter.py"]
 
         self.lib_files = ["libbam.a"]
 

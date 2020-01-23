@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2019 Bart Oldeman, McGill University, Compute Canada
+# Copyright 2019-2020 Bart Oldeman, McGill University, Compute Canada
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel compiler suite, implemented as an eas
 @author: Bart Oldeman (McGill University, Compute Canada)
 """
 
+import os
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 
@@ -55,3 +56,19 @@ class EB_iccifort(EB_ifort, EB_icc):
         txt += self.module_generator.set_environment('EBVERSIONIFORT', self.version)
 
         return txt
+
+    def make_module_req_guess(self):
+        # Use EB_icc because its make_module_req_guess deliberately omits 'include' for CPATH:
+        # including it causes problems, e.g. with complex.h and std::complex
+        # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
+        # whereas EB_ifort adds 'include' but that's only needed if icc and ifort are separate
+        guesses = EB_icc.make_module_req_guess(self)
+
+        # remove entries from LIBRARY_PATH that icc and co already know about at compile time
+        # only do this for iccifort merged installations so that icc can still find ifort
+        # libraries and vice versa for split installations
+        if self.comp_libs_subdir is not None:
+            compiler_library_paths = [os.path.join(self.comp_libs_subdir, p)
+                                      for p in ('lib', 'compiler/lib/intel64', 'lib/ia32', 'lib/intel64')]
+            guesses['LIBRARY_PATH'] = [p for p in guesses['LIBRARY_PATH'] if p not in compiler_library_paths]
+        return guesses

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -295,34 +295,46 @@ class EB_WRF(EasyBlock):
                     if test in self.testcases:
                         self.testcases.remove(test)
 
-            # determine parallel setting (1/2 of available processors + 1)
-            n = self.cfg['parallel'] / 2 + 1
+            # determine number of MPI ranks to use in tests (1/2 of available processors + 1);
+            # we need to limit max number of MPI ranks (8 is too high for some tests, 4 is OK),
+            # since otherwise run may fail because domain size is too small
+            n_mpi_ranks = min(self.cfg['parallel'] / 2 + 1, 4)
 
             # prepare run command
 
             # stack limit needs to be set to unlimited for WRF to work well
             if self.cfg['buildtype'] in self.parallel_build_types:
                 test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
-                                                                self.toolchain.mpi_cmd_for("./wrf.exe", n))
+                                                                self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks))
             else:
                 test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
+
+            # regex to check for successful test run
+            re_success = re.compile("SUCCESS COMPLETE WRF")
 
             def run_test():
                 """Run a single test and check for success."""
 
-                # regex to check for successful test run
-                re_success = re.compile("SUCCESS COMPLETE WRF")
-
                 # run test
-                run_cmd(test_cmd, log_all=True, simple=True)
+                (_, ec) = run_cmd(test_cmd, log_all=False, log_ok=False, simple=False)
 
-                # check for success
-                txt = read_file('rsl.error.0000')
-                if re_success.search(txt):
-                    self.log.info("Test %s ran successfully." % test)
-
+                # read output file
+                out_fn = 'rsl.error.0000'
+                if os.path.exists(out_fn):
+                    out_txt = read_file(out_fn)
                 else:
-                    raise EasyBuildError("Test %s failed, pattern '%s' not found.", test, re_success.pattern)
+                    out_txt = 'FILE NOT FOUND'
+
+                if ec == 0:
+                    # exit code zero suggests success, but let's make sure...
+                    if re_success.search(out_txt):
+                        self.log.info("Test %s ran successfully (found '%s' in %s)", test, re_success.pattern, out_fn)
+                    else:
+                        raise EasyBuildError("Test %s failed, pattern '%s' not found in %s: %s",
+                                             test, re_success.pattern, out_fn, out_txt)
+                else:
+                    # non-zero exit code means trouble, show command output
+                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, ec, out_txt)
 
                 # clean up stuff that gets in the way
                 fn_prefs = ["wrfinput_", "namelist.output", "wrfout_", "rsl.out.", "rsl.error."]
