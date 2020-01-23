@@ -39,6 +39,7 @@ from easybuild.tools.filetools import mkdir
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.py2vs3 import string_type
 
 
 KNOWN_BACKENDS = {
@@ -113,7 +114,7 @@ class EB_TAU(ConfigureMake):
         iter_cnt = len(self.cfg['extra_backends']) + 1
 
         # define list of configure options to iterate over
-        if self.cfg['configopts'] and isinstance(self.cfg['configopts'], basestring):
+        if self.cfg['configopts'] and isinstance(self.cfg['configopts'], string_type):
             raise EasyBuildError("Specifying additional configure options for TAU is not supported (yet)")
 
         self.cfg['configopts'] = [mpi_tmpl, openmp_tmpl, hybrid_tmpl] * iter_cnt
