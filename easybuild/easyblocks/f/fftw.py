@@ -156,7 +156,7 @@ class EB_FFTW(ConfigureMake):
         common_config_opts = self.cfg['configopts']
 
         # early exit if common_config_opts is not a string
-        if not isinstance(common_config_opts, basestring):
+        if not isinstance(common_config_opts, string_type):
             self.log.warning("Found configopts that is a list. Skipping auto-configuration.")
             self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
