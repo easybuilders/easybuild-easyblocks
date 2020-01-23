@@ -105,11 +105,11 @@ class EB_PGI(PackedBinary):
         if LooseVersion(self.version) > LooseVersion('18'):
             self.pgi_install_subdirs.append(os.path.join('linux86-64-llvm', self.version))
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """
         Handle license file.
         """
-        super(EB_PGI, self).prepare_step()
+        super(EB_PGI, self).prepare_step(*args, **kwargs)
         self.requires_runtime_license = self.cfg['requires_runtime_license']
         if self.requires_runtime_license:
             default_lic_env_var = 'PGROUPD_LICENSE_FILE'
