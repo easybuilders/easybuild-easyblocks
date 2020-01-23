@@ -224,15 +224,15 @@ class RPackage(ExtensionEasyBlock):
             super(RPackage, self).run()
 
         if self.cfg['update_config_guess']:
-            cgu = ConfigureMake(self.cfg)
+            confmake = ConfigureMake(self.cfg)
             for root, _, files in os.walk(self.builddir):
                 for name in files:
                     if name == 'config.guess':
-                        cgu.config_guess = os.path.join(root, name)
-                        if not cgu.check_config_guess():
-                            updated = cgu.obtain_config_guess()
-                            print_warning("Using updated config.guess for %s", cgu.config_guess)
-                            copy_file(updated, cgu.config_guess)
+                        confmake.config_guess = os.path.join(root, name)
+                        if not confmake.check_config_guess():
+                            updated = confmake.obtain_config_guess()
+                            print_warning("Using updated config.guess for %s", confmake.config_guess)
+                            copy_file(updated, confmake.config_guess)
 
         if self.src:
             self.ext_src = self.src
