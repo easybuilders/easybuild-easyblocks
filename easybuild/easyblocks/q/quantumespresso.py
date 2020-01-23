@@ -66,7 +66,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             self.install_subdir = "qe-%s" % self.version
             #GAS using release tarball from GitHub for 6.4
             #if LooseVersion(self.version) >= LooseVersion("6.4"):
-            #	self.install_subdir = "qe_release_%s" % self.version
+            #   self.install_subdir = "qe_release_%s" % self.version
         else:
             self.install_subdir = "espresso-%s" % self.version
 
@@ -501,10 +501,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
             #GAS 6.4.1 doesnt seem to build d3_import3py?
             if LooseVersion(self.version) >= LooseVersion("6.4.1"):
-        	d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
-                    	    'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
-                    	    'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
-            	
+                d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
+                            'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
+                            'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+
 
 
         custom_paths = {
