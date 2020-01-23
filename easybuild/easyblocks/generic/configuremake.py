@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,7 +94,7 @@ class ConfigureMake(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize easyblock."""
-        super(ConfigGuessUpdater, self).__init__(*args, **kwargs)
+        super(ConfigureMake, self).__init__(*args, **kwargs)
 
         self.config_guess = None
 
@@ -185,8 +185,8 @@ class ConfigureMake(EasyBlock):
         return True
 
     def fetch_step(self, *args, **kwargs):
-        """Custom fetch step for ConfigGuessUpdater so we use an updated config.guess."""
-        super(ConfigGuessUpdater, self).fetch_step(*args, **kwargs)
+        """Custom fetch step for ConfigureMake so we use an updated config.guess."""
+        super(ConfigureMake, self).fetch_step(*args, **kwargs)
 
         # Use an updated config.guess from a global location (if possible)
         self.config_guess = self.obtain_config_guess()

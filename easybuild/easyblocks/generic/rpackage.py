@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -82,6 +82,7 @@ class RPackage(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initliaze RPackage-specific class variables."""
+
         super(RPackage, self).__init__(*args, **kwargs)
 
         self.configurevars = []
