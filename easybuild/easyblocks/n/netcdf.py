@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -99,6 +99,10 @@ class EB_netCDF(CMakeMake):
                                 cmvar = hdf5cmvars[libname][1]
                             libhdf5 = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                             self.cfg.update('configopts', '-DHDF5_%s=%s ' % (cmvar, libhdf5))
+                            # 4.4 forgot to set HDF5_<lang>_LIBRARIES
+                            if LooseVersion(self.version) == LooseVersion("4.4.0"):
+                                lang = 'HL' if cmvar[0] == 'H' else 'C'
+                                self.cfg.update('configopts', '-DHDF5_%s_LIBRARIES=%s ' % (lang, libhdf5))
 
                     elif dep == 'PnetCDF':
                         self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')

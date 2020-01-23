@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -175,7 +175,7 @@ class EB_OpenFOAM(EasyBlock):
                 key = "WM_PROJECT_VERSION"
                 regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, self.version))]
 
-            WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
+            WM_env_var = ['WM_COMPILER', 'WM_COMPILE_OPTION', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
             if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
                 WM_env_var.append('WM_LABEL_SIZE')
