@@ -40,6 +40,7 @@ from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
+from easybuild.tools.py2vs3 import string_type
 
 
 # AVX*, FMA4 (AMD Bulldozer+ only), SSE2 (x86_64 only)
