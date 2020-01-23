@@ -86,7 +86,8 @@ class Nix(EasyBlock):
         """
         # For module file generation: temporarly set Nix profile
         self.orig_installdir = self.installdir
-        self.installdir = self.cfg['nix_profile']
+        if self.cfg['nix_profile'] is not None:
+            self.installdir = self.cfg['nix_profile']
 
         # Generate module
         res = super(Nix, self).make_module_step(fake=fake)
