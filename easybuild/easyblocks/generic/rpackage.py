@@ -41,7 +41,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_cmd, parse_log_for_error
-from easybuild.easyblocks.generic._config_guess import ConfigGuessUpdater
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import print_warning
 
 
@@ -223,7 +223,7 @@ class RPackage(ExtensionEasyBlock):
             super(RPackage, self).run()
 
         if self.cfg['update_config_guess']:
-            cgu = ConfigGuessUpdater(self.cfg)
+            cgu = ConfigureMake(self.cfg)
             for root, _, files in os.walk(self.builddir):
                 for name in files:
                     if name == 'config.guess':
