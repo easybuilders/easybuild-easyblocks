@@ -74,7 +74,7 @@ class EB_CST(Binary):
             f = file(self.replayfile, "w")
             f.write(txt)
             f.close()
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to create install properties file used for replaying installation: %s", err)
 
     def install_step(self):

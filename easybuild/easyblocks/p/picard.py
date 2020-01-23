@@ -74,7 +74,7 @@ class EB_picard(Tarball):
                 try:
                     shutil.copy2(src, dst)
                     self.log.info("Successfully copied %s to %s" % (src, dst))
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to copy %s to %s (%s)", src, dst, err)
 
     def sanity_check_step(self):
