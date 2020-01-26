@@ -1,5 +1,6 @@
 ##
 # Copyright 2009-2020 Ghent University
+# Copyright 2020 Landcare Research New Zealand Ltd
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -286,12 +287,15 @@ class EB_NWChem(ConfigureMake):
             self.setvar_env_makeopt('USE_64TO32', "y")
 
         # unset env vars that cause trouble during NWChem build or cause build to generate incorrect stuff
-        for var in ['CFLAGS', 'FFLAGS', 'LIBS']:
-            val = os.getenv(var)
-            if val:
-                self.log.info("%s was defined as '%s', need to unset it to avoid problems..." % (var, val))
-            os.unsetenv(var)
-            os.environ.pop(var)
+        for var in ['CFLAGS', 'CPPFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']:
+            try:
+                val = os.getenv(var)
+                if val:
+                    self.log.info("%s was defined as '%s', need to unset it to avoid problems..." % (var, val))
+                os.unsetenv(var)
+                os.environ.pop(var)
+            except KeyError:
+                continue
 
         # Determine total amount of memory and number of cores
         mem_avail = 0
