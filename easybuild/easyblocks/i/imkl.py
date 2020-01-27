@@ -145,7 +145,7 @@ class EB_imkl(IntelBase):
             copy_dir(self.cfg['original'], self.installdir, symlinks=True)
             oldcwd = os.getcwd()
             change_dir(self.installdir)
-            symlink(os.path.join('.', 'linux', 'compiler', 'lib'), 'lib', use_abspath_source = False)
+            symlink(os.path.join('.', 'linux', 'compiler', 'lib'), 'lib', use_abspath_source=False)
             change_dir(oldcwd)
 
     def make_module_req_guess(self):
