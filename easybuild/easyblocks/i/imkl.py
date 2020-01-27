@@ -47,7 +47,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -139,7 +139,8 @@ class EB_imkl(IntelBase):
                     'COMPONENTS': 'ALL',
                 }
 
-            super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+            super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map,
+                    silent_cfg_extras=silent_cfg_extras)
         else:
             copy_dir(self.cfg['original'], self.installdir, symlinks=True)
             oldcwd = os.getcwd()
