@@ -125,7 +125,7 @@ class EB_Boost(EasyBlock):
             self.objdir = os.path.join(self.builddir, 'obj')
             mkdir(self.objdir)
             self.log.debug("Succesfully created directory %s" % self.objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
 
         # generate config depending on compiler used
