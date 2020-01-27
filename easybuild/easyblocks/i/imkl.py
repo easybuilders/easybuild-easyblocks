@@ -32,6 +32,8 @@ EasyBuild support for installing the Intel Math Kernel Library (MKL), implemente
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Mandes Schoenherr (NIWA)
+@author: Benjamin Roberts (Manaaki Whenua)
 """
 
 import itertools
@@ -45,7 +47,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -63,6 +65,7 @@ class EB_imkl(IntelBase):
         """Add easyconfig parameters custom to imkl (e.g. interfaces)."""
         extra_vars = {
             'interfaces': [True, "Indicates whether interfaces should be built", CUSTOM],
+            'original': [None, "Location of already installed impi", CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
@@ -76,9 +79,7 @@ class EB_imkl(IntelBase):
     def prepare_step(self, *args, **kwargs):
         if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
             kwargs['requires_runtime_license'] = False
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_imkl, self).prepare_step(*args, **kwargs)
+        super(EB_imkl, self).prepare_step(*args, **kwargs)
 
         # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
@@ -111,29 +112,40 @@ class EB_imkl(IntelBase):
             else:
                 self.log.debug("No MPI or no compatible MPI found: do not build CDFT")
 
+    def fetch_step(self, *args, **kwargs):
+        if self.cfg['original'] is None:
+            super(EB_imkl, self).fetch_step(*args, **kwargs)
+
     def install_step(self):
         """
         Actual installation
         - create silent cfg file
         - execute command
         """
-        silent_cfg_names_map = None
-        silent_cfg_extras = None
+        if self.cfg['original'] is None:
+            silent_cfg_names_map = None
+            silent_cfg_extras = None
 
-        if LooseVersion(self.version) < LooseVersion('11.1'):
-            # since imkl v11.1, silent.cfg has been slightly changed to be 'more standard'
+            if LooseVersion(self.version) < LooseVersion('11.1'):
+                # since imkl v11.1, silent.cfg has been slightly changed to be 'more standard'
 
-            silent_cfg_names_map = {
-                'activation_name': ACTIVATION_NAME_2012,
-                'license_file_name': LICENSE_FILE_NAME_2012,
-            }
+                silent_cfg_names_map = {
+                    'activation_name': ACTIVATION_NAME_2012,
+                    'license_file_name': LICENSE_FILE_NAME_2012,
+                }
 
-        if LooseVersion(self.version) >= LooseVersion('11.1') and self.install_components is None:
-            silent_cfg_extras = {
-                'COMPONENTS': 'ALL',
-            }
+            if LooseVersion(self.version) >= LooseVersion('11.1') and self.install_components is None:
+                silent_cfg_extras = {
+                    'COMPONENTS': 'ALL',
+                }
 
-        super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+            super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+        else:
+            copy_dir(self.cfg['original'], self.installdir, symlinks=True)
+            oldcwd = os.getcwd()
+            change_dir(self.installdir)
+            symlink(os.path.join('.', 'linux', 'compiler', 'lib'), 'lib', use_abspath_source = False)
+            change_dir(oldcwd)
 
     def make_module_req_guess(self):
         """
@@ -326,7 +338,7 @@ class EB_imkl(IntelBase):
 
                     try:
                         intdir = os.path.join(interfacedir, lib)
-                        os.chdir(intdir)
+                        change_dir(intdir)
                         self.log.info("Changed to interface %s directory %s" % (lib, intdir))
                     except OSError as err:
                         raise EasyBuildError("Can't change to interface %s directory %s: %s", lib, intdir, err)
