@@ -35,8 +35,6 @@ import re
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
 
 
 class EB_XALT(ConfigureMake):
