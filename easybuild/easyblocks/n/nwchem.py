@@ -76,6 +76,7 @@ class EB_NWChem(ConfigureMake):
             # possible options for ARMCI_NETWORK on LINUX64 with Infiniband:
             # OPENIB, MPI-MT, MPI-SPAWN, MELLANOX
             'armci_network': ["OPENIB", "Network protocol to use", CUSTOM],
+            'mpi_exe': [None, "Name of (or path to) MPI executable to use with tests", CUSTOM],
             'msg_comms': ["MPI", "Type of message communication", CUSTOM],
             'modules': ["all", "NWChem modules to build", CUSTOM],
             'lib_defines': ["", "Additional defines for C preprocessor", CUSTOM],
@@ -244,10 +245,17 @@ class EB_NWChem(ConfigureMake):
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        self.setvar_env_makeopt('BLASOPT', '%s -L%s %s %s' % (os.getenv('LDFLAGS'), os.getenv('MPI_LIB_DIR'),
-                                                              os.getenv('LIBSCALAPACK_MT'), libmpi))
-
-        self.setvar_env_makeopt('SCALAPACK', '%s %s' % (os.getenv('LDFLAGS'), os.getenv('LIBSCALAPACK_MT')))
+        blasopt_string = os.getenv('LDFLAGS')
+        scalapack_string = os.getenv('LDFLAGS')
+        if os.getenv('MPI_LIB_DIR'):
+            blasopt_string += ' -L%s' % os.getenv('MPI_LIB_DIR')
+        if os.getenv('LIBSCALAPACK_MT'):
+            blasopt_string += ' %s' % os.getenv('LIBSCALAPACK_MT')
+            scalapack_string += ' %s' % os.getenv('LIBSCALAPACK_MT')
+        if libmpi:
+            blasopt_string += ' %s' % libmpi
+        self.setvar_env_makeopt('BLASOPT', blasopt_string)
+        self.setvar_env_makeopt('SCALAPACK', scalapack_string)
         if self.toolchain.options['i8']:
             size = 8
             self.setvar_env_makeopt('USE_SCALAPACK_I8', 'y')
@@ -500,6 +508,8 @@ class EB_NWChem(ConfigureMake):
                 # run tests
                 for testx in tests:
                     cmd = "nwchem %s" % testx
+                    if self.cfg['mpi_exe']:
+                        cmd = "%s %s" % (self.cfg['mpi_exe'], cmd)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
                     test_cases_log.write("\n%s\n" % msg)
