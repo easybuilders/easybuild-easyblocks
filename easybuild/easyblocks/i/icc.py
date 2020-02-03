@@ -187,7 +187,7 @@ class EB_icc(IntelBase):
                 'ipp/lib/intel64',
                 'mkl/lib/intel64',
                 'mpi/intel64',
-                'tbb/lib/intel64/%s' % get_tbb_gccprefix('tbb/lib/intel64'),
+                'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
             ])
 
             if LooseVersion(self.version) < LooseVersion('2016'):
