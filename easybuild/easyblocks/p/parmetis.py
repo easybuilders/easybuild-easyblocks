@@ -193,7 +193,7 @@ class EB_ParMETIS(EasyBlock):
 
         custom_paths = {
                         'files': ['include/%smetis.h' % x for x in ["", "par"]] +
-                                 parmetis_libs,
+                                  parmetis_libs,
                         'dirs': ['Lib']
                        }
 
