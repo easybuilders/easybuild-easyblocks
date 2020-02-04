@@ -112,6 +112,11 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                 "Add known path/library extensions and environment variables for the compiler to the final module",
                 CUSTOM
             ],
+            'compiler_prefix': [
+                True,
+                "Try to find compiler_prefix automatically (put manual symlinks in installdir otherwise)",
+                CUSTOM
+            ],
         })
         return extra_vars
 
@@ -229,7 +234,8 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         """
         # For module file generation: temporarly set version and installdir to system compiler values
         self.cfg['version'] = self.compiler_version
-        self.installdir = self.compiler_prefix
+        if self.cfg['compiler_prefix']:
+            self.installdir = self.compiler_prefix
 
         # Generate module
         res = super(SystemCompiler, self).make_module_step(fake=fake)
