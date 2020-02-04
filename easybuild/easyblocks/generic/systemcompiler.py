@@ -53,8 +53,8 @@ def extract_compiler_version(compiler_name):
     # gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-11)
     # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
     version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
-    if compiler_name == 'gcc':
-        out, _ = run_cmd("gcc --version", simple=False)
+    if compiler_name.startswith('gcc'):
+        out, _ = run_cmd("%s --version"%compiler_name, simple=False)
         res = version_regex.search(out)
         if res is None:
             raise EasyBuildError("Could not extract GCC version from %s", out)
@@ -148,6 +148,8 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         compiler_name = self.cfg['name'].lower()
         if compiler_name == 'gcccore':
             compiler_name = 'gcc'
+        if self.cfg['version'] != 'system' and compiler_name == 'gcc':
+            compiler_name += '-%s' % self.cfg['version']
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
             #path_to_compiler = resolve_path(path_to_compiler) 
@@ -159,7 +161,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         self.compiler_version = extract_compiler_version(compiler_name)
 
         # Determine installation prefix
-        if compiler_name == 'gcc':
+        if compiler_name.startswith('gcc'):
             # strip off 'bin/gcc'
             self.compiler_prefix = os.path.dirname(os.path.dirname(path_to_compiler))
 
