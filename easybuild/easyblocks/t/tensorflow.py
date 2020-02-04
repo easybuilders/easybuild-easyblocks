@@ -224,11 +224,13 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
+            'TF_NEED_ROCM': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+            'TF_SET_ANDROID_WORKSPACE': '0',
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
