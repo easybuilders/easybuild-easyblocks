@@ -67,6 +67,101 @@ DEFAULT_BUILD_CMD = 'make'
 DEFAULT_INSTALL_CMD = 'make install'
 
 
+def check_config_guess(config_guess, log=None):
+    """Check timestamp & SHA256 checksum of config.guess script.
+
+    :param configu_gess: Path to config.guess script to check
+    :param log: Instance of a logger to use or None to run in quiet mode
+    :return: Whether the script is valid (matches the version and checksum)
+    """
+    # config.guess includes a "timestamp='...'" indicating the version
+    config_guess_version = None
+    version_regex = re.compile("^timestamp='(.*)'", re.M)
+    res = version_regex.search(read_file(config_guess))
+    if res:
+        config_guess_version = res.group(1)
+
+    config_guess_checksum = compute_checksum(config_guess, checksum_type=CHECKSUM_TYPE_SHA256)
+    try:
+        config_guess_timestamp = datetime.fromtimestamp(os.stat(config_guess).st_mtime).isoformat()
+    except OSError as err:
+        if log:
+            log.warning("Failed to determine timestamp of %s: %s", config_guess, err)
+        config_guess_timestamp = None
+
+    # log version, timestamp & SHA256 checksum of config.guess
+    if log:
+        log.info("config.guess version: %s (last updated: %s, SHA256 checksum: %s)",
+                 config_guess_version, config_guess_timestamp, config_guess_checksum)
+
+    result = True
+
+    if config_guess_version != CONFIG_GUESS_VERSION:
+        result = False
+        tup = (config_guess, config_guess_version, CONFIG_GUESS_VERSION)
+        if log:
+            log.warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
+    if config_guess_checksum != CONFIG_GUESS_SHA256:
+        result = False
+        tup = (config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
+        if log:
+            log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
+
+    return result
+
+
+def obtain_config_guess(download_source_path=None, search_source_paths=None, log=None):
+    """
+    Locate or download an up-to-date config.guess
+
+    :param download_source_path: Path to download config.guess to
+    :param search_source_paths: Paths to search for config.guess
+    :param log: Instance of a logger to use or None to run in quiet mode
+    :return: Path to config.guess or None
+    """
+    eb_source_paths = source_paths()
+    if download_source_path is None:
+        download_source_path = eb_source_paths[0]
+    if search_source_paths is None:
+        search_source_paths = eb_source_paths
+
+    config_guess = 'config.guess'
+    sourcepath_subdir = os.path.join('generic', 'eb_v%s' % EASYBLOCKS_VERSION, 'ConfigureMake')
+
+    config_guess_path = None
+
+    # check if config.guess has already been downloaded to source path
+    for path in eb_source_paths:
+        cand_config_guess_path = os.path.join(path, sourcepath_subdir, config_guess)
+        if os.path.isfile(cand_config_guess_path):
+            config_guess_path = cand_config_guess_path
+            if log:
+                log.info("Found recent %s at %s, using it if required", config_guess, config_guess_path)
+            break
+
+    # if not found, try to download it
+    if config_guess_path is None:
+        cand_config_guess_path = os.path.join(download_source_path, sourcepath_subdir, config_guess)
+        config_guess_url = CONFIG_GUESS_URL_STUB + CONFIG_GUESS_COMMIT_ID
+        downloaded_path = download_file(config_guess, config_guess_url, cand_config_guess_path)
+        if downloaded_path is not None:
+            # verify SHA256 checksum of download to avoid using a corrupted download
+            if verify_checksum(downloaded_path, CONFIG_GUESS_SHA256):
+                config_guess_path = downloaded_path
+                # add execute permissions
+                adjust_permissions(downloaded_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
+                if log:
+                    log.info("Downloaded recent %s to %s, using it if required", config_guess, config_guess_path)
+            else:
+                if log:
+                    log.warning("Checksum failed for downloaded file %s, not using it!", downloaded_path)
+                remove_file(downloaded_path)
+        elif log:
+            log.warning("Failed to download recent %s to %s", config_guess, cand_config_guess_path)
+
+    return config_guess_path
+
+
 class ConfigureMake(EasyBlock):
     """
     Support for building and installing applications with configure/make/make install
@@ -106,74 +201,13 @@ class ConfigureMake(EasyBlock):
         :param search_source_paths: Paths to search for config.guess
         :return: Path to config.guess or None
         """
-        eb_source_paths = source_paths()
-        if download_source_path is None:
-            download_source_path = eb_source_paths[0]
-        if search_source_paths is None:
-            search_source_paths = eb_source_paths
-
-        config_guess = 'config.guess'
-        sourcepath_subdir = os.path.join('generic', 'eb_v%s' % EASYBLOCKS_VERSION, 'ConfigureMake')
-
-        config_guess_path = None
-
-        # check if config.guess has already been downloaded to source path
-        for path in eb_source_paths:
-            cand_config_guess_path = os.path.join(path, sourcepath_subdir, config_guess)
-            if os.path.isfile(cand_config_guess_path):
-                config_guess_path = cand_config_guess_path
-                self.log.info("Found recent %s at %s, using it if required", config_guess, config_guess_path)
-                break
-
-        # if not found, try to download it
-        if config_guess_path is None:
-            cand_config_guess_path = os.path.join(download_source_path, sourcepath_subdir, config_guess)
-            config_guess_url = CONFIG_GUESS_URL_STUB + CONFIG_GUESS_COMMIT_ID
-            downloaded_path = download_file(config_guess, config_guess_url, cand_config_guess_path)
-            if downloaded_path is not None:
-                # verify SHA256 checksum of download to avoid using a corrupted download
-                if verify_checksum(downloaded_path, CONFIG_GUESS_SHA256):
-                    config_guess_path = downloaded_path
-                    # add execute permissions
-                    adjust_permissions(downloaded_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
-                    self.log.info("Downloaded recent %s to %s, using it if required", config_guess, config_guess_path)
-                else:
-                    self.log.warning("Checksum failed for downloaded file %s, not using it!", downloaded_path)
-                    remove_file(downloaded_path)
-            else:
-                self.log.warning("Failed to download recent %s to %s for use with ConfigureMake easyblock (if needed)",
-                                 config_guess, cand_config_guess_path)
-
-        return config_guess_path
+        return obtain_config_guess(download_source_path, search_source_paths, log=self.log)
 
     def check_config_guess(self):
         """Check timestamp & SHA256 checksum of config.guess script."""
         # log version, timestamp & SHA256 checksum of config.guess that was found (if any)
         if self.config_guess:
-            # config.guess includes a "timestamp='...'" indicating the version
-            config_guess_version = None
-            version_regex = re.compile("^timestamp='(.*)'", re.M)
-            res = version_regex.search(read_file(self.config_guess))
-            if res:
-                config_guess_version = res.group(1)
-
-            config_guess_checksum = compute_checksum(self.config_guess, checksum_type=CHECKSUM_TYPE_SHA256)
-            try:
-                config_guess_timestamp = datetime.fromtimestamp(os.stat(self.config_guess).st_mtime).isoformat()
-            except OSError as err:
-                self.log.warning("Failed to determine timestamp of %s: %s", self.config_guess, err)
-                config_guess_timestamp = None
-
-            self.log.info("config.guess version: %s (last updated: %s, SHA256 checksum: %s)",
-                          config_guess_version, config_guess_timestamp, config_guess_checksum)
-
-            if config_guess_version != CONFIG_GUESS_VERSION:
-                tup = (self.config_guess, config_guess_version, CONFIG_GUESS_VERSION)
-                print_warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
-
-            if config_guess_checksum != CONFIG_GUESS_SHA256:
-                tup = (self.config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
-                print_warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
+            check_config_guess(self.config_guess, log=self.log)
 
     def fetch_step(self, *args, **kwargs):
         """Custom fetch step for ConfigureMake so we use an updated config.guess."""
