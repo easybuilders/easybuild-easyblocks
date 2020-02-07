@@ -1,0 +1,16 @@
+name: Black Formatter
+on: [push, pull_request]
+jobs:
+  black-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Black Code Formatter Diff
+        uses: lgeiger/black-action@master
+        with:
+          args: "--diff ."
+      # Diff does not return an error code
+      - name: Black Code Formatter Check
+        uses: lgeiger/black-action@master
+        with:
+          args: "--check ."

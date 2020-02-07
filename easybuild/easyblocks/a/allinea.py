@@ -30,7 +30,6 @@ EasyBuild support for building and installing Allinea tools, implemented as an e
 import os
 import shutil
 import stat
-from os.path import expanduser
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -46,10 +45,12 @@ class EB_Allinea(Binary):
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters specific to Allinea."""
         extra = Binary.extra_options(extra_vars)
-        extra.update({
-            'templates': [[], "List of templates.", CUSTOM],
-            'sysconfig': [None, "system.config file to install.", CUSTOM],
-        })
+        extra.update(
+            {
+                'templates': [[], "List of templates.", CUSTOM],
+                'sysconfig': [None, "system.config file to install.", CUSTOM],
+            }
+        )
         return extra
 
     def extract_step(self):
@@ -103,15 +104,14 @@ class EB_Allinea(Binary):
             if path:
                 self.log.debug('system.config file %s found' % path)
             else:
-                raise EasyBuildError('No system.config file named %s found', sysconfig)
+                raise EasyBuildError('No system.config file named %s found', self.cfg['sysconfig'])
 
             copy_file(path, sysconf_path)
-            adjust_permissions(sysconf_path, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH, recursive=False, relative=False)
+            adjust_permissions(
+                sysconf_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH, recursive=False, relative=False
+            )
 
     def sanity_check_step(self):
         """Custom sanity check for Allinea."""
-        custom_paths = {
-            'files': ['bin/ddt', 'bin/map'],
-            'dirs': [],
-        }
+        custom_paths = {'files': ['bin/ddt', 'bin/map'], 'dirs': []}
         super(EB_Allinea, self).sanity_check_step(custom_paths=custom_paths)

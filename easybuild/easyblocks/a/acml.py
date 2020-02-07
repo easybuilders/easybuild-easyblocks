@@ -42,12 +42,9 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ACML(EasyBlock):
-
     @staticmethod
     def extra_options():
-        extra_vars = {
-            'use_fma4': [False, "Use library with FMA support.", CUSTOM],
-        }
+        extra_vars = {'use_fma4': [False, "Use library with FMA support.", CUSTOM]}
         return EasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -92,8 +89,7 @@ class EB_ACML(EasyBlock):
 
         txt = super(EB_ACML, self).make_module_extra()
 
-        basepaths = ["%s%s" % (self.basedir, self.suffix),
-                     "%s_mp%s" % (self.basedir, self.suffix)]
+        basepaths = ["%s%s" % (self.basedir, self.suffix), "%s_mp%s" % (self.basedir, self.suffix)]
 
         txt += self.module_generator.set_environment('ACML_BASEDIR', basepaths[0])
         txt += self.module_generator.set_environment('ACML_BASEDIR_MT', basepaths[1])
@@ -128,8 +124,5 @@ class EB_ACML(EasyBlock):
                 for ext in ['a', get_shared_lib_ext()]:
                     lib_files.append(os.path.join(fp, 'lib', 'libacml%s.%s' % (lib, ext)))
 
-        custom_paths = {
-            'files': ['util/cpuid.exe'] + inc_files + lib_files,
-            'dirs': [],
-        }
+        custom_paths = {'files': ['util/cpuid.exe'] + inc_files + lib_files, 'dirs': []}
         super(EB_ACML, self).sanity_check_step(custom_paths=custom_paths)

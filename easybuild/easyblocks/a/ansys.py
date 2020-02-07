@@ -94,7 +94,7 @@ class EB_ANSYS(PackedBinary):
             'TurboGrid/bin',
             'polyflow/bin',
             'Icepak/bin',
-            'icemcfd/linux64_amd/bin'
+            'icemcfd/linux64_amd/bin',
         ]
         if LooseVersion(self.version) >= LooseVersion('19.0'):
             dirs.append('CEI/bin')
@@ -121,7 +121,7 @@ class EB_ANSYS(PackedBinary):
             self.set_ansysver()
 
         custom_paths = {
-           'files': [os.path.join(self.ansysver, 'fluent', 'bin', 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
-           'dirs': [os.path.join(self.ansysver, x) for x in ['ansys', 'aisol', 'CFD-Post', 'CFX']]
+            'files': [os.path.join(self.ansysver, 'fluent', 'bin', 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
+            'dirs': [os.path.join(self.ansysver, x) for x in ['ansys', 'aisol', 'CFD-Post', 'CFX']],
         }
         super(EB_ANSYS, self).sanity_check_step(custom_paths=custom_paths)

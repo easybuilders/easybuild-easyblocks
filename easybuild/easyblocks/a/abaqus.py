@@ -64,32 +64,29 @@ class EB_ABAQUS(Binary):
             setvar('NOLICENSECHECK', 'true')
         else:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
-            txt = '\n'.join([
-                "INSTALLER_UI=SILENT",
-                "USER_INSTALL_DIR=%s" % self.installdir,
-                "MAKE_DEF_VER=true",
-                "DOC_ROOT=UNDEFINED",
-                "DOC_ROOT_TYPE=false",
-                "DOC_ROOT_ESCAPED=UNDEFINED",
-                "ABAQUSLM_LICENSE_FILE=@abaqusfea",
-                "LICENSE_SERVER_TYPE=FLEXNET",
-                "PRODUCT_NAME=Abaqus %s" % self.version,
-                "TMPDIR=%s" % self.builddir,
-                "INSTALL_MPI=1",
-            ])
+            txt = '\n'.join(
+                [
+                    "INSTALLER_UI=SILENT",
+                    "USER_INSTALL_DIR=%s" % self.installdir,
+                    "MAKE_DEF_VER=true",
+                    "DOC_ROOT=UNDEFINED",
+                    "DOC_ROOT_TYPE=false",
+                    "DOC_ROOT_ESCAPED=UNDEFINED",
+                    "ABAQUSLM_LICENSE_FILE=@abaqusfea",
+                    "LICENSE_SERVER_TYPE=FLEXNET",
+                    "PRODUCT_NAME=Abaqus %s" % self.version,
+                    "TMPDIR=%s" % self.builddir,
+                    "INSTALL_MPI=1",
+                ]
+            )
             write_file(self.replayfile, txt)
 
     def install_step(self):
         """Install ABAQUS using 'setup'."""
         if LooseVersion(self.version) >= LooseVersion('2016'):
             change_dir(os.path.join(self.cfg['start_dir'], '1'))
-            qa = {
-                "Enter selection (default: Install):": '',
-            }
-            no_qa = [
-                '___',
-                '\(\d+ MB\)',
-            ]
+            qa = {"Enter selection (default: Install):": ''}
+            no_qa = ['___', '\(\d+ MB\)']
             std_qa = {
                 # disable installation of Tosca (6) and Isight (7)
                 "Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
@@ -179,10 +176,7 @@ class EB_ABAQUS(Binary):
 
     def sanity_check_step(self):
         """Custom sanity check for ABAQUS."""
-        custom_paths = {
-            'files': [os.path.join('Commands', 'abaqus')],
-            'dirs': [],
-        }
+        custom_paths = {'files': [os.path.join('Commands', 'abaqus')], 'dirs': []}
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
@@ -200,7 +194,5 @@ class EB_ABAQUS(Binary):
         """Update PATH guesses for ABAQUS."""
 
         guesses = super(EB_ABAQUS, self).make_module_req_guess()
-        guesses.update({
-            'PATH': ['Commands'],
-        })
+        guesses.update({'PATH': ['Commands']})
         return guesses

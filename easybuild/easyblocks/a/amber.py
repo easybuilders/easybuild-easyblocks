@@ -36,9 +36,9 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY, BUILD
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -49,18 +49,20 @@ class EB_Amber(ConfigureMake):
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to ConfigureMake."""
         extra_vars = dict(ConfigureMake.extra_options(extra_vars))
-        extra_vars.update({
-            # 'Amber': [True, "Build Amber in addition to AmberTools", CUSTOM],
-            'patchlevels': ["latest", "(AmberTools, Amber) updates to be applied", CUSTOM],
-            # The following is necessary because some patches to the Amber update
-            # script update the update script itself, in which case it will quit
-            # and insist on being run again. We don't know how many times will
-            # be needed, but the number of times is patchlevel specific.
-            'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
-            # enable testing by default
-            'runtest': [True, "Run tests after each build", CUSTOM],
-            'static': [True, "Build statically linked executables", CUSTOM],
-        })
+        extra_vars.update(
+            {
+                # 'Amber': [True, "Build Amber in addition to AmberTools", CUSTOM],
+                'patchlevels': ["latest", "(AmberTools, Amber) updates to be applied", CUSTOM],
+                # The following is necessary because some patches to the Amber update
+                # script update the update script itself, in which case it will quit
+                # and insist on being run again. We don't know how many times will
+                # be needed, but the number of times is patchlevel specific.
+                'patchruns': [1, "Number of times to run Amber's update script before building", CUSTOM],
+                # enable testing by default
+                'runtest': [True, "Run tests after each build", CUSTOM],
+                'static': [True, "Build statically linked executables", CUSTOM],
+            }
+        )
         return ConfigureMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -229,10 +231,7 @@ class EB_Amber(ConfigureMake):
             if self.name == 'Amber':
                 binaries.append('pmemd.MPI')
 
-        custom_paths = {
-            'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
-            'dirs': [],
-        }
+        custom_paths = {'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries], 'dirs': []}
         super(EB_Amber, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):

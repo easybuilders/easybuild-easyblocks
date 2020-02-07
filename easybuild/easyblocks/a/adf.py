@@ -85,10 +85,7 @@ class EB_ADF(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for ADF."""
-        custom_paths = {
-            'files': ['bin/adf'],
-            'dirs': ['atomicdata', 'examples'],
-        }
+        custom_paths = {'files': ['bin/adf'], 'dirs': ['atomicdata', 'examples']}
         super(EB_ADF, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):

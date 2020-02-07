@@ -107,8 +107,9 @@ class EB_ATLAS(ConfigureMake):
                 if lapack:
                     self.cfg.update('configopts', ' --with-netlib-lapack=%s/lib/liblapack.a' % lapack)
                 else:
-                    raise EasyBuildError("netlib's LAPACK library not available, required to build ATLAS "
-                                         "with a full LAPACK library.")
+                    raise EasyBuildError(
+                        "netlib's LAPACK library not available, required to build ATLAS " "with a full LAPACK library."
+                    )
             else:
                 # pass LAPACK source tarball
                 lapack_src = None
@@ -134,25 +135,32 @@ class EB_ATLAS(ConfigureMake):
             raise EasyBuildError("Failed to create obj directory to build in: %s", err)
 
         # specify compilers
-        self.cfg.update('configopts', '-C ic %(cc)s -C if %(f77)s' % {
-                                                                     'cc':os.getenv('CC'),
-                                                                     'f77':os.getenv('F77')
-                                                                    })
+        self.cfg.update('configopts', '-C ic %(cc)s -C if %(f77)s' % {'cc': os.getenv('CC'), 'f77': os.getenv('F77')})
 
         # call configure in parent dir
-        cmd = "%s %s/configure --prefix=%s %s" % (self.cfg['preconfigopts'], self.cfg['start_dir'],
-                                                 self.installdir, self.cfg['configopts'])
+        cmd = "%s %s/configure --prefix=%s %s" % (
+            self.cfg['preconfigopts'],
+            self.cfg['start_dir'],
+            self.installdir,
+            self.cfg['configopts'],
+        )
         (out, exitcode) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
 
         if exitcode != 0:
             throttling_regexp = re.compile("cpu throttling [a-zA-Z]* enabled", re.IGNORECASE)
             if throttling_regexp.search(out):
-                errormsg = ' '.join([
-                    "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. ",
-                    "You can either disable CPU throttling, or set 'ignorethrottling' to True in the ATLAS .eb spec file.",
-                    "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle .",
-                    "Configure output: %s",
-                ]) % out
+                errormsg = (
+                    ' '.join(
+                        [
+                            "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. ",
+                            "You can either disable CPU throttling, ",
+                            "or set 'ignorethrottling' to True in the ATLAS .eb spec file.",
+                            "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle .",
+                            "Configure output: %s",
+                        ]
+                    )
+                    % out
+                )
             else:
                 errormsg = "configure output: %s\nConfigure failed, not sure why (see output above)." % out
             raise EasyBuildError(errormsg)
@@ -193,18 +201,18 @@ class EB_ATLAS(ConfigureMake):
             for i in ['liblapack.a', 'liblapack.%s' % get_shared_lib_ext()]:
                 lib = os.path.join(self.installdir, "lib", i[0])
                 if os.path.exists(lib):
-                    os.rename(lib, os.path.join(self.installdir, "lib",
-                                                lib.replace("liblapack", "liblapack_atlas")))
+                    os.rename(lib, os.path.join(self.installdir, "lib", lib.replace("liblapack", "liblapack_atlas")))
                 else:
                     self.log.warning("Tried to remove %s, but file didn't exist")
-
 
     def test_step(self):
 
         # always run tests
         if self.cfg['runtest']:
-            self.log.warning("ATLAS testing is done using 'make check' and 'make ptcheck',"\
-                             " so no need to set 'runtest' in the .eb spec file.")
+            self.log.warning(
+                "ATLAS testing is done using 'make check' and 'make ptcheck',"
+                " so no need to set 'runtest' in the .eb spec file."
+            )
 
         # sanity tests
         self.cfg['runtest'] = 'check'
@@ -237,9 +245,8 @@ class EB_ATLAS(ConfigureMake):
             shared_libs = []
 
         custom_paths = {
-                        'files': ["include/%s" % x for x in ["cblas.h", "clapack.h"]] +
-                                 static_libs + shared_libs,
-                        'dirs': ["include/atlas"]
-                       }
+            'files': ["include/%s" % x for x in ["cblas.h", "clapack.h"]] + static_libs + shared_libs,
+            'dirs': ["include/atlas"],
+        }
 
         super(EB_ATLAS, self).sanity_check_step(custom_paths=custom_paths)

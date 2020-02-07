@@ -62,9 +62,7 @@ class EB_ALADIN(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for ALADIN."""
 
-        extra_vars = {
-            'optional_extra_param': ['default value', "short description", CUSTOM],
-        }
+        extra_vars = {'optional_extra_param': ['default value', "short description", CUSTOM]}
         return EasyBlock.extra_options(extra_vars)
 
     def configure_step(self):
@@ -126,9 +124,7 @@ class EB_ALADIN(EasyBlock):
             gmkpack_dir = [x for x in builddirs if x.startswith('gmkpack')][0]
             os.chdir(os.path.join(self.builddir, gmkpack_dir))
 
-            qa = {
-                  'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n',
-                 }
+            qa = {'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n'}
 
             run_cmd_qa("./build_gmkpack", qa)
 
@@ -239,17 +235,17 @@ class EB_ALADIN(EasyBlock):
             # F90_SEQ is only defined when usempi is enabled
             f90_seq = os.getenv('F90')
 
-        stdqa = OrderedDict([
-            (r'Confirm library .* is .*', 'y'),  # this one needs to be tried first!
-            (r'.*fortran 90 compiler name .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
-            (r'.*fortran 90 compiler interfaced with .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
-            (r'Please type the ABSOLUTE name of .*library.*, or ignore\s*[:]*\s*[\n]*.*', ''),
-            (r'Please .* to save this draft configuration file :\n.*', '%s.x' % self.conf_file),
-        ])
+        stdqa = OrderedDict(
+            [
+                (r'Confirm library .* is .*', 'y'),  # this one needs to be tried first!
+                (r'.*fortran 90 compiler name .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
+                (r'.*fortran 90 compiler interfaced with .*\s*:\n\(suggestions\s*: .*\)', f90_seq),
+                (r'Please type the ABSOLUTE name of .*library.*, or ignore\s*[:]*\s*[\n]*.*', ''),
+                (r'Please .* to save this draft configuration file :\n.*', '%s.x' % self.conf_file),
+            ]
+        )
 
-        no_qa = [
-            ".*ignored.",
-        ]
+        no_qa = [".*ignored."]
 
         env.setvar('GMKTMP', self.builddir)
         env.setvar('GMKFILE', self.conf_file)
@@ -289,7 +285,9 @@ class EB_ALADIN(EasyBlock):
 
         # create rootpack
         [v1, v2] = self.version.split('_')
-        (out, _) = run_cmd("source $GMKROOT/util/berootpack && gmkpack -p master -a -r %s -b %s" % (v1, v2), simple=False)
+        (out, _) = run_cmd(
+            "source $GMKROOT/util/berootpack && gmkpack -p master -a -r %s -b %s" % (v1, v2), simple=False
+        )
 
         packdir_regexp = re.compile("Creating main pack (.*) \.\.\.")
         res = packdir_regexp.search(out)
@@ -324,12 +322,31 @@ class EB_ALADIN(EasyBlock):
         bindir = os.path.join(self.rootpack_dir, 'bin')
         libdir = os.path.join(self.rootpack_dir, 'lib')
         custom_paths = {
-            'files': [os.path.join(bindir, x) for x in ['MASTER']] +
-                     [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
-                                                                          'bla', 'mpa', 'mse', 'obt',
-                                                                          'odb', 'sat', 'scr', 'sct',
-                                                                          'sur', 'surfex', 'tal', 'tfl',
-                                                                          'uti', 'xla', 'xrd']],
+            'files': [os.path.join(bindir, x) for x in ['MASTER']]
+            + [
+                os.path.join(libdir, 'lib%s.local.a' % x)
+                for x in [
+                    'aeo',
+                    'ald',
+                    'arp',
+                    'bip',
+                    'bla',
+                    'mpa',
+                    'mse',
+                    'obt',
+                    'odb',
+                    'sat',
+                    'scr',
+                    'sct',
+                    'sur',
+                    'surfex',
+                    'tal',
+                    'tfl',
+                    'uti',
+                    'xla',
+                    'xrd',
+                ]
+            ],
             'dirs': [],
         }
         super(EB_ALADIN, self).sanity_check_step(custom_paths=custom_paths)
@@ -337,7 +354,5 @@ class EB_ALADIN(EasyBlock):
     def make_module_req_guess(self):
         """Custom guesses for environment variables (PATH, ...) for ALADIN."""
         guesses = super(EB_ALADIN, self).make_module_req_guess()
-        guesses.update({
-            'PATH': [os.path.join(self.rootpack_dir, 'bin')],
-        })
+        guesses.update({'PATH': [os.path.join(self.rootpack_dir, 'bin')]})
         return guesses

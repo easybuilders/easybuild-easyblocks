@@ -55,15 +55,17 @@ class EB_ARB(ConfigureMake):
         path = os.environ.get('PATH', '')
         ld_library_path = os.environ.get('LD_LIBRARY_PATH', '')
         setvar('ARBHOME', os.getcwd())
-        setvar('PATH', os.pathsep.join([
-            os.path.join(self.cfg['start_dir'], 'bin'),
-            path,
-        ]))
-        setvar('LD_LIBRARY_PATH', os.pathsep.join([
-            os.path.join(self.cfg['start_dir'], 'lib'),
-            os.path.join(self.cfg['start_dir'], 'LIBLINK'),
-            ld_library_path,
-        ]))
+        setvar('PATH', os.pathsep.join([os.path.join(self.cfg['start_dir'], 'bin'), path]))
+        setvar(
+            'LD_LIBRARY_PATH',
+            os.pathsep.join(
+                [
+                    os.path.join(self.cfg['start_dir'], 'lib'),
+                    os.path.join(self.cfg['start_dir'], 'LIBLINK'),
+                    ld_library_path,
+                ]
+            ),
+        )
 
         # update make options
         # no OpenGL support, verbose, 64-bit
@@ -82,17 +84,19 @@ class EB_ARB(ConfigureMake):
     def make_module_req_guess(self):
         """Specify correct LD_LIBRARY_PATH and CPATH for this installation."""
         guesses = super(EB_ARB, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': [os.path.join(self.subdir, "include")],
-            'PATH': [os.path.join(self.subdir, "bin")],
-            'LD_LIBRARY_PATH': [os.path.join(self.subdir, "lib")],
-        })
+        guesses.update(
+            {
+                'CPATH': [os.path.join(self.subdir, "include")],
+                'PATH': [os.path.join(self.subdir, "bin")],
+                'LD_LIBRARY_PATH': [os.path.join(self.subdir, "lib")],
+            }
+        )
         return guesses
 
     def sanity_check_step(self):
         """Custom sanity check for ARB."""
         custom_paths = {
-            'files': [os.path.join(self.subdir, "bin/arb") ],
+            'files': [os.path.join(self.subdir, "bin/arb")],
             'dirs': [os.path.join(self.subdir, x) for x in ["lib"]],
         }
         super(EB_ARB, self).sanity_check_step(custom_paths=custom_paths)
