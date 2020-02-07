@@ -7,10 +7,6 @@ jobs:
       - uses: actions/checkout@v1
       - name: Black Code Formatter Diff
         uses: lgeiger/black-action@master
+        # Use diff to see recommended changes and check to return error code
         with:
-          args: "--diff ."
-      # Diff does not return an error code
-      - name: Black Code Formatter Check
-        uses: lgeiger/black-action@master
-        with:
-          args: "--check ."
+          args: "--diff --check ."
