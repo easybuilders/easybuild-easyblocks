@@ -86,7 +86,7 @@ class EB_ABAQUS(Binary):
         if LooseVersion(self.version) >= LooseVersion('2016'):
             change_dir(os.path.join(self.cfg['start_dir'], '1'))
             qa = {"Enter selection (default: Install):": ''}
-            no_qa = ['___', '\(\d+ MB\)']
+            no_qa = ['___', r'\(\d+ MB\)']
             std_qa = {
                 # disable installation of Tosca (6) and Isight (7)
                 "Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
