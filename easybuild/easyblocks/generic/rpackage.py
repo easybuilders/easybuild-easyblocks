@@ -33,7 +33,6 @@ EasyBuild support for building and installing R packages, implemented as an easy
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 """
 import os
-import shutil
 
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.easyblocks.generic.configuremake import check_config_guess, obtain_config_guess
@@ -175,13 +174,14 @@ class RPackage(ExtensionEasyBlock):
         else:
             self.log.debug("R package %s installed succesfully" % self.name)
 
-    def update_config_guess(self, src_dir):
-        """Update any config.guess found in src_dir"""
-        for config_guess_dir in (root for root, _, files in os.walk(src_dir) if 'config.guess' in files):
+    def update_config_guess(self, path):
+        """Update any config.guess found in specified directory"""
+        for config_guess_dir in (root for root, _, files in os.walk(path) if 'config.guess' in files):
             config_guess = os.path.join(config_guess_dir, 'config.guess')
             if not check_config_guess(config_guess):
                 updated_config_guess = obtain_config_guess(log=self.log)
                 copy_file(updated_config_guess, config_guess)
+                self.log.debug("Replacing outdated %s with more recent copy at %s", config_guess, updated_config_guess)
 
     def install_step(self):
         """Install procedure for R packages."""

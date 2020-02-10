@@ -70,7 +70,7 @@ DEFAULT_INSTALL_CMD = 'make install'
 def check_config_guess(config_guess, log=None):
     """Check timestamp & SHA256 checksum of config.guess script.
 
-    :param configu_gess: Path to config.guess script to check
+    :param config_guess: Path to config.guess script to check
     :param log: Instance of a logger to use or None to run in quiet mode
     :return: Whether the script is valid (matches the version and checksum)
     """
@@ -100,12 +100,13 @@ def check_config_guess(config_guess, log=None):
         result = False
         tup = (config_guess, config_guess_version, CONFIG_GUESS_VERSION)
         if log:
-            log.warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
+            print_warning("config.guess version at %s does not match expected version: %s vs %s" % tup, log=log)
     if config_guess_checksum != CONFIG_GUESS_SHA256:
         result = False
         tup = (config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
         if log:
-            log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
+            print_warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup,
+                          log=log)
 
     return result
 
