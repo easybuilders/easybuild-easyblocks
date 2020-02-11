@@ -169,7 +169,7 @@ class EB_BerkeleyGW(ConfigureMake):
 
         progs = ['epsilon', 'sigma', 'kernel', 'absorption', 'nonlinearoptics', 'parabands']
         flavors = ['real', 'cplx']
-        files = [os.path.join('bin',  prog + '.' + flavor + '.x') for prog in progs for flavor in flavors]
+        files = [os.path.join('bin', prog + '.' + flavor + '.x') for prog in progs for flavor in flavors]
 
         custom_paths = {
             'files': files,
