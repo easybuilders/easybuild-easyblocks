@@ -42,8 +42,9 @@ class EB_OpenBLAS(ConfigureMake):
 
         # Equivalent to `make all` without the tests
         build_parts = ['libs', 'netlib']
-        if 'BUILD_RELAPACK' in self.cfg['buildopts']:
-            build_parts += ['re_lapack']
+        for buildopt in self.cfg['buildopts'].split():
+            if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
+                build_parts += ['re_lapack']
         build_parts += ['shared']
 
         cmd = "%s make %s %s" % (self.cfg['prebuildopts'], ' '.join(build_parts), self.cfg['buildopts'])
