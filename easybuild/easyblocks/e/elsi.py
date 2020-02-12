@@ -42,6 +42,7 @@ class EB_ELSI(CMakeMake):
         """Initialize ELSI-specific variables."""
         super(EB_ELSI, self).__init__(*args, **kwargs)
         self.enable_sips = False
+        self.env_suff = '_MT' if self.toolchain.options.get('openmp', None) else ''
 
     @staticmethod
     def extra_options():
@@ -57,8 +58,8 @@ class EB_ELSI(CMakeMake):
         self.cfg['separate_build_dir'] = True
 
         if self.cfg['runtest']:
-            self.cfg.update('configopts', "-DENABLE_TESTS=1")
-            self.cfg.update('configopts', "-DENABLE_C_TESTS=1")
+            self.cfg.update('configopts', "-DENABLE_TESTS=ON")
+            self.cfg.update('configopts', "-DENABLE_C_TESTS=ON")
             self.cfg['runtest'] = 'test'
 
         setup_cmake_env(self.toolchain)
@@ -67,12 +68,13 @@ class EB_ELSI(CMakeMake):
         inc_paths = os.environ['CMAKE_INCLUDE_PATH'].split(':')
         lib_paths = os.environ['CMAKE_LIBRARY_PATH'].split(':')
 
-        elpa = get_software_root('ELPA')
-        if elpa:
+        elpa_root = get_software_root('ELPA')
+        if elpa_root:
             self.log.info("Using external ELPA.")
-            self.cfg.update('configopts', "-DUSE_EXTERNAL_ELPA=1")
-            inc_paths.append('%s/include/elpa-%s/modules' % (elpa, get_software_version('ELPA')))
-            external_libs.append('elpa')
+            self.cfg.update('configopts', "-DUSE_EXTERNAL_ELPA=ON")
+            elpa_lib = 'elpa_openmp' if self.toolchain.options.get('openmp', None) else 'elpa'
+            inc_paths.append('%s/include/%s-%s/modules' % (elpa_root, elpa_lib, get_software_version('ELPA')))
+            external_libs.extend([elpa_lib])
         else:
             self.log.info("No external ELPA specified as dependency, building internal ELPA.")
 
@@ -81,10 +83,10 @@ class EB_ELSI(CMakeMake):
             raise EasyBuildError("Both build_internal_pexsi and external PEXSI dependency found, only one can be set.")
         if pexsi or self.cfg['build_internal_pexsi']:
             self.log.info("Enabling PEXSI solver.")
-            self.cfg.update('configopts', "-DENABLE_PEXSI=1")
+            self.cfg.update('configopts', "-DENABLE_PEXSI=ON")
             if pexsi:
                 self.log.info("Using external PEXSI.")
-                self.cfg.update('configopts', "-DUSE_EXTERNAL_PEXSI=1")
+                self.cfg.update('configopts', "-DUSE_EXTERNAL_PEXSI=ON")
                 external_libs.append('pexsi')
             else:
                 self.log.info("No external PEXSI specified as dependency, building internal PEXSI.")
@@ -96,20 +98,22 @@ class EB_ELSI(CMakeMake):
                 raise EasyBuildError("Cannot use internal PEXSI with external SLEPc, due to conflicting dependencies.")
             self.enable_sips = True
             self.log.info("Enabling SLEPc-SIPs solver.")
-            self.cfg.update('configopts', "-DENABLE_SIPS=1")
+            self.cfg.update('configopts', "-DENABLE_SIPS=ON")
             external_libs.extend(['slepc', 'petsc', 'HYPRE', 'umfpack', 'klu', 'cholmod', 'btf', 'ccolamd', 'colamd',
-                                  'camd', 'amd', 'suitesparseconfig', 'parmetis', 'metis', 'ptesmumps',
+                                  'camd', 'amd', 'suitesparseconfig', 'metis', 'ptesmumps',
                                   'ptscotchparmetis', 'ptscotch', 'ptscotcherr', 'esmumps', 'scotch', 'scotcherr',
-                                  'stdc++', 'dl', 'pthread'])
+                                  'stdc++', 'dl'])
             if get_software_root('imkl') or get_software_root('FFTW'):
-                external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['FFTW_STATIC_LIBS']))
+                external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['FFTW_STATIC_LIBS%s' % self.env_suff]))
             else:
                 raise EasyBuildError("Could not find FFTW library or interface.")
 
         if get_software_root('imkl') or get_software_root('SCALAPACK'):
-            external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK_STATIC_LIBS']))
+            external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK%s_STATIC_LIBS' % self.env_suff]))
         else:
             raise EasyBuildError("Could not find SCALAPACK library or interface.")
+
+        external_libs.extend(re.findall(r'-l(.*?)\b', os.environ['LIBS']))
 
         self.cfg.update('configopts', "-DLIBS='%s'" % ';'.join(external_libs))
         self.cfg.update('configopts', "-DLIB_PATHS='%s'" % ';'.join(lib_paths))
