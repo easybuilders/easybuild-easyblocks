@@ -48,7 +48,7 @@ class EB_ELSI(CMakeMake):
     def extra_options():
         """Define custom easyconfig parameters for ELSI."""
         extra_vars = {
-            'build_internal_pexsi': [False, "Build internal PEXSI solver", CUSTOM],
+            'build_internal_pexsi': [True, "Build internal PEXSI solver", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
 
