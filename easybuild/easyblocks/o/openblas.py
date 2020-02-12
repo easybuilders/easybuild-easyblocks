@@ -2,6 +2,7 @@
 EasyBuild support for building and installing OpenBLAS, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
