@@ -47,6 +47,13 @@ class EB_OpenBLAS(ConfigureMake):
                 build_parts += ['re_lapack']
         build_parts += ['shared']
 
+        # Pass CFLAGS through command line to avoid redefinitions (issue xianyi/OpenBLAS#818)
+        cflags = 'CFLAGS'
+        if os.environ[cflags]:
+            self.cfg.update('buildopts', "%s='%s'" % (cflags, os.environ[cflags]))
+            del os.environ[cflags]
+            self.log.info("Environment variable %s unset and passed through command line" % cflags)
+
         cmd = "%s make %s %s" % (self.cfg['prebuildopts'], ' '.join(build_parts), self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
