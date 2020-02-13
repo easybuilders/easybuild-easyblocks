@@ -61,16 +61,16 @@ class EB_OpenBLAS(ConfigureMake):
     def test_step(self):
         """ Mandatory test step plus optional runtest"""
 
-        cmd = "%s make tests %s" % (self.cfg['pretestopts'], self.cfg['testopts'])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, regexp=False)
-
-        # Raise an error if any test failed
-        check_log_for_errors(out, [('FATAL ERROR', ERROR)])
-
-        # Run any optional tests
+        run_tests = ['tests']
         if self.cfg['runtest']:
-            cmd = "%s make %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
-            run_cmd(cmd, log_all=True, simple=False)
+            run_tests += [self.cfg['runtest']]
+
+        for runtest in run_tests:
+            cmd = "%s make %s %s" % (self.cfg['pretestopts'], runtest, self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False, regexp=False)
+
+            # Raise an error if any test failed
+            check_log_for_errors(out, [('FATAL ERROR', ERROR)])
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
