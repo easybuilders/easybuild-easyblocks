@@ -55,7 +55,11 @@ class EB_OpenBLAS(ConfigureMake):
             del os.environ[cflags]
             self.log.info("Environment variable %s unset and passed through command line" % cflags)
 
-        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], ' '.join(build_parts), self.cfg['buildopts'])
+        makecmd = 'make'
+        if self.cfg['parallel']:
+            makecmd += ' -j %s' % self.cfg['parallel']
+
+        cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
