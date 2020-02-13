@@ -98,6 +98,11 @@ class EB_XCrySDen(ConfigureMake):
             settings['GL_LIB'] = "-L%s/lib -lGL" % mesa_root
             settings['GL_INCDIR'] = "-I%s/include" % mesa_root
 
+        togl_root = get_software_root("Togl")
+        if togl_root:
+            settings['TOGL_LIB'] = "-L%s/lib -lTogl%s" % (togl_root, get_software_version("Togl"))
+            settings['TOGL_INCDIR'] = "-I%s/include" % togl_root
+
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
             for (key, value) in list(settings.items()):
