@@ -26,7 +26,14 @@ class EB_OpenBLAS(ConfigureMake):
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
         }
-        if LooseVersion(self.version) < LooseVersion('0.3.6') and get_cpu_architecture() == POWER:
+
+        if 'TARGET' in self.cfg['buildopts']:
+            # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
+            for buildopt in self.cfg['buildopts'].split():
+                optpair = buildopt.split('=')
+                if optpair[0] == 'TARGET':
+                    default_opts[optpair[0]] = optpair[1]
+        elif LooseVersion(self.version) < LooseVersion('0.3.6') and get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
             print_warning("OpenBLAS 0.3.5 and lower have known issues on POWER systems")
             default_opts['TARGET'] = 'POWER8'
