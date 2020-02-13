@@ -57,7 +57,7 @@ class EB_OpenBLAS(ConfigureMake):
 
         makecmd = 'make'
         if self.cfg['parallel']:
-            makecmd += "-j %s" % self.cfg['parallel']
+            makecmd += ' -j %s' % self.cfg['parallel']
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_cmd(cmd, log_all=True, simple=True)
