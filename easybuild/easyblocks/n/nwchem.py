@@ -1,5 +1,6 @@
 ##
 # Copyright 2009-2020 Ghent University
+# Copyright 2020 Landcare Research New Zealand Ltd
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,6 +44,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, remove_file, symlink, write_file
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_avail_core_count, get_total_memory
 
 
 class EB_NWChem(ConfigureMake):
@@ -74,9 +76,12 @@ class EB_NWChem(ConfigureMake):
             # possible options for ARMCI_NETWORK on LINUX64 with Infiniband:
             # OPENIB, MPI-MT, MPI-SPAWN, MELLANOX
             'armci_network': ["OPENIB", "Network protocol to use", CUSTOM],
+            'mpi_exe': [None, "Name of (or path to) MPI executable to use with tests", CUSTOM],
             'msg_comms': ["MPI", "Type of message communication", CUSTOM],
             'modules': ["all", "NWChem modules to build", CUSTOM],
             'lib_defines': ["", "Additional defines for C preprocessor", CUSTOM],
+            # This value will be consulted if lib_defines does not include a "-DDFLT_TOT_MEM" option.
+            'osmem_per_core': [None, "Per-core memory (MB) reserved to the OS", CUSTOM],
             'tests': [True, "Run example test cases", CUSTOM],
             # lots of tests fail, so allow a certain fail ratio
             'max_fail_ratio': [0.5, "Maximum test case fail ratio", CUSTOM],
@@ -103,11 +108,16 @@ class EB_NWChem(ConfigureMake):
                                os.listdir(os.path.dirname(self.local_nwchemrc)))
 
                 if os.path.islink(self.home_nwchemrc):
-                    home_nwchemrc_target = os.readlink(self.home_nwchemrc)
-                    if home_nwchemrc_target != self.local_nwchemrc:
-                        raise EasyBuildError("Found %s, but it's not a symlink to %s. "
-                                             "Please (re)move %s while installing NWChem; it can be restored later",
-                                             self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
+                    # If the symbolic link is dangling, we can probably remove it.
+                    if not os.path.exists(self.home_nwchemrc):
+                        self.log.info("Removing dangling symbolic link: %s", self.home_nwchemrc)
+                        remove_file(self.home_nwchemrc)
+                    else:
+                        home_nwchemrc_target = os.readlink(self.home_nwchemrc)
+                        if home_nwchemrc_target != self.local_nwchemrc:
+                            raise EasyBuildError("Found %s, but it's not a symlink to %s. "
+                                                 "Please (re)move %s while installing NWChem; it can be restored later",
+                                                 self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
                 # ok to remove, we'll recreate it anyway
                 remove_file(self.local_nwchemrc)
         except (IOError, OSError) as err:
@@ -147,7 +157,7 @@ class EB_NWChem(ConfigureMake):
         if self.cfg['armci_network'] in ["OPENIB"]:
             env.setvar('IB_INCLUDE', "/usr/include")
             env.setvar('IB_LIB', "/usr/lib64")
-            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
+            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread -lrt")
 
         if 'python' in self.cfg['modules']:
             python_root = get_software_root('Python')
@@ -156,6 +166,8 @@ class EB_NWChem(ConfigureMake):
             env.setvar('PYTHONHOME', python_root)
             pyver = '.'.join(get_software_version('Python').split('.')[0:2])
             env.setvar('PYTHONVERSION', pyver)
+            if LooseVersion(self.version) >= LooseVersion("6.6"):
+                env.setvar('USE_PYTHONCONFIG', 'Y')
             # if libreadline is loaded, assume it was a dependency for Python
             # pass -lreadline to avoid linking issues (libpython2.7.a doesn't include readline symbols)
             libreadline = get_software_root('libreadline')
@@ -171,6 +183,9 @@ class EB_NWChem(ConfigureMake):
                 ])
                 extra_libs = os.environ.get('EXTRA_LIBS', '')
                 env.setvar('EXTRA_LIBS', ' '.join([extra_libs, readline_libs]))
+
+        if self.toolchain.options.get('openmp', None):
+            env.setvar('USE_OPENMP', 'TRUE')
 
         env.setvar('LARGE_FILES', 'TRUE')
         env.setvar('USE_NOFSCHECK', 'TRUE')
@@ -230,10 +245,17 @@ class EB_NWChem(ConfigureMake):
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        self.setvar_env_makeopt('BLASOPT', '%s -L%s %s %s' % (os.getenv('LDFLAGS'), os.getenv('MPI_LIB_DIR'),
-                                                              os.getenv('LIBSCALAPACK_MT'), libmpi))
-
-        self.setvar_env_makeopt('SCALAPACK', '%s %s' % (os.getenv('LDFLAGS'), os.getenv('LIBSCALAPACK_MT')))
+        blasopt_string = os.getenv('LDFLAGS')
+        scalapack_string = os.getenv('LDFLAGS')
+        if os.getenv('MPI_LIB_DIR'):
+            blasopt_string += ' -L%s' % os.getenv('MPI_LIB_DIR')
+        if os.getenv('LIBSCALAPACK_MT'):
+            blasopt_string += ' %s' % os.getenv('LIBSCALAPACK_MT')
+            scalapack_string += ' %s' % os.getenv('LIBSCALAPACK_MT')
+        if libmpi:
+            blasopt_string += ' %s' % libmpi
+        self.setvar_env_makeopt('BLASOPT', blasopt_string)
+        self.setvar_env_makeopt('SCALAPACK', scalapack_string)
         if self.toolchain.options['i8']:
             size = 8
             self.setvar_env_makeopt('USE_SCALAPACK_I8', 'y')
@@ -273,12 +295,43 @@ class EB_NWChem(ConfigureMake):
             self.setvar_env_makeopt('USE_64TO32', "y")
 
         # unset env vars that cause trouble during NWChem build or cause build to generate incorrect stuff
-        for var in ['CFLAGS', 'FFLAGS', 'LIBS']:
-            val = os.getenv(var)
-            if val:
-                self.log.info("%s was defined as '%s', need to unset it to avoid problems..." % (var, val))
-            os.unsetenv(var)
-            os.environ.pop(var)
+        for var in ['CFLAGS', 'CPPFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']:
+            try:
+                val = os.getenv(var)
+                if val:
+                    self.log.info("%s was defined as '%s', need to unset it to avoid problems..." % (var, val))
+                os.unsetenv(var)
+                os.environ.pop(var)
+            except KeyError:
+                continue
+
+        # Determine total amount of memory and number of cores
+        memtotal = get_total_memory()
+        corecount = get_avail_core_count()
+        if self.cfg['osmem_per_core']:
+            mem_avail_max = memtotal - (corecount * self.cfg['osmem_per_core'])
+        else:
+            # Let's assume 2 GB for the operating system unless otherwise advised.
+            mem_avail_max = memtotal - 2048
+        # Make sure the actual available memory is no larger than kernel shmmax
+        # See http://www.nwchem-sw.org/index.php/Special:AWCforum/st/id704/Setting_ARMCI_DEFAULT_SHMMAX_pro....html
+        shmmax_file = os.path.join(os.sep, 'proc', 'sys', 'kernel', 'shmmax')
+        try:
+            with open(shmmax_file, 'r') as shmf:
+                shmmax = int(shmf.read())
+        except (IOError, ValueError) as err:
+            raise EasyBuildError("Could not read kernel shmmax: %s" % err)
+        shmmax_megabytes = int(float(shmmax) / 1048576.0)
+        if shmmax_megabytes < (mem_avail_max + 512):
+            mem_avail = shmmax_megabytes - 512
+            self.log.warning("Found system SHMMAX of %d bytes (%d MB), less than (mem_avail_max - 512) MB" % (shmmax, shmmax_megabytes))
+            self.log.warning("MAYBE_SYSVSHMEM will be set to %d MB, but memory-intensive calculations may not run" % mem_avail)
+        else:
+            mem_avail = mem_avail_max
+            self.log.info("MAYBE_SYSVSHMEM will be set to %d MB" % mem_avail)
+
+        # Set ARMCI_DEFAULT_SHMMAX_UBOUND
+        self.cfg.update('buildopts', ' MAYBE_SYSVSHMEM="ARMCI_DEFAULT_SHMMAX_UBOUND={0}"'.format(mem_avail))
 
         super(EB_NWChem, self).build_step(verbose=True)
 
@@ -305,7 +358,10 @@ class EB_NWChem(ConfigureMake):
         # this recompiles the appropriate files and relinks
         if not 'DDFLT_TOT_MEM' in self.cfg['lib_defines']:
             change_dir(os.path.join(self.cfg['start_dir'], 'contrib'))
-            run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
+            getmem_cmd = "./getmem.nwchem"
+            if self.cfg['osmem_per_core']:
+                getmem_cmd = "{0} {1}".format(getmem_cmd, self.cfg['osmem_per_core'])
+            run_cmd(getmem_cmd, simple=True, log_all=True, log_ok=True, log_output=True)
             change_dir(self.cfg['start_dir'])
 
     def install_step(self):
@@ -468,6 +524,8 @@ class EB_NWChem(ConfigureMake):
                 # run tests
                 for testx in tests:
                     cmd = "nwchem %s" % testx
+                    if self.cfg['mpi_exe']:
+                        cmd = "%s %s" % (self.cfg['mpi_exe'], cmd)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
                     test_cases_log.write("\n%s\n" % msg)
