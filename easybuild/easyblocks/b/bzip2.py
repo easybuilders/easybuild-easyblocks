@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -83,7 +83,7 @@ class EB_bzip2(ConfigureMake):
                         os.symlink(os.readlink(lib), os.path.join(libdir, lib))
                     else:
                         shutil.copy2(lib, libdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying shared libraries to installation dir %s failed: %s", libdir, err)
 
             # create symlink libbz2.so >> libbz2.so.1.0.6
@@ -92,7 +92,7 @@ class EB_bzip2(ConfigureMake):
                 os.chdir(libdir)
                 os.symlink('libbz2.%s.%s' % (shlib_ext, self.version), 'libbz2.%s' % shlib_ext)
                 os.chdir(cwd)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Creating symlink for libbz2.so failed: %s", err)
 
     def sanity_check_step(self):

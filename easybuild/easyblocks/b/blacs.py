@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,7 +77,7 @@ class EB_BLACS(ConfigureMake):
 
         try:
             shutil.copy(src, dest)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to %s failed: %s", src, dest, err)
 
     def build_step(self):
@@ -147,7 +147,7 @@ class EB_BLACS(ConfigureMake):
                         comm = "TRANSCOMM=''"
 
             os.chdir(cwd)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to determine interface and transcomm settings: %s", err)
 
         opts.update({
@@ -191,7 +191,7 @@ class EB_BLACS(ConfigureMake):
                         os.symlink(os.path.join(dest, lib), os.path.join(dest, symlink_name))
                         self.log.debug("Symlinked %s/%s to %s" % (dest, lib, symlink_name))
 
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying %s/*.%s to installation dir %s failed: %s", src, ext, dest, err)
 
         # utilities
@@ -205,7 +205,7 @@ class EB_BLACS(ConfigureMake):
 
             self.log.debug("Copied %s to %s" % (src, dest))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, dest, err)
 
     def sanity_check_step(self):

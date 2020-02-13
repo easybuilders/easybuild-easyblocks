@@ -1,6 +1,6 @@
 ##
 # Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2018 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -31,6 +31,7 @@ Support for building and installing Clang, implemented as an easyblock.
 
 @author: Dmitri Gribenko (National Technical University of Ukraine "KPI")
 @author: Ward Poelmans (Ghent University)
+@author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 
 import glob
@@ -43,7 +44,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -74,7 +75,12 @@ class EB_Clang(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for example, 'libomp')", CUSTOM],
+            'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
+            'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
+            'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         }
@@ -90,28 +96,6 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
-
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            else:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -131,6 +115,9 @@ class EB_Clang(CMakeMake):
           tools/
             clang/        Unpack clang-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
+            libcxx/       Unpack libcxx-*.tar.gz here
+            libcxxabi/    Unpack libcxxabi-*.tar.gz here
+            lld/          Unpack lld-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -163,6 +150,13 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
+        if self.cfg["build_lld"]:
+            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+
+        if self.cfg["libcxx"]:
+            find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
+            find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
+
         find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
@@ -174,7 +168,7 @@ class EB_Clang(CMakeMake):
                     old_path = os.path.join(src['finalpath'], dirname)
                     try:
                         shutil.move(old_path, new_path)
-                    except IOError, err:
+                    except IOError as err:
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
@@ -211,7 +205,7 @@ class EB_Clang(CMakeMake):
 
         # Create and enter build directory.
         mkdir(self.llvm_obj_dir_stage1)
-        os.chdir(self.llvm_obj_dir_stage1)
+        change_dir(self.llvm_obj_dir_stage1)
 
         # GCC and Clang are installed in different prefixes and Clang will not
         # find the GCC installation on its own.
@@ -227,16 +221,58 @@ class EB_Clang(CMakeMake):
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
 
-        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s' " % gcc_prefix)
+        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
-        self.cfg['configopts'] += "-DCMAKE_BUILD_TYPE=Release "
-        if self.cfg['assertions']:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=ON "
-        else:
-            self.cfg['configopts'] += "-DLLVM_ENABLE_ASSERTIONS=OFF "
+        # Configure some default options
+        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
+        if self.cfg["enable_rtti"]:
+            self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
+            self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
+            self.cfg.update('configopts', '-DLLVM_ENABLE_EH=ON')
+        if self.cfg["default_openmp_runtime"]:
+            self.cfg.update(
+                'configopts',
+                '-DCLANG_DEFAULT_OPENMP_RUNTIME=%s' % self.cfg["default_openmp_runtime"]
+            )
 
-        self.cfg['configopts'] += '-DLLVM_TARGETS_TO_BUILD="%s" ' % ';'.join(self.cfg['build_targets'])
+        if self.cfg['assertions']:
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=ON")
+        else:
+            self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
+
+        if self.cfg["usepolly"]:
+            self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
+
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
+
+        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+            self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
+
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
@@ -279,7 +315,7 @@ class EB_Clang(CMakeMake):
 
         # Create and enter build directory.
         mkdir(next_obj)
-        os.chdir(next_obj)
+        change_dir(next_obj)
 
         # Configure.
         CC = os.path.join(prev_obj, 'bin', 'clang')
@@ -297,17 +333,19 @@ class EB_Clang(CMakeMake):
         run_cmd("make %s" % self.make_parallel_opts, log_all=True)
 
     def run_clang_tests(self, obj_dir):
-        os.chdir(obj_dir)
+        """Run Clang tests in specified directory (unless disabled)."""
+        if not self.cfg['skip_all_tests']:
+            change_dir(obj_dir)
 
-        self.log.info("Running tests")
-        run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
+            self.log.info("Running tests")
+            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
 
     def build_step(self):
         """Build Clang stage 1, 2, 3"""
 
         # Stage 1: build using system compiler.
         self.log.info("Building stage 1")
-        os.chdir(self.llvm_obj_dir_stage1)
+        change_dir(self.llvm_obj_dir_stage1)
         super(EB_Clang, self).build_step()
 
         if self.cfg['bootstrap']:
@@ -323,6 +361,7 @@ class EB_Clang(CMakeMake):
             # Don't run stage 3 tests here, do it in the test step.
 
     def test_step(self):
+        """Run Clang tests."""
         if self.cfg['bootstrap']:
             self.run_clang_tests(self.llvm_obj_dir_stage3)
         else:
@@ -332,9 +371,9 @@ class EB_Clang(CMakeMake):
         """Install stage 3 binaries."""
 
         if self.cfg['bootstrap']:
-            os.chdir(self.llvm_obj_dir_stage3)
+            change_dir(self.llvm_obj_dir_stage3)
         else:
-            os.chdir(self.llvm_obj_dir_stage1)
+            change_dir(self.llvm_obj_dir_stage1)
         super(EB_Clang, self).install_step()
 
         # the static analyzer is not installed by default
@@ -354,7 +393,7 @@ class EB_Clang(CMakeMake):
                 mandir = os.path.join(self.installdir, 'share', 'man', 'man1')
                 os.makedirs(mandir)
                 shutil.copy2(os.path.join(tools_src_dir, 'scan-build', 'scan-build.1'), mandir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
     def sanity_check_step(self):
@@ -374,6 +413,13 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
             custom_paths['dirs'].extend(["include/polly"])
+
+        if self.cfg["build_lld"]:
+            custom_paths['files'].extend(["bin/lld"])
+
+        if self.cfg["libcxx"]:
+            custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
+            custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])

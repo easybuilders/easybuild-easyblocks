@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ import os
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import write_file
 
 
 class EB_FreeSurfer(Tarball):
@@ -48,24 +48,46 @@ class EB_FreeSurfer(Tarball):
 
     def install_step(self):
         """Custom installation procedure for FreeSurfer, which includes installed the license file '.license'."""
-        txt = super(EB_FreeSurfer, self).install_step()
-        try:
-            f = open(os.path.join(self.installdir, '.license'), 'w')
-            f.write(self.cfg['license_text'])
-            f.close()
-        except IOError, err:
-            raise EasyBuildError("Failed to install license file: %s", err)
+        super(EB_FreeSurfer, self).install_step()
+        write_file(os.path.join(self.installdir, '.license'), self.cfg['license_text'])
+
+    def make_module_guesses(self):
+        """Include correct subdirectories to $PATH for FreeSurfer."""
+        guesses = super(EB_FreeSurfer, self).make_module_guesses()
+
+        guesses['PATH'] = ['bin', 'fsfast/bin', 'mni/bin', 'tktools']
+
+        return guesses
 
     def make_module_extra(self):
-        """Add setting of FREESURFER_HOME in module."""
+        """Define FreeSurfer-specific environment variable in generated module file."""
         txt = super(EB_FreeSurfer, self).make_module_extra()
-        txt += self.module_generator.set_environment("FREESURFER_HOME", self.installdir)
+
+        freesurfer_vars = {
+            'FMRI_ANALYSIS_DIR': os.path.join(self.installdir, 'fsfast'),
+            'FS_OVERRIDE': '0',
+            'FSF_OUTPUT_FORMAT': 'nii.gz',
+            'FSFAST_HOME': os.path.join(self.installdir, 'fsfast'),
+            'FREESURFER_HOME': self.installdir,
+            'FUNCTIONALS_DIR': os.path.join(self.installdir, 'sessions'),
+            'MNI_DIR': os.path.join(self.installdir, 'mni'),
+            'MNI_DATAPATH': os.path.join(self.installdir, 'mni', 'data'),
+            'MINC_BIN_DIR': os.path.join(self.installdir, 'mni', 'bin'),
+            'MINC_LIB_DIR': os.path.join(self.installdir, 'mni', 'lib'),
+            'MNI_PERL5LIB': os.path.join(self.installdir, 'mni', 'lib', 'perl5', '5.8.5'),
+            'PERL5LIB': os.path.join(self.installdir, 'mni', 'lib', 'perl5', '5.8.5'),
+            'OS': 'linux',
+            'SUBJECTS_DIR': os.path.join(self.installdir, 'subjects'),
+        }
+
+        for key, value in sorted(freesurfer_vars.items()):
+            txt += self.module_generator.set_environment(key, freesurfer_vars[key])
+
         return txt
 
     def sanity_check_step(self):
         """Custom sanity check for FreeSurfer"""
-
-        custom_paths =  {
+        custom_paths = {
             'files': ['FreeSurferEnv.sh', '.license'],
             'dirs': ['bin', 'lib', 'mni'],
         }

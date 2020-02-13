@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
 
+
 class SCons(EasyBlock):
     """Support for building/installing with SCons."""
 
@@ -45,11 +46,14 @@ class SCons(EasyBlock):
         """
         No configure step for SCons
         """
-        pass
+        if self.cfg['prefix_arg']:
+            self.prefix = self.cfg['prefix_arg'] + self.installdir
+        else:
+            self.prefix = ''
 
     def build_step(self, verbose=False):
         """
-        Build with SCons 
+        Build with SCons
         """
 
         par = ''
@@ -59,7 +63,7 @@ class SCons(EasyBlock):
         cmd = "%(prebuildopts)s scons %(par)s %(buildopts)s %(prefix)s" % {
             'buildopts': self.cfg['buildopts'],
             'prebuildopts': self.cfg['prebuildopts'],
-            'prefix': self.cfg['prefix_arg'] + self.installdir,
+            'prefix': self.prefix,
             'par': par,
         }
         (out, _) = run_cmd(cmd, log_all=True, log_output=verbose)
@@ -68,10 +72,10 @@ class SCons(EasyBlock):
 
     def test_step(self):
         """
-        Test with SCons 
+        Test with SCons
         """
         if self.cfg['runtest']:
-            cmd = "scons %s" % (self.cfg['runtest'])
+            cmd = "%s scons %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
             run_cmd(cmd, log_all=True)
 
     def install_step(self):
@@ -81,7 +85,7 @@ class SCons(EasyBlock):
         cmd = "%(preinstallopts)s scons %(prefix)s install %(installopts)s" % {
             'installopts': self.cfg['installopts'],
             'preinstallopts': self.cfg['preinstallopts'],
-            'prefix': self.cfg['prefix_arg'] + self.installdir,
+            'prefix': self.prefix,
         }
         (out, _) = run_cmd(cmd, log_all=True)
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,13 +34,12 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.systemcompiler import extract_compiler_version
 from easybuild.easyblocks.impi import EB_impi
-from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
+
 
 class SystemMPI(Bundle, ConfigureMake, EB_impi):
     """
@@ -139,7 +138,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
             # Extract any OpenMPI environment variables in the current environment and ensure they are added to the
             # final module
-            self.mpi_env_vars = dict((key, value) for key, value in os.environ.iteritems() if key.startswith("OMPI_"))
+            self.mpi_env_vars = dict((key, value) for key, value in os.environ.items() if key.startswith('OMPI_'))
 
             # Extract the C compiler used underneath the MPI implementation, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
@@ -177,7 +176,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
             # Extract any IntelMPI environment variables in the current environment and ensure they are added to the
             # final module
             self.mpi_env_vars = {}
-            for key, value in os.environ.iteritems():
+            for key, value in os.environ.items():
                 i_mpi_key = key.startswith('I_MPI_') or key.startswith('MPICH_')
                 mpi_profile_key = key.startswith('MPI') and key.endswith('PROFILE')
                 if i_mpi_key or mpi_profile_key:
@@ -249,12 +248,12 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         and install path.
         """
         # First let's verify that the toolchain and the compilers under MPI match
-        if self.toolchain.name == DUMMY_TOOLCHAIN_NAME:
-            # If someone is using dummy as the MPI toolchain lets assume that gcc is the compiler underneath MPI
+        if self.toolchain.is_system_toolchain():
+            # If someone is using system as the MPI toolchain lets assume that gcc is the compiler underneath MPI
             c_compiler_name = 'gcc'
             # Also need to fake the compiler version
             c_compiler_version = self.c_compiler_version
-            self.log.info("Found dummy toolchain so assuming GCC as compiler underneath MPI and faking the version")
+            self.log.info("Found system toolchain so assuming GCC as compiler underneath MPI and faking the version")
         else:
             c_compiler_name = self.toolchain.COMPILER_CC
             c_compiler_version = get_software_version(self.toolchain.COMPILER_MODULE_NAME[0])

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_glibc_version, get_shared_lib_ext
+
 
 class EB_Qt(ConfigureMake):
     """
@@ -46,7 +47,8 @@ class EB_Qt(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
-             'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
+            'check_qtwebengine': [False, "Make sure QtWebEngine components is installed", CUSTOM],
+            'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
         }
         extra_vars = ConfigureMake.extra_options(extra_vars)
 
@@ -65,9 +67,9 @@ class EB_Qt(ConfigureMake):
         if self.cfg['platform']:
             platform = self.cfg['platform']
         # if no platform is specified, try to derive it based on compiler in toolchain
-        elif comp_fam in [toolchain.GCC]:  #@UndefinedVariable
+        elif comp_fam in [toolchain.GCC]:  # @UndefinedVariable
             platform = 'linux-g++-64'
-        elif comp_fam in [toolchain.INTELCOMP]:  #@UndefinedVariable
+        elif comp_fam in [toolchain.INTELCOMP]:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('4'):
                 platform = 'linux-icc-64'
             else:
@@ -75,11 +77,38 @@ class EB_Qt(ConfigureMake):
                 # fix -fPIC flag (-KPIC is not correct for recent Intel compilers)
                 qmake_conf = os.path.join('mkspecs', platform, 'qmake.conf')
                 apply_regex_substitutions(qmake_conf, [('-KPIC', '-fPIC')])
-                
+
         if platform:
             self.cfg.update('configopts', "-platform %s" % platform)
         else:
             raise EasyBuildError("Don't know which platform to set based on compiler family.")
+
+        if LooseVersion(self.version) >= LooseVersion('5.8'):
+            # Qt5 doesn't respect $CFLAGS, $CXXFLAGS and $LDFLAGS, but has equivalent compiler options,
+            # e.g. QMAKE_CFLAGS; see https://doc.qt.io/qt-5/qmake-variable-reference.html#qmake-cc.
+            # Since EasyBuild relies e.g. for --optarch on $CFLAGS, we need to
+            # set the equivalent QMAKE_* configure options.
+            # (see also https://github.com/easybuilders/easybuild-easyblocks/issues/1670)
+            env_to_options = {
+                'CC': 'QMAKE_CC',
+                'CFLAGS': 'QMAKE_CFLAGS',
+                'CXX': 'QMAKE_CXX',
+                'CXXFLAGS': 'QMAKE_CXXFLAGS',
+                # QMAKE_LFLAGS is not a typo, see: https://doc.qt.io/qt-5/qmake-variable-reference.html#qmake-lflags
+                'LDFLAGS': 'QMAKE_LFLAGS',
+            }
+            for env_name, option in sorted(env_to_options.items()):
+                value = os.getenv(env_name)
+                if value is not None:
+                    if env_name.endswith('FLAGS'):
+                        # For *FLAGS, we add to existing flags (e.g. those set in Qt's .pro-files).
+                        config_opt = option + '+="%s"'
+                    else:
+                        # For compilers, we replace QMAKE_CC/CXX
+                        # (otherwise, you get e.g. QMAKE_CC="g++ g++", which fails)
+                        config_opt = option + '="%s"'
+
+                    self.cfg.update('configopts', config_opt % value)
 
         # configure Qt such that xmlpatterns is also installed
         # -xmlpatterns is not a known configure option for Qt 5.x, but there xmlpatterns support is enabled by default
@@ -137,6 +166,14 @@ class EB_Qt(ConfigureMake):
             'files': ['bin/moc', 'bin/qmake', libfile],
             'dirs': ['include', 'plugins'],
         }
+
+        if self.cfg['check_qtwebengine']:
+            glibc_version = get_glibc_version()
+            if LooseVersion(glibc_version) > LooseVersion("2.16"):
+                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
+                custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
+            else:
+                self.log.debug("Skipping check for qtwebengine, since it requires a more recent glibc.")
 
         if LooseVersion(self.version) >= LooseVersion('4'):
             custom_paths['files'].append('bin/xmlpatterns')

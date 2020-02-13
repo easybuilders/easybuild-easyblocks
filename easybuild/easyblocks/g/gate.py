@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -107,14 +107,14 @@ class EB_GATE(CMakeMake):
         for subdir in self.gate_subdirs:
             try:
                 os.chdir(os.path.join(os.path.join(self.cfg['start_dir'], subdir)))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
             super(EB_GATE, self).build_step()
 
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to return to start dir %s: %s", self.cfg['start_dir'], err)
 
     def install_step(self):
@@ -127,7 +127,7 @@ class EB_GATE(CMakeMake):
             for subdir in self.gate_subdirs:
                 try:
                     os.chdir(os.path.join(os.path.join(self.cfg['start_dir'], subdir)))
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
                 super(EB_GATE, self).install_step()
@@ -138,7 +138,7 @@ class EB_GATE(CMakeMake):
             try:
                 shutil.rmtree(self.installdir)
                 shutil.copytree(self.cfg['start_dir'], self.installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
 
             cmd = "source %s &> /dev/null && echo $G4SYSTEM" % os.path.join(self.cfg['start_dir'], 'env_gate.sh')
@@ -159,14 +159,14 @@ class EB_GATE(CMakeMake):
                     if fil.endswith('.%s' % shlib_ext):
                         shutil.copy2(os.path.join(srclibdir, fil), os.path.join(libdir, fil))
                         self.log.debug("Copied library %s to 'lib' install subdirectory" % fil)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy GATE library/ies to lib directory: %s", err)
 
             # add link from tmp/<OS>-<comp>/gjs to lib
             js_dir = os.path.join(self.installdir, 'cluster_tools', 'jobsplitter')
             try:
                 os.symlink(os.path.join(js_dir, 'tmp', self.g4system, 'gjs'), os.path.join(js_dir, 'lib'))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to symlink tmp js dir to lib in %s: %s", js_dir, err)
 
     def make_module_extra(self):

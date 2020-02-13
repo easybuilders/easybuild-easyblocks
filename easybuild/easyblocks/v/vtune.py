@@ -1,5 +1,5 @@
 # #
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,6 +49,12 @@ class EB_VTune(IntelBase):
             self.subdir = 'vtune_amplifier_xe'
         elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
+
+    def prepare_step(self, *args, **kwargs):
+        """Since 2019u3 there is no license required."""
+        if LooseVersion(self.version) >= LooseVersion('2019_update3'):
+            kwargs['requires_runtime_license'] = False
+        super(EB_VTune, self).prepare_step(*args, **kwargs)
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""

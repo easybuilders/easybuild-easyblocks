@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,6 @@ import re
 import shutil
 from copy import copy
 from distutils.version import LooseVersion
-from vsc.utils.missing import any
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -71,18 +70,20 @@ class EB_GCC(ConfigureMake):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
+            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
+                              "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
             'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
+            'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
+            'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
+            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
+            'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
+            'use_gold_linker': [True, "Configure GCC to use GOLD as default linker", CUSTOM],
+            'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
+            'withisl': [False, "Build GCC with ISL support", CUSTOM],
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
             'withlto': [True, "Enable LTO support", CUSTOM],
-            'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
-            'withisl': [False, "Build GCC with ISL support", CUSTOM],
-            'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
-            'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
-            'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
-            'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' & co when linking", CUSTOM],
-            'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target " \
-                              "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -91,13 +92,20 @@ class EB_GCC(ConfigureMake):
 
         self.stagedbuild = False
 
-        if LooseVersion(self.version) >= LooseVersion("4.8.0") and self.cfg['clooguseisl'] and not self.cfg['withisl']:
-            raise EasyBuildError("Using ISL bundled with CLooG is unsupported in >=GCC-4.8.0. "
-                                 "Use a seperate ISL: set withisl=True")
+        # need to make sure version is an actual version
+        # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
+        # which results in deriving the actual compiler version
+        # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
+        if re.match(r'^[0-9]+\.[0-9]+.*', self.version):
+            version = LooseVersion(self.version)
 
-        # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
-        if LooseVersion(self.version) < LooseVersion("5.0.0") and self.cfg['withisl'] and not self.cfg['withcloog']:
-            raise EasyBuildError("Activating ISL without CLooG is pointless")
+            if version >= LooseVersion('4.8.0') and self.cfg['clooguseisl'] and not self.cfg['withisl']:
+                raise EasyBuildError("Using ISL bundled with CLooG is unsupported in >=GCC-4.8.0. "
+                                     "Use a seperate ISL: set withisl=True")
+
+            # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
+            if version < LooseVersion('5.0.0') and self.cfg['withisl'] and not self.cfg['withcloog']:
+                raise EasyBuildError("Activating ISL without CLooG is pointless")
 
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
         self.cfg.update('unwanted_env_vars', ['CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'OBJC_INCLUDE_PATH'])
@@ -117,7 +125,7 @@ class EB_GCC(ConfigureMake):
             os.chdir(dirpath)
             self.log.debug("Created dir at %s" % dirpath)
             return dirpath
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Can't use dir %s to build in: %s", dirpath, err)
 
     def disable_lto_mpfr_old_gcc(self, objdir):
@@ -238,7 +246,7 @@ class EB_GCC(ConfigureMake):
                 if not os.path.exists(dst):
                     try:
                         shutil.copytree(src, dst)
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Failed to copy src %s to dst %s: %s", src, dst, err)
                     self.log.debug("Copied %s to %s, so GCC can build %s" % (src, dst, d['target_dir']))
                 else:
@@ -324,11 +332,18 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --disable-multilib"
         # build both static and dynamic libraries (???)
         self.configopts += " --enable-shared=yes --enable-static=yes "
+
         # use POSIX threads
         self.configopts += " --enable-threads=posix "
-        # use GOLD as default linker, enable plugin support
-        self.configopts += " --enable-gold=default --enable-plugins "
-        self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
+
+        # enable plugin support
+        self.configopts += " --enable-plugins "
+
+        # use GOLD as default linker
+        if self.cfg['use_gold_linker']:
+            self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
+        else:
+            self.configopts += " --enable-gold --enable-ld=default"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
@@ -426,7 +441,7 @@ class EB_GCC(ConfigureMake):
                     libdir = os.path.join(stage2prefix, lib)
                     try:
                         os.chdir(libdir)
-                    except OSError, err:
+                    except OSError as err:
                         raise EasyBuildError("Failed to change to %s: %s", libdir, err)
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
@@ -434,7 +449,8 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                        optarch_generic = build_option('optarch') == OPTARCH_GENERIC
+                        if self.cfg['generic'] or (optarch_generic and self.cfg['generic'] is not False):
                             cmd += "--enable-fat "
 
                     elif lib == "ppl":
@@ -461,7 +477,8 @@ class EB_GCC(ConfigureMake):
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
-                        if build_option('optarch') == OPTARCH_GENERIC and self.cfg['generic'] != False:
+                        optarch_generic = build_option('optarch') == OPTARCH_GENERIC
+                        if self.cfg['generic'] or (optarch_generic and self.cfg['generic'] is not False):
                             cmd += "--without-gcc-arch "
 
                     elif lib == "cloog":
@@ -560,7 +577,8 @@ class EB_GCC(ConfigureMake):
             if self.cfg['withcloog']:
                 configopts += "--with-cloog=%s " % stage2prefix
 
-                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion("0.16") and LooseVersion(self.version) < LooseVersion("4.8.0"):
+                gccver = LooseVersion(self.version)
+                if self.cfg['clooguseisl'] and self.cloogver >= LooseVersion('0.16') and gccver < LooseVersion('4.8.0'):
                     configopts += "--enable-cloog-backend=isl "
 
             if self.cfg['withisl']:
@@ -571,7 +589,10 @@ class EB_GCC(ConfigureMake):
             self.run_configure_cmd(cmd)
 
         # build with bootstrapping for self-containment
-        self.cfg.update('buildopts', 'bootstrap')
+        if self.cfg['profiled']:
+            self.cfg.update('buildopts', 'profiledbootstrap')
+        else:
+            self.cfg.update('buildopts', 'bootstrap')
 
         # call standard build_step
         super(EB_GCC, self).build_step()
@@ -670,13 +691,14 @@ class EB_GCC(ConfigureMake):
 
     def make_module_req_guess(self):
         """
-        Make sure all GCC libs are in LD_LIBRARY_PATH
+        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
         guesses = super(EB_GCC, self).make_module_req_guess()
         guesses.update({
             'PATH': ['bin'],
-            'LD_LIBRARY_PATH': ['lib', 'lib64',
-                                'lib/gcc/%s/%s' % (self.platform_lib, self.cfg['version'])],
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
         return guesses

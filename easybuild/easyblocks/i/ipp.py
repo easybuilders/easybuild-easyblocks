@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel Performance Primitives (IPP) library,
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 
 from distutils.version import LooseVersion
@@ -82,21 +83,26 @@ class EB_ipp(IntelBase):
         """Custom sanity check paths for IPP."""
         shlib_ext = get_shared_lib_ext()
 
+        dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
         if LooseVersion(self.version) < LooseVersion('8.0'):
-            dirs = ['compiler/lib/intel64', 'ipp/bin', 'ipp/include',
-                    'ipp/interfaces/data-compression', 'ipp/tools/intel64']
-        elif LooseVersion(self.version) >= LooseVersion('9.0'):
-            dirs = ['ipp/bin', 'ipp/include', 'ipp/tools/intel64']
-        else:
-            dirs = ['composerxe/lib/intel64', 'ipp/bin', 'ipp/include',
-                    'ipp/tools/intel64']
+            dirs.extend([
+                os.path.join('compiler', 'lib', 'intel64'),
+                os.path.join('ipp', 'interfaces', 'data-compression'),
+            ])
+        elif LooseVersion(self.version) < LooseVersion('9.0'):
+            dirs.extend([
+                os.path.join('composerxe', 'lib', 'intel64'),
+            ])
 
         ipp_libs = ['cc', 'ch', 'core', 'cv', 'dc', 'i', 's', 'vm']
         if LooseVersion(self.version) < LooseVersion('9.0'):
             ipp_libs.extend(['ac', 'di', 'j', 'm', 'r', 'sc', 'vc'])
 
         custom_paths = {
-            'files': ['ipp/lib/intel64/libipp%s' % y for x in ipp_libs for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]],
+            'files': [
+                os.path.join('ipp', 'lib', 'intel64', 'libipp%s') % y for x in ipp_libs
+                for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]
+            ],
             'dirs': dirs,
         }
 
@@ -109,12 +115,12 @@ class EB_ipp(IntelBase):
         guesses = super(EB_ipp, self).make_module_req_guess()
 
         if LooseVersion(self.version) >= LooseVersion('9.0'):
-            lib_path = os.path.join('lib', self.arch)
-            include_path = 'ipp/include'
+            lib_path = [os.path.join('ipp', 'lib', self.arch), os.path.join('lib', self.arch)]
+            include_path = os.path.join('ipp', 'include')
 
             guesses.update({
-                'LD_LIBRARY_PATH': [lib_path],
-                'LIBRARY_PATH': [lib_path],
+                'LD_LIBRARY_PATH': lib_path,
+                'LIBRARY_PATH': lib_path,
                 'CPATH': [include_path],
                 'INCLUDE': [include_path],
             })

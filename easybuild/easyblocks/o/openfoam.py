@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,6 +44,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
@@ -67,14 +68,24 @@ class EB_OpenFOAM(EasyBlock):
         self.openfoamdir = None
         self.thrdpartydir = None
 
+        # version may start with 'v' for some variants of OpenFOAM
+        # we need to strip this off to avoid problems when comparing LooseVersion instances in Python 3
+        self.looseversion = LooseVersion(self.version.strip('v+'))
+
         if 'extend' in self.name.lower():
-            if LooseVersion(self.version) >= LooseVersion('3.0'):
+            if self.looseversion >= LooseVersion('3.0'):
                 self.openfoamdir = 'foam-extend-%s' % self.version
             else:
                 self.openfoamdir = 'OpenFOAM-%s-ext' % self.version
         else:
             self.openfoamdir = '-'.join([self.name, '-'.join(self.version.split('-')[:2])])
         self.log.debug("openfoamdir: %s" % self.openfoamdir)
+
+        # Set build type to requested value
+        if self.toolchain.options['debug']:
+            self.build_type = 'Debug'
+        else:
+            self.build_type = 'Opt'
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
@@ -101,7 +112,7 @@ class EB_OpenFOAM(EasyBlock):
                             self.log.debug("Moving %s to %s", source, target)
                             shutil.move(source, target)
                     os.chdir(openfoam_installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move all files to %s: %s", openfoam_installdir, err)
 
     def patch_step(self, beginpath=None):
@@ -139,8 +150,11 @@ class EB_OpenFOAM(EasyBlock):
                 extra_flags = '-fuse-ld=bfd'
 
             # older versions of OpenFOAM-Extend require -fpermissive
-            if 'extend' in self.name.lower() and LooseVersion(self.version) < LooseVersion('2.0'):
+            if 'extend' in self.name.lower() and self.looseversion < LooseVersion('2.0'):
                 extra_flags += ' -fpermissive'
+
+            if self.looseversion < LooseVersion('3.0'):
+                extra_flags += ' -fno-delete-null-pointer-checks'
 
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             # make sure -no-prec-div is used with Intel compilers
@@ -155,19 +169,29 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching out hardcoded $WM_* env vars in %s", script)
             # disable any third party stuff, we use EB controlled builds
             regex_subs = [(r"^(setenv|export) WM_THIRD_PARTY_USE_.*[ =].*$", r"# \g<0>")]
-            WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
+
+            # this does not work for OpenFOAM Extend lower than 2.0
+            if 'extend' not in self.name.lower() or self.looseversion >= LooseVersion('2.0'):
+                key = "WM_PROJECT_VERSION"
+                regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, self.version))]
+
+            WM_env_var = ['WM_COMPILER', 'WM_COMPILE_OPTION', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
-            if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
+            if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
                 WM_env_var.append('WM_LABEL_SIZE')
             for env_var in WM_env_var:
                 regex_subs.append((r"^(setenv|export) (?P<var>%s)[ =](?P<val>.*)$" % env_var,
                                    r": ${\g<var>:=\g<val>}; export \g<var>"))
-
             apply_regex_substitutions(script, regex_subs)
 
         # inject compiler variables into wmake/rules files
         ldirs = glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'linux*'))
+        if self.looseversion >= LooseVersion('1906'):
+            ldirs += glob.glob(os.path.join(self.builddir, self.openfoamdir, 'wmake', 'rules', 'General', '*'))
         langs = ['c', 'c++']
+
+        # NOTE: we do not want to change the Debug rules files becuse
+        # that would change the cOPT/c++OPT values from their empty setting.
         suffixes = ['', 'Opt']
         wmake_rules_files = [os.path.join(ldir, lang + suff) for ldir in ldirs for lang in langs for suff in suffixes]
 
@@ -193,6 +217,9 @@ class EB_OpenFOAM(EasyBlock):
             'c++OPT': os.environ['CXXFLAGS'],
         }
         for wmake_rules_file in wmake_rules_files:
+            # the cOpt and c++Opt files don't exist in the General directories (which are included for recent versions)
+            if not os.path.isfile(wmake_rules_file):
+                continue
             fullpath = os.path.join(self.builddir, self.openfoamdir, wmake_rules_file)
             self.log.debug("Patching compiler variables in %s", fullpath)
             regex_subs = []
@@ -217,19 +244,22 @@ class EB_OpenFOAM(EasyBlock):
         env.setvar("WM_COMPILER", self.wm_compiler)
         env.setvar("WM_MPLIB", self.wm_mplib)
 
+        # Set Compile options according to build type
+        env.setvar("WM_COMPILE_OPTION", self.build_type)
+
         # parallel build spec
         env.setvar("WM_NCOMPPROCS", str(self.cfg['parallel']))
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
-        if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
             if self.toolchain.options['i8']:
                 env.setvar("WM_LABEL_SIZE", '64')
             else:
                 env.setvar("WM_LABEL_SIZE", '32')
 
         # make sure lib/include dirs for dependencies are found
-        openfoam_extend_v3 = 'extend' in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0')
-        if LooseVersion(self.version) < LooseVersion("2") or openfoam_extend_v3:
+        openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
+        if self.looseversion < LooseVersion("2") or openfoam_extend_v3:
             self.log.debug("List of deps: %s" % self.cfg.dependencies())
             for dep in self.cfg.dependencies():
                 dep_name = dep['name'].upper(),
@@ -241,7 +271,7 @@ class EB_OpenFOAM(EasyBlock):
                     "%s_LIB_DIR": "%s/lib",
                     "%s_INCLUDE_DIR": "%s/include",
                 }
-                for var, val in dep_vars.iteritems():
+                for var, val in dep_vars.items():
                     env.setvar(var % dep_name, val % dep_root)
         else:
             for depend in ['SCOTCH', 'METIS', 'CGAL', 'Paraview']:
@@ -256,8 +286,12 @@ class EB_OpenFOAM(EasyBlock):
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
 
+        # Some parts of OpenFOAM uses CMake to build
+        # make sure the basic environment is correct
+        setup_cmake_env(self.toolchain)
+
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
-        if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('4.0'):
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):
             cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
         else:
             cleancmd = "wcleanAll"
@@ -269,7 +303,7 @@ class EB_OpenFOAM(EasyBlock):
             'prebuildopts': self.cfg['prebuildopts'],
             'makecmd': os.path.join(self.builddir, self.openfoamdir, '%s'),
         }
-        if 'extend' in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
+        if 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
             qa = {
                 "Proceed without compiling ParaView [Y/n]": 'Y',
                 "Proceed without compiling cudaSolvers? [Y/n]": 'Y',
@@ -285,10 +319,10 @@ class EB_OpenFOAM(EasyBlock):
                 r"\s*\^\s*",  # warning indicator
                 "Cleaning .*",
             ]
-            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True)
+            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True, maxhits=500)
         else:
             cmd = 'Allwmake'
-            if LooseVersion(self.version) >= LooseVersion('1606'):
+            if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
@@ -313,7 +347,7 @@ class EB_OpenFOAM(EasyBlock):
         shlib_ext = get_shared_lib_ext()
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
-        if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
             if self.toolchain.options['i8']:
                 int_size = 'Int64'
             else:
@@ -321,10 +355,10 @@ class EB_OpenFOAM(EasyBlock):
         else:
             int_size = ''
 
-        psubdir = "linux64%sDP%sOpt" % (self.wm_compiler, int_size)
+        psubdir = "linux64%sDP%s%s" % (self.wm_compiler, int_size, self.build_type)
 
-        openfoam_extend_v3 = 'extend' in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0')
-        if openfoam_extend_v3 or LooseVersion(self.version) < LooseVersion("2"):
+        openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
+        if openfoam_extend_v3 or self.looseversion < LooseVersion("2"):
             toolsdir = os.path.join(self.openfoamdir, "applications", "bin", psubdir)
             libsdir = os.path.join(self.openfoamdir, "lib", psubdir)
             dirs = [toolsdir, libsdir]
@@ -336,16 +370,24 @@ class EB_OpenFOAM(EasyBlock):
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
-               [os.path.join(toolsdir, "buoyant%sSimpleFoam" % x) for x in ["", "Boussinesq"]] + \
-               [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine", "sonic"]] + \
+               [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
+               [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
+        if self.looseversion < LooseVersion('7'):
+            bins.extend([
+                os.path.join(toolsdir, "buoyantBoussinesqSimpleFoam"),
+                os.path.join(toolsdir, "sonicFoam")
+            ])
+
         # check for the Pstream and scotchDecomp libraries, there must be a dummy one and an mpi one
         if 'extend' in self.name.lower():
             libs = [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext),
                     os.path.join(libsdir, "libmetisDecomp.%s" % shlib_ext)]
-            if LooseVersion(self.version) < LooseVersion('3.2'):
+            if self.looseversion < LooseVersion('3.2'):
                 # Pstream should have both a dummy and a mpi one
                 libs.extend([os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", "mpi"]])
                 libs.extend([os.path.join(libsdir, "mpi", "libparMetisDecomp.%s" % shlib_ext)])
@@ -358,7 +400,7 @@ class EB_OpenFOAM(EasyBlock):
                    [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext)] + \
                    [os.path.join(libsdir, "dummy", "libscotchDecomp.%s" % shlib_ext)]
 
-        if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion("2.3.0"):
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.3.0"):
             # surfaceSmooth is replaced by surfaceLambdaMuSmooth is OpenFOAM v2.3.0
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
@@ -376,6 +418,9 @@ class EB_OpenFOAM(EasyBlock):
         txt = super(EB_OpenFOAM, self).make_module_extra()
 
         env_vars = [
+            # Set WM_COMPILE_OPTION in the module file
+            # $FOAM_BASH will then pick it up correctly.
+            ('WM_COMPILE_OPTION', self.build_type),
             ('WM_PROJECT_VERSION', self.version),
             ('FOAM_INST_DIR', self.installdir),
             ('WM_COMPILER', self.wm_compiler),
@@ -385,7 +430,7 @@ class EB_OpenFOAM(EasyBlock):
         ]
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
-        if 'extend' not in self.name.lower() and LooseVersion(self.version) >= LooseVersion('3.0'):
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
             if self.toolchain.options['i8']:
                 env_vars += [('WM_LABEL_SIZE', '64')]
             else:

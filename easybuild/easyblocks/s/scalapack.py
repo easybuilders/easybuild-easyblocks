@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,6 +42,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.toolchains.linalg.acml import Acml
 from easybuild.toolchains.linalg.atlas import Atlas
 from easybuild.toolchains.linalg.blacs import Blacs
+from easybuild.toolchains.linalg.blis import Blis
 from easybuild.toolchains.linalg.gotoblas import GotoBLAS
 from easybuild.toolchains.linalg.lapack import Lapack
 from easybuild.toolchains.linalg.openblas import OpenBLAS
@@ -99,7 +100,7 @@ class EB_ScaLAPACK(ConfigureMake):
         if lapack:
             extra_makeopts.append('LAPACKLIB=%s' % os.path.join(lapack, 'lib', 'liblapack.a'))
 
-            for blas in [Atlas, GotoBLAS]:
+            for blas in [Atlas, Blis, GotoBLAS]:
                 blas_root = get_software_root(blas.BLAS_MODULE_NAME[0])
                 if blas_root:
                     blas_libs = ' '.join(['-l%s' % lib for lib in blas.BLAS_LIB])

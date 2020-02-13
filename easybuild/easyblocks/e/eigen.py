@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2018 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -34,7 +34,7 @@ class EB_Eigen(CMakeMake):
     def configure_step(self):
         """Custom configuration procedure for Eigen."""
         # start using CMake for Eigen 3.3.4 and newer versions
-        # not done for older versions, since this implies using (a dummy-built) CMake as a build dependency,
+        # not done for older versions, since this implies using CMake as a build dependency,
         # which is a bit strange for a header-only library like Eigen...
         if LooseVersion(self.version) >= LooseVersion('3.3.4'):
             self.cfg['separate_build_dir'] = True

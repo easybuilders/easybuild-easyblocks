@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2020 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,7 +67,9 @@ class EB_MVAPICH2(EB_MPICH):
 
         # additional configuration options
         add_configopts = []
-        add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
+
+        if self.cfg['rdma_type']:
+            add_configopts.append('--with-rdma=%s' % self.cfg['rdma_type'])
 
         # enable specific support options (if desired)
         if self.cfg['withmpe']:

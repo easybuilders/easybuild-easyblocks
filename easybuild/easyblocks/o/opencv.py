@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2018 Ghent University
+# Copyright 2018-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,7 @@ EasyBuild support for building and installing OpenCV, implemented as an easybloc
 """
 import glob
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
@@ -79,6 +80,10 @@ class EB_OpenCV(CMakeMake):
 
                 self.cfg.update('configopts', '-DWITH_IPP=ON')
 
+                # for recent OpenCV 3.x versions (and newer), we must also specify the download location
+                # to prevent that the ippicv tarball is re-downloaded
+                if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                    self.cfg.update('configopts', '-DOPENCV_DOWNLOAD_PATH=%s' % self.builddir)
             else:
                 raise EasyBuildError("Found multiple ippicv*.tgz source tarballs in %s: %s", self.builddir, ippicv_tgz)
 
@@ -92,8 +97,14 @@ class EB_OpenCV(CMakeMake):
         if 'BUILD_PYTHON_SUPPORT' not in self.cfg['configopts']:
             if get_software_root('Python'):
                 self.cfg.update('configopts', "-DBUILD_PYTHON_SUPPORT=ON -DBUILD_NEW_PYTHON_SUPPORT=ON")
+
+                # recent OpenCV 3.x versions (and newer) use an alternative configure option to specify the location
+                # where the OpenCV Python bindings should be installed
                 py_pkgs_path = os.path.join(self.installdir, self.pylibdir)
-                self.cfg.update('configopts', '-DPYTHON_PACKAGES_PATH=%s' % py_pkgs_path)
+                if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                    self.cfg.update('configopts', '-DOPENCV_PYTHON_INSTALL_PATH=%s' % py_pkgs_path)
+                else:
+                    self.cfg.update('configopts', '-DPYTHON_PACKAGES_PATH=%s' % py_pkgs_path)
             else:
                 self.cfg.update('configopts', "-DBUILD_PYTHON_SUPPORT=OFF -DBUILD_NEW_PYTHON_SUPPORT=OFF")
 
@@ -159,13 +170,22 @@ class EB_OpenCV(CMakeMake):
         super(EB_OpenCV, self).install_step()
 
         if 'WITH_IPP=ON' in self.cfg['configopts']:
-            ipp_libs = glob.glob(os.path.join('3rdparty', 'ippicv', 'ippicv_lnx', 'lib', 'intel64', 'libippicv.*'))
+            common_dir = os.path.join('3rdparty', 'ippicv', 'ippicv_lnx')
+
+            # for some recent OpenCV 3.x versions, libippicv.a is now in a subdirectory named 'icv'
+            if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                ipp_libs = glob.glob(os.path.join(common_dir, 'icv', 'lib', 'intel64', 'libippicv.*'))
+            else:
+                ipp_libs = glob.glob(os.path.join(common_dir, 'lib', 'intel64', 'libippicv.*'))
+
             copy(ipp_libs, os.path.join(self.installdir, 'lib'))
 
     def sanity_check_step(self):
         """Custom sanity check for OpenCV."""
-        opencv_bins = ['annotation', 'createsamples', 'traincascade', 'interactive-calibration', 'version',
-                       'visualisation']
+        opencv_bins = ['annotation', 'interactive-calibration', 'version', 'visualisation']
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            opencv_bins.extend(['createsamples', 'traincascade'])
+
         libfile = 'libopencv_core.%s' % get_shared_lib_ext()
         custom_paths = {
             'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] + [os.path.join('lib64', libfile)],
@@ -178,13 +198,15 @@ class EB_OpenCV(CMakeMake):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import cv2'")
 
-        super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom extra module file entries for OpenCV."""
         txt = super(EB_OpenCV, self).make_module_extra()
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
-        txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+
+        if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

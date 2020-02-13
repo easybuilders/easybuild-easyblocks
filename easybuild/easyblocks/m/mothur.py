@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,6 +69,12 @@ class EB_Mothur(ConfigureMake):
         # enable compression
         if get_software_root('bzip2') or get_software_root('gzip'):
             self.cfg.update('buildopts', 'USE_COMPRESSION=yes')
+        # Use Boost
+        if get_software_root('Boost'):
+            self.cfg.update('buildopts', 'USEBOOST=yes')
+        # Use HDF5
+        if get_software_root('HDF5'):
+            self.cfg.update('buildopts', 'USEHDF5=yes')
 
     def install_step(self):
         """
@@ -82,7 +88,7 @@ class EB_Mothur(ConfigureMake):
             for filename in ['mothur', 'uchime']:
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
     def sanity_check_step(self):

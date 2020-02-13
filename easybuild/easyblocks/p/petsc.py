@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -60,7 +61,6 @@ class EB_PETSc(ConfigureMake):
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
             self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
-
 
     @staticmethod
     def extra_options():
@@ -271,10 +271,10 @@ class EB_PETSc(ConfigureMake):
             self.cfg['parallel'] = None
 
     # default make should be fine
-    
+
     def install_step(self):
         """
-        Install using make install (for non-source installations), 
+        Install using make install (for non-source installations),
         or by symlinking files (old versions, < 3).
         """
         if LooseVersion(self.version) >= LooseVersion("3"):
@@ -283,13 +283,10 @@ class EB_PETSc(ConfigureMake):
 
         else:  # old versions (< 3.x)
 
-            try:
-                for f in ['petscconf.h', 'petscconfiginfo.h', 'petscfix.h', 'petscmachineinfo.h']:
-                    includedir = os.path.join(self.installdir, 'include')
-                    bmakedir = os.path.join(self.installdir, 'bmake', 'linux-gnu-c-opt')
-                    os.symlink(os.path.join(bmakedir, f), os.path.join(includedir, f))
-            except Exception, err:
-                raise EasyBuildError("Something went wrong during symlink creation of file %s: %s", f, err)
+            for fn in ['petscconf.h', 'petscconfiginfo.h', 'petscfix.h', 'petscmachineinfo.h']:
+                includedir = os.path.join(self.installdir, 'include')
+                bmakedir = os.path.join(self.installdir, 'bmake', 'linux-gnu-c-opt')
+                symlink(os.path.join(bmakedir, fn), os.path.join(includedir, fn))
 
     def make_module_req_guess(self):
         """Specify PETSc custom values for PATH, CPATH and LD_LIBRARY_PATH."""

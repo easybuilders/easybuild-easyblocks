@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -93,7 +93,12 @@ class EB_MRtrix(EasyBlock):
         also consider 'scripts' subdirectory for $PATH
         """
         guesses = super(EB_MRtrix, self).make_module_req_guess()
+
         guesses['PATH'].append('scripts')
+
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            guesses.setdefault('PYTHONPATH', []).append('lib')
+
         return guesses
 
     def sanity_check_step(self):
@@ -108,4 +113,9 @@ class EB_MRtrix(EasyBlock):
             'files': [os.path.join('lib', libso)],
             'dirs': ['bin'],
         }
-        super(EB_MRtrix, self).sanity_check_step(custom_paths=custom_paths)
+
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            custom_commands.append("python -c 'import mrtrix3'")
+
+        super(EB_MRtrix, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

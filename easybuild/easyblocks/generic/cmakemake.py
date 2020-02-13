@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,16 +31,35 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from vsc.utils.missing import nub
+from easybuild.tools.utilities import nub
+
+
+DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
+def setup_cmake_env(tc):
+    """Setup env variables that cmake needs in an EasyBuild context."""
+
+    # Set the search paths for CMake
+    tc_ipaths = tc.get_variable("CPPFLAGS", list)
+    tc_lpaths = tc.get_variable("LDFLAGS", list)
+    cpaths = os.getenv('CPATH', '').split(os.pathsep)
+    lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+    include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+    library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
+    setvar("CMAKE_INCLUDE_PATH", include_paths)
+    setvar("CMAKE_LIBRARY_PATH", library_paths)
 
 
 class CMakeMake(ConfigureMake):
@@ -51,6 +70,12 @@ class CMakeMake(ConfigureMake):
         """Define extra easyconfig parameters specific to CMakeMake."""
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
+            'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
+            'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
+                                          "(even if Boost is included as a dependency)", CUSTOM],
+            'build_type': [None, "Build type for CMake, e.g. Release or Debug."
+                                "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
@@ -59,28 +84,17 @@ class CMakeMake(ConfigureMake):
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        if builddir is not None:
-            self.log.nosupport("CMakeMake.configure_step: named argument 'builddir' (should be 'srcdir')", "2.0")
+        setup_cmake_env(self.toolchain)
 
-        # Set the search paths for CMake
-        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
-        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
-        cpaths = os.getenv('CPATH', '').split(os.pathsep)
-        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
-        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
-        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
-        setvar("CMAKE_INCLUDE_PATH", include_paths)
-        setvar("CMAKE_LIBRARY_PATH", library_paths)
+        if builddir is None and self.cfg.get('separate_build_dir', False):
+            builddir = os.path.join(self.builddir, 'easybuild_obj')
 
-        default_srcdir = '.'
-        if self.cfg.get('separate_build_dir', False):
-            objdir = os.path.join(self.builddir, 'easybuild_obj')
-            try:
-                os.mkdir(objdir)
-                os.chdir(objdir)
-            except OSError, err:
-                raise EasyBuildError("Failed to create separate build dir %s in %s: %s", objdir, os.getcwd(), err)
+        if builddir:
+            mkdir(builddir, parents=True)
+            change_dir(builddir)
             default_srcdir = self.cfg['start_dir']
+        else:
+            default_srcdir = '.'
 
         if srcdir is None:
             if self.cfg.get('srcdir', None) is not None:
@@ -89,6 +103,10 @@ class CMakeMake(ConfigureMake):
                 srcdir = default_srcdir
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+
+        if self.cfg['build_type'] is not None:
+            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
+
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
             'CFLAGS': 'CMAKE_C_FLAGS',
@@ -100,6 +118,9 @@ class CMakeMake(ConfigureMake):
         for env_name, option in env_to_options.items():
             value = os.getenv(env_name)
             if value is not None:
+                if option.endswith('_COMPILER') and self.cfg.get('abs_path_compilers', False):
+                    value = which(value)
+                    self.log.info("Using absolute path to compiler command: %s", value)
                 options.append("-D%s='%s'" % (option, value))
 
         if build_option('rpath'):
@@ -110,9 +131,34 @@ class CMakeMake(ConfigureMake):
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
 
+        if not self.cfg.get('allow_system_boost', False):
+            # don't pick up on system Boost if Boost is included as dependency
+            # - specify Boost location via -DBOOST_ROOT
+            # - instruct CMake to not search for Boost headers/libraries in other places
+            # - disable search for Boost CMake package configuration file
+            boost_root = get_software_root('Boost')
+            if boost_root:
+                options.extend([
+                    '-DBOOST_ROOT=%s' % boost_root,
+                    '-DBoost_NO_SYSTEM_PATHS=ON',
+                    '-DBoost_NO_BOOST_CMAKE=ON',
+                ])
+
         options_string = ' '.join(options)
 
-        command = "%s cmake %s %s %s" % (self.cfg['preconfigopts'], srcdir, options_string, self.cfg['configopts'])
+        if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    DEFAULT_CONFIGURE_CMD,
+                    options_string,
+                    self.cfg['configopts'],
+                    srcdir])
+        else:
+            command = ' '.join([
+                    self.cfg['preconfigopts'],
+                    self.cfg.get('configure_cmd'),
+                    self.cfg['configopts']])
+
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out

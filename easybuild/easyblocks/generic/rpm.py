@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,13 +39,13 @@ import re
 import tempfile
 from distutils.version import LooseVersion
 from os.path import expanduser
-from vsc.utils import fancylogger
 
 import easybuild.tools.environment as env
+from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import which
+from easybuild.tools.filetools import change_dir, mkdir, symlink, which
 from easybuild.tools.run import run_cmd
 
 
@@ -56,8 +56,8 @@ def rebuild_rpm(rpm_path, targetdir):
     """Rebuild the RPM on the specified location, to make it relocatable."""
     # make sure that rpmrebuild command is available
     if not which('rpmrebuild'):
-        raise EasyBuildError("Command 'rpmrebuild' is required but not available. "+
-                              "Please add it as a dependency or install it with the OS package manager.")
+        raise EasyBuildError("Command 'rpmrebuild' is required but not available. " +
+                             "Please add it as a dependency or install it with the OS package manager.")
 
     rpmmacros = os.path.join(expanduser('~'), '.rpmmacros')
     if os.path.exists(rpmmacros):
@@ -73,7 +73,7 @@ def rebuild_rpm(rpm_path, targetdir):
         if not os.path.exists(targetdir):
             os.makedirs(targetdir)
             _log.debug("Created target directory for rebuilt RPMs %s" % targetdir)
-    except OSError, err:
+    except OSError as err:
         raise EasyBuildError("Failed to create directories for rebuilding RPM: %s", err)
 
     _log.debug("Rebuilding %s in %s to make it relocatable" % (rpm_path, targetdir))
@@ -97,11 +97,11 @@ class Rpm(Binary):
     - sources is a list of rpms
     - installation is with --nodeps (so the sources list has to be complete)
     """
-    
+
     def __init__(self, *args, **kwargs):
         """Initialize class variables."""
         super(Rpm, self).__init__(*args, **kwargs)
-        
+
         self.rebuild_rpm = False
 
     @staticmethod
@@ -126,7 +126,7 @@ class Rpm(Binary):
         # determine whether RPMs need to be rebuilt to make relocation work
         cmd = "rpm --version"
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        
+
         rpmver_re = re.compile("^RPM\s+version\s+(?P<version>[0-9.]+).*")
         res = rpmver_re.match(out)
         self.log.debug("RPM version found: %s" % res.group())
@@ -143,7 +143,7 @@ class Rpm(Binary):
 
         if self.rebuild_rpm:
             self.rebuild_rpms()
-    
+
     # when installing RPMs under a non-default path for e.g. SL6,
     # --relocate doesn't seem to work (error: Unable to change root directory: Operation not permitted)
     def rebuild_rpms(self):
@@ -157,22 +157,20 @@ class Rpm(Binary):
             self.src.append({
                 'name': os.path.basename(path),
                 'path': path,
-        })
+            })
         self.log.debug("oldsrc: %s, src: %s" % (self.oldsrc, self.src))
 
     def install_step(self):
         """Custom installation procedure for RPMs into a custom prefix."""
-        try:
-            os.chdir(self.installdir)
-            os.mkdir('rpm')
-        except:
-            raise EasyBuildError("Can't create rpm dir in install dir %s", self.installdir)
+
+        change_dir(self.installdir)
+        mkdir('rpm')
 
         cmd = "rpm --initdb --dbpath /rpm --root %s" % self.installdir
 
         run_cmd(cmd, log_all=True, simple=True)
 
-        force=''
+        force = ''
         if self.cfg['force']:
             force = '--force'
 
@@ -210,8 +208,9 @@ class Rpm(Binary):
             realdirs = glob.glob(path)
             if realdirs:
                 if len(realdirs) > 1:
-                    self.log.debug("More then one match found for symlink glob %s, using first (all: %s)" % (path, realdirs))
-                os.symlink(realdirs[0], os.path.join(self.installdir, os.path.basename(path)))
+                    self.log.debug("More then one match found for symlink glob %s, using first (all: %s)",
+                                   path, realdirs)
+                symlink(realdirs[0], os.path.join(self.installdir, os.path.basename(path)))
             else:
                 self.log.debug("No match found for symlink glob %s." % path)
 
@@ -227,4 +226,3 @@ class Rpm(Binary):
                        })
 
         return guesses
-

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 The Cyprus Institute
+# Copyright 2009-2020 The Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,10 +44,12 @@ class EB_BamTools(MakeCp, CMakeMake):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters for BamTools."""
-        extra = MakeCp.extra_options()
+        extra_vars = MakeCp.extra_options()
+
         # files_to_copy is not mandatory here, since we overwrite it in install_step
-        extra['files_to_copy'][2] = CUSTOM
-        return extra
+        extra_vars['files_to_copy'][2] = CUSTOM
+
+        return CMakeMake.extra_options(extra_vars=extra_vars)
 
     def configure_step(self):
         """Configure BamTools build."""
@@ -56,7 +58,7 @@ class EB_BamTools(MakeCp, CMakeMake):
         try:
             mkdir(builddir)
             os.chdir(builddir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to %s: %s", builddir, err)
 
         CMakeMake.configure_step(self, srcdir='..')

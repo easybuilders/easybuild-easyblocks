@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,6 @@ import fileinput
 import glob
 import os
 import re
-import shutil
 import sys
 
 import easybuild.tools.toolchain as toolchain
@@ -63,6 +62,13 @@ class EB_Boost(EasyBlock):
         super(EB_Boost, self).__init__(*args, **kwargs)
 
         self.objdir = None
+
+        self.pyvers = []
+
+        if LooseVersion(self.version) >= LooseVersion("1.71.0"):
+            self.bjamcmd = 'b2'
+        else:
+            self.bjamcmd = 'bjam'
 
     @staticmethod
     def extra_options():
@@ -93,8 +99,18 @@ class EB_Boost(EasyBlock):
                     for line in fileinput.input("%s" % patchfile, inplace=1, backup='.orig'):
                         line = re.sub(r"TIME_UTC", r"TIME_UTC_", line)
                         sys.stdout.write(line)
-                except IOError, err:
+                except IOError as err:
                     raise EasyBuildError("Failed to patch %s: %s", patchfile, err)
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+
+        super(EB_Boost, self).prepare_step(*args, **kwargs)
+
+        # keep track of Python version(s) used during installation,
+        # so we can perform a complete sanity check
+        if get_software_root('Python'):
+            self.pyvers.append(get_software_version('Python'))
 
     def configure_step(self):
         """Configure Boost build using custom tools"""
@@ -159,13 +175,14 @@ class EB_Boost(EasyBlock):
     def build_boost_variant(self, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
         # build with specified options
-        cmd = "%s ./bjam %s %s %s" % (self.cfg['prebuildopts'], bjamoptions, paracmd, self.cfg['buildopts'])
+        cmd = "%s ./%s %s %s %s" % (self.cfg['prebuildopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # install built Boost library
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # clean up before proceeding with next build
-        run_cmd("./bjam --clean-all", log_all=True, simple=True)
+        run_cmd("./%s --clean-all" % self.bjamcmd, log_all=True, simple=True)
 
     def build_step(self):
         """Build Boost with bjam tool."""
@@ -220,14 +237,19 @@ class EB_Boost(EasyBlock):
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "%s ./bjam %s install %s %s" % (self.cfg['preinstallopts'], bjamoptions, paracmd, self.cfg['installopts'])
+        cmd = "%s ./%s %s install %s %s" % (
+            self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
-        """Install Boost by copying file to install dir."""
+        """Install Boost by copying files to install dir."""
 
-        self.log.info("Copying %s to installation dir %s" % (self.objdir, self.installdir))
-        copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
+        self.log.info("Copying %s to installation dir %s", self.objdir, self.installdir)
+        if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.iter_idx > 0:
+            self.log.info("Main installation should already exist, only copying over missing Python libraries.")
+            copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'))
+        else:
+            copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
@@ -243,9 +265,9 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi']:
             custom_paths['files'].append(os.path.join('lib', 'libboost_mpi.%s' % shlib_ext))
 
-        if get_software_root('Python'):
-            pymajorver = get_software_version('Python').split('.')[0]
-            pyminorver = get_software_version('Python').split('.')[1]
+        for pyver in self.pyvers:
+            pymajorver = pyver.split('.')[0]
+            pyminorver = pyver.split('.')[1]
             if LooseVersion(self.version) >= LooseVersion("1.67.0"):
                 suffix = '%s%s' % (pymajorver, pyminorver)
             elif int(pymajorver) >= 3:
@@ -265,5 +287,6 @@ class EB_Boost(EasyBlock):
     def make_module_extra(self):
         """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
         txt = super(EB_Boost, self).make_module_extra()
-        txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
+        if not self.cfg['only_python_bindings']:
+            txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt

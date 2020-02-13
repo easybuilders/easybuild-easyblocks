@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -108,7 +108,7 @@ class Binary(EasyBlock):
                 # shutil.copytree doesn't allow the target directory to exist already
                 rmtree2(self.installdir)
                 shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
         else:
             cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
@@ -125,7 +125,7 @@ class Binary(EasyBlock):
                 if os.path.exists(self.installdir):
                     rmtree2(self.installdir)
                 shutil.copytree(staged_installdir, self.installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 

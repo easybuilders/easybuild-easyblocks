@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,11 +32,9 @@ implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import shutil
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import copy_dir, rmtree2
 
 
 class Tarball(EasyBlock):
@@ -59,19 +57,9 @@ class Tarball(EasyBlock):
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
-        if src is None:
-            src = self.cfg['start_dir']
-
-        # shutil.copytree cannot handle destination dirs that exist already.
-        # On the other hand, Python2.4 cannot create entire paths during copytree.
-        # Therefore, only the final directory is deleted.
         rmtree2(self.installdir)
-        try:
-            # self.cfg['keepsymlinks'] is False by default except when explicitly put to True in .eb file
-            shutil.copytree(src, self.installdir, symlinks=self.cfg['keepsymlinks'])
-        except OSError, err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, self.installdir, err)
-    
+        copy_dir(src or self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
+
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Tarball)",

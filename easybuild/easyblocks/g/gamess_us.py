@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -205,7 +205,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                     line = re.sub(r"^(\s*set\s*SCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
                     line = re.sub(r"^(\s*set\s*USERSCR)=.*", r"\1=%s" % self.cfg['scratch_dir'], line)
                 sys.stdout.write(line)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", rungms, err)
 
     def build_step(self):
@@ -249,14 +249,14 @@ class EB_GAMESS_minus_US(EasyBlock):
             try:
                 cwd = os.getcwd()
                 os.chdir(self.testdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to temporary directory for running tests: %s", err)
 
             # copy input files for exam<id> standard tests
             for test_input in glob.glob(os.path.join(self.installdir, 'tests', 'standard', 'exam*.inp')):
                 try:
                     shutil.copy2(test_input, os.getcwd())
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
 
             rungms = os.path.join(self.installdir, 'rungms')
@@ -287,7 +287,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             os.chdir(cwd)
             try:
                 shutil.rmtree(self.testdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to remove test directory %s: %s", self.testdir, err)
 
     def install_step(self):

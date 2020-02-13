@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,20 +31,20 @@ EasyBuild support for using (already installed/existing) system compiler instead
 """
 import os
 import re
-from vsc.utils import fancylogger
 from distutils.version import LooseVersion
 
+from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
 from easybuild.easyblocks.gcc import EB_GCC
-from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.run import run_cmd
 
 _log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
+
 
 def extract_compiler_version(compiler_name):
     """Extract compiler version for provided compiler_name."""
@@ -83,6 +83,7 @@ def extract_compiler_version(compiler_name):
                              compiler_name, version_regex.pattern, out)
 
     return compiler_version
+
 
 # No need to inherit from EB_icc since EB_ifort already inherits from that
 class SystemCompiler(Bundle, EB_GCC, EB_ifort):
@@ -137,7 +138,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                 raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
         else:
             Bundle.prepare_step(self, *args, **kwargs)
-            
+
         # Determine compiler path (real path, with resolved symlinks)
         compiler_name = self.cfg['name'].lower()
         if compiler_name == 'gcccore':
@@ -168,7 +169,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                     self.compiler_prefix = res.group(1)
                 else:
                     raise EasyBuildError("Failed to determine %s installation prefix from %s",
-                                          compiler_name, intelvars_fn)
+                                         compiler_name, intelvars_fn)
             else:
                 # strip off 'bin/intel*/icc'
                 self.compiler_prefix = os.path.dirname(os.path.dirname(os.path.dirname(path_to_compiler)))
@@ -211,7 +212,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                 print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
                               self.compiler_prefix)
             else:
-                if self.cfg['name'] in ['GCC','GCCcore']:
+                if self.cfg['name'] in ['GCC', 'GCCcore']:
                     guesses = EB_GCC.make_module_req_guess(self)
                 elif self.cfg['name'] in ['icc']:
                     guesses = EB_icc.make_module_req_guess(self)
@@ -256,7 +257,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
     def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
         if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['GCC','GCCcore']:
+            if self.cfg['name'] in ['GCC', 'GCCcore']:
                 extras = EB_GCC.make_module_extra(self, *args, **kwargs)
             elif self.cfg['name'] in ['icc']:
                 extras = EB_icc.make_module_extra(self, *args, **kwargs)

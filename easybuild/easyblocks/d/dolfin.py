@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,10 +34,11 @@ import re
 import tempfile
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import change_dir, remove
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -99,8 +100,8 @@ class EB_DOLFIN(CMakePythonPackage):
         self.saved_configopts = self.cfg['configopts']
 
         # make sure that required dependencies are loaded
-        deps = ['Boost', 'CGAL', 'MTL4', 'ParMETIS', 'PETSc', 'Python',
-                'SCOTCH', 'Sphinx', 'SLEPc', 'SuiteSparse', 'Trilinos', 'zlib']
+        deps = ['Boost', 'CGAL', 'ParMETIS', 'PETSc', 'Python',
+                'SCOTCH', 'SLEPc', 'SuiteSparse', 'Trilinos', 'zlib']
         # Armadillo was replaced by Eigen in v1.3
         if LooseVersion(self.version) < LooseVersion('1.3'):
             deps.append('Armadillo')
@@ -114,6 +115,10 @@ class EB_DOLFIN(CMakePythonPackage):
         # PLY, petsc4py, slepc4py are required since v1.5
         if LooseVersion(self.version) >= LooseVersion('1.5'):
             deps.extend(['petsc4py', 'PLY', 'slepc4py'])
+
+        # pybind11 is required to build Python bindings since v2018.1
+        if LooseVersion(self.version) >= LooseVersion('2018.1'):
+            deps.append('pybind11')
 
         depsdict = {}
         for dep in deps:
@@ -148,10 +153,11 @@ class EB_DOLFIN(CMakePythonPackage):
             self.cfg.update('configopts', "-DEIGEN3_INCLUDE_DIR=%s " % os.path.join(depsdict['Eigen'], 'include'))
 
         # specify Python paths
-        python = depsdict['Python']
-        pyver = '.'.join(get_software_version('Python').split('.')[:2])
-        self.cfg.update('configopts', "-DPYTHON_INCLUDE_PATH=%s/include/python%s" % (python, pyver))
-        self.cfg.update('configopts', "-DPYTHON_LIBRARY=%s/lib/libpython%s.%s" % (python, pyver, shlib_ext))
+        if LooseVersion(self.version) < LooseVersion('2018.1'):
+            python = depsdict['Python']
+            pyver = '.'.join(get_software_version('Python').split('.')[:2])
+            self.cfg.update('configopts', "-DPYTHON_INCLUDE_PATH=%s/include/python%s" % (python, pyver))
+            self.cfg.update('configopts', "-DPYTHON_LIBRARY=%s/lib/libpython%s.%s" % (python, pyver, shlib_ext))
 
         # SuiteSparse config params
         suitesparse = depsdict['SuiteSparse']
@@ -188,7 +194,12 @@ class EB_DOLFIN(CMakePythonPackage):
                 self.cfg.update('configopts', '-D%s=%s' % (env_var, val))
 
         # MTL4
-        self.cfg.update('configopts', '-DMTL4_DIR:PATH="%s"' % depsdict['MTL4'])
+        if 'MTL4' in depsdict:
+            self.cfg.update('configopts', '-DMTL4_DIR:PATH="%s"' % depsdict['MTL4'])
+
+        # SUNDIALS
+        if 'SUNDIALS' in depsdict:
+            self.cfg.update('configopts', '-DSUNDIALS_DIR:PATH="%s"' % depsdict['SUNDIALS'])
 
         # configure
         out = super(EB_DOLFIN, self).configure_step()
@@ -213,7 +224,7 @@ class EB_DOLFIN(CMakePythonPackage):
             try:
                 os.makedirs(instant_cache_dir)
                 os.makedirs(instant_error_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create Instant cache/error dirs: %s", err)
 
             env_vars = [
@@ -274,10 +285,23 @@ class EB_DOLFIN(CMakePythonPackage):
                 run_cmd(cmd, log_all=True)
 
             # clean up temporary dir
-            try:
-                rmtree2(tmpdir)
-            except OSError, err:
-                raise EasyBuildError("Failed to remove Instant cache/error dirs: %s", err)
+            remove(tmpdir)
+
+    def install_step(self):
+        """Custom install procedure for DOLFIN: also install Python bindings."""
+        super(EB_DOLFIN, self).install_step()
+
+        if LooseVersion(self.version) >= LooseVersion('2018.1'):
+            # see https://bitbucket.org/fenics-project/dolfin/issues/897/switch-from-swig-to-pybind11-for-python
+            # and https://github.com/FEniCS/dolfin/blob/master/python/README.rst
+            cwd = change_dir(os.path.join(self.start_dir, 'python'))
+
+            env.setvar('CMAKE_PREFIX_PATH', self.installdir)
+            env.setvar('PYBIND11_DIR', get_software_root('pybind11'))
+
+            run_cmd("pip install --prefix %s ." % self.installdir)
+
+            change_dir(cwd)
 
     def post_install_step(self):
         """Post install actions: extend RPATH paths in .so libraries part of the DOLFIN Python package."""

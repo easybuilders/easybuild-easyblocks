@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University, University of Luxembourg
+# Copyright 2009-2020 Ghent University, University of Luxembourg
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,7 +77,12 @@ class EB_SuperLU(CMakeMake):
         # Set the BLAS library to use
         # For this, use the BLA_VENDOR option from the FindBLAS module of CMake
         # Check for all possible values at https://cmake.org/cmake/help/latest/module/FindBLAS.html
-        toolchain_blas = self.toolchain.definition().get('BLAS', None)[0]
+        toolchain_blas_list = self.toolchain.definition().get('BLAS', None)
+        if toolchain_blas_list is None:
+            # This toolchain has no BLAS library
+            raise EasyBuildError("No BLAS library found in the toolchain")
+
+        toolchain_blas = toolchain_blas_list[0]
         if toolchain_blas == 'imkl':
             imkl_version = get_software_version('imkl')
             if LooseVersion(imkl_version) >= LooseVersion('10'):
@@ -98,10 +103,6 @@ class EB_SuperLU(CMakeMake):
             # we have to specify the OpenBLAS library manually
             openblas_lib = os.path.join(get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a")
             self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
-
-        elif toolchain_blas is None:
-            # This toolchain has no BLAS library
-            raise EasyBuildError("No BLAS library found in the toolchain")
 
         else:
             # This BLAS library is not supported yet

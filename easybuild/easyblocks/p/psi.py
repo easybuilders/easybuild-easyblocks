@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2018 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd
 
 
 class EB_PSI(CMakeMake):
@@ -74,7 +75,7 @@ class EB_PSI(CMakeMake):
             objdir = os.path.join(self.builddir, 'obj')
             os.makedirs(objdir)
             os.chdir(objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to prepare for configuration of PSI build: %s", err)
 
         env.setvar('F77FLAGS', os.getenv('F90FLAGS'))
@@ -92,13 +93,13 @@ class EB_PSI(CMakeMake):
         if not pythonroot:
             raise EasyBuildError("Python module not loaded.")
 
-        # Use EB Boost
-        boostroot = get_software_root('Boost')
-        if not boostroot:
-            raise EasyBuildError("Boost module not loaded.")
-
         # pre 4.0b5, they were using autotools, on newer it's CMake
         if LooseVersion(self.version) <= LooseVersion("4.0b5") and self.name == "PSI":
+            # Use EB Boost
+            boostroot = get_software_root('Boost')
+            if not boostroot:
+                raise EasyBuildError("Boost module not loaded.")
+
             self.log.info("Using configure based build")
             env.setvar('PYTHON', os.path.join(pythonroot, 'bin', 'python'))
             env.setvar('USE_SYSTEM_BOOST', 'TRUE')
@@ -139,7 +140,12 @@ class EB_PSI(CMakeMake):
         else:
             self.log.info("Using CMake based build")
             self.cfg.update('configopts', ' -DPYTHON_INTERPRETER=%s' % os.path.join(pythonroot, 'bin', 'python'))
-            self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=Release')
+            if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
+                self.log.info("Remove the CMAKE_BUILD_TYPE test in PSI4 source and the downloaded dependencies!")
+                self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
+                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=EasyBuildRelease')
+            else:
+                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=Release')
 
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', " -DENABLE_MPI=ON")
@@ -150,11 +156,34 @@ class EB_PSI(CMakeMake):
             if self.name == 'PSI4':
                 pcmsolverroot = get_software_root('PCMSolver')
                 if pcmsolverroot:
-                    self.cfg.update('configopts', " -DENABLE_PCMSOLVER=ON -DPCMSOLVER_ROOT=%s" % pcmsolverroot)
+                    self.cfg.update('configopts', " -DENABLE_PCMSOLVER=ON")
+                    if LooseVersion(self.version) < LooseVersion("1.2"):
+                        self.cfg.update('configopts', " -DPCMSOLVER_ROOT=%s" % pcmsolverroot)
+                    else:
+                        self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_PCMSolver=ON "
+                                        "-DPCMSolver_DIR=%s/share/cmake/PCMSolver" % pcmsolverroot)
 
                 chempsroot = get_software_root('CheMPS2')
                 if chempsroot:
-                    self.cfg.update('configopts', " -DENABLE_CHEMPS2=ON -DCHEMPS2_ROOT=%s" % chempsroot)
+                    self.cfg.update('configopts', " -DENABLE_CHEMPS2=ON")
+                    if LooseVersion(self.version) < LooseVersion("1.2"):
+                        self.cfg.update('configopts', " -DCHEMPS2_ROOT=%s" % chempsroot)
+                    else:
+                        self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_CheMPS2=ON "
+                                        "-DCheMPS2_DIR=%s/share/cmake/CheMPS2" % chempsroot)
+
+                #  Be aware, PSI4 wants exact versions of the following deps! built with CMake!!
+                #  If you want to use non-CMake build versions, the you have to provide the
+                #  corresponding Find<library-name>.cmake scripts
+                #  In PSI4 version 1.2.1, you can check the corresponding CMakeLists.txt file
+                #  in external/upstream/<library-name>/
+                if LooseVersion(self.version) >= LooseVersion("1.2"):
+                    for dep in ['libxc', 'Libint', 'pybind11', 'gau2grid']:
+                        deproot = get_software_root(dep)
+                        if deproot:
+                            self.cfg.update('configopts', " -DCMAKE_INSIST_FIND_PACKAGE_%s=ON" % dep)
+                            dep_dir = os.path.join(deproot, 'share', 'cmake', dep)
+                            self.cfg.update('configopts', " -D%s_DIR=%s " % (dep, dep_dir))
 
             CMakeMake.configure_step(self, srcdir=self.cfg['start_dir'])
 
@@ -168,7 +197,7 @@ class EB_PSI(CMakeMake):
                 # copy symlinks as symlinks to work around broken symlinks
                 shutil.copytree(os.path.join(self.builddir, subdir), os.path.join(self.installdir, subdir),
                                 symlinks=True)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy obj and unpacked sources to install dir: %s", err)
 
     def test_step(self):
@@ -177,11 +206,23 @@ class EB_PSI(CMakeMake):
         """
         testdir = tempfile.mkdtemp()
         env.setvar('PSI_SCRATCH', testdir)
-        super(EB_PSI, self).test_step()
+        if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
+            if self.cfg['runtest']:
+                paracmd = ''
+                # Run ctest parallel, but limit to maximum 4 jobs (in case of slow disks)
+                if self.cfg['parallel']:
+                    if self.cfg['parallel'] > 4:
+                        paracmd = '-j 4'
+                    else:
+                        paracmd = "-j %s" % self.cfg['parallel']
+                cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
+                run_cmd(cmd, log_all=True, simple=False)
+        else:
+            super(EB_PSI, self).test_step()
 
         try:
             shutil.rmtree(testdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to remove test directory %s: %s", testdir, err)
 
     def sanity_check_step(self):

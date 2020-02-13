@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -92,7 +92,7 @@ class EB_NEMO(EasyBlock):
             dst = 'NEMOGCM/CONFIG'
             os.chdir(dst)
             self.log.debug("Changed to directory %s", dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to directory %s: %s", dst, err)
 
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
@@ -107,7 +107,7 @@ class EB_NEMO(EasyBlock):
         binpath = os.path.join(self.cfg['start_dir'], 'NEMOGCM', 'CONFIG', self.conf_name, 'BLD/bin')
         try:
             shutil.copytree(binpath, os.path.join(self.installdir, 'bin'))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir failed: %s", binpath, err)
 
     def sanity_check_step(self):

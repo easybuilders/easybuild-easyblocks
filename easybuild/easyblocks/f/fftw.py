@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,15 +28,18 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 from distutils.version import LooseVersion
-from vsc.utils.missing import nub
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.utilities import nub
 
 
 # AVX*, FMA4 (AMD Bulldozer+ only), SSE2 (x86_64 only)
@@ -85,6 +88,11 @@ class EB_FFTW(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for FFTW."""
         super(EB_FFTW, self).__init__(*args, **kwargs)
+
+        # do not enable MPI if the toolchain does not support it
+        if not self.toolchain.mpi_family():
+            self.log.info("Disabling MPI support because the toolchain used does not support it.")
+            self.cfg['with_mpi'] = False
 
         for flag in FFTW_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
@@ -188,13 +196,14 @@ class EB_FFTW(ConfigureMake):
                 cpu_arch = get_cpu_architecture()
                 comp_fam = self.toolchain.comp_family()
                 fftw_ver = LooseVersion(self.version)
-                if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC and fftw_ver <= LooseVersion('3.3.8'):
+                if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
                     # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5/6/7
-                    if prec == 'single':
+                    if prec == 'single' and fftw_ver <= LooseVersion('3.3.8'):
                         self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
                                       % self.version)
                         prec_configopts.append('--disable-altivec')
-                    if prec == 'double':
+                    # Issue with VSX has been solved in FFTW/3.3.7
+                    if prec == 'double' and fftw_ver <= LooseVersion('3.3.6'):
                         self.log.info("Disabling vsx for double precision on POWER with GCC for FFTW/%s" % self.version)
                         prec_configopts.append('--disable-vsx')
 
@@ -204,6 +213,20 @@ class EB_FFTW(ConfigureMake):
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
         return super(EB_FFTW, self).run_all_steps(*args, **kwargs)
+
+    def test_step(self):
+        """Custom implementation of test step for FFTW."""
+
+        if self.toolchain.mpi_family() == toolchain.OPENMPI:
+
+            # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
+            # to avoid that some tests fail if only a handful of cores are available
+            ompi_ver = get_software_version('OpenMPI')
+            if LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+                if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+
+        super(EB_FFTW, self).test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for FFTW."""

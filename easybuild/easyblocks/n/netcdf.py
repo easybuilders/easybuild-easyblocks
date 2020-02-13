@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,19 +68,45 @@ class EB_netCDF(CMakeMake):
             ConfigureMake.configure_step(self)
 
         else:
-            self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
-            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z')]:
+            if self.toolchain.options['debug']:
+                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=DEBUG ')
+            else:
+                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
+
+            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
+                                   ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
                 dep_libdir = get_software_libdir(dep)
+
                 if dep_root:
                     incdir = os.path.join(dep_root, 'include')
                     self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s ' % (dep.upper(), incdir))
+
                     if dep == 'HDF5':
                         env.setvar('HDF5_ROOT', dep_root)
-                        libhdf5 = os.path.join(dep_root, dep_libdir, 'libhdf5.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_LIB=%s ' % libhdf5)
-                        libhdf5_hl = os.path.join(dep_root, dep_libdir, 'libhdf5_hl.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_HL_LIB=%s ' % libhdf5_hl)
+                        self.cfg.update('configopts', '-DUSE_HDF5=ON')
+
+                        hdf5cmvars = {
+                            # library name: (cmake option suffix in netcdf<4.4, cmake option suffix in netcfd>=4.4)
+                            'hdf5': ('LIB', 'C_LIBRARY'),
+                            'hdf5_hl': ('HL_LIB', 'HL_LIBRARY'),
+                        }
+
+                        for libname in hdf5cmvars:
+                            if LooseVersion(self.version) < LooseVersion("4.4"):
+                                cmvar = hdf5cmvars[libname][0]
+                            else:
+                                cmvar = hdf5cmvars[libname][1]
+                            libhdf5 = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
+                            self.cfg.update('configopts', '-DHDF5_%s=%s ' % (cmvar, libhdf5))
+                            # 4.4 forgot to set HDF5_<lang>_LIBRARIES
+                            if LooseVersion(self.version) == LooseVersion("4.4.0"):
+                                lang = 'HL' if cmvar[0] == 'H' else 'C'
+                                self.cfg.update('configopts', '-DHDF5_%s_LIBRARIES=%s ' % (lang, libhdf5))
+
+                    elif dep == 'PnetCDF':
+                        self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')
+
                     else:
                         libso = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                         self.cfg.update('configopts', '-D%s_LIBRARY=%s ' % (dep.upper(), libso))

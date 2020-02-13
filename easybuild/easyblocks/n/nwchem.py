@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -110,7 +110,7 @@ class EB_NWChem(ConfigureMake):
                                              self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
                 # ok to remove, we'll recreate it anyway
                 remove_file(self.local_nwchemrc)
-        except (IOError, OSError), err:
+        except (IOError, OSError) as err:
             raise EasyBuildError("Failed to validate %s symlink: %s", self.home_nwchemrc, err)
 
         # building NWChem in a long path name is an issue, so let's try to make sure we have a short one
@@ -125,7 +125,7 @@ class EB_NWChem(ConfigureMake):
             symlink(self.cfg['start_dir'], start_dir)
             change_dir(start_dir)
             self.cfg['start_dir'] = start_dir
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink build dir to a shorter path name: %s", err)
 
         # change to actual build dir
@@ -297,7 +297,7 @@ class EB_NWChem(ConfigureMake):
 
             change_dir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to build version info: %s", err)
 
         # run getmem.nwchem script to assess memory availability and make an educated guess
@@ -326,7 +326,7 @@ class EB_NWChem(ConfigureMake):
             shutil.copytree(os.path.join(self.cfg['start_dir'], 'src', 'nwpw', 'libraryps'),
                             os.path.join(self.installdir, 'data', 'libraryps'))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install NWChem: %s", err)
 
         # create NWChem settings file
@@ -390,7 +390,7 @@ class EB_NWChem(ConfigureMake):
 
             self.log.info("Copied %s to %s." % (exs_dir, self.examples_dir))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy examples: %s", err)
 
         super(EB_NWChem, self).cleanup_step()
@@ -438,7 +438,7 @@ class EB_NWChem(ConfigureMake):
                 # we've verified earlier that the symlink is what we expect it to be if it's there
                 if not os.path.islink(self.home_nwchemrc):
                     symlink(self.local_nwchemrc, self.home_nwchemrc)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_nwchemrc, self.local_nwchemrc, err)
 
             # run tests, keep track of fail ratio
@@ -516,11 +516,11 @@ class EB_NWChem(ConfigureMake):
             try:
                 shutil.rmtree(self.examples_dir)
                 shutil.rmtree(local_nwchemrc_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Cleanup failed: %s", err)
 
             # set post msg w.r.t. cleaning up $HOME/.nwchemrc symlink
             self.postmsg += "\nRemember to clean up %s after all NWChem builds are finished." % self.home_nwchemrc
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to run test cases: %s", err)

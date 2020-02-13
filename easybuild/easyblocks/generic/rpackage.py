@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -112,7 +112,7 @@ class RPackage(ExtensionEasyBlock):
         %s
         install.packages("%s", %s dependencies = FALSE %s%s)
         """ % (confvarslist, confargslist, self.name, prefix, confvarsstr, confargsstr)
-        cmd = "R -q --no-save"
+        cmd = "%s R -q --no-save %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
 
         self.log.debug("make_r_cmd returns %s with input %s" % (cmd, r_cmd))
 
@@ -138,7 +138,16 @@ class RPackage(ExtensionEasyBlock):
             loc = self.ext_dir
         else:
             loc = self.ext_src
-        cmd = "R CMD INSTALL %s %s %s %s --no-clean-on-error" % (loc, confargs, confvars, prefix)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            "R CMD INSTALL",
+            loc,
+            confargs,
+            confvars,
+            prefix,
+            '--no-clean-on-error',
+            self.cfg['installopts'],
+        ])
 
         self.log.debug("make_cmdline_cmd returns %s" % cmd)
         return cmd, None
@@ -153,7 +162,7 @@ class RPackage(ExtensionEasyBlock):
         else:
             try:
                 shutil.copy2(self.src[0]['path'], self.builddir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy source to build dir: %s", err)
             self.ext_src = self.src[0]['name']
 

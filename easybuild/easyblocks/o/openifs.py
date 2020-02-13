@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -76,7 +76,7 @@ class EB_OpenIFS(EasyBlock):
         """Custom build procedure for OpenIFS."""
         try:
             os.chdir('make')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to 'make' dir: %s", err)
 
         # enable parallel build
@@ -92,7 +92,7 @@ class EB_OpenIFS(EasyBlock):
             os.makedirs(bindir)
             shutil.copy2(os.path.join(srcdir, 'bin', 'master.exe'), bindir)
             shutil.copytree(os.path.join(srcdir, 'include'), os.path.join(self.installdir, 'include'))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install OpenIFS: %s", err)
 
     def sanity_check_step(self):

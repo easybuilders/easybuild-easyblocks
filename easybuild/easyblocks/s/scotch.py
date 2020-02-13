@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,17 +31,15 @@ EasyBuild support for SCOTCH, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import fileinput
 import os
-import re
-import shutil
-import sys
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
+from easybuild.tools.filetools import remove_file, write_file
 from easybuild.tools.run import run_cmd
 
 
@@ -61,43 +59,35 @@ class EB_SCOTCH(EasyBlock):
 
         # pick template makefile
         comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+        if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2.icc'
-        elif comp_fam == toolchain.GCC:  #@UndefinedVariable
+        elif comp_fam == toolchain.GCC:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2'
         else:
             raise EasyBuildError("Unknown compiler family used: %s", comp_fam)
 
+        srcdir = os.path.join(self.cfg['start_dir'], 'src')
+
         # create Makefile.inc
-        try:
-            srcdir = os.path.join(self.cfg['start_dir'], 'src')
-            src = os.path.join(srcdir, 'Make.inc', makefilename)
-            dst = os.path.join(srcdir, 'Makefile.inc')
-            shutil.copy2(src, dst)
-            self.log.debug("Successfully copied Makefile.inc to src dir.")
-        except OSError:
-            raise EasyBuildError("Copying Makefile.inc to src dir failed.")
+        makefile_inc = os.path.join(srcdir, 'Makefile.inc')
+        copy_file(os.path.join(srcdir, 'Make.inc', makefilename), makefile_inc)
+        self.log.debug("Successfully copied Makefile.inc to src dir: %s", makefile_inc)
 
         # the default behaviour of these makefiles is still wrong
         # e.g., compiler settings, and we need -lpthread
-        try:
-            for line in fileinput.input(dst, inplace=1, backup='.orig.easybuild'):
-                # use $CC and the likes since we're at it.
-                line = re.sub(r"^CCS\s*=.*$", "CCS\t= $(CC)", line)
-                line = re.sub(r"^CCP\s*=.*$", "CCP\t= $(MPICC)", line)
-                line = re.sub(r"^CCD\s*=.*$", "CCD\t= $(MPICC)", line)
-                # append -lpthread to LDFLAGS
-                line = re.sub(r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=\g<ldflags> -lpthread", line)
-                sys.stdout.write(line)
-        except IOError, err:
-            raise EasyBuildError("Can't modify/write Makefile in 'Makefile.inc': %s", err)
+        regex_subs = [
+            (r"^CCS\s*=.*$", "CCS\t= $(CC)"),
+            (r"^CCP\s*=.*$", "CCP\t= $(MPICC)"),
+            (r"^CCD\s*=.*$", "CCD\t= $(MPICC)"),
+            # append -lpthread to LDFLAGS
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=\g<ldflags> -lpthread"),
+            # prepend -L${EBROOTZLIB}/lib to LDFLAGS
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=-L${EBROOTZLIB}/lib \g<ldflags>"),
+        ]
+        apply_regex_substitutions(makefile_inc, regex_subs)
 
         # change to src dir for building
-        try:
-            os.chdir(srcdir)
-            self.log.debug("Changing to src dir.")
-        except OSError, err:
-            raise EasyBuildError("Failed to change to src dir: %s", err)
+        change_dir(srcdir)
 
     def build_step(self):
         """Build by running build_step, but with some special options for SCOTCH depending on the compiler."""
@@ -107,26 +97,29 @@ class EB_SCOTCH(EasyBlock):
         ccd = os.environ['MPICC']
 
         cflags = "-fPIC -O3 -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_PTHREAD -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME"
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             cflags += " -Drestrict=__restrict"
         else:
             cflags += " -restrict -DIDXSIZE64"
 
-        #USE 64 bit index
+        # USE 64 bit index
         if self.toolchain.options['i8']:
             cflags += " -DINTSIZE64"
 
-        if self.cfg['threadedmpi']: 
+        if self.cfg['threadedmpi']:
             cflags += " -DSCOTCH_PTHREAD"
-        #TODO For backwards compatability of v2.8.0 the following is necessary but could be removed on a major version upgrade
-        if self.cfg['threadedmpi'] is None and self.toolchain.mpi_family() not in [toolchain.INTELMPI, toolchain.QLOGICMPI]:
+
+        # For backwards compatability of v2.8.0 this is necessary but could be removed on a major version upgrade
+        mpi_family = self.toolchain.mpi_family()
+        if self.cfg['threadedmpi'] is None and mpi_family not in [toolchain.INTELMPI, toolchain.QLOGICMPI]:
             cflags += " -DSCOTCH_PTHREAD"
-        
+
         # actually build
         apps = ['scotch', 'ptscotch']
         if LooseVersion(self.version) >= LooseVersion('6.0'):
             # separate target for esmumps in recent versions
             apps.extend(['esmumps', 'ptesmumps'])
+
         for app in apps:
             cmd = 'make CCS="%s" CCP="%s" CCD="%s" CFLAGS="%s" %s' % (ccs, ccp, ccd, cflags, app)
             run_cmd(cmd, log_all=True, simple=True)
@@ -134,52 +127,53 @@ class EB_SCOTCH(EasyBlock):
     def install_step(self):
         """Install by copying files and creating group library file."""
 
-        self.log.debug("Installing SCOTCH")
+        self.log.debug("Installing SCOTCH by copying files")
 
-        # copy files to install dir
-        regmetis = re.compile(r".*metis.*")
-        try:
-            for d in ["include", "lib", "bin", "man"]:
-                src = os.path.join(self.cfg['start_dir'], d)
-                dst = os.path.join(self.installdir, d)
-                # we don't need any metis stuff from scotch!
-                shutil.copytree(src, dst, ignore=lambda path, files: [x for x in files if regmetis.match(x)])
+        for subdir in ['bin', 'include', 'lib', 'man']:
+            copy_dir(os.path.join(self.cfg['start_dir'], subdir), os.path.join(self.installdir, subdir))
 
-        except OSError, err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", src, dst, err)
+        # remove metis.h and parmetis.h include files, since those can only cause trouble
+        for header in ['metis.h', 'parmetis.h']:
+            remove_file(os.path.join(self.installdir, 'include', header))
 
         # create group library file
         scotchlibdir = os.path.join(self.installdir, 'lib')
         scotchgrouplib = os.path.join(scotchlibdir, 'libscotch_group.a')
 
-        try:
-            line = ' '.join(os.listdir(scotchlibdir))
-            line = "GROUP (%s)" % line
-
-            f = open(scotchgrouplib, 'w')
-            f.write(line)
-            f.close()
-            self.log.info("Successfully written group lib file: %s" % scotchgrouplib)
-        except (IOError, OSError), err:
-            raise EasyBuildError("Can't write to file %s: %s", scotchgrouplib, err)
+        line = "GROUP (%s)" % ' '.join(os.listdir(scotchlibdir))
+        write_file(scotchgrouplib, line)
+        self.log.info("Successfully written group lib file: %s", scotchgrouplib)
 
     def sanity_check_step(self):
         """Custom sanity check for SCOTCH."""
 
         custom_paths = {
-                        'files': ['bin/%s' % x for x in ["acpl", "amk_fft2", "amk_hy", "amk_p2", "dggath",
-                                                         "dgord", "dgscat", "gbase", "gmap", "gmk_m2",
-                                                         "gmk_msh", "gmtst", "gotst", "gpart", "gtst",
-                                                         "mmk_m2", "mord", "amk_ccc", "amk_grf", "amk_m2",
-                                                         "atst", "dgmap", "dgpart", "dgtst", "gcv", "gmk_hy",
-                                                         "gmk_m3", "gmk_ub2", "gord", "gout", "gscat", "mcv",
-                                                         "mmk_m3", "mtst"]] +
-                                 ['include/%s.h' % x for x in ["esmumps","ptscotchf", "ptscotch","scotchf",
-                                                               "scotch"]] +
-                                 ['lib/lib%s.a' % x for x in ["esmumps","ptscotch", "ptscotcherrexit",
-                                                              "scotcherr", "scotch_group", "ptesmumps",
-                                                              "ptscotcherr", "scotch", "scotcherrexit"]],
-                        'dirs':[]
-                        }
+            'files': [],
+            'dirs': [],
+        }
 
-        super(EB_SCOTCH, self).sanity_check_step(custom_paths=custom_paths)
+        binaries = ['acpl', 'amk_ccc', 'amk_fft2', 'amk_grf', 'amk_hy', 'amk_m2', 'amk_p2', 'atst',
+                    'dggath', 'dgmap', 'dgord', 'dgpart', 'dgscat', 'dgtst', 'gbase', 'gcv', 'gmap',
+                    'gmk_hy', 'gmk_m2', 'gmk_m3', 'gmk_msh', 'gmk_ub2', 'gmtst', 'gord', 'gotst',
+                    'gout', 'gpart', 'gscat', 'gtst', 'mcv', 'mmk_m2', 'mmk_m3', 'mord', 'mtst']
+        custom_paths['files'].extend([os.path.join('bin', b) for b in binaries])
+
+        headers = ['esmumps', 'ptscotch', 'ptscotchf', 'scotch', 'scotchf']
+        custom_paths['files'].extend([os.path.join('include', '%s.h' % h) for h in headers])
+
+        libraries = ['esmumps', 'ptesmumps', 'ptscotch', 'ptscotcherr', 'ptscotcherrexit',
+                     'scotch', 'scotch_group', 'scotcherr', 'scotcherrexit']
+        custom_paths['files'].extend([os.path.join('lib', 'lib%s.a' % l) for l in libraries])
+
+        custom_commands = []
+
+        # only hard check for recent SCOTCH versions;
+        # older versions like '5.1.12b_esmumps' require more effort (not worth it)
+        if LooseVersion(self.version) > LooseVersion('6.0.0'):
+            # make sure installed SCOTCH version matches what we expect,
+            # since it's easy to download the wrong tarball
+            # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/7154
+            # (for '5.1.12b_esmumps', check with 'version 5.1.12')
+            custom_commands.append("acpl -V 2>&1 | grep 'version %s'" % self.version.split('_')[0].strip('ab'))
+
+        super(EB_SCOTCH, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

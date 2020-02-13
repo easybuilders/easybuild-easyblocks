@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -70,7 +70,7 @@ class EB_VSC_minus_tools(PythonPackage):
 
             os.chdir(pwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install: %s", err)
 
     def sanity_check_step(self):

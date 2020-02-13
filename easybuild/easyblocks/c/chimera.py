@@ -29,7 +29,7 @@ class EB_Chimera(PackedBinary):
 
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to %s: %s", self.cfg['start_dir'], err)
 
         # Chimera comes bundled with its dependencies, and follows a
