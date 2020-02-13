@@ -12,6 +12,8 @@ from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import ERROR
 from easybuild.tools.run import run_cmd, check_log_for_errors
 
+TARGET = 'TARGET'
+
 
 class EB_OpenBLAS(ConfigureMake):
     """Support for building/installing OpenBLAS."""
@@ -27,7 +29,6 @@ class EB_OpenBLAS(ConfigureMake):
             'USE_THREAD': '1',
         }
 
-        TARGET = 'TARGET'
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
             for buildopt in self.cfg['buildopts'].split():
