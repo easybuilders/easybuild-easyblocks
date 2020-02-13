@@ -100,8 +100,9 @@ class EB_XCrySDen(ConfigureMake):
 
         togl_root = get_software_root("Togl")
         if togl_root:
-            settings['TOGL_LIB'] = "-L%s/lib -lTogl%s" % (togl_root, get_software_version("Togl"))
-            settings['TOGL_INCDIR'] = "-I%s/include" % togl_root
+            togl = {'root': togl_root, 'ver': get_software_version("Togl")}
+            settings['TOGL_LIB'] = "-L%(root)s/lib/Togl%(ver)s -lTogl%(ver)s" % togl
+            settings['TOGL_INCDIR'] = "-I%(root)s/include" % togl
 
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
