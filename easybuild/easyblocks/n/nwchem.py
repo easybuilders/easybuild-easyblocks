@@ -306,14 +306,30 @@ class EB_NWChem(ConfigureMake):
                 continue
 
         # Determine total amount of memory and number of cores
-        mem_avail = 0
         memtotal = get_total_memory()
         corecount = get_avail_core_count()
         if self.cfg['osmem_per_core']:
-            mem_avail = memtotal - (corecount * self.cfg['osmem_per_core'])
+            mem_avail_max = memtotal - (corecount * self.cfg['osmem_per_core'])
         else:
             # Let's assume 2 GB for the operating system unless otherwise advised.
-            mem_avail = memtotal - 2048
+            mem_avail_max = memtotal - 2048
+        # Make sure the actual available memory is no larger than kernel shmmax
+        # See http://www.nwchem-sw.org/index.php/Special:AWCforum/st/id704/Setting_ARMCI_DEFAULT_SHMMAX_pro....html
+        shmmax_file = os.path.join(os.sep, 'proc', 'sys', 'kernel', 'shmmax')
+        try:
+            with open(shmmax_file, 'r') as shmf:
+                shmmax = int(shmf.read())
+        except (IOError, ValueError) as err:
+            raise EasyBuildError("Could not read kernel shmmax: %s" % err)
+        shmmax_megabytes = int(float(shmmax) / 1048576.0)
+        if shmmax_megabytes < (mem_avail_max + 512):
+            mem_avail = shmmax_megabytes - 512
+            self.log.warning("Found system SHMMAX of %d bytes (%d MB), less than (mem_avail_max - 512) MB" % (shmmax, shmmax_megabytes))
+            self.log.warning("MAYBE_SYSVSHMEM will be set to %d MB, but memory-intensive calculations may not run" % mem_avail)
+        else:
+            mem_avail = mem_avail_max
+            self.log.info("MAYBE_SYSVSHMEM will be set to %d MB" % mem_avail)
+
         # Set ARMCI_DEFAULT_SHMMAX_UBOUND
         self.cfg.update('buildopts', ' MAYBE_SYSVSHMEM="ARMCI_DEFAULT_SHMMAX_UBOUND={0}"'.format(mem_avail))
 
