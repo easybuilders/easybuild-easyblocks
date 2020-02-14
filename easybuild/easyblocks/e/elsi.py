@@ -49,7 +49,7 @@ class EB_ELSI(CMakeMake):
     def extra_options():
         """Define custom easyconfig parameters for ELSI."""
         extra_vars = {
-            'build_internal_pexsi': [True, "Build internal PEXSI solver", CUSTOM],
+            'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
             'build_shared_libs': [True, "Build shared libraries instead of static", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
@@ -85,17 +85,23 @@ class EB_ELSI(CMakeMake):
             self.log.info("No external ELPA specified as dependency, building internal ELPA.")
 
         pexsi = get_software_root('PEXSI')
-        if pexsi and self.cfg['build_internal_pexsi']:
-            raise EasyBuildError("Both build_internal_pexsi and external PEXSI dependency found, only one can be set.")
+        if pexsi:
+            if self.cfg['build_internal_pexsi']:
+                raise EasyBuildError("Both build_internal_pexsi and external PEXSI dependency found, "
+                                     "only one can be set.")
+            self.log.info("Using external PEXSI.")
+            self.cfg.update('configopts', "-DUSE_EXTERNAL_PEXSI=ON")
+            external_libs.append('pexsi')
+        elif self.cfg['build_internal_pexsi'] is not False:
+            self.log.info("No external PEXSI specified as dependency and internal PEXSI not explicitly disabled, "
+                          "building internal PEXSI.")
+            self.cfg['build_internal_pexsi'] = True
+        else:
+            self.log.info("No external PEXSI specified as dependency and internal PEXSI was explicitly disabled, "
+                          "building ELSI without PEXSI.")
+
         if pexsi or self.cfg['build_internal_pexsi']:
-            self.log.info("Enabling PEXSI solver.")
             self.cfg.update('configopts', "-DENABLE_PEXSI=ON")
-            if pexsi:
-                self.log.info("Using external PEXSI.")
-                self.cfg.update('configopts', "-DUSE_EXTERNAL_PEXSI=ON")
-                external_libs.append('pexsi')
-            else:
-                self.log.info("No external PEXSI specified as dependency, building internal PEXSI.")
 
         slepc = get_software_root('SLEPc')
         if slepc:
