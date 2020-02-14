@@ -40,6 +40,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Siesta(ConfigureMake):
@@ -208,7 +209,7 @@ class EB_Siesta(ConfigureMake):
 
             elsi = get_software_root('ELSI')
             if elsi:
-                if not os.path.isfile(os.path.join(elsi, 'lib', 'libelsi.so')):
+                if not os.path.isfile(os.path.join(elsi, 'lib', 'libelsi.%s' % get_shared_lib_ext())):
                     raise EasyBuildError("This easyblock requires ELSI shared libraries instead of static")
 
                 regex_subs.extend([
