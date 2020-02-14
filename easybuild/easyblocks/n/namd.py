@@ -58,12 +58,12 @@ class EB_NAMD(MakeCp):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
         super(EB_NAMD, self).extract_step()
 
-        # check if the sources easyconfig parameter provided an alternative charm, which has been unpacked here already
-        charm_subdirs = glob.glob('charm-*')
         change_dir(self.src[0]['finalpath'])
+        # check if the sources easyconfig parameter provided an alternative charm, which has been unpacked here already
+        charm_subdirs = glob.glob(os.path.join('..', 'charm-*'))
         if len(charm_subdirs) == 1:
             # NAMD looks for a subdirectory named "charm" when configuring, so we symlink the provided unpacked tarball
-            os.symlink(os.path.join('..', charm_subdirs[0]), 'charm')
+            os.symlink(charm_subdirs[0], 'charm')
             self.charm_subdir = 'charm'
         else:
             charm_tarballs = glob.glob('charm-*.tar')
