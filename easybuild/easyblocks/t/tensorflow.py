@@ -439,8 +439,13 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-        # limit the number of parallel jobs running simultaneously (useful on KNL)...
-        cmd.append('--jobs=%s' % self.cfg['parallel'])
+        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
+        # and will hang forever building the TensorFlow package.
+        # So limit to something high but still reasonable while allowing ECs to overwrite it
+        parallel = self.cfg['parallel']
+        if self.cfg['maxparallel'] is None:
+            parallel = min(parallel, 64)
+        cmd.append('--jobs=%s' % parallel)
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
