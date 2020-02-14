@@ -33,6 +33,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake, setup_cmake_env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ELSI(CMakeMake):
@@ -77,7 +78,8 @@ class EB_ELSI(CMakeMake):
             self.log.info("Using external ELPA.")
             self.cfg.update('configopts', "-DUSE_EXTERNAL_ELPA=ON")
             elpa_lib = 'elpa_openmp' if self.toolchain.options.get('openmp', None) else 'elpa'
-            inc_paths.append('%s/include/%s-%s/modules' % (elpa_root, elpa_lib, get_software_version('ELPA')))
+            inc_paths.append(os.path.join(elpa_root, 'include', '%s-%s' % (elpa_lib, get_software_version('ELPA')),
+                                          'modules'))
             external_libs.extend([elpa_lib])
         else:
             self.log.info("No external ELPA specified as dependency, building internal ELPA.")
@@ -112,10 +114,10 @@ class EB_ELSI(CMakeMake):
             else:
                 raise EasyBuildError("Could not find FFTW library or interface.")
 
-        if get_software_root('imkl') or get_software_root('SCALAPACK'):
+        if get_software_root('imkl') or get_software_root('ScaLAPACK'):
             external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK%s_STATIC_LIBS' % self.env_suff]))
         else:
-            raise EasyBuildError("Could not find SCALAPACK library or interface.")
+            raise EasyBuildError("Could not find ScaLAPACK library or interface.")
 
         external_libs.extend(re.findall(r'-l(.*?)\b', os.environ['LIBS']))
 
@@ -141,10 +143,13 @@ class EB_ELSI(CMakeMake):
             modules.append('elsi_sips')
             libs.append('sips')
 
-        libext = '.so' if self.cfg['build_shared_libs'] else '.a'
+        libext = get_shared_lib_ext() if self.cfg['build_shared_libs'] else 'a'
+
+        module_paths = [os.path.join('include', '%s.mod' % mod) for mod in modules]
+        lib_paths = [os.path.join('lib', 'lib%s.%s' % (lib, libext)) for lib in libs]
 
         custom_paths = {
-            'files': ['include/%s.mod' % mod for mod in modules] + ['lib/lib%s%s' % (lib, libext) for lib in libs],
+            'files': module_paths + lib_paths,
             'dirs': [],
         }
 
