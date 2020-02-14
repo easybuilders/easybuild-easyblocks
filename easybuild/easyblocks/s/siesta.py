@@ -208,26 +208,13 @@ class EB_Siesta(ConfigureMake):
 
             elsi = get_software_root('ELSI')
             if elsi:
-                elsi_libs = ['elsi', 'fortjson', 'OMM', 'MatrixSwitch', 'NTPoly']
+                if not os.path.isfile(os.path.join(elsi, 'lib', 'libelsi.so')):
+                    raise EasyBuildError("This easyblock requires ELSI shared libraries instead of static")
 
-                if not elpa:
-                    elsi_libs.append('elpa')
-
-                if os.path.isfile(os.path.join(elsi, 'lib', 'libpexsi.a')):
-                    elsi_libs.extend(['pexsi', 'superlu_dist', 'ptscotchparmetis', 'ptscotch', 'ptscotcherr',
-                                      'scotchmetis', 'scotch', 'scotcherr'])
-
-                if os.path.isfile(os.path.join(elsi, 'lib', 'libsips.a')):
-                    elsi_libs.extend(['sips', 'slepc', 'petsc', 'HYPRE', 'umfpack', 'klu', 'cholmod', 'btf',
-                                      'ccolamd', 'colamd', 'camd', 'amd', 'suitesparseconfig', 'parmetis', 'metis',
-                                      'ptesmumps', 'ptscotchparmetis', 'ptscotch', 'ptscotcherr', 'esmumps', 'scotch',
-                                      'scotcherr', 'stdc++', 'dl', 'pthread'])
-
-                elsi_link_line = ' '.join(['-l' + lib for lib in elsi_libs])
                 regex_subs.extend([
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__ELSI"),
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -I%s/include" % elsi),
-                    (r"^(LIBS\s*=.*)$", r"\1 $(FFTW_LIBS) -L%s/lib %s -lstdc++" % (elsi, elsi_link_line)),
+                    (r"^(LIBS\s*=.*)$", r"\1 $(FFTW_LIBS) -L%s/lib -lelsi" % elsi),
                 ])
 
         apply_regex_substitutions(arch_make, regex_subs)
