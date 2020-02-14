@@ -67,7 +67,7 @@ class EB_NAMD(MakeCp):
             self.charm_subdir = 'charm'
         else:
             charm_tarballs = glob.glob('charm-*.tar')
-            if len(self.charm_tarballs) != 1:
+            if len(charm_tarballs) != 1:
                 raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", charm_tarballs)
 
             extract_file(charm_tarballs[0], os.getcwd())
