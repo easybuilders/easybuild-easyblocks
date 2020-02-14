@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-@author: Alexander Grund
+@author: Alexander Grund (TU Dresden)
 """
 import os
 
@@ -110,9 +110,9 @@ class EB_CMake(ConfigureMake):
         Custom sanity check for CMake.
         """
         paths = {
-            'files': ["bin/%s" % x for x in ['ccmake', 'cmake', 'cpack', 'ctest']],
+            'files': [os.path.join('bin', x) for x in ('ccmake', 'cmake', 'cpack', 'ctest')],
             'dirs': [],
         }
-        commands = [('cmake', '--help'), ('ccmake', '--help')]
+        commands = ['cmake --help', 'ccmake --help']
 
         super(EB_CMake, self).sanity_check_step(custom_paths=paths, custom_commands=commands)
