@@ -58,12 +58,20 @@ class EB_NAMD(MakeCp):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
         super(EB_NAMD, self).extract_step()
 
+        # check if the sources easyconfig parameter provided an alternative charm, which has been unpacked here already
+        charm_subdirs = glob.glob('charm-*')
         change_dir(self.src[0]['finalpath'])
-        self.charm_tarballs = glob.glob('charm-*.tar')
-        if len(self.charm_tarballs) != 1:
-            raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", self.charm_tarballs)
+        if len(charm_subdirs) == 1:
+            # NAMD looks for a subdirectory named "charm" when configuring, so we symlink the provided unpacked tarball
+            os.symlink(os.path.join('..', charm_subdirs[0]), 'charm')
+            self.charm_subdir = 'charm'
+        else:
+            charm_tarballs = glob.glob('charm-*.tar')
+            if len(self.charm_tarballs) != 1:
+                raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", charm_tarballs)
 
-        extract_file(self.charm_tarballs[0], os.getcwd())
+            extract_file(charm_tarballs[0], os.getcwd())
+            self.charm_subdir = '.'.join(os.path.basename(charm_tarballs[0]).split('.')[:-1])
 
     def configure_step(self):
         """Custom configure step for NAMD, we build charm++ first (if required)."""
@@ -100,10 +108,9 @@ class EB_NAMD(MakeCp):
 
 
         tup = (self.cfg['charm_arch'], self.cfg['charm_opts'], self.cfg['parallel'], os.environ['CXXFLAGS'])
-        cmd = "./build charm++ %s %s --with-numa -j%s %s -DMPICH_IGNORE_CXX_SEEK" % tup
-        charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
-        self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
-        run_cmd(cmd, path=charm_subdir)
+        cmd = "./build charm++ %s %s --with-numa -j%s \"%s -DMPICH_IGNORE_CXX_SEEK\"" % tup
+        self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, self.charm_subdir))
+        run_cmd(cmd, path=self.charm_subdir)
 
         # compiler (options)
         self.cfg.update('namd_cfg_opts', '--cc "%s" --cc-opts "%s"' % (os.environ['CC'], os.environ['CFLAGS']))
