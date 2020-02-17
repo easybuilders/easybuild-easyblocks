@@ -192,13 +192,13 @@ class EB_ParMETIS(EasyBlock):
 
         if config_shared:
             shlib_ext = get_shared_lib_ext()
-            parmetis_libs = ['lib/libparmetis.%s' % shlib_ext] + ['lib/libmetis.a']
+            parmetis_libs = ['lib/libparmetis.%s' % shlib_ext, 'lib/libmetis.a']
         else:
             parmetis_libs = ['lib/lib%smetis.a' % x for x in ["", "par"]]
 
         custom_paths = {
-                        'files': ['include/%smetis.h' % x for x in ["", "par"]] + parmetis_libs,
-                        'dirs': ['Lib']
-                       }
+            'files': ['include/%smetis.h' % x for x in ["", "par"]] + parmetis_libs,
+            'dirs': ['Lib']
+        }
 
         super(EB_ParMETIS, self).sanity_check_step(custom_paths=custom_paths)
