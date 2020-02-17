@@ -236,8 +236,6 @@ class EB_LAMMPS(CMakeMake):
             for check_file in check_files
         ]
 
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
@@ -245,8 +243,14 @@ class EB_LAMMPS(CMakeMake):
                 'include/lammps/library.h',
                 'lib64/liblammps.%s' % shlib_ext,
             ],
-            'dirs': [pythonpath],
+            'dirs': [],
         }
+
+        python = get_software_version('Python')
+        if python:
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
+            custom_paths['dirs'].append(pythonpath)
 
         return super(EB_LAMMPS, self).sanity_check_step(
             custom_commands=custom_commands,
@@ -258,10 +262,13 @@ class EB_LAMMPS(CMakeMake):
 
         txt = super(EB_LAMMPS, self).make_module_extra()
 
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
+        python = get_software_version('Python')
+        if python:
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
 
-        txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath, "lib64"])
+        txt += self.module_generator.prepend_paths('PYTHONPATH', ["lib64"])
         txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', ["lib64"])
 
         return txt
