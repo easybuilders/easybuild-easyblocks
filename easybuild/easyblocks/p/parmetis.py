@@ -30,6 +30,7 @@ EasyBuild support for ParMETIS, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 import shutil
