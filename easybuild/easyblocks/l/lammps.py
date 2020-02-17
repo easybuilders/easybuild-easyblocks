@@ -33,27 +33,26 @@ import sys
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
-from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 KOKKOS_CPU_ARCH_LIST = [
-    'ARMv80',  #  ARMv8.0 Compatible CPU
-    'ARMv81',  #  ARMv8.1 Compatible CPU
-    'ARMv8-ThunderX',  #  ARMv8 Cavium ThunderX CPU
-    'BGQ',  #  IBM Blue Gene/Q CPUs
-    'Power8',  #  IBM POWER8 CPUs
-    'Power9',  #  IBM POWER9 CPUs
-    'SNB',  #  Intel Sandy/Ivy Bridge CPUs
-    'HSW',  #  Intel Haswell CPUs
-    'BDW',  #  Intel Broadwell Xeon E-class CPUs
-    'SKX',  #  Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
-    'KNC',  #  Intel Knights Corner Xeon Phi
-    'KNL',  #  Intel Knights Landing Xeon Phi
+    'ARMv80',  # ARMv8.0 Compatible CPU
+    'ARMv81',  # ARMv8.1 Compatible CPU
+    'ARMv8-ThunderX',  # ARMv8 Cavium ThunderX CPU
+    'BGQ',  # IBM Blue Gene/Q CPUs
+    'Power8',  # IBM POWER8 CPUs
+    'Power9',  # IBM POWER9 CPUs
+    'SNB',  # Intel Sandy/Ivy Bridge CPUs
+    'HSW',  # Intel Haswell CPUs
+    'BDW',  # Intel Broadwell Xeon E-class CPUs
+    'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
+    'KNC',  # Intel Knights Corner Xeon Phi
+    'KNL',  # Intel Knights Landing Xeon Phi
 ]
 
 
@@ -87,7 +86,7 @@ class EB_LAMMPS(CMakeMake):
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'general_packages': [None, "List of general packages without `PKG_` prefix.", MANDATORY],
             'kokkos': [True, "Enable kokkos build. (enabled by default)", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch to specific value, if auto-detection doesn't work.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
         }
         return CMakeMake.extra_options(extra_vars)
@@ -108,7 +107,7 @@ class EB_LAMMPS(CMakeMake):
 
         # verbose CMake
         if '-DCMAKE_VERBOSE_MAKEFILE=' not in self.cfg['configopts']:
-            self.cfg.update('configopts','-DCMAKE_VERBOSE_MAKEFILE=yes')
+            self.cfg.update('configopts', '-DCMAKE_VERBOSE_MAKEFILE=yes')
 
         # Enable following packages, if not configured in easycofig
         default_options = [
@@ -117,42 +116,42 @@ class EB_LAMMPS(CMakeMake):
         ]
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
-                self.cfg.update('configopts','-D%s=on' % option)
+                self.cfg.update('configopts', '-D%s=on' % option)
 
         # Is there a gzip
         if '-DWITH_GZIP=' not in self.cfg['configopts']:
             if get_software_root('gzip'):
-                self.cfg.update('configopts','-DWITH_GZIP=yes')
+                self.cfg.update('configopts', '-DWITH_GZIP=yes')
             else:
-                self.cfg.update('configopts','-DWITH_GZIP=no')
+                self.cfg.update('configopts', '-DWITH_GZIP=no')
 
         # Is there a libpng
         if '-DWITH_PNG=' not in self.cfg['configopts']:
             if get_software_root('libpng'):
-                self.cfg.update('configopts','-DWITH_PNG=yes')
+                self.cfg.update('configopts', '-DWITH_PNG=yes')
             else:
-                self.cfg.update('configopts','-DWITH_PNG=no')
+                self.cfg.update('configopts', '-DWITH_PNG=no')
 
         # Is there a libjpeg-turbo
         if '-DWITH_JPEG=' not in self.cfg['configopts']:
             if get_software_root('libjpeg-turbo'):
-                self.cfg.update('configopts','-DWITH_JPEG=yes')
+                self.cfg.update('configopts', '-DWITH_JPEG=yes')
             else:
-                self.cfg.update('configopts','-DWITH_JPEG=no')
+                self.cfg.update('configopts', '-DWITH_JPEG=no')
 
         # With Eigen dependency:
         if '-DDOWNLOAD_EIGEN3=' not in self.cfg['configopts']:
-            self.cfg.update('configopts','-DDOWNLOAD_EIGEN3=no')
+            self.cfg.update('configopts', '-DDOWNLOAD_EIGEN3=no')
         # Compiler complains about 'Eigen3_DIR' not beeing set, but acutally it needs
         # 'EIGEN3_INCLUDE_DIR'.
         # see: https://github.com/lammps/lammps/issues/1110
         if '-DEIGEN3_INCLUDE_DIR=' not in self.cfg['configopts']:
             if get_software_root('Eigen'):
-                self.cfg.update('configopts','-DEIGEN3_INCLUDE_DIR=%s/include/Eigen' % get_software_root('Eigen'))
+                self.cfg.update('configopts', '-DEIGEN3_INCLUDE_DIR=%s/include/Eigen' % get_software_root('Eigen'))
 
         if '-DEigen3_DIR=' not in self.cfg['configopts']:
             if get_software_root('Eigen'):
-                self.cfg.update('configopts','-DEigen3_DIR=%s/share/eigen3/cmake/' % get_software_root('Eigen'))
+                self.cfg.update('configopts', '-DEigen3_DIR=%s/share/eigen3/cmake/' % get_software_root('Eigen'))
 
         # LAMMPS Configuration Options
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
@@ -192,12 +191,12 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
 
             self.cfg.update('configopts', '-DPKG_KOKKOS=on')
-            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % self.get_kokkos_gpu_arch(cuda_cc) )
+            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % self.get_kokkos_gpu_arch(cuda_cc))
 
             # if KOKKOS and CUDA
             if cuda:
                 self.check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda_cc)
-                nvcc_wrapper_path = os.path.join(self.start_dir, "lib","kokkos", "bin", "nvcc_wrapper")
+                nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
                 # nvcc_wrapper can't find OpenMP for some reason, need to specify OpenMP flags.
                 # https://software.intel.com/en-us/forums/intel-oneapi-base-toolkit/topic/842470
                 self.cfg.update('configopts', '-DOpenMP_CXX_FLAGS="-qopenmp"')
@@ -241,7 +240,7 @@ class EB_LAMMPS(CMakeMake):
         ]
 
         pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        pythonpath = os.path.join('lib','python%s' % pyshortver,'site-packages')
+        pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
@@ -254,7 +253,7 @@ class EB_LAMMPS(CMakeMake):
 
         return super(EB_LAMMPS, self).sanity_check_step(
             custom_commands=custom_commands,
-            custom_paths=custom_paths
+            custom_paths=custom_paths,
         )
 
     def make_module_extra(self):
@@ -263,7 +262,7 @@ class EB_LAMMPS(CMakeMake):
         txt = super(EB_LAMMPS, self).make_module_extra()
 
         pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        pythonpath = os.path.join('lib','python%s' % pyshortver,'site-packages')
+        pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
 
         txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath, "lib64"])
         txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', ["lib64"])
@@ -334,7 +333,8 @@ class EB_LAMMPS(CMakeMake):
 
         if cuda:
             if cfg_cuda_cc and ec_cuda_cc:
-                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s) are overruled by " % self.ec_cuda_cc
+                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s)" % self.ec_cuda_cc
+                warning_msg += " are overruled by "
                 warning_msg += "--cuda-compute-capabilities configuration option (%s)" % self.cfg_cuda_cc
                 print_warning(warning_msg)
             elif not cuda_cc:
@@ -344,7 +344,8 @@ class EB_LAMMPS(CMakeMake):
                 raise EasyBuildError(error_msg)
 
         elif cuda_cc:
-            warning_msg = "Missing CUDA package (in dependencies), but 'cuda_compute_capabilities' option was specified."
+            warning_msg = "Missing CUDA package (in dependencies), "
+            warning_msg += "but 'cuda_compute_capabilities' option was specified."
             print_warning(warning_msg)
 
         return cuda_cc
