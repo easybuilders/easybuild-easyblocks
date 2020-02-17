@@ -26,10 +26,7 @@
 @author: Pavel Grochal (INUITS)
 """
 
-import glob
 import os
-import shutil
-import sys
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
