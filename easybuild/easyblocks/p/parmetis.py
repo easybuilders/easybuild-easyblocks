@@ -41,6 +41,7 @@ from easybuild.tools.filetools import mkdir, symlink, remove_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+SHARED = 'SHARED'
 
 class EB_ParMETIS(EasyBlock):
     """Support for building and installing ParMETIS."""
@@ -181,9 +182,15 @@ class EB_ParMETIS(EasyBlock):
         """Custom sanity check for ParMETIS."""
 
         # Paths to libraries defined depending on SHARED configuration option
-        config_shared = ['-DSHARED=%s' % val for val in ['1', 'ON', 'YES', 'TRUE', 'Y']]  # True values in CMake
-        config_optlist = [opt.upper() for configopt in self.cfg['configopts'] for opt in configopt.split()]
-        if set(config_shared) & set(config_optlist):
+        config_shared = False
+        config_true = ['1', 'ON', 'YES', 'TRUE', 'Y']  # True values in CMake
+        config_list = self.cfg['configopts'] if isinstance(self.cfg['configopts'], list) else [self.cfg['configopts']]
+        for configopt in config_list:
+            for opt in configopt.split():
+                if SHARED in opt and any(trueval in opt for trueval in config_true):
+                    config_shared = True
+
+        if config_shared:
             shlib_ext = get_shared_lib_ext()
             parmetis_libs = ['lib/libparmetis.%s' % shlib_ext] + ['lib/libmetis.a']
         else:
