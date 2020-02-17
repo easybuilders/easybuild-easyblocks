@@ -30,6 +30,7 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
+from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -164,6 +165,8 @@ class EB_LAMMPS(CMakeMake):
         if '-DPKG_OPT=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DPKG_OPT=on')
 
+        # If this is intel compiler and -DPKG_USR-INTEL= is not specified
+        # This should work with GCC as well.
         if '-DPKG_USR-INTEL=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DPKG_USER-INTEL=on')
 
@@ -194,12 +197,6 @@ class EB_LAMMPS(CMakeMake):
             if cuda:
                 self.check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda_cc)
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
-                # nvcc_wrapper can't find OpenMP for some reason, need to specify OpenMP flags.
-                # https://software.intel.com/en-us/forums/intel-oneapi-base-toolkit/topic/842470
-                self.cfg.update('configopts', '-DOpenMP_CXX_FLAGS="-qopenmp"')
-                self.cfg.update('configopts', '-DOpenMP_CXX_LIB_NAMES="libiomp5"')
-                self.cfg.update('configopts', '-DOpenMP_libiomp5_LIBRARY=$EBROOTICC/lib/intel64_lin/libiomp5.so')
-
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_CUDA=yes')
                 self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                 self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
@@ -213,12 +210,6 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % self.get_cuda_gpu_arch(cuda_cc))
 
         return super(EB_LAMMPS, self).configure_step()
-
-    # This might be needed - keep it as reference
-    # def build_step(self):
-    #     if self.cfg['kokkos'] and get_software_root('CUDA'):
-    #         self.cfg.update('prebuildopts', 'export NVCC_WRAPPER_DEFAULT_COMPILER=$MPICXX &&')
-    #     return super(EB_LAMMPS, self).build_step()
 
     def sanity_check_step(self, *args, **kwargs):
         check_files = [
