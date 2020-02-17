@@ -41,7 +41,6 @@ from easybuild.tools.filetools import mkdir, symlink, remove_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
-SHARED = 'SHARED'
 
 class EB_ParMETIS(EasyBlock):
     """Support for building and installing ParMETIS."""
@@ -187,7 +186,7 @@ class EB_ParMETIS(EasyBlock):
         config_list = self.cfg['configopts'] if isinstance(self.cfg['configopts'], list) else [self.cfg['configopts']]
         for configopt in config_list:
             for opt in configopt.split():
-                if SHARED in opt and any(trueval in opt for trueval in config_true):
+                if 'SHARED' in opt and any(trueval in opt for trueval in config_true):
                     config_shared = True
 
         if config_shared:
