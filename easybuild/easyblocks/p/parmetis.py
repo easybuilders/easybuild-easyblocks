@@ -54,6 +54,19 @@ class EB_ParMETIS(EasyBlock):
         Run 'cmake' in the build dir to get rid of a 'user friendly'
         help message that is displayed without this step.
         """
+
+        # Detect if this iteration is building static or shared libs to do proper sanity check
+        static_build = True
+        config_true = ['1', 'ON', 'YES', 'TRUE', 'Y']  # True values in CMake
+        for configopt in self.cfg['configopts'].split():
+            if 'SHARED' in configopt and any(trueval in configopt for trueval in config_true):
+                static_build = False
+
+        if static_build:
+            self.config_static = True
+        else:
+            self.config_shared = True
+
         if LooseVersion(self.version) >= LooseVersion("4"):
             # tested with 4.0.2, now actually requires cmake to be run first
             # for both parmetis and metis
@@ -181,20 +194,13 @@ class EB_ParMETIS(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for ParMETIS."""
 
-        # Paths to libraries defined depending on SHARED configuration option
-        config_shared = False
-        config_true = ['1', 'ON', 'YES', 'TRUE', 'Y']  # True values in CMake
-        config_list = self.cfg['configopts'] if isinstance(self.cfg['configopts'], list) else [self.cfg['configopts']]
-        for configopt in config_list:
-            for opt in configopt.split():
-                if 'SHARED' in opt and any(trueval in opt for trueval in config_true):
-                    config_shared = True
-
-        if config_shared:
+        parmetis_libs = [os.path.join('lib', 'libmetis.a')]
+        # Add static and shared libs depending on configopts
+        if hasattr(self, "config_shared") and self.config_shared is True:
             shlib_ext = get_shared_lib_ext()
-            parmetis_libs = ['lib/libparmetis.%s' % shlib_ext, 'lib/libmetis.a']
-        else:
-            parmetis_libs = ['lib/lib%smetis.a' % x for x in ["", "par"]]
+            parmetis_libs.append(os.path.join('lib', 'libparmetis.%s' % shlib_ext))
+        if hasattr(self, "config_static") and self.config_static is True:
+            parmetis_libs.append(os.path.join('lib', 'libparmetis.a'))
 
         custom_paths = {
             'files': ['include/%smetis.h' % x for x in ["", "par"]] + parmetis_libs,
