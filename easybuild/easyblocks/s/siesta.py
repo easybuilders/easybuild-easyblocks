@@ -177,7 +177,8 @@ class EB_Siesta(ConfigureMake):
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF -DNCDF -DNCDF_4 $(NETCDF_INCLUDE)"),
+                    (r"^(COMP_LIBS\s*=.*)$", r"\1 libncdf.a libfdict.a"),
                 ])
                 netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
                 regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
