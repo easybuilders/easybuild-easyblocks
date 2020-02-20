@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,21 +26,29 @@
 EasyBuild support for FreeFem++, implemented as an easyblock
 
 @author: Balazs Hajgato (Free University Brussels - VUB)
+@author: Kenneth Hoste (HPC-UGent)
 """
 import os
+import re
 
+import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.run import run_cmd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import change_dir
+from easybuild.tools.run import run_cmd
 
 
-class EB_FreeFem_plus__plus_(ConfigureMake):
+class EB_FreeFEM(ConfigureMake):
     """Support for building and installing FreeFem++."""
 
     def configure_step(self):
-        """FreeFem++ configure should run twice. First PETSc configured, then PETSc have to be build,
-        then configure FreeFem++ with the builded PETSc."""
+        """
+        FreeFem++ configure should run twice.
+        First to configure PETSc (and then build it),
+        then to configure FreeFem++ with the built PETSc.
+        """
 
         # first Autoreconf has to be run
         if not get_software_root('Autoconf'):
@@ -48,62 +56,110 @@ class EB_FreeFem_plus__plus_(ConfigureMake):
 
         run_cmd("autoreconf -i", log_all=True, simple=False)
 
-        # delete old installation, then set keeppreviousinstall to True (do not delete PETsc install)
-        self.make_installdir()
-        self.cfg['keeppreviousinstall'] = True
+        configopts = [
+            '--disable-optim',  # disable custom optimizations (not needed, $CFLAGS set by EasyBuild is picked up)
+            '--enable-download',  # enable downloading of dependencies
+            '--disable-openblas',  # do not download OpenBLAS
+        ]
 
-        # configure and make petsc-slepc
-        cmd = "./configure --prefix=%s &&" % self.installdir
-        cmd += "cd download/ff-petsc &&"
-        cmd += "make petsc-slepc &&"
-        cmd += "cd ../.."
-        run_cmd(cmd, log_all=True, simple=False)
+        blas_family = self.toolchain.blas_family()
+        if blas_family == toolchain.OPENBLAS:
+            configopts.append("--with-blas=openblas")
+        elif blas_family == toolchain.INTELMKL:
+            mkl_root = get_software_root('imkl')
+            configopts.append("--with-mkl=%s" % os.path.join(mkl_root, 'mkl', 'lib', 'intel64'))
 
-        # check HDF5 and GSL deps and add the corresponding configopts
+        # check depencies and add the corresponding configure options for FreeFEM
         hdf5_root = get_software_root('HDF5')
         if hdf5_root:
-            self.cfg.update('configopts', '--with-hdf5=%s ' % os.path.join(hdf5_root, 'bin', 'h5pcc'))
+            configopts.append('--with-hdf5=%s ' % os.path.join(hdf5_root, 'bin', 'h5pcc'))
 
         gsl_root = get_software_root('GSL')
         if gsl_root:
-            self.cfg.update('configopts', '--with-gsl-include=%s ' % os.path.join(gsl_root, 'include'))
-            self.cfg.update('configopts', '--with-gsl-ldflags=%s ' % os.path.join(gsl_root, 'lib'))
+            configopts.append('--with-gsl-prefix=%s' % gsl_root)
 
-        # We should download deps
-        self.cfg.update('configopts', '--enable-download ')
+        petsc_root = get_software_root('PETSc')
+        if petsc_root:
+            configopts.append('--with-petsc=%s' % os.path.join(petsc_root, 'lib', 'petsc', 'conf', 'petscvariables'))
 
-        # PaStiX does not work parallel, so disable it.
-        self.cfg.update('configopts', '--disable-pastix ')
+        bemtool_root = get_software_root('BemTool')
+        if bemtool_root:
+            configopts.append('--with-bem-include=%s' % bemtool_root)
 
-        super(EB_FreeFem_plus__plus_, self).configure_step()
+        for configopt in configopts:
+            self.cfg.update('configopts', configopt)
 
-    def build_step(self):
-        # dependencies are heavily patched by FreeFem++, we therefore let it download and install them itself
-        self.cfg.update('prebuildopts', 'download/getall -a -o ScaLAPACK,ARPACK,freeYams,Gmm++,Hips,Ipopt,METIS,'
-                        'ParMETIS,MMG3D,mshmet,MUMPS,NLopt,pARMS,PaStiX,Scotch,SuiteSparse,SuperLU_DIST,SuperLU,'
-                        'TetGen,PETSc,SLEPc,hpddm &&')
+        # initial configuration
+        out = super(EB_FreeFEM, self).configure_step()
 
-        # FreeFem++ parallel make does not work.
-        if self.cfg['parallel'] != 1:
-            self.log.warning("Ignoring requested build parallelism, it breaks FreeFem++ building, so setting to 1")
-            self.cfg['parallel'] = 1
+        regex = re.compile("WARNING: unrecognized options: (.*)", re.M)
+        res = regex.search(out)
+        if res:
+            raise EasyBuildError("One or more configure options not recognized: %s" % res.group(1))
 
-        super(EB_FreeFem_plus__plus_, self).build_step()
+        if not petsc_root:
+            # re-create installation dir (deletes old installation),
+            # then set keeppreviousinstall to True (to avoid deleting PETSc installation)
+            self.make_installdir()
+            self.cfg['keeppreviousinstall'] = True
+
+            # configure and make petsc-slepc
+            # download & build PETSc as recommended by FreeFEM if no PETSc dependency was provided
+            cwd = change_dir(os.path.join('3rdparty', 'ff-petsc'))
+
+            cmd = ['make']
+            if self.cfg['parallel']:
+                cmd.append('-j %s' % self.cfg['parallel'])
+            cmd.append('petsc-slepc')
+
+            run_cmd(' '.join(cmd), log_all=True, simple=False)
+
+            change_dir(cwd)
+
+            # reconfigure for FreeFEM build
+            super(EB_FreeFEM, self).configure_step()
+
+    def test_step(self):
+        """Run tests."""
+
+        # run tests unless they're disabled explicitly
+        if self.cfg['runtest'] is None or self.cfg['runtest']:
+            # avoid oversubscribing, by using both OpenMP threads and having OpenBLAS use threads as well
+            env.setvar('OPENBLAS_NUM_THREAD', '1')
+
+            # avoid using too many OpenMP threads, which may slow tests down too much,
+            # since this could lead to failing tests (60 sec. time limit is imposed by the test run script)
+            parallel = self.cfg['parallel']
+            if parallel:
+                try:
+                    par = int(parallel)
+                except ValueError as err:
+                    raise EasyBuildError("Failed to parse 'parallel' value '%s' as integer: %s", parallel)
+
+                # use number of threads equal to 1/4th of available cores (and ensure at least one)
+                n_thr = max(par // 4, 1)
+            else:
+                n_thr = 1
+
+            env.setvar('OMP_NUM_THREADS', '%d' % n_thr)
+
+            run_cmd("make check", log_all=True, simple=False)
 
     def sanity_check_step(self):
         # define FreeFem++ sanity_check_paths here
 
         custom_paths = {
             'files': ['bin/%s' % x for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmedit']] +
-            ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
-            ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
-            'dirs': ['share/freefem++/%s' % self.version] +
-            ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
+                     ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
+                     ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
+            'dirs': ['share/FreeFEM/%s' % self.version] +
+                    ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
         }
-        super(EB_FreeFem_plus__plus_, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_FreeFEM, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
-        # Run only one OpenBLAS thread
-        txt = super(EB_FreeFem_plus__plus_, self).make_module_extra()
-        txt += self.module_generator.set_environment('OPENBLAS_NUM_THREAD', "1")
+        txt = super(EB_FreeFEM, self).make_module_extra()
+        if blas_family == toolchain.OPENBLAS:
+            # Run only one OpenBLAS thread
+            txt += self.module_generator.set_environment('OPENBLAS_NUM_THREAD', "1")
         return txt
