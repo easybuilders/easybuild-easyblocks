@@ -134,7 +134,7 @@ class EB_FreeFEM(ConfigureMake):
                 try:
                     par = int(parallel)
                 except ValueError as err:
-                    raise EasyBuildError("Failed to parse 'parallel' value '%s' as integer: %s", parallel)
+                    raise EasyBuildError("Failed to parse 'parallel' value '%s' as integer: %s", parallel, err)
 
                 # use number of threads equal to 1/4th of available cores (and ensure at least one)
                 n_thr = max(par // 4, 1)
@@ -150,16 +150,16 @@ class EB_FreeFEM(ConfigureMake):
 
         custom_paths = {
             'files': ['bin/%s' % x for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmedit']] +
-                     ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
-                     ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
+                ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
+                ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
             'dirs': ['share/FreeFEM/%s' % self.version] +
-                    ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
+                ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
         }
         super(EB_FreeFEM, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         txt = super(EB_FreeFEM, self).make_module_extra()
-        if blas_family == toolchain.OPENBLAS:
+        if self.toolchain.blas_family() == toolchain.OPENBLAS:
             # Run only one OpenBLAS thread
             txt += self.module_generator.set_environment('OPENBLAS_NUM_THREAD', "1")
         return txt

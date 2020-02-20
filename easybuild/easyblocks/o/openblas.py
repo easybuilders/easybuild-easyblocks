@@ -12,6 +12,8 @@ from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import ERROR
 from easybuild.tools.run import run_cmd, check_log_for_errors
 
+TARGET = 'TARGET'
+
 
 class EB_OpenBLAS(ConfigureMake):
     """Support for building/installing OpenBLAS."""
@@ -26,10 +28,17 @@ class EB_OpenBLAS(ConfigureMake):
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
         }
-        if LooseVersion(self.version) < LooseVersion('0.3.6') and get_cpu_architecture() == POWER:
+
+        if '%s=' % TARGET in self.cfg['buildopts']:
+            # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
+            for buildopt in self.cfg['buildopts'].split():
+                optpair = buildopt.split('=')
+                if optpair[0] == TARGET:
+                    default_opts[optpair[0]] = optpair[1]
+        elif LooseVersion(self.version) < LooseVersion('0.3.6') and get_cpu_architecture() == POWER:
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
             print_warning("OpenBLAS 0.3.5 and lower have known issues on POWER systems")
-            default_opts['TARGET'] = 'POWER8'
+            default_opts[TARGET] = 'POWER8'
 
         for key in sorted(default_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
@@ -55,7 +64,11 @@ class EB_OpenBLAS(ConfigureMake):
             del os.environ[cflags]
             self.log.info("Environment variable %s unset and passed through command line" % cflags)
 
-        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], ' '.join(build_parts), self.cfg['buildopts'])
+        makecmd = 'make'
+        if self.cfg['parallel']:
+            makecmd += ' -j %s' % self.cfg['parallel']
+
+        cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

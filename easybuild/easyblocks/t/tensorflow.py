@@ -224,11 +224,13 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
+            'TF_NEED_ROCM': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+            'TF_SET_ANDROID_WORKSPACE': '0',
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
@@ -437,8 +439,13 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-        # limit the number of parallel jobs running simultaneously (useful on KNL)...
-        cmd.append('--jobs=%s' % self.cfg['parallel'])
+        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
+        # and will hang forever building the TensorFlow package.
+        # So limit to something high but still reasonable while allowing ECs to overwrite it
+        parallel = self.cfg['parallel']
+        if self.cfg['maxparallel'] is None:
+            parallel = min(parallel, 64)
+        cmd.append('--jobs=%s' % parallel)
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
