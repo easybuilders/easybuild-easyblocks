@@ -37,6 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
+from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -108,7 +109,7 @@ class EB_LAMMPS(CMakeMake):
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and get_software_root('CUDA'):
-            run_cmd("unset LIBS")
+            unset_env_vars(['LIBS'])
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
