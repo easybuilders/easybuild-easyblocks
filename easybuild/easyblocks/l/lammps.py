@@ -103,8 +103,8 @@ class EB_LAMMPS(CMakeMake):
         }
         return CMakeMake.extra_options(extra_vars)
 
-    def prepare_step(self):
-        super(EB_LAMMPS, self).prepare_step()
+    def prepare_step(self, *args, **kwargs):
+        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and get_software_root('CUDA'):
