@@ -33,6 +33,7 @@ EasyBuild support for building and installing OpenFOAM, implemented as an easybl
 @author: Xavier Besseron (University of Luxembourg)
 @author: Ward Poelmans (Ghent University)
 @author: Balazs Hajgato (Free University Brussels (VUB))
+@author: Ali Kerrache (University of Manitoba)
 """
 
 import glob
@@ -369,13 +370,17 @@ class EB_OpenFOAM(EasyBlock):
 
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
+        if self.looseversion >= LooseVersion("1912"):
+            ListFind = ["Add", "Smooth"]
+        else:
+            ListFind = ["Add", "Find", "Smooth"]
+
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
                [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
-               [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
+               [os.path.join(toolsdir, "surface%s" % x) for x in ListFind] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
-
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
             bins.extend([
@@ -403,7 +408,8 @@ class EB_OpenFOAM(EasyBlock):
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.3.0"):
             # surfaceSmooth is replaced by surfaceLambdaMuSmooth is OpenFOAM v2.3.0
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
-            bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
+            if self.looseversion > LooseVersion("1912"):
+                bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
