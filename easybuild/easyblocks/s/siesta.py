@@ -181,6 +181,7 @@ class EB_Siesta(ConfigureMake):
                     (r"^(COMP_LIBS\s*=.*)$", r"\1 libncdf.a libfdict.a"),
                 ])
                 netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
+                netcdf_lib_and_inc += "\nINCFLAGS = $(NETCDF_INCLUDE)"
                 regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
 
             xmlf90 = get_software_root('xmlf90')
