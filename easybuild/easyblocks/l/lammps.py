@@ -32,12 +32,13 @@ https://github.com/easybuilders/easybuild-easyconfigs/blob/0c7fa07b9b7a855df6d14
 """
 
 import os
+import tempfile
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -109,7 +110,7 @@ class EB_LAMMPS(CMakeMake):
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and get_software_root('CUDA'):
-            unset_env_vars(['LIBS'])
+            env.unset_env_vars(['LIBS'])
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
@@ -221,6 +222,11 @@ class EB_LAMMPS(CMakeMake):
 
             self.check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda_cc)
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % self.get_cuda_gpu_arch(cuda_cc))
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         return super(EB_LAMMPS, self).configure_step()
 
