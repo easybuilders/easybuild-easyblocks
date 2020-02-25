@@ -177,7 +177,7 @@ class EB_Siesta(ConfigureMake):
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF -DNCDF -DNCDF_4 $(NETCDF_INCLUDE)"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF -DNCDF -DNCDF_4 -DNCDF_PARALLEL $(NETCDF_INCLUDE)"),
                     (r"^(COMP_LIBS\s*=.*)$", r"\1 libncdf.a libfdict.a"),
                 ])
                 netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
@@ -218,6 +218,13 @@ class EB_Siesta(ConfigureMake):
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__ELSI"),
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -I%s/include" % elsi),
                     (r"^(LIBS\s*=.*)$", r"\1 $(FFTW_LIBS) -L%s/lib -lelsi" % elsi),
+                ])
+
+            metis = get_software_root('METIS')
+            if metis:
+                regex_subs.extend([
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__METIS"),
+                    (r"^(LIBS\s*=.*)$", r"\1 -L%s/lib -lmetis" % metis),
                 ])
 
         apply_regex_substitutions(arch_make, regex_subs)
