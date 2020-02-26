@@ -56,7 +56,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
-    'EPYC', # AMD EPYC Zen-Core CPU
+    'EPYC',  # AMD EPYC Zen-Core CPU
 ]
 
 KOKKOS_CPU_MAPPING = {
