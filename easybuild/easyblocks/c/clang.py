@@ -49,6 +49,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
+from easybuild.tools.environment import setvar
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
@@ -276,6 +277,12 @@ class EB_Clang(CMakeMake):
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
+
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into
+        # not finding it by using the environment variable which is used as-is and later checked
+        # for a falsy value when determining wether CUDA was found
+        if not get_software_root('CUDA'):
+            setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
         self.log.info("Configuring")
         super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
