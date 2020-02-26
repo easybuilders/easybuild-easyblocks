@@ -56,6 +56,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
+    'EPYC', # AMD EPYC Zen-Core CPU
 ]
 
 KOKKOS_CPU_MAPPING = {
@@ -65,6 +66,8 @@ KOKKOS_CPU_MAPPING = {
     'broadwell': 'BDW',
     'skylake_avx512': 'SKX',
     'knights-landing': 'KNL',
+    'zen': 'EPYC',
+    'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
 }
 
 
