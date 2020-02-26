@@ -319,12 +319,16 @@ class EB_Siesta(ConfigureMake):
                 'SiestaSubroutine/FmixMD/Src/para',
                 'SiestaSubroutine/FmixMD/Src/simple',
                 'STM/ol-stm/Src/stm', 'STM/simple-stm/plstm',
-                'VCA/fractional', 'VCA/mixps',
                 'Vibra/Src/fcbuild', 'Vibra/Src/vibra',
-                'WFS/info_wfsx',
                 'WFS/readwf', 'WFS/readwfx', 'WFS/wfs2wfsx',
                 'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
+
+            # skip broken utils in 4.1-MaX-1.0 release, hopefully will be fixed later
+            if self.version != '4.1-MaX-1.0':
+                expected_utils.extend([
+                    'VCA/fractional', 'VCA/mixps',
+                ])
 
             if loose_ver >= LooseVersion('3.2'):
                 expected_utils.extend([
@@ -332,21 +336,26 @@ class EB_Siesta(ConfigureMake):
                 ])
 
             if loose_ver >= LooseVersion('4.0'):
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'SiestaSubroutine/ProtoNEB/Src/protoNEB',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
+                        ])
                 expected_utils.extend([
-                    'SiestaSubroutine/ProtoNEB/Src/protoNEB',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
                 if self.toolchain.options.get('usempi', None):
-                    expected_utils.extend([
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
-                    ])
+                    if self.version != '4.1-MaX-1.0':
+                        expected_utils.extend([
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
+                        ])
 
             if loose_ver < LooseVersion('4.1'):
+                expected_utils.append('WFS/info_wfsx')
                 if loose_ver >= LooseVersion('4.0'):
                     expected_utils.extend([
                         'COOP/dm_creator',
@@ -380,8 +389,12 @@ class EB_Siesta(ConfigureMake):
                     'Grimme/fdf2grimme',
                     'SpPivot/pvtsp',
                     'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
-                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs',
+                    'TS/ts2ts/ts2ts',
                 ])
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'TS/tshs2tshs/tshs2tshs',
+                    ])
 
             for util in expected_utils:
                 copy_file(os.path.join(start_dir, 'Util', util), bindir)
