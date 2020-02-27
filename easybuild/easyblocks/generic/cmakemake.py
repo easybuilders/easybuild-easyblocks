@@ -77,8 +77,8 @@ class CMakeMake(ConfigureMake):
             'build_shared_libs': [None, "Build shared library (instead of static library)"
                                         "Can be overwritten by configopts"
                                         "None can be used to add no flag (usually results in static library)", CUSTOM],
-            'build_type': [None, "Build type for CMake, e.g. Release or Debug."
-                                 "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
+            'build_type': [None, "Build type for CMake, e.g. Release."
+                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
@@ -108,8 +108,10 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if self.cfg['build_type'] is not None:
-            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
+        build_type = self.cfg['build_type']
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        options.append("-DCMAKE_BUILD_TYPE=%s" % build_type)
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
