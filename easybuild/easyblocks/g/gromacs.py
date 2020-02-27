@@ -216,9 +216,6 @@ class EB_GROMACS(CMakeMake):
 
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
-            # Select debug or release build
-            self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
-
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")

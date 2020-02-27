@@ -74,8 +74,6 @@ class EB_netCDF(CMakeMake):
             ConfigureMake.configure_step(self)
 
         else:
-            self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
-
             for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
                                    ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)

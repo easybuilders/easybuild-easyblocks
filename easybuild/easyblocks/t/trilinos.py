@@ -97,9 +97,6 @@ class EB_Trilinos(CMakeMake):
             self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
             self.cfg['build_shared_libs'] = self.cfg['shared_libs']
 
-        # release or debug gversion
-        self.cfg['build_type'] = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
-
         # enable full testing
         self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
         self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")

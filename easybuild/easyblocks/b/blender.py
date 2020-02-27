@@ -43,7 +43,6 @@ class EB_Blender(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars['separate_build_dir'][0] = True
-        extra_vars['build_type'][0] = 'Release'
         return extra_vars
 
     def find_glob_pattern(self, glob_pattern):
