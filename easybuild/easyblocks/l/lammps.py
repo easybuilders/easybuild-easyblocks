@@ -64,6 +64,7 @@ KOKKOS_CPU_MAPPING = {
     'haswell': 'HSW',
     'broadwell': 'BDW',
     'skylake_avx512': 'SKX',
+    'cascadelake': 'SKX',
     'knights-landing': 'KNL',
 }
 
