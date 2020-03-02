@@ -99,8 +99,8 @@ class EB_Ferret(ConfigureMake):
                 'FC': 'FC',
             }
 
-            for x, y in comp_vars.items():
-                regex_subs.append((r"^(%s\s*)=.*" % x, r"\1= %s " % os.getenv(y)))
+            for key, value in comp_vars.items():
+                regex_subs.append((r"^(%s\s*)=.*" % key, r"\1= %s " % os.getenv(value)))
 
             if self.toolchain.comp_family() == toolchain.INTELCOMP:
                 regex_subs.append((r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main " % os.getenv("FC")))
@@ -135,8 +135,8 @@ class EB_Ferret(ConfigureMake):
         fn = 'xgks/CUSTOMIZE.%s' % buildtype
 
         regex_subs = [(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'))]
-        for x, y in comp_vars.items():
-            regex_subs.append((r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y)))
+        for key, value in comp_vars.items():
+            regex_subs.append((r"^(%s\s*)=.*" % key, r"\1='%s'" % os.getenv(value)))
 
         x11_root = get_software_root('X11')
         if x11_root:
@@ -169,8 +169,8 @@ class EB_Ferret(ConfigureMake):
             ]
 
         regex_subs = []
-        for x, y in comp_vars.items():
-            regex_subs.append((r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y)))
+        for key, value in comp_vars.items():
+            regex_subs.append((r"^(\s*%s\s*)=.*" % key, r"\1 = %s" % os.getenv(value)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             regex_subs.extend([
@@ -200,8 +200,8 @@ class EB_Ferret(ConfigureMake):
             fn = 'gksm2ps/Makefile'
 
             regex_subs = [(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'))]
-            for x, y in comp_vars.items():
-                regex_subs.append((r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y)))
+            for key, value in comp_vars.items():
+                regex_subs.append((r"^(\s*%s)=.*" % key, r"\1='%s' \\" % os.getenv(value)))
 
             apply_regex_substitutions(fn, regex_subs)
 
