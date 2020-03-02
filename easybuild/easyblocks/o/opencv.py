@@ -189,7 +189,7 @@ class EB_OpenCV(CMakeMake):
         libfile = 'libopencv_core.%s' % get_shared_lib_ext()
         custom_paths = {
             'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] + [os.path.join('lib64', libfile)],
-            'dirs': ['include', self.pylibdir],
+            'dirs': ['include'],
         }
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             custom_paths['files'].append(os.path.join('lib', 'libippicv.a'))
