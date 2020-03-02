@@ -369,6 +369,7 @@ class EB_Trinity(EasyBlock):
 
         guesses.update({
             'PATH': [os.path.basename(self.cfg['start_dir'].strip('/'))],
+            'TRINITY_HOME': [os.path.basename(self.cfg['start_dir'].strip('/'))],
         })
 
         return guesses
