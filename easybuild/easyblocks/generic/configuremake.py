@@ -97,12 +97,11 @@ def check_config_guess(config_guess):
     if config_guess_version != CONFIG_GUESS_VERSION:
         result = False
         tup = (config_guess, config_guess_version, CONFIG_GUESS_VERSION)
-        print_warning("config.guess version at %s does not match expected version: %s vs %s" % tup, log=log)
+        log.warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
     elif config_guess_checksum != CONFIG_GUESS_SHA256:
         result = False
         tup = (config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
-        print_warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup,
-                      log=log)
+        log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
 
     return result
 
@@ -145,9 +144,9 @@ def obtain_config_guess(download_source_path=None, search_source_paths=None):
         cand_config_guess_path = os.path.join(download_source_path, sourcepath_subdir, config_guess)
         config_guess_url = CONFIG_GUESS_URL_STUB + CONFIG_GUESS_COMMIT_ID
         if not download_file(config_guess, config_guess_url, cand_config_guess_path):
-            log.warning("Failed to download recent %s to %s", config_guess, cand_config_guess_path)
+            print_warning("Failed to download recent %s to %s", config_guess, cand_config_guess_path, log=log)
         elif not check_config_guess(cand_config_guess_path):
-            log.warning("Verification failed for file %s, not using it!", cand_config_guess_path)
+            print_warning("Verification failed for file %s, not using it!", cand_config_guess_path, log=log)
             remove_file(cand_config_guess_path)
         else:
             config_guess_path = cand_config_guess_path
