@@ -282,7 +282,7 @@ class EB_LAMMPS(CMakeMake):
 def get_cuda_gpu_arch(cuda_cc):
     """Return CUDA gpu ARCH in LAMMPS required format. Example: 'sm_32' """
     # Get largest cuda supported
-    return 'sm_%s' % str(cuda_cc.sorted(reverse=True)[0]).replace(".", "")
+    return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
 
 
 def get_kokkos_arch(cuda_cc, kokkos_arch):
@@ -317,7 +317,7 @@ def get_kokkos_arch(cuda_cc, kokkos_arch):
     if cuda:
         # CUDA below
         gpu_arch = None
-        for cc in cuda_cc.sorted(reverse=True):
+        for cc in sorted(cuda_cc, reverse=True):
             gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
             if gpu_arch:
                 break
