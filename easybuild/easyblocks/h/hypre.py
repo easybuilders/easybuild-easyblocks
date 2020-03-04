@@ -46,7 +46,7 @@ class EB_Hypre(ConfigureMake):
         self.cfg.update('configopts', '--enable-shared')
 
         # While there are a --with-{blas|lapack}-libs flag, it's not useable, because of how Hypre treats it.
-        # We need to patch the code anyway to prevent it from building it's own BLAS packages.
+        # We need to patch the code anyway to prevent it from building its own BLAS packages.
 
         super(EB_Hypre, self).configure_step()
 
