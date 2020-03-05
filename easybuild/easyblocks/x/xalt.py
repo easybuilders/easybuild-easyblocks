@@ -35,7 +35,8 @@ import re
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-
+from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_XALT(ConfigureMake):
     """Support for building and installing XALT."""
@@ -44,8 +45,13 @@ class EB_XALT(ConfigureMake):
     def extra_options():
         extra_vars = {
             'config_py': [None, "XALT site filter file", MANDATORY],
-            'syshost': ['hardcode:cluster', "System name", CUSTOM],
-            'transmission': ['syslog', "", CUSTOM],
+            'executable_tracking': [True, "Enable executable tracking", CUSTOM],
+            'gpu_tracking': [None, "Enable GPU tracking", CUSTOM],
+            'logging_url': [None, "Logging URL for transmission", CUSTOM],
+            'mysql': [False, "Build with MySQL support", CUSTOM],
+            'scalar_sampling': [True, "Enable scalar sampling", CUSTOM],
+            'syshost': [None, "System name", MANDATORY],
+            'transmission': [None, "Data tranmission method", MANDATORY],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -56,7 +62,7 @@ class EB_XALT(ConfigureMake):
         # following configure error.  XALT automatically creates a
         # versioned directory hierarchy.
         #
-        #    Do not install XALT with 2.7.27 as part of the
+        #    Do not install XALT with 2.7.28 as part of the
         #    prefix.  It will lead to many many problems with future
         #    installs of XALT
         #
@@ -67,26 +73,98 @@ class EB_XALT(ConfigureMake):
         #    of XALT then you can configure XALT with the configure
         #    --with-IrefuseToInstallXALTCorrectly=yes and set the prefix
         #    to include the version
+        orig_installdir = self.installdir
         self.installdir = os.path.normpath(re.sub(self.install_subdir, '', self.installdir))
 
         # XALT site filter config file is mandatory
-        if not self.cfg['config_py']:
-            raise EasyBuildError('XALT site filter config must be specified. '
-                                 'Use "--try-amend=config_py=<file>"')
-        self.cfg.update('configopts', '--with-config=%s' % self.cfg['config_py'])
+        config_py = self.cfg['config_py']
+        if config_py:
+            if os.path.exists(config_py):
+                self.cfg.update('configopts', '--with-config=%s' % config_py)
+            else:
+                raise EasyBuildError("Specified XALT configuration file %s does not exist!", config_py)
+        else:
+            error_msg = "Location of XALT configuration file must be specified via 'config_py' easyconfig parameter. "
+            error_msg += "You can edit the easyconfig file, or use 'eb --try-amend=config_py=<path>'. "
+            error_msg += "See https://xalt.readthedocs.io/en/latest/030_site_filtering.html for more information."
+            raise EasyBuildError(error_msg)
 
+        # XALT system name is mandatory
         if self.cfg['syshost']:
             self.cfg.update('configopts', '--with-syshostConfig=%s' % self.cfg['syshost'])
+        else:
+            error_msg = "The name of the system must be specified via the 'syshost' easyconfig parameter. "
+            error_msg += "You can edit the easyconfig file, or use 'eb --try-amend=syshost=<string>'. "
+            error_msg += "See https://xalt.readthedocs.io/en/latest/020_site_configuration.html for more information."
+            raise EasyBuildError(error_msg)
 
+        # Transmission method is mandatory
         if self.cfg['transmission']:
             self.cfg.update('configopts', '--with-transmission=%s' % self.cfg['transmission'])
+        else:
+            error_msg = "The XALT transmission method must be specified via the 'transmission' easyconfig parameter. "
+            error_msg = "You can edit the easyconfig file, or use 'eb --try-amend=transmission=<string>'. "
+            error_msg += "See https://xalt.readthedocs.io/en/latest/020_site_configuration.html for more information."
+            raise EasyBuildError(error_msg)
 
+        # GPU tracking
+        if self.cfg['gpu_tracking'] is True:
+            # User enabled
+            self.cfg.update('configopts', '--with-trackGPU=yes')
+        elif self.cfg['gpu_tracking'] is None:
+            # Default value, enable GPU tracking if nvml.h is present
+            # and the CUDA module is loaded
+            cuda_root = get_software_root('CUDA')
+            if not cuda_root:
+                # Try using the system CUDA
+                cuda_root = '/usr/local/cuda'
+            nvml_h = os.path.join(cuda_root, "include", "nvml.h")
+            if os.path.isfile(nvml_h):
+                self.cfg.update('configopts', '--with-trackGPU=yes')
+                self.cfg['gpu_tracking'] = True
+        else:
+            # User disabled
+            self.cfg.update('configopts', '--with-trackGPU=no')
+
+        # MySQL
+        if self.cfg['mysql'] is True:
+            self.cfg.update('configopts', '--with-MySQL=yes')
+        else:
+            self.cfg.update('configopts', '--with-MySQL=no')
+
+        # Configure
         super(EB_XALT, self).configure_step()
 
-        # Reassemble the default install path
-        self.installdir = os.path.join(self.installdir, self.install_subdir)
+        # Reset the default install path
+        self.installdir = orig_installdir
+
+    def make_module_extra(self, *args, **kwargs):
+        txt = super(EB_XALT, self).make_module_extra(*args, **kwargs)
+
+        txt += self.module_generator.prepend_paths('LD_PRELOAD', 'lib64/libxalt_init.so')
+        txt += self.module_generator.prepend_paths('SINGULARITY_BINDPATH', '')
+        txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD', 'lib64/libxalt_init.so')
+        txt += self.module_generator.set_environment('XALT_DIR', self.installdir)
+        txt += self.module_generator.set_environment('XALT_ETC_DIR', '%s' % os.path.join(self.installdir, 'etc'))
+        txt += self.module_generator.set_environment('XALT_EXECUTABLE_TRACKING',  '%s' % ('no', 'yes')[bool(self.cfg['executable_tracking'])])
+        txt += self.module_generator.set_environment('XALT_GPU_TRACKING', ('no', 'yes')[bool(self.cfg['gpu_tracking'])])
+        if self.cfg['transmission'].lower() == 'curl' and self.cfg['logging_url']:
+            txt += self.module_generator.set_environment('XALT_LOGGING_URL', self.cfg['logging_url'])
+        txt += self.module_generator.set_environment('XALT_SCALAR_SAMPLING',  '%s' % ('no', 'yes')[bool(self.cfg['scalar_sampling'])])
+
+        return txt
 
     def make_module_req_guess(self):
-        """ Limit default guess paths """
+        """ Limit default guess paths
+        Do not set CPATH, LD_LIBRARY_PATH, LIBRARY_PATH, include sbin in PATH """
         return {'COMPILER_PATH': 'bin',
                 'PATH': 'bin'}
+
+    def sanity_check_step(self):
+        """Custom sanity check"""
+        custom_paths = {
+            'files': ['lib64/libxalt_init.%s' % get_shared_lib_ext()],
+            'dirs': ['lib64'],
+        }
+
+        super(EB_XALT, self).sanity_check_step(custom_paths=custom_paths)
