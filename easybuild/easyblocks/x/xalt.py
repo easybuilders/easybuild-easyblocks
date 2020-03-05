@@ -38,6 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_XALT(ConfigureMake):
     """Support for building and installing XALT."""
 
@@ -146,11 +147,14 @@ class EB_XALT(ConfigureMake):
         txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD', 'lib64/libxalt_init.so')
         txt += self.module_generator.set_environment('XALT_DIR', self.installdir)
         txt += self.module_generator.set_environment('XALT_ETC_DIR', '%s' % os.path.join(self.installdir, 'etc'))
-        txt += self.module_generator.set_environment('XALT_EXECUTABLE_TRACKING',  '%s' % ('no', 'yes')[bool(self.cfg['executable_tracking'])])
-        txt += self.module_generator.set_environment('XALT_GPU_TRACKING', ('no', 'yes')[bool(self.cfg['gpu_tracking'])])
+        txt += self.module_generator.set_environment('XALT_EXECUTABLE_TRACKING',
+                                                     ('no', 'yes')[bool(self.cfg['executable_tracking'])])
+        txt += self.module_generator.set_environment('XALT_GPU_TRACKING',
+                                                     ('no', 'yes')[bool(self.cfg['gpu_tracking'])])
         if self.cfg['transmission'].lower() == 'curl' and self.cfg['logging_url']:
             txt += self.module_generator.set_environment('XALT_LOGGING_URL', self.cfg['logging_url'])
-        txt += self.module_generator.set_environment('XALT_SCALAR_SAMPLING',  '%s' % ('no', 'yes')[bool(self.cfg['scalar_sampling'])])
+        txt += self.module_generator.set_environment('XALT_SCALAR_SAMPLING',
+                                                     ('no', 'yes')[bool(self.cfg['scalar_sampling'])])
 
         return txt
 
