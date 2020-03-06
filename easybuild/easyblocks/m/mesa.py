@@ -26,6 +26,7 @@
 EasyBuild support for installing Mesa, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
+"""
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
