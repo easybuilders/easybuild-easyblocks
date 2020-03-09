@@ -45,7 +45,7 @@ class EB_Mesa(MesonNinja):
 
         features = set(get_cpu_features())
         arches = []
-        if 'avx' in features:
+        if 'avx' in features or 'avx1.0' in features:
             arches.append('avx')
         if 'avx2' in features:
             arches.append('avx2')
