@@ -29,7 +29,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 """
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features
 
 
 class EB_Mesa(MesonNinja):
@@ -42,4 +42,20 @@ class EB_Mesa(MesonNinja):
             self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
         elif arch == POWER:
             self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+
+        features = set(get_cpu_features())
+        arches = []
+        if 'avx' in features:
+            arches.append('avx')
+        if 'avx2' in features:
+            arches.append('avx2')
+        if 'avx512f' in features:
+            # AVX-512 Foundation - introduced in Skylake
+            arches.append('skx')
+        if 'avx512er' in features:
+            # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+            arches.append('knl')
+        if arches:
+            self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(arches))
+
         return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
