@@ -72,6 +72,7 @@ class EB_GROMACS(CMakeMake):
         super(EB_GROMACS, self).__init__(*args, **kwargs)
         self.lib_subdir = ''
         self.pre_env = ''
+        self.dynamic = self.toolchain.options.get('dynamic', False)
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -199,6 +200,16 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
         else:
+            # check whether Python is loaded as a dependency
+            python_root = get_software_root('Python')
+            if python_root:
+                # Building the gmxapi interface requires shared libraries
+                self.dynamic = True
+                self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
+                self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % os.path.join(python_root, 'bin', 'python'))
+                self.cfg.update('configopts', "-DGMXAPI=ON")
+                self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=ON")
+
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
                 if LooseVersion(self.version) >= LooseVersion('5.1'):
@@ -206,7 +217,7 @@ class EB_GROMACS(CMakeMake):
                     # setting of self.toolchain.options.get('dynamic')
                     # and adapt cmake flags accordingly as per instructions
                     # from "plumed patch -i"
-                    if self.toolchain.options.get('dynamic', False):
+                    if self.dynamic:
                         mode = 'shared'
                     else:
                         mode = 'static'
@@ -221,7 +232,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
 
             # prefer static libraries, if available
-            if self.toolchain.options.get('dynamic', False):
+            if self.dynamic:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
@@ -348,6 +359,9 @@ class EB_GROMACS(CMakeMake):
         Custom install step for GROMACS; figure out where libraries were installed to.
         Also, install the MPI version of the executable in a separate step.
         """
+        # Save installopts so we can reset it later. The gmxapi pip install
+        # can't handle the -j argument.
+        self.save_installopts = self.cfg['installopts']
         # run 'make install' in parallel since it involves more compilation
         self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
         super(EB_GROMACS, self).install_step()
@@ -356,7 +370,7 @@ class EB_GROMACS(CMakeMake):
         # this is determined by the GNUInstallDirs CMake module;
         # rather than trying to replicate the logic, we just figure out where the library was placed
 
-        if self.toolchain.options.get('dynamic', False):
+        if self.dynamic:
             self.libext = get_shared_lib_ext()
         else:
             self.libext = 'a'
@@ -426,6 +440,13 @@ class EB_GROMACS(CMakeMake):
                 super(EB_GROMACS, self).install_step()
 
                 self.log.info("A full regression test suite is available from the GROMACS web site")
+
+        # Reset installopts for the benefit of the gmxapi extension
+        self.cfg['installopts'] = self.save_installopts
+
+        # Set runtest to None so that the gmxapi extension doesn't try to
+        # run "check" as a command
+        self.cfg['runtest'] = None
 
     def make_module_req_guess(self):
         """Custom library subdirectories for GROMACS."""
