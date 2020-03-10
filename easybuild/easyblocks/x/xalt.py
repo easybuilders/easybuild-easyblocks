@@ -59,23 +59,13 @@ class EB_XALT(ConfigureMake):
     def configure_step(self):
         """Custom configuration step for XALT."""
 
-        # Remove the subdir from the install prefix to resolve the
-        # following configure error.  XALT automatically creates a
-        # versioned directory hierarchy.
-        #
-        #    Do not install XALT with 2.7.28 as part of the
-        #    prefix.  It will lead to many many problems with future
-        #    installs of XALT
-        #
-        #    Executables built with the current version of XALT
-        #    will not work with future installs of XALT!!!
-        #
-        #    If you feel that you know better than the developer
-        #    of XALT then you can configure XALT with the configure
-        #    --with-IrefuseToInstallXALTCorrectly=yes and set the prefix
-        #    to include the version
-        orig_installdir = self.installdir
-        self.installdir = os.path.normpath(re.sub(self.install_subdir, '', self.installdir))
+        # By default, XALT automatically appends 'xalt/<version>' to the
+        # prefix, i.e., --prefix=/opt will actually install in
+        # /opt/xalt/<version>.  To precisely control the install prefix and
+        # not append anything to the prefix, use the configure option
+        # '--with-siteControlledPrefix=yes'.
+        # See https://xalt.readthedocs.io/en/latest/050_install_and_test.html
+        self.cfg.update('configopts', '--with-siteControlledPrefix=yes')
 
         # XALT site filter config file is mandatory
         config_py = self.cfg['config_py']
@@ -135,9 +125,6 @@ class EB_XALT(ConfigureMake):
 
         # Configure
         super(EB_XALT, self).configure_step()
-
-        # Reset the default install path
-        self.installdir = orig_installdir
 
     def make_module_extra(self, *args, **kwargs):
         txt = super(EB_XALT, self).make_module_extra(*args, **kwargs)
