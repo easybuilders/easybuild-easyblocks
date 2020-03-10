@@ -30,7 +30,6 @@ EasyBuild support for XALT, implemented as an easyblock
 @author: Scott McMillan (NVIDIA)
 """
 import os
-import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
