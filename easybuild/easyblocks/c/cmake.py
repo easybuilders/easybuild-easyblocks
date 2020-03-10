@@ -51,7 +51,8 @@ class EB_CMake(ConfigureMake):
         """
         Run qmake on the GUI, if necessary
         """
-        configopts = self.cfg['configopts'].split(' -- ', 1)
+        configopts = self.cfg['configopts']
+        configopts = configopts.split('-- ' if configopts.startswith('-- ') else ' -- ', 1)
         configure_opts = configopts[0]
         cmake_opts = configopts[1] if len(configopts) == 2 else ''
 
