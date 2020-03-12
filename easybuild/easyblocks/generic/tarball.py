@@ -31,10 +31,13 @@ implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import copy_dir, remove_dir
+from easybuild.tools.run import run_cmd
 
 
 class Tarball(EasyBlock):
@@ -42,6 +45,19 @@ class Tarball(EasyBlock):
     Precompiled software supplied as a tarball:
     - will unpack binary and copy it to the install dir
     """
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to Tarball."""
+        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        extra_vars.update({
+            'final_dir': [None, "Override default installation path with provided path", CUSTOM],
+        })
+        return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize easyblock."""
+        super(Tarball, self).__init__(*args, **kwargs)
 
     def configure_step(self):
         """
@@ -57,8 +73,20 @@ class Tarball(EasyBlock):
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
-        remove_dir(self.installdir)
-        copy_dir(src or self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
+
+        # Run preinstallopts before copy of source directory
+        if self.cfg['preinstallopts']:
+            preinstall_opts = self.cfg['preinstallopts'].split('&&')
+            preinstall_cmd = '&&'.join([opt for opt in preinstall_opts if opt and not opt.isspace()])
+            self.log.info("Preparing installation of %s using command '%s'..." % (self.name, preinstall_cmd))
+            run_cmd(preinstall_cmd, log_all=True, simple=True)
+
+        # Copy source directory
+        source_path = src or self.cfg['start_dir']
+        install_path = self.cfg['final_dir'] or self.installdir
+        self.log.info("Copying tarball contents of %s to %s..." % (self.name, install_path))
+        remove_dir(install_path)
+        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
