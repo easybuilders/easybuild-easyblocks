@@ -34,6 +34,8 @@ implemented as an easyblock
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
+import os
+
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import copy_dir, remove_dir
@@ -83,7 +85,12 @@ class Tarball(EasyBlock):
 
         # Copy source directory
         source_path = src or self.cfg['start_dir']
-        install_path = self.cfg['final_dir'] or self.installdir
+
+        if 'final_dir' in self.cfg and self.cfg['final_dir']:
+            install_path = os.path.join(self.installdir, self.cfg['final_dir'])
+        else:
+            install_path = self.installdir
+
         self.log.info("Copying tarball contents of %s to %s..." % (self.name, install_path))
         remove_dir(install_path)
         copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'])
