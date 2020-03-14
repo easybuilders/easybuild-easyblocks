@@ -388,8 +388,8 @@ class EB_GROMACS(CMakeMake):
         if cuda:
             if not self.cfg['double_precision'] and
                 re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
-                print_msg("skipping build step", silent=self.silent)
-                return
+                    print_msg("skipping build step", silent=self.silent)
+                    return
 
         super(EB_GROMACS, self).build_step()
 
@@ -421,8 +421,8 @@ class EB_GROMACS(CMakeMake):
         if cuda:
             if not self.cfg['double_precision'] and
                 re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
-                print_msg("skipping install step", silent=self.silent)
-                return
+                    print_msg("skipping install step", silent=self.silent)
+                    return
 
         # run 'make install' in parallel since it involves more compilation
         self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
