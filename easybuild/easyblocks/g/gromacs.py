@@ -386,8 +386,8 @@ class EB_GROMACS(CMakeMake):
 
         cuda = get_software_root('CUDA')
         if cuda:
-            if not self.cfg['double_precision'] and
-                re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+            if (not self.cfg['double_precision'] and
+                re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
                     print_msg("skipping build step", silent=self.silent)
                     return
 
@@ -419,8 +419,8 @@ class EB_GROMACS(CMakeMake):
         # is for double precision
         cuda = get_software_root('CUDA')
         if cuda:
-            if not self.cfg['double_precision'] and
-                re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+            if (not self.cfg['double_precision'] and
+                re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
                     print_msg("skipping install step", silent=self.silent)
                     return
 
