@@ -46,6 +46,14 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_ParMETIS(EasyBlock):
     """Support for building and installing ParMETIS."""
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+
+        super(EB_ParMETIS, self).__init__(*args, **kwargs)
+
+        self.config_shared = False
+        self.config_static = False
+
     def configure_step(self):
         """Configure ParMETIS build.
         For versions of ParMETIS < 4 , METIS is a seperate build
@@ -196,10 +204,10 @@ class EB_ParMETIS(EasyBlock):
 
         parmetis_libs = [os.path.join('lib', 'libmetis.a')]
         # Add static and shared libs depending on configopts
-        if hasattr(self, "config_shared") and self.config_shared is True:
+        if self.config_shared:
             shlib_ext = get_shared_lib_ext()
             parmetis_libs.append(os.path.join('lib', 'libparmetis.%s' % shlib_ext))
-        if hasattr(self, "config_static") and self.config_static is True:
+        if self.config_static:
             parmetis_libs.append(os.path.join('lib', 'libparmetis.a'))
 
         custom_paths = {
