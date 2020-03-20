@@ -38,10 +38,12 @@ class EB_Mesa(MesonNinja):
         Customise the configopts based on the platform
         """
         arch = get_cpu_architecture()
-        if arch == X86_64:
-            self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
-        elif arch == POWER:
-            self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+        if 'gallium-drivers' not in self.cfg['configopts']:
+            # Install appropriate Gallium drivers for current architecture
+            if arch == X86_64:
+                self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
+            elif arch == POWER:
+                self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
 
         features = set(get_cpu_features())
         arches = []
