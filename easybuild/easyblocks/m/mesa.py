@@ -45,20 +45,16 @@ class EB_Mesa(MesonNinja):
             elif arch == POWER:
                 self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
 
-        features = set(get_cpu_features())
-        arches = []
-        if arch == X86_64:
-            if 'avx' in features or 'avx1.0' in features:
-                arches.append('avx')
-            if 'avx2' in features:
-                arches.append('avx2')
-            if 'avx512f' in features:
-                # AVX-512 Foundation - introduced in Skylake
-                arches.append('skx')
-            if 'avx512er' in features:
-                # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-                arches.append('knl')
-            if arches:
-                self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(arches))
+        if 'swr-arches' not in self.cfg['configopts']:
+            # Set cpu features of SWR for current architecture
+            cpu_features = set(get_cpu_features())
+            swr_arches = []
+            if arch == X86_64:
+                # avx512f: AVX-512 Foundation - introduced in Skylake
+                # avx512er: AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+                x86_features = {'avx': 'avx', 'avx1.0': 'avx', 'avx2': 'avx2', 'avx512f': 'skx', 'avx512er': 'knl'}
+                swr_arches = [farch for fname, farch in x86_features.items() if fname in cpu_features]
+            if swr_arches:
+                self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(swr_arches))
 
         return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
