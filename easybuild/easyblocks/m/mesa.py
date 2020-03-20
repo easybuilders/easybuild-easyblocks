@@ -45,17 +45,18 @@ class EB_Mesa(MesonNinja):
 
         features = set(get_cpu_features())
         arches = []
-        if 'avx' in features or 'avx1.0' in features:
-            arches.append('avx')
-        if 'avx2' in features:
-            arches.append('avx2')
-        if 'avx512f' in features:
-            # AVX-512 Foundation - introduced in Skylake
-            arches.append('skx')
-        if 'avx512er' in features:
-            # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-            arches.append('knl')
-        if arches:
-            self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(arches))
+        if arch == X86_64:
+            if 'avx' in features or 'avx1.0' in features:
+                arches.append('avx')
+            if 'avx2' in features:
+                arches.append('avx2')
+            if 'avx512f' in features:
+                # AVX-512 Foundation - introduced in Skylake
+                arches.append('skx')
+            if 'avx512er' in features:
+                # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+                arches.append('knl')
+            if arches:
+                self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(arches))
 
         return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
