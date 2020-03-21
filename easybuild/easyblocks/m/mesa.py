@@ -38,22 +38,16 @@ from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get
 class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
-    def configure_step(self):
-        """
-        Customise the configure options based on the processor architecture of the host
-        (x86_64 or not, CPU features, ...)
-        """
-        arch = get_cpu_architecture()
-        if 'gallium-drivers' not in self.cfg['configopts']:
-            # Install appropriate Gallium drivers for current architecture
-            if arch == X86_64:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
-            elif arch == POWER:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+    def __init__(self, *args, **kwargs):
+        """Constructor for custom Mesa easyblock: figure out which vales to pass to swr-arches configuration option."""
+
+        super(EB_Mesa, self).__init__(*args, **kwargs)
+
+        self.swr_arches = []
 
         if 'swr-arches' not in self.cfg['configopts']:
             # set cpu features of SWR for current architecture (only on x86_64)
-            if arch == X86_64:
+            if get_cpu_architecture() == X86_64:
                 feat_to_swrarch = {
                     'avx': 'avx',
                     'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
@@ -62,10 +56,25 @@ class EB_Mesa(MesonNinja):
                     'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
                 }
                 # determine list of values to pass to swr-arches configuration option
-                cpu_features = set(get_cpu_features())
-                swr_arches = [feat_to_swrarch[key] for key in feat_to_swrarch if key in cpu_features]
+                cpu_features = get_cpu_features()
+                self.swr_arches = sorted([feat_to_swrarch[key] for key in feat_to_swrarch if key in cpu_features])
 
-                self.cfg.update('configopts', '-Dswr-arches=' + ','.join(sorted(swr_arches)))
+    def configure_step(self):
+        """
+        Customise the configure options based on the processor architecture of the host
+        (x86_64 or not, CPU features, ...)
+        """
+
+        arch = get_cpu_architecture()
+        if 'gallium-drivers' not in self.cfg['configopts']:
+            # Install appropriate Gallium drivers for current architecture
+            if arch == X86_64:
+                self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
+            elif arch == POWER:
+                self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+
+        if self.swr_arches:
+            self.cfg.update('configopts', '-Dswr-arches=' + ','.join(self.swr_arches))
 
         return super(EB_Mesa, self).configure_step()
 
@@ -95,5 +104,9 @@ class EB_Mesa(MesonNinja):
                      [os.path.join('include', x, y) for (x, y) in gles_inc_files],
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
+
+        if self.swr_arches:
+            swr_arch_libs = [os.path.join('lib', 'libswr%s.%s' % (a.upper(), shlib_ext)) for a in self.swr_arches]
+            custom_paths['files'].extend(swr_arch_libs)
 
         super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
