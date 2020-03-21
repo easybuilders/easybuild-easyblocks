@@ -26,6 +26,7 @@
 EasyBuild support for installing Mesa, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
+@author: Kenneth Hoste (HPC-UGent)
 """
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
@@ -46,15 +47,19 @@ class EB_Mesa(MesonNinja):
                 self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
 
         if 'swr-arches' not in self.cfg['configopts']:
-            # Set cpu features of SWR for current architecture
-            cpu_features = set(get_cpu_features())
-            swr_arches = []
+            # set cpu features of SWR for current architecture (only on x86_64)
             if arch == X86_64:
-                # avx512f: AVX-512 Foundation - introduced in Skylake
-                # avx512er: AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-                x86_features = {'avx': 'avx', 'avx1.0': 'avx', 'avx2': 'avx2', 'avx512f': 'skx', 'avx512er': 'knl'}
-                swr_arches = [farch for fname, farch in x86_features.items() if fname in cpu_features]
-            if swr_arches:
-                self.cfg.update('configopts', "-Dswr-arches=%s" % ','.join(swr_arches))
+                feat_to_swrarch = {
+                    'avx': 'avx',
+                    'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
+                    'avx2': 'avx2',
+                    'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
+                    'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+                }
+                # determine list of values to pass to swr-arches configuration option
+                cpu_features = set(get_cpu_features())
+                swr_arches = [feat_to_swrarch[key] for key in feat_to_swrarch if key in cpu_features]
+
+                self.cfg.update('configopts', '-Dswr-arches=' + ','.join(sorted(swr_arches)))
 
         return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
