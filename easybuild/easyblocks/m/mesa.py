@@ -83,12 +83,14 @@ class EB_Mesa(MesonNinja):
 
         super(EB_Mesa, self).install_step()
 
-        # also install header files located include/GL/internal/
-        # we can't enable both DRI and Gallium drivers, but we can provide the DRI header file (GL/internal/dri_interface.h)
-        src_inc_GL_internal = os.path.join(self.start_dir, 'include', 'GL', 'internal')
+        # also install header files located in include/GL/internal, unless they're available already;
+        # we can't enable both DRI and Gallium drivers,
+        # but we can provide the DRI header file (GL/internal/dri_interface.h)
         target_inc_GL_internal = os.path.join(self.installdir, 'include', 'GL', 'internal')
-        copy_dir(src_inc_GL_internal, target_inc_GL_internal)
-        self.log.info("Copied %s to %s" % (src_inc_GL_internal, target_inc_GL_internal))
+        if not os.path.exists(target_inc_GL_internal):
+            src_inc_GL_internal = os.path.join(self.start_dir, 'include', 'GL', 'internal')
+            copy_dir(src_inc_GL_internal, target_inc_GL_internal)
+            self.log.info("Copied %s to %s" % (src_inc_GL_internal, target_inc_GL_internal))
 
     def sanity_check_step(self):
         """Custom sanity check for Mesa."""
