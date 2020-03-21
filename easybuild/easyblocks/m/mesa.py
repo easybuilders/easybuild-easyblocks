@@ -28,15 +28,20 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Andrew Edmondson (University of Birmingham)
 @author: Kenneth Hoste (HPC-UGent)
 """
+import os
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features
+from easybuild.tools.filetools import copy_dir
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 
 
 class EB_Mesa(MesonNinja):
-    def configure_step(self, cmd_prefix=''):
+    """Custom easyblock for building and installing Mesa."""
+
+    def configure_step(self):
         """
-        Customise the configopts based on the platform
+        Customise the configure options based on the processor architecture of the host
+        (x86_64 or not, CPU features, ...)
         """
         arch = get_cpu_architecture()
         if 'gallium-drivers' not in self.cfg['configopts']:
@@ -62,4 +67,33 @@ class EB_Mesa(MesonNinja):
 
                 self.cfg.update('configopts', '-Dswr-arches=' + ','.join(sorted(swr_arches)))
 
-        return super(EB_Mesa, self).configure_step(cmd_prefix=cmd_prefix)
+        return super(EB_Mesa, self).configure_step()
+
+    def install_step(self):
+        """Also copy additional header files after installing Mesa."""
+
+        super(EB_Mesa, self).install_step()
+
+        # also install header files located include/GL/internal/
+        # we can't enable both DRI and Gallium drivers, but we can provide the DRI header file (GL/internal/dri_interface.h)
+        src_inc_GL_internal = os.path.join(self.start_dir, 'include', 'GL', 'internal')
+        target_inc_GL_internal = os.path.join(self.installdir, 'include', 'GL', 'internal')
+        copy_dir(src_inc_GL_internal, target_inc_GL_internal)
+        self.log.info("Copied %s to %s" % (src_inc_GL_internal, target_inc_GL_internal))
+
+    def sanity_check_step(self):
+        """Custom sanity check for Mesa."""
+
+        shlib_ext = get_shared_lib_ext()
+
+        gl_inc_files = ['glext.h', 'gl_mangle.h', 'glx.h', 'osmesa.h', 'gl.h', 'glxext.h', 'glx_mangle.h']
+        gles_inc_files = [('GLES', 'gl.h'), ('GLES2', 'gl2.h'), ('GLES3', 'gl3.h')]
+
+        custom_paths = {
+            'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] +
+                     [os.path.join('include', 'GL', x) for x in gl_inc_files] +
+                     [os.path.join('include', x, y) for (x, y) in gles_inc_files],
+            'dirs': [os.path.join('include', 'GL', 'internal')],
+        }
+
+        super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
