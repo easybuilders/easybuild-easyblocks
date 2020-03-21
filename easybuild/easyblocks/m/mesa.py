@@ -102,8 +102,8 @@ class EB_Mesa(MesonNinja):
 
         custom_paths = {
             'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] +
-                     [os.path.join('include', 'GL', x) for x in gl_inc_files] +
-                     [os.path.join('include', x, y) for (x, y) in gles_inc_files],
+                [os.path.join('include', 'GL', x) for x in gl_inc_files] +
+                [os.path.join('include', x, y) for (x, y) in gles_inc_files],
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 
