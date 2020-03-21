@@ -191,9 +191,14 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DPKG_USER-OMP=on')
 
         # FFTW
-        if get_software_root('FFTW'):
+        if get_software_root("imkl") or get_software_root("FFTW"):
             if '-DFFT=' not in self.cfg['configopts']:
-                self.cfg.update('configopts', '-DFFT=FFTW3')
+                if get_software_root("imkl"):
+                    self.log.info("Using the MKL")
+                    self.cfg.update('configopts', '-DFFT=MKL')
+                else:
+                    self.log.info("Using FFTW")
+                    self.cfg.update('configopts', '-DFFT=FFTW3')
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
