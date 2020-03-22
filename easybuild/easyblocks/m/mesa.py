@@ -57,7 +57,7 @@ class EB_Mesa(MesonNinja):
                 }
                 # determine list of values to pass to swr-arches configuration option
                 cpu_features = get_cpu_features()
-                self.swr_arches = sorted([feat_to_swrarch[key] for key in feat_to_swrarch if key in cpu_features])
+                self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
 
     def configure_step(self):
         """
