@@ -29,6 +29,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
@@ -97,13 +98,20 @@ class EB_Mesa(MesonNinja):
 
         shlib_ext = get_shared_lib_ext()
 
-        gl_inc_files = ['glext.h', 'gl_mangle.h', 'glx.h', 'osmesa.h', 'gl.h', 'glxext.h', 'glx_mangle.h']
-        gles_inc_files = [('GLES', 'gl.h'), ('GLES2', 'gl2.h'), ('GLES3', 'gl3.h')]
+        if LooseVersion(self.version) >= LooseVersion('20.0'):
+            header_files = [os.path.join('include', 'EGL', x) for x in ['eglmesaext.h', 'eglextchromium.h']]
+            header_files.extend([
+                os.path.join('include', 'GL', 'osmesa.h'),
+                os.path.join('include', 'GL', 'internal', 'dri_interface.h'),
+            ])
+        else:
+            gl_inc_files = ['glext.h', 'gl_mangle.h', 'glx.h', 'osmesa.h', 'gl.h', 'glxext.h', 'glx_mangle.h']
+            gles_inc_files = [('GLES', 'gl.h'), ('GLES2', 'gl2.h'), ('GLES3', 'gl3.h')]
+            header_files = [os.path.join('include', 'GL', x) for x in gl_inc_files]
+            header_files.extend([os.path.join('include', x, y) for (x, y) in gles_inc_files])
 
         custom_paths = {
-            'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] +
-                [os.path.join('include', 'GL', x) for x in gl_inc_files] +
-                [os.path.join('include', x, y) for (x, y) in gles_inc_files],
+            'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] + header_files,
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 
