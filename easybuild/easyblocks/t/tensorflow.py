@@ -440,6 +440,10 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
+        # Disable support of AWS platform via config switch introduced in 1.12.1
+        if LooseVersion(self.version) >= LooseVersion('v1.12.1'):
+            cmd.append('--config=noaws')
+
         # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
         # and will hang forever building the TensorFlow package.
         # So limit to something high but still reasonable while allowing ECs to overwrite it
