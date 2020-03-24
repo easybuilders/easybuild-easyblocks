@@ -691,7 +691,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         if self.toolchain.options.get('usempi', None):
             # packages using MPI have to execute the sanity checks with mpirun
-            exts_filter = ("mpirun -n 1 " + exts_filter[0], exts_filter[1])
+            exts_filter = ("mpiexec -n 1 " + exts_filter[0], exts_filter[1])
 
         if not self.multi_python:
             # 'python' is replaced by full path to active 'python' command if a single Python version is used
