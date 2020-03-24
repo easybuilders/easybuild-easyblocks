@@ -687,16 +687,18 @@ class PythonPackage(ExtensionEasyBlock):
             }
 
         # make sure 'exts_filter' is defined, which is used for sanity check
-        if self.multi_python:
-            # when installing for multiple Python versions, we must use 'python', not a full-path 'python' command!
-            if 'exts_filter' not in kwargs:
-                kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
-        else:
-            # 'python' is replaced by full path to active 'python' command
+        exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+
+        if self.toolchain.options.get('usempi', None):
+            # packages using MPI have to execute the sanity checks with mpirun
+            exts_filter = ("mpirun -n 1 " + exts_filter[0], exts_filter[1])
+
+        if not self.multi_python:
+            # 'python' is replaced by full path to active 'python' command if a single Python version is used
             # (which is required especially when installing with system Python)
-            if 'exts_filter' not in kwargs:
-                orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
-                exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
+            exts_filter = (exts_filter[0].replace('python', self.python_cmd), exts_filter[1])
+
+        if 'exts_filter' not in kwargs:
                 kwargs.update({'exts_filter': exts_filter})
 
         if self.cfg.get('sanity_pip_check', False):
