@@ -468,6 +468,9 @@ class EB_TensorFlow(PythonPackage):
         if 'EBPYTHONPREFIXES' in os.environ:
             cmd.append('--action_env=EBPYTHONPREFIXES')
 
+        # Ignore user environment for Python
+        cmd.append('--action_env=PYTHONNOUSERSITE=1')
+
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
         # see https://docs.bazel.build/versions/master/guide.html#configurations
