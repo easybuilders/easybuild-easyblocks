@@ -231,6 +231,7 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
             'TF_SET_ANDROID_WORKSPACE': '0',
+            'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
