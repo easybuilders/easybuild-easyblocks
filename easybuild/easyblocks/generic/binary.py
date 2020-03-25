@@ -39,7 +39,7 @@ import stat
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, rmtree2
+from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
 from easybuild.tools.run import run_cmd
 
 
@@ -106,7 +106,7 @@ class Binary(EasyBlock):
         if install_cmd is None:
             try:
                 # shutil.copytree doesn't allow the target directory to exist already
-                rmtree2(self.installdir)
+                remove_dir(self.installdir)
                 shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
             except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
@@ -123,7 +123,7 @@ class Binary(EasyBlock):
             try:
                 # copytree expects target directory to not exist yet
                 if os.path.exists(self.installdir):
-                    rmtree2(self.installdir)
+                    remove_dir(self.installdir)
                 shutil.copytree(staged_installdir, self.installdir)
             except OSError as err:
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",

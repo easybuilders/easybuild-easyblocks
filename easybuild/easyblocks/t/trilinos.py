@@ -38,7 +38,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
-from easybuild.tools.filetools import mkdir, rmtree2, symlink
+from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -294,4 +294,4 @@ class EB_Trilinos(CMakeMake):
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""
-        rmtree2(self.short_start_dir)
+        remove_dir(self.short_start_dir)
