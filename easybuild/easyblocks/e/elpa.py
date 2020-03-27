@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 # Copyright 2019 Micael Oliveira
 #
 # This file is part of EasyBuild,

@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2019 Bart Oldeman
-# Copyright 2016-2019 Forschungszentrum Juelich
+# Copyright 2015-2020 Bart Oldeman
+# Copyright 2016-2020 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -105,11 +105,11 @@ class EB_PGI(PackedBinary):
         if LooseVersion(self.version) > LooseVersion('18'):
             self.pgi_install_subdirs.append(os.path.join('linux86-64-llvm', self.version))
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """
         Handle license file.
         """
-        super(EB_PGI, self).prepare_step()
+        super(EB_PGI, self).prepare_step(*args, **kwargs)
         self.requires_runtime_license = self.cfg['requires_runtime_license']
         if self.requires_runtime_license:
             default_lic_env_var = 'PGROUPD_LICENSE_FILE'
@@ -205,7 +205,8 @@ class EB_PGI(PackedBinary):
     def make_module_extra(self):
         """Add environment variables LM_LICENSE_FILE and PGI for license file and PGI location"""
         txt = super(EB_PGI, self).make_module_extra()
-        if self.requires_runtime_license or (self.license_env_var and self.license_env_var != 'UNKNOWN'):
+        if ((self.requires_runtime_license or (self.license_env_var and self.license_env_var != 'UNKNOWN')) and
+             self.license_file != 'UNKNOWN'):
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
                                                        allow_abs=True, expand_relpaths=False)
         txt += self.module_generator.set_environment('PGI', self.installdir)

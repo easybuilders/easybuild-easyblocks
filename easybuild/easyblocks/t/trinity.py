@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,6 +25,13 @@
 """
 EasyBuild support for building and installing Trinity, implemented as an easyblock
 
+This is a contribution from DeepThought HPC Service, Flinders University, Adelaide, Australia
+Homepage:     https://staff.flinders.edu.au/research/deep-thought
+Authors::     @author: Robert Qiao <rob.qiao@flinders.edu.au>
+License::     GPLv2.0
+
+Adapted from trinity.py from easyblock v4.1.0
+Original Authors:
 @author: Stijn De Weirdt (Ghent University)
 @author: Dries Verdegem (Ghent University)
 @author: Kenneth Hoste (Ghent University)
@@ -68,14 +75,15 @@ class EB_Trinity(EasyBlock):
         }
         return EasyBlock.extra_options(extra_vars)
 
+    # Butterfly included as .jar since 2.9.0
     def butterfly(self):
         """Install procedure for Butterfly."""
 
         self.log.info("Begin Butterfly")
 
         setvar("JAVA_TOOL_OPTIONS", "-Dfile.encoding=UTF8")
-
-        dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
+        dst = os.path.join(self.cfg['start_dir'], 'Butterfly')
+        #dst = os.path.join(self.cfg['start_dir'], 'Butterfly', 'src')
         try:
             os.chdir(dst)
         except OSError as err:
@@ -242,7 +250,9 @@ class EB_Trinity(EasyBlock):
             self.inchworm()
             self.chrysalis()
             self.kmer()
-            self.butterfly()
+            # Butterfly included as .jar since 2.9.0
+            if version < LooseVersion('2.9'):
+                self.butterfly()
 
             bwapluginver = self.cfg['bwapluginver']
             if bwapluginver:
@@ -299,7 +309,9 @@ class EB_Trinity(EasyBlock):
             run_cmd(cmd)
 
             # butterfly is not included in standard build
-            self.butterfly()
+            # butterfly included as .jar since 2.9.0
+            if version < LooseVersion('2.9'):
+                self.butterfly()
 
         # remove sample data if desired
         if not self.cfg['withsampledata']:
@@ -312,24 +324,56 @@ class EB_Trinity(EasyBlock):
         """Custom sanity check for Trinity."""
 
         version = LooseVersion(self.version)
-        if version >= LooseVersion('2.0') and version < LooseVersion('2.3'):
-            sep = '-'
-        elif version >= LooseVersion('2.3') and version < LooseVersion('3.0'):
+        if ((version >= LooseVersion('2.0') and version < LooseVersion('2.3')) or
+           (version >= LooseVersion('2.9') and version < LooseVersion('3.0'))):
+            sep = '-v'
+        elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
             sep = "-Trinity-v"
         else:
             sep = '_r'
 
-        if version >= LooseVersion('2.8') and version < LooseVersion('2000'):
-            chrysalis_bin = 'Chrysalis/bin/Chrysalis'
+        # Chrysalis
+        if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
+            chrysalis_bin = 'Chrysalis/bin'
+            chrysalis_files = ['BubbleUpClustering',
+                               'CreateIwormFastaBundle',
+                               'QuantifyGraph',
+                               'Chrysalis',
+                               'GraphFromFasta',
+                               'ReadsToTranscripts']
+        elif version >= LooseVersion('2.8') and version < LooseVersion('2.9'):
+            chrysalis_bin = 'Chrysalis/bin'
+            chrysalis_files = ['Chrysalis']
         else:
-            chrysalis_bin = 'Chrysalis/Chrysalis'
+            chrysalis_bin = 'Chrysalis'
+            chrysalis_files = ['Chrysalis']
+
+        chrysalis_bin_files = [os.path.join(chrysalis_bin, x) for x in chrysalis_files]
+
+        # Inchworm
+        if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
+            inchworm_bin = 'Inchworm/bin'
+            inchworm_files = ['FastaToDeBruijn',
+                              'fastaToKmerCoverageStats',
+                              'inchworm']
+        else:
+            inchworm_bin = 'Inchworm/bin'
+            inchworm_files = ['inchworm']
+
+        inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]
 
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
+        # folders path
+        if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
+            dir_path = ['util']
+        else:
+            dir_path = ['Butterfly/src/bin', 'util']
+
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in ['Inchworm/bin/inchworm', chrysalis_bin]],
-            'dirs': [os.path.join(path, x) for x in ['Butterfly/src/bin', 'util']]
+            'files': [os.path.join(path, x) for x in (inchworm_bin_files + chrysalis_bin_files)],
+            'dirs': [os.path.join(path, x) for x in dir_path]
         }
 
         super(EB_Trinity, self).sanity_check_step(custom_paths=custom_paths)

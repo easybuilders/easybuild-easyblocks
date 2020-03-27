@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,6 +48,20 @@ from easybuild.tools.utilities import nub
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
 
+def setup_cmake_env(tc):
+    """Setup env variables that cmake needs in an EasyBuild context."""
+
+    # Set the search paths for CMake
+    tc_ipaths = tc.get_variable("CPPFLAGS", list)
+    tc_lpaths = tc.get_variable("LDFLAGS", list)
+    cpaths = os.getenv('CPATH', '').split(os.pathsep)
+    lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+    include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+    library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
+    setvar("CMAKE_INCLUDE_PATH", include_paths)
+    setvar("CMAKE_LIBRARY_PATH", library_paths)
+
+
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
 
@@ -59,6 +73,8 @@ class CMakeMake(ConfigureMake):
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
+            'build_type': [None, "Build type for CMake, e.g. Release or Debug."
+                                "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
@@ -68,15 +84,7 @@ class CMakeMake(ConfigureMake):
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        # Set the search paths for CMake
-        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
-        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
-        cpaths = os.getenv('CPATH', '').split(os.pathsep)
-        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
-        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
-        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
-        setvar("CMAKE_INCLUDE_PATH", include_paths)
-        setvar("CMAKE_LIBRARY_PATH", library_paths)
+        setup_cmake_env(self.toolchain)
 
         if builddir is None and self.cfg.get('separate_build_dir', False):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
@@ -95,6 +103,10 @@ class CMakeMake(ConfigureMake):
                 srcdir = default_srcdir
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+
+        if self.cfg['build_type'] is not None:
+            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
+
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
             'CFLAGS': 'CMAKE_C_FLAGS',

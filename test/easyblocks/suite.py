@@ -1,6 +1,6 @@
 #!/usr/bin/python
 ##
-# Copyright 2012-2019 Ghent University
+# Copyright 2012-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,7 +25,7 @@
 ##
 """
 This script is a collection of all the testcases for easybuild-easyblocks.
-Usage: "python -m easybuild.easyblocks.test.suite.py" or "./easybuild/easyblocks/test/suite.py"
+Usage: "python -m test.easyblocks.suite" or "python test/easyblocks/suite.py"
 
 @author: Toon Willems (Ghent University)
 @author: Kenneth Hoste (Ghent University)
@@ -41,6 +41,7 @@ from easybuild.base import fancylogger
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.options import set_tmpdir
 
+import test.easyblocks.easyblock_specific as e
 import test.easyblocks.general as g
 import test.easyblocks.init_easyblocks as i
 import test.easyblocks.module as m
@@ -62,7 +63,7 @@ except EasyBuildError as err:
 os.environ['EASYBUILD_TMP_LOGDIR'] = tempfile.mkdtemp(prefix='easyblocks_test_')
 
 # call suite() for each module and then run them all
-SUITE = unittest.TestSuite([x.suite() for x in [g, i, m]])
+SUITE = unittest.TestSuite([x.suite() for x in [g, i, m, e]])
 res = unittest.TextTestRunner().run(SUITE)
 
 fancylogger.logToFile(log_fn, enable=False)

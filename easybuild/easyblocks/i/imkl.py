@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -144,11 +144,12 @@ class EB_imkl(IntelBase):
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
                 retdict = {
-                    'PATH': ['bin', 'mkl/bin', 'mkl/bin/intel64', 'composerxe-2011/bin'],
+                    'PATH': [],
                     'LD_LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'MANPATH': ['man', 'man/en_US'],
                     'CPATH': ['mkl/include', 'mkl/include/fftw'],
+                    'PKG_CONFIG_PATH': ['mkl/bin/pkgconfig'],
                 }
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):

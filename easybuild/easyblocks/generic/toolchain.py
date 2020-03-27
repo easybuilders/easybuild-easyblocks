@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,12 +31,53 @@ EasyBuild support for installing compiler toolchains, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-
 from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.toolchain.toolchain import env_vars_external_module
 
 
 class Toolchain(Bundle):
-    """
-    Compiler toolchain: generate module file only, nothing to build/install
-    """
-    pass
+    """Compiler toolchain easyblock: nothing to install, just generate module file."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to toolchains."""
+        if extra_vars is None:
+            extra_vars = {}
+        extra_vars.update({
+            'set_env_external_modules': [False, "Include setenv statements for toolchain components that use "
+                                                "an external module, based on available metadata", CUSTOM],
+        })
+        return Bundle.extra_options(extra_vars=extra_vars)
+
+    def make_module_extra(self):
+        """
+        Define $EBROOT* and $EBVERSION* environment for toolchain components marked as external module,
+        if corresponding metadata is available.
+        """
+        txt = super(Toolchain, self).make_module_extra()
+
+        # include $EBROOT* and $EBVERSION* definitions for toolchain components marked as external modules (if any)
+        # in the generated module file for this toolchain;
+        # this is required to let the EasyBuild framework set up the build environment based on the toolchain
+        if self.cfg.get('set_env_external_modules', False):
+            for dep in [d for d in self.cfg['dependencies'] if d['external_module']]:
+
+                mod_name = dep['full_mod_name']
+                metadata = dep['external_module_metadata']
+                names, versions = metadata.get('name', []), metadata.get('version')
+
+                # if no versions are available, use None as version (for every software name)
+                if versions is None:
+                    versions = [None] * len(names)
+
+                if names:
+                    self.log.info("Adding environment variables for %s provided by external module %s", names, mod_name)
+
+                    for name, version in zip(names, versions):
+                        env_vars = env_vars_external_module(name, version, metadata)
+                        for key in env_vars:
+                            self.log.info("Defining $%s for external module %s: %s", key, mod_name, env_vars[key])
+                            txt += self.module_generator.set_environment(key, env_vars[key])
+
+        return txt

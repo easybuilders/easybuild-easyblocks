@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -96,11 +96,20 @@ class EB_Bazel(EasyBlock):
             self.log.info("Not patching Bazel build scripts, installation prefix for binutils/GCC not found")
 
         # enable building in parallel
-        env.setvar('EXTRA_BAZEL_ARGS', '--jobs=%d' % self.cfg['parallel'])
+        bazel_args = '--jobs=%d' % self.cfg['parallel']
+
+        # Bazel provides a JDK by itself for some architectures
+        # We want to enforce it using the JDK we provided via modules
+        # This is required for Power where Bazel does not have a JDK, but requires it for building itself
+        # See https://github.com/bazelbuild/bazel/issues/10377
+        bazel_args += ' --host_javabase=@local_jdk//:jdk'
+
+        env.setvar('EXTRA_BAZEL_ARGS', bazel_args)
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        run_cmd('./compile.sh', log_all=True, simple=True, log_ok=True)
+        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for Bazel."""

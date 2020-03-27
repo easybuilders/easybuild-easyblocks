@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2019 Ghent University
+# Copyright 2019-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (https://ugent.be/hpc/en),
@@ -33,7 +33,8 @@ import stat
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
+from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
 from distutils.version import LooseVersion
 
@@ -105,7 +106,7 @@ class EB_Gctf(EasyBlock):
         adjust_permissions(dst_gctf_bin, perms, add=True)
 
         # Install a wrapper that loads CUDA before starting the binary
-        wrapper = os.path.join(bindir, 'gctf')
+        wrapper = os.path.join(bindir, 'Gctf')
         txt = '\n'.join([
             '#!/bin/bash',
             '',
@@ -117,6 +118,7 @@ class EB_Gctf(EasyBlock):
         ])
         write_file(wrapper, txt)
         adjust_permissions(wrapper, exe_perms, add=True)
+        symlink('Gctf', os.path.join(bindir, 'gctf'), use_abspath_source=False)
 
     def sanity_check_step(self):
         """
@@ -124,7 +126,7 @@ class EB_Gctf(EasyBlock):
         """
 
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in ['gctf', self.gctf_bin]],
+            'files': [os.path.join('bin', x) for x in ['Gctf', self.gctf_bin]],
             'dirs': []
         }
 

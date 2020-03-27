@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -96,7 +96,13 @@ class EB_GROMACS(CMakeMake):
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
         elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
-            res = 'AVX_512'
+            if ( LooseVersion(self.version) >= LooseVersion('2019') and 
+                    re.search('GMX_DOUBLE=(1|ON|YES|TRUE)\b', self.cfg['configopts']) ):
+               # Workaround to DOUBLE precision builds being broken for AVX512 in GROMACS 2019.x
+               res = 'AVX2_256'
+               self.log.info("Falling back to AVX2_256 for GROMACS >= 2019 with GMX_DOUBLE=ON.")
+            else:
+               res = 'AVX_512'
         elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
         elif 'AVX' in optarch:
@@ -238,12 +244,14 @@ class EB_GROMACS(CMakeMake):
             self.cfg.update('configopts', "-DGMX_X11=OFF")
 
             # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
-            gmx_simd = self.get_gromacs_arch()
-            if gmx_simd:
-                if LooseVersion(self.version) < LooseVersion('5.0'):
-                    self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
-                else:
-                    self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
+            # it does not make sense for Cray, because OPTARCH is defined by the Cray Toolchain
+            if self.toolchain.toolchain_family() != toolchain.CRAYPE:
+                gmx_simd = self.get_gromacs_arch()
+                if gmx_simd:
+                    if LooseVersion(self.version) < LooseVersion('5.0'):
+                        self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
+                    else:
+                        self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
 
             # set regression test path
             prefix = 'regressiontests'

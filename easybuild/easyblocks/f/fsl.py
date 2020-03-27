@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,46 +67,51 @@ class EB_FSL(EasyBlock):
 
         best_cfg = None
 
-        # Patch files for ver. < 5.0.10 patch multiple config directories
-        if LooseVersion(self.version) >= LooseVersion('5.0.10'):
-            # Check if a specific machine type directory is patched
-            systype_regex = re.compile("^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
+        # Predefined makefiles for various configs have disappeared in v6.0.2.
+        # The next part of the EasyBlock has thereby become obsolete.
+        # See https://github.com/easybuilders/easybuild-easyblocks/issues/1859
+        if LooseVersion(self.version) < LooseVersion('6.0.2'):
 
-            patched_cfgs = []
+            # Patch files for ver. < 5.0.10 patch multiple config directories
+            if LooseVersion(self.version) >= LooseVersion('5.0.10'):
+                # Check if a specific machine type directory is patched
+                systype_regex = re.compile(r"^diff.*config\/(.*(apple|gnu|i686|linux|spark)(?:(?!\/).)*)", re.M)
 
-            for patch in self.patches:
-                patchfile = read_file(patch['path'])
-                res = systype_regex.findall(patchfile)
-                patched_cfgs.extend([i[0] for i in res])
+                patched_cfgs = []
 
-            # Check that at least one config has been found
-            if patched_cfgs:
-                # Check that a single config has been patched
-                if len(nub(patched_cfgs)) == 1:
-                    best_cfg = patched_cfgs[0]
-                    self.log.debug("Found patched config dir: %s", best_cfg)
+                for patch in self.patches:
+                    patchfile = read_file(patch['path'])
+                    res = systype_regex.findall(patchfile)
+                    patched_cfgs.extend([i[0] for i in res])
+
+                # Check that at least one config has been found
+                if patched_cfgs:
+                    # Check that a single config has been patched
+                    if len(nub(patched_cfgs)) == 1:
+                        best_cfg = patched_cfgs[0]
+                        self.log.debug("Found patched config dir: %s", best_cfg)
+                    else:
+                        raise EasyBuildError("Patch files are editing multiple config dirs: %s", patched_cfgs)
                 else:
-                    raise EasyBuildError("Patch files are editing multiple config dirs: %s", patched_cfgs)
-            else:
-                self.log.debug("No config dir found in patch files")
+                    self.log.debug("No config dir found in patch files")
 
-        # If no patched config is found, pick best guess
-        cfgdir = os.path.join(self.fsldir, "config")
-        try:
-            if not best_cfg:
-                cfgs = os.listdir(cfgdir)
-                best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
-                self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
-        except OSError as err:
-            raise EasyBuildError("Unable to access configuration directory: %s", cfgdir, err)
+            # If no patched config is found, pick best guess
+            cfgdir = os.path.join(self.fsldir, "config")
+            try:
+                if not best_cfg:
+                    cfgs = os.listdir(cfgdir)
+                    best_cfg = difflib.get_close_matches(fslmachtype, cfgs)[0]
+                    self.log.debug("Best matching config dir for %s is %s" % (fslmachtype, best_cfg))
+            except OSError as err:
+                raise EasyBuildError("Unable to access configuration directory: %s", cfgdir, err)
 
-        # Prepare config
-        # Either use patched config or copy closest match
-        if fslmachtype != best_cfg:
-            srcdir = os.path.join(cfgdir, best_cfg)
-            tgtdir = os.path.join(cfgdir, fslmachtype)
-            copy_dir(srcdir, tgtdir)
-            self.log.debug("Copied %s to %s" % (srcdir, tgtdir))
+            # Prepare config
+            # Either use patched config or copy closest match
+            if fslmachtype != best_cfg:
+                srcdir = os.path.join(cfgdir, best_cfg)
+                tgtdir = os.path.join(cfgdir, fslmachtype)
+                copy_dir(srcdir, tgtdir)
+                self.log.debug("Copied %s to %s" % (srcdir, tgtdir))
 
     def build_step(self):
         """Build FSL using supplied script."""

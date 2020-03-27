@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,6 +33,7 @@ EasyBuild support for building and installing OpenFOAM, implemented as an easybl
 @author: Xavier Besseron (University of Luxembourg)
 @author: Ward Poelmans (Ghent University)
 @author: Balazs Hajgato (Free University Brussels (VUB))
+@author: Ali Kerrache (University of Manitoba)
 """
 
 import glob
@@ -44,6 +45,7 @@ from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
@@ -174,7 +176,7 @@ class EB_OpenFOAM(EasyBlock):
                 key = "WM_PROJECT_VERSION"
                 regex_subs += [(r"^(setenv|export) %s=.*$" % key, r"export %s=%s #\g<0>" % (key, self.version))]
 
-            WM_env_var = ['WM_COMPILER', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
+            WM_env_var = ['WM_COMPILER', 'WM_COMPILE_OPTION', 'WM_MPLIB', 'WM_THIRD_PARTY_DIR']
             # OpenFOAM >= 3.0.0 can use 64 bit integers
             if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
                 WM_env_var.append('WM_LABEL_SIZE')
@@ -285,6 +287,10 @@ class EB_OpenFOAM(EasyBlock):
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
 
+        # Some parts of OpenFOAM uses CMake to build
+        # make sure the basic environment is correct
+        setup_cmake_env(self.toolchain)
+
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):
             cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
@@ -364,13 +370,17 @@ class EB_OpenFOAM(EasyBlock):
 
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
+        if self.looseversion >= LooseVersion("1912"):
+            ListFind = ["Add", "Smooth"]
+        else:
+            ListFind = ["Add", "Find", "Smooth"]
+
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
                [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
-               [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
+               [os.path.join(toolsdir, "surface%s" % x) for x in ListFind] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
-
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
             bins.extend([
@@ -398,7 +408,8 @@ class EB_OpenFOAM(EasyBlock):
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.3.0"):
             # surfaceSmooth is replaced by surfaceLambdaMuSmooth is OpenFOAM v2.3.0
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
-            bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
+            if self.looseversion > LooseVersion("1912"):
+                bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,

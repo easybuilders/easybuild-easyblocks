@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2019 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -90,7 +90,7 @@ class RubyGem(ExtensionEasyBlock):
             raise EasyBuildError("Ruby module not loaded?")
 
         # this is the 'proper' way to specify a custom installation prefix: set $GEM_HOME
-        if not isinstance(self.master, EB_Ruby):
+        if not hasattr(self, 'master') or not isinstance(self.master, EB_Ruby):
             env.setvar('GEM_HOME', self.installdir)
 
         bindir = os.path.join(self.installdir, 'bin')
@@ -100,6 +100,6 @@ class RubyGem(ExtensionEasyBlock):
         """Extend $GEM_PATH in module file."""
         txt = super(RubyGem, self).make_module_extra()
         # for stand-alone Ruby gem installs, $GEM_PATH needs to be updated
-        if not isinstance(self.master, EB_Ruby):
+        if not hasattr(self, 'master') or not isinstance(self.master, EB_Ruby):
             txt += self.module_generator.prepend_paths('GEM_PATH', [''])
         return txt

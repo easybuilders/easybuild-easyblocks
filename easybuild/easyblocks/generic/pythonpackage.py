@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -177,6 +177,26 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     return pylibdir
 
 
+def det_pip_version():
+    """Determine version of currently active 'pip' command."""
+
+    pip_version = None
+    log = fancylogger.getLogger('det_pip_version', fname=False)
+    log.info("Determining pip version...")
+
+    out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
+
+    pip_version_regex = re.compile('^pip ([0-9.]+)')
+    res = pip_version_regex.search(out)
+    if res:
+        pip_version = res.group(1)
+        log.info("Found pip version: %s", pip_version)
+    else:
+        log.warning("Failed to determine pip version from '%s' using pattern '%s'", out, pip_version_regex.pattern)
+
+    return pip_version
+
+
 class PythonPackage(ExtensionEasyBlock):
     """Builds and installs a Python package, and provides a dedicated module file."""
 
@@ -191,8 +211,9 @@ class PythonPackage(ExtensionEasyBlock):
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
-            'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
-            'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
+            'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
@@ -326,9 +347,9 @@ class PythonPackage(ExtensionEasyBlock):
 
     def prepare_python(self):
         """Python-specific preperations."""
+
         # pick 'python' command to use
         python = None
-
         python_root = get_software_root('Python')
         # keep in mind that Python may be listed as an allowed system dependency,
         # so just checking Python root is not sufficient
@@ -340,8 +361,17 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.debug("Retaining 'python' command for Python dependency: %s", python)
 
         if python is None:
+            # if no Python version requirements are specified,
+            # use major/minor version of Python being used in this EasyBuild session
+            req_py_majver = self.cfg['req_py_majver']
+            if req_py_majver is None:
+                req_py_majver = sys.version_info[0]
+            req_py_minver = self.cfg['req_py_minver']
+            if req_py_minver is None:
+                req_py_minver = sys.version_info[1]
+
             # if using system Python, go hunting for a 'python' command that satisfies the requirements
-            python = pick_python_cmd(req_maj_ver=self.cfg['req_py_majver'], req_min_ver=self.cfg['req_py_minver'])
+            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
         if python:
             self.python_cmd = python
@@ -363,13 +393,10 @@ class PythonPackage(ExtensionEasyBlock):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
 
         if self.install_cmd.startswith(PIP_INSTALL_CMD):
-            out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
 
-            # pip 8.x or newer required, because of --prefix option being used
-            pip_version_regex = re.compile('^pip ([0-9.]+)')
-            res = pip_version_regex.search(out)
-            if res:
-                pip_version = res.group(1)
+            pip_version = det_pip_version()
+            if pip_version:
+                # pip 8.x or newer required, because of --prefix option being used
                 if LooseVersion(pip_version) >= LooseVersion('8.0'):
                     self.log.info("Found pip version %s, OK", pip_version)
                 else:
@@ -384,8 +411,7 @@ class PythonPackage(ExtensionEasyBlock):
                         self.cfg.update('installopts', '--no-build-isolation')
 
             elif not self.dry_run:
-                raise EasyBuildError("Could not determine pip version from \"%s\" using pattern '%s'",
-                                     out, pip_version_regex.pattern)
+                raise EasyBuildError("Failed to determine pip version!")
 
         cmd = []
         if extrapath:
@@ -598,12 +624,32 @@ class PythonPackage(ExtensionEasyBlock):
         self.test_step()
         self.install_step()
 
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonPackage, self).load_module(*args, **kwargs)
+
+        # don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # required here to ensure that it is defined for stand-alone installations,
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
         """
 
         success, fail_msg = True, ''
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/;
+        # must be set here to ensure that it is defined when running sanity check for extensions,
+        # since load_module is not called for every extension,
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
@@ -644,6 +690,16 @@ class PythonPackage(ExtensionEasyBlock):
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
+
+        if self.cfg.get('sanity_pip_check', False):
+            pip_version = det_pip_version()
+            if pip_version:
+                if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
+                    run_cmd("pip check", trace=False)
+                else:
+                    raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
+            else:
+                raise EasyBuildError("Failed to determine pip version!")
 
         parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 

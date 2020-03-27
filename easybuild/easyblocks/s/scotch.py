@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -81,6 +81,8 @@ class EB_SCOTCH(EasyBlock):
             (r"^CCD\s*=.*$", "CCD\t= $(MPICC)"),
             # append -lpthread to LDFLAGS
             (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=\g<ldflags> -lpthread"),
+            # prepend -L${EBROOTZLIB}/lib to LDFLAGS
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=-L${EBROOTZLIB}/lib \g<ldflags>"),
         ]
         apply_regex_substitutions(makefile_inc, regex_subs)
 
