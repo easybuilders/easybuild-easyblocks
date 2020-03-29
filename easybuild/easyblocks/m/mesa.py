@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
-
+from easybuild.tools.build_log import EasyBuildError
 
 class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
@@ -60,7 +60,7 @@ class EB_Mesa(MesonNinja):
             if arch in arch_gallium_drivers:
                 gallium_drivers = arch_gallium_drivers[arch]
                 # Add configopt for additional Gallium drivers
-                self.gallium_configopts += ['-Dgallium-drivers=' + ','.join(gallium_drivers)]
+                self.gallium_configopts.append('-Dgallium-drivers=' + ','.join(gallium_drivers))
 
         # Check user-defined SWR arches
         self.swr_arches = self.get_configopt_value('swr-arches')
@@ -78,7 +78,7 @@ class EB_Mesa(MesonNinja):
             cpu_features = get_cpu_features()
             self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
             # Add configopt for additional SWR arches
-            self.gallium_configopts += ['-Dswr-arches=' + ','.join(self.swr_arches)]
+            self.gallium_configopts.append('-Dswr-arches=' + ','.join(self.swr_arches))
 
     def get_configopt_value(self, configopt_name):
         """
@@ -86,9 +86,13 @@ class EB_Mesa(MesonNinja):
         """
         configopt_value = [opt.split('=')[1] for opt in self.cfg['configopts'].split() if configopt_name in opt]
 
-        if configopt_value:
+        if len(configopt_value) == 1:
             configopt_value = configopt_value[0].replace("'", '').replace('"', '')
             configopt_value = configopt_value.split(',')
+        elif len(configopt_value) > 1:
+            raise EasyBuildError(
+                "Found multiple instances of '%s' in configopts: %s", configopt_name, self.cfg['configopts']
+            )
 
         return configopt_value
 
@@ -98,8 +102,8 @@ class EB_Mesa(MesonNinja):
         (Gallium drivers installed, SWR CPU features, ...)
         """
 
-        for configopt in self.gallium_configopts:
-            self.cfg.update('configopts', configopt)
+        if self.gallium_configopts:
+            self.cfg.update('configopts', self.gallium_configopts)
 
         return super(EB_Mesa, self).configure_step()
 
