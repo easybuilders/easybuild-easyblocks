@@ -27,6 +27,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
 @author: Kenneth Hoste (HPC-UGent)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
@@ -44,38 +45,61 @@ class EB_Mesa(MesonNinja):
 
         super(EB_Mesa, self).__init__(*args, **kwargs)
 
-        self.swr_arches = []
+        self.gallium_configopts = []
 
-        if 'swr-arches' not in self.cfg['configopts']:
-            # set cpu features of SWR for current architecture (only on x86_64)
-            if get_cpu_architecture() == X86_64:
-                feat_to_swrarch = {
-                    'avx': 'avx',
-                    'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
-                    'avx2': 'avx2',
-                    'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
-                    'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-                }
-                # determine list of values to pass to swr-arches configuration option
-                cpu_features = get_cpu_features()
-                self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
+        # Check user-defined Gallium drivers
+        gallium_drivers = self.get_configopt_value('gallium-drivers')
+
+        if not gallium_drivers:
+            # Add appropriate Gallium drivers for current architecture
+            arch = get_cpu_architecture()
+            arch_gallium_drivers = {
+                'x86_64': ['swrast', 'swr'],
+                'POWER': ['swrast'],
+            }
+            if arch in arch_gallium_drivers:
+                gallium_drivers = arch_gallium_drivers[arch]
+                # Add configopt for additional Gallium drivers
+                self.gallium_configopts += ['-Dgallium-drivers=' + ','.join(gallium_drivers)]
+
+        # Check user-defined SWR arches
+        self.swr_arches = self.get_configopt_value('swr-arches')
+
+        if not self.swr_arches and 'swr' in gallium_drivers:
+            # Set cpu features of SWR for current micro-architecture
+            feat_to_swrarch = {
+                'avx': 'avx',
+                'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
+                'avx2': 'avx2',
+                'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
+                'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+            }
+            # Determine list of values to pass to swr-arches configuration option
+            cpu_features = get_cpu_features()
+            self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
+            # Add configopt for additional SWR arches
+            self.gallium_configopts += ['-Dswr-arches=' + ','.join(self.swr_arches)]
+
+    def get_configopt_value(self, configopt_name):
+        """
+        Return list of values for the given configuration option in configopts
+        """
+        configopt_value = [opt.split('=')[1] for opt in self.cfg['configopts'].split() if configopt_name in opt]
+
+        if configopt_value:
+            configopt_value = configopt_value[0].replace("'", '').replace('"', '')
+            configopt_value = configopt_value.split(',')
+
+        return configopt_value
 
     def configure_step(self):
         """
         Customise the configure options based on the processor architecture of the host
-        (x86_64 or not, CPU features, ...)
+        (Gallium drivers installed, SWR CPU features, ...)
         """
 
-        arch = get_cpu_architecture()
-        if 'gallium-drivers' not in self.cfg['configopts']:
-            # Install appropriate Gallium drivers for current architecture
-            if arch == X86_64:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
-            elif arch == POWER:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
-
-        if self.swr_arches:
-            self.cfg.update('configopts', '-Dswr-arches=' + ','.join(self.swr_arches))
+        for configopt in self.gallium_configopts:
+            self.cfg.update('configopts', configopt)
 
         return super(EB_Mesa, self).configure_step()
 
