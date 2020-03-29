@@ -282,15 +282,16 @@ class EB_Python(ConfigureMake):
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
         lib_dynload = 'lib-dynload'
-        lib_dynload_path = os.path.join(self.installdir, 'lib', 'python%s' % self.pyshortver, lib_dynload)
+        python_lib_dynload = os.path.join('python%s' % self.pyshortver, lib_dynload)
+        lib_dynload_path = os.path.join(self.installdir, 'lib', python_lib_dynload)
         if not os.path.exists(lib_dynload_path):
-            lib64_dynload_path = os.path.join(self.installdir, 'lib64', 'python%s' % self.pyshortver, lib_dynload)
-            if os.path.exists(lib64_dynload_path):
+            lib64_dynload_path = os.path.join('lib64', python_lib_dynload)
+            if os.path.exists(os.path.join(self.installdir, lib64_dynload_path)):
                 lib_dynload_parent = os.path.dirname(lib_dynload_path)
                 mkdir(lib_dynload_parent, parents=True)
                 cwd = change_dir(lib_dynload_parent)
                 # use relative path as target, to avoid hardcoding path to install directory
-                target_lib_dynload = os.path.join('..', '..', 'lib64', 'python%s' % self.pyshortver, lib_dynload)
+                target_lib_dynload = os.path.join('..', '..', lib64_dynload_path)
                 symlink(target_lib_dynload, lib_dynload)
                 change_dir(cwd)
 
