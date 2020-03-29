@@ -37,6 +37,7 @@ from easybuild.tools.filetools import copy_dir
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError
 
+
 class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
