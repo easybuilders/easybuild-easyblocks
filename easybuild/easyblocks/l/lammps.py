@@ -102,7 +102,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
         })
-        extra_vars['separate_build_dir'][0] = False
+        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def prepare_step(self, *args, **kwargs):
