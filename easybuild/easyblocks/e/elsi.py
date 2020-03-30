@@ -145,7 +145,6 @@ class EB_ELSI(CMakeMake):
             libs.append('sips')
 
         # follow self.lib_ext set by CMakeMake (based on build_shared_libs), fall back to .a (static libs by default)
-        print('self.lib_ext: %s' % self.lib_ext)
         lib_ext = self.lib_ext or 'a'
 
         module_paths = [os.path.join('include', '%s.mod' % mod) for mod in modules]
