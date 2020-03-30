@@ -60,6 +60,14 @@ class EB_Trilinos(CMakeMake):
         }
         return CMakeMake.extra_options(extra_vars)
 
+    def __init__(self, *args, **kwargs):
+        """Constructor of custom easyblock for Trilinos."""
+        super(EB_Trilinos, self).__init__(*args, **kwargs)
+
+        if self.cfg['shared_libs'] is not None:
+            self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
+            self.cfg['build_shared_libs'] = self.cfg['shared_libs']
+
     def configure_step(self):
         """Set some extra environment variables before configuring."""
 
@@ -91,11 +99,6 @@ class EB_Trilinos(CMakeMake):
         # MPI
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
-
-        # shared libraries
-        if self.cfg['shared_libs'] is not None:
-            self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
-            self.cfg['build_shared_libs'] = self.cfg['shared_libs']
 
         # enable full testing
         self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
