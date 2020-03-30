@@ -85,6 +85,23 @@ class CMakeMake(ConfigureMake):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor for CMakeMake easyblock:
+        set self.lib_ext based on whether shared libraries are built or not
+        """
+
+        super(CMakeMake, self).__init__(*args, **kwargs)
+
+        # set self.lib_ext according to 'build_shared_libs' easyconfig parameter (if it's set)
+        build_shared_libs = self.cfg['build_shared_libs']
+        if build_shared_libs:
+            self.lib_ext = get_shared_lib_ext()
+        elif build_shared_libs is not None:
+            self.lib_ext = 'a'
+        else:
+            self.lib_ext = None
+
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
@@ -108,10 +125,11 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        build_type = self.cfg['build_type']
-        if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
-        options.append("-DCMAKE_BUILD_TYPE=%s" % build_type)
+        if '-DCMAKE_BUILD_TYPE=' not in self.cfg['configopts']:
+            build_type = self.cfg['build_type']
+            if build_type is None:
+                build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            options.append('-DCMAKE_BUILD_TYPE=%s' % build_type)
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
@@ -119,14 +137,11 @@ class CMakeMake(ConfigureMake):
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
-        # If build_shared_libs is set, then self.lib_ext will be set accordingly for use in e.g. sanity checks
         build_shared_libs = self.cfg['build_shared_libs']
         if build_shared_libs:
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
-            self.lib_ext = get_shared_lib_ext()
         elif build_shared_libs is not None:
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
-            self.lib_ext = 'a'
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',

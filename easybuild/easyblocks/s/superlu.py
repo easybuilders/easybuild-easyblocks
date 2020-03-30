@@ -48,6 +48,14 @@ class EB_SuperLU(CMakeMake):
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Constructor for SuperLU easyblock."""
+
+        super(EB_SuperLU, self).__init__(*args, **kwargs)
+
+        # if self.lib_ext is not set by CMakeMake, fall back to .a (static libraries by default)
+        self.lib_ext = self.lib_ext or 'a'
+
     def configure_step(self):
         """
         Set the CMake options for SuperLU
@@ -105,16 +113,16 @@ class EB_SuperLU(CMakeMake):
         """
         super(EB_SuperLU, self).install_step()
 
-        self.libbits = 'lib'
-        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
-            self.libbits = 'lib64'
+        libbits = 'lib'
+        if not os.path.exists(os.path.join(self.installdir, libbits)):
+            libbits = 'lib64'
 
-        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+        if not os.path.exists(os.path.join(self.installdir, libbits)):
             raise EasyBuildError("No lib or lib64 subdirectory exist in %s", self.installdir)
 
-        expected_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu.%s" % self.lib_ext)
-        actual_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu_%s.%s" %
-                                      (self.cfg['version'], self.lib_ext))
+        libbits_path = os.path.join(self.installdir, libbits)
+        expected_libpath = os.path.join(libbits_path, 'libsuperlu.%s' % self.lib_ext)
+        actual_libpath = os.path.join(libbits_path, 'libsuperlu_%s.%s' % (self.cfg['version'], self.lib_ext))
 
         if not os.path.exists(expected_libpath):
             try:
@@ -127,7 +135,7 @@ class EB_SuperLU(CMakeMake):
         Check for main library files for SuperLU
         """
         custom_paths = {
-            'files': ["include/supermatrix.h", os.path.join(self.libbits, "libsuperlu.%s" % self.lib_ext)],
+            'files': ["include/supermatrix.h", os.path.join('lib', 'libsuperlu.%s' % self.lib_ext)],
             'dirs': [],
         }
         super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)

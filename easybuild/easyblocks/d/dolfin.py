@@ -273,10 +273,9 @@ class EB_DOLFIN(CMakePythonPackage):
 
             # subdomains-poisson has no C++ get_version, only Python
             # Python tests excluded, see above
-            if False:
-                name = 'subdomains-poisson'
-                path = os.path.join('demo', 'pde', name, 'python')
-                cmds += [cmd_template_python % {'dir': path, 'name': name}]
+            # name = 'subdomains-poisson'
+            # path = os.path.join('demo', 'pde', name, 'python')
+            # cmds += [cmd_template_python % {'dir': path, 'name': name}]
 
             # supply empty argument to each command
             for cmd in cmds:

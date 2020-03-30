@@ -52,8 +52,8 @@ class EB_ELSI(CMakeMake):
         extra_vars.update({
             'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
         })
-        extra_vars['build_shared_libs'][0] = True
         extra_vars['separate_build_dir'][0] = True
+        extra_vars['build_shared_libs'][0] = True
         return extra_vars
 
     def configure_step(self):
@@ -145,8 +145,11 @@ class EB_ELSI(CMakeMake):
             modules.append('elsi_sips')
             libs.append('sips')
 
+        # follow self.lib_ext set by CMakeMake (based on build_shared_libs), fall back to .a (static libs by default)
+        lib_ext = self.lib_ext or 'a'
+
         module_paths = [os.path.join('include', '%s.mod' % mod) for mod in modules]
-        lib_paths = [os.path.join('lib', 'lib%s.%s' % (lib, self.lib_ext)) for lib in libs]
+        lib_paths = [os.path.join('lib', 'lib%s.%s' % (lib, lib_ext)) for lib in libs]
 
         custom_paths = {
             'files': module_paths + lib_paths,
