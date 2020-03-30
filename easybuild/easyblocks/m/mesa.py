@@ -95,6 +95,17 @@ class EB_Mesa(MesonNinja):
 
     def sanity_check_step(self):
         """Custom sanity check for Mesa."""
+        def get_multi_opt_value(opt_name):
+            """Get list of values given to a multi-value option like -DFOO=bar,baz"""
+            option = [opt for opt in self.cfg['configopts'].split(' ') if opt.startswith('-D%s=' % opt_name)]
+            if option:
+                # Get value of last option added
+                value = option[-1].split('=')[-1]
+                # Remove quotes and extract individual values
+                result = value.strip('"\'').split(',')
+            else:
+                result = None
+            return result
 
         shlib_ext = get_shared_lib_ext()
 
@@ -115,8 +126,14 @@ class EB_Mesa(MesonNinja):
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 
-        if self.swr_arches:
-            swr_arch_libs = [os.path.join('lib', 'libswr%s.%s' % (a.upper(), shlib_ext)) for a in self.swr_arches]
-            custom_paths['files'].extend(swr_arch_libs)
+        gallium_drivers = get_multi_opt_value('gallium-drivers')
+        self.log.debug('Gallium driver(s) built: %s' % gallium_drivers)
+
+        if 'swr' in gallium_drivers:
+            swr_arches = get_multi_opt_value('swr-arches')
+            self.log.debug('SWR gallium driver built for %s' % swr_arches)
+            if swr_arches:
+                swr_arch_libs = [os.path.join('lib', 'libswr%s.%s' % (a.upper(), shlib_ext)) for a in swr_arches]
+                custom_paths['files'].extend(swr_arch_libs)
 
         super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
