@@ -86,21 +86,24 @@ class CMakeMake(ConfigureMake):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """
-        Constructor for CMakeMake easyblock:
-        set self.lib_ext based on whether shared libraries are built or not
-        """
-
+        """Constructor for CMakeMake easyblock"""
         super(CMakeMake, self).__init__(*args, **kwargs)
+        self._lib_ext = None
 
-        # set self.lib_ext according to 'build_shared_libs' easyconfig parameter (if it's set)
-        build_shared_libs = self.cfg['build_shared_libs']
-        if build_shared_libs:
-            self.lib_ext = get_shared_lib_ext()
-        elif build_shared_libs is not None:
-            self.lib_ext = 'a'
-        else:
-            self.lib_ext = None
+    @property
+    def lib_ext(self):
+        """Return the extension for libraries build based on `build_shared_libs` or None if that is unset"""
+        if self._lib_ext is None:
+            build_shared_libs = self.cfg['build_shared_libs']
+            if build_shared_libs:
+                self._lib_ext = get_shared_lib_ext()
+            elif build_shared_libs is not None:
+                self._lib_ext = 'a'
+        return self._lib_ext
+
+    @lib_ext.setter
+    def lib_ext(self, value):
+        self._lib_ext = value
 
     @property
     def build_type(self):
