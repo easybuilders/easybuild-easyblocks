@@ -125,7 +125,10 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if '-DCMAKE_BUILD_TYPE=' not in self.cfg['configopts']:
+        if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
+            if self.cfg['build_type'] is not None:
+                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+        else:
             build_type = self.cfg['build_type']
             if build_type is None:
                 build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
