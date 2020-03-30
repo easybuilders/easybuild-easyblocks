@@ -43,7 +43,7 @@ class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
     def __init__(self, *args, **kwargs):
-        """Constructor for custom Mesa easyblock: figure out which vales to pass to swr-arches configuration option."""
+        """Constructor for custom Mesa easyblock: figure out which values to pass to swr-arches configuration option."""
 
         super(EB_Mesa, self).__init__(*args, **kwargs)
 
@@ -63,6 +63,8 @@ class EB_Mesa(MesonNinja):
                 gallium_drivers = arch_gallium_drivers[arch]
                 # Add configopt for additional Gallium drivers
                 self.gallium_configopts.append('-Dgallium-drivers=' + ','.join(gallium_drivers))
+
+        self.log.debug('Gallium driver(s) included in the installation: %s' % ', '.join(gallium_drivers))
 
         self.swr_arches = []
 
@@ -84,6 +86,8 @@ class EB_Mesa(MesonNinja):
                 self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
                 # Add configopt for additional SWR arches
                 self.gallium_configopts.append('-Dswr-arches=' + ','.join(self.swr_arches))
+
+            self.log.debug('SWR Gallium driver will support: %s' % ', '.join(self.swr_arches))
 
     def get_configopt_value(self, configopt_name):
         """
