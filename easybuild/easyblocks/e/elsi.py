@@ -53,6 +53,7 @@ class EB_ELSI(CMakeMake):
             'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
+        extra_vars['build_shared_libs'][0] = True
         return extra_vars
 
     def configure_step(self):
