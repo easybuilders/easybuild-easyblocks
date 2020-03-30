@@ -27,6 +27,8 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
 @author: Kenneth Hoste (HPC-UGent)
+@author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Alexander Grund (TU Dresden)
 """
 import os
 from distutils.version import LooseVersion
@@ -39,26 +41,17 @@ from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get
 class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
-    def __init__(self, *args, **kwargs):
-        """Constructor for custom Mesa easyblock: figure out which vales to pass to swr-arches configuration option."""
-
-        super(EB_Mesa, self).__init__(*args, **kwargs)
-
-        self.swr_arches = []
-
-        if 'swr-arches' not in self.cfg['configopts']:
-            # set cpu features of SWR for current architecture (only on x86_64)
-            if get_cpu_architecture() == X86_64:
-                feat_to_swrarch = {
-                    'avx': 'avx',
-                    'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
-                    'avx2': 'avx2',
-                    'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
-                    'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-                }
-                # determine list of values to pass to swr-arches configuration option
-                cpu_features = get_cpu_features()
-                self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
+    def get_configopt_values(self, opt_name):
+        """Get list of values given to a multi-value option like -DFOO=bar,baz"""
+        option = [opt for opt in self.cfg['configopts'].split() if opt.startswith('-D%s=' % opt_name)]
+        if option:
+            # Get value of last option added
+            value = option[-1].split('=')[-1]
+            # Remove quotes and extract individual values
+            result = value.strip('"\'').split(',')
+        else:
+            result = None
+        return result
 
     def configure_step(self):
         """
@@ -66,16 +59,29 @@ class EB_Mesa(MesonNinja):
         (x86_64 or not, CPU features, ...)
         """
 
-        arch = get_cpu_architecture()
-        if 'gallium-drivers' not in self.cfg['configopts']:
+        gallium_drivers = self.get_configopt_values('gallium-drivers')
+        if gallium_drivers is None:
             # Install appropriate Gallium drivers for current architecture
+            arch = get_cpu_architecture()
             if arch == X86_64:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast,swr'")
+                gallium_drivers = ['swrast', 'swr']
             elif arch == POWER:
-                self.cfg.update('configopts', "-Dgallium-drivers='swrast'")
+                gallium_drivers = ['swrast']
+            self.cfg.update('configopts', "-Dgallium-drivers='%s'" % ','.join(gallium_drivers))
 
-        if self.swr_arches:
-            self.cfg.update('configopts', '-Dswr-arches=' + ','.join(self.swr_arches))
+        if 'swr' in gallium_drivers and self.get_configopt_values('swr-arches') is None:
+            # set cpu features of SWR for current architecture
+            feat_to_swrarch = {
+                'avx': 'avx',
+                'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
+                'avx2': 'avx2',
+                'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
+                'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+            }
+            # determine list of values to pass to swr-arches configuration option
+            cpu_features = get_cpu_features()
+            swr_arches = [swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features]
+            self.cfg.update('configopts', '-Dswr-arches=' + ','.join(swr_arches))
 
         return super(EB_Mesa, self).configure_step()
 
@@ -95,17 +101,6 @@ class EB_Mesa(MesonNinja):
 
     def sanity_check_step(self):
         """Custom sanity check for Mesa."""
-        def get_multi_opt_value(opt_name):
-            """Get list of values given to a multi-value option like -DFOO=bar,baz"""
-            option = [opt for opt in self.cfg['configopts'].split(' ') if opt.startswith('-D%s=' % opt_name)]
-            if option:
-                # Get value of last option added
-                value = option[-1].split('=')[-1]
-                # Remove quotes and extract individual values
-                result = value.strip('"\'').split(',')
-            else:
-                result = None
-            return result
 
         shlib_ext = get_shared_lib_ext()
 
@@ -126,11 +121,11 @@ class EB_Mesa(MesonNinja):
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 
-        gallium_drivers = get_multi_opt_value('gallium-drivers')
+        gallium_drivers = self.get_configopt_values('gallium-drivers')
         self.log.debug('Gallium driver(s) built: %s' % gallium_drivers)
 
         if 'swr' in gallium_drivers:
-            swr_arches = get_multi_opt_value('swr-arches')
+            swr_arches = self.get_configopt_values('swr-arches')
             self.log.debug('SWR gallium driver built for %s' % swr_arches)
             if swr_arches:
                 swr_arch_libs = [os.path.join('lib', 'libswr%s.%s' % (a.upper(), shlib_ext)) for a in swr_arches]
