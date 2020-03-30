@@ -86,7 +86,6 @@ class EB_Clang(CMakeMake):
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
         })
-        extra_vars['build_type'][0] = 'Release'
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
         return extra_vars
