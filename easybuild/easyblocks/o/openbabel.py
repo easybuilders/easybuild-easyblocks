@@ -57,7 +57,6 @@ class EB_OpenBabel(CMakeMake):
         self.with_python = False
 
     def configure_step(self):
-
         """Custom configure procedure for OpenBabel."""
 
         self.cfg['configopts'] += "-DENABLE_TESTS=ON "
