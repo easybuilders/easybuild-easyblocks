@@ -92,17 +92,18 @@ class EB_Mesa(MesonNinja):
         """
         Return list of values for the given configuration option in configopts
         """
-        configopt_value = [opt.split('=')[1] for opt in self.cfg['configopts'].split() if configopt_name in opt]
+        configopt_args = [opt for opt in self.cfg['configopts'].split() if opt.startswith('-D%s=' % configopt_name)]
 
-        if configopt_value:
-            configopt_value = configopt_value[-1].replace("'", '').replace('"', '')
-            configopt_value = configopt_value.split(',')
-
-            if len(configopt_value) > 1:
-                configopt_pair = "%s = %s" % (configopt_name, ', '.join(configopt_value))
-                self.log.warning(
-                    "Found multiple instances of %s in configopts, using last one: %s", configopt_name, configopt_pair
-                )
+        if configopt_args:
+            if len(configopt_args) > 1:
+                self.log.warning("Found multiple instances of %s in configopts, using last one: %s",
+                                 configopt_name, configopt_args[-1])
+            # Get value of last option added
+            configopt_value = configopt_args[-1].split('=')[-1]
+            # Remove quotes and extract individual values
+            configopt_value = configopt_value.strip('"\'').split(',')
+        else:
+            configopt_value = None
 
         return configopt_value
 
