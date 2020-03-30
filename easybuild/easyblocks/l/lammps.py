@@ -134,7 +134,7 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-D%s=on' % option)
 
         # enable building of shared libraries, if not specified already via configopts
-        if self.cfg['build_shared_libs'] is None and 'BUILD_SHARED_LIBS' not in self.cfg['configopts']:
+        if self.cfg['build_shared_libs'] is None and '-DBUILD_SHARED_LIBS=' not in self.cfg['configopts']:
             self.cfg['build_shared_libs'] = True
 
         # Enable gzip, libpng and libjpeg-turbo support when its included as dependency
