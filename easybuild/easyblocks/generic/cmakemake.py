@@ -102,6 +102,14 @@ class CMakeMake(ConfigureMake):
         else:
             self.lib_ext = None
 
+    @property
+    def build_type(self):
+        """Build type set in the EasyConfig with default determined by toolchainopts"""
+        build_type = self.cfg['build_type']
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        return build_type
+
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
@@ -129,10 +137,7 @@ class CMakeMake(ConfigureMake):
             if self.cfg['build_type'] is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
         else:
-            build_type = self.cfg['build_type']
-            if build_type is None:
-                build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
-            options.append('-DCMAKE_BUILD_TYPE=%s' % build_type)
+            options.append('-DCMAKE_BUILD_TYPE=%s' % self.build_type)
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:

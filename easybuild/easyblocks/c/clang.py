@@ -333,6 +333,7 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_C_COMPILER='%s' " % CC
         options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
         options += self.cfg['configopts']
+        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
