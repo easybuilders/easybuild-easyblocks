@@ -64,6 +64,8 @@ class EB_Mesa(MesonNinja):
                 # Add configopt for additional Gallium drivers
                 self.gallium_configopts.append('-Dgallium-drivers=' + ','.join(gallium_drivers))
 
+        self.swr_arches = []
+
         if 'swr' in gallium_drivers:
             # Check user-defined SWR arches
             self.swr_arches = self.get_configopt_value('swr-arches')
@@ -89,13 +91,15 @@ class EB_Mesa(MesonNinja):
         """
         configopt_value = [opt.split('=')[1] for opt in self.cfg['configopts'].split() if configopt_name in opt]
 
-        if len(configopt_value) == 1:
-            configopt_value = configopt_value[0].replace("'", '').replace('"', '')
+        if configopt_value:
+            configopt_value = configopt_value[-1].replace("'", '').replace('"', '')
             configopt_value = configopt_value.split(',')
-        elif len(configopt_value) > 1:
-            raise EasyBuildError(
-                "Found multiple instances of '%s' in configopts: %s", configopt_name, self.cfg['configopts']
-            )
+
+            if len(configopt_value) > 1:
+                configopt_pair = "%s = %s" % (configopt_name, ', '.join(configopt_value))
+                self.log.warning(
+                    "Found multiple instances of %s in configopts, using last one: %s", configopt_name, configopt_pair
+                )
 
         return configopt_value
 
