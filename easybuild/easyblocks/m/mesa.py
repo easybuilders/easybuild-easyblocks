@@ -28,6 +28,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Andrew Edmondson (University of Birmingham)
 @author: Kenneth Hoste (HPC-UGent)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Alexander Grund (TU Dresden)
 """
 import os
 from distutils.version import LooseVersion
@@ -63,23 +64,24 @@ class EB_Mesa(MesonNinja):
                 # Add configopt for additional Gallium drivers
                 self.gallium_configopts.append('-Dgallium-drivers=' + ','.join(gallium_drivers))
 
-        # Check user-defined SWR arches
-        self.swr_arches = self.get_configopt_value('swr-arches')
+        if 'swr' in gallium_drivers:
+            # Check user-defined SWR arches
+            self.swr_arches = self.get_configopt_value('swr-arches')
 
-        if not self.swr_arches and 'swr' in gallium_drivers:
-            # Set cpu features of SWR for current micro-architecture
-            feat_to_swrarch = {
-                'avx': 'avx',
-                'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
-                'avx2': 'avx2',
-                'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
-                'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
-            }
-            # Determine list of values to pass to swr-arches configuration option
-            cpu_features = get_cpu_features()
-            self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
-            # Add configopt for additional SWR arches
-            self.gallium_configopts.append('-Dswr-arches=' + ','.join(self.swr_arches))
+            if not self.swr_arches:
+                # Set cpu features of SWR for current micro-architecture
+                feat_to_swrarch = {
+                    'avx': 'avx',
+                    'avx1.0': 'avx',  # on macOS, AVX is indicated with 'avx1.0' rather than 'avx'
+                    'avx2': 'avx2',
+                    'avx512f': 'skx',  # AVX-512 Foundation - introduced in Skylake
+                    'avx512er': 'knl',  # AVX-512 Exponential and Reciprocal Instructions implemented in Knights Landing
+                }
+                # Determine list of values to pass to swr-arches configuration option
+                cpu_features = get_cpu_features()
+                self.swr_arches = sorted([swrarch for feat, swrarch in feat_to_swrarch.items() if feat in cpu_features])
+                # Add configopt for additional SWR arches
+                self.gallium_configopts.append('-Dswr-arches=' + ','.join(self.swr_arches))
 
     def get_configopt_value(self, configopt_name):
         """
