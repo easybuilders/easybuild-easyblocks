@@ -37,6 +37,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
@@ -75,7 +76,6 @@ class CMakeMake(ConfigureMake):
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
             'build_shared_libs': [None, "Build shared library (instead of static library)"
-                                        "Can be overwritten by configopts"
                                         "None can be used to add no flag (usually results in static library)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release."
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
@@ -141,10 +141,14 @@ class CMakeMake(ConfigureMake):
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
         build_shared_libs = self.cfg['build_shared_libs']
-        if build_shared_libs:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
-        elif build_shared_libs is not None:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
+        if build_shared_libs is not None:
+            # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
+            # This is to allow self.lib_ext to be determined correctly.
+            # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
+            # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
+            if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
+                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
