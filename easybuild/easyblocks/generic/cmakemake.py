@@ -37,11 +37,13 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -73,13 +75,43 @@ class CMakeMake(ConfigureMake):
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
-            'build_type': [None, "Build type for CMake, e.g. Release or Debug."
-                                "Use None to not specify -DCMAKE_BUILD_TYPE", CUSTOM],
+            'build_shared_libs': [None, "Build shared library (instead of static library)"
+                                        "None can be used to add no flag (usually results in static library)", CUSTOM],
+            'build_type': [None, "Build type for CMake, e.g. Release."
+                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for CMakeMake easyblock"""
+        super(CMakeMake, self).__init__(*args, **kwargs)
+        self._lib_ext = None
+
+    @property
+    def lib_ext(self):
+        """Return the extension for libraries build based on `build_shared_libs` or None if that is unset"""
+        if self._lib_ext is None:
+            build_shared_libs = self.cfg['build_shared_libs']
+            if build_shared_libs:
+                self._lib_ext = get_shared_lib_ext()
+            elif build_shared_libs is not None:
+                self._lib_ext = 'a'
+        return self._lib_ext
+
+    @lib_ext.setter
+    def lib_ext(self, value):
+        self._lib_ext = value
+
+    @property
+    def build_type(self):
+        """Build type set in the EasyConfig with default determined by toolchainopts"""
+        build_type = self.cfg['build_type']
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        return build_type
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -104,8 +136,27 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if self.cfg['build_type'] is not None:
-            options.append("-DCMAKE_BUILD_TYPE=%s" % self.cfg['build_type'])
+        if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
+            if self.cfg['build_type'] is not None:
+                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+        else:
+            options.append('-DCMAKE_BUILD_TYPE=%s' % self.build_type)
+
+        # Add -fPIC flag if necessary
+        if self.toolchain.options['pic']:
+            options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        # Set flag for shared libs if requested
+        # Not adding one allows the project to choose a default
+        build_shared_libs = self.cfg['build_shared_libs']
+        if build_shared_libs is not None:
+            # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
+            # This is to allow self.lib_ext to be determined correctly.
+            # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
+            # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
+            if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
+                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
