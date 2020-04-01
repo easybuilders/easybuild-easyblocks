@@ -94,7 +94,7 @@ class CMakeMake(ConfigureMake):
     def lib_ext(self):
         """Return the extension for libraries build based on `build_shared_libs` or None if that is unset"""
         if self._lib_ext is None:
-            build_shared_libs = self.cfg['build_shared_libs']
+            build_shared_libs = self.cfg.get('build_shared_libs')
             if build_shared_libs:
                 self._lib_ext = get_shared_lib_ext()
             elif build_shared_libs is not None:
@@ -108,7 +108,7 @@ class CMakeMake(ConfigureMake):
     @property
     def build_type(self):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
-        build_type = self.cfg['build_type']
+        build_type = self.cfg.get('build_type')
         if build_type is None:
             build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
         return build_type
@@ -138,7 +138,7 @@ class CMakeMake(ConfigureMake):
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
-            if self.cfg['build_type'] is not None:
+            if self.cfg.get('build_type') is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
         else:
             options.append('-DCMAKE_BUILD_TYPE=%s' % self.build_type)
@@ -149,7 +149,7 @@ class CMakeMake(ConfigureMake):
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
-        build_shared_libs = self.cfg['build_shared_libs']
+        build_shared_libs = self.cfg.get('build_shared_libs')
         if build_shared_libs is not None:
             # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
             # This is to allow self.lib_ext to be determined correctly.
