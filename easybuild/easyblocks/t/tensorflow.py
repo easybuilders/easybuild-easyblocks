@@ -515,6 +515,8 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version
 
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
+        if not whl_paths:
+            whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
