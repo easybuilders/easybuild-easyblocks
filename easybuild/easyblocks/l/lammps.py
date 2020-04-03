@@ -56,6 +56,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
+    'EPYC',  # AMD EPYC Zen-Core CPU
 ]
 
 KOKKOS_CPU_MAPPING = {
@@ -66,6 +67,8 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'knights-landing': 'KNL',
+    'zen': 'EPYC',
+    'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
 }
 
 
@@ -93,16 +96,17 @@ class EB_LAMMPS(CMakeMake):
     @staticmethod
     def extra_options(**kwargs):
         """Custom easyconfig parameters for LAMMPS"""
-
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'general_packages': [None, "List of general packages without `PKG_` prefix.", MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -124,17 +128,17 @@ class EB_LAMMPS(CMakeMake):
         cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc)
 
         # cmake has its own folder
-        self.cfg['separate_build_dir'] = True
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
 
-        # Enable following packages, if not configured in easycofig
-        default_options = [
-            'BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB',
-            'BUILD_SHARED_LIBS', 'BUILD_TOOLS',
-        ]
+        # Enable following packages, if not configured in easyconfig
+        default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)
+
+        # enable building of shared libraries, if not specified already via configopts
+        if self.cfg['build_shared_libs'] is None and '-DBUILD_SHARED_LIBS=' not in self.cfg['configopts']:
+            self.cfg['build_shared_libs'] = True
 
         # Enable gzip, libpng and libjpeg-turbo support when its included as dependency
         deps = [
@@ -191,9 +195,14 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DPKG_USER-OMP=on')
 
         # FFTW
-        if get_software_root('FFTW'):
+        if get_software_root("imkl") or get_software_root("FFTW"):
             if '-DFFT=' not in self.cfg['configopts']:
-                self.cfg.update('configopts', '-DFFT=FFTW3')
+                if get_software_root("imkl"):
+                    self.log.info("Using the MKL")
+                    self.cfg.update('configopts', '-DFFT=MKL')
+                else:
+                    self.log.info("Using FFTW")
+                    self.cfg.update('configopts', '-DFFT=FFTW3')
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 

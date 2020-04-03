@@ -36,7 +36,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, rmtree2
+from easybuild.tools.filetools import adjust_permissions, remove_dir
 from easybuild.tools.run import run_cmd
 
 
@@ -46,7 +46,7 @@ class EB_Anaconda(Binary):
     def install_step(self):
         """Copy all files in build directory to the install directory"""
 
-        rmtree2(self.installdir)
+        remove_dir(self.installdir)
         install_script = self.src[0]['name']
 
         adjust_permissions(os.path.join(self.builddir, install_script), stat.S_IRUSR|stat.S_IXUSR)

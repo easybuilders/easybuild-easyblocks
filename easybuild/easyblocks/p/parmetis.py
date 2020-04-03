@@ -30,6 +30,7 @@ EasyBuild support for ParMETIS, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 import shutil
@@ -37,21 +38,43 @@ from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import mkdir, symlink, remove_file
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ParMETIS(EasyBlock):
     """Support for building and installing ParMETIS."""
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+
+        super(EB_ParMETIS, self).__init__(*args, **kwargs)
+
+        self.config_shared = False
+        self.config_static = False
+
     def configure_step(self):
         """Configure ParMETIS build.
         For versions of ParMETIS < 4 , METIS is a seperate build
         New versions of ParMETIS include METIS
-        
-        Run 'cmake' in the build dir to get rid of a 'user friendly' 
+
+        Run 'cmake' in the build dir to get rid of a 'user friendly'
         help message that is displayed without this step.
         """
+
+        # Detect if this iteration is building static or shared libs to do proper sanity check
+        static_build = True
+        config_true = ['1', 'ON', 'YES', 'TRUE', 'Y']  # True values in CMake
+        for configopt in self.cfg['configopts'].split():
+            if 'SHARED' in configopt and any(trueval in configopt for trueval in config_true):
+                static_build = False
+
+        if static_build:
+            self.config_static = True
+        else:
+            self.config_shared = True
+
         if LooseVersion(self.version) >= LooseVersion("4"):
             # tested with 4.0.2, now actually requires cmake to be run first
             # for both parmetis and metis
@@ -166,20 +189,30 @@ class EB_ParMETIS(EasyBlock):
         # other applications depending on ParMETIS (SuiteSparse for one) look for both ParMETIS libraries
         # and header files in the Lib directory (capital L). The following symlink are hence created.
         try:
-            llibdir = os.path.join(self.installdir, 'Lib')
-            os.symlink(libdir, llibdir)
-            for f in ['metis.h', 'parmetis.h']:
-                os.symlink(os.path.join(includedir, f), os.path.join(libdir, f))
+            caplibdir = os.path.join(self.installdir, 'Lib')
+            remove_file(caplibdir)
+            symlink(libdir, caplibdir)
+            for header_file in ['metis.h', 'parmetis.h']:
+                header_path = os.path.join(libdir, header_file)
+                remove_file(header_path)
+                symlink(os.path.join(includedir, header_file), header_path)
         except OSError as err:
             raise EasyBuildError("Something went wrong during symlink creation: %s", err)
 
     def sanity_check_step(self):
         """Custom sanity check for ParMETIS."""
 
+        parmetis_libs = [os.path.join('lib', 'libmetis.a')]
+        # Add static and shared libs depending on configopts
+        if self.config_shared:
+            shlib_ext = get_shared_lib_ext()
+            parmetis_libs.append(os.path.join('lib', 'libparmetis.%s' % shlib_ext))
+        if self.config_static:
+            parmetis_libs.append(os.path.join('lib', 'libparmetis.a'))
+
         custom_paths = {
-                        'files': ['include/%smetis.h' % x for x in ["", "par"]] +
-                                 ['lib/lib%smetis.a' % x for x in ["", "par"]],
-                        'dirs':['Lib']
-                       }
+            'files': ['include/%smetis.h' % x for x in ["", "par"]] + parmetis_libs,
+            'dirs': ['Lib']
+        }
 
         super(EB_ParMETIS, self).sanity_check_step(custom_paths=custom_paths)

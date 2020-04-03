@@ -42,7 +42,7 @@ from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPacka
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, mkdir, rmtree2
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
@@ -270,7 +270,7 @@ class EB_numpy(FortranPythonPackage):
                                  size, size, time_msec, self.cfg['blas_test_time_limit'])
         try:
             os.chdir(pwd)
-            rmtree2(tmpdir)
+            remove_dir(tmpdir)
         except OSError as err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
@@ -282,7 +282,7 @@ class EB_numpy(FortranPythonPackage):
         try:
             if os.path.isdir(builddir):
                 os.chdir(self.builddir)
-                rmtree2(builddir)
+                remove_dir(builddir)
             else:
                 self.log.debug("build dir %s already clean" % builddir)
 

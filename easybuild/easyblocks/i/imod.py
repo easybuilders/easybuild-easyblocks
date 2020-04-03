@@ -32,7 +32,7 @@ import shutil
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import remove_dir
 from easybuild.tools.run import run_cmd
 
 class EB_IMOD(Binary):
@@ -61,7 +61,7 @@ class EB_IMOD(Binary):
                 shutil.move(os.path.join(dir_to_remove, entry), self.installdir)
             if os.path.realpath(link_to_remove) != os.path.realpath(dir_to_remove):
                 raise EasyBuildError("Something went wrong: %s doesn't point to %s", link_to_remove, dir_to_remove)
-            rmtree2(dir_to_remove)
+            remove_dir(dir_to_remove)
             os.remove(link_to_remove)
         except OSError as err:
             raise EasyBuildError("Failed to clean up install dir: %s", err)
