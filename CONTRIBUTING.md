@@ -123,7 +123,7 @@ Issue a pull request for your branch into the main easybuild-easyblocks reposito
  * issue a pull request (see button at the top of the page) for your branch to the **_develop_** branch of the main easybuild-easyblocks repository; **note**: don't issue a pull request to the _master_ branch, as it will be simply closed by the EasyBuild team
 
  * make sure to reference the corresponding issue number in the pull request, using the notation # followed by a number, e.g. `#83`
-   * Using syntax like `Closes #83` when you do this will mean that the issue is automatically closed when the pull request is merged (see [here](https://help.github.com/en/github/managing-your-work-on-github/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) for details).
+   * Using syntax like `Closes #83` or `Fixes #83`when you do this will mean that the issue is automatically closed when the pull request is merged (see [here](https://help.github.com/en/github/managing-your-work-on-github/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) for details).
 
 ### Review process
 
