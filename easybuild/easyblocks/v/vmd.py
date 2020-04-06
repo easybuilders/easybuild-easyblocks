@@ -148,7 +148,8 @@ class EB_VMD(ConfigureMake):
         # PTHREADS: enable support for POSIX threads
         # COLVARS: enable support for collective variables (related to NAMD/LAMMPS)
         # NOSILENT: verbose build command
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT", allow_duplicate=False)
+        self.cfg.update(
+            'configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT FLTK TK OPENGL", allow_duplicate=False)
 
         # add additional configopts based on available dependencies
         for key in deps:
