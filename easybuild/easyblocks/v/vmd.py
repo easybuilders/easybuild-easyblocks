@@ -148,6 +148,9 @@ class EB_VMD(ConfigureMake):
         # PTHREADS: enable support for POSIX threads
         # COLVARS: enable support for collective variables (related to NAMD/LAMMPS)
         # NOSILENT: verbose build command
+        # FLTK: enable the standard FLTK GUI
+        # TK: enable TK to support extension GUI elements
+        # OPENGL: enable OpenGL
         self.cfg.update(
             'configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT FLTK TK OPENGL", allow_duplicate=False)
 
