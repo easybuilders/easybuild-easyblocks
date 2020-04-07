@@ -75,8 +75,6 @@ class EB_GROMACS(CMakeMake):
         self.lib_subdir = ''
         self.pre_env = ''
         self.dynamic = self.toolchain.options.get('dynamic', False)
-        if LooseVersion(self.version) >= LooseVersion('4.6'):
-            self.cfg['separate_build_dir'] = True
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
