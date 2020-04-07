@@ -60,7 +60,8 @@ class EB_GROMACS(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), default is to build double precision unless CUDA is enabled", CUSTOM],
+            'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " + 
+                                 "default is to build double precision unless CUDA is enabled", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -232,7 +233,8 @@ class EB_GROMACS(CMakeMake):
         else:
             if re.search('-DGMX_MPI=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
                 if self.cfg.get('mpi_numprocs') == 0:
-                    self.log.info("No number of test MPI tasks specified -- using default: %s" % self.cfg.get('parallel'))
+                    self.log.info("No number of test MPI tasks specified -- using default: %s",
+                                  self.cfg.get('parallel'))
                     self.cfg['mpi_numprocs'] = self.cfg.get('parallel')
 
                 elif self.cfg.get('mpi_numprocs') > self.cfg.get('parallel'):
@@ -247,7 +249,8 @@ class EB_GROMACS(CMakeMake):
                 elif self.cfg.get('runtest'):
                     raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
-                              self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'), self.cfg.get('mpi_numprocs'))
+                              self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'),
+                              self.cfg.get('mpi_numprocs'))
 
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # Building the gmxapi interface requires shared libraries
