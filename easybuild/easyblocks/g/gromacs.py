@@ -60,7 +60,7 @@ class EB_GROMACS(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON)", CUSTOM],
+            'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), default is to build double precision unless CUDA is enabled", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
