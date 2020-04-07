@@ -617,9 +617,9 @@ class EB_GROMACS(CMakeMake):
                 'mpi': 'install'
             }
 
-        precs = ['single']
+        precisions = ['single']
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
-            precs.append('double')
+            precisions.append('double')
 
         mpitypes = ['nompi']
         if self.toolchain.options.get('usempi', None):
@@ -629,21 +629,21 @@ class EB_GROMACS(CMakeMake):
         self.variants_to_build = 0
         versions_built = []
         # Handle the different variants
-        for prec in precs:
+        for precicion in precisions:
             for mpitype in mpitypes:
                 self.variants_to_build += 1
-                versions_built.append('%s precision %s' % (prec, mpitype))
+                versions_built.append('%s precision %s' % (precicion, mpitype))
                 var_confopts = []
                 var_buildopts = []
                 var_installopts = []
 
                 var_confopts.append(mpi_type_opts[mpitype])
-                var_confopts.append(prec_opts[prec])
+                var_confopts.append(prec_opts[precicion])
                 if LooseVersion(self.version) < LooseVersion('4.6'):
                     suffix = ''
                     if mpitype == 'mpi':
                         suffix = "--program-suffix={0}".format(self.cfg.get('mpisuffix'))
-                        if prec == 'double':
+                        if precicion == 'double':
                             suffix += '_d'
                     var_confopts.append(suffix)
 
