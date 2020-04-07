@@ -162,7 +162,7 @@ class EB_GROMACS(CMakeMake):
                     raise EasyBuildError("Double precision is not available for GPU build. " +
                                          "Please explicitly set \"double_precision = False\" " +
                                          "or remove it in the easyconfig file.")
-                if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+                if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
                     if self.cfg.get('double_precision') is None:
                         # Only print warning once when trying double precision
                         # build the first time
@@ -232,7 +232,7 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
         else:
-            if re.search('DGMX_MPI=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+            if re.search('-DGMX_MPI=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
                 if self.cfg.get('mpi_numprocs') == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s" % self.cfg.get('parallel'))
                     self.cfg['mpi_numprocs'] = self.cfg.get('parallel')
@@ -383,7 +383,7 @@ class EB_GROMACS(CMakeMake):
         cuda = get_software_root('CUDA')
         if cuda:
             if (not self.cfg.get('double_precision') and
-                    re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
+                    re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
                 print_msg("skipping build step", silent=self.silent)
                 return
 
@@ -416,7 +416,7 @@ class EB_GROMACS(CMakeMake):
         cuda = get_software_root('CUDA')
         if cuda:
             if (not self.cfg.get('double_precision') and
-                    re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
+                    re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
                 print_msg("skipping install step", silent=self.silent)
                 return
 
@@ -532,9 +532,9 @@ class EB_GROMACS(CMakeMake):
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precission
-                if re.search('enable-double', configopts, re.I):
+                if re.search('-enable-double', configopts, re.I):
                     suff = '_d'
-                if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
+                if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
                     suff = '_d'
 
         lib_files.extend(['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames + mpi_libnames])
