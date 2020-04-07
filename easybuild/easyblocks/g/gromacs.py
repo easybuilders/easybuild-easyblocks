@@ -631,7 +631,6 @@ class EB_GROMACS(CMakeMake):
         # Handle the different variants
         for precicion in precisions:
             for mpitype in mpitypes:
-                self.variants_to_build += 1
                 versions_built.append('%s precision %s' % (precicion, mpitype))
                 var_confopts = []
                 var_buildopts = []
@@ -653,6 +652,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', [' '.join(var_confopts) + ' ' + common_config_opts])
                 self.cfg.update('buildopts', [' '.join(var_buildopts) + ' ' + common_build_opts])
                 self.cfg.update('installopts', [' '.join(var_installopts) + ' ' + common_install_opts])
+        self.variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg.get('configopts'))
         print_msg("Building these versions of GROMACS: %s" % ', '.join(versions_built), silent=self.silent)
