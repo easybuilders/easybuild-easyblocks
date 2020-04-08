@@ -54,6 +54,7 @@ class Tarball(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
             'install_in_subdir': [False, "Extract tarball in a subdirectory with the name of the package", CUSTOM],
+            'preinstall_cmd': [None, "Command to execute before installation", CUSTOM],
         })
         return extra_vars
 
@@ -76,10 +77,14 @@ class Tarball(EasyBlock):
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
 
-        # Run preinstallopts before copy of source directory
+        # Run preinstallopts and/or preinstall_cmd before copy of source directory
+        preinstall_cmd = None
         if self.cfg['preinstallopts']:
             preinstall_opts = self.cfg['preinstallopts'].split('&&')
             preinstall_cmd = '&&'.join([opt for opt in preinstall_opts if opt and not opt.isspace()])
+        if self.cfg['preinstall_cmd']:
+            preinstall_cmd = '&& '.join([cmd for cmd in [preinstall_cmd, self.cfg['preinstall_cmd']] if cmd])
+        if preinstall_cmd:
             self.log.info("Preparing installation of %s using command '%s'..." % (self.name, preinstall_cmd))
             run_cmd(preinstall_cmd, log_all=True, simple=True)
 
