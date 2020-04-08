@@ -53,7 +53,7 @@ class Tarball(EasyBlock):
         """Extra easyconfig parameters specific to Tarball."""
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
-            'final_dir': [None, "Override default installation path with provided path", CUSTOM],
+            'install_in_subdir': [False, "Extract tarball in a subdirectory with the name of the package", CUSTOM],
         })
         return extra_vars
 
@@ -86,8 +86,8 @@ class Tarball(EasyBlock):
         # Copy source directory
         source_path = src or self.cfg['start_dir']
 
-        if 'final_dir' in self.cfg and self.cfg['final_dir']:
-            install_path = os.path.join(self.installdir, self.cfg['final_dir'])
+        if self.cfg['install_in_subdir']:
+            install_path = os.path.join(self.installdir, self.name.lower())
         else:
             install_path = self.installdir
 
