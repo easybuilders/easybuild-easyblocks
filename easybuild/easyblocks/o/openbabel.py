@@ -44,10 +44,12 @@ class EB_OpenBabel(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'with_python_bindings': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize OpenBabel-specific variables."""
@@ -55,9 +57,7 @@ class EB_OpenBabel(CMakeMake):
         self.with_python = False
 
     def configure_step(self):
-
-        # Use separate build directory
-        self.cfg['separate_build_dir'] = True
+        """Custom configure procedure for OpenBabel."""
 
         self.cfg['configopts'] += "-DENABLE_TESTS=ON "
         # Needs wxWidgets

@@ -34,7 +34,7 @@ implemented as an easyblock
 """
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.filetools import copy_dir, rmtree2
+from easybuild.tools.filetools import copy_dir, remove_dir
 
 
 class Tarball(EasyBlock):
@@ -57,7 +57,7 @@ class Tarball(EasyBlock):
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
-        rmtree2(self.installdir)
+        remove_dir(self.installdir)
         copy_dir(src or self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_rpath(self):
