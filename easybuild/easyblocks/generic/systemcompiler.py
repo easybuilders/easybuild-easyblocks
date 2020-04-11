@@ -278,8 +278,8 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         return extras
 
     def post_install_step(self, *args, **kwargs):
-        """Do nothing."""
-        pass
+        """Only use Bundle post_install (default)."""
+        Bundle.post_install_step(self, *args, **kwargs)
 
     def cleanup_step(self):
         """Do nothing."""
