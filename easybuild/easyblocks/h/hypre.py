@@ -82,7 +82,7 @@ class EB_Hypre(ConfigureMake):
 
         custom_paths = {
             'files': hypre_libs,
-            'dirs':['include']
+            'dirs': ['include']
         }
 
         super(EB_Hypre, self).sanity_check_step(custom_paths=custom_paths)
