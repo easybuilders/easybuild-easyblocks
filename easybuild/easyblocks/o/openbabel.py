@@ -68,6 +68,9 @@ class EB_OpenBabel(CMakeMake):
             self.log.info("Enabling Python bindings")
             self.with_python = True
             self.cfg.update('configopts', '-DPYTHON_BINDINGS=ON')
+            if LooseVersion(self.version) >= LooseVersion('3.0.0'):
+                self.log.info("Enabling SWIG")
+                self.cfg.update('configopts', '-DRUN_SWIG=ON')
 
             # determine Python include subdir + libpython*.so path
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
@@ -97,7 +100,7 @@ class EB_OpenBabel(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenBabel."""
         custom_paths = {
-            'files': ['bin/babel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
+            'files': ['bin/obabel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
             'dirs': ['share/openbabel'],
         }
         super(EB_OpenBabel, self).sanity_check_step(custom_paths=custom_paths)
