@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2019 Ghent University
-# Copyright 2015-2016 Stanford University
+# Copyright 2009-2020 Ghent University
+# Copyright 2015-2020 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -148,7 +148,11 @@ class EB_VMD(ConfigureMake):
         # PTHREADS: enable support for POSIX threads
         # COLVARS: enable support for collective variables (related to NAMD/LAMMPS)
         # NOSILENT: verbose build command
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT", allow_duplicate=False)
+        # FLTK: enable the standard FLTK GUI
+        # TK: enable TK to support extension GUI elements
+        # OPENGL: enable OpenGL
+        self.cfg.update(
+            'configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT FLTK TK OPENGL", allow_duplicate=False)
 
         # add additional configopts based on available dependencies
         for key in deps:

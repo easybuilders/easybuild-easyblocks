@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class EB_impi(IntelBase):
     def extra_options():
         extra_vars = {
             'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
-            'libfabric_rebuild': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
+            'libfabric_rebuild': [True, 'Try to rebuild internal libfabric instead of using provided binary', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
@@ -126,23 +126,30 @@ EULA=accept
             run_cmd(cmd, log_all=True, simple=True)
 
         # recompile libfabric (if requested)
+        # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
+        libfabric_path = os.path.join(self.installdir, 'libfabric')
         if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
             if self.cfg['ofi_internal']:
-                change_dir(os.path.join(self.installdir, 'libfabric'))
-                extract_file('src.tgz', os.getcwd())
-                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+                libfabric_src_tgz_fn = 'src.tgz'
+                if os.path.exists(os.path.join(libfabric_path, libfabric_src_tgz_fn)):
+                    change_dir(libfabric_path)
+                    extract_file(libfabric_src_tgz_fn, os.getcwd())
+                    libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
-                make = 'make'
-                if self.cfg['parallel']:
-                    make += ' -j %d' % self.cfg['parallel']
+                    make = 'make'
+                    if self.cfg['parallel']:
+                        make += ' -j %d' % self.cfg['parallel']
 
-                cmds = [
-                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
-                    make,
-                    'make install'
-                ]
-                for cmd in cmds:
-                    run_cmd(cmd, log_all=True, simple=True)
+                    cmds = [
+                        './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                        make,
+                        'make install'
+                    ]
+                    for cmd in cmds:
+                        run_cmd(cmd, log_all=True, simple=True)
+                else:
+                    self.log.info("Rebuild of libfabric is requested, but %s does not exist, so skipping...",
+                                  libfabric_src_tgz_fn)
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
@@ -160,7 +167,7 @@ EULA=accept
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
-            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            regex_subs = [(r"^(\s*)I_MPI_ROOT=[^;\n]*", r"\1I_MPI_ROOT=%s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
@@ -223,7 +230,7 @@ EULA=accept
         else:
             guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
-                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # Keep release_mt and release in front, to give them priority over the possible symlinks in intel64/lib.
                 # IntelMPI 2019 changed the default library to be the non-mt version.
                 lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
                 include_dirs = ['intel64/include']

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -211,14 +211,16 @@ class PythonPackage(ExtensionEasyBlock):
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
-            'req_py_majver': [2, "Required major Python version (only relevant when using system Python)", CUSTOM],
-            'req_py_minver': [6, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
+            'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
+            # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
+            'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
@@ -347,9 +349,9 @@ class PythonPackage(ExtensionEasyBlock):
 
     def prepare_python(self):
         """Python-specific preperations."""
+
         # pick 'python' command to use
         python = None
-
         python_root = get_software_root('Python')
         # keep in mind that Python may be listed as an allowed system dependency,
         # so just checking Python root is not sufficient
@@ -361,8 +363,17 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.debug("Retaining 'python' command for Python dependency: %s", python)
 
         if python is None:
+            # if no Python version requirements are specified,
+            # use major/minor version of Python being used in this EasyBuild session
+            req_py_majver = self.cfg['req_py_majver']
+            if req_py_majver is None:
+                req_py_majver = sys.version_info[0]
+            req_py_minver = self.cfg['req_py_minver']
+            if req_py_minver is None:
+                req_py_minver = sys.version_info[1]
+
             # if using system Python, go hunting for a 'python' command that satisfies the requirements
-            python = pick_python_cmd(req_maj_ver=self.cfg['req_py_majver'], req_min_ver=self.cfg['req_py_minver'])
+            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
         if python:
             self.python_cmd = python
@@ -383,7 +394,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
 
-        if self.install_cmd.startswith(PIP_INSTALL_CMD):
+        using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
+        if using_pip:
 
             pip_version = det_pip_version()
             if pip_version:
@@ -418,6 +430,11 @@ class PythonPackage(ExtensionEasyBlock):
                 loc = self.src
             else:
                 loc = self.src[0]['path']
+
+        if using_pip:
+            extras = self.cfg.get('use_pip_extras')
+            if extras:
+                loc += '[%s]' % extras
 
         if installopts is None:
             installopts = self.cfg['installopts']
@@ -615,12 +632,32 @@ class PythonPackage(ExtensionEasyBlock):
         self.test_step()
         self.install_step()
 
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonPackage, self).load_module(*args, **kwargs)
+
+        # don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # required here to ensure that it is defined for stand-alone installations,
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
         """
 
         success, fail_msg = True, ''
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/;
+        # must be set here to ensure that it is defined when running sanity check for extensions,
+        # since load_module is not called for every extension,
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")

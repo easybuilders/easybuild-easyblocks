@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -144,11 +144,12 @@ class EB_imkl(IntelBase):
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
                 retdict = {
-                    'PATH': ['bin', 'mkl/bin', 'mkl/bin/intel64', 'composerxe-2011/bin'],
+                    'PATH': [],
                     'LD_LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'MANPATH': ['man', 'man/en_US'],
                     'CPATH': ['mkl/include', 'mkl/include/fftw'],
+                    'PKG_CONFIG_PATH': ['mkl/bin/pkgconfig'],
                 }
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):
@@ -349,7 +350,7 @@ class EB_imkl(IntelBase):
                         except OSError as err:
                             raise EasyBuildError("Failed to move %s to %s: %s", src, dest, err)
 
-                    rmtree2(tmpbuild)
+                    remove_dir(tmpbuild)
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel MKL."""

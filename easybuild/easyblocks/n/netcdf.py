@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,6 +47,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_netCDF(CMakeMake):
     """Support for building/installing netCDF"""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Configure build: set config options and configure"""
 
@@ -68,11 +74,6 @@ class EB_netCDF(CMakeMake):
             ConfigureMake.configure_step(self)
 
         else:
-            if self.toolchain.options['debug']:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=DEBUG ')
-            else:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
-
             for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
                                    ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
@@ -99,6 +100,10 @@ class EB_netCDF(CMakeMake):
                                 cmvar = hdf5cmvars[libname][1]
                             libhdf5 = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                             self.cfg.update('configopts', '-DHDF5_%s=%s ' % (cmvar, libhdf5))
+                            # 4.4 forgot to set HDF5_<lang>_LIBRARIES
+                            if LooseVersion(self.version) == LooseVersion("4.4.0"):
+                                lang = 'HL' if cmvar[0] == 'H' else 'C'
+                                self.cfg.update('configopts', '-DHDF5_%s_LIBRARIES=%s ' % (lang, libhdf5))
 
                     elif dep == 'PnetCDF':
                         self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')

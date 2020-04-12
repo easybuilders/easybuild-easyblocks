@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -107,10 +107,16 @@ class EB_WPS(EasyBlock):
         else:
             raise EasyBuildError("WRF module not loaded?")
 
-        # patch compile script so that WRF is found
-        self.compile_script = "compile"
-        regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
-        apply_regex_substitutions(self.compile_script, regex_subs)
+        self.compile_script = 'compile'
+
+        if LooseVersion(self.version) >= LooseVersion('4.0.3'):
+            # specify install location of WRF via $WRF_DIR (supported since WPS 4.0.3)
+            # see https://github.com/wrf-model/WPS/pull/102
+            env.setvar('WRF_DIR', wrfdir)
+        else:
+            # patch compile script so that WRF is found
+            regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
+            apply_regex_substitutions(self.compile_script, regex_subs)
 
         # libpng dependency check
         libpng = get_software_root('libpng')
@@ -374,8 +380,8 @@ class EB_WPS(EasyBlock):
     def make_module_req_guess(self):
         """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
         return {
-            'PATH': [self.name],
-            'LD_LIBRARY_PATH': [self.name],
+            'PATH': [self.wps_subdir],
+            'LD_LIBRARY_PATH': [self.wps_subdir],
             'MANPATH': [],
         }
 

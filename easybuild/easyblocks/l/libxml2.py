@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,6 +78,10 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         zlib = get_software_root('zlib')
         if zlib:
             self.cfg.update('configopts', '--with-zlib=%s' % zlib)
+
+        xz_root = get_software_root('XZ')
+        if xz_root:
+            self.cfg.update('configopts', '--with-lzma=%s' % xz_root)
 
         # enable building of Python bindings if Python is a dependency (or build them ourselves for old versions)
         # disable building of Python bindings if Python is not a dependency

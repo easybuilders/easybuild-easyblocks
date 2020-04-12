@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,9 +46,10 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import symlink, write_file
+from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+import easybuild.tools.toolchain as toolchain
 
 
 EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
@@ -107,8 +108,11 @@ class EB_Python(ConfigureMake):
     def extra_options():
         """Add extra config options specific to Python."""
         extra_vars = {
-            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'optimized': [True, "Build with expensive, stable optimizations (PGO, etc.) (version >= 3.5.4)", CUSTOM],
+            'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
+            'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
+                        "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -139,19 +143,51 @@ class EB_Python(ConfigureMake):
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
 
+    def auto_detect_lto_support(self):
+        """Return True, if LTO should be enabled for current toolchain"""
+        result = False
+        # GCC >= 8 should be stable enough for LTO
+        if self.toolchain.comp_family() == toolchain.GCC:
+            gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+            if gcc_ver and LooseVersion(gcc_ver) >= LooseVersion('8.0'):
+                self.log.info("Auto-enabling LTO since GCC >= v8.0 is used as toolchain compiler")
+                result = True
+        return result
+
     def configure_step(self):
         """Set extra configure options."""
-        self.cfg.update('configopts', "--with-threads --enable-shared")
+        self.cfg.update('configopts', "--enable-shared")
 
+        # Explicitely enable thread support on < 3.7 (always on 3.7+)
+        if LooseVersion(self.version) < LooseVersion('3.7'):
+            self.cfg.update('configopts', "--with-threads")
+
+        # Explicitely enable unicode on Python 2, always on for Python 3
         # Need to be careful to match the unicode settings to the underlying python
-        if sys.maxunicode == 1114111:
-            self.cfg.update('configopts', "--enable-unicode=ucs4")
-        elif sys.maxunicode == 65535:
-            self.cfg.update('configopts', "--enable-unicode=ucs2")
-        else:
-            raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
+        if LooseVersion(self.version) < LooseVersion('3.0'):
+            if sys.maxunicode == 1114111:
+                self.cfg.update('configopts', "--enable-unicode=ucs4")
+            elif sys.maxunicode == 65535:
+                self.cfg.update('configopts', "--enable-unicode=ucs2")
+            else:
+                raise EasyBuildError("Unknown maxunicode value for your python: %d" % sys.maxunicode)
 
-        modules_setup_dist = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup.dist')
+        # LTO introduced in 3.7.0
+        if LooseVersion(self.version) >= LooseVersion('3.7.0'):
+            use_lto = self.cfg['use_lto']
+            if use_lto is None:
+                use_lto = self.auto_detect_lto_support()
+            if use_lto:
+                self.cfg.update('configopts', "--with-lto")
+
+        # Enable further optimizations at the cost of a longer build
+        # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
+        if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
+            self.cfg.update('configopts', "--enable-optimizations")
+
+        modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
+        if LooseVersion(self.version) < LooseVersion('3.8.0'):
+            modules_setup += '.dist'
 
         libreadline = get_software_root('libreadline')
         if libreadline:
@@ -162,7 +198,7 @@ class EB_Python(ConfigureMake):
                 readline_static_lib = os.path.join(libreadline, readline_libdir, 'libreadline.a')
                 ncurses_static_lib = os.path.join(ncurses, ncurses_libdir, 'libncurses.a')
                 readline = "readline readline.c %s %s" % (readline_static_lib, ncurses_static_lib)
-                for line in fileinput.input(modules_setup_dist, inplace='1', backup='.readline'):
+                for line in fileinput.input(modules_setup, inplace='1', backup='.readline'):
                     line = re.sub(r"^#readline readline.c.*", readline, line)
                     sys.stdout.write(line)
             else:
@@ -170,7 +206,7 @@ class EB_Python(ConfigureMake):
 
         openssl = get_software_root('OpenSSL')
         if openssl:
-            for line in fileinput.input(modules_setup_dist, inplace='1', backup='.ssl'):
+            for line in fileinput.input(modules_setup, inplace='1', backup='.ssl'):
                 line = re.sub(r"^#SSL=.*", "SSL=%s" % openssl, line)
                 line = re.sub(r"^#(\s*-DUSE_SSL -I)", r"\1", line)
                 line = re.sub(r"^#(\s*-L\$\(SSL\)/lib )", r"\1 -L$(SSL)/lib64 ", line)
@@ -243,6 +279,22 @@ class EB_Python(ConfigureMake):
         if self.cfg['ebpythonprefixes']:
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
+        # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
+        # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
+        lib_dynload = 'lib-dynload'
+        python_lib_dynload = os.path.join('python%s' % self.pyshortver, lib_dynload)
+        lib_dynload_path = os.path.join(self.installdir, 'lib', python_lib_dynload)
+        if not os.path.exists(lib_dynload_path):
+            lib64_dynload_path = os.path.join('lib64', python_lib_dynload)
+            if os.path.exists(os.path.join(self.installdir, lib64_dynload_path)):
+                lib_dynload_parent = os.path.dirname(lib_dynload_path)
+                mkdir(lib_dynload_parent, parents=True)
+                cwd = change_dir(lib_dynload_parent)
+                # use relative path as target, to avoid hardcoding path to install directory
+                target_lib_dynload = os.path.join('..', '..', lib64_dynload_path)
+                symlink(target_lib_dynload, lib_dynload)
+                change_dir(cwd)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -277,7 +329,7 @@ class EB_Python(ConfigureMake):
         pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
-            'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver)],
+            'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
         # cleanup

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -97,6 +97,12 @@ class EB_XCrySDen(ConfigureMake):
             settings['GLU_LIB'] = "-L%s/lib -lGLU" % mesa_root
             settings['GL_LIB'] = "-L%s/lib -lGL" % mesa_root
             settings['GL_INCDIR'] = "-I%s/include" % mesa_root
+
+        togl_root = get_software_root("Togl")
+        if togl_root:
+            togl = {'root': togl_root, 'ver': get_software_version("Togl")}
+            settings['TOGL_LIB'] = "-L%(root)s/lib/Togl%(ver)s -lTogl%(ver)s" % togl
+            settings['TOGL_INCDIR'] = "-I%(root)s/include" % togl
 
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters

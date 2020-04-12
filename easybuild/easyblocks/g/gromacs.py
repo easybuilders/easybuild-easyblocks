@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,14 +58,16 @@ class EB_GROMACS(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'double_precision': [False, "Build with double precision enabled (-DGMX_DOUBLE=ON)", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize GROMACS-specific variables."""
@@ -214,19 +216,13 @@ class EB_GROMACS(CMakeMake):
 
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
-            # Select debug or release build
-            if self.toolchain.options.get('debug', None):
-                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Debug")
-            else:
-                self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
-
             # prefer static libraries, if available
             if self.toolchain.options.get('dynamic', False):
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
                 if plumed_root:
-                    self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=OFF")
+                    self.cfg['build_shared_libs'] = False
 
             if self.cfg['double_precision']:
                 self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
@@ -314,7 +310,6 @@ class EB_GROMACS(CMakeMake):
                     env.setvar('LDFLAGS', "%s -L%s %s" % (ldflags, os.path.join(root, libdir), link_flag))
 
             # complete configuration with configure_method of parent
-            self.cfg['separate_build_dir'] = True
             out = super(EB_GROMACS, self).configure_step()
 
             # for recent GROMACS versions, make very sure that a decent BLAS, LAPACK and FFT is found and used

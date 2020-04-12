@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -168,15 +168,20 @@ class EB_MATLAB(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
         custom_paths = {
-            'files': ["bin/matlab", "bin/glnxa64/MATLAB",
-                      "runtime/glnxa64/libmwmclmcrrt.%s" % get_shared_lib_ext(), "toolbox/local/classpath.txt"],
-            'dirs': ["java/jar", "toolbox/compiler"],
+            'files': ["bin/matlab", "bin/glnxa64/MATLAB", "toolbox/local/classpath.txt"],
+            'dirs': ["java/jar"],
         }
         super(EB_MATLAB, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
+
+        # make MATLAB runtime available
+        if LooseVersion(self.version) >= LooseVersion('2017a'):
+            for ldlibdir in ['runtime', 'bin', os.path.join('sys', 'os')]:
+                libdir = os.path.join(ldlibdir, 'glnxa64')
+                txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', libdir)
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt

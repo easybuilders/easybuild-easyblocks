@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,6 +39,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_Blender(CMakeMake):
     """Support for building Blender."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def find_glob_pattern(self, glob_pattern):
         """Find unique file/dir matching glob_pattern (raises error if more than one match is found)"""
         if self.dry_run:
@@ -50,11 +56,8 @@ class EB_Blender(CMakeMake):
 
     def configure_step(self):
         """Set CMake options for Blender"""
-        self.cfg['separate_build_dir'] = True
 
         default_config_opts = {
-            'CMAKE_CXX_FLAGS_RELEASE': '-DNDEBUG',
-            'CMAKE_C_FLAGS_RELEASE': '-DNDEBUG',
             'WITH_BUILDINFO': 'OFF',
             # disable SSE detection to give EasyBuild full control over optimization compiler flags being used
             'WITH_CPU_SSE': 'OFF',

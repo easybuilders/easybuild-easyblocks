@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,10 +50,13 @@ class EB_GATE(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'default_platform': ['openPBS', "Default cluster platform to set", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Out of source build doesn't work due to sub tools beeing 'make'd
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialise class variables."""

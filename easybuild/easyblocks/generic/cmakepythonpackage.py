@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,7 +50,10 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
     def extra_options(extra_vars=None):
         """Easyconfig parameters specific to Python packages thar are configured/built/installed via CMake"""
         extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
-        return CMakeMake.extra_options(extra_vars=extra_vars)
+        extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
+        # enable out-of-source build
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize with PythonPackage."""

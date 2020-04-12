@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,10 +36,12 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import symlink
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
 
 class EB_PETSc(ConfigureMake):
@@ -112,13 +114,16 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('configopts', '--with-fc="%s"' % os.getenv('F90'))
 
             # compiler flags
+            # Don't build with MPI c++ bindings as this leads to a hard dependency
+            # on libmpi and libmpi_cxx even for C code and non-MPI code
+            cxxflags = os.getenv('CXXFLAGS') + ' ' + NO_MPI_CXX_EXT_FLAGS
             if LooseVersion(self.version) >= LooseVersion("3.5"):
                 self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--CXXFLAGS="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
                 self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
             else:
                 self.cfg.update('configopts', '--with-cflags="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--with-cxxflags="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
             if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
@@ -280,6 +285,15 @@ class EB_PETSc(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion("3"):
             if not self.cfg['sourceinstall']:
                 super(EB_PETSc, self).install_step()
+                petsc_root = self.installdir
+            else:
+                petsc_root = os.path.join(self.installdir, self.petsc_subdir)
+            # Remove MPI-CXX flags added during configure to prevent them from being passed to consumers of PETsc
+            petsc_variables_path = os.path.join(petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
+            if os.path.isfile(petsc_variables_path):
+                fix = (r'^(CXX_FLAGS|CXX_LINKER_FLAGS|CONFIGURE_OPTIONS)( = .*)%s(.*)$' % NO_MPI_CXX_EXT_FLAGS,
+                       r'\1\2\3')
+                apply_regex_substitutions(petsc_variables_path, [fix])
 
         else:  # old versions (< 3.x)
 

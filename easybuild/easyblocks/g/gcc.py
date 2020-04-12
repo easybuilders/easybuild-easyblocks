@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -691,13 +691,14 @@ class EB_GCC(ConfigureMake):
 
     def make_module_req_guess(self):
         """
-        Make sure all GCC libs are in LD_LIBRARY_PATH
+        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
         guesses = super(EB_GCC, self).make_module_req_guess()
         guesses.update({
             'PATH': ['bin'],
-            'LD_LIBRARY_PATH': ['lib', 'lib64',
-                                'lib/gcc/%s/%s' % (self.platform_lib, self.cfg['version'])],
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
         return guesses

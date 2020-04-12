@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2019 Ghent University
+# Copyright 2017-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,7 +41,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -223,11 +224,14 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
+            'TF_NEED_ROCM': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+            'TF_SET_ANDROID_WORKSPACE': '0',
+            'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
@@ -239,10 +243,40 @@ class EB_TensorFlow(PythonPackage):
             else:
                 compiler_path = which(os.getenv('CC'))
 
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+
+            if cfg_cuda_cc and ec_cuda_cc:
+                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s) are overruled by " % ec_cuda_cc
+                warning_msg += "--cuda-compute-capabilities configuration option (%s)" % cfg_cuda_cc
+                print_warning(warning_msg)
+            elif not cuda_cc:
+                warning_msg = "No CUDA compute capabilities specified, so using TensorFlow default "
+                warning_msg += "(which may not optional for your system).\nYou should use "
+                warning_msg += "the --cuda-compute-capabilities configuration option or the cuda_compute_capabilities "
+                warning_msg += "easyconfig parameter to specify a list of CUDA compute capabilities to compile with."
+                print_warning(warning_msg)
+
+            # TensorFlow 1.12.1 requires compute capability >= 3.5
+            # see https://github.com/tensorflow/tensorflow/pull/25767
+            if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+                faulty_comp_caps = [x for x in cuda_cc if LooseVersion(x) < LooseVersion('3.5')]
+                if faulty_comp_caps:
+                    error_msg = "TensorFlow >= 1.12.1 requires CUDA compute capabilities >= 3.5, "
+                    error_msg += "found one or more older ones: %s"
+                    raise EasyBuildError(error_msg, ', '.join(faulty_comp_caps))
+
+            if cuda_cc:
+                self.log.info("Compiling with specified list of CUDA compute capabilities: %s", ', '.join(cuda_cc))
+
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
                 'GCC_HOST_COMPILER_PATH': compiler_path,
-                'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(self.cfg['cuda_compute_capabilities']),
+                'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
 
@@ -406,8 +440,17 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-        # limit the number of parallel jobs running simultaneously (useful on KNL)...
-        cmd.append('--jobs=%s' % self.cfg['parallel'])
+        # Disable support of AWS platform via config switch introduced in 1.12.1
+        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+            cmd.append('--config=noaws')
+
+        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
+        # and will hang forever building the TensorFlow package.
+        # So limit to something high but still reasonable while allowing ECs to overwrite it
+        parallel = self.cfg['parallel']
+        if self.cfg['maxparallel'] is None:
+            parallel = min(parallel, 64)
+        cmd.append('--jobs=%s' % parallel)
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
@@ -424,6 +467,9 @@ class EB_TensorFlow(PythonPackage):
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
         if 'EBPYTHONPREFIXES' in os.environ:
             cmd.append('--action_env=EBPYTHONPREFIXES')
+
+        # Ignore user environment for Python
+        cmd.append('--action_env=PYTHONNOUSERSITE=1')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
@@ -477,6 +523,8 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version
 
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
+        if not whl_paths:
+            whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])

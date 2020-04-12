@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2019 Ghent University
+# Copyright 2017-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,9 +26,11 @@
 EasyBuild support for building and installing TensorRT, implemented as an easyblock
 
 @author: Ake Sandgren (Umea University)
+@author: Maxime Boissonneault (Universite Laval, Compute Canada)
 """
 import glob
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTALL_CMD
@@ -121,9 +123,12 @@ class EB_TensorRT(PythonPackage, Binary):
     def sanity_check_step(self):
         """Custom sanity check for TensorRT."""
         custom_paths = {
-            'files': ['bin/trtexec', 'lib/libnvinfer.a'],
             'dirs': [self.pylibdir],
         }
+        if LooseVersion(self.version) >= LooseVersion('6'):
+            custom_paths['files'] = ['bin/trtexec', 'lib/libnvinfer_static.a']
+        else:
+            custom_paths['files'] = ['bin/trtexec', 'lib/libnvinfer.a']
 
         custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
 

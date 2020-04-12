@@ -115,7 +115,7 @@ class EB_CUDA(Binary):
                 }
 
         # Use C locale to avoid localized questions and crash on CUDA 10.1
-        install_script = "export LANG=C && " + install_script
+        self.cfg.update('preinstallopts', "export LANG=C && ")
 
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
