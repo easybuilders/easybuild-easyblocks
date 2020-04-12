@@ -32,6 +32,7 @@ implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Pavel Grochal (INUITS)
 """
 
 import os
