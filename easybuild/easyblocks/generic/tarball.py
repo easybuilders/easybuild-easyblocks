@@ -53,7 +53,8 @@ class Tarball(EasyBlock):
         """Extra easyconfig parameters specific to Tarball."""
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
-            'install_in_subdir': [False, "Extract tarball in a subdirectory with the name of the package", CUSTOM],
+            'install_type': [None, "Defaults to extract tarball into clean directory. Options: 'merge' merges tarball "
+                             "to existing directory, 'subdir' extracts tarball into its own sub-directory", CUSTOM],
             'preinstall_cmd': [None, "Command to execute before installation", CUSTOM],
         })
         return extra_vars
@@ -91,14 +92,30 @@ class Tarball(EasyBlock):
         # Copy source directory
         source_path = src or self.cfg['start_dir']
 
-        if self.cfg['install_in_subdir']:
+        if self.cfg['install_type'] == 'subdir':
+            # Wipe and install in a sub-directory with the name of the package
             install_path = os.path.join(self.installdir, self.name.lower())
-        else:
+            dirs_exist_ok = False
+            install_logmsg = "Copying tarball contents of %s to sub-directory %s..."
+        elif self.cfg['install_type'] == 'merge':
+            # Enable merging with root of existing installdir
             install_path = self.installdir
+            dirs_exist_ok = True
+            install_logmsg = "Merging tarball contents of %s to %s..."
+        else:
+            if self.cfg['install_type']:
+                self.log.warning("Ignoring unknown option '%s' for index_type." % self.cfg['install_type'])
+            # Wipe and copy root of installation directory (default)
+            install_path = self.installdir
+            dirs_exist_ok = False
+            install_logmsg = "Wiping %s and copying tarball contents of %s into it..."
 
-        self.log.info("Copying tarball contents of %s to %s..." % (self.name, install_path))
-        remove_dir(install_path)
-        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'])
+        self.log.info(install_logmsg % (self.name, install_path))
+
+        if not dirs_exist_ok:
+            remove_dir(install_path)
+
+        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=dirs_exist_ok)
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
