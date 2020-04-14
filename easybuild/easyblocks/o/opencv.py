@@ -48,10 +48,12 @@ class EB_OpenCV(CMakeMake):
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters specific to OpenCV."""
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OpenCV."""
@@ -59,8 +61,6 @@ class EB_OpenCV(CMakeMake):
 
         # can't be set before prepare_step is run
         self.pylibdir = None
-
-        self.cfg['separate_build_dir'] = True
 
     def prepare_step(self, *args, **kwargs):
         """Prepare environment for installing OpenCV."""
@@ -89,9 +89,6 @@ class EB_OpenCV(CMakeMake):
 
     def configure_step(self):
         """Custom configuration procedure for OpenCV."""
-
-        if 'CMAKE_BUILD_TYPE' not in self.cfg['configopts']:
-            self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=Release')
 
         # enable Python support if unspecified and Python is a dependency
         if 'BUILD_PYTHON_SUPPORT' not in self.cfg['configopts']:
@@ -189,7 +186,7 @@ class EB_OpenCV(CMakeMake):
         libfile = 'libopencv_core.%s' % get_shared_lib_ext()
         custom_paths = {
             'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] + [os.path.join('lib64', libfile)],
-            'dirs': ['include', self.pylibdir],
+            'dirs': ['include'],
         }
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             custom_paths['files'].append(os.path.join('lib', 'libippicv.a'))

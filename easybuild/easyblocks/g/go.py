@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import remove_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 
@@ -79,7 +79,7 @@ class EB_Go(ConfigureMake):
         run_cmd(cmd, log_all=True, simple=False)
 
         try:
-            rmtree2(self.installdir)
+            remove_dir(self.installdir)
             shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
         except OSError as err:
             raise EasyBuildError("Failed to copy installation to %s: %s", self.installdir, err)

@@ -57,14 +57,17 @@ class EB_Geant4(CMakeMake):
         """
         Define extra options needed by Geant4
         """
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'G4ABLAVersion': [None, "G4ABLA version", CUSTOM],
             'G4NDLVersion': [None, "G4NDL version", CUSTOM],
             'G4EMLOWVersion': [None, "G4EMLOW version", CUSTOM],
             'PhotonEvaporationVersion': [None, "PhotonEvaporation version", CUSTOM],
             'G4RadioactiveDecayVersion': [None, "G4RadioactiveDecay version", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Requires out-of-source build
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for Geant4."""
@@ -80,9 +83,7 @@ class EB_Geant4(CMakeMake):
 
         # Geant4 switched to a CMake build system in version 9.4
         if LooseVersion(self.version) >= LooseVersion("9.4"):
-            mkdir('configdir')
-            os.chdir('configdir')
-            super(EB_Geant4, self).configure_step(srcdir="..")
+            super(EB_Geant4, self).configure_step()
 
         else:
             pwd = self.cfg['start_dir']

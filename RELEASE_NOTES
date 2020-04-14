@@ -3,7 +3,61 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 212 software-specific easyblocks and 36 generic easyblocks.
+The latest version of easybuild-easyblocks provides 219 software-specific easyblocks and 36 generic easyblocks.
+
+v4.2.0 (April 14th 2020)
+------------------------
+
+feature release
+
+- 7 new software-specific easyblocks:
+  - BerkeleyGW (#1951), CMake (#1936), ELSI (#1883), LAMMPS (#1964, #1975, #1978, #1982, #1997), libdrm (#1983), Mesa (#1892, #2006), SEPP (#1998)
+- minor enhancements, including:
+  - make ParMETIS easyblock compatible with custom configopts (#1774)
+  - update Trinity easyblock for v2.9.0 (#1906)
+  - disable ROCM and Android workspace explicitely in TensorFlow easyblock (#1944)
+  - update QuantumESPRESSO easyblock for version 6.5 (#1947)
+  - update Siesta easyblock to support MaX-1.0 release (#1954)
+  - update Ferret easyblock for versions >= 7.5.0 (#1956)
+  - update XCrySDen easyblock to support Togl dependency (#1959)
+  - pass value for TARGET specified in buildopts to testopts and installopts in OpenBLAS easyblock (#1960)
+  - fix netCDF(-Fortran) support in Siesta easyblock (#1967, 1971)
+  - add NCDF_PARALLEL and METIS support to Siesta easyblock (#1973)
+  - add support for 'use_pip_extras' custom easyconfig parameter in PythonPackage easyblock (#1980)
+  - update Open Babel easyblock for version 3.0.0 (#1992)
+  - allow differing names for TensorFlow wheel (#1995)
+  - make MATLAB runtime available from MATLAB (#2008)
+- various bug fixes, including:
+  - fix linking of Hypre to external BLAS/LAPACK + support building (only) static/shared library (#1885)
+  - fix MPI-CXX dependency of PETSc (#1917)
+  - limit amount of parallelism in TensorFlow easyblock (#1934)
+  - support GCCcore and gcc4.8 (if that dir exists) in function get_tbb_gccprefix in tbb easyblock (#1943)
+  - restore default flake8 warnings (#1950)
+  - remove tests from build_step and raise error on failed tests in OpenBLAS easyblock (#1952, #1955, #1962)
+  - add optional runtest to the catch for FATAL ERRORS to OpenBLAS easyblock (#1958)
+  - ensure right 'python' command is used to determine Python lib dir when system Python is used with PythonBundle easyblock (#1961)
+  - make sure lib/python*/lib-dynload exists in Python installation (#1966)
+  - in version 6.0 of TensorRT, libnvinfer.a is renamed libnvinfer_static.a (#1970)
+  - handle configopts without configure args in CMake easyblock (#1974)
+  - use checkout@v2 in GitHub Actions to fix broken re-triggered tests (#1976)
+  - don't insist that pylibdir always exists in OpenCV easyblock (#1977)
+  - also set $TRINITY_HOME environment variable in Trinity easyblock (#1979)
+  - fix sanity check for OpenFOAM-Extend >= 4.1 (#1981)
+  - fix pattern matching in regex subst for I_MPI_ROOT in impi easyblock (#1986)
+  - use remove_dir instead of deprecated rmtree2 in various easyblocks (#1993)
+  - fix "AttributeError: module 'git' has no attribute 'Git'" that may occur when using Python 3 (#1994)
+  - don't sanity check for QtWebEngine in Qt easyblock when building for POWER (#2000)
+  - fix installation of TensorFlow in some environments, by setting $PYTHONNOUSERSITE (& more) (#2002, #2020)
+  - make sure libxml2 is built with XZ provided as dependency (#2005)
+  - look for Python version directories with suffixes in ROOT easyblock (#2010)
+  - enable TK, FLTK and OPENGL configure options in VMD easyblock (#2013)
+  - update the contributing docs (#2014)
+  - fix numexpr easyblock to allow (correctly) installing it as extension (#2022)
+- other changes:
+  - simplify various CMakeMake-based easyblocks by enhancing CMakeMake (w.r.t. CMAKE_BUILD_TYPE, shared vs static libs, fPIC) (#1929)
+  - enable out of tree build by default in CMakeMake easyblock (#1933)
+  - force building Clang without CUDA when it is not found as a proper dependency (#1968)
+
 
 v4.1.1 (January 16th 2020)
 --------------------------
