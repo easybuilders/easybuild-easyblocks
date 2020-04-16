@@ -182,8 +182,8 @@ class EB_LAMMPS(CMakeMake):
         if '-DPKG_OPT=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DPKG_OPT=on')
 
-        # USR-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-        if '-DPKG_USR-INTEL=' not in self.cfg['configopts']:
+        # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+        if '-DPKG_USER-INTEL=' not in self.cfg['configopts']:
             if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
                 self.cfg.update('configopts', '-DPKG_USER-INTEL=on')
 
