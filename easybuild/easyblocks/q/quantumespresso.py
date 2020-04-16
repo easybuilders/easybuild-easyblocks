@@ -151,8 +151,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 dflags.append('-D__ELPA_2015 -D__ELPA')
 
             if LooseVersion(elpa_v) < LooseVersion(elpa_min_ver):
-                raise EasyBuildError(("QuantumESPRESSO %s needs ELPA to be " +
-                                     "version %s or newer") % (self.version, elpa_min_ver))
+                raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be " +
+                                     "version %s or newer", self.version, elpa_min_ver)
 
             if self.toolchain.options.get('openmp', False):
                 elpa_include = 'elpa_openmp-%s' % elpa_v
