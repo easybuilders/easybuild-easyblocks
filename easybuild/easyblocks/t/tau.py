@@ -32,12 +32,11 @@ EasyBuild support for building and installing TAU, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.easyblocks.p.pdt import find_arch_dir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import mkdir
-from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -64,10 +63,6 @@ class EB_TAU(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Initialize TAU easyblock."""
         super(EB_TAU, self).__init__(*args, **kwargs)
-
-        out, _ = run_cmd("uname -m", simple=False)
-        self.machine = out.strip()
-        self.log.info("Using '%s' as machine label", self.machine)
 
         self.variant_index = 0
         self.cc, self.cxx, self.fortran = None, None, None
@@ -237,32 +232,39 @@ class EB_TAU(ConfigureMake):
         """No custom build procedure for TAU."""
         pass
 
+    def install_step(self):
+        """Create symlinks into arch-specific directories"""
+        super(EB_TAU, self).install_step()
+        # Link arch-specific directories into prefix
+        arch_dir = find_arch_dir(self.installdir)
+        self.log.debug('Found %s as architecture specific directory. Creating symlinks...', arch_dir)
+        for d in ('bin', 'lib'):
+            src = os.path.join(arch_dir, d)
+            dst = os.path.join(self.installdir, d)
+            if os.path.exists(dst):
+                self.log.debug('Skipping creation of symlink %s as it already exists', dst)
+            else:
+                os.symlink(os.path.relpath(src, self.installdir), dst)
+
     def sanity_check_step(self):
         """Custom sanity check for TAU."""
         custom_paths = {
-            'files': [os.path.join(self.machine, 'bin', 'pprof'), os.path.join('include', 'TAU.h'),
-                      os.path.join(self.machine, 'lib', 'libTAU.%s' % get_shared_lib_ext())] +
-                     [os.path.join(self.machine, 'lib', 'lib%s.a' % l) for l in self.variant_labels] +
-                     [os.path.join(self.machine, 'lib', 'Makefile.' + l) for l in self.variant_labels],
+            'files':
+                [os.path.join('bin', 'pprof'), os.path.join('include', 'TAU.h'),
+                 os.path.join('lib', 'libTAU.%s' % get_shared_lib_ext())] +
+                [os.path.join('lib', 'lib%s.a' % l) for l in self.variant_labels] +
+                [os.path.join('lib', 'Makefile.' + l) for l in self.variant_labels],
             'dirs': [],
         }
         super(EB_TAU, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables (PATH, ...) for TAU."""
-        guesses = super(EB_TAU, self).make_module_req_guess()
-        guesses.update({
-            'PATH': [os.path.join(self.machine, 'bin')],
-        })
-        return guesses
 
     def make_module_extra(self):
         """Custom extra module file entries for TAU."""
         txt = super(EB_TAU, self).make_module_extra()
 
-        txt += self.module_generator.prepend_paths('TAU_MF_DIR', os.path.join(self.machine, 'lib'))
+        txt += self.module_generator.prepend_paths('TAU_MF_DIR', 'lib')
 
-        tau_makefile = os.path.join(self.installdir, self.machine, 'lib', self.cfg['tau_makefile'])
+        tau_makefile = os.path.join(self.installdir, 'lib', self.cfg['tau_makefile'])
         txt += self.module_generator.set_environment('TAU_MAKEFILE', tau_makefile)
 
         # default measurement settings
