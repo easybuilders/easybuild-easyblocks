@@ -94,10 +94,10 @@ class EB_ABAQUS(Binary):
             if LooseVersion(self.version) >= LooseVersion('2020'):
                 std_qa = {
                     # disable installation of Isight (7) and enable installation of documentation (3)
-                    "Isight\n\nEnter selection \(default: Next\):": '3\n7\n\n',
+                    r"Isight\n\nEnter selection \(default: Next\):": '3\n7\n\n',
                     # No Tosca (6 and 7), but do not trigger answering a later question that has no Tosca options
                     r"21 \[\*\] Abaqus/CFD Solver\n\nEnter selection \(default: Next\):": '7\n8\n\n',
-                    "(?<!Isight)\n\nEnter selection \(default: Next\):": '',
+                    r"(?<!Isight)\n\nEnter selection \(default: Next\):": '',
                     r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
                     r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
                     r"Search using EXALEAD\nEnter selection:": '1\n\n',
@@ -112,13 +112,14 @@ class EB_ABAQUS(Binary):
             else:
                 std_qa = {
                     # disable installation of Tosca (6) and Isight (7)
-                    "Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
-                    "(?<!Isight)\nEnter selection \(default: Next\):": '',
+                    r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
+                    r"(?<!Isight)\nEnter selection \(default: Next\):": '',
                     r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
                     r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
                     r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
                     r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
-                    r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir, 'sim'),
+                    r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir,
+                                                                                                 'sim'),
                     r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
                     r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
                     r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
