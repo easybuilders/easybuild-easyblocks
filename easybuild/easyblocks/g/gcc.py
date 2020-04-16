@@ -113,8 +113,6 @@ class EB_GCC(ConfigureMake):
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
 
-        self.platform_lib = get_platform_name(withversion=True)
-
     def create_dir(self, dirname):
         """
         Create a dir to build in.
@@ -383,14 +381,25 @@ class EB_GCC(ConfigureMake):
         else:
             objdir = self.create_dir("obj")
 
+        build_and_host_options = self.determine_build_and_host_options()
+        configopts += ' ' + ' '.join(build_and_host_options)
+
+        # instead of relying on uname, we use the actual --build option
+        if build_and_host_options and build_and_host_options[0].startswith('--build='):
+            self.platform_lib = build_and_host_options[0].split('=', 1)[1]
+        else:
+            # Fallback
+            config_guess = self.config_guess or '../config.guess'
+            out, ec = run_cmd("../config.guess")
+            if ec != 0:
+                raise EasyBuildError('Failed to optain platform_lib value from %s', config_guess)
+            self.platform_lib = out.strip()
+
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
 
         # instead of relying on uname, we run the same command GCC uses to
         # determine the platform
-        out, ec = run_cmd("../config.guess", simple=False)
-        if ec == 0:
-            self.platform_lib = out.rstrip()
 
         self.run_configure_cmd(cmd)
 
