@@ -130,7 +130,7 @@ class EB_ABAQUS(Binary):
                     r"location of your existing ANSA installation.*(\n.*){8}:": '',
                     r"FLUENT Path.*(\n.*){7}:": '',
                 }
-            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
         else:
             change_dir(self.builddir)
             if self.cfg['install_cmd'] is None:
