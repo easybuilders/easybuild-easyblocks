@@ -40,7 +40,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, copy_file
+from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
 
 
@@ -134,15 +134,25 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
             elpa_v = get_software_version("ELPA")
             if LooseVersion(self.version) >= LooseVersion("6"):
+
+                # NOTE: Quantum Espresso should use -D__ELPA_<year> for corresponding ELPA version
+                # However for ELPA VERSION >= 2017.11 Quantum Espresso needs to use ELPA_2018
+                # because of outdated bindings. See: https://xconfigure.readthedocs.io/en/latest/elpa/
+                if LooseVersion("2018") > LooseVersion(elpa_v) >= LooseVersion("2017.11"):
+                    dflags.append('-D__ELPA_2018')
+                else:
+                    # get year from LooseVersion
+                    elpa_year_v = elpa_v.split('.')[0]
+                    dflags.append('-D__ELPA_%s' % elpa_year_v)
+
                 elpa_min_ver = "2016.11.001.pre"
-                dflags.append('-D__ELPA_2016')
             else:
                 elpa_min_ver = "2015"
                 dflags.append('-D__ELPA_2015 -D__ELPA')
 
             if LooseVersion(elpa_v) < LooseVersion(elpa_min_ver):
                 raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be " +
-                                     "version %s or newer" % (self.version, elpa_min_ver))
+                                     "version %s or newer", self.version, elpa_min_ver)
 
             if self.toolchain.options.get('openmp', False):
                 elpa_include = 'elpa_openmp-%s' % elpa_v
@@ -382,7 +392,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if LooseVersion(self.version) < LooseVersion("6.4"):
                 bins.append("cppp.x")
 
-
         # only for v4.x, not in v5.0 anymore, called gwl in 6.1 at least
         if 'gww' in targets or 'gwl' in targets:
             bins.extend(["gww_fit.x", "gww.x", "head.x", "pw4gww.x"])
@@ -468,7 +477,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if 'xspectra' in targets:
             bins.extend(["xspectra.x"])
-
 
         yambo_bins = []
         if 'yambo' in targets:
