@@ -182,10 +182,11 @@ class ConfigureMake(EasyBlock):
         # Use an updated config.guess from a global location (if possible)
         self.config_guess = self.obtain_config_guess()
 
-    def determine_build_and_host_options(self):
+    def determine_build_and_host_type(self):
         """
-        Return a list with command line args for build and host if set
+        Return the resolved build and host type for use with --build and --host
         Uses the EasyConfig values or queries config.guess if those are not set
+        Might return None for either value
         """
         build_type = self.cfg.get('build_type')
         host_type = self.cfg.get('host_type')
@@ -213,13 +214,7 @@ class ConfigureMake(EasyBlock):
                     host_type = system_type
                     self.log.info("Providing '%s' as value to --host option of configure script", host_type)
 
-        options = []
-        if build_type:
-            options.append('--build=' + build_type)
-        if host_type:
-            options.append('--host=' + host_type)
-
-        return options
+        return build_type, host_type
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -255,14 +250,17 @@ class ConfigureMake(EasyBlock):
         # use the version downloaded by EasyBuild instead, and provide the result to the configure command;
         # it is possible that the configure script is generated using preconfigopts...
         # if so, we're at the mercy of the gods
+        build_and_host_options = []
 
         # note: reading contents of 'configure' script in bytes mode,
         # to avoid problems when non-UTF-8 characters are included
         # see https://github.com/easybuilders/easybuild-easyblocks/pull/1817
         if os.path.exists(configure_command) and AUTOCONF_GENERATED_MSG in read_file(configure_command, mode='rb'):
-            build_and_host_options = self.determine_build_and_host_options()
-        else:
-            build_and_host_options = []
+            build_type, host_type = self.determine_build_and_host_type()
+            if build_type:
+                build_and_host_options.append(' --build=' + build_type)
+            if host_type:
+                build_and_host_options.append(' --host=' + host_type)
 
         cmd = ' '.join(
             [

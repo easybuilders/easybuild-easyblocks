@@ -381,18 +381,20 @@ class EB_GCC(ConfigureMake):
         else:
             objdir = self.create_dir("obj")
 
-        build_and_host_options = self.determine_build_and_host_options()
-        configopts += ' ' + ' '.join(build_and_host_options)
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            configopts += ' --build=' + build_type
+        if host_type:
+            configopts += ' --host=' + host_type
 
         # instead of relying on uname, we use the actual --build option
-        if build_and_host_options and build_and_host_options[0].startswith('--build='):
-            self.platform_lib = build_and_host_options[0].split('=', 1)[1]
+        if build_type:
+            self.platform_lib = build_type
         else:
             # Fallback
-            config_guess = self.config_guess or '../config.guess'
             out, ec = run_cmd("../config.guess")
             if ec != 0:
-                raise EasyBuildError('Failed to obtain platform_lib value from %s', config_guess)
+                raise EasyBuildError('Failed to obtain platform_lib value from config.guess')
             self.platform_lib = out.strip()
 
         # IV) actual configure, but not on default path
