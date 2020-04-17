@@ -392,7 +392,7 @@ class EB_GCC(ConfigureMake):
             config_guess = self.config_guess or '../config.guess'
             out, ec = run_cmd("../config.guess")
             if ec != 0:
-                raise EasyBuildError('Failed to optain platform_lib value from %s', config_guess)
+                raise EasyBuildError('Failed to obtain platform_lib value from %s', config_guess)
             self.platform_lib = out.strip()
 
         # IV) actual configure, but not on default path
