@@ -95,7 +95,7 @@ class EB_ABAQUS(Binary):
                 std_qa = {
                     # disable installation of Isight (7) and enable installation of documentation (3)
                     r"Isight\n\nEnter selection \(default: Next\):": '3\n7\n\n',
-                    # No Tosca (6 and 7), but do not trigger answering a later question that has no Tosca options
+                    # No Tosca (7 and 8), but do not trigger answering a later question that has no Tosca options
                     r"21 \[\*\] Abaqus/CFD Solver\n\nEnter selection \(default: Next\):": '7\n8\n\n',
                     r"(?<!Isight)\n\nEnter selection \(default: Next\):": '',
                     r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
