@@ -41,7 +41,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.filetools import copy_file, copy_dir
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -121,13 +121,16 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['kokkos'] and get_software_root('CUDA'):
             env.unset_env_vars(['LIBS'])
 
-        # Add package files from Atomistica
-        if get_software_root('Atomistica'):
-            atomistica = get_software_root('Atomistica')
+        # Add files from Atomistica
+        atomistica = get_software_root('Atomistica')
+        if atomistica:
+            # Package files
             atomistica_files = ['pair_atomistica.%s' % e for e in ['cpp', 'h']]
-            self.log.info("Adding Atomistica package files into LAMMPS source: %s" % ','.join(atomistica_files))
+            self.log.info("Adding Atomistica package files into LAMMPS: %s" % ', '.join(atomistica_files))
             for pkgfile in atomistica_files:
                 copy_file(os.path.join(atomistica, 'share/lammps', pkgfile), os.path.join('src', pkgfile))
+            # Test for sanity checks
+            copy_dir(os.path.join(atomistica, 'share/examples/liquid_silicon'), 'examples/atomistica')
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
@@ -280,10 +283,18 @@ class EB_LAMMPS(CMakeMake):
             # LAMMPS test - you need to call specific test file on path
             """python -c 'from lammps import lammps; l=lammps(); l.file("%s")'""" %
             # The path is joined by "build_dir" (start_dir)/examples/filename/in.filename
-            os.path.join(self.start_dir, "examples", "%s" % check_file, "in.%s" % check_file)
+            os.path.join(self.start_dir, 'examples', '%s' % check_file, 'in.%s' % check_file)
             # And this should be done for every file specified above
             for check_file in check_files
         ]
+
+        # Atomistica custom sanity checks
+        atomistica = get_software_root('Atomistica')
+        if atomistica:
+            custom_commands += [
+                "cd %s && " % os.path.join(self.start_dir, 'examples/atomistica') +
+                """python -c 'from lammps import lammps; l=lammps(); l.file("atomistica.in")'"""
+            ]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
