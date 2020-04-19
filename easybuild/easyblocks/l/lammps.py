@@ -27,6 +27,7 @@
 @author: Pavel Grochal (INUITS)
 @author: Kenneth Hoste (Ghent University)
 @author: Alan O'Cais (Juelich Supercomputing Centre)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 import os
@@ -40,6 +41,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.filetools import copy_file
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -118,6 +120,14 @@ class EB_LAMMPS(CMakeMake):
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and get_software_root('CUDA'):
             env.unset_env_vars(['LIBS'])
+
+        # Add package files from Atomistica
+        if get_software_root('Atomistica'):
+            atomistica = get_software_root('Atomistica')
+            atomistica_files = ['pair_atomistica.%s' % e for e in ['cpp', 'h']]
+            self.log.info("Adding Atomistica package files into LAMMPS source: %s" % ','.join(atomistica_files))
+            for pkgfile in atomistica_files:
+                copy_file(os.path.join(atomistica, 'share/lammps', pkgfile), os.path.join('src', pkgfile))
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
@@ -210,6 +220,23 @@ class EB_LAMMPS(CMakeMake):
                     self.cfg.update('configopts', '-DFFT=FFTW3')
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
+
+        # Additional linker flags
+        lammps_link_libs = []
+
+        # Atomistica
+        if get_software_root('Atomistica'):
+            lammps_link_libs += ['-latomistica']
+            if self.toolchain.options.get('usempi', None):
+                if self.toolchain.mpi_family() == toolchain.OPENMPI:
+                    lammps_link_libs += ['-lmpi_usempif08', '-lmpi_usempi_ignore_tkr', '-lmpi_mpifh', '-lmpi']
+                elif self.toolchain.mpi_family() == toolchain.INTELMPI:
+                    lammps_link_libs += ['-lmpifort', '-lmpi', '-lmpigi']
+
+        # Set additional linker flags
+        if len(lammps_link_libs) > 0:
+            cmake_lammps_link_libs = '-DLAMMPS_LINK_LIBS="%s"' % ' '.join(lammps_link_libs)
+            self.cfg.update('configopts', cmake_lammps_link_libs)
 
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
