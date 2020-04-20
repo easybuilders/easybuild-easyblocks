@@ -32,10 +32,11 @@ EasyBuild support for building and installing TAU, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.easyblocks.p.pdt import find_arch_dir
+from easybuild.easyblocks.pdt import find_arch_dir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.filetools import symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -182,12 +183,6 @@ class EB_TAU(ConfigureMake):
 
                     self.variant_labels.append(variant_label)
 
-        # create install directory and make sure it does not get cleaned up again in the install step;
-        # the first configure iteration already puts things in place in the install directory,
-        # so that shouldn't get cleaned up afterwards...
-        self.log.info("Creating install dir %s before starting configure-build-install iterations", self.installdir)
-        super(EB_TAU, self).make_installdir()
-
     def make_installdir(self):
         """Skip make install dir 'step', install dir is already created in prepare_step."""
         pass
@@ -224,6 +219,10 @@ class EB_TAU(ConfigureMake):
         for key in ['preconfigopts', 'configopts', 'prebuildopts', 'preinstallopts']:
             self.log.debug("%s for TAU (variant index: %s): %s", key, self.variant_index, self.cfg[key])
 
+        # Configure creates required subfolders in installdir, so create first (but only once, during first iteration)
+        if self.iter_idx == 0:
+            super(EB_TAU, self).make_installdir()
+
         super(EB_TAU, self).configure_step()
 
         self.variant_index += 1
@@ -237,14 +236,14 @@ class EB_TAU(ConfigureMake):
         super(EB_TAU, self).install_step()
         # Link arch-specific directories into prefix
         arch_dir = find_arch_dir(self.installdir)
-        self.log.debug('Found %s as architecture specific directory. Creating symlinks...', arch_dir)
-        for d in ('bin', 'lib'):
-            src = os.path.join(arch_dir, d)
-            dst = os.path.join(self.installdir, d)
-            if os.path.exists(dst):
-                self.log.debug('Skipping creation of symlink %s as it already exists', dst)
+        self.log.info('Found %s as architecture specific directory. Creating symlinks...', arch_dir)
+        for subdir in ('bin', 'lib'):
+            src = os.path.join(arch_dir, subdir)
+            dst = os.path.join(self.installdir, subdir)
+            if os.path.lexists(dst):
+                self.log.info('Skipping creation of symlink %s as it already exists', dst)
             else:
-                os.symlink(os.path.relpath(src, self.installdir), dst)
+                symlink(os.path.relpath(src, self.installdir), dst, use_abspath_source=False)
 
     def sanity_check_step(self):
         """Custom sanity check for TAU."""

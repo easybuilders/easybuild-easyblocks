@@ -22,10 +22,12 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 import easybuild.tools.toolchain as toolchain
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import symlink
 
 
 def find_arch_dir(install_dir):
-    """Find architecture directory inside the install tree
+    """
+    Find architecture directory inside the install tree.
 
     For simplicity any top-level folder containing a bin and lib directory is collected
     Raises an error if multiple or none matching folders are found
@@ -38,15 +40,13 @@ def find_arch_dir(install_dir):
         # E.g. on x86_64 there are symlinks craycnl, mic_linux, ... to x86_64
         if not os.path.isdir(full_path) or os.path.islink(full_path):
             continue
-        bin_dir = os.path.join(full_path, 'bin')
-        lib_dir = os.path.join(full_path, 'lib')
-        if all(os.path.isdir(dir) for dir in (bin_dir, lib_dir)):
+        if all(os.path.isdir(os.path.join(full_path, subdir)) for subdir in ['bin', 'lib']):
             arch_dirs.append(full_path)
 
     if not arch_dirs:
-        raise EasyBuildError('Architecture specific directory not found in %s' % install_dir)
+        raise EasyBuildError('Architecture specific directory not found in %s', install_dir)
     elif len(arch_dirs) != 1:
-        raise EasyBuildError('Found multiple architecture specific directories in: %s' % arch_dirs)
+        raise EasyBuildError('Found multiple architecture specific directories: %s', ', '.join(arch_dirs))
     return arch_dirs[0]
 
 
@@ -76,8 +76,10 @@ class EB_PDT(ConfigureMake):
         if self.toolchain.options['pic']:
             self.cfg.update('-useropt=-fPIC')
 
-        # Configure creates required subfolders in installdir, so create first
-        super(EB_PDT, self).make_installdir()
+        # Configure creates required subfolders in installdir, so create first (but only once, during first iteration)
+        if self.iter_idx == 0:
+            super(EB_PDT, self).make_installdir()
+
         super(EB_PDT, self).configure_step()
 
     def build_step(self):
@@ -86,24 +88,27 @@ class EB_PDT(ConfigureMake):
         pass
 
     def make_installdir(self):
-        """Nothing to do, already done in configure"""
+        """Skip creating installation directory, already done in configure step"""
         pass
 
     def install_step(self):
         """Create symlinks into arch-specific directories"""
+
         if self.cfg['parallel']:
             self.cfg.update('installopts', '-j %s' % self.cfg['parallel'])
+
         super(EB_PDT, self).install_step()
+
         # Link arch-specific directories into prefix
         arch_dir = find_arch_dir(self.installdir)
-        self.log.debug('Found %s as architecture specific directory. Creating symlinks...', arch_dir)
-        for d in ('bin', 'lib'):
-            src = os.path.join(arch_dir, d)
-            dst = os.path.join(self.installdir, d)
-            if os.path.exists(dst):
-                self.log.debug('Skipping creation of symlink %s as it already exists', dst)
+        self.log.info('Found %s as architecture specific directory. Creating symlinks...', arch_dir)
+        for subdir in ('bin', 'lib'):
+            src = os.path.join(arch_dir, subdir)
+            dst = os.path.join(self.installdir, subdir)
+            if os.path.lexists(dst):
+                self.log.info('Skipping creation of symlink %s as it already exists', dst)
             else:
-                os.symlink(os.path.relpath(src, self.installdir), dst)
+                symlink(os.path.relpath(src, self.installdir), dst, use_abspath_source=False)
 
     def sanity_check_step(self):
         """Custom sanity check for PDT."""
