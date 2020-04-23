@@ -130,7 +130,7 @@ class EB_LAMMPS(CMakeMake):
             for pkgfile in atomistica_files:
                 copy_file(os.path.join(atomistica, 'share/lammps', pkgfile), os.path.join('src', pkgfile))
             # Test for sanity checks
-            copy_dir(os.path.join(atomistica, 'share/examples/liquid_silicon'), 'examples/atomistica')
+            copy_dir(os.path.join(atomistica, 'share/examples/LAMMPS/liquid_silicon'), 'examples/atomistica')
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
