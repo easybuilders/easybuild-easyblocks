@@ -83,15 +83,16 @@ class EB_CPLEX(Binary):
 
         qanda = {
             "PRESS <ENTER> TO CONTINUE:": '',
-            'Press Enter to continue viewing the license agreement, or enter'
+            "Press Enter to continue viewing the license agreement, or enter"
             ' "1" to accept the agreement, "2" to decline it, "3" to print it,'
             ' or "99" to go back to the previous screen.:': '1',
-            'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
-            'IS THIS CORRECT? (Y/N):': 'y',
-            'PRESS <ENTER> TO INSTALL:': '',
+            "ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :": self.installdir,
+            "IS THIS CORRECT? (Y/N):": 'y',
+            "PRESS <ENTER> TO INSTALL:": '',
             "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
             "CHOOSE LOCALE BY NUMBER:": '',
             "Choose Instance Management Option:": '',
+            "ENTER THE NUMBER OF THE DESIRED CHOICE:": '2',
         }
         noqanda = [r'Installing\.\.\..*\n.*------.*\n\n.*============.*\n.*$']
 
