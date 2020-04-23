@@ -34,8 +34,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file, find_glob_pattern
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -50,12 +50,16 @@ class EB_QScintilla(ConfigureMake):
 
         pyqt5 = get_software_root('PyQt5')
         pyqt = get_software_root('PyQt')
+        qt5 = get_software_root('Qt5')
         if pyqt5:
             self.pyqt_root = pyqt5
             self.pyqt_pkg_name = "PyQt5"
         elif pyqt:
             self.pyqt_root = pyqt
             self.pyqt_pkg_name = "PyQt4"
+        elif qt5:
+            self.pyqt_root = qt5
+            self.pyqt_pkg_name = "PyQt5"
         else:
             raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
 
@@ -111,6 +115,9 @@ class EB_QScintilla(ConfigureMake):
             mkdir(qsci_sipdir, parents=True)
 
             pylibdir = os.path.join(det_pylibdir(), self.pyqt_pkg_name)
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+
+            sip_incdir = find_glob_pattern(os.path.join(self.pyqt_root, 'include', 'python%s*' % pyshortver), False)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
@@ -121,6 +128,8 @@ class EB_QScintilla(ConfigureMake):
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
             ]
+            if sip_incdir:
+                cfgopts += ['--sip-incdir %s' % sip_incdir]
 
             if LooseVersion(self.version) >= LooseVersion('2.10.7'):
                 cfgopts.append('--no-dist-info')
