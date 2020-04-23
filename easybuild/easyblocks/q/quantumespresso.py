@@ -119,7 +119,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 raise EasyBuildError("Must use libxc >= 3.0.1")
             dflags.append(" -D__LIBXC")
             repls.append(('IFLAGS', '-I%s' % os.path.join(libxc, 'include'), True))
-            extra_libs.append(" -lxcf90 -lxc")
+            if LooseVersion(self.version) < LooseVersion("6.5"):
+                extra_libs.append(" -lxcf90 -lxc")
+            else:
+                extra_libs.append(" -lxcf90 -lxcf03 -lxc")
 
         hdf5 = get_software_root("HDF5")
         if hdf5:
@@ -433,11 +436,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if 'pw' in targets or 'all' in targets:
             bins.extend(["dist.x", "ev.x", "kpoints.x", "pw.x", "pwi2xsf.x"])
-            if LooseVersion(self.version) >= LooseVersion("5.1"):
-                bins.extend(["generate_rVV10_kernel_table.x"])
-            if LooseVersion(self.version) > LooseVersion("5"):
-                bins.extend(["generate_vdW_kernel_table.x"])
-            else:
+            if LooseVersion(self.version) < LooseVersion("6.5"):
+                if LooseVersion(self.version) >= LooseVersion("5.1"):
+                    bins.extend(["generate_rVV10_kernel_table.x"])
+                if LooseVersion(self.version) > LooseVersion("5"):
+                    bins.extend(["generate_vdW_kernel_table.x"])
+            if LooseVersion(self.version) <= LooseVersion("5"):
                 bins.extend(["path_int.x"])
             if LooseVersion(self.version) < LooseVersion("5.3.0"):
                 bins.extend(["band_plot.x", "bands_FS.x", "kvecs_FS.x"])

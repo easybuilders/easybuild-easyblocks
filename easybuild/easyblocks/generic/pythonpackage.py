@@ -219,6 +219,8 @@ class PythonPackage(ExtensionEasyBlock):
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
+            # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
+            'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
@@ -392,7 +394,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
             run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
 
-        if self.install_cmd.startswith(PIP_INSTALL_CMD):
+        using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
+        if using_pip:
 
             pip_version = det_pip_version()
             if pip_version:
@@ -427,6 +430,11 @@ class PythonPackage(ExtensionEasyBlock):
                 loc = self.src
             else:
                 loc = self.src[0]['path']
+
+        if using_pip:
+            extras = self.cfg.get('use_pip_extras')
+            if extras:
+                loc += '[%s]' % extras
 
         if installopts is None:
             installopts = self.cfg['installopts']

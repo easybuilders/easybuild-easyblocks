@@ -167,7 +167,7 @@ EULA=accept
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
-            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            regex_subs = [(r"^(\s*)I_MPI_ROOT=[^;\n]*", r"\1I_MPI_ROOT=%s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
@@ -230,7 +230,7 @@ EULA=accept
         else:
             guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
-                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # Keep release_mt and release in front, to give them priority over the possible symlinks in intel64/lib.
                 # IntelMPI 2019 changed the default library to be the non-mt version.
                 lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
                 include_dirs = ['intel64/include']

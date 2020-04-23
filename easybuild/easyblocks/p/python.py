@@ -46,7 +46,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import symlink, write_file
+from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -282,6 +282,22 @@ class EB_Python(ConfigureMake):
         if self.cfg['ebpythonprefixes']:
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
+        # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
+        # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
+        lib_dynload = 'lib-dynload'
+        python_lib_dynload = os.path.join('python%s' % self.pyshortver, lib_dynload)
+        lib_dynload_path = os.path.join(self.installdir, 'lib', python_lib_dynload)
+        if not os.path.exists(lib_dynload_path):
+            lib64_dynload_path = os.path.join('lib64', python_lib_dynload)
+            if os.path.exists(os.path.join(self.installdir, lib64_dynload_path)):
+                lib_dynload_parent = os.path.dirname(lib_dynload_path)
+                mkdir(lib_dynload_parent, parents=True)
+                cwd = change_dir(lib_dynload_parent)
+                # use relative path as target, to avoid hardcoding path to install directory
+                target_lib_dynload = os.path.join('..', '..', lib64_dynload_path)
+                symlink(target_lib_dynload, lib_dynload)
+                change_dir(cwd)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -316,7 +332,7 @@ class EB_Python(ConfigureMake):
         pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
-            'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver)],
+            'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
         # cleanup

@@ -224,11 +224,14 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_OPENCL_SYCL': '0',
+            'TF_NEED_ROCM': '0',
             'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_TENSORRT': '0',
             'TF_NEED_VERBS': '0',
             'TF_NEED_AWS': '0',  # Amazon AWS Platform
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+            'TF_SET_ANDROID_WORKSPACE': '0',
+            'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
@@ -437,8 +440,17 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         cmd.extend(['--subcommands', '--verbose_failures'])
 
-        # limit the number of parallel jobs running simultaneously (useful on KNL)...
-        cmd.append('--jobs=%s' % self.cfg['parallel'])
+        # Disable support of AWS platform via config switch introduced in 1.12.1
+        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+            cmd.append('--config=noaws')
+
+        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
+        # and will hang forever building the TensorFlow package.
+        # So limit to something high but still reasonable while allowing ECs to overwrite it
+        parallel = self.cfg['parallel']
+        if self.cfg['maxparallel'] is None:
+            parallel = min(parallel, 64)
+        cmd.append('--jobs=%s' % parallel)
 
         if self.toolchain.options.get('pic', None):
             cmd.append('--copt="-fPIC"')
@@ -455,6 +467,9 @@ class EB_TensorFlow(PythonPackage):
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
         if 'EBPYTHONPREFIXES' in os.environ:
             cmd.append('--action_env=EBPYTHONPREFIXES')
+
+        # Ignore user environment for Python
+        cmd.append('--action_env=PYTHONNOUSERSITE=1')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
@@ -508,6 +523,8 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version
 
         whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
+        if not whl_paths:
+            whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])

@@ -38,6 +38,7 @@ Original Authors:
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
+@author: Robert Qiao (DeepThought HPC Service, Flinders University, Adelaide, Australia)
 """
 import glob
 import os
@@ -304,12 +305,11 @@ class EB_Trinity(EasyBlock):
             explicit_make_args = ''
             if version >= LooseVersion('2.0') and version < LooseVersion('3.0'):
                 explicit_make_args = 'all plugins'
-                 
+
             cmd = "make TRINITY_COMPILER=%s %s" % (trinity_compiler, explicit_make_args)
             run_cmd(cmd)
 
-            # butterfly is not included in standard build
-            # butterfly included as .jar since 2.9.0
+            # butterfly is not included in standard build before v2.9.0
             if version < LooseVersion('2.9'):
                 self.butterfly()
 
@@ -324,17 +324,17 @@ class EB_Trinity(EasyBlock):
         """Custom sanity check for Trinity."""
 
         version = LooseVersion(self.version)
-        if ((version >= LooseVersion('2.0') and version < LooseVersion('2.3')) or
-           (version >= LooseVersion('2.9') and version < LooseVersion('3.0'))):
-            sep = '-v'
+        if version >= LooseVersion('2.0') and version < LooseVersion('2.3'):
+            sep = '-'
         elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
-            sep = "-Trinity-v"
+            sep = '-Trinity-v'
+        elif version >= LooseVersion('2.9') and version < LooseVersion('3.0'):
+            sep = '-v'
         else:
             sep = '_r'
-
         # Chrysalis
         if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
-            chrysalis_bin = 'Chrysalis/bin'
+            chrysalis_bin = os.path.join('Chrysalis', 'bin')
             chrysalis_files = ['BubbleUpClustering',
                                'CreateIwormFastaBundle',
                                'QuantifyGraph',
@@ -342,33 +342,26 @@ class EB_Trinity(EasyBlock):
                                'GraphFromFasta',
                                'ReadsToTranscripts']
         elif version >= LooseVersion('2.8') and version < LooseVersion('2.9'):
-            chrysalis_bin = 'Chrysalis/bin'
+            chrysalis_bin = os.path.join('Chrysalis', 'bin')
             chrysalis_files = ['Chrysalis']
         else:
             chrysalis_bin = 'Chrysalis'
             chrysalis_files = ['Chrysalis']
-
         chrysalis_bin_files = [os.path.join(chrysalis_bin, x) for x in chrysalis_files]
 
         # Inchworm
+        inchworm_bin = os.path.join('Inchworm', 'bin')
+        inchworm_files = ['inchworm']
         if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
-            inchworm_bin = 'Inchworm/bin'
-            inchworm_files = ['FastaToDeBruijn',
-                              'fastaToKmerCoverageStats',
-                              'inchworm']
-        else:
-            inchworm_bin = 'Inchworm/bin'
-            inchworm_files = ['inchworm']
-
+            inchworm_files.extend(['FastaToDeBruijn', 'fastaToKmerCoverageStats'])
         inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]
 
         path = 'trinityrnaseq%s%s' % (sep, self.version)
 
         # folders path
-        if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
-            dir_path = ['util']
-        else:
-            dir_path = ['Butterfly/src/bin', 'util']
+        dir_path = ['util']
+        if version < LooseVersion('2.9'):
+            dir_path.append(os.path.join('Butterfly', 'src', 'bin'))
 
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
@@ -383,8 +376,10 @@ class EB_Trinity(EasyBlock):
 
         guesses = super(EB_Trinity, self).make_module_req_guess()
 
+        install_rootdir = os.path.basename(self.cfg['start_dir'].strip('/'))
         guesses.update({
-            'PATH': [os.path.basename(self.cfg['start_dir'].strip('/'))],
+            'PATH': [install_rootdir],
+            'TRINITY_HOME': [install_rootdir],
         })
 
         return guesses

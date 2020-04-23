@@ -348,7 +348,13 @@ class EB_OpenFOAM(EasyBlock):
         shlib_ext = get_shared_lib_ext()
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
-        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
+        # same goes for OpenFOAM-Extend >= 4.1
+        if 'extend' in self.name.lower():
+            set_int_size = self.looseversion >= LooseVersion('4.1')
+        else:
+            set_int_size = self.looseversion >= LooseVersion('3.0')
+
+        if set_int_size:
             if self.toolchain.options['i8']:
                 int_size = 'Int64'
             else:
