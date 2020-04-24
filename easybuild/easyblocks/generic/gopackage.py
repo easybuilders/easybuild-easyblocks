@@ -105,7 +105,6 @@ class GoPackage(EasyBlock):
             # for more information about migrating to go modules
             # see: https://blog.golang.org/migrating-to-go-modules
 
-
             # go mod init
             cmd = ' '.join([self.go_cmd, 'mod', 'init', self.cfg['modulename']])
             run_cmd(cmd, log_all=True, simple=True)
