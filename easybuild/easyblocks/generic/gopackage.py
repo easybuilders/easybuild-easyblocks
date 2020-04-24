@@ -62,20 +62,10 @@ class GoPackage(EasyBlock):
         """Go-specific preparations."""
         super(GoPackage, self).prepare_step(**kwargs)
 
-        go = None
-        go_root = get_software_root('Go')
-        if go_root:
-            bin_go = os.path.join(go_root, 'bin', 'go')
-            if os.path.exists(bin_go) and os.path.samefile(which('go'), bin_go):
-                # if Go is listed as a (build) dependency, use 'go' command provided that way
-                self.go_cmd = bin_go
-                self.log.debug("Retaining 'go' command for Go dependency: %s", go)
-
-        if self.go_cmd is None:
+        if get_software_root('Go') is None:
             raise EasyBuildError("Failed to pick go command to use. Is it listed in dependencies?")
 
-        go_version = get_software_version('Go')
-        if LooseVersion(go_version) < LooseVersion("1.11"):
+        if LooseVersion(get_software_version('Go')) < LooseVersion("1.11"):
             raise EasyBuildError("Go version < 1.11 doesn't support installing modules from go.mod")
 
     def configure_step(self):

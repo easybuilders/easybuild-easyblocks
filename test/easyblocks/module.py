@@ -41,6 +41,7 @@ import easybuild.tools.options as eboptions
 import easybuild.tools.toolchain.utilities as tc_utils
 from easybuild.base import fancylogger
 from easybuild.base.testing import TestCase
+from easybuild.easyblocks.generic.gopackage import GoPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.imod import EB_IMOD
@@ -233,6 +234,10 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         elif app_class == PythonBundle:
             # $EBROOTPYTHON must be set for PythonBundle easyblock
             os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
+
+        elif app_class == GoPackage:
+            # $EBROOTGO must be set for GoPackage easyblock
+            os.environ['EBROOTGO'] = '/fake/install/prefix/Go/1.14'
 
         elif app_class == EB_OpenFOAM:
             # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
