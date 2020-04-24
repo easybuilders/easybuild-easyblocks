@@ -52,9 +52,9 @@ class GoPackage(EasyBlock):
         })
         return extra_vars
 
-    def prepare_step(self, **kwargs):
+    def prepare_step(self, *args, **kwargs):
         """Go-specific preparations."""
-        super(GoPackage, self).prepare_step(**kwargs)
+        super(GoPackage, self).prepare_step(*args, **kwargs)
 
         if get_software_root('Go') is None:
             raise EasyBuildError("Failed to pick go command to use. Is it listed in dependencies?")
