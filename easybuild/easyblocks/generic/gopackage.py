@@ -53,11 +53,6 @@ class GoPackage(EasyBlock):
         })
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Initialize custom class variables."""
-        super(GoPackage, self).__init__(*args, **kwargs)
-        self.go_cmd = None
-
     def prepare_step(self, **kwargs):
         """Go-specific preparations."""
         super(GoPackage, self).prepare_step(**kwargs)
@@ -77,8 +72,8 @@ class GoPackage(EasyBlock):
         env.setvar('GOBIN', os.path.join(self.installdir, 'bin'), verbose=False)
 
         # creates log entries for go being used, for debugging
-        run_cmd("%s version" % self.go_cmd, verbose=False, trace=False)
-        run_cmd("%s env" % self.go_cmd, verbose=False, trace=False)
+        run_cmd("go version", verbose=False, trace=False)
+        run_cmd("go env", verbose=False, trace=False)
 
     def build_step(self):
         """If Go package is not native go module, lets try to make the module."""
@@ -96,13 +91,13 @@ class GoPackage(EasyBlock):
             # see: https://blog.golang.org/migrating-to-go-modules
 
             # go mod init
-            cmd = ' '.join([self.go_cmd, 'mod', 'init', self.cfg['modulename']])
+            cmd = ' '.join(['go', 'mod', 'init', self.cfg['modulename']])
             run_cmd(cmd, log_all=True, simple=True)
 
             if self.cfg['forced_deps']:
                 for dep in self.cfg['forced_deps']:
                     # go get specific dependencies which locks them in go.mod
-                    cmd = ' '.join([self.go_cmd, 'get', '%s@%s' % dep])
+                    cmd = ' '.join(['go', 'get', '%s@%s' % dep])
                     run_cmd(cmd, log_all=True, simple=True)
 
             # note: ... (tripledot) used below is not a typo, but go wildcard pattern
@@ -110,25 +105,16 @@ class GoPackage(EasyBlock):
             # see: 'go help packages' or https://golang.org/pkg/cmd/go/internal/help/
             # see: https://stackoverflow.com/a/28031651/2047157
 
-            # go build ./...
-            cmd = ' '.join([self.go_cmd, 'build', './...'])
-            run_cmd(cmd, log_all=True, simple=True)
+            # building and testing will add packages to go.mod
+            run_cmd('go build ./...', log_all=True, simple=True)
+            run_cmd('go test ./...', log_all=True, simple=True)
 
-            # go test ./...
-            cmd = ' '.join([self.go_cmd, 'test', './...'])
-            run_cmd(cmd, log_all=True, simple=True)
+            # tidy up go.mod
+            run_cmd('go mod tidy', log_all=True, simple=True)
 
-            # go mod tidy
-            cmd = ' '.join([self.go_cmd, 'mod', 'tidy'])
-            run_cmd(cmd, log_all=True, simple=True)
-
-            # go build ./... again
-            cmd = ' '.join([self.go_cmd, 'build', './...'])
-            run_cmd(cmd, log_all=True, simple=True)
-
-            # go test ./... again
-            cmd = ' '.join([self.go_cmd, 'test', './...'])
-            run_cmd(cmd, log_all=True, simple=True)
+            # build and test again, to ensure go mod tidy didn't removed anything needed
+            run_cmd('go build ./...', log_all=True, simple=True)
+            run_cmd('go test ./...', log_all=True, simple=True)
 
             self.log.warn('Include generated go.mod and go.sum via patch to ensure locked dependencies '
                           'and run this easyconfig again.')
@@ -144,7 +130,7 @@ class GoPackage(EasyBlock):
         # actually install Go package
         cmd = ' '.join([
             self.cfg['preinstallopts'],
-            self.go_cmd,
+            'go',
             'install',
             self.cfg['installopts'],
         ])
