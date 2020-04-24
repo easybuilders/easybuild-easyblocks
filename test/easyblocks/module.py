@@ -238,6 +238,7 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         elif app_class == GoPackage:
             # $EBROOTGO must be set for GoPackage easyblock
             os.environ['EBROOTGO'] = '/fake/install/prefix/Go/1.14'
+            os.environ['EBVERSIONGO'] = '1.14'
 
         elif app_class == EB_OpenFOAM:
             # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
