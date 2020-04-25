@@ -138,10 +138,11 @@ class GoPackage(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for Go package."""
 
-        # Go Package should produce something into bin directory
+        # Check if GoPackage produced binary and can run help on it
         custom_paths = {
-            'files': [],
-            'dirs': ['bin'],
+            'files': ['bin/%s' % self.name.lower()],
+            'dirs': [],
         }
+        custom_commands = ['%s --help' % self.name.lower()]
 
-        super(GoPackage, self).sanity_check_step(custom_paths=custom_paths)
+        super(GoPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
