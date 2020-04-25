@@ -26,7 +26,6 @@
 EasyBuild support for building and installing NWChem, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
-@author: Mikael Öhman (Chalmers University of Technology)
 """
 import os
 import re
@@ -237,8 +236,8 @@ class EB_NWChem(ConfigureMake):
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        self.setvar_env_makeopt('BLASOPT', '%s -L%s %s %s' % (os.getenv('LDFLAGS'), os.getenv('MPI_LIB_DIR'),
-                                                              os.getenv('LIBSCALAPACK_MT'), libmpi))
+        MPI_LIB_DIRS = ' '.join('-L' + d for d in os.getenv('MPI_LIB_DIR').split())
+        self.setvar_env_makeopt('BLASOPT', ' '.join([os.getenv('LDFLAGS'), MPI_LIB_DIRS, os.getenv('LIBSCALAPACK_MT'), libmpi]))
 
         # Setting LAPACK_LIB is required from 7.0.0 onwards.
         self.setvar_env_makeopt('LAPACK_LIB', os.getenv('LIBLAPACK'))
