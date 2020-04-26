@@ -236,8 +236,8 @@ class EB_NWChem(ConfigureMake):
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        MPI_LIB_DIRS = ' '.join('-L' + d for d in os.getenv('MPI_LIB_DIR').split())
-        self.setvar_env_makeopt('BLASOPT', ' '.join([os.getenv('LDFLAGS'), MPI_LIB_DIRS,
+        mpi_lib_dirs = ' '.join('-L' + d for d in os.getenv('MPI_LIB_DIR').split())
+        self.setvar_env_makeopt('BLASOPT', ' '.join([os.getenv('LDFLAGS'), mpi_lib_dirs,
                                                      os.getenv('LIBSCALAPACK_MT'), libmpi]))
 
         # Setting LAPACK_LIB is required from 7.0.0 onwards.
