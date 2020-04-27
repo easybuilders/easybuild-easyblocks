@@ -225,21 +225,29 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
         # Additional linker flags
-        lammps_link_libs = []
+        lammps_linklibs = []
 
         # Atomistica
         if get_software_root('Atomistica'):
-            lammps_link_libs += ['-latomistica']
+            # link with libatomistica
+            lammps_linklibs += ['-latomistica']
+            # Atomistica needs the MPI Fortran bindings, which are not added
+            # by default in LAMMPS as it uses a C++ linker
             if self.toolchain.options.get('usempi', None):
                 if self.toolchain.mpi_family() == toolchain.OPENMPI:
-                    lammps_link_libs += ['-lmpi_usempif08', '-lmpi_usempi_ignore_tkr', '-lmpi_mpifh', '-lmpi']
+                    # retrieve libraries used to compile OpenMPI
+                    out, ec = run_cmd("mpifort --showme:libs", simple=False)
+                    if ec:
+                        raise EasyBuildError("Failed to determine OpenMPI libraries: %s", out)
+                    lammps_linklibs += ["-l%s" % lib for lib in out.split()]
                 elif self.toolchain.mpi_family() == toolchain.INTELMPI:
-                    lammps_link_libs += ['-lmpifort', '-lmpi', '-lmpigi']
+                    # add Fortran libraries used by Intel MPI
+                    lammps_linklibs += ['-lmpifort', '-lmpi']
 
         # Set additional linker flags
-        if len(lammps_link_libs) > 0:
-            cmake_lammps_link_libs = '-DLAMMPS_LINK_LIBS="%s"' % ' '.join(lammps_link_libs)
-            self.cfg.update('configopts', cmake_lammps_link_libs)
+        if len(lammps_linklibs) > 0:
+            cmake_lammps_linklibs = '-DLAMMPS_LINK_LIBS="%s"' % ' '.join(lammps_linklibs)
+            self.cfg.update('configopts', cmake_lammps_linklibs)
 
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
