@@ -210,7 +210,21 @@ EULA=accept
             'dirs': [],
         }
 
-        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths)
+        # Add minimal test program to sanity checks
+        try:
+            fake_mod_data = self.load_fake_module()
+        except EasyBuildError as err:
+            self.log.debug("Loading fake module failed: %s" % err)
+
+        impi_testsrc = os.path.join(self.installdir, 'test/test.c')
+        impi_testexe = os.path.join(self.builddir, 'mpi_test')
+        self.log.info("Building minimal MPI test program: %s", impi_testsrc)
+        build_test = "mpiicc %s -o %s" % (impi_testsrc, impi_testexe)
+        run_cmd(build_test, log_all=True, simple=True)
+
+        custom_commands = ['mpirun -n %s %s' % (self.cfg['parallel'], impi_testexe)]
+
+        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """
