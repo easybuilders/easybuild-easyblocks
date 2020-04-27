@@ -31,7 +31,7 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
-from easybulld.tools.filetools import find_glob_pattern
+from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 
