@@ -106,21 +106,16 @@ def check_config_guess(config_guess):
     return result
 
 
-def obtain_config_guess(download_source_path=None, search_source_paths=None):
+def obtain_config_guess():
     """
     Locate or download an up-to-date config.guess
 
-    :param download_source_path: Path to download config.guess to
-    :param search_source_paths: Paths to search for config.guess
     :return: Path to config.guess or None
     """
     log = fancylogger.getLogger('config.guess')
 
-    eb_source_paths = source_paths()
-    if download_source_path is None:
-        download_source_path = eb_source_paths[0]
-    if search_source_paths is None:
-        search_source_paths = eb_source_paths
+    search_source_paths = source_paths()
+    download_source_path = search_source_paths[0]
 
     config_guess = 'config.guess'
     sourcepath_subdir = os.path.join('generic', 'eb_v%s' % EASYBLOCKS_VERSION, 'ConfigureMake')
@@ -128,7 +123,7 @@ def obtain_config_guess(download_source_path=None, search_source_paths=None):
     config_guess_path = None
 
     # check if config.guess has already been downloaded to source path
-    for path in eb_source_paths:
+    for path in search_source_paths:
         cand_config_guess_path = os.path.join(path, sourcepath_subdir, config_guess)
         if os.path.isfile(cand_config_guess_path) and check_config_guess(cand_config_guess_path):
             force_download = build_option('force_download')
@@ -187,15 +182,17 @@ class ConfigureMake(EasyBlock):
 
         self.config_guess = None
 
-    def obtain_config_guess(self, download_source_path=None, search_source_paths=None):
+    def obtain_config_guess(self, *args, **kwargs):
         """
         Locate or download an up-to-date config.guess for use with ConfigureMake
 
-        :param download_source_path: Path to download config.guess to
-        :param search_source_paths: Paths to search for config.guess
+        No arguments allowed
         :return: Path to config.guess or None
         """
-        return obtain_config_guess(download_source_path, search_source_paths)
+        if args or kwargs:
+            self.log.nosupport("Support for passing arguments to 'obtain_config_guess' has been removed "
+                               "and 'source_paths' will always be used", '4.2.1')
+        return obtain_config_guess()
 
     def check_config_guess(self):
         """Check timestamp & SHA256 checksum of config.guess script."""
