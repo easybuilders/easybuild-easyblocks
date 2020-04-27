@@ -50,6 +50,7 @@ class EB_binutils(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'install_libiberty': [True, "Also install libiberty (implies building with -fPIC)", CUSTOM],
+            'use_debuginfod': [False, "Build with debuginfod (used from system)", CUSTOM],
         })
         return extra_vars
 
@@ -120,6 +121,12 @@ class EB_binutils(ConfigureMake):
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
         if LooseVersion(self.version) > LooseVersion('2.24'):
             self.cfg.update('configopts', "--enable-gold --enable-plugins --enable-ld=default")
+
+        if LooseVersion(self.version) >= LooseVersion('2.34'):
+            if self.cfg['use_debuginfod']:
+                self.cfg.update('configopts', '--with-debuginfod')
+            else:
+                self.cfg.update('configopts', '--without-debuginfod')
 
         # complete configuration with configure_method of parent
         super(EB_binutils, self).configure_step()
