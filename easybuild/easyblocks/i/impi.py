@@ -222,6 +222,8 @@ EULA=accept
         build_test = "mpiicc %s -o %s" % (impi_testsrc, impi_testexe)
         run_cmd(build_test, log_all=True, simple=True)
 
+        self.clean_up_fake_module(fake_mod_data)  # unload build environment
+
         custom_commands = ['mpirun -n %s %s' % (self.cfg['parallel'], impi_testexe)]
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
