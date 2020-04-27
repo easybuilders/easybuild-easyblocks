@@ -62,7 +62,11 @@ class EB_binutils(ConfigureMake):
             # determine list of 'lib' directories to use rpath for;
             # this should 'harden' the resulting binutils to bootstrap GCC
             # (no trouble when other libstdc++ is build etc)
-            libdirs = []
+
+            # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
+            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
+            # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file
+            libdirs = [r'\$\$ORIGIN/../lib']
             for libdir in ['/usr/lib', '/usr/lib64', '/usr/lib/x86_64-linux-gnu/']:
                 # also consider /lib, /lib64
                 alt_libdir = libdir.replace('usr/', '')
@@ -75,7 +79,8 @@ class EB_binutils(ConfigureMake):
                 elif os.path.exists(alt_libdir):
                     libdirs.append(alt_libdir)
 
-            libs += ' '.join('-Wl,-rpath=%s' % libdir for libdir in libdirs)
+            # Mind the single quotes
+            libs += ' '.join("-Wl,-rpath='%s'" % libdir for libdir in libdirs)
 
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
@@ -101,8 +106,9 @@ class EB_binutils(ConfigureMake):
                 else:
                     libs += ' ' + libz_path
 
-        self.cfg.update('preconfigopts', "env LIBS='%s'" % libs)
-        self.cfg.update('prebuildopts', "env LIBS='%s'" % libs)
+        # Using double quotes for LIBS to allow single quotes in libs
+        self.cfg.update('preconfigopts', 'LIBS="%s"' % libs)
+        self.cfg.update('prebuildopts', 'LIBS="%s"' % libs)
 
         # use correct sysroot, to make sure 'ld' also considers system libraries
         self.cfg.update('configopts', '--with-sysroot=/')
