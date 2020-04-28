@@ -35,6 +35,7 @@ import os
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
@@ -64,6 +65,18 @@ class EB_ROOT(CMakeMake):
 
     def configure_step(self):
         """Custom configuration for ROOT, add configure options."""
+
+        # ROOT includes an (old) copy of LLVM;
+        # if LLVM is loaded as an indirect dep, we need to make sure
+        # the location to its header files is not included in $CPATH
+        llvm_root = get_software_root('LLVM')
+        if llvm_root:
+            llvm_inc = os.path.join(llvm_root, 'include')
+            cpath = os.getenv('CPATH')
+            if cpath:
+                new_cpath = [p for p in cpath.split(os.pathsep) if p != llvm_inc]
+                self.log.info("Filtered %s from $CPATH to avoid using LLVM loaded as indirect dependency", llvm_inc)
+                setvar('CPATH', os.pathsep.join(new_cpath))
 
         # using ./configure is deprecated/broken in recent versions, need to use CMake instead
         if LooseVersion(self.version.lstrip('v')) >= LooseVersion('6.10'):
