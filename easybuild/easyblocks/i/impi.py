@@ -212,20 +212,14 @@ EULA=accept
         }
 
         # Add minimal test program to sanity checks
-        try:
-            fake_mod_data = self.load_fake_module()
-        except EasyBuildError as err:
-            self.log.debug("Loading fake module failed: %s" % err)
-
         impi_testsrc = os.path.join(self.installdir, 'test/test.c')
         impi_testexe = os.path.join(self.builddir, 'mpi_test')
-        self.log.info("Building minimal MPI test program: %s", impi_testsrc)
-        build_test = "mpiicc %s -o %s" % (impi_testsrc, impi_testexe)
-        run_cmd(build_test, log_all=True, simple=True)
+        self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
-        self.clean_up_fake_module(fake_mod_data)  # unload build environment
-
-        custom_commands = ['mpirun -n %s %s' % (self.cfg['parallel'], impi_testexe)]
+        custom_commands = [
+            "mpiicc %s -o %s" % (impi_testsrc, impi_testexe),  # build test program
+            'mpirun -n %s %s' % (self.cfg['parallel'], impi_testexe),  # run test program
+        ]
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
