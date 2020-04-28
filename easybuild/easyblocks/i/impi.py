@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
