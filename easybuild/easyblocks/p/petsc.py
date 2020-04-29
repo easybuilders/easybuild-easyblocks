@@ -276,6 +276,7 @@ class EB_PETSc(ConfigureMake):
 
         # PETSc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
+            env.setvar('MAKE_NP', str(self.cfg['parallel']))
             self.cfg['parallel'] = None
 
     # default make should be fine
