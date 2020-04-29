@@ -156,8 +156,10 @@ class EB_PETSc(ConfigureMake):
             # Python extensions_step
             if get_software_root('Python'):
                 self.cfg.update('configopts', '--with-numpy=1')
-                if self.cfg['shared_libs']:
-                    self.cfg.update('configopts', '--with-mpi4py=1')
+
+                with_mpi4py_opt = '--with-mpi4py'
+                if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
+                    self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
             deps = ["FFTW", "ScaLAPACK"]
@@ -185,8 +187,9 @@ class EB_PETSc(ConfigureMake):
 
             # additional dependencies
             # filter out deps handled seperately
-            depfilter = self.cfg.builddependencies() + ["BLACS", "BLAS", "CMake", "FFTW", "LAPACK", "numpy",
-                                                        "mpi4py", "papi", "ScaLAPACK", "SuiteSparse"]
+            sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
+                        'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
+            depfilter = self.cfg.builddependencies() + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
@@ -311,6 +314,8 @@ class EB_PETSc(ConfigureMake):
             'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
             'LD_LIBRARY_PATH': [os.path.join(self.prefix_lib, 'lib')],
             'PATH': [os.path.join(self.prefix_bin, 'bin')],
+            # see https://www.mcs.anl.gov/petsc/documentation/faq.html#sparse-matrix-ascii-format
+            'PYTHONPATH': [os.path.join('lib', 'petsc', 'bin')],
         })
 
         return guesses
@@ -345,4 +350,8 @@ class EB_PETSc(ConfigureMake):
         else:
             custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
-        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if get_software_root('Python'):
+            custom_commands.append("python -m PetscBinaryIO --help")
+
+        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
