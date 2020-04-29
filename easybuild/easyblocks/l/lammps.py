@@ -123,7 +123,7 @@ class EB_LAMMPS(CMakeMake):
 
         # Add files from Atomistica
         atomistica = get_software_root('Atomistica')
-        if atomistica:
+        if atomistica and 'ATOMISTICA' in self.cfg['user_packages']:
             # Package files
             atomistica_files = ['pair_atomistica.%s' % e for e in ['cpp', 'h']]
             self.log.info("Adding Atomistica package files into LAMMPS: %s" % ', '.join(atomistica_files))
@@ -273,7 +273,7 @@ class EB_LAMMPS(CMakeMake):
 
         # Atomistica custom sanity checks
         atomistica = get_software_root('Atomistica')
-        if atomistica:
+        if atomistica and 'ATOMISTICA' in self.cfg['user_packages']:
             custom_commands += [
                 "cd %s && " % os.path.join(self.start_dir, 'examples/atomistica') +
                 """python -c 'from lammps import lammps; l=lammps(); l.file("atomistica.in")'"""
