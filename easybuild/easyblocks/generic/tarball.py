@@ -39,6 +39,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, remove_dir
 from easybuild.tools.run import run_cmd
 
@@ -59,10 +60,6 @@ class Tarball(EasyBlock):
             'preinstall_cmd': [None, "Command to execute before installation", CUSTOM],
         })
         return extra_vars
-
-    def __init__(self, *args, **kwargs):
-        """Initialize easyblock."""
-        super(Tarball, self).__init__(*args, **kwargs)
 
     def configure_step(self):
         """
@@ -102,16 +99,16 @@ class Tarball(EasyBlock):
             # Enable merging with root of existing installdir
             install_path = self.installdir
             dirs_exist_ok = True
-            install_logmsg = "Merging tarball contents of %s to %s..."
-        else:
-            if self.cfg['install_type']:
-                self.log.warning("Ignoring unknown option '%s' for index_type." % self.cfg['install_type'])
+            install_logmsg = "Merging tarball contents of %s into %s..."
+        elif self.cfg['install_type'] is None:
             # Wipe and copy root of installation directory (default)
             install_path = self.installdir
             dirs_exist_ok = False
-            install_logmsg = "Wiping %s and copying tarball contents of %s into it..."
+            install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
+        else:
+            raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 
-        self.log.info(install_logmsg % (self.name, install_path))
+        self.log.info(install_logmsg, self.name, install_path)
 
         if not dirs_exist_ok:
             remove_dir(install_path)
