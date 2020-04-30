@@ -106,7 +106,7 @@ class Tarball(EasyBlock):
             dirs_exist_ok = False
             install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
         else:
-            raise EasyBuildError("Ignoring unknown option '%s' for index_type.", self.cfg['install_type'])
+            raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 
         self.log.info(install_logmsg, self.name, install_path)
 
