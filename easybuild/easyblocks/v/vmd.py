@@ -30,7 +30,6 @@ EasyBuild support for VMD, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 import os
-import shutil
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -60,7 +59,8 @@ class EB_VMD(ConfigureMake):
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             change_dir(self.surf_dir)
-            extract_file('surf.tar.Z', os.getcwd())
+            srcdir = extract_file('surf.tar.Z', os.getcwd(), change_into_dir=False)
+            change_dir(srcdir)
 
     def configure_step(self):
         """
