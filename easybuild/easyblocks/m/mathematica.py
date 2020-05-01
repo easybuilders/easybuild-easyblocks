@@ -112,6 +112,8 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
+        super(EB_Mathematica, self).post_install_step()
+
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
