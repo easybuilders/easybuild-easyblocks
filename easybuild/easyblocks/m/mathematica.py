@@ -27,6 +27,8 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 
 @author: Kenneth Hoste (Ghent University)
 """
+
+from distutils.version import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
