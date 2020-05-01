@@ -279,7 +279,8 @@ class EB_WPS(EasyBlock):
 
                 # unpack data
                 for path in testdata_paths:
-                    extract_file(path, tmpdir)
+                    srcdir = extract_file(path, tmpdir, change_into_dir=False)
+                    change_dir(srcdir)
 
                 namelist_file = os.path.join(tmpdir, 'namelist.wps')
 
