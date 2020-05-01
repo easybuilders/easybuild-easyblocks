@@ -133,7 +133,8 @@ EULA=accept
                 libfabric_src_tgz_fn = 'src.tgz'
                 if os.path.exists(os.path.join(libfabric_path, libfabric_src_tgz_fn)):
                     change_dir(libfabric_path)
-                    extract_file(libfabric_src_tgz_fn, os.getcwd())
+                    srcdir = extract_file(libfabric_src_tgz_fn, os.getcwd(), change_into_dir=False)
+                    change_dir(srcdir)
                     libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
                     make = 'make'
