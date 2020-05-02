@@ -36,12 +36,14 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 import os
 from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
 
 class EB_impi(IntelBase):
@@ -216,9 +218,11 @@ EULA=accept
         impi_testexe = os.path.join(self.builddir, 'mpi_test')
         self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
+        params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
         custom_commands = [
             "mpiicc %s -o %s" % (impi_testsrc, impi_testexe),  # build test program
-            'mpirun -n %s %s' % (self.cfg['parallel'], impi_testexe),  # run test program
+            mpi_cmd_tmpl % params,  # run test program
         ]
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
