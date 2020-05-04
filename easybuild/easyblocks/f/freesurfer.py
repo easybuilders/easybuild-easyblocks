@@ -51,11 +51,11 @@ class EB_FreeSurfer(Tarball):
         super(EB_FreeSurfer, self).install_step()
         write_file(os.path.join(self.installdir, '.license'), self.cfg['license_text'])
 
-    def make_module_guesses(self):
+    def make_module_req_guess(self):
         """Include correct subdirectories to $PATH for FreeSurfer."""
-        guesses = super(EB_FreeSurfer, self).make_module_guesses()
+        guesses = super(EB_FreeSurfer, self).make_module_req_guess()
 
-        guesses['PATH'] = ['bin', 'fsfast/bin', 'mni/bin', 'tktools']
+        guesses.update({'PATH': ['bin', 'fsfast/bin', 'mni/bin', 'tktools']})
 
         return guesses
 
