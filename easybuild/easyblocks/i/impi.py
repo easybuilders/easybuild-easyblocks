@@ -213,27 +213,30 @@ EULA=accept
             'dirs': [],
         }
 
-        # Add minimal test program to sanity checks
-        impi_testsrc = os.path.join(self.installdir, 'test/test.c')
-        impi_testexe = os.path.join(self.builddir, 'mpi_test')
-        self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
+        custom_commands = []
 
-        # Build test program with appropriate compiler from current toolchain
-        comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.INTELCOMP:
-            build_comp = 'mpiicc'
-        else:
-            build_comp = 'mpicc'
-        build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
+        if LooseVersion(self.version) >= LooseVersion('2017'):
+            # Add minimal test program to sanity checks
+            impi_testsrc = os.path.join(self.installdir, 'test/test.c')
+            impi_testexe = os.path.join(self.builddir, 'mpi_test')
+            self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
-        # Execute test program with appropriate MPI executable for target toolchain
-        params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
-        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+            # Build test program with appropriate compiler from current toolchain
+            comp_fam = self.toolchain.comp_family()
+            if comp_fam == toolchain.INTELCOMP:
+                build_comp = 'mpiicc'
+            else:
+                build_comp = 'mpicc'
+            build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
 
-        custom_commands = [
-            build_cmd,  # build test program
-            mpi_cmd_tmpl % params,  # run test program
-        ]
+            # Execute test program with appropriate MPI executable for target toolchain
+            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+
+            custom_commands.extend([
+                build_cmd,  # build test program
+                mpi_cmd_tmpl % params,  # run test program
+            ])
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
