@@ -400,9 +400,6 @@ class EB_GCC(ConfigureMake):
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
 
-        # instead of relying on uname, we run the same command GCC uses to
-        # determine the platform
-
         self.run_configure_cmd(cmd)
 
         self.disable_lto_mpfr_old_gcc(objdir)
