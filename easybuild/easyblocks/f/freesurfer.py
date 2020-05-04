@@ -44,7 +44,7 @@ class EB_FreeSurfer(Tarball):
         extra_vars = {
             'license_text': ['', "Text for required license file.", MANDATORY],
         }
-        return EasyBlock.extra_options(extra_vars)
+        return Tarball.extra_options(extra_vars)
 
     def install_step(self):
         """Custom installation procedure for FreeSurfer, which includes installed the license file '.license'."""
