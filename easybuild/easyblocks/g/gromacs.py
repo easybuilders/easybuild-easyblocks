@@ -166,10 +166,10 @@ class EB_GROMACS(CMakeMake):
                         # Only print warning once when trying double precision
                         # build the first time
                         self.cfg['double_precision'] = False
-                        print_warning("Double precision is not available for " +
+                        self.log.info("Double precision is not available for " +
                                       "GPU build. Skipping the double precision build.")
 
-                    print_msg("skipping configure step", silent=self.silent)
+                    self.log.info("skipping configure step")
                     return
 
                 self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
@@ -383,9 +383,8 @@ class EB_GROMACS(CMakeMake):
 
         cuda = get_software_root('CUDA')
         if cuda:
-            if (not self.cfg.get('double_precision') and
-                    re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
-                print_msg("skipping build step", silent=self.silent)
+            if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+                self.log.info("skipping build step")
                 return
 
         super(EB_GROMACS, self).build_step()
@@ -416,9 +415,8 @@ class EB_GROMACS(CMakeMake):
         # is for double precision
         cuda = get_software_root('CUDA')
         if cuda:
-            if (not self.cfg.get('double_precision') and
-                    re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I)):
-                print_msg("skipping install step", silent=self.silent)
+            if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+                self.log.info("skipping install step")
                 return
 
         # run 'make install' in parallel since it involves more compilation
@@ -457,7 +455,7 @@ class EB_GROMACS(CMakeMake):
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
         if self.iter_idx < self.variants_to_build-1:
-            print_msg("skipping extension step %s" % self.iter_idx, silent=self.silent)
+            self.log.info("skipping extension step %s", self.iter_idx)
             return
         super(EB_GROMACS, self).extensions_step(fetch)
 
@@ -520,7 +518,7 @@ class EB_GROMACS(CMakeMake):
             mpi_bins.extend([binary + mpisuff for binary in mpi_bins])
             mpi_libnames.extend([libname + mpisuff for libname in mpi_libnames])
 
-        suff = ''
+        suffixes = ['']
 
         # make sure that configopts is a list:
         configopts_list = self.cfg.get('configopts')
@@ -530,16 +528,24 @@ class EB_GROMACS(CMakeMake):
         lib_files = []
         bin_files = []
 
-        if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
+        dsuff = None
+        if not get_software_root('CUDA'):
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precission
                 if re.search('-enable-double', configopts, re.I):
-                    suff = '_d'
+                    dsuff = '_d'
                 if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
-                    suff = '_d'
+                    dsuff = '_d'
 
-        lib_files.extend(['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames + mpi_libnames])
-        bin_files.extend([b + suff for b in bins + mpi_bins])
+        if dsuff:
+            suffixes.extend([dsuff])
+
+        lib_files.extend([
+            'lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames + mpi_libnames for suff in suffixes
+        ])
+        bin_files.extend([
+            b + suff for b in bins + mpi_bins for suff in suffixes
+        ])
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
@@ -656,7 +662,7 @@ class EB_GROMACS(CMakeMake):
         self.variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg.get('configopts'))
-        print_msg("Building these versions of GROMACS: %s" % ', '.join(versions_built), silent=self.silent)
+        self.log.info("Building these versions of GROMACS: %s", ', '.join(versions_built))
         return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
 
         self.cfg['install_cmd'] = self.save_install_cmd
