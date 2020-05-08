@@ -201,8 +201,10 @@ class EB_GROMACS(CMakeMake):
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
 
-            # Use static libraries if possible
-            self.cfg.update('configopts', "--enable-static")
+            if self.cfg['build_shared_libs']:
+                self.cfg.update('configopts', "--enable-shared --disable-static")
+            else:
+                self.cfg.update('configopts', "--enable-static")
 
             # Use external BLAS and LAPACK
             self.cfg.update('configopts', "--with-external-blas --with-external-lapack")
