@@ -129,6 +129,14 @@ class EB_GROMACS(CMakeMake):
 
         return res
 
+    def is_double_precision_cuda_build(self):
+        """Check if the current build step involves double precision and CUDA"""
+        cuda = get_software_root('CUDA')
+        if cuda:
+            if re.search(self.DP_pattern, self.cfg.get('configopts')):
+                return True
+        return False
+
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
 
@@ -161,7 +169,7 @@ class EB_GROMACS(CMakeMake):
                     raise EasyBuildError("Double precision is not available for GPU build. " +
                                          "Please explicitly set \"double_precision = False\" " +
                                          "or remove it in the easyconfig file.")
-                if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
+                if re.search(self.DP_pattern, self.cfg.get('configopts')):
                     if self.cfg.get('double_precision') is None:
                         # Only print warning once when trying double precision
                         # build the first time
@@ -381,16 +389,19 @@ class EB_GROMACS(CMakeMake):
         iteration is for double precision
         """
 
-        cuda = get_software_root('CUDA')
-        if cuda:
-            if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
-                self.log.info("skipping build step")
-                return
+        if is_double_precision_cuda_build():
+            self.log.info("skipping build step")
+            return
 
         super(EB_GROMACS, self).build_step()
 
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
+
+        if is_double_precision_cuda_build():
+            self.log.info("skipping test step")
+            return
+
         # allow to escape testing by setting runtest to False
         if not self.cfg.get('runtest') and not isinstance(self.cfg.get('runtest'), bool):
 
@@ -411,13 +422,10 @@ class EB_GROMACS(CMakeMake):
         """
         Custom install step for GROMACS; figure out where libraries were installed to.
         """
-        # Skipping the install step if CUDA is enabled and the current iteration
-        # is for double precision
-        cuda = get_software_root('CUDA')
-        if cuda:
-            if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
-                self.log.info("skipping install step")
-                return
+        # Skipping if CUDA is enabled and the current iteration is double precision
+        if is_double_precision_cuda_build():
+            self.log.info("skipping install step")
+            return
 
         # run 'make install' in parallel since it involves more compilation
         self.cfg.update('installopts', "-j %s" % self.cfg.get('parallel'))
@@ -532,10 +540,8 @@ class EB_GROMACS(CMakeMake):
         if not get_software_root('CUDA'):
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precission
-                if re.search('-enable-double', configopts, re.I):
-                    dsuff = '_d'
-                if re.search('-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
-                    dsuff = '_d'
+                if re.search(self.DP_pattern, configopts):
+                        dsuff = '_d'
 
         if dsuff:
             suffixes.extend([dsuff])
@@ -588,6 +594,8 @@ class EB_GROMACS(CMakeMake):
                 'nompi': '',
                 'mpi': '--enable-mpi'
             }
+            # Double precision pattern so search for in configopts
+            self.DP_pattern = '--(enable-double|disable-float)'
         else:
             prec_opts = {
                 'single': '',
@@ -597,6 +605,8 @@ class EB_GROMACS(CMakeMake):
                 'nompi': '-DGMX_MPI=OFF -DGMX_THREAD_MPI=ON',
                 'mpi': '-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF'
             }
+            # Double precision pattern so search for in configopts
+            self.DP_pattern = '-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])'
 
         if LooseVersion(self.version) < LooseVersion('5'):
             # For older versions we only build/install the mdrun part for
