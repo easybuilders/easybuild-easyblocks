@@ -247,7 +247,7 @@ class EB_GROMACS(CMakeMake):
 
                 elif self.cfg.get('mpi_numprocs') > self.cfg['parallel']:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     self.cfg.get('mpi_numprocs'), self.cfg'parallel'])
+                                     self.cfg.get('mpi_numprocs'), self.cfg['parallel'])
 
                 mpiexec = which(self.cfg.get('mpiexec'))
                 if mpiexec:
