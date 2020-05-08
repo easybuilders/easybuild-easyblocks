@@ -75,7 +75,7 @@ class EB_GROMACS(CMakeMake):
         super(EB_GROMACS, self).__init__(*args, **kwargs)
         self.lib_subdir = ''
         self.pre_env = ''
-        self.dynamic = self.toolchain.options.get('dynamic', False)
+        self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -259,8 +259,7 @@ class EB_GROMACS(CMakeMake):
 
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # Building the gmxapi interface requires shared libraries
-                self.dynamic = True
-                self.cfg.update('configopts', "-DBUILD_SHARED_LIBS=ON")
+                self.cfg['build_shared_libs'] = True
                 self.cfg.update('configopts', "-DGMXAPI=ON")
 
                 if LooseVersion(self.version) >= LooseVersion('2020'):
@@ -275,10 +274,10 @@ class EB_GROMACS(CMakeMake):
             if plumed_root:
                 if LooseVersion(self.version) >= LooseVersion('5.1'):
                     # Use shared or static patch depending on
-                    # setting of self.toolchain.options.get('dynamic')
+                    # setting of self.cfg['build_shared_libs']
                     # and adapt cmake flags accordingly as per instructions
                     # from "plumed patch -i"
-                    if self.dynamic:
+                    if self.cfg['build_shared_libs']:
                         mode = 'shared'
                     else:
                         mode = 'static'
@@ -287,12 +286,10 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
             # prefer static libraries, if available
-            if self.dynamic:
+            if self.cfg['build_shared_libs']:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
-                if plumed_root:
-                    self.cfg['build_shared_libs'] = False
 
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
@@ -330,7 +327,6 @@ class EB_GROMACS(CMakeMake):
                 mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group']
                 self.cfg.update('configopts', '-DMKL_LIBRARIES="%s" ' % ';'.join(mkl_libs))
             else:
-                shlib_ext = get_shared_lib_ext()
                 for libname in ['BLAS', 'LAPACK']:
                     libdir = os.getenv('%s_LIB_DIR' % libname)
                     if self.toolchain.toolchain_family() == toolchain.CRAYPE:
@@ -432,7 +428,7 @@ class EB_GROMACS(CMakeMake):
         # this is determined by the GNUInstallDirs CMake module;
         # rather than trying to replicate the logic, we just figure out where the library was placed
 
-        if self.dynamic:
+        if self.cfg['build_shared_libs']:
             self.libext = get_shared_lib_ext()
         else:
             self.libext = 'a'
@@ -496,7 +492,7 @@ class EB_GROMACS(CMakeMake):
             bins.extend(['editconf', 'g_lie', 'genbox', 'genconf'])
             libnames.extend(['gmxana'])
             if LooseVersion(self.version) >= LooseVersion('4.6'):
-                if self.dynamic:
+                if self.cfg['build_shared_libs']:
                     mpi_libnames.extend(['gmx', 'md'])
                 else:
                     libnames.extend(['gmx', 'md'])
@@ -505,7 +501,7 @@ class EB_GROMACS(CMakeMake):
 
             if LooseVersion(self.version) >= LooseVersion('4.5'):
                 if LooseVersion(self.version) >= LooseVersion('4.6'):
-                    if self.dynamic:
+                    if self.cfg['build_shared_libs']:
                         mpi_libnames.append('gmxpreprocess')
                     else:
                         libnames.append('gmxpreprocess')
