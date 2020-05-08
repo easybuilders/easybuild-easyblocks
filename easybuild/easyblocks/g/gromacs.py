@@ -389,7 +389,7 @@ class EB_GROMACS(CMakeMake):
         iteration is for double precision
         """
 
-        if is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build():
             self.log.info("skipping build step")
             return
 
@@ -398,7 +398,7 @@ class EB_GROMACS(CMakeMake):
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
 
-        if is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build():
             self.log.info("skipping test step")
             return
 
@@ -423,7 +423,7 @@ class EB_GROMACS(CMakeMake):
         Custom install step for GROMACS; figure out where libraries were installed to.
         """
         # Skipping if CUDA is enabled and the current iteration is double precision
-        if is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build():
             self.log.info("skipping install step")
             return
 
