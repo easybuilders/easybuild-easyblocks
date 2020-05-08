@@ -132,10 +132,7 @@ class EB_GROMACS(CMakeMake):
     def is_double_precision_cuda_build(self):
         """Check if the current build step involves double precision and CUDA"""
         cuda = get_software_root('CUDA')
-        if cuda:
-            if self.DP_pattern in self.cfg['configopts']:
-                return True
-        return False
+        return cuda and self.DP_pattern in self.cfg['configopts']
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
