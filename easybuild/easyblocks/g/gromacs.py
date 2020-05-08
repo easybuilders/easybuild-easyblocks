@@ -541,7 +541,7 @@ class EB_GROMACS(CMakeMake):
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precission
                 if re.search(self.DP_pattern, configopts):
-                        dsuff = '_d'
+                    dsuff = '_d'
 
         if dsuff:
             suffixes.extend([dsuff])
