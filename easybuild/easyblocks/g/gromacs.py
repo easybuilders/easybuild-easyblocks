@@ -133,7 +133,7 @@ class EB_GROMACS(CMakeMake):
         """Check if the current build step involves double precision and CUDA"""
         cuda = get_software_root('CUDA')
         if cuda:
-            if re.search(self.DP_pattern, self.cfg.get('configopts')):
+            if self.DP_pattern in self.cfg['configopts']:
                 return True
         return False
 
@@ -169,7 +169,7 @@ class EB_GROMACS(CMakeMake):
                     raise EasyBuildError("Double precision is not available for GPU build. " +
                                          "Please explicitly set \"double_precision = False\" " +
                                          "or remove it in the easyconfig file.")
-                if re.search(self.DP_pattern, self.cfg.get('configopts')):
+                if self.DP_pattern in self.cfg['configopts']:
                     if self.cfg.get('double_precision') is None:
                         # Only print warning once when trying double precision
                         # build the first time
@@ -239,15 +239,15 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
         else:
-            if re.search('-DGMX_MPI=(ON|YES|TRUE|Y|[1-9])', self.cfg.get('configopts'), re.I):
-                if self.cfg.get('mpi_numprocs') == 0:
+            if '-DGMX_MPI=ON' in self.cfg['configopts']:
+                if self.cfg.get('mpi_numprocs', 0) == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s",
-                                  self.cfg.get('parallel'))
-                    self.cfg['mpi_numprocs'] = self.cfg.get('parallel')
+                                  self.cfg['parallel'])
+                    self.cfg['mpi_numprocs'] = self.cfg['parallel']
 
-                elif self.cfg.get('mpi_numprocs') > self.cfg.get('parallel'):
+                elif self.cfg.get('mpi_numprocs') > self.cfg['parallel']:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     self.cfg.get('mpi_numprocs'), self.cfg.get('parallel'))
+                                     self.cfg.get('mpi_numprocs'), self.cfg'parallel'])
 
                 mpiexec = which(self.cfg.get('mpiexec'))
                 if mpiexec:
@@ -409,9 +409,8 @@ class EB_GROMACS(CMakeMake):
             env.setvar('OMP_NUM_THREADS', '1')
 
             self.cfg['runtest'] = 'check'
-            if self.cfg.get('parallel'):
-                # run 'make check' in parallel since it involves more compilation
-                self.cfg.update('runtest', "-j %s" % self.cfg.get('parallel'))
+            # run 'make check' in parallel since it involves more compilation
+            self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
             super(EB_GROMACS, self).test_step()
 
             # Set runtest to None so that the gmxapi extension doesn't try to
@@ -428,7 +427,7 @@ class EB_GROMACS(CMakeMake):
             return
 
         # run 'make install' in parallel since it involves more compilation
-        self.cfg.update('installopts', "-j %s" % self.cfg.get('parallel'))
+        self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
 
         super(EB_GROMACS, self).install_step()
 
@@ -529,7 +528,7 @@ class EB_GROMACS(CMakeMake):
         suffixes = ['']
 
         # make sure that configopts is a list:
-        configopts_list = self.cfg.get('configopts')
+        configopts_list = self.cfg['configopts']
         if isinstance(configopts_list, str):
             configopts_list = [configopts_list]
 
@@ -587,18 +586,18 @@ class EB_GROMACS(CMakeMake):
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             prec_opts = {
-                'single': '',
+                'single': '--disable-double',
                 'double': '--enable-double',
             }
             mpi_type_opts = {
-                'nompi': '',
+                'nompi': '--disable-mpi',
                 'mpi': '--enable-mpi'
             }
             # Double precision pattern so search for in configopts
-            self.DP_pattern = '--(enable-double|disable-float)'
+            self.DP_pattern = '--enable-double'
         else:
             prec_opts = {
-                'single': '',
+                'single': '-DGMX_DOUBLE=OFF',
                 'double': '-DGMX_DOUBLE=ON',
             }
             mpi_type_opts = {
@@ -606,7 +605,7 @@ class EB_GROMACS(CMakeMake):
                 'mpi': '-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF'
             }
             # Double precision pattern so search for in configopts
-            self.DP_pattern = '-DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])'
+            self.DP_pattern = '-DGMX_DOUBLE=ON'
 
         if LooseVersion(self.version) < LooseVersion('5'):
             # For older versions we only build/install the mdrun part for
@@ -671,7 +670,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('installopts', [' '.join(var_installopts) + ' ' + common_install_opts])
         self.variants_to_build = len(self.cfg['configopts'])
 
-        self.log.debug("List of configure options to iterate over: %s", self.cfg.get('configopts'))
+        self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
         self.log.info("Building these versions of GROMACS: %s", ', '.join(versions_built))
         return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
 
