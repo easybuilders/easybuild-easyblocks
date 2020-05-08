@@ -590,8 +590,6 @@ class EB_GROMACS(CMakeMake):
                 'nompi': '--disable-mpi',
                 'mpi': '--enable-mpi'
             }
-            # Double precision pattern so search for in configopts
-            self.DP_pattern = '--enable-double'
         else:
             prec_opts = {
                 'single': '-DGMX_DOUBLE=OFF',
@@ -601,8 +599,9 @@ class EB_GROMACS(CMakeMake):
                 'nompi': '-DGMX_MPI=OFF -DGMX_THREAD_MPI=ON',
                 'mpi': '-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF'
             }
-            # Double precision pattern so search for in configopts
-            self.DP_pattern = '-DGMX_DOUBLE=ON'
+
+        # Double precision pattern so search for in configopts
+        self.DP_pattern = prec_opts['double']
 
         if LooseVersion(self.version) < LooseVersion('5'):
             # For older versions we only build/install the mdrun part for
