@@ -50,7 +50,7 @@ class EB_OpenCV(CMakeMake):
         """Custom easyconfig parameters specific to OpenCV."""
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
+            'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
