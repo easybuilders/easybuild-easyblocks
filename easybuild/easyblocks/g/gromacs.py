@@ -404,7 +404,7 @@ class EB_GROMACS(CMakeMake):
             # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
             env.setvar('OMP_NUM_THREADS', '1')
 
-            if isinstance(self.cfg['runtest'], bool):
+            if self.cfg['runtest'] is None or isinstance(self.cfg['runtest'], bool):
                 self.cfg['runtest'] = 'check'
 
             # run 'make check' or whever the easyconfig specifies
