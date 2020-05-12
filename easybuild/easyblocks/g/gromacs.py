@@ -253,7 +253,7 @@ class EB_GROMACS(CMakeMake):
                     self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
                     self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg.get('mpiexec_numproc_flag'))
                     self.cfg.update('configopts', "-DNUMPROC=%s" % self.cfg.get('mpi_numprocs'))
-                elif self.cfg.get('runtest'):
+                elif self.cfg['runtest']:
                     raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
                               self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'),
@@ -398,19 +398,21 @@ class EB_GROMACS(CMakeMake):
             return
 
         # allow to escape testing by setting runtest to False
-        if not self.cfg.get('runtest') and not isinstance(self.cfg.get('runtest'), bool):
+        if self.cfg['runtest'] is None or self.cfg['runtest']:
 
+            old_runtest = self.cfg['runtest']
             # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
             env.setvar('OMP_NUM_THREADS', '1')
 
-            self.cfg['runtest'] = 'check'
-            # run 'make check' in parallel since it involves more compilation
+            if isinstance(self.cfg['runtest'], bool):
+                self.cfg['runtest'] = 'check'
+
+            # run 'make check' or whever the easyconfig specifies 
+            # in parallel since it involves more compilation
             self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
             super(EB_GROMACS, self).test_step()
 
-            # Set runtest to None so that the gmxapi extension doesn't try to
-            # run "check" as a command
-            self.cfg['runtest'] = None
+            self.cfg['runtest'] = old_runtest
 
     def install_step(self):
         """
@@ -459,6 +461,10 @@ class EB_GROMACS(CMakeMake):
         if self.iter_idx < self.variants_to_build-1:
             self.log.info("skipping extension step %s", self.iter_idx)
             return
+
+        # Set runtest to None so that the gmxapi extension doesn't try to
+        # run "check" as a command
+        self.cfg['runtest'] = None
         super(EB_GROMACS, self).extensions_step(fetch)
 
     def make_module_req_guess(self):
