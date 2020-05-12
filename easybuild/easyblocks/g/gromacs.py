@@ -407,7 +407,7 @@ class EB_GROMACS(CMakeMake):
             if isinstance(self.cfg['runtest'], bool):
                 self.cfg['runtest'] = 'check'
 
-            # run 'make check' or whever the easyconfig specifies 
+            # run 'make check' or whever the easyconfig specifies
             # in parallel since it involves more compilation
             self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
             super(EB_GROMACS, self).test_step()
