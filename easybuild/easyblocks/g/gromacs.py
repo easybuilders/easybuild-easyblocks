@@ -570,16 +570,16 @@ class EB_GROMACS(CMakeMake):
         """
         # Save installopts so we can reset it later. The gmxapi pip install
         # can't handle the -j argument.
-        self.save_installopts = self.cfg.get('installopts')
+        self.save_installopts = self.cfg['installopts']
 
         # keep track of config/build/installopts specified in easyconfig
         # file, so we can include them in each iteration later
-        common_config_opts = self.cfg.get('configopts')
-        common_build_opts = self.cfg.get('buildopts')
-        common_install_opts = self.cfg.get('installopts')
+        common_config_opts = self.cfg['configopts']
+        common_build_opts = self.cfg['buildopts']
+        common_install_opts = self.cfg['installopts']
 
-        self.save_install_cmd = self.cfg.get('install_cmd')
-        self.save_build_cmd = self.cfg.get('build_cmd')
+        self.save_install_cmd = self.cfg['install_cmd']
+        self.save_build_cmd = self.cfg['build_cmd']
 
         self.cfg['configopts'] = []
         self.cfg['buildopts'] = []
