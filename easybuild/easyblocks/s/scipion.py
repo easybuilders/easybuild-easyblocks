@@ -68,7 +68,7 @@ class EB_Scipion(ExtensionEasyBlock):
         ])
         run_cmd(cmd, log_all=True, simple=True)
 
-        # Things that go into the BUILD seaction of scipion.conf
+        # Things that go into the BUILD section of scipion.conf
         build_params = {
             'CC': os.environ['CC'],
             'CXX': os.environ['CXX'],
@@ -198,7 +198,7 @@ class EB_Scipion(ExtensionEasyBlock):
 
         custom_paths = {
             'files': [os.path.join('bin', 'scipion')],
-            'dirs': ['config', 'pyworkflow'],
+            'dirs': ['config', 'pyworkflow', 'scipion', 'software'],
         }
         return super(EB_Scipion, self).sanity_check_step(custom_paths=custom_paths)
 
