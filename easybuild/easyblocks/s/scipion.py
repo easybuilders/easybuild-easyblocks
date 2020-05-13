@@ -198,7 +198,7 @@ class EB_Scipion(ExtensionEasyBlock):
 
         custom_paths = {
             'files': [os.path.join('bin', 'scipion')],
-            'dirs': ['config', 'pyworkflow', 'scipion', 'software'],
+            'dirs': ['config', 'data', 'pyworkflow', 'software'],
         }
         return super(EB_Scipion, self).sanity_check_step(custom_paths=custom_paths)
 
