@@ -201,9 +201,3 @@ class EB_Scipion(ExtensionEasyBlock):
             'dirs': ['config', 'data', 'pyworkflow', 'software'],
         }
         return super(EB_Scipion, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables (PATH, ...) for Scipion."""
-        guesses = super(EB_Scipion, self).make_module_req_guess()
-        guesses.update({'PATH': ['bin']})
-        return guesses
