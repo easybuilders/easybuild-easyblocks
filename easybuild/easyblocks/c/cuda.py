@@ -101,6 +101,22 @@ class EB_CUDA(Binary):
             self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
                             self.installdir, self.installdir))
 
+        if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
+            # Workaround for
+            # https://devtalk.nvidia.com/default/topic/1063995/cuda-setup-and-installation/cuda-10-1-243-10-1-update-2-ppc64le-run-file-installation-issue/
+            install_script = " && ".join([
+                "mkdir -p %(installdir)s/targets/ppc64le-linux/include",
+                "([ -e %(installdir)s/include ] || ln -s targets/ppc64le-linux/include %(installdir)s/include)",
+                "cp -r %(builddir)s/builds/cublas/src %(installdir)s/.",
+                install_script
+                ]) % {
+                    'installdir': self.installdir,
+                    'builddir': self.builddir
+                }
+
+        # Use C locale to avoid localized questions and crash on CUDA 10.1
+        self.cfg.update('preinstallopts', "export LANG=C && ")
+
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
             'interpreter': install_interpreter,
@@ -137,9 +153,9 @@ class EB_CUDA(Binary):
         # instead of segfaulting in the cuda-installer.
         remove_file('/tmp/cuda-installer.log')
 
-        # overriding maxhits default value to 300 (300s wait for nothing to change in the output without seeing a known
-        # question)
-        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
+        # overriding maxhits default value to 1000 (seconds to wait for nothing to change in the output
+        # without seeing a known question)
+        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=1000)
 
         # Remove the cuda-installer log file
         remove_file('/tmp/cuda-installer.log')

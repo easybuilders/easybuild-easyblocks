@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2019 Ghent University
+# Copyright 2019-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,15 +52,11 @@ class EB_numexpr(PythonPackage):
 
         self.imkl_root = None
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare environment for building and installing numexpr."""
-        super(EB_numexpr, self).prepare_step(*args, **kwargs)
-
-        self.imkl_root = get_software_root('imkl')
-
     def configure_step(self):
         """Custom configuration procedure for numexpr."""
         super(EB_numexpr, self).configure_step()
+
+        self.imkl_root = get_software_root('imkl')
 
         # if Intel MKL is available, set up site.cfg such that the right VML library is used;
         # this makes a *big* difference in terms of performance;
@@ -103,4 +99,4 @@ class EB_numexpr(PythonPackage):
         if self.imkl_root:
             custom_commands.append("python -c 'import numexpr; assert(numexpr.use_vml)'")
 
-        super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)
+        return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)

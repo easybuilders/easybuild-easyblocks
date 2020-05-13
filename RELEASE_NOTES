@@ -3,7 +3,140 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 210 software-specific easyblocks and 36 generic easyblocks.
+The latest version of easybuild-easyblocks provides 219 software-specific easyblocks and 36 generic easyblocks.
+
+v4.2.0 (April 14th 2020)
+------------------------
+
+feature release
+
+- 7 new software-specific easyblocks:
+  - BerkeleyGW (#1951), CMake (#1936), ELSI (#1883), LAMMPS (#1964, #1975, #1978, #1982, #1997), libdrm (#1983), Mesa (#1892, #2006), SEPP (#1998)
+- minor enhancements, including:
+  - make ParMETIS easyblock compatible with custom configopts (#1774)
+  - update Trinity easyblock for v2.9.0 (#1906)
+  - disable ROCM and Android workspace explicitely in TensorFlow easyblock (#1944)
+  - update QuantumESPRESSO easyblock for version 6.5 (#1947)
+  - update Siesta easyblock to support MaX-1.0 release (#1954)
+  - update Ferret easyblock for versions >= 7.5.0 (#1956)
+  - update XCrySDen easyblock to support Togl dependency (#1959)
+  - pass value for TARGET specified in buildopts to testopts and installopts in OpenBLAS easyblock (#1960)
+  - fix netCDF(-Fortran) support in Siesta easyblock (#1967, 1971)
+  - add NCDF_PARALLEL and METIS support to Siesta easyblock (#1973)
+  - add support for 'use_pip_extras' custom easyconfig parameter in PythonPackage easyblock (#1980)
+  - update Open Babel easyblock for version 3.0.0 (#1992)
+  - allow differing names for TensorFlow wheel (#1995)
+  - make MATLAB runtime available from MATLAB (#2008)
+- various bug fixes, including:
+  - fix linking of Hypre to external BLAS/LAPACK + support building (only) static/shared library (#1885)
+  - fix MPI-CXX dependency of PETSc (#1917)
+  - limit amount of parallelism in TensorFlow easyblock (#1934)
+  - support GCCcore and gcc4.8 (if that dir exists) in function get_tbb_gccprefix in tbb easyblock (#1943)
+  - restore default flake8 warnings (#1950)
+  - remove tests from build_step and raise error on failed tests in OpenBLAS easyblock (#1952, #1955, #1962)
+  - add optional runtest to the catch for FATAL ERRORS to OpenBLAS easyblock (#1958)
+  - ensure right 'python' command is used to determine Python lib dir when system Python is used with PythonBundle easyblock (#1961)
+  - make sure lib/python*/lib-dynload exists in Python installation (#1966)
+  - in version 6.0 of TensorRT, libnvinfer.a is renamed libnvinfer_static.a (#1970)
+  - handle configopts without configure args in CMake easyblock (#1974)
+  - use checkout@v2 in GitHub Actions to fix broken re-triggered tests (#1976)
+  - don't insist that pylibdir always exists in OpenCV easyblock (#1977)
+  - also set $TRINITY_HOME environment variable in Trinity easyblock (#1979)
+  - fix sanity check for OpenFOAM-Extend >= 4.1 (#1981)
+  - fix pattern matching in regex subst for I_MPI_ROOT in impi easyblock (#1986)
+  - use remove_dir instead of deprecated rmtree2 in various easyblocks (#1993)
+  - fix "AttributeError: module 'git' has no attribute 'Git'" that may occur when using Python 3 (#1994)
+  - don't sanity check for QtWebEngine in Qt easyblock when building for POWER (#2000)
+  - fix installation of TensorFlow in some environments, by setting $PYTHONNOUSERSITE (& more) (#2002, #2020)
+  - make sure libxml2 is built with XZ provided as dependency (#2005)
+  - look for Python version directories with suffixes in ROOT easyblock (#2010)
+  - enable TK, FLTK and OPENGL configure options in VMD easyblock (#2013)
+  - update the contributing docs (#2014)
+  - fix numexpr easyblock to allow (correctly) installing it as extension (#2022)
+- other changes:
+  - simplify various CMakeMake-based easyblocks by enhancing CMakeMake (w.r.t. CMAKE_BUILD_TYPE, shared vs static libs, fPIC) (#1929)
+  - enable out of tree build by default in CMakeMake easyblock (#1933)
+  - force building Clang without CUDA when it is not found as a proper dependency (#1968)
+
+
+v4.1.1 (January 16th 2020)
+--------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for cryptography (to fix missing -pthread for all versions) (#1874)
+- minor enhancements, including:
+  - update WPS easyblock for v3.6 & newer (#1315)
+  - update FSL easyblock to support FSL v6.0.2 & newer (#1860)
+  - add setup_cmake_env function in CMakeMake easyblock which can be leveraged in other easyblocks, and use it for OpenFOAM (#1869)
+  - remove obsolete configure options for Python + build with optimizations/LTO enabled for recent Python versions (#1876)
+  - update WPS easyblock for recent versions: set $WRF_DIR to point to location of WRF installation (#1886)
+  - make sure $LIBLAPACK_MT is set before using it in ESMF easyblock (#1887)
+  - remove useless PATH entries + add PKG_CONFIG_PATH in imkl easyblock (#1900)
+  - enhance tbb easyblock to support building on POWER (#1912)
+  - enhance TensorFlow easyblock to pick up on --cuda-compute-capabilities, and issue a warning if no CUDA compute capabilities are specified (#1913)
+  - add custom easyconfig parameter 'build_type' to generic CMakeMake easyblock (#1915, #1922)
+- various bug fixes, including:
+  - fix for conda packages that rely on particular versions of Python (#1836)
+  - fix path for intel and netCDF lib directories in NCL easyblock (#1862)
+  - fix CUDA 10.1 installation on POWER (#1871)
+  - change Bazel easyblock to prefer using Java dependency rather than included JDK (fix for POWER9) (#1875)
+  - remove optarch warning in GROMACS for Cray toolchains (#1879)
+  - also fix $WM_COMPILE_OPTION in OpenFOAM rc scripts to make debug builds work correctly (#1880)
+  - limit MPI ranks used for running WRF test cases to max. 4 + include contents of rsl.error.0000 output file in case test failed (#1884)
+  - update $PYTHONPATH + add "python -c 'import mrtrix3'" as sanity check command for recent MRtrix versions (#1889)
+  - update sanity check in SAMtools easyblock for version 1.10 (#1890)
+  - make sure $PYTHONNOUSERSITE it set when performing sanity check for (bundles of) Python package(s) (#1891)
+  - fix install dir subdir for WPS v4.0+ that is considered for $PATH and $LD_LIBRARY_PATH (#1895)
+  - impi: don't rebuild libfabric if the source code is not present (#1896)
+  - also copy component patches to self.cfg in Bundle generic easyblock (#1897)
+  - skip patch step in Bundle generic easyblock (per-component patches are still applied) (#1898)
+  - derive easyblock for iccifort only from icc easyblock (not ifort), to avoid adding include subdir to $CPATH (#1899)
+  - add 'export LANG=C' to preinstallopts instead of install_script path in CUDA easyblock (#1902)
+  - stop setting updating $CPATH and $LIBRARY_PATH for GCC and GCCcore, not required (#1903)
+  - remove $LIBRARY_PATH entries in iccifort easyblock, already known to icc et al (#1904)
+  - use major/minor version of Python command being used if req_py_majver/req_py_minver are not specified (#1907)
+  - define $EB_PYTHON in module for EasyBuild installation, to make sure correct Python version is used at runtime (#1908)
+  - fix Python easyblock to allow configuring build of Python v3.8 (Setup.dist script was renamed to Setup) (#1909)
+  - fix netCDF easyblock for version 4.4.0 (#1911)
+  - correct comment about when we set RUNPARALLEL in HDF5 easyblock (#1914)
+  - do not sanity check on MATLAB compiler, since it requires a separate license (#1916)
+  - build HDF5 without MPI C++ extension to avoid breaking linkage for C software that requires HDF5 (#1918, #1919)
+  - override set_pylibdirs method in VersionIndependentPythonPackage to hard set self.pylibdir to 'lib' (#1924)
+- other changes:
+  - increase timeout for interactive installation command in CUDA easyblock to 1000 sec. (#1878)
+  - disable running of 'sudo apt-get update' in GitHub CI config, since it's failing (and we don't really need it) (#1882)
+  - stop requiring Python dep for SWIG, just configure with --without-python if Python is not a dependency (#1894)
+  - update copyright statements for 2020 (#1905)
+  - make Hound CI code style checker ignore "Black would make changes" produced by flake8-black (#1923)
+
+
+v4.1.0 (December 4th 2019)
+--------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for cuDNN, to allow setting cudnnarch (#1855)
+- refactored software-specific easyblock for Xmipp, based on Scons (#1837)
+- minor enhancements, including:
+  - add prebuildopts to Bazel build command (#1838)
+  - add support to Toolchain generic easyblock for defining $EB* environment variables for toolchain components that use an external module (#1849)
+  - add support for running 'pip check' during sanity check in generic PythonPackage easyblock (#1853)
+- various bug fixes, including:
+  - clean up /tmp/cuda-installer.log in CUDA easyblock, to avoid segfault in cuda-installer (#1835)
+  - minor fix to name of Gctf binary (#1840)
+  - move BLAS toolchain existence check earlier in SuperLU easyblock (#1842)
+  - fixes for TensorFlow easyblocks w.r.t. Bazel build options & __init__ in top-level google-protobuf package dir (#1843)
+  - fix support for sequential version in MUMPS easyblock (#1845)
+  - change default value of files_to_copy to None in MakeCp generic easyblock + code cleanup & use change_dir, copy_dir, copy_file and mkdir function from filetools (#1848)
+  - prepend -L$EBROOTZLIB/lib to LDFLAGS in SCOTCH easyblock (#1850)
+  - improve configuration in netCDF and netcdf4_python easyblocks (#1852)
+  - fix CUDA header paths for TensorFlow versions < 1.14 (#1854)
+  - handle incorrect regex better in generic CmdCp easyblock (#1861)
+  - add missing docstrings in cmakeninja easyblock (#1867)
+- other changes:
+  - add GitHub Actions workflow to run easybuild-easyblocks test suite (#1844)
+
 
 v4.0.1 (October 15th 2019)
 --------------------------
@@ -13,8 +146,8 @@ update/bugfix release
 - one new generic easyblock: CMakeNinja (#1829)
 - new software-specific easyblock for Gctf (#1827), MotionCor2 (#1819)
 - minor enhancements, including:
-  - update OpenFOAM easyblock for changes in version 1906 w.r.t. wamke rules (#1772)
-  - add %(cudaarch)s template variable so that it can be used in sources (#1797)
+  - update OpenFOAM easyblock for changes in version 1906 w.r.t. wmake rules (#1772)
+  - add %(cudaarch)s template variable so that it can be used in CUDA sources (#1797)
   - update Boost easyblock for versions >=1.71.0 (#1814)
   - update RepeatMasker easyblock for version 4.0.9 (#1815)
   - add --verbose flag to 'pip install' when running EB in debug mode (#1822)

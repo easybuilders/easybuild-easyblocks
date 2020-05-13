@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -112,8 +112,6 @@ class EB_GCC(ConfigureMake):
         # ubuntu needs the LIBRARY_PATH env var to work apparently (#363)
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
-
-        self.platform_lib = get_platform_name(withversion=True)
 
     def create_dir(self, dirname):
         """
@@ -383,14 +381,24 @@ class EB_GCC(ConfigureMake):
         else:
             objdir = self.create_dir("obj")
 
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            configopts += ' --build=' + build_type
+        if host_type:
+            configopts += ' --host=' + host_type
+
+        # instead of relying on uname, we use the actual --build option
+        if build_type:
+            self.platform_lib = build_type
+        else:
+            # Fallback
+            out, ec = run_cmd("../config.guess")
+            if ec != 0:
+                raise EasyBuildError('Failed to obtain platform_lib value from config.guess')
+            self.platform_lib = out.strip()
+
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
-
-        # instead of relying on uname, we run the same command GCC uses to
-        # determine the platform
-        out, ec = run_cmd("../config.guess", simple=False)
-        if ec == 0:
-            self.platform_lib = out.rstrip()
 
         self.run_configure_cmd(cmd)
 
@@ -691,13 +699,14 @@ class EB_GCC(ConfigureMake):
 
     def make_module_req_guess(self):
         """
-        Make sure all GCC libs are in LD_LIBRARY_PATH
+        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
         guesses = super(EB_GCC, self).make_module_req_guess()
         guesses.update({
             'PATH': ['bin'],
-            'LD_LIBRARY_PATH': ['lib', 'lib64',
-                                'lib/gcc/%s/%s' % (self.platform_lib, self.cfg['version'])],
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
         return guesses

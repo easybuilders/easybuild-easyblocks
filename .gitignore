@@ -1,3 +1,4 @@
+.idea
 .pydevproject
 .project
 LICENSE_HEADER
@@ -8,3 +9,4 @@ build/
 dist/
 *egg-info/
 *.swp
+.mypy_cache/

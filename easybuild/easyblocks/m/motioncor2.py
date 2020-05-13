@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2019 Ghent University
+# Copyright 2019-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for building and installing MotionCor2, implemented as an easy
 import os
 import stat
 
+from distutils.version import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
@@ -50,6 +51,9 @@ class EB_MotionCor2(EasyBlock):
 
         self.cuda_mod_name, self.cuda_name = None, None
         self.motioncor2_bin = None
+        self.motioncor2_verstring = self.version
+        if (LooseVersion(self.version) >= LooseVersion("1.3.1")):
+            self.motioncor2_verstring = "v%s" % self.version
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -66,7 +70,7 @@ class EB_MotionCor2(EasyBlock):
                 self.cuda_name = os.path.dirname(self.cuda_mod_name)
                 cuda_ver = dep['version']
                 cuda_short_ver = "".join(cuda_ver.split('.')[:2])
-                self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.version, cuda_short_ver)
+                self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.motioncor2_verstring, cuda_short_ver)
                 break
 
     def configure_step(self):
