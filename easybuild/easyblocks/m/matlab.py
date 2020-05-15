@@ -141,24 +141,56 @@ class EB_MATLAB(PackedBinary):
             keys = keys.split(',')
 
         # Make one install for each key
-        for key in keys:
-            cmd = ' '.join([
-                self.cfg['preinstallopts'],
-                src,
-                '-v',
-                tmpdir,
-                '-inputFile',
-                self.configfile,
-                '-fileInstallationKey',
-                key,
-                self.cfg['installopts'],
-            ])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        for i, key in enumerate(keys):
+
+            self.log.debug('Installing with key %s of %s', i + 1, len(keys))
+
+            if LooseVersion(self.version) >= LooseVersion('2020a'):
+                self.log.debug('Version is %s - using binary installer method', self.version)
+                try:
+                    with tempfile.NamedTemporaryFile() as fd:
+                        tmp_configfile = fd.name
+                        with open(self.configfile) as template_fd:
+                            tmp_config = template_fd.read()
+                        tmp_config = tmp_config.replace('# fileInstallationKey=', 'fileInstallationKey=%s' % key)
+                        fd.write(tmp_config)
+
+                        self.log.debug('temp config file written to %s:\n %s', tmp_configfile, tmp_config)
+
+                        cmd = ' '.join([
+                            self.cfg['preinstallopts'],
+                            src,
+                            '-inputFile',
+                            tmp_configfile,
+                            self.cfg['installopts'],
+                        ])
+
+                        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+                except IOError as err:
+                    raise EasyBuildError("Failed to create temporary config file %s: %s", tmp_configfile, err)
+
+            else:
+                self.log.debug('Version is %s - using script installer method', self.version)
+                cmd = ' '.join([
+                    self.cfg['preinstallopts'],
+                    src,
+                    '-v',
+                    tmpdir,
+                    '-inputFile',
+                    self.configfile,
+                    '-fileInstallationKey',
+                    key,
+                    self.cfg['installopts'],
+                ])
+
+                (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # check installer output for known signs of trouble
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
             ]
+
             for pattern in patterns:
                 regex = re.compile(pattern, re.I)
                 if regex.search(out):
