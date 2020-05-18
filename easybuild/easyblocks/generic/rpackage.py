@@ -180,10 +180,11 @@ class RPackage(ExtensionEasyBlock):
             config_guess = os.path.join(config_guess_dir, 'config.guess')
             if not check_config_guess(config_guess):
                 updated_config_guess = obtain_config_guess()
-                if not updated_config_guess:
-                    raise EasyBuildError('Failed to obtain updated config.guess')
-                self.log.debug("Replacing outdated %s with more recent copy at %s", config_guess, updated_config_guess)
-                copy_file(updated_config_guess, config_guess)
+                if updated_config_guess:
+                    self.log.debug("Replacing outdated %s with more recent %s", config_guess, updated_config_guess)
+                    copy_file(updated_config_guess, config_guess)
+                else:
+                    raise EasyBuildError("Failed to obtain updated config.guess")
 
     def install_step(self):
         """Install procedure for R packages."""
