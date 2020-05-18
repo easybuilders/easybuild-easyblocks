@@ -456,7 +456,7 @@ class EB_GROMACS(CMakeMake):
                 raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
             # Reset installopts etc for the benefit of the gmxapi extension
-            self.cfg['installopts'] = self.save_installopts
+            self.cfg['installopts'] = self.orig_installopts
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
@@ -569,7 +569,7 @@ class EB_GROMACS(CMakeMake):
         """
         # Save installopts so we can reset it later. The gmxapi pip install
         # can't handle the -j argument.
-        self.save_installopts = self.cfg['installopts']
+        self.orig_installopts = self.cfg['installopts']
 
         # keep track of config/build/installopts specified in easyconfig
         # file, so we can include them in each iteration later
@@ -577,8 +577,8 @@ class EB_GROMACS(CMakeMake):
         common_build_opts = self.cfg['buildopts']
         common_install_opts = self.cfg['installopts']
 
-        self.save_install_cmd = self.cfg['install_cmd']
-        self.save_build_cmd = self.cfg['build_cmd']
+        self.orig_install_cmd = self.cfg['install_cmd']
+        self.orig_build_cmd = self.cfg['build_cmd']
 
         self.cfg['configopts'] = []
         self.cfg['buildopts'] = []
@@ -672,7 +672,7 @@ class EB_GROMACS(CMakeMake):
         self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
         return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
 
-        self.cfg['install_cmd'] = self.save_install_cmd
-        self.cfg['build_cmd'] = self.save_build_cmd
+        self.cfg['install_cmd'] = self.orig_install_cmd
+        self.cfg['build_cmd'] = self.orig_build_cmd
 
         self.log.info("A full regression test suite is available from the GROMACS web site")
