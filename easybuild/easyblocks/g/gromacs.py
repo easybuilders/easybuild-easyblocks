@@ -669,7 +669,7 @@ class EB_GROMACS(CMakeMake):
         self.variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
-        self.log.info("Building these versions of GROMACS: %s", ', '.join(versions_built))
+        self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
         return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
 
         self.cfg['install_cmd'] = self.save_install_cmd
