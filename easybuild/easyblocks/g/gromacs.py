@@ -640,8 +640,7 @@ class EB_GROMACS(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             mpitypes.append('mpi')
 
-        # We need to count the numb er of variations to build.
-        self.variants_to_build = 0
+        # We need to count the number of variations to build.
         versions_built = []
         # Handle the different variants
         for precicion in precisions:
