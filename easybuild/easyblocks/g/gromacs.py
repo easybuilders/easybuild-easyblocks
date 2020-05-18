@@ -270,7 +270,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DGMXAPI=ON")
 
                 if LooseVersion(self.version) >= LooseVersion('2020'):
-                    # check whether Python is loaded as a dependency
+                    # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
                     if python_root:
                         bin_python = os.path.join(python_root, 'bin', 'python')
