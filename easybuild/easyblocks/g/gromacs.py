@@ -249,13 +249,17 @@ class EB_GROMACS(CMakeMake):
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
                                      mpi_numprocs, self.cfg['parallel'])
 
-                mpiexec = which(self.cfg.get('mpiexec'))
+                mpiexec = self.cfg.get('mpiexec')
                 if mpiexec:
-                    self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
-                    self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg.get('mpiexec_numproc_flag'))
-                    self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
-                elif self.cfg['runtest']:
-                    raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
+                    mpiexec = which(mpiexec)
+                    if mpiexec:
+                        self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
+                        self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg.get('mpiexec_numproc_flag'))
+                        self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
+                    elif self.cfg['runtest']:
+                        raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
+                else:
+                        raise EasyBuildError("No value found for 'mpiexec'")
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
                               self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'),
                               mpi_numprocs)
