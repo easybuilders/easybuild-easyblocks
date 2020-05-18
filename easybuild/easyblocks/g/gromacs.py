@@ -606,12 +606,11 @@ class EB_GROMACS(CMakeMake):
         # Double precision pattern so search for in configopts
         self.double_prec_pattern = prec_opts['double']
 
+        # For older versions we only build/install the mdrun part for
+        # the MPI variant. So we need to be able to specify the
+        # install target depending on variant.
+        self.cfg['install_cmd'] = 'make'
         if LooseVersion(self.version) < LooseVersion('5'):
-            # For older versions we only build/install the mdrun part for
-            # the MPI variant. So we need to be able to specify the
-            # install target depending on variant.
-            self.cfg['install_cmd'] = 'make'
-
             # Use the fact that for older versions we just need to
             # build and install mdrun for the MPI part
             build_opts = {
