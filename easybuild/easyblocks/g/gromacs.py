@@ -239,25 +239,26 @@ class EB_GROMACS(CMakeMake):
 
         else:
             if '-DGMX_MPI=ON' in self.cfg['configopts']:
-                if self.cfg.get('mpi_numprocs', 0) == 0:
+                mpi_numprocs = self.cfg.get('mpi_numprocs', 0)
+                if mpi_numprocs == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s",
                                   self.cfg['parallel'])
-                    self.cfg['mpi_numprocs'] = self.cfg['parallel']
+                    mpi_numprocs = self.cfg['parallel']
 
-                elif self.cfg.get('mpi_numprocs') > self.cfg['parallel']:
+                elif mpi_numprocs > self.cfg['parallel']:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     self.cfg.get('mpi_numprocs'), self.cfg['parallel'])
+                                     mpi_numprocs, self.cfg['parallel'])
 
                 mpiexec = which(self.cfg.get('mpiexec'))
                 if mpiexec:
                     self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
                     self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg.get('mpiexec_numproc_flag'))
-                    self.cfg.update('configopts', "-DNUMPROC=%s" % self.cfg.get('mpi_numprocs'))
+                    self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
                 elif self.cfg['runtest']:
                     raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
                               self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'),
-                              self.cfg.get('mpi_numprocs'))
+                              mpi_numprocs)
 
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # Building the gmxapi interface requires shared libraries
