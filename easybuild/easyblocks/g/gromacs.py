@@ -520,7 +520,7 @@ class EB_GROMACS(CMakeMake):
         # also check for MPI-specific binaries/libraries
         if self.toolchain.options.get('usempi', None):
             if LooseVersion(self.version) < LooseVersion('4.6'):
-                mpisuff = self.cfg.get('mpisuffix')
+                mpisuff = self.cfg.get('mpisuffix', '_mpi')
             else:
                 mpisuff = '_mpi'
 
@@ -655,7 +655,7 @@ class EB_GROMACS(CMakeMake):
                 if LooseVersion(self.version) < LooseVersion('4.6'):
                     suffix = ''
                     if mpitype == 'mpi':
-                        suffix = "--program-suffix={0}".format(self.cfg.get('mpisuffix'))
+                        suffix = "--program-suffix={0}".format(self.cfg.get('mpisuffix', '_mpi'))
                         if precision == 'double':
                             suffix += '_d'
                     var_confopts.append(suffix)
