@@ -391,33 +391,31 @@ class EB_GROMACS(CMakeMake):
 
         if self.is_double_precision_cuda_build():
             self.log.info("skipping build step")
-            return
-
-        super(EB_GROMACS, self).build_step()
+        else:
+            super(EB_GROMACS, self).build_step()
 
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
 
         if self.is_double_precision_cuda_build():
             self.log.info("skipping test step")
-            return
+        else:
+            # allow to escape testing by setting runtest to False
+            if self.cfg['runtest'] is None or self.cfg['runtest']:
 
-        # allow to escape testing by setting runtest to False
-        if self.cfg['runtest'] is None or self.cfg['runtest']:
+                old_runtest = self.cfg['runtest']
+                # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
+                env.setvar('OMP_NUM_THREADS', '1')
 
-            old_runtest = self.cfg['runtest']
-            # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
-            env.setvar('OMP_NUM_THREADS', '1')
+                if self.cfg['runtest'] is None or isinstance(self.cfg['runtest'], bool):
+                    self.cfg['runtest'] = 'check'
 
-            if self.cfg['runtest'] is None or isinstance(self.cfg['runtest'], bool):
-                self.cfg['runtest'] = 'check'
+                # run 'make check' or whatever the easyconfig specifies
+                # in parallel since it involves more compilation
+                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
+                super(EB_GROMACS, self).test_step()
 
-            # run 'make check' or whever the easyconfig specifies
-            # in parallel since it involves more compilation
-            self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
-            super(EB_GROMACS, self).test_step()
-
-            self.cfg['runtest'] = old_runtest
+                self.cfg['runtest'] = old_runtest
 
     def install_step(self):
         """
@@ -426,51 +424,49 @@ class EB_GROMACS(CMakeMake):
         # Skipping if CUDA is enabled and the current iteration is double precision
         if self.is_double_precision_cuda_build():
             self.log.info("skipping install step")
-            return
-
-        # run 'make install' in parallel since it involves more compilation
-        self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
-
-        super(EB_GROMACS, self).install_step()
-
-        # the GROMACS libraries get installed in different locations (deeper subdirectory), depending on the platform;
-        # this is determined by the GNUInstallDirs CMake module;
-        # rather than trying to replicate the logic, we just figure out where the library was placed
-
-        if self.cfg['build_shared_libs']:
-            self.libext = get_shared_lib_ext()
         else:
-            self.libext = 'a'
+            # run 'make install' in parallel since it involves more compilation
+            self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
 
-        if LooseVersion(self.version) < LooseVersion('5.0'):
-            libname = 'libgmx*.%s' % self.libext
-        else:
-            libname = 'libgromacs*.%s' % self.libext
+            super(EB_GROMACS, self).install_step()
 
-        for libdir in ['lib', 'lib64']:
-            if os.path.exists(os.path.join(self.installdir, libdir)):
-                for subdir in [libdir, os.path.join(libdir, '*')]:
-                    libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
-                    if libpaths:
-                        self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir)+1:]
-                        self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
-                        break
-        if not self.lib_subdir:
-            raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
+            # the GROMACS libraries get installed in different locations (deeper subdirectory), depending on the platform;
+            # this is determined by the GNUInstallDirs CMake module;
+            # rather than trying to replicate the logic, we just figure out where the library was placed
 
-        # Reset installopts etc for the benefit of the gmxapi extension
-        self.cfg['installopts'] = self.save_installopts
+            if self.cfg['build_shared_libs']:
+                self.libext = get_shared_lib_ext()
+            else:
+                self.libext = 'a'
+
+            if LooseVersion(self.version) < LooseVersion('5.0'):
+                libname = 'libgmx*.%s' % self.libext
+            else:
+                libname = 'libgromacs*.%s' % self.libext
+
+            for libdir in ['lib', 'lib64']:
+                if os.path.exists(os.path.join(self.installdir, libdir)):
+                    for subdir in [libdir, os.path.join(libdir, '*')]:
+                        libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
+                        if libpaths:
+                            self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir)+1:]
+                            self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
+                            break
+            if not self.lib_subdir:
+                raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
+
+            # Reset installopts etc for the benefit of the gmxapi extension
+            self.cfg['installopts'] = self.save_installopts
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
-        if self.iter_idx < self.variants_to_build-1:
+        if self.iter_idx < self.variants_to_build - 1:
             self.log.info("skipping extension step %s", self.iter_idx)
-            return
-
-        # Set runtest to None so that the gmxapi extension doesn't try to
-        # run "check" as a command
-        self.cfg['runtest'] = None
-        super(EB_GROMACS, self).extensions_step(fetch)
+        else:
+            # Set runtest to None so that the gmxapi extension doesn't try to
+            # run "check" as a command
+            self.cfg['runtest'] = None
+            super(EB_GROMACS, self).extensions_step(fetch)
 
     def make_module_req_guess(self):
         """Custom library subdirectories for GROMACS."""
