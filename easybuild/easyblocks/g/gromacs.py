@@ -643,20 +643,20 @@ class EB_GROMACS(CMakeMake):
         # We need to count the number of variations to build.
         versions_built = []
         # Handle the different variants
-        for precicion in precisions:
+        for precision in precisions:
             for mpitype in mpitypes:
-                versions_built.append('%s precision %s' % (precicion, mpitype))
+                versions_built.append('%s precision %s' % (precision, mpitype))
                 var_confopts = []
                 var_buildopts = []
                 var_installopts = []
 
                 var_confopts.append(mpi_type_opts[mpitype])
-                var_confopts.append(prec_opts[precicion])
+                var_confopts.append(prec_opts[precision])
                 if LooseVersion(self.version) < LooseVersion('4.6'):
                     suffix = ''
                     if mpitype == 'mpi':
                         suffix = "--program-suffix={0}".format(self.cfg.get('mpisuffix'))
-                        if precicion == 'double':
+                        if precision == 'double':
                             suffix += '_d'
                     var_confopts.append(suffix)
 
