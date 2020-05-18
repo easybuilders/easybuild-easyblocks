@@ -540,7 +540,7 @@ class EB_GROMACS(CMakeMake):
         dsuff = None
         if not get_software_root('CUDA'):
             for configopts in configopts_list:
-                # add the _d suffix to the suffix, in case of double precission
+                # add the _d suffix to the suffix, in case of double precision
                 if self.double_prec_pattern in configopts:
                     dsuff = '_d'
 
