@@ -273,8 +273,8 @@ class EB_GROMACS(CMakeMake):
                     # check whether Python is loaded as a dependency
                     python_root = get_software_root('Python')
                     if python_root:
-                        self.cfg.update('configopts',
-                                        "-DPYTHON_EXECUTABLE=%s" % os.path.join(python_root, 'bin', 'python'))
+                        bin_python = os.path.join(python_root, 'bin', 'python')
+                        self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % bin_python)
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
 
             # Now patch GROMACS for PLUMED before cmake
