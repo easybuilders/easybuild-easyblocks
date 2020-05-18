@@ -678,4 +678,4 @@ class EB_GROMACS(CMakeMake):
         self.cfg['install_cmd'] = self.orig_install_cmd
         self.cfg['build_cmd'] = self.orig_build_cmd
 
-        self.log.info("A full regression test suite is available from the GROMACS web site")
+        self.log.info("A full regression test suite is available from the GROMACS web site: %s", self.cfg['homepage'])
