@@ -548,11 +548,9 @@ class EB_GROMACS(CMakeMake):
             suffixes.extend([dsuff])
 
         lib_files.extend([
-            'lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames + mpi_libnames for suff in suffixes
+            'lib%s%s.%s' % (x, suff, self.libext) for x in libnames + mpi_libnames for suff in suffixes
         ])
-        bin_files.extend([
-            b + suff for b in bins + mpi_bins for suff in suffixes
-        ])
+        bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
