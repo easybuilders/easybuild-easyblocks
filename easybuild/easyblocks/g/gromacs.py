@@ -664,9 +664,9 @@ class EB_GROMACS(CMakeMake):
                 var_buildopts.append(build_opts[mpitype])
                 var_installopts.append(install_opts[mpitype])
 
-                self.cfg.update('configopts', [' '.join(var_confopts + [common_config_opts])])
-                self.cfg.update('buildopts', [' '.join(var_buildopts + [common_build_opts])])
-                self.cfg.update('installopts', [' '.join(var_installopts + [common_install_opts])])
+                self.cfg.update('configopts', ' '.join(var_confopts + [common_config_opts]))
+                self.cfg.update('buildopts', ' '.join(var_buildopts + [common_build_opts]))
+                self.cfg.update('installopts', ' '.join(var_installopts + [common_install_opts]))
         self.variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
