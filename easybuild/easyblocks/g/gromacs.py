@@ -132,7 +132,7 @@ class EB_GROMACS(CMakeMake):
     def is_double_precision_cuda_build(self):
         """Check if the current build step involves double precision and CUDA"""
         cuda = get_software_root('CUDA')
-        return cuda and self.DP_pattern in self.cfg['configopts']
+        return cuda and self.double_prec_pattern in self.cfg['configopts']
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
@@ -166,7 +166,7 @@ class EB_GROMACS(CMakeMake):
                     raise EasyBuildError("Double precision is not available for GPU build. " +
                                          "Please explicitly set \"double_precision = False\" " +
                                          "or remove it in the easyconfig file.")
-                if self.DP_pattern in self.cfg['configopts']:
+                if self.double_prec_pattern in self.cfg['configopts']:
                     if self.cfg.get('double_precision') is None:
                         # Only print warning once when trying double precision
                         # build the first time
@@ -540,7 +540,7 @@ class EB_GROMACS(CMakeMake):
         if not get_software_root('CUDA'):
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precission
-                if self.DP_pattern in configopts:
+                if self.double_prec_pattern in configopts:
                     dsuff = '_d'
 
         if dsuff:
@@ -605,7 +605,7 @@ class EB_GROMACS(CMakeMake):
             }
 
         # Double precision pattern so search for in configopts
-        self.DP_pattern = prec_opts['double']
+        self.double_prec_pattern = prec_opts['double']
 
         if LooseVersion(self.version) < LooseVersion('5'):
             # For older versions we only build/install the mdrun part for
