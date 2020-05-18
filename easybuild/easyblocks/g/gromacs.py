@@ -254,12 +254,13 @@ class EB_GROMACS(CMakeMake):
                     mpiexec = which(mpiexec)
                     if mpiexec:
                         self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
-                        self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg.get('mpiexec_numproc_flag'))
+                        self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" %
+                                        self.cfg.get('mpiexec_numproc_flag'))
                         self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
                     elif self.cfg['runtest']:
                         raise EasyBuildError("'%s' not found in $PATH", self.cfg.get('mpiexec'))
                 else:
-                        raise EasyBuildError("No value found for 'mpiexec'")
+                    raise EasyBuildError("No value found for 'mpiexec'")
                 self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
                               self.cfg.get('mpiexec'), self.cfg.get('mpiexec_numproc_flag'),
                               mpi_numprocs)
@@ -430,7 +431,8 @@ class EB_GROMACS(CMakeMake):
 
             super(EB_GROMACS, self).install_step()
 
-            # the GROMACS libraries get installed in different locations (deeper subdirectory), depending on the platform;
+            # the GROMACS libraries get installed in different locations (deeper subdirectory),
+            # depending on the platform;
             # this is determined by the GNUInstallDirs CMake module;
             # rather than trying to replicate the logic, we just figure out where the library was placed
 
