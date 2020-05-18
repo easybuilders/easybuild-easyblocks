@@ -55,7 +55,7 @@ class EB_FreeSurfer(Tarball):
         """Include correct subdirectories to $PATH for FreeSurfer."""
         guesses = super(EB_FreeSurfer, self).make_module_req_guess()
 
-        guesses.update({'PATH': ['bin', 'fsfast/bin', 'mni/bin', 'tktools']})
+        guesses['PATH'].extend([os.path.join('fsfast', 'bin'), os.path.join('mni', 'bin'), 'tktools'])
 
         return guesses
 
