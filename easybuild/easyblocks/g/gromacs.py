@@ -404,7 +404,7 @@ class EB_GROMACS(CMakeMake):
             # allow to escape testing by setting runtest to False
             if self.cfg['runtest'] is None or self.cfg['runtest']:
 
-                old_runtest = self.cfg['runtest']
+                orig_runtest = self.cfg['runtest']
                 # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
                 env.setvar('OMP_NUM_THREADS', '1')
 
@@ -416,7 +416,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
                 super(EB_GROMACS, self).test_step()
 
-                self.cfg['runtest'] = old_runtest
+                self.cfg['runtest'] = orig_runtest
 
     def install_step(self):
         """
@@ -467,8 +467,10 @@ class EB_GROMACS(CMakeMake):
         else:
             # Set runtest to None so that the gmxapi extension doesn't try to
             # run "check" as a command
+            orig_runtest = self.cfg['runtest']
             self.cfg['runtest'] = None
             super(EB_GROMACS, self).extensions_step(fetch)
+            self.cfg['runtest'] = orig_runtest
 
     def make_module_req_guess(self):
         """Custom library subdirectories for GROMACS."""
