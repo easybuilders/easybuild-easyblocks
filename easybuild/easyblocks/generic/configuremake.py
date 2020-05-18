@@ -73,7 +73,7 @@ def check_config_guess(config_guess):
     :param config_guess: Path to config.guess script to check
     :return: Whether the script is valid (matches the version and checksum)
     """
-    log = fancylogger.getLogger('config.guess')
+    log = fancylogger.getLogger('check_config_guess')
 
     # config.guess includes a "timestamp='...'" indicating the version
     config_guess_version = None
@@ -94,28 +94,41 @@ def check_config_guess(config_guess):
 
     result = True
 
+    # check version & SHA256 checksum before declaring victory
     if config_guess_version != CONFIG_GUESS_VERSION:
         result = False
-        tup = (config_guess, config_guess_version, CONFIG_GUESS_VERSION)
-        log.warning("config.guess version at %s does not match expected version: %s vs %s" % tup)
+        log.warning("config.guess version at %s does not match expected version: %s vs %s",
+                    config_guess, config_guess_version, CONFIG_GUESS_VERSION)
+
     elif config_guess_checksum != CONFIG_GUESS_SHA256:
         result = False
-        tup = (config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
-        log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s" % tup)
+        log.warning("SHA256 checksum of config.guess at %s does not match expected checksum: %s vs %s",
+                    config_guess, config_guess_checksum, CONFIG_GUESS_SHA256)
 
     return result
 
 
-def obtain_config_guess():
+def obtain_config_guess(download_source_path=None, search_source_paths=None):
     """
     Locate or download an up-to-date config.guess
 
+    :param download_source_path: Path to download config.guess to
+    :param search_source_paths: Paths to search for config.guess
     :return: Path to config.guess or None
     """
-    log = fancylogger.getLogger('config.guess')
+    log = fancylogger.getLogger('obtain_config_guess')
 
-    search_source_paths = source_paths()
-    download_source_path = search_source_paths[0]
+    eb_source_paths = source_paths()
+
+    if download_source_path is None:
+        download_source_path = eb_source_paths[0]
+    else:
+        log.deprecated("Specifying custom source path to download config.guess via 'download_source_path'", '5.0')
+
+    if search_source_paths is None:
+        search_source_paths = eb_source_paths
+    else:
+        log.deprecated("Specifying custom location to search for updated config.guess via 'search_source_paths'", '5.0')
 
     config_guess = 'config.guess'
     sourcepath_subdir = os.path.join('generic', 'eb_v%s' % EASYBLOCKS_VERSION, 'ConfigureMake')
@@ -182,17 +195,15 @@ class ConfigureMake(EasyBlock):
 
         self.config_guess = None
 
-    def obtain_config_guess(self, *args, **kwargs):
+    def obtain_config_guess(self, download_source_path=None, search_source_paths=None):
         """
         Locate or download an up-to-date config.guess for use with ConfigureMake
 
-        No arguments allowed
+        :param download_source_path: Path to download config.guess to
+        :param search_source_paths: Paths to search for config.guess
         :return: Path to config.guess or None
         """
-        if args or kwargs:
-            self.log.nosupport("Support for passing arguments to 'obtain_config_guess' has been removed "
-                               "and 'source_paths' will always be used", '4.2.1')
-        return obtain_config_guess()
+        return obtain_config_guess(download_source_path=download_source_path, search_source_paths=search_source_paths)
 
     def check_config_guess(self):
         """Check timestamp & SHA256 checksum of config.guess script."""
