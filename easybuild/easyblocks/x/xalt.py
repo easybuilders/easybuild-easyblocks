@@ -105,13 +105,11 @@ class EB_XALT(ConfigureMake):
             # Default value, enable GPU tracking if nvml.h is present
             # and the CUDA module is loaded
             cuda_root = get_software_root('CUDA')
-            if not cuda_root:
-                # Try using the system CUDA
-                cuda_root = '/usr/local/cuda'
-            nvml_h = os.path.join(cuda_root, "include", "nvml.h")
-            if os.path.isfile(nvml_h):
-                self.cfg.update('configopts', '--with-trackGPU=yes')
-                self.cfg['gpu_tracking'] = True
+            if cuda_root:
+                nvml_h = os.path.join(cuda_root, "include", "nvml.h")
+                if os.path.isfile(nvml_h):
+                    self.cfg.update('configopts', '--with-trackGPU=yes')
+                    self.cfg['gpu_tracking'] = True
         else:
             # User disabled
             self.cfg.update('configopts', '--with-trackGPU=no')
@@ -128,9 +126,7 @@ class EB_XALT(ConfigureMake):
     def make_module_extra(self, *args, **kwargs):
         txt = super(EB_XALT, self).make_module_extra(*args, **kwargs)
 
-        txt += self.module_generator.prepend_paths('LD_PRELOAD', 'lib64/libxalt_init.so')
-        txt += self.module_generator.prepend_paths('SINGULARITY_BINDPATH', '')
-        txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD', 'lib64/libxalt_init.so')
+        txt += self.module_generator.prepend_paths('LD_PRELOAD', 'lib64/libxalt_init.%s' % get_shared_lib_ext())
         txt += self.module_generator.set_environment('XALT_DIR', self.installdir)
         txt += self.module_generator.set_environment('XALT_ETC_DIR', '%s' % os.path.join(self.installdir, 'etc'))
         txt += self.module_generator.set_environment('XALT_EXECUTABLE_TRACKING',
@@ -142,19 +138,25 @@ class EB_XALT(ConfigureMake):
         txt += self.module_generator.set_environment('XALT_SCALAR_SAMPLING',
                                                      ('no', 'yes')[bool(self.cfg['scalar_sampling'])])
 
+        # In order to track containerized executables, bind mount the XALT
+        # directory in the Singularity container and preload the XALT library
+        # https://xalt.readthedocs.io/en/latest/050_install_and_test.html#xalt-modulefile
+        txt += self.module_generator.prepend_paths('SINGULARITY_BINDPATH', '')
+        txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD', 'lib64/libxalt_init.%s' % get_shared_lib_ext())
+
         return txt
 
     def make_module_req_guess(self):
-        """ Limit default guess paths
-        Do not set CPATH, LD_LIBRARY_PATH, LIBRARY_PATH, include sbin in PATH """
+        """Custom guesses for environment variables"""
         return {'COMPILER_PATH': 'bin',
                 'PATH': 'bin'}
 
     def sanity_check_step(self):
         """Custom sanity check"""
         custom_paths = {
-            'files': ['lib64/libxalt_init.%s' % get_shared_lib_ext()],
-            'dirs': ['lib64'],
+            'files': ['bin/ld', 'bin/ld.gold', 'bin/xalt_extract_record',
+                      'lib64/libxalt_init.%s' % get_shared_lib_ext()],
+            'dirs': ['bin', 'libexec', 'sbin'],
         }
 
         super(EB_XALT, self).sanity_check_step(custom_paths=custom_paths)
