@@ -27,6 +27,8 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 
 @author: Kenneth Hoste (Ghent University)
 """
+
+from distutils.version import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
@@ -112,10 +114,25 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
+        super(EB_Mathematica, self).post_install_step()
+
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
             'files': ['bin/mathematica'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths)
+        if LooseVersion(self.version) >= LooseVersion("11.0.0"):
+            custom_paths['files'].append('Executables/wolframscript')
+        custom_commands = ['mathematica --version']
+
+        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """Add both 'bin' and 'Executables' directories to PATH."""
+
+        guesses = super(EB_Mathematica, self).make_module_req_guess()
+
+        guesses.update({'PATH': ['bin', 'Executables']})
+
+        return guesses
