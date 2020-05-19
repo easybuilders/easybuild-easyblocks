@@ -142,7 +142,8 @@ class EB_XALT(ConfigureMake):
         # directory in the Singularity container and preload the XALT library
         # https://xalt.readthedocs.io/en/latest/050_install_and_test.html#xalt-modulefile
         txt += self.module_generator.prepend_paths('SINGULARITY_BINDPATH', '')
-        txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD', 'lib64/libxalt_init.%s' % get_shared_lib_ext())
+        txt += self.module_generator.prepend_paths('SINGULARITYENV_LD_PRELOAD',
+                                                   'lib64/libxalt_init.%s' % get_shared_lib_ext())
 
         return txt
 
