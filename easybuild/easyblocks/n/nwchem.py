@@ -142,12 +142,17 @@ class EB_NWChem(ConfigureMake):
             self.setvar_env_makeopt('NWCHEM_LONG_PATHS', 'Y')
 
         env.setvar('NWCHEM_TARGET', self.cfg['target'])
-        env.setvar('MSG_COMMS', self.cfg['msg_comms'])
-        env.setvar('ARMCI_NETWORK', self.cfg['armci_network'])
-        if self.cfg['armci_network'] in ["OPENIB"]:
-            env.setvar('IB_INCLUDE', "/usr/include")
-            env.setvar('IB_LIB', "/usr/lib64")
-            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
+
+        garoot = get_software_root('GlobalArrays')
+        if garoot:
+            self.setvar_env_makeopt('EXTERNAL_GA_PATH', garoot)
+        else:
+            env.setvar('MSG_COMMS', self.cfg['msg_comms'])
+            env.setvar('ARMCI_NETWORK', self.cfg['armci_network'])
+            if self.cfg['armci_network'] in ["OPENIB"]:
+                env.setvar('IB_INCLUDE', "/usr/include")
+                env.setvar('IB_LIB', "/usr/lib64")
+                env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
 
         if 'python' in self.cfg['modules']:
             python_root = get_software_root('Python')
@@ -222,16 +227,21 @@ class EB_NWChem(ConfigureMake):
                 raise EasyBuildError("Don't know how to set LIBMPI for %s", mpi_family)
             env.setvar('LIBMPI', libmpi)
 
-        if self.cfg['armci_network'] in ["OPENIB"]:
-            libmpi += " -libumad -libverbs -lpthread"
+        if not garoot:
+            if self.cfg['armci_network'] in ["OPENIB"]:
+                libmpi += " -libumad -libverbs -lpthread"
 
         # compiler optimization flags: set environment variables _and_ add them to list of make options
         self.setvar_env_makeopt('COPTIMIZE', os.getenv('CFLAGS'))
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        self.setvar_env_makeopt('BLASOPT', '%s -L%s %s %s' % (os.getenv('LDFLAGS'), os.getenv('MPI_LIB_DIR'),
-                                                              os.getenv('LIBSCALAPACK_MT'), libmpi))
+        mpi_lib_dirs = ' '.join('-L' + d for d in os.getenv('MPI_LIB_DIR').split())
+        self.setvar_env_makeopt('BLASOPT', ' '.join([os.getenv('LDFLAGS'), mpi_lib_dirs,
+                                                     os.getenv('LIBSCALAPACK_MT'), libmpi]))
+
+        # Setting LAPACK_LIB is required from 7.0.0 onwards.
+        self.setvar_env_makeopt('LAPACK_LIB', os.getenv('LIBLAPACK'))
 
         self.setvar_env_makeopt('SCALAPACK', '%s %s' % (os.getenv('LDFLAGS'), os.getenv('LIBSCALAPACK_MT')))
         if self.toolchain.options['i8']:

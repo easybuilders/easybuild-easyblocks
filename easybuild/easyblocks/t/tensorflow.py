@@ -256,7 +256,7 @@ class EB_TensorFlow(PythonPackage):
                 print_warning(warning_msg)
             elif not cuda_cc:
                 warning_msg = "No CUDA compute capabilities specified, so using TensorFlow default "
-                warning_msg += "(which may not optional for your system).\nYou should use "
+                warning_msg += "(which may not be optimal for your system).\nYou should use "
                 warning_msg += "the --cuda-compute-capabilities configuration option or the cuda_compute_capabilities "
                 warning_msg += "easyconfig parameter to specify a list of CUDA compute capabilities to compile with."
                 print_warning(warning_msg)

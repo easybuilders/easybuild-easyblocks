@@ -44,18 +44,18 @@ class EB_FreeSurfer(Tarball):
         extra_vars = {
             'license_text': ['', "Text for required license file.", MANDATORY],
         }
-        return EasyBlock.extra_options(extra_vars)
+        return Tarball.extra_options(extra_vars)
 
     def install_step(self):
         """Custom installation procedure for FreeSurfer, which includes installed the license file '.license'."""
         super(EB_FreeSurfer, self).install_step()
         write_file(os.path.join(self.installdir, '.license'), self.cfg['license_text'])
 
-    def make_module_guesses(self):
+    def make_module_req_guess(self):
         """Include correct subdirectories to $PATH for FreeSurfer."""
-        guesses = super(EB_FreeSurfer, self).make_module_guesses()
+        guesses = super(EB_FreeSurfer, self).make_module_req_guess()
 
-        guesses['PATH'] = ['bin', 'fsfast/bin', 'mni/bin', 'tktools']
+        guesses['PATH'].extend([os.path.join('fsfast', 'bin'), os.path.join('mni', 'bin'), 'tktools'])
 
         return guesses
 
