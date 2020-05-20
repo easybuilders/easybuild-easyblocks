@@ -3,7 +3,42 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 219 software-specific easyblocks and 36 generic easyblocks.
+The latest version of easybuild-easyblocks provides 219 software-specific easyblocks and 37 generic easyblocks.
+
+v4.2.1 (May 20th 2020)
+----------------------
+
+update/bugfix release
+
+- add generic easyblock for installing Go packages: GoPackage (#2042)
+- minor enhancements, including:
+  - update config.guess for all R packages, required installing R + extensions on Linux/POWER systems (#1949)
+  - add support for preinstallopts and install in subdirectory to Tarball generic easyblock (#1989, #2049)
+  - rewrite GROMACS easyblock to install all four variations (single/double precision, with/without MPI) in the same directory (#1991)
+  - add custom 'subdir_version' easyconfig parameter for FLUENT (#2021)
+  - use updated config.guess in GCC easyblock (#2033, #2059)
+  - add extra question pattern to support installing CPLEX 12.10 (#2038)
+  - add support for building NWChem on top of external GlobalArrays + also define $LAPACK_LIB (required for NWChem 7.x) (#2043)
+  - execute minimal test in sanity check commands in impi easyblock (#2045)
+  - update for MotionCor2 easyblock for v1.3.1 (#2046)
+  - fixes + enhancements for PETSc easyblock (#2048)
+- various bug fixes, including:
+  - use correct version in ELPA preprocessor flag used for QuantumESPRESSO v6.x (#2027)
+  - generically find the arch folder and add top-level bin/lib symlinks in PDT & TAU easyblocks (#2029)
+  - fix typo in LAMMPS easyblock preventing disabling the USER-INTEL package via configopts (#2031)
+  - let CMakeMake remove 'easybuild_obj' build directory if it already exists (#2032)
+  - include own lib dir in RPATH before system lib dirs in binutils easyblock (#2044)
+  - clean $CPATH before building ROOT to avoid clash between external LLVM loaded as a dependency and internal LLVM used by ROOT (#2047)
+  - don't let extract_file change directory in various easyblocks (#2051)
+  - make postinstallcmds available to Mathematica easyconfigs + add bin/Executables to $PATH (#2052)
+  - fix the extra dirs added to PATH in FreeSurfer easyblock (#2053)
+  - correct download url for test data in WPS easyblock (#2055)
+  - fix typo in warning in TensorFlow easyblock (#2057)
+  - fix failing sanity check under --module-only in GCC easyblock (#2059)
+- other changes:
+  - add configure options for CubeLib/CubeWriter dependencies in Score-P easyblock (#2030)
+  - remove local find_glob_pattern in Blender & ROOT easyblocks, use function provided by filetools instead (#2037)
+
 
 v4.2.0 (April 14th 2020)
 ------------------------
