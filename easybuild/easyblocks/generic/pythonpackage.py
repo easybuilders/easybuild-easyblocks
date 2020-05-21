@@ -445,7 +445,7 @@ class PythonPackage(ExtensionEasyBlock):
             loc = "--editable %s" % loc
 
         if self.cfg.get('use_pip_requirement', False):
-            # add --requirements option when requested, in the right place (i.e. right before the location specification)
+            # add --requirement option when requested, in the right place (i.e. right before the location specification)
             loc = "--requirement %s" % loc
 
         cmd.extend([
