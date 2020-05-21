@@ -50,6 +50,7 @@ class EB_XALT(ConfigureMake):
             'logging_url': [None, "Logging URL for transmission", CUSTOM],
             'mysql': [False, "Build with MySQL support", CUSTOM],
             'scalar_sampling': [True, "Enable scalar sampling", CUSTOM],
+            'static_cxx': [False, "Statically link libstdc++ and libgcc_s", CUSTOM],
             'syshost': [None, "System name", MANDATORY],
             'transmission': [None, "Data tranmission method", MANDATORY],
         }
@@ -120,6 +121,12 @@ class EB_XALT(ConfigureMake):
         else:
             self.cfg.update('configopts', '--with-MySQL=no')
 
+        # If XALT is built with a more recent compiler than the system
+        # compiler, then XALT likely will depend on symbol versions not
+        # available in the system libraries. Link statically as a workaround.
+        if self.cfg['static_cxx'] is True:
+            self.cfg.update('configopts', 'LDFLAGS="${LDFLAGS} -static-libstdc++ -static-libgcc"')
+
         # Configure
         super(EB_XALT, self).configure_step()
 
@@ -159,5 +166,7 @@ class EB_XALT(ConfigureMake):
                       'lib64/libxalt_init.%s' % get_shared_lib_ext()],
             'dirs': ['bin', 'libexec', 'sbin'],
         }
+        custom_commands = ['xalt_configuration_report']
 
-        super(EB_XALT, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_XALT, self).sanity_check_step(custom_commands=custom_commands,
+                                               custom_paths=custom_paths)
