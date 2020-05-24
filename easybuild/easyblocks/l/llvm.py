@@ -31,6 +31,7 @@ from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
 
 
@@ -51,10 +52,12 @@ class EB_LLVM(CMakeMake):
 
     def configure_step(self):
         """
-        Install extra tools in bin/ and enable zlib; optionally enable rtti; and set the build target
+        Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
         self.cfg.update('configopts', '-DLLVM_INSTALL_UTILS=ON')
-        self.cfg.update('configopts', '-DLLVM_ENABLE_ZLIB=ON')
+
+        if get_software_root('zlib'):
+            self.cfg.update('configopts', '-DLLVM_ENABLE_ZLIB=ON')
 
         if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
