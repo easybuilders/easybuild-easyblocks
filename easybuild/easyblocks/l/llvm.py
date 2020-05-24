@@ -27,9 +27,6 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
-import os
-
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
