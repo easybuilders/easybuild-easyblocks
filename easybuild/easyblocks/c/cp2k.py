@@ -618,19 +618,20 @@ class EB_CP2K(EasyBlock):
         -build_and_install
         """
 
-        makefiles = os.path.join(self.cfg['start_dir'], 'makefiles')
-        change_dir(makefiles)
+        if LooseVersion(self.version) < LooseVersion('7.0'):
+            makefiles = os.path.join(self.cfg['start_dir'], 'makefiles')
+            change_dir(makefiles)
 
-        # modify makefile for parallel build
-        parallel = self.cfg['parallel']
-        if parallel:
+            # modify makefile for parallel build
+            parallel = self.cfg['parallel']
+            if parallel:
 
-            try:
-                for line in fileinput.input('Makefile', inplace=1, backup='.orig.patchictce'):
-                    line = re.sub(r"^PMAKE\s*=.*$", "PMAKE\t= $(SMAKE) -j %s" % parallel, line)
-                    sys.stdout.write(line)
-            except IOError as err:
-                raise EasyBuildError("Can't modify/write Makefile in %s: %s", makefiles, err)
+                try:
+                    for line in fileinput.input('Makefile', inplace=1, backup='.orig.patchictce'):
+                        line = re.sub(r"^PMAKE\s*=.*$", "PMAKE\t= $(SMAKE) -j %s" % parallel, line)
+                        sys.stdout.write(line)
+                except IOError as err:
+                    raise EasyBuildError("Can't modify/write Makefile in %s: %s", makefiles, err)
 
         # update make options with MAKE
         self.cfg.update('buildopts', 'MAKE="make -j %s"' % self.cfg['parallel'])
