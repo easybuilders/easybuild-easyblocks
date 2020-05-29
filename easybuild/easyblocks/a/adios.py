@@ -29,7 +29,6 @@ EasyBuild support for building and installing ADIOS, implemented as an easyblock
 """
 import os
 
-from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import change_dir
