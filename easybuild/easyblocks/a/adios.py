@@ -87,7 +87,7 @@ class EB_ADIOS(CMakePythonPackage):
     def make_module_extra(self):
         """Custom environment variables for ADIOS."""
 
-        txt = super(EB_ADIOS, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', [os.path.join('lib', 'python')])
+        txt = self.module_generator.prepend_paths('PYTHONPATH', [os.path.join('lib', 'python')])
+        txt += super(EB_ADIOS, self).make_module_extra()
 
         return txt
