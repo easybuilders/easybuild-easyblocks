@@ -133,6 +133,7 @@ class EB_Trilinos(CMakeMake):
         suitesparse = get_software_root('SuiteSparse')
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
+            self.cfg.update('configopts', "-DTPL_ENABLE_Cholmod:BOOL=ON")
             incdirs, libdirs, libnames = [], [], []
             for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
                 incdirs.append(os.path.join(suitesparse, lib, "Include"))
@@ -154,6 +155,9 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
+            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
 
         # BLACS
         if get_software_root('BLACS'):
@@ -276,7 +280,7 @@ class EB_Trilinos(CMakeMake):
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
 
         # Get the library extension
-        if self.cfg['shared_libs']:
+        if self.cfg['build_shared_libs']:
             lib_ext = get_shared_lib_ext()
         else:
             lib_ext = 'a'
