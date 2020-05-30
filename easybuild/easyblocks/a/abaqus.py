@@ -92,25 +92,23 @@ class EB_ABAQUS(Binary):
                 '\(\d+ MB\)',
             ]
 
-            if LooseVersion(self.version) >= LooseVersion('2020'):
-                std_qa = {
-                    # disable installation of Isight (7) and enable installation of documentation (3)
-                    r"Isight\n\nEnter selection \(default: Next\):": '3\n7\n\n',
-                    # No Tosca (7 and 8), but do not trigger answering a later question that has no Tosca options
-                    r"21 \[\*\] Abaqus/CFD Solver\n\nEnter selection \(default: Next\):": '7\n8\n\n',
-                    r"(?<!Isight)\n\nEnter selection \(default: Next\):": '',
-                }
-            else:
-                std_qa = {
-                    # disable installation of Tosca (6) and Isight (7)
-                    r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
-                    r"(?<!Isight)\nEnter selection \(default: Next\):": '',
-                }
-            std_qa.update({
+            std_qa = {
+                # Disable installation of Isight and enable installation of documentation
+                r"\s*(?P<epd>[0-9]+) \[ \] Extended Product Documentation\n([\S ]*\n){0,5}\s*(?P<isight>[0-9]+)" \
+                r" \[\*\] Isight\n([\S ]*\n){0,5}Enter selection \(default: Next\):\s*$": "%(epd)s\n%(isight)s\n\n",
+                # Disable Tosca Fluid and Structure
+                r"\s*(?P<t1>[0-9]+) \[\*\] Tosca (Fluid|Structure)\n\s*(?P<t2>[0-9]+) \[\*\] Tosca " \
+                r"(Fluid|Structure)\n([\S ]*\n){0,15}Enter selection \(default: Next\):\s*$": "%(t1)s\n%(t2)s\n\n",
+                # Disable EXALEAD
+                r"\s*(?P<exalead>[0-9]+) \[X\] Search using EXALEAD\nEnter selection:": '%(exalead)s\n\n',
+                # Disable Tosca and Isight
+                r"\s*(?P<tosca>[0-9]+) \[\*\] Tosca\n([\S ]*\n){0,5}\s*(?P<isight>[0-9]+) \[\*\] Isight\n" \
+                r"([\S ]*\n){0,5}Enter selection \(default: Next\):\s*$": "%(tosca)s\n%(isight)s\n\n",
+
+                # Directories
                 r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
                 r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
                 r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
-                r"Search using EXALEAD\nEnter selection:": '1\n\n',
                 r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
                 r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
                 r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
@@ -120,12 +118,17 @@ class EB_ABAQUS(Binary):
                 r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
                 r"location of your existing ANSA installation.*(\n.*){8}:": '',
                 r"FLUENT Path.*(\n.*){7}:": '',
+
+                # License server
                 r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
                 r"License Server . \(redundant\)\s*(\n.*){3}:": '',
                 r"Skip licensing configuration\nEnter selection \(default: Next\):": '',
                 r"Please choose an action:": '1',
+
+                # Continue or close
+                r"Enter selection \(default: Next\):": '',
                 r"Enter selection \(default: Close\):": '',
-            })
+            }
             run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
         else:
             change_dir(self.builddir)
