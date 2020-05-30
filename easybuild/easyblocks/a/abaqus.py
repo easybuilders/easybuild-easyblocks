@@ -91,6 +91,7 @@ class EB_ABAQUS(Binary):
                 '___',
                 '\(\d+ MB\)',
             ]
+
             if LooseVersion(self.version) >= LooseVersion('2020'):
                 std_qa = {
                     # disable installation of Isight (7) and enable installation of documentation (3)
@@ -98,38 +99,33 @@ class EB_ABAQUS(Binary):
                     # No Tosca (7 and 8), but do not trigger answering a later question that has no Tosca options
                     r"21 \[\*\] Abaqus/CFD Solver\n\nEnter selection \(default: Next\):": '7\n8\n\n',
                     r"(?<!Isight)\n\nEnter selection \(default: Next\):": '',
-                    r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
-                    r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
-                    r"Search using EXALEAD\nEnter selection:": '1\n\n',
-                    r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
-                    r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
-                    r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
-                    r"License Server . \(redundant\)\s*(\n.*){3}:": '',
-                    r"Skip licensing configuration\nEnter selection \(default: Next\):": '',
-                    r"Please choose an action:": '1',
-                    r"Enter selection \(default: Close\):": '',
                 }
             else:
                 std_qa = {
                     # disable installation of Tosca (6) and Isight (7)
                     r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
                     r"(?<!Isight)\nEnter selection \(default: Next\):": '',
-                    r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
-                    r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
-                    r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                    r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
-                    r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir,
-                                                                                                 'sim'),
-                    r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
-                    r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
-                    r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
-                    r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
-                    r"License Server . \(redundant\)\s*(\n.*){3}:": '',
-                    r"Please choose an action:": '1',
-                    r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
-                    r"location of your existing ANSA installation.*(\n.*){8}:": '',
-                    r"FLUENT Path.*(\n.*){7}:": '',
                 }
+            std_qa.update({
+                r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
+                r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
+                r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
+                r"Search using EXALEAD\nEnter selection:": '1\n\n',
+                r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
+                r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
+                r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
+                r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
+                r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
+                r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir, 'sim'),
+                r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
+                r"location of your existing ANSA installation.*(\n.*){8}:": '',
+                r"FLUENT Path.*(\n.*){7}:": '',
+                r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
+                r"License Server . \(redundant\)\s*(\n.*){3}:": '',
+                r"Skip licensing configuration\nEnter selection \(default: Next\):": '',
+                r"Please choose an action:": '1',
+                r"Enter selection \(default: Close\):": '',
+            })
             run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
         else:
             change_dir(self.builddir)
