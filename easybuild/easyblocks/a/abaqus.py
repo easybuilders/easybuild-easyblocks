@@ -86,6 +86,7 @@ class EB_ABAQUS(Binary):
             change_dir(os.path.join(self.cfg['start_dir'], '1'))
             qa = {
                 "Enter selection (default: Install):": '',
+                "Enter selection (default: Close):": '',
             }
             no_qa = [
                 '___',
@@ -129,9 +130,8 @@ class EB_ABAQUS(Binary):
                 r"License Server . \(redundant\)\s*(\n.*){3}:": '',
                 r"Please choose an action:": '1',
 
-                # Continue or close
+                # Continue
                 nextstr: '',
-                r"Enter selection \(default: Close\):": '',
             }
             run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
         else:
