@@ -92,18 +92,23 @@ class EB_ABAQUS(Binary):
                 '\(\d+ MB\)',
             ]
 
+            # Match string for continuing on with the selected items
+            nextstr = r"Enter selection \(default: Next\):\s*"
+
+            # Allow for selection or deselection of components from lines of the form:
+            #   5 [*] Tosca Fluid
+            # This uses nextstr to make sure we only match the latest output in the Q&A process
+            selectionstr = r"\s*(?P<nr>[0-9]+) \[%%s\] %%s[ \w]*\n((?!%s)[\S ]*\n)*%s$" % (nextstr, nextstr)
+
             std_qa = {
-                # Disable installation of Isight and enable installation of documentation
-                r"\s*(?P<epd>[0-9]+) \[ \] Extended Product Documentation\n([\S ]*\n){0,5}\s*(?P<isight>[0-9]+)" \
-                r" \[\*\] Isight\n([\S ]*\n){0,5}Enter selection \(default: Next\):\s*$": "%(epd)s\n%(isight)s\n\n",
-                # Disable Tosca Fluid and Structure
-                r"\s*(?P<t1>[0-9]+) \[\*\] Tosca (Fluid|Structure)\n\s*(?P<t2>[0-9]+) \[\*\] Tosca " \
-                r"(Fluid|Structure)\n([\S ]*\n){0,15}Enter selection \(default: Next\):\s*$": "%(t1)s\n%(t2)s\n\n",
-                # Disable EXALEAD
+                # Enable Extended Product Documentation
+                selectionstr % (" ", "Extended Product Documentation"): "%(nr)s",
+                # Disable Tosca
+                selectionstr % ("\*", "Tosca"): "%(nr)s",
+                # Disable Isight
+                selectionstr % ("\*", "Isight"): "%(nr)s",
+                # Disable Search using EXALEAD
                 r"\s*(?P<exalead>[0-9]+) \[X\] Search using EXALEAD\nEnter selection:": '%(exalead)s\n\n',
-                # Disable Tosca and Isight
-                r"\s*(?P<tosca>[0-9]+) \[\*\] Tosca\n([\S ]*\n){0,5}\s*(?P<isight>[0-9]+) \[\*\] Isight\n" \
-                r"([\S ]*\n){0,5}Enter selection \(default: Next\):\s*$": "%(tosca)s\n%(isight)s\n\n",
 
                 # Directories
                 r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
@@ -122,11 +127,10 @@ class EB_ABAQUS(Binary):
                 # License server
                 r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
                 r"License Server . \(redundant\)\s*(\n.*){3}:": '',
-                r"Skip licensing configuration\nEnter selection \(default: Next\):": '',
                 r"Please choose an action:": '1',
 
                 # Continue or close
-                r"Enter selection \(default: Next\):": '',
+                nextstr: '',
                 r"Enter selection \(default: Close\):": '',
             }
             run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
