@@ -104,9 +104,9 @@ class EB_ABAQUS(Binary):
                 # Enable Extended Product Documentation
                 selectionstr % (" ", "Extended Product Documentation"): "%(nr)s",
                 # Disable Tosca
-                selectionstr % ("\*", "Tosca"): "%(nr)s",
+                selectionstr % (r"\*", "Tosca"): "%(nr)s",
                 # Disable Isight
-                selectionstr % ("\*", "Isight"): "%(nr)s",
+                selectionstr % (r"\*", "Isight"): "%(nr)s",
                 # Disable Search using EXALEAD
                 r"\s*(?P<exalead>[0-9]+) \[X\] Search using EXALEAD\nEnter selection:": '%(exalead)s\n\n',
 
