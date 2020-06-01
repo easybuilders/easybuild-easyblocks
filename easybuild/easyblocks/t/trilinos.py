@@ -92,9 +92,14 @@ class EB_Trilinos(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="%s"' % ' '.join(cxxflags))
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % ' '.join(fflags))
 
+        # Make sure Tpetra/Kokkos Serial mode is enabled regardless of OpenMP
+        self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+        self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
+
         # OpenMP
         if self.cfg['openmp']:
             self.cfg.update('configopts', "-DTrilinos_ENABLE_OpenMP:BOOL=ON")
+            self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
 
         # MPI
         if self.toolchain.options.get('usempi', None):
