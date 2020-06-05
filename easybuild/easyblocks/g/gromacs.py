@@ -337,8 +337,10 @@ class EB_GROMACS(CMakeMake):
         # allow to escape testing by setting runtest to False
         if not self.cfg['runtest'] and not isinstance(self.cfg['runtest'], bool):
 
-            # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
-            env.setvar('OMP_NUM_THREADS', '1')
+
+            if LooseVersion(self.version) < LooseVersion('2019'):
+                # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
+                env.setvar('OMP_NUM_THREADS', '1')
 
             self.cfg['runtest'] = 'check'
             if self.cfg['parallel']:
