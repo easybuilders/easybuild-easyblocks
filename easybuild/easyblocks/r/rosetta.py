@@ -39,10 +39,9 @@ import sys
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.icc import get_icc_version
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, mkdir, write_file
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.filetools import change_dir, extract_file, mkdir, write_file
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -75,7 +74,8 @@ class EB_Rosetta(EasyBlock):
             if not os.path.exists(self.srcdir):
                 src_tarball = os.path.join(prefix, 'rosetta%s_source.tgz' % self.version)
                 if os.path.isfile(src_tarball):
-                    self.srcdir = extract_file(src_tarball, prefix)
+                    self.srcdir = extract_file(src_tarball, prefix, change_into_dir=False)
+                    change_dir(self.srcdir)
                 else:
                     raise EasyBuildError("Neither source directory '%s', nor source tarball '%s' found.",
                                          self.srcdir, src_tarball)

@@ -49,7 +49,7 @@ class EB_NAMD(MakeCp):
         })
         return extra
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for NAMD, initialize class variables."""
         super(EB_NAMD, self).__init__(*args, **kwargs)
         self.namd_arch = None
@@ -70,7 +70,8 @@ class EB_NAMD(MakeCp):
             if len(charm_tarballs) != 1:
                 raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", charm_tarballs)
 
-            extract_file(charm_tarballs[0], os.getcwd())
+            srcdir = extract_file(self.charm_tarballs[0], os.getcwd(), change_into_dir=False)
+            change_dir(srcdir)
             self.charm_subdir = '.'.join(os.path.basename(charm_tarballs[0]).split('.')[:-1])
 
     def configure_step(self):
@@ -105,7 +106,6 @@ class EB_NAMD(MakeCp):
         self.log.info("Updated 'charm_arch': %s" % self.cfg['charm_arch'])
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
         self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
-
 
         tup = (self.cfg['charm_arch'], self.cfg['charm_opts'], self.cfg['parallel'], os.environ['CXXFLAGS'])
         cmd = "./build charm++ %s %s --with-numa -j%s \"%s -DMPICH_IGNORE_CXX_SEEK\"" % tup

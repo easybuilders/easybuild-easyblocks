@@ -29,12 +29,13 @@ EasyBuild support for ROOT, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 from distutils.version import LooseVersion
-import glob
 import os
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
@@ -53,17 +54,20 @@ class EB_ROOT(CMakeMake):
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
-    def find_glob_pattern(self, glob_pattern):
-        """Find unique file/dir matching glob_pattern (raises error if more than one match is found)"""
-        if self.dry_run:
-            return glob_pattern
-        res = glob.glob(glob_pattern)
-        if len(res) != 1:
-            raise EasyBuildError("Was expecting exactly one match for '%s', found %d: %s", glob_pattern, len(res), res)
-        return res[0]
-
     def configure_step(self):
         """Custom configuration for ROOT, add configure options."""
+
+        # ROOT includes an (old) copy of LLVM;
+        # if LLVM is loaded as an indirect dep, we need to make sure
+        # the location to its header files is not included in $CPATH
+        llvm_root = get_software_root('LLVM')
+        if llvm_root:
+            llvm_inc = os.path.join(llvm_root, 'include')
+            cpath = os.getenv('CPATH')
+            if cpath:
+                new_cpath = [p for p in cpath.split(os.pathsep) if p != llvm_inc]
+                self.log.info("Filtered %s from $CPATH to avoid using LLVM loaded as indirect dependency", llvm_inc)
+                setvar('CPATH', os.pathsep.join(new_cpath))
 
         # using ./configure is deprecated/broken in recent versions, need to use CMake instead
         if LooseVersion(self.version.lstrip('v')) >= LooseVersion('6.10'):
@@ -91,9 +95,9 @@ class EB_ROOT(CMakeMake):
             if python_root:
                 pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
                 self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(python_root, 'bin', 'python'))
-                python_inc_dir = self.find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
+                python_inc_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
                 self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_inc_dir)
-                python_lib = self.find_glob_pattern(
+                python_lib = find_glob_pattern(
                     os.path.join(python_root, 'lib', 'libpython%s*.so' % pyshortver))
                 self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
 

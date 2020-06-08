@@ -46,7 +46,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, extract_file, mkdir, read_file, remove_dir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, read_file
+from easybuild.tools.filetools import remove_dir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
@@ -445,7 +446,8 @@ class EB_WIEN2k(EasyBlock):
 
                 # unpack serial benchmark
                 serial_test_name = "test_case"
-                extract_file(testdata_paths['%s.tar.gz' % serial_test_name], tmpdir)
+                srcdir = extract_file(testdata_paths['%s.tar.gz' % serial_test_name], tmpdir, change_into_dir=False)
+                change_dir(srcdir)
 
                 # run serial benchmark
                 os.chdir(os.path.join(tmpdir, serial_test_name))
@@ -453,7 +455,8 @@ class EB_WIEN2k(EasyBlock):
 
                 # unpack parallel benchmark (in serial benchmark dir)
                 parallel_test_name = "mpi-benchmark"
-                extract_file(testdata_paths['%s.tar.gz' % parallel_test_name], tmpdir)
+                srcdir = extract_file(testdata_paths['%s.tar.gz' % parallel_test_name], tmpdir, change_into_dir=False)
+                change_dir(srcdir)
 
                 # run parallel benchmark
                 os.chdir(os.path.join(tmpdir, serial_test_name))

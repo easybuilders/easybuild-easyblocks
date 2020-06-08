@@ -68,7 +68,7 @@ class EB_WPS(EasyBlock):
             testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
         elif LooseVersion(self.version) < LooseVersion('4.0'):
             # 2.3GB download!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2")
+            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz")
         else:
             # 2.6GB download, 29GB unpacked!!
             testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
@@ -279,7 +279,8 @@ class EB_WPS(EasyBlock):
 
                 # unpack data
                 for path in testdata_paths:
-                    extract_file(path, tmpdir)
+                    srcdir = extract_file(path, tmpdir, change_into_dir=False)
+                    change_dir(srcdir)
 
                 namelist_file = os.path.join(tmpdir, 'namelist.wps')
 

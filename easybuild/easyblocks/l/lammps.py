@@ -87,6 +87,9 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'Turing75',  # NVIDIA Turing generation CC 7.5
 }
 
+PKG_PREFIX = 'PKG_'
+PKG_USER_PREFIX = PKG_PREFIX + 'USER-'
+
 
 class EB_LAMMPS(CMakeMake):
     """
@@ -100,10 +103,10 @@ class EB_LAMMPS(CMakeMake):
         extra_vars.update({
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'general_packages': [None, "List of general packages without `PKG_` prefix.", MANDATORY],
+            'general_packages': [None, "List of general packages without '%s' prefix." % PKG_PREFIX, MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
+            'user_packages': [None, "List user packages without '%s' prefix." % PKG_USER_PREFIX, MANDATORY],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -172,27 +175,29 @@ class EB_LAMMPS(CMakeMake):
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
-                self.cfg.update('configopts', '-DPKG_%s=on' % package)
+                self.cfg.update('configopts', '-D%s%s=on' % (PKG_PREFIX, package))
 
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
-                self.cfg.update('configopts', '-DPKG_USER-%s=on' % package)
+                self.cfg.update('configopts', '-D%s%s=on' % (PKG_USER_PREFIX, package))
 
         # Optimization settings
-        if '-DPKG_OPT=' not in self.cfg['configopts']:
-            self.cfg.update('configopts', '-DPKG_OPT=on')
+        pkg_opt = '-D%sOPT=' % PKG_PREFIX
+        if pkg_opt not in self.cfg['configopts']:
+            self.cfg.update('configopts', pkg_opt + 'on')
 
-        # USR-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-        if '-DPKG_USR-INTEL=' not in self.cfg['configopts']:
+        # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+        pkg_user_intel = '-D%sINTEL=' % PKG_USER_PREFIX
+        if pkg_user_intel not in self.cfg['configopts']:
             if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
-                self.cfg.update('configopts', '-DPKG_USER-INTEL=on')
+                self.cfg.update('configopts', pkg_user_intel + 'on')
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', '-DBUILD_MPI=yes')
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '-DBUILD_OMP=yes')
-            self.cfg.update('configopts', '-DPKG_USER-OMP=on')
+            self.cfg.update('configopts', '-D%sOMP=on' % PKG_USER_PREFIX)
 
         # FFTW
         if get_software_root("imkl") or get_software_root("FFTW"):
@@ -213,7 +218,7 @@ class EB_LAMMPS(CMakeMake):
             if self.toolchain.options.get('openmp', None):
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
 
-            self.cfg.update('configopts', '-DPKG_KOKKOS=on')
+            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch']))
 
             # if KOKKOS and CUDA
@@ -225,7 +230,7 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif cuda:
-            self.cfg.update('configopts', '-DPKG_GPU=on')
+            self.cfg.update('configopts', '-D%sGPU=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
 
