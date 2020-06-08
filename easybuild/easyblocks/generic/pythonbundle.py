@@ -112,6 +112,12 @@ class PythonBundle(Bundle):
 
         self.pylibdir = det_pylibdir(python_cmd=python_cmd)
 
+        # if 'python' is not used, we need to take that into account in the extensions filter
+        # (which is also used during the sanity check)
+        if python_cmd:
+            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+            self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', python_cmd), orig_exts_filter[1])
+
     def test_step(self):
         """No global test step for bundle of Python packages."""
         # required since runtest is set to True for Python packages by default
