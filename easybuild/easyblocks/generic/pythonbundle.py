@@ -77,6 +77,7 @@ class PythonBundle(Bundle):
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None
+        self.all_pylibdirs = []
 
         # figure out whether this bundle of Python packages is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
@@ -111,6 +112,7 @@ class PythonBundle(Bundle):
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
         self.pylibdir = det_pylibdir(python_cmd=python_cmd)
+        self.all_pylibdirs = [self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)]
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
@@ -132,7 +134,9 @@ class PythonBundle(Bundle):
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+            for pylibdir in self.all_pylibdirs:
+                if os.path.exists(os.path.join(self.installdir, pylibdir)):
+                    txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 
