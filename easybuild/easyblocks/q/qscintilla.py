@@ -111,13 +111,23 @@ class EB_QScintilla(ConfigureMake):
             mkdir(qsci_sipdir, parents=True)
 
             pylibdir = os.path.join(det_pylibdir(), self.pyqt_pkg_name)
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+
+            sip_incdir = find_glob_pattern(os.path.join(self.pyqt_root, 'include', 'python%s*' % pyshortver), False)
+            # in case PyQt5's sip was installed in directories that are specific to each version of python
+            # as could happen with multi_deps
+            pyqt_sipdir = find_glob_pattern(os.path.join(self.pyqt_root, 'share', 'python%s*' % pyshortver,
+                                            'site-packages', 'sip', self.pyqt_pkg_name), False)
+            # fall back to a single sipdir
+            if not pyqt_sipdir:
+                pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
                 '--qsci-sipdir %s' % qsci_sipdir,
                 '--qsci-incdir %s' % os.path.join(self.installdir, 'include'),
                 '--qsci-libdir %s' % os.path.join(self.installdir, 'lib'),
-                '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name),
+                '--pyqt-sipdir %s' % pyqt_sipdir,
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
             ]
@@ -180,5 +190,8 @@ class EB_QScintilla(ConfigureMake):
         txt = super(EB_QScintilla, self).make_module_extra()
         python = get_software_root('Python')
         if python:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
+            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+            else:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
         return txt
