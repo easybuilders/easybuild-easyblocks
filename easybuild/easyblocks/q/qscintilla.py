@@ -34,8 +34,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file, find_glob_pattern
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -131,6 +131,8 @@ class EB_QScintilla(ConfigureMake):
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
             ]
+            if sip_incdir:
+                cfgopts += ['--sip-incdir %s' % sip_incdir]
 
             if LooseVersion(self.version) >= LooseVersion('2.10.7'):
                 cfgopts.append('--no-dist-info')
