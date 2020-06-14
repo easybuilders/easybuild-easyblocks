@@ -214,6 +214,9 @@ class EB_WRF(EasyBlock):
             'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
+        # fix hardcoded preprocessor
+        regex_subs.append(('/lib/cpp', 'cpp'))
+
         apply_regex_substitutions(cfgfile, regex_subs)
 
         # rewrite optimization options if desired
