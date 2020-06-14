@@ -256,7 +256,7 @@ class EB_WRF(EasyBlock):
         cmpscript = os.path.join(self.start_dir, 'compile')
         cmpsh_root = get_software_root('tcsh')
         if cmpsh_root:
-            regex_subs=[('/bin/csh', os.path.join(cmpsh_root, 'bin/tcsh'))]
+            regex_subs = [('/bin/csh', os.path.join(cmpsh_root, 'bin/tcsh'))]
             apply_regex_substitutions(cmpscript, regex_subs)
 
         # build wrf
