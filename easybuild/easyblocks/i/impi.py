@@ -259,7 +259,8 @@ EULA=accept
         else:
             guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
-                # Keep release_mt and release in front, to give them priority over the possible symlinks in intel64/lib.
+                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
+                # (remember paths are *prepended*, so the last path in the list has highest priority)
                 # IntelMPI 2019 changed the default library to be the non-mt version.
                 lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
                 include_dirs = ['intel64/include']
