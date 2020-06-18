@@ -140,6 +140,9 @@ class EB_MATLAB(PackedBinary):
         if isinstance(keys, string_type):
             keys = keys.split(',')
 
+        # Compile the installation key regex outside of the loop
+        regkey = re.compile(r"^(# )?fileInstallationKey=.*", re.M)
+
         # Make one install for each key
         for i, key in enumerate(keys):
 
@@ -148,27 +151,24 @@ class EB_MATLAB(PackedBinary):
             if LooseVersion(self.version) >= LooseVersion('2020a'):
                 self.log.debug('Version is %s - using binary installer method', self.version)
                 try:
-                    with tempfile.NamedTemporaryFile() as fd:
-                        tmp_configfile = fd.name
-                        with open(self.configfile) as template_fd:
-                            tmp_config = template_fd.read()
-                        tmp_config = tmp_config.replace('# fileInstallationKey=', 'fileInstallationKey=%s' % key)
-                        fd.write(tmp_config)
-
-                        self.log.debug('temp config file written to %s:\n %s', tmp_configfile, tmp_config)
-
-                        cmd = ' '.join([
-                            self.cfg['preinstallopts'],
-                            src,
-                            '-inputFile',
-                            tmp_configfile,
-                            self.cfg['installopts'],
-                        ])
-
-                        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+                    config = read_file(self.configfile)
+                    config = regkey.sub("fileInstallationKey=%s" % key, config)
+                    write_file(self.configfile, config)
 
                 except IOError as err:
-                    raise EasyBuildError("Failed to create temporary config file %s: %s", tmp_configfile, err)
+                    raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
+
+                self.log.debug('configuration file updated with installation key:\n %s', config)
+
+                cmd = ' '.join([
+                    self.cfg['preinstallopts'],
+                    src,
+                    '-inputFile',
+                    self.configfile,
+                    self.cfg['installopts'],
+                ])
+
+                (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             else:
                 self.log.debug('Version is %s - using script installer method', self.version)
