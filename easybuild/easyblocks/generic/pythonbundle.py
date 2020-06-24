@@ -139,12 +139,12 @@ class PythonBundle(Bundle):
             # must add all subdirectories to $PYTHONPATH without checking existence,
             # otherwise paths will be missing since nothing is there initially
             if self.current_step == 'extensions':
-                for pylibdir in self.all_pylibdirs:
-                    txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+                new_pylibdirs = self.all_pylibdirs
             else:
-                for pylibdir in self.all_pylibdirs:
-                    if os.path.exists(os.path.join(self.installdir, pylibdir)):
-                        txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+                new_pylibdirs = [l for l in self.all_pylibdirs if os.path.exists(os.path.join(self.installdir, l))]
+
+            for pylibdir in new_pylibdirs:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 
