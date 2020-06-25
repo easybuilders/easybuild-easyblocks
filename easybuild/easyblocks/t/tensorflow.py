@@ -318,13 +318,14 @@ class EB_TensorFlow(PythonPackage):
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
             if nccl_root:
                 nccl_version = get_software_version('NCCL')
+                nccl_maj_min_ver = '.'.join(nccl_version.split('.')[:2])
                 config_env_vars.update({
                     'NCCL_INSTALL_PATH': nccl_root,
                 })
             else:
-                nccl_version = '1.3'  # Use simple downloadable version
+                nccl_maj_min_ver = '1.3'  # Use simple downloadable version
             config_env_vars.update({
-                'TF_NCCL_VERSION': nccl_version,
+                'TF_NCCL_VERSION': nccl_maj_min_ver,
             })
             if tensorrt_root:
                 tensorrt_version = get_software_version('TensorRT')
