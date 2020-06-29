@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
@@ -606,6 +606,7 @@ class EB_GCC(ConfigureMake):
         """
         super(EB_GCC, self).post_install_step(*args, **kwargs)
 
+        # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
         for key in COMP_CMD_SYMLINKS:
             src = COMP_CMD_SYMLINKS[key]
@@ -617,6 +618,51 @@ class EB_GCC(ConfigureMake):
                 symlink(src, target, use_abspath_source=False)
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
+
+        # Rename include-fixed directory which includes system header files that were processed by fixincludes,
+        # since these may cause problems when upgrading to newer OS version.
+        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
+        glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
+        matches = glob.glob(glob_pattern)
+        if matches:
+            if len(matches) == 1:
+                include_fixed_path = matches[0]
+
+                # limits.h and syslimits.h need to be copied to include/ first,
+                # these are strictly required (by /usr/include/limits.h for example)
+                include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
+                retained_header_files = ['limits.h', 'syslimits.h']
+                for fn in retained_header_files:
+                    from_path = os.path.join(include_fixed_path, fn)
+                    to_path = os.path.join(include_path, fn)
+                    if os.path.exists(from_path):
+                        if os.path.exists(to_path):
+                            raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
+                        else:
+                            copy_file(from_path, to_path)
+                            self.log.info("%s copied to %s", from_path, to_path)
+                    else:
+                        self.log.warning("Can't copy non-existing file %s to %s", from_path, to_path)
+
+                readme = os.path.join(include_fixed_path, 'README.easybuild')
+                readme_txt = '\n'.join([
+                    "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
+                    "since they may cause problems when the OS is upgraded to a new (minor) version.",
+                    '',
+                    "A couple of files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    '',
+                    "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
+                    '',
+                ])
+                write_file(readme, readme_txt)
+
+                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
+                move_file(include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s", include_fixed_path, include_fixed_renamed)
+            else:
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s", len(matches), matches)
+        else:
+            self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
     def sanity_check_step(self):
         """
