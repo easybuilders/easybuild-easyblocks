@@ -660,7 +660,8 @@ class EB_GCC(ConfigureMake):
                 move_file(include_fixed_path, include_fixed_renamed)
                 self.log.info("%s renamed to %s", include_fixed_path, include_fixed_renamed)
             else:
-                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s", len(matches), matches)
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
+                                     len(matches), matches)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
