@@ -628,6 +628,10 @@ class EB_GCC(ConfigureMake):
             if len(matches) == 1:
                 include_fixed_path = matches[0]
 
+                msg = "Found include-fixed subdirectory at %s, "
+                msg += "renaming it to avoid using system header files patched by fixincludes..."
+                self.log.info(msg, include_fixed_path)
+
                 # limits.h and syslimits.h need to be copied to include/ first,
                 # these are strictly required (by /usr/include/limits.h for example)
                 include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
@@ -640,16 +644,17 @@ class EB_GCC(ConfigureMake):
                             raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
                         else:
                             copy_file(from_path, to_path)
-                            self.log.info("%s copied to %s", from_path, to_path)
+                            self.log.info("%s copied to %s before renaming %s", from_path, to_path, include_fixed_path)
                     else:
-                        self.log.warning("Can't copy non-existing file %s to %s", from_path, to_path)
+                        self.log.warning("Can't copy non-existing file %s to %s, since it doesn't exist!",
+                                         from_path, to_path)
 
                 readme = os.path.join(include_fixed_path, 'README.easybuild')
                 readme_txt = '\n'.join([
                     "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
                     "since they may cause problems when the OS is upgraded to a new (minor) version.",
                     '',
-                    "A couple of files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    "These files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
                     '',
                     "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
                     '',
@@ -658,7 +663,8 @@ class EB_GCC(ConfigureMake):
 
                 include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
                 move_file(include_fixed_path, include_fixed_renamed)
-                self.log.info("%s renamed to %s", include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s to avoid using the header files in it",
+                              include_fixed_path, include_fixed_renamed)
             else:
                 raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
                                      len(matches), matches)
