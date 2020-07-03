@@ -261,7 +261,7 @@ EULA=accept
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # The "release" library is default in v2019. Give it precedence over intel64/lib.
                 # (remember paths are *prepended*, so the last path in the list has highest priority)
-                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
+                lib_dirs = ['intel64/%s' % x for x in ['lib', 'lib/release']]
                 include_dirs = ['intel64/include']
                 path_dirs = ['intel64/bin']
                 if self.cfg['ofi_internal']:
