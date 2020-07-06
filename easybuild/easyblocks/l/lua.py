@@ -68,6 +68,10 @@ class EB_Lua(ConfigureMake):
             mycflags.append('-DLUA_COMPAT_5_1')
         if LooseVersion(self.version) > LooseVersion('5.2'):
             mycflags.append('-DLUA_COMPAT_5_2')
+
+        mycflags.append(os.getenv('CFLAGS', ''))
+        mycflags.append(os.getenv('MYCFLAGS', ''))
+
         if mycflags:
             self.cfg.update('buildopts', 'MYCFLAGS="%s"' % ' '.join(mycflags))
 

@@ -292,7 +292,10 @@ class EB_OpenFOAM(EasyBlock):
 
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):
-            cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
+            if self.looseversion >= LooseVersion('2006'):
+                cleancmd = "cd $WM_PROJECT_DIR && wclean -platform -all && cd -"
+            else:
+                cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
         else:
             cleancmd = "wcleanAll"
 
