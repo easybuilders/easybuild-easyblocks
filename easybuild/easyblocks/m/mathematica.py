@@ -29,6 +29,7 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 """
 
 from distutils.version import LooseVersion
+import glob
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
@@ -64,19 +65,25 @@ class EB_Mathematica(Binary):
         # make sure $DISPLAY is not set (to avoid that installer uses GUI)
         orig_display = os.environ.pop('DISPLAY', None)
 
-        cmd = "./%s_%s_LINUX.sh" % (self.name, self.version)
-        shortver = '.'.join(self.version.split('.')[:2])
-        qa_install_path = "/usr/local/Wolfram/%s/%s" % (self.name, shortver)
-        qa = {
-            r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
-            r"Create directory (y/n)? >": 'y',
-            r"Should the installer attempt to make this change (y/n)? >": 'n',
-            r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"), 
-        }
-        no_qa = [
-            "Now installing.*\n\n.*\[.*\].*",
-        ]
-        run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
+        install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
+        matches = glob.glob(install_script_glob)
+        if len(matches) == 1:
+            install_script = matches[0]
+            cmd = self.cfg['preinstallopts'] + './' + install_script
+            shortver = '.'.join(self.version.split('.')[:2])
+            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
+            qa = {
+                r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
+                r"Create directory (y/n)? >": 'y',
+                r"Should the installer attempt to make this change (y/n)? >": 'n',
+                r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
+            }
+            no_qa = [
+                r"Now installing.*\n\n.*\[.*\].*",
+            ]
+            run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
+        else:
+            raise EasyBuildError("Failed to isolate install script using '%s': %s", install_script_glob, matches)
 
         # add license server configuration file
         # some relevant documentation at http://reference.wolfram.com/mathematica/tutorial/ConfigurationFiles.html
