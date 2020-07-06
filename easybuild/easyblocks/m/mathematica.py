@@ -79,7 +79,7 @@ class EB_Mathematica(Binary):
                 r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
             }
             no_qa = [
-                "Now installing.*\n\n.*\[.*\].*",
+                r"Now installing.*\n\n.*\[.*\].*",
             ]
             run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
         else:
