@@ -3,7 +3,29 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 219 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 222 software-specific easyblocks and 37 generic easyblocks.
+
+v4.2.2 (July ?th 2020)
+----------------------
+
+update/bugfix release
+
+- 3 new software-specific easyblocks:
+  - LLVM (#2065), Scipion (#1847), XALT (#1942)
+- minor enhancements, including:
+  - use 'wclean -platform' instead of 'wcleanPlatform' for OpenFOAM v2006 & newer (#2088)
+- various bug fixes, including:
+  - only build OpenCV with IPP support on x86_64 systems (#2056)
+  - also accept 'exist_lic' as valid value for 'license_file' in IntelBase easyblock (#2067)
+  - fix minor bug in shared libs handling and correctly setup SuiteSparse variables in Trilinos easyblock (#2071)
+  - make sure PythonBundle uses correct 'python' command in extensions filter + also add lib64/python*/site-packages to $PYTHONPATH (if it exists) (#2075)
+  - fix build environment for WRF by patching shebang in compile script (#2079)
+  - fix order of intel64/lib paths in generated module for impi (and drop intel64/lib/release_mt) (#2080)
+  - fix bug in PythonBundle: always add */site-packages subdirs to $PYTHONPATH when installing extensions (#2081)
+  - set $XDG_CACHE_HOME to avoid abuse of /Users/kehoste/.cache/pip when installing DOLFIN (#2082)
+  - make VMD easyblock Python 3 compatible (#2083)
+  - rename include-fixed subdirectory in GCC installation to avoid problems after OS upgrade (#2087)
+
 
 v4.2.1 (May 20th 2020)
 ----------------------
