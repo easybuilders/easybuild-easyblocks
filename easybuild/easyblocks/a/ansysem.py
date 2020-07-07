@@ -51,8 +51,7 @@ class EB_ANSYSEM(PackedBinary):
         licservers = ['', '', '']
         licservs = licserv.split(',')
         servercount = len(licservs)
-        for i, licserver in licservs:
-            licservers[i] = licserver
+        licservers[:servercount] = licservs
         try:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
             txt = '\n'.join([
