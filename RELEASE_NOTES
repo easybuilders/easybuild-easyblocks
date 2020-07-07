@@ -24,7 +24,7 @@ update/bugfix release
   - fix order of intel64/lib paths in generated module for impi (and drop intel64/lib/release_mt) (#2080)
   - set $XDG_CACHE_HOME to avoid abuse of $HOME/.cache/pip when installing DOLFIN (#2082)
   - make VMD easyblock Python 3 compatible (#2083)
-  - rename include-fixed subdirectory in GCC installation to avoid problems after OS upgrade (#2087)
+  - rename include-fixed subdirectory in GCC installation to avoid problems after OS upgrade (#2087, #2093, #2094)
   - use glob pattern to determine name of Mathematica installation script (#2089)
 
 
