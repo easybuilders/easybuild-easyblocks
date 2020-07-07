@@ -32,7 +32,6 @@ import os
 import glob
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
@@ -50,7 +49,9 @@ class EB_ANSYSEM(PackedBinary):
         licserv = os.getenv('EB_ANSYS_EM_LICENSE_SERVER')
         licport = os.getenv('EB_ANSYS_EM_LICENSE_SERVER_PORT')
         licservers = ['', '', '']
-        for i, licserver in licserv.split(','):
+        licservs = licserv.split(',')
+        servercount = len(licservs)
+        for i, licserver in licservs:
             licservers[i] = licserver
         try:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
@@ -90,8 +91,10 @@ class EB_ANSYSEM(PackedBinary):
         txt = super(EB_ANSYSEM, self).make_module_extra()
         txt += self.module_generator.prepend_paths('PATH', subdir)
         # Not sure if these are needed;
-        # txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [os.path.join(ansysdir, 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
-        # txt += self.module_generator.prepend_paths('LIBRARY_PATH', [os.path.join('ansysdir', 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
+        # txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', 
+        #     [os.path.join(ansysdir, 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
+        # txt += self.module_generator.prepend_paths('LIBRARY_PATH',
+        #     [os.path.join('ansysdir', 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
         return txt
 
     def sanity_check_step(self):
