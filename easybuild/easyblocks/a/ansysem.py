@@ -71,7 +71,7 @@ class EB_ANSYSEM(PackedBinary):
             ])
             with file(self.replayfile, "w") as f:
                 f.write(txt)
-        except IOError, err:
+        except IOError as err:
             raise EasyBuildError("Failed to create install properties file used for replaying installation: %s", err)
 
     def install_step(self):
@@ -89,8 +89,9 @@ class EB_ANSYSEM(PackedBinary):
 
         txt = super(EB_ANSYSEM, self).make_module_extra()
         txt += self.module_generator.prepend_paths('PATH', subdir)
-        #txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [os.path.join(ansysdir, 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
-        #txt += self.module_generator.prepend_paths('LIBRARY_PATH', [os.path.join('ansysdir', 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
+        # Not sure if these are needed;
+        # txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [os.path.join(ansysdir, 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
+        # txt += self.module_generator.prepend_paths('LIBRARY_PATH', [os.path.join('ansysdir', 'mainwin540', 'Linux64', 'mw', 'lib-amd64_linux_optimized')])
         return txt
 
     def sanity_check_step(self):
