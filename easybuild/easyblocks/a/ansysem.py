@@ -70,7 +70,7 @@ class EB_ANSYSEM(PackedBinary):
                 "-W LicenseOption.serverName3=\"%s\"" % licservers[2],
                 "-W LicenseOption.tcpPort=%s" % licport,
             ])
-            with file(self.replayfile, "w") as f:
+            with open(self.replayfile, "w") as f:
                 f.write(txt)
         except IOError as err:
             raise EasyBuildError("Failed to create install properties file used for replaying installation: %s", err)
