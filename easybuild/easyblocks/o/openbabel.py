@@ -122,7 +122,10 @@ class EB_OpenBabel(CMakeMake):
                 ob_pythonpath = det_pylibdir()
             else:
                 ob_pythonpath = 'lib'
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
+            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+            else:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
         babel_libdir = os.path.join(self.installdir, 'lib', 'openbabel', self.version)
         txt += self.module_generator.set_environment('BABEL_LIBDIR', babel_libdir)
         babel_datadir = os.path.join(self.installdir, 'share', 'openbabel', self.version)
