@@ -360,32 +360,38 @@ class EB_TensorFlow(PythonPackage):
         else:
             raise EasyBuildError("Failed to determine installation prefix for binutils")
 
+        inc_paths, lib_paths = [], []
+
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         if gcc_root:
             gcc_lib64 = os.path.join(gcc_root, 'lib64')
+            lib_paths.append(gcc_lib64)
+
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
             # figure out location of GCC include files
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
                 gcc_lib_inc = res[0]
+                inc_paths.append(gcc_lib_inc)
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
 
             # make sure include-fixed directory is where we expect it to be
             gcc_lib_inc_fixed = os.path.join(os.path.dirname(gcc_lib_inc), 'include-fixed')
-            if not os.path.exists(gcc_lib_inc_fixed):
-                raise EasyBuildError("Derived directory %s does not exist", gcc_lib_inc_fixed)
+            if os.path.exists(gcc_lib_inc_fixed):
+                inc_paths.append(gcc_lib_inc_fixed)
+            else:
+                self.log.info("Derived directory %s does not exist, so discarding it", gcc_lib_inc_fixed)
 
             # also check on location of include/c++/<gcc version> directory
             gcc_cplusplus_inc = os.path.join(gcc_root, 'include', 'c++', gcc_ver)
-            if not os.path.exists(gcc_cplusplus_inc):
+            if os.path.exists(gcc_cplusplus_inc):
+                inc_paths.append(gcc_cplusplus_inc)
+            else:
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
         else:
             raise EasyBuildError("Failed to determine installation prefix for GCC")
-
-        inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc]
-        lib_paths = [gcc_lib64]
 
         cuda_root = get_software_root('CUDA')
         if cuda_root:
