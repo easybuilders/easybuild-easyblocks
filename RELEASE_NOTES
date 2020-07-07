@@ -26,6 +26,7 @@ update/bugfix release
   - make VMD easyblock Python 3 compatible (#2083)
   - rename include-fixed subdirectory in GCC installation to avoid problems after OS upgrade (#2087, #2093, #2094)
   - use glob pattern to determine name of Mathematica installation script (#2089)
+  - use mpirun for sanity check commands in LAMMPS easyblock (#2096)
 
 
 v4.2.1 (May 20th 2020)
