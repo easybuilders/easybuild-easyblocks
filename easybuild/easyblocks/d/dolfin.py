@@ -288,6 +288,11 @@ class EB_DOLFIN(CMakePythonPackage):
         """Custom install procedure for DOLFIN: also install Python bindings."""
         super(EB_DOLFIN, self).install_step()
 
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
         if LooseVersion(self.version) >= LooseVersion('2018.1'):
             # see https://bitbucket.org/fenics-project/dolfin/issues/897/switch-from-swig-to-pybind11-for-python
             # and https://github.com/FEniCS/dolfin/blob/master/python/README.rst
