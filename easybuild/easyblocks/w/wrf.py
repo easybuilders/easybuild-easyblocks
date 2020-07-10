@@ -214,6 +214,9 @@ class EB_WRF(EasyBlock):
             'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
+        # fix hardcoded preprocessor
+        regex_subs.append(('/lib/cpp', 'cpp'))
+
         apply_regex_substitutions(cfgfile, regex_subs)
 
         # rewrite optimization options if desired
@@ -249,13 +252,20 @@ class EB_WRF(EasyBlock):
         if par:
             self.par = "-j %s" % par
 
-        # build wrf (compile script uses /bin/csh )
-        cmd = "tcsh ./compile %s wrf" % self.par
+        # fix compile script shebang
+        cmpscript = os.path.join(self.start_dir, 'compile')
+        cmpsh_root = get_software_root('tcsh')
+        if cmpsh_root:
+            regex_subs = [('/bin/csh', os.path.join(cmpsh_root, 'bin/tcsh'))]
+            apply_regex_substitutions(cmpscript, regex_subs)
+
+        # build wrf
+        cmd = "%s %s wrf" % (cmpscript, self.par)
         run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
         # build two testcases to produce ideal.exe and real.exe
         for test in ["em_real", "em_b_wave"]:
-            cmd = "tcsh ./compile %s %s" % (self.par, test)
+            cmd = "%s %s %s" % (cmpscript, self.par, test)
             run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def test_step(self):
@@ -350,7 +360,7 @@ class EB_WRF(EasyBlock):
                 self.log.debug("Building and running test %s" % test)
 
                 # build and install
-                cmd = "tcsh ./compile %s %s" % (self.par, test)
+                cmd = "./compile %s %s" % (self.par, test)
                 run_cmd(cmd, log_all=True, simple=True)
 
                 # run test
