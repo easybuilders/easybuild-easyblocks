@@ -52,7 +52,7 @@ class EB_MotionCor2(EasyBlock):
         self.cuda_mod_name, self.cuda_name = None, None
         self.motioncor2_bin = None
         self.motioncor2_verstring = self.version
-        if (LooseVersion(self.version) >= LooseVersion("1.3.1")):
+        if (LooseVersion(self.version) == LooseVersion("1.3.1")):
             self.motioncor2_verstring = "v%s" % self.version
 
     def prepare_step(self, *args, **kwargs):
@@ -88,7 +88,9 @@ class EB_MotionCor2(EasyBlock):
 
         src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
         if not os.path.exists(src_mc2_bin):
-            raise EasyBuildError("Specified CUDA version has no corresponding MotionCor2 binary")
+            raise EasyBuildError(
+                "Specified CUDA version has no corresponding MotionCor2 binary named %s" % self.motioncor2_bin
+            )
 
         bindir = os.path.join(self.installdir, 'bin')
         mkdir(bindir)
