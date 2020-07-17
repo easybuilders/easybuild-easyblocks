@@ -162,7 +162,6 @@ class EB_tbb(IntelBase, ConfigureMake):
             self.libpath = os.path.join(self.libpath, libdir)
             self.log.debug("self.libpath: %s" % self.libpath)
             # applications go looking into tbb/lib so we move what's in there to libs
-            # and symlink the right lib from /tbb/libs/intel64/... to lib
             install_libpath = os.path.join(self.installdir, 'tbb', 'lib')
             shutil.move(install_libpath, os.path.join(self.installdir, 'tbb', 'libs'))
             os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
@@ -171,8 +170,12 @@ class EB_tbb(IntelBase, ConfigureMake):
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
             if len(cand_lib_paths) == 1:
                 self.libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
+                # and symlink the right lib from /tbb/libs/intel64/... to lib
+                install_libpath = os.path.join(self.installdir, 'lib')
+                os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
+
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
