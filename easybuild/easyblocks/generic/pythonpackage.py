@@ -557,7 +557,12 @@ class PythonPackage(ExtensionEasyBlock):
 
             cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
                             self.cfg['buildopts']])
-            run_cmd(cmd, log_all=True, simple=True)
+            (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+
+            # keep track of all output, so we can check for auto-downloaded dependencies;
+            # take into account that build/install steps may be run multiple times
+            # We consider the build and install output together as downloads likely happen here if this is run
+            self.install_cmd_output += out
 
     def test_step(self):
         """Test the built Python package."""
