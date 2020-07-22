@@ -46,7 +46,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file
+from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file, read_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -156,6 +156,19 @@ class EB_Python(ConfigureMake):
 
     def configure_step(self):
         """Set extra configure options."""
+
+        # Check for and report distutils user configs which may make the installation fail
+        # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
+        for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
+            if os.path.exists(cfg):
+                self.log.debug('Found distutils user config file at %s', cfg)
+                contents = read_file(cfg)
+                if any(line.startswith('prefix=') for line in contents.splitlines()):
+                    print_warning('Distutils user config found at %s containing a "prefix=" setting. '
+                                  'Installation might fail due to Python picking up that prefix. '
+                                  'Remove the file if this happens!',
+                                  log=self.log)
+
         self.cfg.update('configopts', "--enable-shared")
 
         # Explicitely enable thread support on < 3.7 (always on 3.7+)
