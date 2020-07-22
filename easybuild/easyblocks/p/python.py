@@ -185,6 +185,11 @@ class EB_Python(ConfigureMake):
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
             self.cfg.update('configopts', "--enable-optimizations")
 
+        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
+        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+            # Default, but do it explicitely
+            self.cfg.update('configopts', "--with-ensurepip=upgrade")
+
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
             modules_setup += '.dist'
@@ -231,6 +236,10 @@ class EB_Python(ConfigureMake):
                 'maj_min_ver': tcltk_maj_min_ver,
             }
             self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # This matters e.g. when pythong installs the bundled pip & setuptools (for >= 3.4)
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         super(EB_Python, self).configure_step()
 
@@ -341,6 +350,16 @@ class EB_Python(ConfigureMake):
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
         ]
+
+        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+            # Check that pip and setuptools are installed
+            custom_paths['files'].extend([
+                os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
+            ])
+            custom_commands.extend([
+                "python -c 'import pip'",
+                "python -c 'import setuptools'",
+            ])
 
         if get_software_root('Tk'):
             # also check whether importing tkinter module works, name is different for Python v2.x and v3.x
