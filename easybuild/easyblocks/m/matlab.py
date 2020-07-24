@@ -131,8 +131,23 @@ class EB_MATLAB(PackedBinary):
         if LooseVersion(self.version) >= LooseVersion('2016b'):
             change_dir(self.builddir)
 
-        # MATLAB installer ignores TMPDIR (always uses /tmp) and might need a large tmpdir
-        tmpdir = "-tmpdir %s" % tempfile.mkdtemp()
+        # Build the cmd string
+        cmdlist = [
+            self.cfg['preinstallopts'],
+            src,
+            '-inputFile',
+            self.configfile,
+        ]
+        if LooseVersion(self.version) < LooseVersion('2020a'):
+            # MATLAB installers < 2020a ignore $TMPDIR (always use /tmp) and might need a large tmpdir
+            tmpdir = tempfile.mkdtemp()
+            cmdlist.extend([
+                '-v',
+                '-tmpdir',
+                tmpdir,
+            ])
+        cmdlist.append(self.cfg['installopts'])
+        cmd = ' '.join(cmdlist)
 
         keys = self.cfg['key']
         if keys is None:
