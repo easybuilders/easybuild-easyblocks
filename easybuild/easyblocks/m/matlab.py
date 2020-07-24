@@ -158,48 +158,22 @@ class EB_MATLAB(PackedBinary):
         # Compile the installation key regex outside of the loop
         regkey = re.compile(r"^(# )?fileInstallationKey=.*", re.M)
 
-        # Make one install for each key
+        # Run an install for each key
         for i, key in enumerate(keys):
 
-            self.log.debug('Installing with key %s of %s', i + 1, len(keys))
+            self.log.info('Installing MATLAB with key %s of %s', i + 1, len(keys))
 
-            if LooseVersion(self.version) >= LooseVersion('2020a'):
-                self.log.debug('Version is %s - using binary installer method', self.version)
-                try:
-                    config = read_file(self.configfile)
-                    config = regkey.sub("fileInstallationKey=%s" % key, config)
-                    write_file(self.configfile, config)
+            try:
+                config = read_file(self.configfile)
+                config = regkey.sub("fileInstallationKey=%s" % key, config)
+                write_file(self.configfile, config)
 
-                except IOError as err:
-                    raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
+            except IOError as err:
+                raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
 
-                self.log.debug('configuration file updated with installation key:\n %s', config)
+            self.log.debug('configuration file updated with installation key:\n %s', config)
 
-                cmd = ' '.join([
-                    self.cfg['preinstallopts'],
-                    src,
-                    '-inputFile',
-                    self.configfile,
-                    self.cfg['installopts'],
-                ])
-
-                (out, _) = run_cmd(cmd, log_all=True, simple=False)
-
-            else:
-                self.log.debug('Version is %s - using script installer method', self.version)
-                cmd = ' '.join([
-                    self.cfg['preinstallopts'],
-                    src,
-                    '-v',
-                    tmpdir,
-                    '-inputFile',
-                    self.configfile,
-                    '-fileInstallationKey',
-                    key,
-                    self.cfg['installopts'],
-                ])
-
-                (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # check installer output for known signs of trouble
             patterns = [
