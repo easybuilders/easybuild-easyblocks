@@ -46,7 +46,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_MATLAB(PackedBinary):
