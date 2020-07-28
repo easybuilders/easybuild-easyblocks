@@ -200,7 +200,7 @@ class EB_Python(ConfigureMake):
 
         # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
         if LooseVersion(self.version) >= LooseVersion('3.4.0'):
-            # Default, but do it explicitely
+            # Default, but do it explicitly
             self.cfg.update('configopts', "--with-ensurepip=upgrade")
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
@@ -251,7 +251,7 @@ class EB_Python(ConfigureMake):
             self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
 
         # don't add user site directory to sys.path (equivalent to python -s)
-        # This matters e.g. when pythong installs the bundled pip & setuptools (for >= 3.4)
+        # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         super(EB_Python, self).configure_step()
