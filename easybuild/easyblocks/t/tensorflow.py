@@ -155,6 +155,11 @@ class EB_TensorFlow(PythonPackage):
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
+        binutils_root = get_software_root('binutils')
+        if not binutils_root:
+            raise EasyBuildError("Failed to determine installation prefix for binutils")
+        self.binutils_bin_path = os.path.join(binutils_root, 'bin')
+
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
@@ -276,6 +281,8 @@ class EB_TensorFlow(PythonPackage):
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
                 'GCC_HOST_COMPILER_PATH': compiler_path,
+                # This is the binutils bin folder: https://github.com/tensorflow/tensorflow/issues/39263
+                'GCC_HOST_COMPILER_PREFIX': self.binutils_bin_path,
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
@@ -356,12 +363,6 @@ class EB_TensorFlow(PythonPackage):
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
-        binutils_root = get_software_root('binutils')
-        if binutils_root:
-            binutils_bin = os.path.join(binutils_root, 'bin')
-        else:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
-
         inc_paths, lib_paths = [], []
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
@@ -401,12 +402,12 @@ class EB_TensorFlow(PythonPackage):
             lib_paths.append(os.path.join(cuda_root, 'lib64'))
 
         # fix hardcoded locations of compilers & tools
-        cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
-        cxx_inc_dir_lines_no_resolv_path = '\n'.join(r'cxx_builtin_include_directory: "%s"' % p for p in inc_paths)
+        cxx_inc_dirs = ['cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths]
+        cxx_inc_dirs += ['cxx_builtin_include_directory: "%s"' % p for p in inc_paths]
         regex_subs = [
-            (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
+            (r'-B/usr/bin/', '-B%s %s' % (self.binutils_bin_path, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines + '\n' + cxx_inc_dir_lines_no_resolv_path),
+            (r'^toolchain {', 'toolchain {\n' + '\n'.join(cxx_inc_dirs)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)
