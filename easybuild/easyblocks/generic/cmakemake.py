@@ -143,6 +143,10 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
+        if self.installdir.startswith('/opt'):
+            # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s/etc" % self.installdir)
+
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
