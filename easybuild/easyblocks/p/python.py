@@ -161,13 +161,7 @@ class EB_Python(ConfigureMake):
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
         for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
             if os.path.exists(cfg):
-                self.log.debug('Found distutils user config file at %s', cfg)
-                contents = read_file(cfg)
-                if any(line.startswith('prefix=') for line in contents.splitlines()):
-                    print_warning('Distutils user config found at %s containing a "prefix=" setting. '
-                                  'Installation might fail due to Python picking up that prefix. '
-                                  'Remove the file if this happens!',
-                                  log=self.log)
+                raise EasyBuildError("Legacy distutils user configuration file found at %s. Aborting.", cfg)
 
         self.cfg.update('configopts', "--enable-shared")
 
