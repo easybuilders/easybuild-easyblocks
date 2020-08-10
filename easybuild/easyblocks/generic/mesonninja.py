@@ -47,6 +47,7 @@ class MesonNinja(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
+            'fail_on_missing_ninja_meson_dep': [True, "Fail if Meson or Ninja is missing from deps", CUSTOM],
         })
         return extra_vars
 
@@ -57,7 +58,7 @@ class MesonNinja(EasyBlock):
         # make sure both Meson and Ninja are included as build dependencies
         build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
         for tool in ['Ninja', 'Meson']:
-            if tool not in build_dep_names:
+            if self.cfg["fail_on_missing_ninja_meson_dep"] and tool not in build_dep_names:
                 raise EasyBuildError("%s not included as build dependency", tool)
             cmd = tool.lower()
             if not which(cmd):
