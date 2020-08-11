@@ -409,6 +409,9 @@ class EB_CP2K(EasyBlock):
             options['LIBINTLIB'] = '%s/lib' % libint
             options['LIBS'] += ' %s -lstdc++ %s' % (libint_libs, libint_wrapper)
 
+            # add Libint include dir to $FCFLAGS
+            options['FCFLAGS'] += ' -I' + os.path.join(libint, 'include')
+
         else:
             # throw a warning, since CP2K without Libint doesn't make much sense
             self.log.warning("Libint module not loaded, so building without Libint support")
