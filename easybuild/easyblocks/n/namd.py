@@ -27,6 +27,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
 
 
 class EB_NAMD(MakeCp):
@@ -43,10 +44,21 @@ class EB_NAMD(MakeCp):
             # see http://charm.cs.illinois.edu/manuals/html/charm++/A.html
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
-            'namd_basearch': ['Linux-x86_64', "NAMD base target architecture (compiler family is appended", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
         })
+        arch = get_cpu_architecture()
+        if arch == X86_64:
+            basearch = 'Linux-x86_64'
+        elif arch == POWER:
+            basearch = 'Linux-POWER'
+
+        cuda = get_software_root('CUDA')
+        if cuda:
+            basearch = '%s.cuda' % basearch
+
+        extra['namd_basearch'] = [basearch, "NAMD base target architecture (compiler family is appended", CUSTOM]
+
         return extra
 
     def __init__(self, *args, **kwargs):
