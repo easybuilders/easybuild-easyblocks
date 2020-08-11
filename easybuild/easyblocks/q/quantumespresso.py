@@ -172,7 +172,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if comp_fam == toolchain.INTELCOMP:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
-            cpp = "%s -E -C" % os.getenv('CC')
+            # preserving comments breaks LAXlib in QE 6.6 when stdc-predef.h is present in the system
+            # cpp = "%s -E -C" % os.getenv('CC')
+            cpp = "%s -E" % os.getenv('CC')
             repls.append(('CPP', cpp, False))
             env.setvar('CPP', cpp)
 
@@ -207,6 +209,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # always include -w to supress warnings
         dflags.append('-w')
+
+        if LooseVersion(self.version) >= LooseVersion("6.6"):
+            dflags.append(" -Duse_beef")
+            libbeef = get_software_root("libbeef")
+            if libbeef:
+                repls.append(('BEEF_LIBS_SWITCH', 'external', False))
+                repls.append(('BEEF_LIBS', '%s/lib/libbeef.a' % libbeef, False))
 
         repls.append(('DFLAGS', ' '.join(dflags), False))
 
@@ -269,6 +278,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       "\t$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
                                       line)
+
+                # fix order of BEEF_LIBS in QE_LIBS
+                if LooseVersion(self.version) >= LooseVersion("6.6"):
+                    line = re.sub(r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
+                                  r"QELIBS = $(BEEF_LIBS) \2 \3", line)
 
                 sys.stdout.write(line)
         except IOError as err:
@@ -371,7 +385,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         copy_file(full_path, bindir)
 
         if 'upf' in targets or 'all' in targets:
-            copy_binaries('upftools')
+            if LooseVersion(self.version) < LooseVersion("6.6"):
+                copy_binaries('upftools')
+            else:
+                copy_binaries('upflib')
+                copy_file(os.path.join(self.cfg['start_dir'], 'upflib', 'fixfiles.py'), bindir)
 
         if 'want' in targets:
             copy_binaries('WANT')
@@ -464,20 +482,19 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         upftools = []
         if 'upf' in targets or 'all' in targets:
-            #upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-            #            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-            #            "virtual.x"] #GAS virtual is now virtual_v2.x
-            upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                        ] # "virtual_v2.x"
-            if LooseVersion(self.version) > LooseVersion("5"):
-                upftools.extend(["interpolate.x", "upf2casino.x"])
-            if LooseVersion(self.version) >= LooseVersion("6.3"):
-                upftools.extend(["fix_upf.x"])
-            if LooseVersion(self.version) < LooseVersion("6.4"):
-                upftools.extend(["virtual.x"])
+            if LooseVersion(self.version) < LooseVersion("6.6"):
+                upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
+                            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x"]
+                if LooseVersion(self.version) > LooseVersion("5"):
+                    upftools.extend(["interpolate.x", "upf2casino.x"])
+                if LooseVersion(self.version) >= LooseVersion("6.3"):
+                    upftools.extend(["fix_upf.x"])
+                if LooseVersion(self.version) < LooseVersion("6.4"):
+                    upftools.extend(["virtual.x"])
+                else:
+                    upftools.extend(["virtual_v2.x"])
             else:
-                upftools.extend(["virtual_v2.x"])
+                upftools = ["upfconv.x", "virtual_v2.x", "fixfiles.py"]
 
         if 'vdw' in targets:  # only for v4.x, not in v5.0 anymore
             bins.extend(["vdw.x"])
