@@ -74,10 +74,10 @@ class EB_Libint(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('2.6.0'):
             # Libint 2.6.0 requires first compiling the Libint compiler,
             # by running configure with appropriate options, followed by 'make export'
-            # and unpacked the resulting source tarball;
+            # and unpacking the resulting source tarball;
             # see https://github.com/evaleev/libint/wiki#compiling-libint-compiler
 
-            # CMake is recommended, but configuring with Fortran supports doesn't work correctly yet in Libint 2.6.0
+            # CMake is recommended, but configuring with Fortran support doesn't work correctly yet in Libint 2.6.0
             # so stick to traditional configure script for now
             print_msg("configuring Libint compiler...")
 
