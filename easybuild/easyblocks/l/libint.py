@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.filetools import change_dir, extract_file, mkdir
+from easybuild.tools.filetools import change_dir, extract_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
