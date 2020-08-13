@@ -45,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
 
@@ -152,6 +152,87 @@ class EB_TensorFlow(PythonPackage):
             adjust_permissions(wrapper, stat.S_IXUSR)
             self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
 
+    def get_system_libs(self):
+        """
+        Get list of dependencies for TF_SYSTEM_LIBS
+
+        Returns a tuple of lists: TF_SYSTEM_LIBS names, include paths, library paths
+        """
+        def is_version_ok(dep_version):
+            version = LooseVersion(self.version)
+            min_version = LooseVersion(dep_version[0])
+            result = False
+            if version >= min_version:
+                # min. version matches, so OK if max version matches or not present
+                if len(dep_version) == 1 or version < LooseVersion(dep_version[1]):
+                    result = True
+            return result
+
+        def make_tf_name(eb_dep_name, tf_dep_name):
+            return tf_dep_name or eb_dep_name.lower().replace('-', '_')
+
+        # For this list check third_party/systemlibs/syslibs_configure.bzl --> VALID_LIBS
+        # Also verify third_party/systemlibs/<name>.BUILD if it does something "strange" (e.g. link hardcoded headers)
+        available_system_libs = (
+            # Format: 1. dependency name in EB
+            #         2. name in TF or None to lowercase EB name with - replaced by _
+            #         3. min. (incl), max. (excl) TF version required
+            ('cURL', None, ('2.1.0',)),
+            ('double-conversion', None, ('2.1.0',)),
+            ('giflib', 'gif', ('2.1.0',)),
+            ('hwloc', None, ('2.1.0',)),
+            ('ICU', None, ('2.1.0',)),
+            ('JsonCpp', 'jsoncpp_git', ('2.1.0',)),
+            ('libjpeg-turbo', 'jpeg', ('2.1.0', '2.2.0')),
+            ('libjpeg-turbo', 'libjpeg_turbo', ('2.2.0', )),
+            ('LMDB', None, ('2.1.0',)),
+            ('NASM', None, ('2.1.0',)),
+            ('SQLite', 'org_sqlite', ('2.1.0',)),
+            ('PCRE', None, ('2.1.0',)),
+            ('libpng', 'png', ('2.1.0',)),
+            ('pybind11', None, ('2.2.0',)),
+            ('snappy', None, ('2.1.0',)),
+            ('SWIG', None, ('2.1.0',)),
+            ('zlib', 'zlib_archive', ('2.1.0', '2.2.0')),
+            ('zlib', 'zlib', ('2.2.0',)),
+        )
+        # Same as above but installed as python extensions
+        python_system_libs = (
+            ('absl-py', None, ('2.1.0',)),
+            ('astor', 'astor_archive', ('2.1.0',)),
+            ('astunparse', 'astunparse_archive', ('2.2.0',)),
+            ('gast', 'gast_archive', ('2.1.0',)),
+            ('Keras-Applications', 'keras_applications_archive', ('2.1.0', '2.2.0')),
+            ('opt-einsum', 'opt_einsum_archive', ('2.1.0',)),
+            ('google-pasta', 'pasta', ('2.1.0',)),
+            ('termcolor', 'termcolor_archive', ('2.1.0',)),
+        )
+
+        dependencies = set(dep['name'] for dep in self.cfg.dependencies())
+
+        system_libs = []
+        cpaths = []
+        libpaths = []
+        for dep_name, tf_dep_name, version_requirement in available_system_libs:
+            if dep_name in dependencies and is_version_ok(version_requirement):
+                system_libs.append(make_tf_name(dep_name, tf_dep_name))
+                sw_root = get_software_root(dep_name)
+                incpath = os.path.join(sw_root, 'include')
+                if dep_name == 'JsonCpp':
+                    # Need to use the install prefix instead: https://github.com/tensorflow/tensorflow/issues/42303
+                    incpath = sw_root
+                if os.path.exists(incpath):
+                    cpaths.append(incpath)
+                libpath = get_software_libdir(dep_name)
+                if libpath:
+                    libpaths.append(os.path.join(sw_root, libpath))
+
+        for dep_name, tf_dep_name, version_requirement in python_system_libs:
+            # We just assume they are present as otherwise pip check would fail
+            if is_version_ok(version_requirement):
+                system_libs.append(make_tf_name(dep_name, tf_dep_name))
+        return system_libs, cpaths, libpaths
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -237,6 +318,7 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
             'TF_SET_ANDROID_WORKSPACE': '0',
             'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
+            'TF_SYSTEM_LIBS': ','.join(self.get_system_libs()[0]),
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
@@ -471,6 +553,10 @@ class EB_TensorFlow(PythonPackage):
         pythonpath = os.getenv('PYTHONPATH', '')
         env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
+        # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
+        _, cpaths, libpaths = self.get_system_libs()
+        cmd.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
+        cmd.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
         cmd.append('--action_env=PYTHONPATH')
         # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
