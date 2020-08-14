@@ -112,7 +112,7 @@ class EB_NAMD(MakeCp):
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
         self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
 
-        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s %(cxxflags)s" % {
+        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
             'arch': self.cfg['charm_arch'],
             'cxxflags': os.environ['CXXFLAGS'] + ' -DMPICH_IGNORE_CXX_SEEK ' + self.cfg['charm_extra_cxxflags'],
             'opts': self.cfg['charm_opts'],
