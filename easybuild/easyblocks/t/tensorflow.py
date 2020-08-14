@@ -102,6 +102,7 @@ class EB_TensorFlow(PythonPackage):
             'use_pip': True,
         }
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+        self.system_libs_info = None
 
         self.test_script = None
 
@@ -152,85 +153,133 @@ class EB_TensorFlow(PythonPackage):
             adjust_permissions(wrapper, stat.S_IXUSR)
             self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
 
-    def get_system_libs(self):
+    @staticmethod
+    def get_system_libs_for_version(tf_version, as_VALID_LIBS=False):
         """
-        Get list of dependencies for TF_SYSTEM_LIBS
+        Return a list of valid values for $TF_SYSTEM_LIBS for the given TF version
 
-        Returns a tuple of lists: TF_SYSTEM_LIBS names, include paths, library paths
+        The result is a list of tuples (tf_name, eb_name) where eb_name can be None if no EC exists or True to assume
+        the dependency is always installed (e.g. via pip in the TF EC)
+
+        Note: Can be used to check against third_party/systemlibs/syslibs_configure.bzl by running:
+              from easybuild.easyblocks.tensorflow import EB_TensorFlow
+              print(EB_TensorFlow.get_system_libs_for_version('2.1.0', as_VALID_LIBS=True))
         """
-        def is_version_ok(dep_version):
-            version = LooseVersion(self.version)
-            min_version = LooseVersion(dep_version[0])
+        tf_version = LooseVersion(tf_version)
+
+        def is_version_ok(version_requirement):
+            """Return True if the TF version to be installed matches the version_requirement"""
+            min_version = LooseVersion(version_requirement[0])
             result = False
-            if version >= min_version:
+            if tf_version >= min_version:
                 # min. version matches, so OK if max version matches or not present
-                if len(dep_version) == 1 or version < LooseVersion(dep_version[1]):
+                if len(version_requirement) == 1 or tf_version < LooseVersion(version_requirement[1]):
                     result = True
             return result
-
-        def make_tf_name(eb_dep_name, tf_dep_name):
-            return tf_dep_name or eb_dep_name.lower().replace('-', '_')
 
         # For this list check third_party/systemlibs/syslibs_configure.bzl --> VALID_LIBS
         # Also verify third_party/systemlibs/<name>.BUILD if it does something "strange" (e.g. link hardcoded headers)
         available_system_libs = (
-            # Format: 1. dependency name in EB
-            #         2. name in TF or None to lowercase EB name with - replaced by _
+            # Format: 1. name in TF
+            #         2. dependency name in EB, can use None if unknown or True to assume installed
             #         3. min. (incl), max. (excl) TF version required
-            ('cURL', None, ('2.1.0',)),
-            ('double-conversion', None, ('2.1.0',)),
-            ('giflib', 'gif', ('2.1.0',)),
-            ('hwloc', None, ('2.1.0',)),
-            ('ICU', None, ('2.1.0',)),
-            ('JsonCpp', 'jsoncpp_git', ('2.1.0',)),
-            ('libjpeg-turbo', 'jpeg', ('2.1.0', '2.2.0')),
-            ('libjpeg-turbo', 'libjpeg_turbo', ('2.2.0', )),
-            ('LMDB', None, ('2.1.0',)),
-            ('NASM', None, ('2.1.0',)),
-            ('SQLite', 'org_sqlite', ('2.1.0',)),
-            ('PCRE', None, ('2.1.0',)),
-            ('libpng', 'png', ('2.1.0',)),
-            ('pybind11', None, ('2.2.0',)),
-            ('snappy', None, ('2.1.0',)),
-            ('SWIG', None, ('2.1.0',)),
-            ('zlib', 'zlib_archive', ('2.1.0', '2.2.0')),
+            ('absl_py', True, ('2.1.0',)),
+            ('astor_archive', True, ('2.1.0',)),
+            ('astunparse_archive', True, ('2.2.0',)),
+            ('boringssl', None, ('2.1.0',)),
+            ('com_github_googleapis_googleapis', None, ('2.1.0',)),
+            ('com_github_googlecloudplatform_google_cloud_cpp', None, ('2.1.0',)),  # Not used due to $TF_NEED_GCP=0
+            ('com_github_grpc_grpc', None, ('2.2.0',)),
+            ('com_google_protobuf', 'protobuf-python', ('2.1.0',)),
+            ('com_googlesource_code_re2', None, ('2.1.0',)),
+            ('curl', 'cURL', ('2.1.0',)),
+            ('cython', 'Python', ('2.1.0',)),
+            ('double_conversion', 'double-conversion', ('2.1.0',)),
+            ('enum34_archive', True, ('2.1.0',)),  # Part of Python3
+            ('flatbuffers', 'flatbuffers', ('2.1.0',)),
+            ('functools32_archive', True, ('2.1.0',)),  # Part of Python3
+            ('gast_archive', True, ('2.1.0',)),
+            ('gif', 'giflib', ('2.1.0',)),
+            ('grpc', None, ('2.1.0', '2.2.0')),
+            ('hwloc', 'hwloc', ('2.1.0',)),
+            ('icu', 'ICU', ('2.1.0',)),
+            ('jpeg', 'libjpeg-turbo', ('2.1.0', '2.2.0')),
+            ('jsoncpp_git', 'JsonCpp', ('2.1.0',)),
+            ('keras_applications_archive', True, ('2.1.0', '2.2.0')),
+            ('libjpeg_turbo', 'libjpeg-turbo', ('2.2.0', )),
+            ('lmdb', 'LMDB', ('2.1.0',)),
+            ('nasm', 'NASM', ('2.1.0',)),
+            ('nsync', 'nsync', ('2.1.0',)),
+            ('opt_einsum_archive', True, ('2.1.0',)),
+            ('org_sqlite', 'SQLite', ('2.1.0',)),
+            ('pasta', True, ('2.1.0',)),
+            ('pcre', 'PCRE', ('2.1.0',)),
+            ('png', 'libpng', ('2.1.0',)),
+            ('pybind11', 'pybind11', ('2.2.0',)),
+            ('six_archive', 'Python', ('2.1.0',)),
+            ('snappy', 'snappy', ('2.1.0',)),
+            ('swig', 'SWIG', ('2.1.0',)),
+            ('termcolor_archive', True, ('2.1.0',)),
+            ('wrapt', True, ('2.1.0',)),
+            ('zlib_archive', 'zlib', ('2.1.0', '2.2.0')),
             ('zlib', 'zlib', ('2.2.0',)),
         )
-        # Same as above but installed as python extensions
-        python_system_libs = (
-            ('absl-py', None, ('2.1.0',)),
-            ('astor', 'astor_archive', ('2.1.0',)),
-            ('astunparse', 'astunparse_archive', ('2.2.0',)),
-            ('gast', 'gast_archive', ('2.1.0',)),
-            ('Keras-Applications', 'keras_applications_archive', ('2.1.0', '2.2.0')),
-            ('opt-einsum', 'opt_einsum_archive', ('2.1.0',)),
-            ('google-pasta', 'pasta', ('2.1.0',)),
-            ('termcolor', 'termcolor_archive', ('2.1.0',)),
-        )
+        result = [(tf_dep_name, dep_name) for tf_dep_name, dep_name, version_requirement in available_system_libs
+                  if is_version_ok(version_requirement)]
+        if as_VALID_LIBS:
+            result = '\n'.join(['    "%s",' % tf_dep_name for tf_dep_name, dep_name in result])
+        return result
 
-        dependencies = set(dep['name'] for dep in self.cfg.dependencies())
+    def get_system_libs(self):
+        """
+        Get list of dependencies for $TF_SYSTEM_LIBS
+
+        Returns a tuple of lists: $TF_SYSTEM_LIBS names, include paths, library paths
+        """
+        available_system_libs = EB_TensorFlow.get_system_libs_for_version(self.version)
+
+        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
 
         system_libs = []
         cpaths = []
         libpaths = []
-        for dep_name, tf_dep_name, version_requirement in available_system_libs:
-            if dep_name in dependencies and is_version_ok(version_requirement):
-                system_libs.append(make_tf_name(dep_name, tf_dep_name))
+        ignored_system_deps = []
+        for tf_dep_name, dep_name in available_system_libs:
+            if dep_name is None:
+                continue
+            if dep_name is True:
+                system_libs.append(tf_dep_name)
+            elif dep_name in dep_names:
+                system_libs.append(tf_dep_name)
+                # For protobuf we need protobuf and protobuf-python where the latter depends on the former
+                # For includes etc. we need to get the values from protobuf
+                if dep_name == 'protobuf-python':
+                    dep_name = 'protobuf'
                 sw_root = get_software_root(dep_name)
+                # Dependency might be filtered via --filter-deps. In that case assume globally installed version
+                if not sw_root:
+                    continue
                 incpath = os.path.join(sw_root, 'include')
                 if dep_name == 'JsonCpp':
                     # Need to use the install prefix instead: https://github.com/tensorflow/tensorflow/issues/42303
                     incpath = sw_root
                 if os.path.exists(incpath):
                     cpaths.append(incpath)
+                    if dep_name == 'protobuf':
+                        # Need to set INCLUDEDIR as TF wants to symlink headers from there:
+                        # https://github.com/tensorflow/tensorflow/issues/37835
+                        env.setvar('INCLUDEDIR', incpath)
                 libpath = get_software_libdir(dep_name)
                 if libpath:
                     libpaths.append(os.path.join(sw_root, libpath))
+            else:
+                ignored_system_deps.append('%s (%s)' % (tf_dep_name, dep_name))
 
-        for dep_name, tf_dep_name, version_requirement in python_system_libs:
-            # We just assume they are present as otherwise pip check would fail
-            if is_version_ok(version_requirement):
-                system_libs.append(make_tf_name(dep_name, tf_dep_name))
+        if ignored_system_deps:
+            self.log.info('For the following dependencies TensorFlow will download a copy as EB dependency was not' +
+                          'found: \n%s',
+                          ', '.join(ignored_system_deps))
+
         return system_libs, cpaths, libpaths
 
     def configure_step(self):
@@ -286,8 +335,8 @@ class EB_TensorFlow(PythonPackage):
             env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
-
         self.handle_jemalloc()
+        self.system_libs_info = self.get_system_libs()
 
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
@@ -318,7 +367,7 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
             'TF_SET_ANDROID_WORKSPACE': '0',
             'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
-            'TF_SYSTEM_LIBS': ','.join(self.get_system_libs()[0]),
+            'TF_SYSTEM_LIBS': ','.join(self.system_libs_info[0]),
         }
         if cuda_root:
             cuda_version = get_software_version('CUDA')
@@ -554,7 +603,7 @@ class EB_TensorFlow(PythonPackage):
         env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
 
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
-        _, cpaths, libpaths = self.get_system_libs()
+        cpaths, libpaths = self.system_libs_info[1:]
         cmd.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
         cmd.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
         cmd.append('--action_env=PYTHONPATH')
