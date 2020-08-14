@@ -80,6 +80,7 @@ class CMakeMake(ConfigureMake):
             'build_type': [None, "Build type for CMake, e.g. Release."
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -161,6 +162,9 @@ class CMakeMake(ConfigureMake):
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
             options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        if self.cfg['generator']:
+            options.append('-G "%s"' % self.cfg['generator'])
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
