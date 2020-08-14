@@ -505,9 +505,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         d3q_bins = []
         if 'd3q' in targets:
-            d3q_bins = ['d3_asr3.x', 'd3_import3py.x', 'd3_lw.x', 'd3_q2r.x',
+            d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
                         'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
                         'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+            if LooseVersion(self.version) < LooseVersion("6.4"):
+                d3q_bins.append('d3_import3py.x')
 
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins + upftools + want_bins + yambo_bins + d3q_bins],
