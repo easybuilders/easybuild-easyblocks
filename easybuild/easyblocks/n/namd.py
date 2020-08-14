@@ -43,6 +43,7 @@ class EB_NAMD(MakeCp):
         extra.update({
             # see http://charm.cs.illinois.edu/manuals/html/charm++/A.html
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
+            'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
@@ -111,8 +112,12 @@ class EB_NAMD(MakeCp):
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
         self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
 
-        tup = (self.cfg['charm_arch'], self.cfg['charm_opts'], self.cfg['parallel'], os.environ['CXXFLAGS'])
-        cmd = "./build charm++ %s %s --with-numa -j%s %s -DMPICH_IGNORE_CXX_SEEK" % tup
+        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
+            'arch': self.cfg['charm_arch'],
+            'cxxflags': os.environ['CXXFLAGS'] + ' -DMPICH_IGNORE_CXX_SEEK ' + self.cfg['charm_extra_cxxflags'],
+            'opts': self.cfg['charm_opts'],
+            'parallel': self.cfg['parallel'],
+        }
         charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
         self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
         run_cmd(cmd, path=charm_subdir)
