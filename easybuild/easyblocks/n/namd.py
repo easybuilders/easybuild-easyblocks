@@ -59,7 +59,7 @@ class EB_NAMD(MakeCp):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
-        super(EB_NAMD, self).prepare_step()
+        super(EB_NAMD, self).prepare_step(*args, **kwargs)
 
         if self.cfg['namd_basearch'] is None:
 
