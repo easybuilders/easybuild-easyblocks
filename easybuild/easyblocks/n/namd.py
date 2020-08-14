@@ -45,20 +45,10 @@ class EB_NAMD(MakeCp):
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
             'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
+            'namd_basearch': [None, "NAMD base target architecture (compiler family is appended)", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
         })
-        arch = get_cpu_architecture()
-        if arch == X86_64:
-            basearch = 'Linux-x86_64'
-        elif arch == POWER:
-            basearch = 'Linux-POWER'
-
-        cuda = get_software_root('CUDA')
-        if cuda:
-            basearch = '%s.cuda' % basearch
-
-        extra['namd_basearch'] = [basearch, "NAMD base target architecture (compiler family is appended", CUSTOM]
 
         return extra
 
@@ -66,6 +56,27 @@ class EB_NAMD(MakeCp):
         """Custom easyblock constructor for NAMD, initialize class variables."""
         super(EB_NAMD, self).__init__(*args, **kwargs)
         self.namd_arch = None
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_NAMD, self).prepare_step()
+
+        if self.cfg['namd_basearch'] is None:
+
+            self.log.info("namd_basearch not specified, so determining it based a CPU arch & CUDA dep...")
+
+            arch = get_cpu_architecture()
+            if arch == X86_64:
+                basearch = 'Linux-x86_64'
+            elif arch == POWER:
+                basearch = 'Linux-POWER'
+
+            cuda = get_software_root('CUDA')
+            if cuda:
+                basearch = '%s.cuda' % basearch
+
+            self.cfg['namd_basearch'] = basearch
+            self.log.info("Derived value for 'namd_basearch': %s", self.cfg['namd_basearch'])
 
     def extract_step(self):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
