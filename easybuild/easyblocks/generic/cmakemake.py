@@ -143,9 +143,14 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
-        if self.installdir.startswith('/opt'):
+        if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
-            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s/etc" % self.installdir)
+            localstatedir = os.path.join(self.installdir, 'var')
+            runstatedir = os.path.join(localstatedir, 'run')
+            sysconfdir = os.path.join(self.installdir, 'etc')
+            options.append("-DCMAKE_INSTALL_LOCALSTATEDIR=%s" % localstatedir)
+            options.append("-DCMAKE_INSTALL_RUNSTATEDIR=%s" % runstatedir)
+            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s" % sysconfdir)
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
