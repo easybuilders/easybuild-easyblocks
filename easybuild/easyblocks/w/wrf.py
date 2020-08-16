@@ -201,7 +201,7 @@ class EB_WRF(EasyBlock):
             r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
         }
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
 
         cfgfile = 'configure.wrf'
 
