@@ -34,6 +34,7 @@ import os
 import re
 import stat
 import tempfile
+import json
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -41,6 +42,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
@@ -48,6 +50,7 @@ from easybuild.tools.filetools import is_readable, read_file, which, write_file,
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
+from easybuild.tools.py2vs3 import subprocess_popen_text
 
 
 # Wrapper for Intel(MPI) compilers, where required environment variables
@@ -71,6 +74,128 @@ export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' '
 
 %(compiler_path)s "$@"
 """
+
+
+def split_tf_libs_txt(valid_libs_txt):
+    """Split the VALID_LIBS entry from the TF file into single names"""
+    entries = valid_libs_txt.split(',')
+    # Remove double quotes and whitespace
+    result = [entry.strip().strip('"') for entry in entries]
+    # Remove potentially trailing empty element due to trailing comma in the txt
+    if not result[-1]:
+        result.pop()
+    return result
+
+
+def get_system_libs_from_tf(source_dir):
+    """Return the valid values for TF_SYSTEM_LIBS from the TensorFlow source directory"""
+    syslibs_path = os.path.join(source_dir, 'third_party', 'systemlibs', 'syslibs_configure.bzl')
+    result = []
+    if os.path.exists(syslibs_path):
+        txt = read_file(syslibs_path)
+        m = re.search(r'VALID_LIBS = \[(.*?)\]', txt, re.DOTALL)
+        if not m:
+            raise EasyBuildError('VALID_LIBS definition not found in %s', syslibs_path)
+        result = split_tf_libs_txt(m.group(1))
+    return result
+
+
+def get_system_libs_for_version(tf_version, as_valid_libs=False):
+    """
+    Determine valid values for $TF_SYSTEM_LIBS for the given TF version
+
+    If as_valid_libs=False (default) then returns 2 dictioniaries:
+        1: Mapping of <EB name> to <TF name>
+        2: Mapping of <package name> to <TF name> (for python extensions)
+    else returns a string formated like the VALID_LIBS variable in third_party/systemlibs/syslibs_configure.bzl
+        Those can be used to check/diff against third_party/systemlibs/syslibs_configure.bzl by running:
+            python -c 'from easybuild.easyblocks.tensorflow import get_system_libs_for_version; \
+                        print(get_system_libs_for_version("2.1.0", as_valid_libs=True))'
+    """
+    tf_version = LooseVersion(tf_version)
+
+    def is_version_ok(version_range):
+        """Return True if the TF version to be installed matches the version_range"""
+        min_version, max_version = version_range.split(':')
+        result = True
+        if min_version and tf_version < LooseVersion(min_version):
+            result = False
+        if max_version and tf_version >= LooseVersion(max_version):
+            result = False
+        return result
+
+    # For these lists check third_party/systemlibs/syslibs_configure.bzl --> VALID_LIBS
+    # Also verify third_party/systemlibs/<name>.BUILD or third_party/systemlibs/<name>/BUILD.system
+    # if it does something "strange" (e.g. link hardcoded headers)
+
+    # Software which is added as a dependency in the EC
+    available_system_libs = {
+        # Format: (<EB name>, <version range>): <TF name>
+        #         <version range> is '<min version>:<exclusive max version>'
+        ('cURL', '2.1.0:'): 'curl',
+        ('double-conversion', '2.1.0:'): 'double_conversion',
+        ('flatbuffers', '2.1.0:'): 'flatbuffers',
+        ('giflib', '2.1.0:'): 'gif',
+        ('hwloc', '2.1.0:'): 'hwloc',
+        ('ICU', '2.1.0:'): 'icu',
+        ('JsonCpp', '2.1.0:'): 'jsoncpp_git',
+        ('libjpeg-turbo', '2.1.0:2.2.0'): 'jpeg',
+        ('libjpeg-turbo', '2.2.0:'): 'libjpeg_turbo',
+        ('libpng', '2.1.0:'): 'png',
+        ('LMDB', '2.1.0:'): 'lmdb',
+        ('NASM', '2.1.0:'): 'nasm',
+        ('nsync', '2.1.0:'): 'nsync',
+        ('PCRE', '2.1.0:'): 'pcre',
+        ('protobuf-python', '2.1.0:'): 'com_google_protobuf',
+        ('pybind11', '2.2.0:'): 'pybind11',
+        ('snappy', '2.1.0:'): 'snappy',
+        ('SQLite', '2.1.0:'): 'org_sqlite',
+        ('SWIG', '2.1.0:'): 'swig',
+        ('zlib', '2.1.0:2.2.0'): 'zlib_archive',
+        ('zlib', '2.2.0:'): 'zlib',
+    }
+    # Software recognized by TF but which is always disabled (usually because no EC is known)
+    # Format: <TF name>: <version range>
+    unused_system_libs = {
+        'boringssl': '2.1.0:',
+        'com_github_googleapis_googleapis': '2.1.0:',
+        'com_github_googlecloudplatform_google_cloud_cpp': '2.1.0:',  # Not used due to $TF_NEED_GCP=0
+        'com_github_grpc_grpc': '2.2.0:',
+        'com_googlesource_code_re2': '2.1.0:',
+        'grpc': '2.1.0:2.2.0',
+    }
+    # Python packages installed as extensions or in the Python module
+    # Will be checked for availabilitly
+    # Format: (<package name>, <version range>): <TF name>
+    python_system_libs = {
+        ('absl', '2.1.0:'): 'absl_py',
+        ('astor', '2.1.0:'): 'astor_archive',
+        ('astunparse', '2.2.0:'): 'astunparse_archive',
+        ('cython', '2.1.0:'): 'cython',  # Part of Python EC
+        ('enum', '2.1.0:'): 'enum34_archive',  # Part of Python3
+        ('functools', '2.1.0:'): 'functools32_archive',  # Part of Python3
+        ('gast', '2.1.0:'): 'gast_archive',
+        ('keras_applications', '2.1.0:2.2.0'): 'keras_applications_archive',
+        ('opt_einsum', '2.1.0:'): 'opt_einsum_archive',
+        ('pasta', '2.1.0:'): 'pasta',
+        ('six', '2.1.0:'): 'six_archive',  # Part of Python EC
+        ('termcolor', '2.1.0:'): 'termcolor_archive',
+        ('wrapt', '2.1.0:'): 'wrapt',
+    }
+    dependency_mapping = {dep_name: tf_name for (dep_name, version_range), tf_name in available_system_libs.items()
+                          if is_version_ok(version_range)}
+    python_mapping = {pkg_name: tf_name for (pkg_name, version_range), tf_name in python_system_libs.items()
+                      if is_version_ok(version_range)}
+
+    if as_valid_libs:
+        tf_names = [tf_name for tf_name, version_range in unused_system_libs.items()
+                    if is_version_ok(version_range)]
+        tf_names.extend(dependency_mapping.values())
+        tf_names.extend(python_mapping.values())
+        result = '\n'.join(['    "%s",' % name for name in sorted(tf_names)])
+    else:
+        result = dependency_mapping, python_mapping
+    return result
 
 
 class EB_TensorFlow(PythonPackage):
@@ -153,82 +278,37 @@ class EB_TensorFlow(PythonPackage):
             adjust_permissions(wrapper, stat.S_IXUSR)
             self.log.info("Using wrapper script for '%s': %s", compiler, which(compiler))
 
-    @staticmethod
-    def get_system_libs_for_version(tf_version, as_VALID_LIBS=False):
-        """
-        Return a list of valid values for $TF_SYSTEM_LIBS for the given TF version
-
-        The result is a list of tuples (tf_name, eb_name) where eb_name can be None if no EC exists or True to assume
-        the dependency is always installed (e.g. via pip in the TF EC)
-
-        Note: Can be used to check against third_party/systemlibs/syslibs_configure.bzl by running:
-              from easybuild.easyblocks.tensorflow import EB_TensorFlow
-              print(EB_TensorFlow.get_system_libs_for_version('2.1.0', as_VALID_LIBS=True))
-        """
-        tf_version = LooseVersion(tf_version)
-
-        def is_version_ok(version_requirement):
-            """Return True if the TF version to be installed matches the version_requirement"""
-            min_version = LooseVersion(version_requirement[0])
-            result = False
-            if tf_version >= min_version:
-                # min. version matches, so OK if max version matches or not present
-                if len(version_requirement) == 1 or tf_version < LooseVersion(version_requirement[1]):
-                    result = True
-            return result
-
-        # For this list check third_party/systemlibs/syslibs_configure.bzl --> VALID_LIBS
-        # Also verify third_party/systemlibs/<name>.BUILD if it does something "strange" (e.g. link hardcoded headers)
-        available_system_libs = (
-            # Format: 1. name in TF
-            #         2. dependency name in EB, can use None if unknown or True to assume installed
-            #         3. min. (incl), max. (excl) TF version required
-            ('absl_py', True, ('2.1.0',)),
-            ('astor_archive', True, ('2.1.0',)),
-            ('astunparse_archive', True, ('2.2.0',)),
-            ('boringssl', None, ('2.1.0',)),
-            ('com_github_googleapis_googleapis', None, ('2.1.0',)),
-            ('com_github_googlecloudplatform_google_cloud_cpp', None, ('2.1.0',)),  # Not used due to $TF_NEED_GCP=0
-            ('com_github_grpc_grpc', None, ('2.2.0',)),
-            ('com_google_protobuf', 'protobuf-python', ('2.1.0',)),
-            ('com_googlesource_code_re2', None, ('2.1.0',)),
-            ('curl', 'cURL', ('2.1.0',)),
-            ('cython', 'Python', ('2.1.0',)),
-            ('double_conversion', 'double-conversion', ('2.1.0',)),
-            ('enum34_archive', True, ('2.1.0',)),  # Part of Python3
-            ('flatbuffers', 'flatbuffers', ('2.1.0',)),
-            ('functools32_archive', True, ('2.1.0',)),  # Part of Python3
-            ('gast_archive', True, ('2.1.0',)),
-            ('gif', 'giflib', ('2.1.0',)),
-            ('grpc', None, ('2.1.0', '2.2.0')),
-            ('hwloc', 'hwloc', ('2.1.0',)),
-            ('icu', 'ICU', ('2.1.0',)),
-            ('jpeg', 'libjpeg-turbo', ('2.1.0', '2.2.0')),
-            ('jsoncpp_git', 'JsonCpp', ('2.1.0',)),
-            ('keras_applications_archive', True, ('2.1.0', '2.2.0')),
-            ('libjpeg_turbo', 'libjpeg-turbo', ('2.2.0', )),
-            ('lmdb', 'LMDB', ('2.1.0',)),
-            ('nasm', 'NASM', ('2.1.0',)),
-            ('nsync', 'nsync', ('2.1.0',)),
-            ('opt_einsum_archive', True, ('2.1.0',)),
-            ('org_sqlite', 'SQLite', ('2.1.0',)),
-            ('pasta', True, ('2.1.0',)),
-            ('pcre', 'PCRE', ('2.1.0',)),
-            ('png', 'libpng', ('2.1.0',)),
-            ('pybind11', 'pybind11', ('2.2.0',)),
-            ('six_archive', 'Python', ('2.1.0',)),
-            ('snappy', 'snappy', ('2.1.0',)),
-            ('swig', 'SWIG', ('2.1.0',)),
-            ('termcolor_archive', True, ('2.1.0',)),
-            ('wrapt', True, ('2.1.0',)),
-            ('zlib_archive', 'zlib', ('2.1.0', '2.2.0')),
-            ('zlib', 'zlib', ('2.2.0',)),
-        )
-        result = [(tf_dep_name, dep_name) for tf_dep_name, dep_name, version_requirement in available_system_libs
-                  if is_version_ok(version_requirement)]
-        if as_VALID_LIBS:
-            result = '\n'.join(['    "%s",' % tf_dep_name for tf_dep_name, dep_name in result])
-        return result
+    def verify_system_libs_info(self):
+        """Verifies that the stored info about $TF_SYSTEM_LIBS is complete"""
+        available_libs_src = set(get_system_libs_from_tf(self.start_dir))
+        available_libs_eb = set(split_tf_libs_txt(get_system_libs_for_version(self.version, as_valid_libs=True)))
+        # If available_libs_eb is empty it is not an error e.g. it is not worth trying to make all old ECs work
+        # So we just log it so it can be verified manually if required
+        if not available_libs_eb:
+            self.log.warning('TensorFlow EasyBlock does not have any information for $TF_SYSTEM_LIBS stored. ' +
+                             'This means most dependencies will be downloaded at build time by TensorFlow.\n' +
+                             'Available $TF_SYSTEM_LIBS according to the TensorFlow sources: %s',
+                             sorted(available_libs_src))
+            return
+        # Those 2 sets should be equal. We determine the differences here to report better errors
+        missing_libs = available_libs_src - available_libs_eb
+        unknown_libs = available_libs_eb - available_libs_src
+        if missing_libs or unknown_libs:
+            if not available_libs_src:
+                msg = 'Failed to determine available $TF_SYSTEM_LIBS from the source'
+            else:
+                msg = 'Values for $TF_SYSTEM_LIBS in the TensorFlow EasyBlock are incomplete.\n'
+                if missing_libs:
+                    # Libs available according to TF sources but not listed in this EasyBlock
+                    msg += 'Missing entries for $TF_SYSTEM_LIBS: %s\n' % missing_libs
+                if unknown_libs:
+                    # Libs listed in this EasyBlock but not present in the TF sources -> Removed?
+                    msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % unknown_libs
+                msg += 'The EasyBlock needs to be updated to fully work with TensorFlow version %s' % self.version
+            if build_option('strict') == run.ERROR:
+                raise EasyBuildError(msg)
+            else:
+                print_warning(msg)
 
     def get_system_libs(self):
         """
@@ -236,21 +316,18 @@ class EB_TensorFlow(PythonPackage):
 
         Returns a tuple of lists: $TF_SYSTEM_LIBS names, include paths, library paths
         """
-        available_system_libs = EB_TensorFlow.get_system_libs_for_version(self.version)
-
-        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+        dependency_mapping, python_mapping = get_system_libs_for_version(self.version)
 
         system_libs = []
         cpaths = []
         libpaths = []
         ignored_system_deps = []
-        for tf_dep_name, dep_name in available_system_libs:
-            if dep_name is None:
-                continue
-            if dep_name is True:
-                system_libs.append(tf_dep_name)
-            elif dep_name in dep_names:
-                system_libs.append(tf_dep_name)
+
+        # Check direct dependencies
+        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+        for dep_name, tf_name in sorted(dependency_mapping.items()):
+            if dep_name in dep_names:
+                system_libs.append(tf_name)
                 # For protobuf we need protobuf and protobuf-python where the latter depends on the former
                 # For includes etc. we need to get the values from protobuf
                 if dep_name == 'protobuf-python':
@@ -273,12 +350,32 @@ class EB_TensorFlow(PythonPackage):
                 if libpath:
                     libpaths.append(os.path.join(sw_root, libpath))
             else:
-                ignored_system_deps.append('%s (%s)' % (tf_dep_name, dep_name))
+                ignored_system_deps.append('%s (%s)' % (tf_name, dep_name))
+
+        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
+        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
+                    '--format', 'json']
+        full_cmd = ' '.join(cmd_list)
+        self.log.info("Running command '%s'" % full_cmd)
+        proc = subprocess_popen_text(cmd_list, env=os.environ)
+        (stdout, stderr) = proc.communicate()
+        ec = proc.returncode
+        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
+        if ec:
+            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
+
+        installed_package_names = [pkg['name'] for pkg in json.loads(stdout.strip())]
+
+        for pkg_name, tf_name in sorted(python_mapping.items()):
+            if pkg_name in installed_package_names:
+                system_libs.append(tf_name)
+            else:
+                ignored_system_deps.append('%s (%s)' % (tf_name, dep_name))
 
         if ignored_system_deps:
-            self.log.info('For the following dependencies TensorFlow will download a copy as EB dependency was not' +
-                          'found: \n%s',
-                          ', '.join(ignored_system_deps))
+            self.log.warning('For the following dependencies TensorFlow will download a copy as an EB dependency ' +
+                             'was not found: \n%s',
+                             ', '.join(ignored_system_deps))
 
         return system_libs, cpaths, libpaths
 
@@ -336,6 +433,8 @@ class EB_TensorFlow(PythonPackage):
 
         self.prepare_python()
         self.handle_jemalloc()
+
+        self.verify_system_libs_info()
         self.system_libs_info = self.get_system_libs()
 
         cuda_root = get_software_root('CUDA')
@@ -604,8 +703,10 @@ class EB_TensorFlow(PythonPackage):
 
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
-        cmd.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
-        cmd.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
+        if cpaths:
+            cmd.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
+        if libpaths:
+            cmd.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
         cmd.append('--action_env=PYTHONPATH')
         # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
