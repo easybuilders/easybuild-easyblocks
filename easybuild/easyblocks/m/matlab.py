@@ -170,8 +170,6 @@ class EB_MATLAB(PackedBinary):
             except IOError as err:
                 raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
 
-            self.log.debug('configuration file updated with installation key:\n %s', config)
-
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # check installer output for known signs of trouble
