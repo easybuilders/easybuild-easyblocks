@@ -179,16 +179,16 @@ class EB_NWChem(ConfigureMake):
 
         env.setvar('LARGE_FILES', 'TRUE')
         env.setvar('USE_NOFSCHECK', 'TRUE')
-        env.setvar('CCSDTLR', 'y')  # enable CCSDTLR 
-        env.setvar('CCSDTQ', 'y') # enable CCSDTQ (compilation is long, executable is big)
+        env.setvar('CCSDTLR', 'y')  # enable CCSDTLR
+        env.setvar('CCSDTQ', 'y')  # enable CCSDTQ (compilation is long, executable is big)
 
         if LooseVersion(self.version) >= LooseVersion("6.2"):
-            env.setvar('MRCC_METHODS','y') # enable multireference coupled cluster capability
+            env.setvar('MRCC_METHODS', 'y')  # enable multireference coupled cluster capability
 
         if LooseVersion(self.version) >= LooseVersion("6.5"):
-            env.setvar('EACCSD','y') # enable EOM electron-attachemnt coupled cluster capability
-            env.setvar('IPCCSD','y') # enable EOM ionization-potential coupled cluster capability
-            env.setvar('USE_NOIO', 'TRUE') # avoid doing I/O for the ddscf, mp2 and ccsd modules
+            env.setvar('EACCSD', 'y')  # enable EOM electron-attachemnt coupled cluster capability
+            env.setvar('IPCCSD', 'y')  # enable EOM ionization-potential coupled cluster capability
+            env.setvar('USE_NOIO', 'TRUE')  # avoid doing I/O for the ddscf, mp2 and ccsd modules
 
         for var in ['USE_MPI', 'USE_MPIF', 'USE_MPIF4']:
             env.setvar(var, 'y')
@@ -416,17 +416,26 @@ class EB_NWChem(ConfigureMake):
         # no convergence: diamond.nw
         # Too much memory required: ccsd_polar_big.nw
         if type(self.cfg['tests']) is bool:
-            examples = [('qmd', ['3carbo_dft.nw', '3carbo.nw', 'h2o_scf.nw']),
-                        ('pspw', ['C2.nw', 'C6.nw', 'Carbene.nw', 'Na16.nw', 'NaCl.nw']),
-                        ('tcepolar', ['ccsd_polar_small.nw']),
-                        ('dirdyvtst/h3', ['h3tr1.nw', 'h3tr2.nw']),
-                        ('dirdyvtst/h3', ['h3tr3.nw']), ('dirdyvtst/h3', ['h3tr4.nw']), ('dirdyvtst/h3', ['h3tr5.nw']),
-                        ('dirdyvtst/oh3', ['oh3tr1.nw', 'oh3tr2.nw']),
-                        ('dirdyvtst/oh3', ['oh3tr3.nw']), ('dirdyvtst/oh3', ['oh3tr4.nw']), ('dirdyvtst/oh3', ['oh3tr5.nw']),
-                        ('pspw/session1', ['band.nw', 'si4.linear.nw', 'si4.rhombus.nw', 'S2-drift.nw', 
-                                           'silicon.nw', 'S2.nw', 'si4.rectangle.nw']),
-                        ('md/myo', ['myo.nw']), ('md/nak', ['NaK.nw']), ('md/crown', ['crown.nw']), ('md/hrc', ['hrc.nw']),
-                        ('md/benzene', ['benzene.nw'])]
+            examples = [
+                ('qmd', ['3carbo_dft.nw', '3carbo.nw', 'h2o_scf.nw']),
+                ('pspw', ['C2.nw', 'C6.nw', 'Carbene.nw', 'Na16.nw', 'NaCl.nw']),
+                ('tcepolar', ['ccsd_polar_small.nw']),
+                ('dirdyvtst/h3', ['h3tr1.nw', 'h3tr2.nw']),
+                ('dirdyvtst/h3', ['h3tr3.nw']),
+                ('dirdyvtst/h3', ['h3tr4.nw']),
+                ('dirdyvtst/h3', ['h3tr5.nw']),
+                ('dirdyvtst/oh3', ['oh3tr1.nw', 'oh3tr2.nw']),
+                ('dirdyvtst/oh3', ['oh3tr3.nw']),
+                ('dirdyvtst/oh3', ['oh3tr4.nw']),
+                ('dirdyvtst/oh3', ['oh3tr5.nw']),
+                ('pspw/session1', ['band.nw', 'si4.linear.nw', 'si4.rhombus.nw', 'S2-drift.nw',
+                                   'silicon.nw', 'S2.nw', 'si4.rectangle.nw']),
+                ('md/myo', ['myo.nw']),
+                ('md/nak', ['NaK.nw']),
+                ('md/crown', ['crown.nw']),
+                ('md/hrc', ['hrc.nw']),
+                ('md/benzene', ['benzene.nw'])
+            ]
 
             self.cfg['tests'] = [(os.path.join(self.examples_dir, d), l) for (d, l) in examples]
             self.log.info("List of examples to be run as test cases: %s" % self.cfg['tests'])

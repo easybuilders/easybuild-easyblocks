@@ -117,14 +117,17 @@ class EB_NEURON(ConfigureMake):
             except OSError as err:
                 raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
-
     def sanity_check_step(self):
         """Custom sanity check for NEURON."""
         shlib_ext = get_shared_lib_ext()
         binpath = os.path.join(self.hostcpu, 'bin')
         libpath = os.path.join(self.hostcpu, 'lib', 'lib%s.' + shlib_ext)
-        binaries = ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn", 
+        binaries = ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
                     "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
+        binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc", "oc_makefile",
+                                           "ocmodl"]]
+        libs = ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi", "nrnoc", "nrnpython", "oc",
+                "ocxt", "scopmath", "sparse13", "sundials"]
 
         # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
         # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
@@ -133,11 +136,7 @@ class EB_NEURON(ConfigureMake):
             binaries.append("hoc_ed")
 
         custom_paths = {
-            'files': [os.path.join(binpath, x) for x in binaries] +
-                     [os.path.join(binpath, "nrn%s" % x) for x in ["gui", "iv", "iv_makefile", "ivmodl",
-                                                                   "mech_makefile", "oc", "oc_makefile", "ocmodl"]] +
-                     [libpath % x for x in ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi",
-                                            "nrnoc", "nrnpython", "oc", "ocxt", "scopmath", "sparse13", "sundials"]],
+            'files': [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs],
             'dirs': ['include/nrn', 'share/nrn'],
         }
         super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
@@ -216,7 +215,7 @@ class EB_NEURON(ConfigureMake):
 
         txt = super(EB_NEURON, self).make_module_extra()
 
-        # we need to make sure the correct compiler is set in the environment, 
+        # we need to make sure the correct compiler is set in the environment,
         # since NEURON features compilation at runtime
         for var in ['CC', 'MPICH_CC']:
             val = os.getenv(var)

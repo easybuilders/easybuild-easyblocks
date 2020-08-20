@@ -157,9 +157,9 @@ class EB_NCL(EasyBlock):
 
         opt_deps = ["netCDF-Fortran", "GDAL"]
         libs_map = {
-                    'netCDF-Fortran': '-lnetcdff -lnetcdf',
-                    'GDAL': '-lgdal',
-                   }
+            'netCDF-Fortran': '-lnetcdff -lnetcdf',
+            'GDAL': '-lgdal',
+        }
         for dep in opt_deps:
             root = get_software_root(dep)
             if root:
@@ -179,7 +179,7 @@ class EB_NCL(EasyBlock):
                         "Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root)
                     )
 
-        cfgtxt="""#ifdef FirstSite
+        cfgtxt = """#ifdef FirstSite
 #endif /* FirstSite */
 
 #ifdef SecondSite
@@ -205,10 +205,10 @@ class EB_NCL(EasyBlock):
 
 #endif /* SecondSite */
 """ % {
-       'installdir': self.installdir,
-       'libs': libs,
-       'includes': includes
-      }
+            'installdir': self.installdir,
+            'libs': libs,
+            'includes': includes
+        }
 
         f = open("config/Site.local", "w")
         f.write(cfgtxt)
