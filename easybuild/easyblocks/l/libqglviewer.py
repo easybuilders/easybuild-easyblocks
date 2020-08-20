@@ -55,3 +55,4 @@ class EB_libQGLViewer(ConfigureMake):
                       ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
             'dirs': ['include/QGLViewer'],
         }
+        super(EB_libQGLViewer, self).sanity_check_step(custom_paths=custom_paths)

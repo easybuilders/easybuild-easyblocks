@@ -133,7 +133,9 @@ class EB_imkl(IntelBase):
                 'COMPONENTS': 'ALL',
             }
 
-        super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+        super(EB_imkl, self).install_step(
+            silent_cfg_names_map=silent_cfg_names_map,
+            silent_cfg_extras=silent_cfg_extras)
 
     def make_module_req_guess(self):
         """

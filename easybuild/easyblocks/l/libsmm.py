@@ -103,7 +103,8 @@ transpose_flavor=%(transposeflavour)s
 data_type=%(datatype)s
 
 # target compiler... this are the options used for building the library.
-# They should be aggessive enough to e.g. perform vectorization for the specific CPU (e.g. -ftree-vectorize -march=native),
+# They should be aggessive enough to e.g. perform vectorization for the specific CPU
+# (e.g. -ftree-vectorize -march=native),
 # and allow some flexibility in reordering floating point expressions (-ffast-math).
 # Higher level optimisation (in particular loop nest optimization) should not be used.
 #
@@ -171,7 +172,7 @@ tasks=%(tasks)s
             'targetcompile': targetcompile,
             'hostcompile': hostcompile,
             'dims': ' '.join([str(d) for d in self.cfg['dims']]),
-            'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim']+1)]),
+            'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim'] + 1)]),
             'tasks': self.cfg['parallel'],
             'LIBBLAS': "%s %s" % (os.getenv('LDFLAGS'), os.getenv('LIBBLAS'))
         }
