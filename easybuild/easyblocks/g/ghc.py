@@ -47,4 +47,3 @@ class EB_GHC(ConfigureMake):
             pass
         else:
             super(EB_GHC, self).build_step(verbose=verbose)
-

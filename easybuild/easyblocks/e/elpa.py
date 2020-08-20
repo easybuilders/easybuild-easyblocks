@@ -132,7 +132,7 @@ class EB_ELPA(ConfigureMake):
             # sse kernels require sse4_2
             if flag == 'sse4_2':
                 if getattr(self, flag):
-                    self.cfg.update('configopts','--enable-sse')
+                    self.cfg.update('configopts', '--enable-sse')
                     self.cfg.update('configopts', '--enable-sse-assembly')
                 else:
                     self.cfg.update('configopts', '--disable-sse')

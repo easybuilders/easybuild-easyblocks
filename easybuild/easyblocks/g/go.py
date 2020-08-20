@@ -39,6 +39,7 @@ from easybuild.tools.filetools import remove_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 
+
 class EB_Go(ConfigureMake):
     """
     Build Go compiler
