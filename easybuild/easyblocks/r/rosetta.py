@@ -100,9 +100,9 @@ class EB_Rosetta(EasyBlock):
 
         self.detect_cxx()
         cxx_ver = None
-        if self.toolchain.comp_family() in [toolchain.GCC]:  #@UndefinedVariable
+        if self.toolchain.comp_family() in [toolchain.GCC]:  # @UndefinedVariable
             cxx_ver = '.'.join(get_software_version('GCC').split('.')[:2])
-        elif self.toolchain.comp_family() in [toolchain.INTELCOMP]:  #@UndefinedVariable
+        elif self.toolchain.comp_family() in [toolchain.INTELCOMP]:  # @UndefinedVariable
             cxx_ver = '.'.join(get_icc_version().split('.')[:2])
         else:
             raise EasyBuildError("Don't know how to determine C++ compiler version.")
@@ -278,7 +278,7 @@ class EB_Rosetta(EasyBlock):
         binaries = ["AbinitioRelax", "backrub", "cluster", "combine_silent", "extract_pdbs",
                     "idealize_jd2", "packstat", "relax", "score_jd2", "score"]
         custom_paths = {
-            'files':["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
-            'dirs':[],
+            'files': ["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
+            'dirs': [],
         }
         super(EB_Rosetta, self).sanity_check_step(custom_paths=custom_paths)
