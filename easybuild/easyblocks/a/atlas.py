@@ -147,12 +147,12 @@ class EB_ATLAS(ConfigureMake):
         if exitcode != 0:
             throttling_regexp = re.compile("cpu throttling [a-zA-Z]* enabled", re.IGNORECASE)
             if throttling_regexp.search(out):
-                errormsg = ' '.join([
-                    "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. ",
-                    "You can either disable CPU throttling, or set 'ignorethrottling' to True in the ATLAS .eb spec file.",
-                    "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle .",
-                    "Configure output: %s",
-                ]) % out
+                errormsg = (
+                    "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. "
+                    "You can either disable CPU throttling, or set 'ignorethrottling' to True in the ATLAS .eb file. "
+                    "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle . "
+                    "Configure output: %s"
+                ) % out
             else:
                 errormsg = "configure output: %s\nConfigure failed, not sure why (see output above)." % out
             raise EasyBuildError(errormsg)

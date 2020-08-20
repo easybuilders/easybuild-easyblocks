@@ -32,10 +32,7 @@ EasyBuild support for building and installing Anaconda/Miniconda, implemented as
 import os
 import stat
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, remove_dir
 from easybuild.tools.run import run_cmd
 

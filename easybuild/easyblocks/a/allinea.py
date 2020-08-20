@@ -30,7 +30,6 @@ EasyBuild support for building and installing Allinea tools, implemented as an e
 import os
 import shutil
 import stat
-from os.path import expanduser
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -103,7 +102,7 @@ class EB_Allinea(Binary):
             if path:
                 self.log.debug('system.config file %s found' % path)
             else:
-                raise EasyBuildError('No system.config file named %s found', sysconfig)
+                raise EasyBuildError('No system.config file named %s found', sysconf_path)
 
             copy_file(path, sysconf_path)
             adjust_permissions(sysconf_path, stat.S_IRUSR | stat.S_IRGRP |
