@@ -108,7 +108,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
             self.assertTrue(isinstance(extra_options[key], list))
             self.assertTrue(len(extra_options[key]), 3)
 
-    class_regex = re.compile("^class (.*)\(.*", re.M)
+    class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
     self.log.debug("easyblock: %s" % easyblock)
 
@@ -136,7 +136,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     if re.search('def prepare_step', txt):
         regex = re.compile(r"def prepare_step\(self, \*args, \*\*kwargs\):")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
-    if re.search('\.prepare_step\(', txt):
+    if re.search(r'\.prepare_step\(', txt):
         regex = re.compile(r"\.prepare_step\(.*\*args,.*\*\*kwargs\.*\)")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
 
@@ -208,9 +208,9 @@ def suite():
 
         exec(code, globals())
 
-        innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
-        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
-        setattr(InitTest, innertest.__name__, innertest)
+        innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock  # noqa
+        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))  # noqa
+        setattr(InitTest, innertest.__name__, innertest)  # noqa
 
     return TestLoader().loadTestsFromTestCase(InitTest)
 

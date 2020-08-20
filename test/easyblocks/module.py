@@ -199,7 +199,7 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
 
     tmpdir = tempfile.mkdtemp()
 
-    class_regex = re.compile("^class (.*)\(.*", re.M)
+    class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
     self.log.debug("easyblock: %s" % easyblock)
 
@@ -389,9 +389,9 @@ def suite():
 
         exec(code, globals())
 
-        innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
-        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
-        setattr(ModuleOnlyTest, innertest.__name__, innertest)
+        innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock  # noqa
+        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))  # noqa
+        setattr(ModuleOnlyTest, innertest.__name__, innertest)  # noqa
 
     return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
 
