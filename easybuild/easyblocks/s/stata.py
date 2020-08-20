@@ -46,9 +46,9 @@ class EB_Stata(PackedBinary):
 
         cmd = os.path.join(self.cfg['start_dir'], 'install')
         std_qa = {
-            "Do you wish to continue\?\s*\(y/n or q to quit\)": 'y',
-            "Are you sure you want to install into .*\?\s*\(y/n or q\)": 'y',
-            "Okay to proceed\s*\(y/n or q to quit\)": 'y',
+            r"Do you wish to continue\?\s*\(y/n or q to quit\)": 'y',
+            r"Are you sure you want to install into .*\?\s*\(y/n or q\)": 'y',
+            r"Okay to proceed\s*\(y/n or q to quit\)": 'y',
         }
         no_qa = [
             "About to proceed with installation:",
