@@ -230,14 +230,6 @@ class EB_DOLFIN(CMakePythonPackage):
             ]
             env_var_cmds = ' && '.join(['export %s="%s"' % (var, val) for (var, val) in env_vars])
 
-            # test command templates
-            cmd_template_python = " && ".join([
-                env_var_cmds,
-                "cd %(dir)s",
-                "python demo_%(name)s.py",
-                "cd -",
-            ])
-
             cpp_cmds = [
                 env_var_cmds,
                 "cd %(dir)s",
@@ -269,6 +261,14 @@ class EB_DOLFIN(CMakePythonPackage):
             # exclude Python tests for now, because they 'hang' sometimes (unclear why)
             # they can be reinstated once run_cmd (or its equivalent) has support for timeouts
             # see https://github.com/easybuilders/easybuild-framework/issues/581
+            # test command templates
+            # cmd_template_python = " && ".join([
+            #     env_var_cmds,
+            #     "cd %(dir)s",
+            #     "python demo_%(name)s.py",
+            #     "cd -",
+            # ])
+
             # for (tmpl, subdir) in [(cmd_template_python, 'python'), (cmd_template_cpp, 'cpp')]
 
             # subdomains-poisson has no C++ get_version, only Python
