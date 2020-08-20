@@ -32,10 +32,8 @@ EasyBuild support for Mono, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 from distutils.version import LooseVersion
-import re
 import os
 import shutil
-import sys
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.rpm import Rpm

@@ -55,8 +55,8 @@ class EB_Mesa(MesonNinja):
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
             arch_gallium_drivers = {
-                'x86_64': ['swrast', 'swr'],
-                'POWER': ['swrast'],
+                X86_64: ['swrast', 'swr'],
+                POWER: ['swrast'],
             }
             if arch in arch_gallium_drivers:
                 gallium_drivers = arch_gallium_drivers[arch]

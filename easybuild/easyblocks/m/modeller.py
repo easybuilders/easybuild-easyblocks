@@ -30,7 +30,6 @@ EasyBuild support for installing Modeller, implemented as an easyblock
 import os
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd_qa
 
