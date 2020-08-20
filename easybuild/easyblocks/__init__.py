@@ -79,7 +79,7 @@ else:
     VERBOSE_VERSION = LooseVersion("%s-r%s" % (VERSION, git_rev))
 
 # extend path so python finds our easyblocks in the subdirectories where they are located
-subdirs = [chr(l) for l in range(ord('a'), ord('z') + 1)] + ['0']
+subdirs = [chr(x) for x in range(ord('a'), ord('z') + 1)] + ['0']
 for subdir in subdirs:
     __path__ = extend_path(__path__, '%s.%s' % (__name__, subdir))
 
