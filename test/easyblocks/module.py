@@ -331,6 +331,11 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
 
 def suite():
     """Return all easyblock --module-only tests."""
+    def make_inner_test(easyblock, **kwargs):
+        def innertest(self):
+            template_module_only_test(self, easyblock, kwargs)
+        return innertest
+
     # initialize configuration (required for e.g. default modules_tool setting)
     cleanup()
     eb_go = eboptions.parse_options(args=['--prefix=%s' % TMPDIR])
@@ -368,30 +373,24 @@ def suite():
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            code = "def innertest(self): "
-            code += "template_module_only_test(self, '%s', name='GCC', version='system')" % easyblock
+            innertest = make_inner_test(easyblock, name='GCC', version='system')
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            code = "def innertest(self): "
-            code += "template_module_only_test(self, '%s', name='OpenMPI', version='system')" % easyblock
+            innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
         elif os.path.basename(easyblock) == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
-            code = "def innertest(self): "
-            code += "template_module_only_test(self, '%s', extra_txt='%s')" % (easyblock, extra_txt)
+            innertest = make_inner_test(easyblock, extra_txt=extra_txt)
         elif os.path.basename(easyblock) == 'modulerc.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
-            code = "def innertest(self): "
-            code += "template_module_only_test(self, '%s', version='1.2.3.4', extra_txt='%s')" % (easyblock, extra_txt)
+            innertest = make_inner_test(easyblock, version='1.2.3.4', extra_txt=extra_txt)
         else:
-            code = "def innertest(self): template_module_only_test(self, '%s')" % easyblock
+            innertest = make_inner_test(easyblock)
 
-        exec(code, globals())
-
-        innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock  # noqa
-        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))  # noqa
-        setattr(ModuleOnlyTest, innertest.__name__, innertest)  # noqa
+        innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
+        innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
+        setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
     return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
 
