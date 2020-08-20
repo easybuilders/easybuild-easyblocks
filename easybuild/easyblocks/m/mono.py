@@ -138,8 +138,12 @@ class EB_Mono(ConfigureMake, Rpm):
             if self.cfg['parallel']:
                 par = "-j %s" % self.cfg['parallel']
 
-            config_cmd = "%s ./configure --prefix=%s %s" % (
-                self.cfg['preconfigopts'], tmp_mono_path, self.cfg['configopts'])
+            config_cmd = ' '.join([
+                self.cfg['preconfigopts'],
+                "./configure",
+                "--prefix=" + tmp_mono_path,
+                self.cfg['configopts'],
+            ])
             build_cmd = ' '.join([
                 "%(prebuildopts)s"
                 "make %(par)s",

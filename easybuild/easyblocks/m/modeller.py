@@ -55,8 +55,8 @@ class EB_Modeller(EasyBlock):
 
         # by default modeller tries to install to $HOME/bin/modeller9.13
         # get this path to use it in the question/answer
-        default_install_path = "[%s]:" % os.path.join(
-            os.path.expanduser('~'), 'bin', 'modeller%s' % self.cfg['version'])
+home = os.path.expanduser('~')
+default_install_path = "[%s]:" % os.path.join(home, 'bin', 'modeller%s' % self.cfg['version'])
 
         qa = {
             # installer will autodetect the right arch. [3] = x86_64

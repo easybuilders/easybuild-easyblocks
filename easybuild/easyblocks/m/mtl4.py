@@ -42,8 +42,7 @@ class EB_MTL4(Tarball):
 
         custom_paths = {
             'files': [],
-            'dirs': [os.path.join(incpref, x) for x in ["itl", "linear_algebra",
-                                                        "meta_math", "mtl"]]
+            'dirs': [os.path.join(incpref, x) for x in ["itl", "linear_algebra", "meta_math", "mtl"]],
         }
 
         super(EB_MTL4, self).sanity_check_step(custom_paths=custom_paths)

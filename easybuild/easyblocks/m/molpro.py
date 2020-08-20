@@ -86,8 +86,8 @@ class EB_Molpro(ConfigureMake, Binary):
                 symlink(self.cfg['license_file'], self.license_token)
                 self.log.debug("Symlinked %s to %s", self.cfg['license_file'], self.license_token)
             else:
-                self.log.warning(
-                    "No licence token found at either {0} or via 'license_file'".format(self.license_token))
+                self.log.warning("No licence token found at either %s or via 'license_file'",
+                                 self.license_token)
 
         # Only do the rest of the configuration if we're building from source
         if not self.cfg['precompiled_binaries']:

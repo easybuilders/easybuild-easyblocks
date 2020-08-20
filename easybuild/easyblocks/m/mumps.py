@@ -162,11 +162,11 @@ class EB_MUMPS(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for MUMPS."""
         custom_paths = {
-            'files': ["include/%s%s.h" % (x, y) for x in ["c", "d", "s", "z"]
+            'files': [os.path.join("include", "%s%s.h" % (x, y)) for x in ["c", "d", "s", "z"]
                       for y in ["mumps_c", "mumps_root", "mumps_struc"]] +
-            ["include/mumps_compat.h", "include/mumps_c_types.h"] +
-            ["lib/lib%smumps.a" % x for x in ["c", "d", "s", "z"]] +
-            ["lib/libmumps_common.a", "lib/libpord.a"],
+            [os.path.join("include", "mumps_compat.h"), os.path.join("include", "mumps_c_types.h")] +
+            [os.path.join("lib", "lib%smumps.a" % x) for x in ["c", "d", "s", "z"]] +
+            [os.path.join("lib", "libmumps_common.a"), os.path.join("lib", "libpord.a")],
             'dirs': [],
         }
 
