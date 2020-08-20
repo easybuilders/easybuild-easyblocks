@@ -41,7 +41,7 @@ class EB_Stata(PackedBinary):
 
     def install_step(self):
         """Custom install procedure for Stata."""
-      
+
         change_dir(self.installdir)
 
         cmd = os.path.join(self.cfg['start_dir'], 'install')
