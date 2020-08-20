@@ -270,7 +270,7 @@ class EB_CP2K(EasyBlock):
             if isinstance(self.cfg["modinc"], list):
                 modfiles = [os.path.join(modincdir, x) for x in self.cfg["modinc"]]
 
-            elif isinstance(self.cfg["modinc"], bool) and type(self.cfg["modinc"]):
+            elif isinstance(self.cfg["modinc"], bool) and self.cfg["modinc"]:
                 modfiles = glob.glob(os.path.join(modincdir, '*.f90'))
 
             else:
