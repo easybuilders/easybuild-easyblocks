@@ -61,7 +61,7 @@ class EB_freetype(ConfigureMake):
         guesses = super(EB_freetype, self).make_module_req_guess()
 
         guesses.update({
-                        'CPATH': ['include/freetype%s' % self.maj_ver],
-                       })
+            'CPATH': ['include/freetype%s' % self.maj_ver],
+        })
 
         return guesses

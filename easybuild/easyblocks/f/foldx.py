@@ -58,7 +58,8 @@ class EB_FoldX(Tarball):
                     if item in binaries:
                         shutil.copy2(os.path.join(self.cfg['start_dir'], item), bindir)
                         # make sure binary has executable permissions
-                        adjust_permissions(os.path.join(bindir, item), stat.S_IXUSR|stat.S_IXGRP|stat.S_IXOTH, add=True)
+                        adjust_permissions(os.path.join(bindir, item), stat.S_IXUSR |
+                                           stat.S_IXGRP | stat.S_IXOTH, add=True)
                         self.log.debug("Copied %s to %s and fixed permissions" % (item, bindir))
                     else:
                         # copy everything else straight into install directory
@@ -68,4 +69,3 @@ class EB_FoldX(Tarball):
                     self.log.warning("Skipping non-file %s in %s, not copying it." % (item, self.cfg['start_dir']))
         except OSError as err:
             raise EasyBuildError("Copying binaries in %s to install dir 'bin' failed: %s", self.cfg['start_dir'], err)
-
