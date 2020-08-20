@@ -211,13 +211,13 @@ class EB_PETSc(ConfigureMake):
                     # specified order of libs matters!
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, l, "Include")
-                                       for l in ss_libs]
+                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
+                                       for x in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                        for l in ss_libs]
+                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                        for x in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
@@ -225,8 +225,8 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-umfpack"
                     inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
+                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                    for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
