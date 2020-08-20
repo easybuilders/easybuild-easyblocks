@@ -178,8 +178,8 @@ class EB_binutils(ConfigureMake):
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]
 
-        libs_fn = ['lib%s.%s' % (l, ext) for l in libs for ext in lib_exts]
-        lib_paths = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+        libs_fn = ['lib%s.%s' % (lib, ext) for lib in libs for ext in lib_exts]
+        lib_paths = [(os.path.join('lib', lib_fn), os.path.join('lib64', lib_fn)) for lib_fn in libs_fn]
 
         custom_paths = {
             'files': bin_paths + inc_paths + lib_paths,

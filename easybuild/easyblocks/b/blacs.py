@@ -46,9 +46,9 @@ from easybuild.tools.run import run_cmd
 def det_interface(log, path):
     """Determine interface through 'xintface' heuristic tool"""
 
-    (out, _) = run_cmd(os.path.join(path,"xintface"), log_all=True, simple=False)
+    (out, _) = run_cmd(os.path.join(path, "xintface"), log_all=True, simple=False)
 
-    intregexp = re.compile(".*INTFACE\s*=\s*-D(\S+)\s*")
+    intregexp = re.compile(r".*INTFACE\s*=\s*-D(\S+)\s*")
     res = intregexp.search(out)
     if res:
         return res.group(1)
@@ -84,13 +84,13 @@ class EB_BLACS(ConfigureMake):
         """Build BLACS using build_step, after figuring out the make options based on the heuristic tools available."""
 
         opts = {
-                'mpicc': "%s %s" % (os.getenv('MPICC'), os.getenv('CFLAGS')),
-                'mpif77': "%s %s" % (os.getenv('MPIF77'), os.getenv('FFLAGS')),
-                'f77': os.getenv('F77'),
-                'cc': os.getenv('CC'),
-                'builddir': os.getcwd(),
-                'mpidir': os.path.dirname(os.getenv('MPI_LIB_DIR')),
-               }
+            'mpicc': "%s %s" % (os.getenv('MPICC'), os.getenv('CFLAGS')),
+            'mpif77': "%s %s" % (os.getenv('MPIF77'), os.getenv('FFLAGS')),
+            'f77': os.getenv('F77'),
+            'cc': os.getenv('CC'),
+            'builddir': os.getcwd(),
+            'mpidir': os.path.dirname(os.getenv('MPI_LIB_DIR')),
+        }
 
         # determine interface and transcomm settings
         comm = ''
@@ -129,11 +129,12 @@ class EB_BLACS(ConfigureMake):
                     (_, ec) = run_cmd("%s xtc_UseMpich" % cmd, log_all=False, log_ok=False, simple=False)
                     if ec == 0:
 
-                        (out, _) = run_cmd(self.toolchain.mpi_cmd_for("./EXE/xtc_UseMpich", 2), log_all=True, simple=False)
+                        (out, _) = run_cmd(self.toolchain.mpi_cmd_for("./EXE/xtc_UseMpich", 2),
+                                           log_all=True, simple=False)
 
                         if not notregexp.search(out):
 
-                            commregexp = re.compile('Set TRANSCOMM\s*=\s*(.*)$')
+                            commregexp = re.compile(r'Set TRANSCOMM\s*=\s*(.*)$')
 
                             res = commregexp.search(out)
                             if res:
@@ -151,9 +152,9 @@ class EB_BLACS(ConfigureMake):
             raise EasyBuildError("Failed to determine interface and transcomm settings: %s", err)
 
         opts.update({
-                     'comm': comm,
-                     'int': interface,
-                    })
+            'comm': comm,
+            'int': interface,
+        })
 
         add_makeopts = ' MPICC="%(mpicc)s" MPIF77="%(mpif77)s" %(comm)s ' % opts
         add_makeopts += ' INTERFACE=%(int)s MPIdir=%(mpidir)s BTOPdir=%(builddir)s mpi ' % opts
@@ -167,9 +168,9 @@ class EB_BLACS(ConfigureMake):
 
         # include files and libraries
         for (srcdir, destdir, ext) in [
-                                       (os.path.join("SRC", "MPI"), "include", ".h"),  # include files
-                                       ("LIB", "lib", ".a"),  # libraries
-                                       ]:
+            (os.path.join("SRC", "MPI"), "include", ".h"),  # include files
+            ("LIB", "lib", ".a"),  # libraries
+        ]:
 
             src = os.path.join(self.cfg['start_dir'], srcdir)
             dest = os.path.join(self.installdir, destdir)
@@ -212,11 +213,11 @@ class EB_BLACS(ConfigureMake):
         """Custom sanity check for BLACS."""
 
         custom_paths = {
-                        'files': [fil for filptrn in ["blacs", "blacsCinit", "blacsF77init"]
-                                      for fil in ["lib/lib%s.a" % filptrn,
-                                                  "lib/%s_MPI-LINUX-0.a" % filptrn]] +
-                                 ["bin/xintface"],
-                        'dirs': []
-                       }
+            'files': [fil for filptrn in ["blacs", "blacsCinit", "blacsF77init"]
+                      for fil in ["lib/lib%s.a" % filptrn,
+                                  "lib/%s_MPI-LINUX-0.a" % filptrn]] +
+            ["bin/xintface"],
+            'dirs': []
+        }
 
         super(EB_BLACS, self).sanity_check_step(custom_paths=custom_paths)

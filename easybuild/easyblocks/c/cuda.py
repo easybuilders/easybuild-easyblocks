@@ -1,7 +1,8 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
+# Copyright:: Copyright 2012-2019 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University,
+#             Forschungszentrum Juelich GmbH
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste, Damian Alvarez
 # License::   MIT/GPL
 # $Id$
@@ -21,7 +22,6 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Ward Poelmans (Free University of Brussels)
 """
 import os
-import re
 import stat
 
 from distutils.version import LooseVersion
@@ -30,7 +30,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
-from easybuild.tools.filetools import read_file, remove_file, which, write_file
+from easybuild.tools.filetools import remove_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
@@ -109,10 +109,10 @@ class EB_CUDA(Binary):
                 "([ -e %(installdir)s/include ] || ln -s targets/ppc64le-linux/include %(installdir)s/include)",
                 "cp -r %(builddir)s/builds/cublas/src %(installdir)s/.",
                 install_script
-                ]) % {
-                    'installdir': self.installdir,
-                    'builddir': self.builddir
-                }
+            ]) % {
+                'installdir': self.installdir,
+                'builddir': self.builddir
+            }
 
         # Use C locale to avoid localized questions and crash on CUDA 10.1
         self.cfg.update('preinstallopts', "export LANG=C && ")
