@@ -219,7 +219,7 @@ class EB_Clang(CMakeMake):
         # If that doesn't work, try with GCC
         if gcc_prefix is None:
             gcc_prefix = get_software_root('GCC')
-        
+
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")

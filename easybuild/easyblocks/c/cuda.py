@@ -109,10 +109,10 @@ class EB_CUDA(Binary):
                 "([ -e %(installdir)s/include ] || ln -s targets/ppc64le-linux/include %(installdir)s/include)",
                 "cp -r %(builddir)s/builds/cublas/src %(installdir)s/.",
                 install_script
-                ]) % {
-                    'installdir': self.installdir,
-                    'builddir': self.builddir
-                }
+            ]) % {
+                'installdir': self.installdir,
+                'builddir': self.builddir
+            }
 
         # Use C locale to avoid localized questions and crash on CUDA 10.1
         self.cfg.update('preinstallopts', "export LANG=C && ")

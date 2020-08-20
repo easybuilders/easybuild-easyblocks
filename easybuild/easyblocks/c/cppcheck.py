@@ -38,7 +38,7 @@ class EB_cppcheck(ConfigureMake):
     """
     EasyBlock to install cppcheck
     """
-    
+
     @staticmethod
     def extra_options(extra_vars=None):
         """
@@ -62,7 +62,7 @@ class EB_cppcheck(ConfigureMake):
 
             if self.cfg['have_rules']:
                 cmd = ' '.join([cmd, 'HAVE_RULES=yes'])
-            
+
             gui_dir = os.path.join(self.cfg['start_dir'], 'gui')
 
             try:
@@ -80,12 +80,12 @@ class EB_cppcheck(ConfigureMake):
         Compile cppcheck with make and cppcheck-gui with qmake and make 
         """
         self.cfg.update('buildopts', 'CFGDIR=%(installdir)s/cfg')
-        
+
         if self.cfg['have_rules']:
             self.cfg.update('buildopts', 'HAVE_RULES=yes')
 
         super(EB_cppcheck, self).build_step(verbose=verbose)
-        
+
         if self.cfg['build_gui']:
             super(EB_cppcheck, self).build_step(verbose=verbose, path='gui')
 
@@ -94,9 +94,9 @@ class EB_cppcheck(ConfigureMake):
         Install cppcheck with make install and cppcheck-gui copying the file
         """
         self.cfg.update('installopts', 'DESTDIR=%(installdir)s/ PREFIX="" CFGDIR=cfg')
-        
+
         super(EB_cppcheck, self).install_step()
-       
+
         # The GUI doesn't have make install, so we copy it manually
         if self.cfg['build_gui']:
             filepath = os.path.join(self.cfg['start_dir'], 'gui/', 'cppcheck-gui')
@@ -112,7 +112,7 @@ class EB_cppcheck(ConfigureMake):
                     shutil.copy2(filepath, target_dest)
                 else:
                     raise EasyBuildError("Can't copy non-existing file %s to %s", filepath, target_dest)
-                
+
                 # Create cfg symlink. It shouldn't be necessary, but cppcheck-gui complains otherwise
                 # unless called with --data-dir
                 src = os.path.join(self.installdir, 'cfg')
