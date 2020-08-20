@@ -41,7 +41,7 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
     Some packages use cmake to first build and install C Python packages
     and then put the Python package in lib/pythonX.Y/site-packages.
 
-    We install this in a seperate location and generate a module file 
+    We install this in a seperate location and generate a module file
     which sets the PYTHONPATH.
 
     We use the default CMake implementation, and use make_module_extra from PythonPackage.
