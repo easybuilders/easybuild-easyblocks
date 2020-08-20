@@ -181,7 +181,7 @@ class EB_NAMD(MakeCp):
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:
-                test_ok_regex = re.compile("(^Program finished.$|End of program\s*$)", re.M)
+                test_ok_regex = re.compile(r"(^Program finished.$|End of program\s*$)", re.M)
                 if test_ok_regex.search(out):
                     self.log.debug("Test '%s' ran fine." % cmd)
                 else:
@@ -195,7 +195,7 @@ class EB_NAMD(MakeCp):
         srcdir = os.path.join(self.cfg['start_dir'], self.namd_arch)
         try:
             # copy all files, except for .rootdir (required to avoid cyclic copying)
-            for item in [x for x in os.listdir(srcdir) if not x in ['.rootdir']]:
+            for item in [x for x in os.listdir(srcdir) if x not in ['.rootdir']]:
                 fullsrc = os.path.join(srcdir, item)
                 if os.path.isdir(fullsrc):
                     shutil.copytree(fullsrc, os.path.join(self.installdir, item), symlinks=False)

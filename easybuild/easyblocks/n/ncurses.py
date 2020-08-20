@@ -36,10 +36,10 @@ class EB_ncurses(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ncurses."""
 
-        binaries = ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config","reset", "tabs", "tic", "toe",
+        binaries = ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config", "reset", "tabs", "tic", "toe",
                     "tput", "tset"]
         libs = ['lib%s.a' % x for x in ["form", "form", "menu", "menu_g", "ncurses", "ncurses++", "ncurses_g",
-                                        "panel", "panel_g"]
+                                        "panel", "panel_g"]]
         custom_paths = {
             'files': [os.path.join('bin', x) for x in binaries] + [os.path.join('lib', x) for x in libs],
             'dirs': ['include']
@@ -48,7 +48,7 @@ class EB_ncurses(ConfigureMake):
         super(EB_ncurses, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
-        """  
+        """
         Set correct CPLUS path.
         """
         guesses = super(EB_ncurses, self).make_module_req_guess()

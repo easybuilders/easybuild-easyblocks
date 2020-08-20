@@ -313,7 +313,7 @@ class EB_NWChem(ConfigureMake):
         # run getmem.nwchem script to assess memory availability and make an educated guess
         # this is an alternative to specifying -DDFLT_TOT_MEM via LIB_DEFINES
         # this recompiles the appropriate files and relinks
-        if not 'DDFLT_TOT_MEM' in self.cfg['lib_defines']:
+        if 'DDFLT_TOT_MEM' not in self.cfg['lib_defines']:
             change_dir(os.path.join(self.cfg['start_dir'], 'contrib'))
             run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
             change_dir(self.cfg['start_dir'])
@@ -412,10 +412,11 @@ class EB_NWChem(ConfigureMake):
         # order and grouping is important for some of these tests (e.g., [o]h3tr*
         # Some of the examples are deleted
         # missing md parameter files: dna.nw, mache.nw, 18c6NaK.nw, membrane.nw, sdm.nw
-        # method not implemented (unknown thory) or keyword not found: triplet.nw, C2H6.nw, pspw_MgO.nw, ccsdt_polar_small.nw, CG.nw
+        # method not implemented (unknown thory) or keyword not found: triplet.nw, C2H6.nw, pspw_MgO.nw
+        #                                                              ccsdt_polar_small.nw, CG.nw
         # no convergence: diamond.nw
         # Too much memory required: ccsd_polar_big.nw
-        if type(self.cfg['tests']) is bool:
+        if isinstance(self.cfg['tests'], bool):
             examples = [
                 ('qmd', ['3carbo_dft.nw', '3carbo.nw', 'h2o_scf.nw']),
                 ('pspw', ['C2.nw', 'C6.nw', 'Carbene.nw', 'Na16.nw', 'NaCl.nw']),
@@ -466,7 +467,7 @@ class EB_NWChem(ConfigureMake):
             fail = 0.0
             tot = 0.0
 
-            success_regexp = re.compile("Total times\s*cpu:.*wall:.*")
+            success_regexp = re.compile(r"Total times\s*cpu:.*wall:.*")
 
             test_cases_logfn = os.path.join(self.installdir, config.log_path(), 'test_cases.log')
             test_cases_log = open(test_cases_logfn, "w")
