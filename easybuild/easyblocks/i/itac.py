@@ -69,8 +69,7 @@ class EB_itac(IntelBase):
             if LooseVersion(self.version) >= LooseVersion('9.0'):
                 super(EB_itac, self).move_after_install()
         else:
-            silent = \
-                """
+            silent = """
 [itac]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s
