@@ -98,7 +98,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         if build_type_option is None:
             raise EasyBuildError("Don't know which WPS configure option to select for compiler family %s", comp_fam)
 
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, self.cfg['buildtype'])
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, self.cfg['buildtype'])
         qa = {
             "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": '1',
         }
@@ -154,7 +154,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         if wps_build_type is None:
             raise EasyBuildError("Don't know which WPS build type to pick for '%s'", self.cfg['builddtype'])
 
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s.*%s(?!NO GRIB2)" % (build_type_option, wps_build_type)
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s.*%s(?!NO GRIB2)" % (build_type_option, wps_build_type)
         std_qa = {
             # named group in match will be used to construct answer
             r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: '%(nr)s',

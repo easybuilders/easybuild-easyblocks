@@ -160,7 +160,7 @@ class EB_WIEN2k(EasyBlock):
                         else:
                             line = regexp.sub('\\1:%s:%s' % (key, val), line)
             # avoid exit code > 0 at end of configuration
-            line = re.sub('(\s+)exit 1', '\\1exit 0', line)
+            line = re.sub(r'(\s+)exit 1', '\\1exit 0', line)
             sys.stdout.write(line)
 
         # set correct compilers
@@ -409,7 +409,7 @@ class EB_WIEN2k(EasyBlock):
             cmd = "x_lapw lapw1 %s" % cmd_arg
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
-            re_success = re.compile("LAPW1\s+END")
+            re_success = re.compile(r"LAPW1\s+END")
             if not re_success.search(out):
                 raise EasyBuildError("Test '%s' in %s failed (pattern '%s' not found)?",
                                      cmd, os.getcwd(), re_success.pattern)

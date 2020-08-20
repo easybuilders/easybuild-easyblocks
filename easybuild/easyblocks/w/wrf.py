@@ -143,13 +143,13 @@ class EB_WRF(EasyBlock):
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = "INTEL\ \(ifort\/icc\)"
+                build_type_option = r"INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
         elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = "GNU\ \(gfortran\/gcc\)"
+                build_type_option = r"GNU\ \(gfortran\/gcc\)"
             else:
                 build_type_option = "x86_64 Linux, gfortran compiler with gcc"
 
@@ -172,7 +172,7 @@ class EB_WRF(EasyBlock):
             # the two relevant lines in the configure output for WRF 3.8 are:
             #  13. (serial)  14. (smpar)  15. (dmpar)  16. (dm+sm)   INTEL (ifort/icc)
             #  32. (serial)  33. (smpar)  34. (dmpar)  35. (dm+sm)   GNU (gfortran/gcc)
-            build_type_question = "\s*(?P<nr>[0-9]+)\.\ \(%s\).*%s" % (bt, build_type_option)
+            build_type_question = r"\s*(?P<nr>[0-9]+)\.\ \(%s\).*%s" % (bt, build_type_option)
         else:
             # the relevant lines in the configure output for WRF 3.6 are:
             #  13.  Linux x86_64 i486 i586 i686, ifort compiler with icc  (serial)
@@ -183,7 +183,7 @@ class EB_WRF(EasyBlock):
             #  33.  x86_64 Linux, gfortran compiler with gcc   (smpar)
             #  34.  x86_64 Linux, gfortran compiler with gcc   (dmpar)
             #  35.  x86_64 Linux, gfortran compiler with gcc   (dm+sm)
-            build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
+            build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
 
         # run configure script
         cmd = "./configure"
