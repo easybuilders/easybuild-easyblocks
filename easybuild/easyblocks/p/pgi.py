@@ -82,7 +82,7 @@ class EB_PGI(PackedBinary):
     def extra_options():
         extra_vars = {
             'install_amd': [True, "Install AMD software components", CUSTOM],
-            'install_java': [True, "Install Java JRE for graphical debugger",  CUSTOM],
+            'install_java': [True, "Install Java JRE for graphical debugger", CUSTOM],
             'install_managed': [True, "Install OpenACC Unified Memory Evaluation package", CUSTOM],
             'install_nvidia': [True, "Install CUDA Toolkit Components", CUSTOM],
         }

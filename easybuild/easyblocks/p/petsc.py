@@ -193,7 +193,7 @@ class EB_PETSc(ConfigureMake):
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
-                if type(dep) == str:
+                if isinstance(dep, str):
                     dep = (dep, dep)
                 deproot = get_software_root(dep[0])
                 if deproot:
@@ -249,7 +249,7 @@ class EB_PETSc(ConfigureMake):
 
             if self.cfg['sourceinstall']:
                 # figure out PETSC_ARCH setting
-                petsc_arch_regex = re.compile("^\s*PETSC_ARCH:\s*(\S+)$", re.M)
+                petsc_arch_regex = re.compile(r"^\s*PETSC_ARCH:\s*(\S+)$", re.M)
                 res = petsc_arch_regex.search(out)
                 if res:
                     self.petsc_arch = res.group(1)
