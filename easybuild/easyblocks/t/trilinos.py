@@ -81,7 +81,8 @@ class EB_Trilinos(CMakeMake):
         cxxflags = [os.getenv('CXXFLAGS')]
         fflags = [os.getenv('FFLAGS')]
 
-        ignore_cxx_seek_mpis = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  #@UndefinedVariable
+        ignore_cxx_seek_mpis = [toolchain.INTELMPI, toolchain.MPICH,
+                                toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
         ignore_cxx_seek_flag = "-DMPICH_IGNORE_CXX_SEEK"
         if self.toolchain.mpi_family() in ignore_cxx_seek_mpis:
             cflags.append(ignore_cxx_seek_flag)
@@ -115,7 +116,7 @@ class EB_Trilinos(CMakeMake):
         for dep in ["BLAS", "LAPACK"]:
             self.cfg.update('configopts', '-DTPL_ENABLE_%s:BOOL=ON' % dep)
             libdirs = os.getenv('%s_LIB_DIR' % dep)
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 libdirs += ";%s/lib64" % get_software_root('GCC')
             self.cfg.update('configopts', '-D%s_LIBRARY_DIRS="%s"' % (dep, libdirs))
             if self.cfg['openmp']:
@@ -123,7 +124,7 @@ class EB_Trilinos(CMakeMake):
             else:
                 libs = os.getenv('%s_STATIC_LIBS' % dep).split(',')
             lib_names = ';'.join([lib_re.search(l).group(1) for l in libs])
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 # explicitely specify static lib!
                 lib_names += ";libgfortran.a"
             self.cfg.update('configopts', '-D%s_LIBRARY_NAMES="%s"' % (dep, lib_names))
@@ -178,7 +179,7 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', "-DTPL_ENABLE_SCALAPACK:BOOL=ON")
             self.cfg.update('configopts', '-DSCALAPACK_INCLUDE_DIRS:PATH="%s"' % os.getenv('SCALAPACK_INC_DIR'))
             self.cfg.update('configopts', '-DSCALAPACK_LIBRARY_DIRS:PATH="%s;%s"' % (os.getenv('SCALAPACK_LIB_DIR'),
-                                                                                    os.getenv('BLACS_LIB_DIR')))
+                                                                                     os.getenv('BLACS_LIB_DIR')))
         # PETSc
         petsc = get_software_root('PETSc')
         if petsc:
@@ -186,14 +187,14 @@ class EB_Trilinos(CMakeMake):
             incdirs = [os.path.join(petsc, "include")]
             self.cfg.update('configopts', '-DPETSC_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
             petsc_libdirs = [
-                             os.path.join(petsc, "lib"),
-                             os.path.join(suitesparse, "UMFPACK", "Lib"),
-                             os.path.join(suitesparse, "CHOLMOD", "Lib"),
-                             os.path.join(suitesparse, "COLAMD", "Lib"),
-                             os.path.join(suitesparse, "AMD", "Lib"),
-                             os.getenv('FFTW_LIB_DIR'),
-                             os.path.join(get_software_root('ParMETIS'), "Lib")
-                             ]
+                os.path.join(petsc, "lib"),
+                os.path.join(suitesparse, "UMFPACK", "Lib"),
+                os.path.join(suitesparse, "CHOLMOD", "Lib"),
+                os.path.join(suitesparse, "COLAMD", "Lib"),
+                os.path.join(suitesparse, "AMD", "Lib"),
+                os.getenv('FFTW_LIB_DIR'),
+                os.path.join(get_software_root('ParMETIS'), "Lib")
+            ]
             self.cfg.update('configopts', '-DPETSC_LIBRARY_DIRS:PATH="%s"' % ';'.join(petsc_libdirs))
             petsc_libnames = ["petsc", "umfpack", "cholmod", "colamd", "amd", "parmetis", "metis"]
             petsc_libnames += [lib_re.search(x).group(1) for x in os.getenv('FFTW_STATIC_LIBS').split(',')]
@@ -207,8 +208,8 @@ class EB_Trilinos(CMakeMake):
             deproot = get_software_root(dep)
             if deproot:
                 depmap = {
-                          'SCOTCH': 'Scotch',
-                          }
+                    'SCOTCH': 'Scotch',
+                }
                 dep = depmap.get(dep, dep)
                 self.cfg.update('configopts', "-DTPL_ENABLE_%s:BOOL=ON" % dep)
                 incdir = os.path.join(deproot, "include")
@@ -270,7 +271,7 @@ class EB_Trilinos(CMakeMake):
         libs = [l for l in libs if not l in self.cfg['skip_exts']]
 
         # Teuchos was refactored in 11.2
-        if LooseVersion(self.version) >= LooseVersion('11.2') and  'Teuchos' in libs:
+        if LooseVersion(self.version) >= LooseVersion('11.2') and 'Teuchos' in libs:
             libs.remove('Teuchos')
             libs.extend(['teuchoscomm', 'teuchoscore', 'teuchosnumerics', 'teuchosparameterlist', 'teuchosremainder'])
 
