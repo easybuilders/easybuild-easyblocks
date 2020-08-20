@@ -294,12 +294,13 @@ class EB_Geant4(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to create data destination dir %s: %s", self.datadst, err)
 
-            datalist = ['G4ABLA%s' % self.cfg['G4ABLAVersion'],
-                        'G4EMLOW%s' % self.cfg['G4EMLOWVersion'],
-                        'G4NDL%s' % self.cfg['G4NDLVersion'],
-                        'PhotonEvaporation%s' % self.cfg['PhotonEvaporationVersion'],
-                        'RadioactiveDecay%s' % self.cfg['G4RadioactiveDecayVersion'],
-                        ]
+            datalist = [
+                'G4ABLA%s' % self.cfg['G4ABLAVersion'],
+                'G4EMLOW%s' % self.cfg['G4EMLOWVersion'],
+                'G4NDL%s' % self.cfg['G4NDLVersion'],
+                'PhotonEvaporation%s' % self.cfg['PhotonEvaporationVersion'],
+                'RadioactiveDecay%s' % self.cfg['G4RadioactiveDecayVersion'],
+            ]
             try:
                 for dat in datalist:
                     self.log.info("Copying %s to %s" % (dat, self.datadst))
