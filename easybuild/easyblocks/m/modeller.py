@@ -55,13 +55,12 @@ class EB_Modeller(EasyBlock):
 
         # by default modeller tries to install to $HOME/bin/modeller9.13
         # get this path to use it in the question/answer
-home = os.path.expanduser('~')
-default_install_path = "[%s]:" % os.path.join(home, 'bin', 'modeller%s' % self.cfg['version'])
+        default_install_path = os.path.join(os.path.expanduser('~'), 'bin', 'modeller%s' % self.cfg['version'])
 
         qa = {
             # installer will autodetect the right arch. [3] = x86_64
             'Select the type of your computer from the list above [3]:': '',
-            default_install_path: self.installdir,
+            "[%s]:" % default_install_path: self.installdir,
             'http://salilab.org/modeller/registration.html:': self.cfg["key"],
             'https://salilab.org/modeller/registration.html:': self.cfg["key"],
             'Press <Enter> to begin the installation:': '',
