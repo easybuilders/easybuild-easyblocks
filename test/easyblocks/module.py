@@ -333,7 +333,7 @@ def suite():
     """Return all easyblock --module-only tests."""
     def make_inner_test(easyblock, **kwargs):
         def innertest(self):
-            template_module_only_test(self, easyblock, kwargs)
+            template_module_only_test(self, easyblock, **kwargs)
         return innertest
 
     # initialize configuration (required for e.g. default modules_tool setting)
