@@ -129,7 +129,8 @@ class EB_BLACS(ConfigureMake):
                     (_, ec) = run_cmd("%s xtc_UseMpich" % cmd, log_all=False, log_ok=False, simple=False)
                     if ec == 0:
 
-                        (out, _) = run_cmd(self.toolchain.mpi_cmd_for("./EXE/xtc_UseMpich", 2), log_all=True, simple=False)
+                        (out, _) = run_cmd(self.toolchain.mpi_cmd_for("./EXE/xtc_UseMpich", 2),
+                                           log_all=True, simple=False)
 
                         if not notregexp.search(out):
 

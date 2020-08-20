@@ -16,7 +16,6 @@ EasyBuild support for Chapel, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
