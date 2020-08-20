@@ -45,7 +45,7 @@ class EB_WRF_minus_Fire(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for WRF-Fire."""
         extra_vars = {
-            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), " \
+            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), "
                                 "dmpar (MPI), dm+sm (hybrid OpenMP/MPI)).", MANDATORY],
             'runtest': [True, "Build and run WRF tests", CUSTOM],
         }
@@ -210,7 +210,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         """Custom sanity check for WRF-Fire."""
         custom_paths = {
             'files': [os.path.join('WRFV3', 'main', f) for f in ['ideal.exe', 'libwrflib.a', 'wrf.exe']] +
-                     [os.path.join('WPS', f) for f in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
+            [os.path.join('WPS', f) for f in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
             'dirs': [os.path.join('WRFV3', d) for d in ['main', 'run']],
         }
         super(EB_WRF_minus_Fire, self).sanity_check_step(custom_paths=custom_paths)
