@@ -106,7 +106,8 @@ class EB_Allinea(Binary):
                 raise EasyBuildError('No system.config file named %s found', sysconfig)
 
             copy_file(path, sysconf_path)
-            adjust_permissions(sysconf_path, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH, recursive=False, relative=False)
+            adjust_permissions(sysconf_path, stat.S_IRUSR | stat.S_IRGRP |
+                               stat.S_IROTH, recursive=False, relative=False)
 
     def sanity_check_step(self):
         """Custom sanity check for Allinea."""

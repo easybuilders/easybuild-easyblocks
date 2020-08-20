@@ -127,8 +127,8 @@ class EB_ALADIN(EasyBlock):
             os.chdir(os.path.join(self.builddir, gmkpack_dir))
 
             qa = {
-                  'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n',
-                 }
+                'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n',
+            }
 
             run_cmd_qa("./build_gmkpack", qa)
 
@@ -325,11 +325,11 @@ class EB_ALADIN(EasyBlock):
         libdir = os.path.join(self.rootpack_dir, 'lib')
         custom_paths = {
             'files': [os.path.join(bindir, x) for x in ['MASTER']] +
-                     [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
-                                                                          'bla', 'mpa', 'mse', 'obt',
-                                                                          'odb', 'sat', 'scr', 'sct',
-                                                                          'sur', 'surfex', 'tal', 'tfl',
-                                                                          'uti', 'xla', 'xrd']],
+            [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
+                                                                 'bla', 'mpa', 'mse', 'obt',
+                                                                 'odb', 'sat', 'scr', 'sct',
+                                                                 'sur', 'surfex', 'tal', 'tfl',
+                                                                 'uti', 'xla', 'xrd']],
             'dirs': [],
         }
         super(EB_ALADIN, self).sanity_check_step(custom_paths=custom_paths)
