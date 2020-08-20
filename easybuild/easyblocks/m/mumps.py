@@ -73,8 +73,8 @@ class EB_MUMPS(ConfigureMake):
 
             optf = "-DALLOW_NON_INIT"
         else:
-            raise EasyBuildError(
-                "Unknown compiler family, don't know to prepare for building with specified toolchain.")
+            raise EasyBuildError("Unknown compiler family, "
+                                 "don't know how to prepare for building with specified toolchain.")
 
         # copy selected Makefile.inc template
         try:
