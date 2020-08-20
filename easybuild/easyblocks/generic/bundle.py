@@ -198,7 +198,8 @@ class Bundle(EasyBlock):
         comp_cnt = len(self.cfg['components'])
         for idx, cfg in enumerate(self.comp_cfgs):
 
-            print_msg("installing bundle component %s v%s (%d/%d)..." % (cfg['name'], cfg['version'], idx+1, comp_cnt))
+            print_msg("installing bundle component %s v%s (%d/%d)..." %
+                      (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
 
             comp = cfg.easyblock(cfg)

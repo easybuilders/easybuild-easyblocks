@@ -34,6 +34,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 
+
 class EB_Advisor(IntelBase):
     """
     Support for installing Intel Advisor XE

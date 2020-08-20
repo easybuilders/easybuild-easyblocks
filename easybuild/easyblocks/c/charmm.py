@@ -76,7 +76,8 @@ class EB_CHARMM(EasyBlock):
     def build_step(self, verbose=False):
         """Start the actual build"""
         if self.cfg['system_size'] not in KNOWN_SYSTEM_SIZES:
-            raise EasyBuildError("Unknown system size '%s' specified, known: %s", self.cfg['system_size'], KNOWN_SYSTEM_SIZES)
+            raise EasyBuildError("Unknown system size '%s' specified, known: %s",
+                                 self.cfg['system_size'], KNOWN_SYSTEM_SIZES)
 
         self.log.info("Building for size: %s" % self.cfg['system_size'])
         self.log.info("Build options from the easyconfig: %s" % self.cfg['build_options'])

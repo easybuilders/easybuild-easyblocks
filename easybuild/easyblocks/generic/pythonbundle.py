@@ -141,7 +141,10 @@ class PythonBundle(Bundle):
             if self.current_step == 'extensions':
                 new_pylibdirs = self.all_pylibdirs
             else:
-                new_pylibdirs = [l for l in self.all_pylibdirs if os.path.exists(os.path.join(self.installdir, l))]
+                new_pylibdirs = [
+                    lib_dir for lib_dir in self.all_pylibdirs
+                    if os.path.exists(os.path.join(self.installdir, lib_dir))
+                ]
 
             for pylibdir in new_pylibdirs:
                 txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
