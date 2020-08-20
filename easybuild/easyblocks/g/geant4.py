@@ -245,9 +245,8 @@ class EB_Geant4(CMakeMake):
             self.scriptdir = os.path.join(scriptdirbase, self.g4system)
             if not os.path.isdir(self.scriptdir):
                 raise EasyBuildError("Something went wrong. Dir: %s doesn't exist.", self.scriptdir)
-            self.log.info(
-                "The directory containing several important scripts to be copied was found: %s" %
-                self.scriptdir)
+            self.log.info("The directory containing several important scripts to be copied was found: %s",
+                          self.scriptdir)
 
             # copying config.sh to pwd
             self.log.info("copying config.sh to %s", pwd)

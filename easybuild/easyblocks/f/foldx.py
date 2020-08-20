@@ -58,8 +58,8 @@ class EB_FoldX(Tarball):
                     if item in binaries:
                         shutil.copy2(os.path.join(self.cfg['start_dir'], item), bindir)
                         # make sure binary has executable permissions
-                        adjust_permissions(os.path.join(bindir, item), stat.S_IXUSR |
-                                           stat.S_IXGRP | stat.S_IXOTH, add=True)
+                        perms = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+                        adjust_permissions(os.path.join(bindir, item), perms, add=True)
                         self.log.debug("Copied %s to %s and fixed permissions" % (item, bindir))
                     else:
                         # copy everything else straight into install directory
