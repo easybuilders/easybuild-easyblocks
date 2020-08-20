@@ -92,6 +92,6 @@ class EB_TotalView(PackedBinary):
     def make_module_extra(self):
         """Add extra environment variables for license file and anything else."""
         txt = super(EB_TotalView, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var,
-                                                   [self.license_file], allow_abs=True, expand_relpaths=False)
+        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                   allow_abs=True, expand_relpaths=False)
         return txt
