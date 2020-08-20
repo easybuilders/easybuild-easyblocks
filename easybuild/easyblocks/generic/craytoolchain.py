@@ -41,6 +41,7 @@ class CrayToolchain(Bundle):
     """
     Compiler toolchain: generate module file only, nothing to build/install
     """
+
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment (skip loaded of dependencies)."""
 

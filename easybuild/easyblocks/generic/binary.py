@@ -45,6 +45,7 @@ from easybuild.tools.run import run_cmd
 
 PREPEND_TO_PATH_DEFAULT = ['']
 
+
 class Binary(EasyBlock):
     """
     Support for installing software that comes in binary form.
