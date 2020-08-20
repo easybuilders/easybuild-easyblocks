@@ -88,7 +88,7 @@ class EB_QScintilla(ConfigureMake):
         """Custom build procedure for QScintilla."""
 
         # make sure that $CXXFLAGS is being passed down
-        self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
+        self.cfg.update('buildopts', r'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
 
         super(EB_QScintilla, self).build_step()
 
