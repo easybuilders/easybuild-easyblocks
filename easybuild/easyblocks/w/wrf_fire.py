@@ -36,6 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_WRF_minus_Fire(EasyBlock):

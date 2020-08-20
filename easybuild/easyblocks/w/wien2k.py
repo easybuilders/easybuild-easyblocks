@@ -241,7 +241,7 @@ class EB_WIEN2k(EasyBlock):
                     libxcquestion4: 'lib'
                 })
             else:
-                qanda.update({libxcquestion: ''})
+                qanda.update({libxcquestion1: ''})
 
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
