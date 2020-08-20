@@ -153,12 +153,12 @@ class EB_imkl(IntelBase):
                 }
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic'];
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
                     elif LooseVersion(self.version) >= LooseVersion('11.1'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic'];
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
                     else:
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic'];
-                return retdict;
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
+                return retdict
         else:
             if self.cfg['m32']:
                 return {
@@ -197,7 +197,7 @@ class EB_imkl(IntelBase):
 
         if self.cfg['m32']:
             extra = {
-                'libmkl.%s' % shlib_ext : 'GROUP (-lmkl_intel -lmkl_intel_thread -lmkl_core)',
+                'libmkl.%s' % shlib_ext: 'GROUP (-lmkl_intel -lmkl_intel_thread -lmkl_core)',
                 'libmkl_em64t.a': 'GROUP (libmkl_intel.a libmkl_intel_thread.a libmkl_core.a)',
                 'libmkl_solver.a': 'GROUP (libmkl_solver.a)',
                 'libmkl_scalapack.a': 'GROUP (libmkl_scalapack_core.a)',

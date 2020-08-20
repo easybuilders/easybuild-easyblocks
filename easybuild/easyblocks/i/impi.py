@@ -207,10 +207,10 @@ EULA=accept
 
         custom_paths = {
             'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
-                    ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
-                    ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
-                    ["%s/libmpi.a" % lib_dir],
+            ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+            ["%s/%s" % (include_dir, x) for x in mpi_mods] +
+            ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+            ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 

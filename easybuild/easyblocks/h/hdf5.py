@@ -52,6 +52,7 @@ Cflags: -I%s
 Libs: -L%s -lhdf5 %s
 """
 
+
 class EB_HDF5(ConfigureMake):
     """Support for building/installing HDF5"""
 
@@ -129,11 +130,11 @@ class EB_HDF5(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': ["bin/h5%s" % x for x in ["2gif", "c++", "copy", "debug", "diff",
-                                               "dump", "import", "jam","ls", "mkgrp",
+                                               "dump", "import", "jam", "ls", "mkgrp",
                                                "perf_serial", "redeploy", "repack",
                                                "repart", "stat", "unjam"]] +
-                     ["bin/gif2h5"] + extra_binaries +
-                     ["lib/libhdf5%s.%s" % (l, shlib_ext) for l in libs],
+            ["bin/gif2h5"] + extra_binaries +
+            ["lib/libhdf5%s.%s" % (l, shlib_ext) for l in libs],
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)

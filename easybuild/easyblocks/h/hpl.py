@@ -131,8 +131,8 @@ class EB_HPL(ConfigureMake):
         """
 
         custom_paths = {
-                        'files': ["bin/xhpl"],
-                        'dirs': []
-                       }
+            'files': ["bin/xhpl"],
+            'dirs': []
+        }
 
         super(EB_HPL, self).sanity_check_step(custom_paths)

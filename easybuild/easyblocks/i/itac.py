@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
+
 class EB_itac(IntelBase):
     """
     Class that can be used to install itac
@@ -69,7 +70,7 @@ class EB_itac(IntelBase):
                 super(EB_itac, self).move_after_install()
         else:
             silent = \
-"""
+                """
 [itac]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s
