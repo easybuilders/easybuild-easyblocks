@@ -50,7 +50,7 @@ def get_icc_version():
     cmd = "icc --version"
     (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
-    ver_re = re.compile("^icc \(ICC\) (?P<version>[0-9.]+) [0-9]+$", re.M)
+    ver_re = re.compile(r"^icc \(ICC\) (?P<version>[0-9.]+) [0-9]+$", re.M)
     version = ver_re.search(out).group('version')
 
     return version
@@ -122,7 +122,7 @@ class EB_icc(IntelBase):
             binfiles += ['idb']
 
         binaries = [os.path.join(binprefix, f) for f in binfiles]
-        libraries = [os.path.join(libprefix, 'lib%s' % l) for l in ['iomp5.a', 'iomp5.%s' % get_shared_lib_ext()]]
+        libraries = [os.path.join(libprefix, 'lib%s' % lib) for lib in ['iomp5.a', 'iomp5.%s' % get_shared_lib_ext()]]
         sanity_check_files = binaries + libraries
         if LooseVersion(self.version) > LooseVersion('2015'):
             sanity_check_files.append('include/omp.h')
