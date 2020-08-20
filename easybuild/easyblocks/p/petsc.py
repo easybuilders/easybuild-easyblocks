@@ -40,6 +40,7 @@ from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.py2vs3 import string_type
 
 NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
@@ -126,7 +127,7 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
-            if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', '--with-gnu-compilers=0')
 
             # MPI
@@ -193,7 +194,7 @@ class EB_PETSc(ConfigureMake):
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
-                if type(dep) == str:
+                if isinstance(dep, string_type):
                     dep = (dep, dep)
                 deproot = get_software_root(dep[0])
                 if deproot:
@@ -211,13 +212,13 @@ class EB_PETSc(ConfigureMake):
                     # specified order of libs matters!
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, l, "Include")
-                                    for l in ss_libs]
+                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
+                                       for x in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ss_libs]
+                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                        for x in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
@@ -225,8 +226,8 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-umfpack"
                     inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
+                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                    for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
@@ -249,7 +250,7 @@ class EB_PETSc(ConfigureMake):
 
             if self.cfg['sourceinstall']:
                 # figure out PETSC_ARCH setting
-                petsc_arch_regex = re.compile("^\s*PETSC_ARCH:\s*(\S+)$", re.M)
+                petsc_arch_regex = re.compile(r"^\s*PETSC_ARCH:\s*(\S+)$", re.M)
                 res = petsc_arch_regex.search(out)
                 if res:
                     self.petsc_arch = res.group(1)

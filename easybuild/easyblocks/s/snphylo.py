@@ -30,7 +30,6 @@ EasyBuild support for SNPyhlo, implemented as an easyblock
 """
 import os
 import re
-import shutil
 import stat
 from distutils.version import LooseVersion
 

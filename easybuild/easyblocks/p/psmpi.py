@@ -73,7 +73,7 @@ class EB_psmpi(EB_MPICH):
             toolchain.GCC: 'gcc',
             toolchain.INTELCOMP: 'intel',
             # TODO: Include PGI as soon as it is available as toolchain
-            #toolchain.PGI: 'pgi',
+            # toolchain.PGI: 'pgi',
         }
 
         # Set confset

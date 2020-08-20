@@ -46,4 +46,3 @@ class EB_PyQuante(PythonPackage):
             self.log.warn("Not building Libint extension")
 
         super(EB_PyQuante, self).configure_step()
-
