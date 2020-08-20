@@ -291,7 +291,7 @@ class EB_ALADIN(EasyBlock):
         [v1, v2] = self.version.split('_')
         (out, _) = run_cmd("source $GMKROOT/util/berootpack && gmkpack -p master -a -r %s -b %s" % (v1, v2), simple=False)
 
-        packdir_regexp = re.compile("Creating main pack (.*) \.\.\.")
+        packdir_regexp = re.compile(r"Creating main pack (.*) \.\.\.")
         res = packdir_regexp.search(out)
         if res:
             self.rootpack_dir = os.path.join('rootpack', res.group(1))
