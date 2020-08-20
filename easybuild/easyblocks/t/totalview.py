@@ -23,7 +23,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 

@@ -123,7 +123,7 @@ class EB_Trilinos(CMakeMake):
                 libs = os.getenv('%s_MT_STATIC_LIBS' % dep).split(',')
             else:
                 libs = os.getenv('%s_STATIC_LIBS' % dep).split(',')
-            lib_names = ';'.join([lib_re.search(l).group(1) for l in libs])
+            lib_names = ';'.join([lib_re.search(x).group(1) for x in libs])
             if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 # explicitely specify static lib!
                 lib_names += ";libgfortran.a"
@@ -268,7 +268,7 @@ class EB_Trilinos(CMakeMake):
                 "Pamgen", "RTOp", "Rythmos", "Sacado", "Shards", "Stratimikos",
                 "Teuchos", "Tpetra", "Triutils", "Zoltan"]
 
-        libs = [l for l in libs if not l in self.cfg['skip_exts']]
+        libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
         # Teuchos was refactored in 11.2
         if LooseVersion(self.version) >= LooseVersion('11.2') and 'Teuchos' in libs:
@@ -292,7 +292,7 @@ class EB_Trilinos(CMakeMake):
             lib_ext = 'a'
 
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.%s' % (l.lower(), lib_ext)) for l in libs],
+            'files': [os.path.join('lib', 'lib%s.%s' % (x.lower(), lib_ext)) for x in libs],
             'dirs': ['bin', 'include']
         }
 
