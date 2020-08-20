@@ -298,12 +298,12 @@ class EB_Clang(CMakeMake):
             for patchfile in patchfiles:
                 cmakelists = os.path.join(self.llvm_src_dir, 'projects/compiler-rt', patchfile, 'CMakeLists.txt')
                 if os.path.exists(cmakelists):
-                    regex_subs = [('.*add_subdirectory\(lit_tests\).*', '')]
+                    regex_subs = [(r'.*add_subdirectory\(lit_tests\).*', '')]
                     apply_regex_substitutions(cmakelists, regex_subs)
 
             # There is a common part seperate for the specific saniters, we disable all the common tests
             cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
-            regex_subs = [('.*add_subdirectory\(tests\).*', '')]
+            regex_subs = [(r'.*add_subdirectory\(tests\).*', '')]
             apply_regex_substitutions(cmakelists, regex_subs)
 
         else:

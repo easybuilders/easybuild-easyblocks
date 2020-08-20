@@ -48,7 +48,7 @@ def det_interface(log, path):
 
     (out, _) = run_cmd(os.path.join(path, "xintface"), log_all=True, simple=False)
 
-    intregexp = re.compile(".*INTFACE\s*=\s*-D(\S+)\s*")
+    intregexp = re.compile(r".*INTFACE\s*=\s*-D(\S+)\s*")
     res = intregexp.search(out)
     if res:
         return res.group(1)
@@ -133,7 +133,7 @@ class EB_BLACS(ConfigureMake):
 
                         if not notregexp.search(out):
 
-                            commregexp = re.compile('Set TRANSCOMM\s*=\s*(.*)$')
+                            commregexp = re.compile(r'Set TRANSCOMM\s*=\s*(.*)$')
 
                             res = commregexp.search(out)
                             if res:

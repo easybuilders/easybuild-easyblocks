@@ -77,7 +77,7 @@ class EB_cppcheck(ConfigureMake):
 
     def build_step(self, verbose=False):
         """
-        Compile cppcheck with make and cppcheck-gui with qmake and make 
+        Compile cppcheck with make and cppcheck-gui with qmake and make
         """
         self.cfg.update('buildopts', 'CFGDIR=%(installdir)s/cfg')
 
