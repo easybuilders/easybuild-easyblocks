@@ -148,7 +148,7 @@ class EB_ParMETIS(EasyBlock):
 
             # libraries
             try:
-                src = os.path.join(self.cfg['start_dir'], 'build' ,'libmetis' ,'libmetis.a')
+                src = os.path.join(self.cfg['start_dir'], 'build', 'libmetis', 'libmetis.a')
                 dst = os.path.join(libdir, 'libmetis.a')
                 shutil.copy2(src, dst)
             except OSError as err:

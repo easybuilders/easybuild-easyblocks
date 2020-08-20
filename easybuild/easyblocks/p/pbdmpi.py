@@ -32,6 +32,7 @@ EasyBuild support for building and installing pbdMPI, implemented as an easybloc
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.rpackage import RPackage
 
+
 class EB_pbdMPI(RPackage):
     """Support for building/installing pbdMPI."""
 

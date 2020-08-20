@@ -133,7 +133,7 @@ class EB_PGI(PackedBinary):
             'PGI_INSTALL_MANAGED': str(self.cfg['install_managed']).lower(),
             'PGI_INSTALL_NVIDIA': str(self.cfg['install_nvidia']).lower(),
             'PGI_SILENT': 'true',
-            }
+        }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(pgi_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
 

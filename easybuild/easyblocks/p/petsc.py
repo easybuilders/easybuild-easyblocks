@@ -126,7 +126,7 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
-            if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', '--with-gnu-compilers=0')
 
             # MPI
@@ -212,12 +212,12 @@ class EB_PETSc(ConfigureMake):
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
 
                     suitesparse_inc = [os.path.join(suitesparse, l, "Include")
-                                    for l in ss_libs]
+                                       for l in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
                     suitesparse_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ss_libs]
+                                        for l in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:

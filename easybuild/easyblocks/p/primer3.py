@@ -61,8 +61,8 @@ class EB_Primer3(ConfigureMake):
     def configure_step(self):
         """Configure Primer3 build by setting make options."""
         self.cfg.update('buildopts', 'CC="%s" CPP="%s" O_OPTS="%s" all' % (os.getenv('CC'),
-                                                                         os.getenv('CXX'),
-                                                                         os.getenv('CFLAGS')))
+                                                                           os.getenv('CXX'),
+                                                                           os.getenv('CFLAGS')))
 
     # default build_step should be fine
 
@@ -74,10 +74,10 @@ class EB_Primer3(ConfigureMake):
         """Custom sanity check for Primer3."""
 
         custom_paths = {
-                        'files':["%s/%s" % (self.bindir, x) for x in ["primer3_core", "ntdpal",
-                                                                      "oligotm", "long_seq_tm_test"]],
-                        'dirs':[]
-                       }
+            'files': ["%s/%s" % (self.bindir, x) for x in ["primer3_core", "ntdpal",
+                                                           "oligotm", "long_seq_tm_test"]],
+            'dirs': []
+        }
 
         super(EB_Primer3, self).sanity_check_step(custom_paths=custom_paths)
 
