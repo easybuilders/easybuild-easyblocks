@@ -36,7 +36,6 @@ import os
 import shutil
 from distutils.version import LooseVersion
 
-import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM

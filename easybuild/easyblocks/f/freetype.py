@@ -27,13 +27,8 @@ EasyBuild support for building and installing freetype, implemented as an easybl
 
 @author: Kenneth Hoste (Ghent University)
 """
-import os
 
-import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 

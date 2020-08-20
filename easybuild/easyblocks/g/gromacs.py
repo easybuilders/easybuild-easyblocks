@@ -36,7 +36,6 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 import glob
 import os
 import re
-import shutil
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -318,7 +317,6 @@ class EB_GROMACS(CMakeMake):
             # set regression test path
             prefix = 'regressiontests'
             if any([src['name'].startswith(prefix) for src in self.src]):
-                major_minor_version = '.'.join(self.version.split('.')[:2])
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
@@ -562,7 +560,7 @@ class EB_GROMACS(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', b) for b in bin_files] +
-            [os.path.join(self.lib_subdir, l) for l in lib_files],
+            [os.path.join(self.lib_subdir, lib) for lib in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
