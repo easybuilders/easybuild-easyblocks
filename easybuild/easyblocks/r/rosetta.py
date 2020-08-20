@@ -137,7 +137,7 @@ class EB_Rosetta(EasyBlock):
             "           'program_path': %s," % str(paths),
             "           'flags': {",
             "               'compile': %s," % str(flags),
-            #"              'mode': %s," % str(o_flags),
+            # "              'mode': %s," % str(o_flags),
             "           },",
             "           'defines': %s," % str(defines),
             "       },",
