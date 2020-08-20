@@ -166,7 +166,7 @@ class EB_Rosetta(EasyBlock):
 
         # make sure specified compiler version is accepted by patching it in
         os_fp = os.path.join(self.srcdir, "tools/build/options.settings")
-        cxxver_re = re.compile('(.*"%s".*)(,\s*"\*"\s*],.*)' % self.cxx, re.M)
+        cxxver_re = re.compile(r'(.*"%s".*)(,\s*"\*"\s*],.*)' % self.cxx, re.M)
         for line in fileinput.input(os_fp, inplace=1, backup='.orig.eb'):
             line = cxxver_re.sub(r'\1, "%s"\2' % cxx_ver, line)
             sys.stdout.write(line)
@@ -208,7 +208,7 @@ class EB_Rosetta(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Failed to walk build/src dir: %s", err)
             # copy binaries/libraries to install dir
-            lib_re = re.compile("^lib.*\.%s$" % shlib_ext)
+            lib_re = re.compile(r"^lib.*\.%s$" % shlib_ext)
             try:
                 for fil in os.listdir(builddir):
                     srcfile = os.path.join(builddir, fil)

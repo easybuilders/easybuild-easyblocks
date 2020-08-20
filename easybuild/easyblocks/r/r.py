@@ -91,7 +91,7 @@ class EB_R(ConfigureMake):
         out = ConfigureMake.configure_step(self)
 
         # check output of configure command to verify BLAS/LAPACK settings
-        ext_libs_regex = re.compile("External libraries:.*BLAS\((?P<BLAS>.*)\).*LAPACK\((?P<LAPACK>.*)\)")
+        ext_libs_regex = re.compile(r"External libraries:.*BLAS\((?P<BLAS>.*)\).*LAPACK\((?P<LAPACK>.*)\)")
         res = ext_libs_regex.search(out)
         if res:
             for lib in ['BLAS', 'LAPACK']:
