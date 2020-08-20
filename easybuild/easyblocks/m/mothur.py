@@ -55,7 +55,8 @@ class EB_Mothur(ConfigureMake):
     def configure_step(self, cmd_prefix=''):
         """Configure Mothur build by setting make options."""
         # Fortran compiler and options
-        self.cfg.update('buildopts', 'FORTAN_COMPILER="%s" FORTRAN_FLAGS="%s"' % (os.getenv('F77'), os.getenv('FFLAGS')))
+        self.cfg.update('buildopts', 'FORTAN_COMPILER="%s" FORTRAN_FLAGS="%s"' %
+                        (os.getenv('F77'), os.getenv('FFLAGS')))
         # enable 64-bit build
         if not self.toolchain.options['32bit']:
             self.cfg.update('buildopts', '64BIT_VERSION=yes')
@@ -99,4 +100,3 @@ class EB_Mothur(ConfigureMake):
         }
 
         super(EB_Mothur, self).sanity_check_step(custom_paths=custom_paths)
-

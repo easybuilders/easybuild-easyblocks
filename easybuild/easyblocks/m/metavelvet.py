@@ -55,8 +55,8 @@ class EB_MetaVelvet(ConfigureMake):
         """Custom sanity check for MetaVelvet."""
 
         custom_paths = {
-                        'files': ['bin/meta-velvetg'],
-                        'dirs': []
-                       }
+            'files': ['bin/meta-velvetg'],
+            'dirs': []
+        }
 
         super(EB_MetaVelvet, self).sanity_check_step(custom_paths=custom_paths)

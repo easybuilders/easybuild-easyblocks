@@ -111,7 +111,7 @@ class EB_Mono(ConfigureMake, Rpm):
                         'inst': monorpms_path,
                         'rpm': rpm['path'],
                     }
-                    run_cmd(cmd,log_all=True,simple=True)
+                    run_cmd(cmd, log_all=True, simple=True)
                 else:
                     raise EasyBuildError("RPM file %s not found", rpm['path'])
 
@@ -120,7 +120,7 @@ class EB_Mono(ConfigureMake, Rpm):
 
             mygmcs_path = os.path.join(monorpms_path, 'usr', 'bin', 'mygmcs')
             try:
-                shutil.copy(os.path.join(monorpms_path, 'usr' ,'bin', 'gmcs'), mygmcs_path)
+                shutil.copy(os.path.join(monorpms_path, 'usr', 'bin', 'gmcs'), mygmcs_path)
             except OSError as err:
                 raise EasyBuildError("Failed to copy gmcs to %s: %s", mygmcs_path, err)
 
@@ -140,14 +140,15 @@ class EB_Mono(ConfigureMake, Rpm):
             if self.cfg['parallel']:
                 par = "-j %s" % self.cfg['parallel']
 
-            config_cmd = "%s ./configure --prefix=%s %s" % (self.cfg['preconfigopts'], tmp_mono_path, self.cfg['configopts'])
+            config_cmd = "%s ./configure --prefix=%s %s" % (
+                self.cfg['preconfigopts'], tmp_mono_path, self.cfg['configopts'])
             build_cmd = ' '.join([
                 "%(prebuildopts)s"
                 "make %(par)s",
                 "EXTERNAL_MCS=%(path)s/usr/bin/mygmcs",
                 "EXTERNAL_RUNTIME=%(path)s/usr/bin/mono",
                 "%(buildopts)s",
-            ]) %{
+            ]) % {
                 'prebuildopts': self.cfg['prebuildopts'],
                 'par': par,
                 'path': monorpms_path,

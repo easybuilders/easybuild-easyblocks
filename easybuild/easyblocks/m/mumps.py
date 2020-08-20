@@ -62,11 +62,11 @@ class EB_MUMPS(ConfigureMake):
 
         # select Makefile.inc template and prepare compiler specific compiler flags
         comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.INTELCOMP:  #@UndefinedVariable
+        if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             make_inc_templ = 'Makefile.INTEL.%s'
             optf = "-Dintel_ -DALLOW_NON_INIT -nofor-main"
             optl = "%s -nofor-main" % optl
-        elif comp_fam == toolchain.GCC:  #@UndefinedVariable
+        elif comp_fam == toolchain.GCC:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
                 make_inc_templ = 'Makefile.debian.%s'
             else:
@@ -74,7 +74,8 @@ class EB_MUMPS(ConfigureMake):
 
             optf = "-DALLOW_NON_INIT"
         else:
-            raise EasyBuildError("Unknown compiler family, don't know to prepare for building with specified toolchain.")
+            raise EasyBuildError(
+                "Unknown compiler family, don't know to prepare for building with specified toolchain.")
 
         # copy selected Makefile.inc template
         try:
@@ -94,11 +95,11 @@ class EB_MUMPS(ConfigureMake):
         parmetis = get_software_root('ParMETIS')
         if parmetis:
             lmetisdir = "$EBROOTPARMETIS"
-            lmetis= "-L$EBROOTPARMETIS -lparmetis -lmetis"
+            lmetis = "-L$EBROOTPARMETIS -lparmetis -lmetis"
             dmetis = "-Dparmetis"
         elif metis:
             lmetisdir = "$EBROOTMETIS"
-            lmetis= "-L$EBROOTMETIS -lmetis"
+            lmetis = "-L$EBROOTMETIS -lmetis"
             dmetis = "-Dmetis"
         else:
             raise EasyBuildError("METIS or ParMETIS must be available as dependency.")
@@ -163,12 +164,11 @@ class EB_MUMPS(ConfigureMake):
         """Custom sanity check for MUMPS."""
         custom_paths = {
             'files': ["include/%s%s.h" % (x, y) for x in ["c", "d", "s", "z"]
-                                                for y in ["mumps_c", "mumps_root", "mumps_struc"]] +
-                     ["include/mumps_compat.h", "include/mumps_c_types.h"] +
-                     ["lib/lib%smumps.a" % x for x in ["c", "d", "s", "z"]] +
-                     ["lib/libmumps_common.a", "lib/libpord.a"],
+                      for y in ["mumps_c", "mumps_root", "mumps_struc"]] +
+            ["include/mumps_compat.h", "include/mumps_c_types.h"] +
+            ["lib/lib%smumps.a" % x for x in ["c", "d", "s", "z"]] +
+            ["lib/libmumps_common.a", "lib/libpord.a"],
             'dirs': [],
         }
 
         super(EB_MUMPS, self).sanity_check_step(custom_paths=custom_paths)
-
