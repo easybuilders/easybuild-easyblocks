@@ -258,6 +258,10 @@ class EB_LAMMPS(CMakeMake):
             for check_file in check_files
         ]
 
+        # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
+        if self.toolchain.options.get('usempi', None):
+            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [

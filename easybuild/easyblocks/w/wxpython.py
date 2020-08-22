@@ -30,7 +30,6 @@ EasyBuild support for wxPython, implemented as an easyblock
 """
 
 import os
-import re
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage

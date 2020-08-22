@@ -663,7 +663,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
-                'Collecting .* \(from.*',  # pip
+                r'Collecting .* \(from.*',  # pip
             ]
             downloaded_deps = []
             for pattern in patterns:
@@ -703,7 +703,17 @@ class PythonPackage(ExtensionEasyBlock):
             pip_version = det_pip_version()
             if pip_version:
                 if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
+
+                    if not self.is_extension:
+                        # for stand-alone Python package installations (not part of a bundle of extensions),
+                        # we need to load the fake module file, otherwise the Python package being installed
+                        # is not "in view", and we will overlook missing dependencies...
+                        fake_mod_data = self.load_fake_module(purge=True)
+
                     run_cmd("pip check", trace=False)
+
+                    if not self.is_extension:
+                        self.clean_up_fake_module(fake_mod_data)
                 else:
                     raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
             else:

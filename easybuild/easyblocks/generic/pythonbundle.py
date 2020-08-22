@@ -77,6 +77,7 @@ class PythonBundle(Bundle):
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None
+        self.all_pylibdirs = []
 
         # figure out whether this bundle of Python packages is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
@@ -111,6 +112,13 @@ class PythonBundle(Bundle):
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
         self.pylibdir = det_pylibdir(python_cmd=python_cmd)
+        self.all_pylibdirs = [self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)]
+
+        # if 'python' is not used, we need to take that into account in the extensions filter
+        # (which is also used during the sanity check)
+        if python_cmd:
+            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+            self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', python_cmd), orig_exts_filter[1])
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
@@ -126,7 +134,20 @@ class PythonBundle(Bundle):
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+
+            # the temporary module file that is generated before installing extensions
+            # must add all subdirectories to $PYTHONPATH without checking existence,
+            # otherwise paths will be missing since nothing is there initially
+            if self.current_step == 'extensions':
+                new_pylibdirs = self.all_pylibdirs
+            else:
+                new_pylibdirs = [
+                    lib_dir for lib_dir in self.all_pylibdirs
+                    if os.path.exists(os.path.join(self.installdir, lib_dir))
+                ]
+
+            for pylibdir in new_pylibdirs:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 

@@ -40,6 +40,7 @@ from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.py2vs3 import string_type
 
 NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
@@ -126,7 +127,7 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
-            if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', '--with-gnu-compilers=0')
 
             # MPI
@@ -156,8 +157,10 @@ class EB_PETSc(ConfigureMake):
             # Python extensions_step
             if get_software_root('Python'):
                 self.cfg.update('configopts', '--with-numpy=1')
-                if self.cfg['shared_libs']:
-                    self.cfg.update('configopts', '--with-mpi4py=1')
+
+                with_mpi4py_opt = '--with-mpi4py'
+                if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
+                    self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
             deps = ["FFTW", "ScaLAPACK"]
@@ -185,12 +188,13 @@ class EB_PETSc(ConfigureMake):
 
             # additional dependencies
             # filter out deps handled seperately
-            depfilter = self.cfg.builddependencies() + ["BLACS", "BLAS", "CMake", "FFTW", "LAPACK", "numpy",
-                                                        "mpi4py", "papi", "ScaLAPACK", "SuiteSparse"]
+            sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
+                        'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
+            depfilter = self.cfg.builddependencies() + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
-                if type(dep) == str:
+                if isinstance(dep, string_type):
                     dep = (dep, dep)
                 deproot = get_software_root(dep[0])
                 if deproot:
@@ -208,13 +212,13 @@ class EB_PETSc(ConfigureMake):
                     # specified order of libs matters!
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, l, "Include")
-                                    for l in ss_libs]
+                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
+                                       for x in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ss_libs]
+                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                        for x in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
@@ -222,8 +226,8 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-umfpack"
                     inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
+                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                    for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
@@ -246,7 +250,7 @@ class EB_PETSc(ConfigureMake):
 
             if self.cfg['sourceinstall']:
                 # figure out PETSC_ARCH setting
-                petsc_arch_regex = re.compile("^\s*PETSC_ARCH:\s*(\S+)$", re.M)
+                petsc_arch_regex = re.compile(r"^\s*PETSC_ARCH:\s*(\S+)$", re.M)
                 res = petsc_arch_regex.search(out)
                 if res:
                     self.petsc_arch = res.group(1)
@@ -273,6 +277,7 @@ class EB_PETSc(ConfigureMake):
 
         # PETSc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
+            env.setvar('MAKE_NP', str(self.cfg['parallel']))
             self.cfg['parallel'] = None
 
     # default make should be fine
@@ -311,6 +316,8 @@ class EB_PETSc(ConfigureMake):
             'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
             'LD_LIBRARY_PATH': [os.path.join(self.prefix_lib, 'lib')],
             'PATH': [os.path.join(self.prefix_bin, 'bin')],
+            # see https://www.mcs.anl.gov/petsc/documentation/faq.html#sparse-matrix-ascii-format
+            'PYTHONPATH': [os.path.join('lib', 'petsc', 'bin')],
         })
 
         return guesses
@@ -345,4 +352,8 @@ class EB_PETSc(ConfigureMake):
         else:
             custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
-        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if get_software_root('Python'):
+            custom_commands.append("python -m PetscBinaryIO --help")
+
+        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

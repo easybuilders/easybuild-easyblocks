@@ -175,7 +175,7 @@ class EB_Qt(ConfigureMake):
             elif myarch == POWER:
                 self.log.debug("Skipping check for qtwebengine, since it is not supported on POWER.")
             else:
-                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
+                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, x, shlib_ext) for x in ['WebEngine', 'WebEngineCore']]
                 custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
 
         if LooseVersion(self.version) >= LooseVersion('4'):

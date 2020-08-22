@@ -142,7 +142,7 @@ class EB_METIS(ConfigureMake):
 
         custom_paths = {
             'files': ['bin/%s' % x for x in binfiles] + ['include/%s' % x for x in incfiles] +
-                     ['lib/libmetis.%s' % x for x in self.lib_exts],
+            ['lib/libmetis.%s' % x for x in self.lib_exts],
             'dirs': dirs,
         }
         super(EB_METIS, self).sanity_check_step(custom_paths=custom_paths)

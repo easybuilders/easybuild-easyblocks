@@ -36,7 +36,6 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 import glob
 import os
 import re
-import shutil
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -46,7 +45,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import download_file, extract_file, which
+from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -60,7 +59,8 @@ class EB_GROMACS(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'double_precision': [False, "Build with double precision enabled (-DGMX_DOUBLE=ON)", CUSTOM],
+            'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " +
+                                 "default is to build double precision unless CUDA is enabled", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -74,6 +74,7 @@ class EB_GROMACS(CMakeMake):
         super(EB_GROMACS, self).__init__(*args, **kwargs)
         self.lib_subdir = ''
         self.pre_env = ''
+        self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -127,6 +128,11 @@ class EB_GROMACS(CMakeMake):
 
         return res
 
+    def is_double_precision_cuda_build(self):
+        """Check if the current build step involves double precision and CUDA"""
+        cuda = get_software_root('CUDA')
+        return cuda and self.double_prec_pattern in self.cfg['configopts']
+
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
 
@@ -149,6 +155,33 @@ class EB_GROMACS(CMakeMake):
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
 
+        if LooseVersion(self.version) >= LooseVersion('4.6'):
+            cuda = get_software_root('CUDA')
+            if cuda:
+                # CUDA with double precision is currently not supported in GROMACS yet
+                # If easyconfig explicitly have double_precision=True error out,
+                # otherwise warn about it and skip the double precision build
+                if self.cfg.get('double_precision'):
+                    raise EasyBuildError("Double precision is not available for GPU build. " +
+                                         "Please explicitly set \"double_precision = False\" " +
+                                         "or remove it in the easyconfig file.")
+                if self.double_prec_pattern in self.cfg['configopts']:
+                    if self.cfg.get('double_precision') is None:
+                        # Only print warning once when trying double precision
+                        # build the first time
+                        self.cfg['double_precision'] = False
+                        self.log.info("Double precision is not available for " +
+                                      "GPU build. Skipping the double precision build.")
+
+                    self.log.info("skipping configure step")
+                    return
+
+                self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+            else:
+                # explicitly disable GPU support if CUDA is not available,
+                # to avoid that GROMACS find and uses a system-wide CUDA compiler
+                self.cfg.update('configopts', "-DGMX_GPU=OFF")
+
         # check whether PLUMED is loaded as a dependency
         plumed_root = get_software_root('PLUMED')
         if plumed_root:
@@ -166,8 +199,11 @@ class EB_GROMACS(CMakeMake):
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
-            # Use static libraries if possible
-            self.cfg.update('configopts', "--enable-static")
+
+            if self.cfg['build_shared_libs']:
+                self.cfg.update('configopts', "--enable-shared --disable-static")
+            else:
+                self.cfg.update('configopts', "--enable-static")
 
             # Use external BLAS and LAPACK
             self.cfg.update('configopts', "--with-external-blas --with-external-lapack")
@@ -201,14 +237,54 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
         else:
+            if '-DGMX_MPI=ON' in self.cfg['configopts']:
+                mpi_numprocs = self.cfg.get('mpi_numprocs', 0)
+                if mpi_numprocs == 0:
+                    self.log.info("No number of test MPI tasks specified -- using default: %s",
+                                  self.cfg['parallel'])
+                    mpi_numprocs = self.cfg['parallel']
+
+                elif mpi_numprocs > self.cfg['parallel']:
+                    self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
+                                     mpi_numprocs, self.cfg['parallel'])
+
+                mpiexec = self.cfg.get('mpiexec')
+                if mpiexec:
+                    mpiexec_path = which(mpiexec)
+                    if mpiexec_path:
+                        self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
+                        self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" %
+                                        self.cfg.get('mpiexec_numproc_flag'))
+                        self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
+                    elif self.cfg['runtest']:
+                        raise EasyBuildError("'%s' not found in $PATH", mpiexec)
+                else:
+                    raise EasyBuildError("No value found for 'mpiexec'")
+                self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
+                              mpiexec_path, self.cfg.get('mpiexec_numproc_flag'),
+                              mpi_numprocs)
+
+            if LooseVersion(self.version) >= LooseVersion('2019'):
+                # Building the gmxapi interface requires shared libraries
+                self.cfg['build_shared_libs'] = True
+                self.cfg.update('configopts', "-DGMXAPI=ON")
+
+                if LooseVersion(self.version) >= LooseVersion('2020'):
+                    # build Python bindings if Python is loaded as a dependency
+                    python_root = get_software_root('Python')
+                    if python_root:
+                        bin_python = os.path.join(python_root, 'bin', 'python')
+                        self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % bin_python)
+                        self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
+
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
                 if LooseVersion(self.version) >= LooseVersion('5.1'):
                     # Use shared or static patch depending on
-                    # setting of self.toolchain.options.get('dynamic')
+                    # setting of self.cfg['build_shared_libs']
                     # and adapt cmake flags accordingly as per instructions
                     # from "plumed patch -i"
-                    if self.toolchain.options.get('dynamic', False):
+                    if self.cfg['build_shared_libs']:
                         mode = 'shared'
                     else:
                         mode = 'static'
@@ -217,15 +293,10 @@ class EB_GROMACS(CMakeMake):
                 run_cmd(plumed_cmd, log_all=True, simple=True)
 
             # prefer static libraries, if available
-            if self.toolchain.options.get('dynamic', False):
+            if self.cfg['build_shared_libs']:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=OFF")
             else:
                 self.cfg.update('configopts', "-DGMX_PREFER_STATIC_LIBS=ON")
-                if plumed_root:
-                    self.cfg['build_shared_libs'] = False
-
-            if self.cfg['double_precision']:
-                self.cfg.update('configopts', "-DGMX_DOUBLE=ON")
 
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
@@ -246,7 +317,6 @@ class EB_GROMACS(CMakeMake):
             # set regression test path
             prefix = 'regressiontests'
             if any([src['name'].startswith(prefix) for src in self.src]):
-                major_minor_version = '.'.join(self.version.split('.')[:2])
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
@@ -254,17 +324,6 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DGMX_OPENMP=ON")
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
-
-            # disable MPI support for initial, serial/SMP build; actual MPI build is done later
-            self.cfg.update('configopts', "-DGMX_MPI=OFF")
-
-            # explicitly disable GPU support if CUDA is not available,
-            # to avoid that GROMACS find and uses a system-wide CUDA compiler
-            cuda = get_software_root('CUDA')
-            if cuda:
-                self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
-            else:
-                self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
             if get_software_root('imkl'):
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
@@ -274,7 +333,6 @@ class EB_GROMACS(CMakeMake):
                 mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group']
                 self.cfg.update('configopts', '-DMKL_LIBRARIES="%s" ' % ';'.join(mkl_libs))
             else:
-                shlib_ext = get_shared_lib_ext()
                 for libname in ['BLAS', 'LAPACK']:
                     libdir = os.getenv('%s_LIB_DIR' % libname)
                     if self.toolchain.toolchain_family() == toolchain.CRAYPE:
@@ -324,103 +382,93 @@ class EB_GROMACS(CMakeMake):
                     if not regex.search(out):
                         raise EasyBuildError("Pattern '%s' not found in GROMACS configuration output.", pattern)
 
+    def build_step(self):
+        """
+        Custom build step for GROMACS; Skip if CUDA is enabled and the current
+        iteration is for double precision
+        """
+
+        if self.is_double_precision_cuda_build():
+            self.log.info("skipping build step")
+        else:
+            super(EB_GROMACS, self).build_step()
+
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
-        # allow to escape testing by setting runtest to False
-        if not self.cfg['runtest'] and not isinstance(self.cfg['runtest'], bool):
 
-            # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
-            env.setvar('OMP_NUM_THREADS', '1')
+        if self.is_double_precision_cuda_build():
+            self.log.info("skipping test step")
+        else:
+            # allow to escape testing by setting runtest to False
+            if self.cfg['runtest'] is None or self.cfg['runtest']:
 
-            self.cfg['runtest'] = 'check'
-            if self.cfg['parallel']:
-                # run 'make check' in parallel since it involves more compilation
+                orig_runtest = self.cfg['runtest']
+                # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
+                env.setvar('OMP_NUM_THREADS', '1')
+
+                if self.cfg['runtest'] is None or isinstance(self.cfg['runtest'], bool):
+                    self.cfg['runtest'] = 'check'
+
+                # run 'make check' or whatever the easyconfig specifies
+                # in parallel since it involves more compilation
                 self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
-            super(EB_GROMACS, self).test_step()
+                super(EB_GROMACS, self).test_step()
+
+                self.cfg['runtest'] = orig_runtest
 
     def install_step(self):
         """
         Custom install step for GROMACS; figure out where libraries were installed to.
-        Also, install the MPI version of the executable in a separate step.
         """
-        # run 'make install' in parallel since it involves more compilation
-        self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
-        super(EB_GROMACS, self).install_step()
-
-        # the GROMACS libraries get installed in different locations (deeper subdirectory), depending on the platform;
-        # this is determined by the GNUInstallDirs CMake module;
-        # rather than trying to replicate the logic, we just figure out where the library was placed
-
-        if self.toolchain.options.get('dynamic', False):
-            self.libext = get_shared_lib_ext()
+        # Skipping if CUDA is enabled and the current iteration is double precision
+        if self.is_double_precision_cuda_build():
+            self.log.info("skipping install step")
         else:
-            self.libext = 'a'
+            # run 'make install' in parallel since it involves more compilation
+            self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
 
-        if LooseVersion(self.version) < LooseVersion('5.0'):
-            libname = 'libgmx*.%s' % self.libext
-        else:
-            libname = 'libgromacs*.%s' % self.libext
+            super(EB_GROMACS, self).install_step()
 
-        for libdir in ['lib', 'lib64']:
-            if os.path.exists(os.path.join(self.installdir, libdir)):
-                for subdir in [libdir, os.path.join(libdir, '*')]:
-                    libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
-                    if libpaths:
-                        self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir)+1:]
-                        self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
-                        break
-        if not self.lib_subdir:
-            raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
+            # the GROMACS libraries get installed in different locations (deeper subdirectory),
+            # depending on the platform;
+            # this is determined by the GNUInstallDirs CMake module;
+            # rather than trying to replicate the logic, we just figure out where the library was placed
 
-        # Install a version with the MPI suffix
-        if self.toolchain.options.get('usempi', None):
-            if LooseVersion(self.version) < LooseVersion('4.6'):
-
-                cmd = "make distclean"
-                (out, _) = run_cmd(cmd, log_all=True, simple=False)
-
-                self.cfg.update('configopts', "--enable-mpi --program-suffix={0}".format(self.cfg['mpisuffix']))
-                ConfigureMake.configure_step(self)
-
-                super(EB_GROMACS, self).build_step()
-
-                super(EB_GROMACS, self).install_step()
-
+            if self.cfg['build_shared_libs']:
+                self.libext = get_shared_lib_ext()
             else:
-                self.cfg['configopts'] = re.sub(r'-DGMX_MPI=OFF', r'', self.cfg['configopts'])
+                self.libext = 'a'
 
-                if self.cfg['mpi_numprocs'] == 0:
-                    self.log.info("No number of test MPI tasks specified -- using default: %s" % self.cfg['parallel'])
-                    self.cfg['mpi_numprocs'] = self.cfg['parallel']
+            if LooseVersion(self.version) < LooseVersion('5.0'):
+                libname = 'libgmx*.%s' % self.libext
+            else:
+                libname = 'libgromacs*.%s' % self.libext
 
-                elif self.cfg['mpi_numprocs'] > self.cfg['parallel']:
-                    self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     self.cfg['mpi_numprocs'], self.cfg['parallel'])
+            for libdir in ['lib', 'lib64']:
+                if os.path.exists(os.path.join(self.installdir, libdir)):
+                    for subdir in [libdir, os.path.join(libdir, '*')]:
+                        libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
+                        if libpaths:
+                            self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
+                            self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
+                            break
+            if not self.lib_subdir:
+                raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
-                self.cfg.update('configopts', "-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF")
+            # Reset installopts etc for the benefit of the gmxapi extension
+            self.cfg['installopts'] = self.orig_installopts
 
-                mpiexec = which(self.cfg['mpiexec'])
-                if mpiexec:
-                    self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec)
-                    self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" % self.cfg['mpiexec_numproc_flag'])
-                    self.cfg.update('configopts', "-DNUMPROC=%s" % self.cfg['mpi_numprocs'])
-                elif self.cfg['runtest']:
-                    raise EasyBuildError("'%s' not found in $PATH", self.cfg['mpiexec'])
-
-
-                self.log.info("Using %s as MPI executable when testing, with numprocs flag '%s' and %s tasks",
-                              self.cfg['mpiexec'], self.cfg['mpiexec_numproc_flag'], self.cfg['mpi_numprocs'])
-
-                # clean up obj dir before reconfiguring
-                shutil.rmtree(os.path.join(self.builddir, 'easybuild_obj'))
-
-                # rebuild/test/install with MPI options
-                super(EB_GROMACS, self).configure_step()
-                super(EB_GROMACS, self).build_step()
-                super(EB_GROMACS, self).test_step()
-                super(EB_GROMACS, self).install_step()
-
-                self.log.info("A full regression test suite is available from the GROMACS web site")
+    def extensions_step(self, fetch=False):
+        """ Custom extensions step, only handle extensions after the last iteration round"""
+        if self.iter_idx < self.variants_to_build - 1:
+            self.log.info("skipping extension step %s", self.iter_idx)
+        else:
+            # Set runtest to None so that the gmxapi extension doesn't try to
+            # run "check" as a command
+            orig_runtest = self.cfg['runtest']
+            self.cfg['runtest'] = None
+            super(EB_GROMACS, self).extensions_step(fetch)
+            self.cfg['runtest'] = orig_runtest
 
     def make_module_req_guess(self):
         """Custom library subdirectories for GROMACS."""
@@ -439,33 +487,49 @@ class EB_GROMACS(CMakeMake):
 
         # in GROMACS v5.1, only 'gmx' binary is there
         # (only) in GROMACS v5.0, other binaries are symlinks to 'gmx'
+        # bins/libs that never have an _mpi suffix
         bins = []
         libnames = []
+        # bins/libs that may have an _mpi suffix
+        mpi_bins = []
+        mpi_libnames = []
         if LooseVersion(self.version) < LooseVersion('5.1'):
-            bins.extend(['editconf', 'g_lie', 'genbox', 'genconf', 'mdrun'])
+            mpi_bins.extend(['mdrun'])
 
         if LooseVersion(self.version) >= LooseVersion('5.0'):
-            bins.append('gmx')
-            libnames.append('gromacs')
-            if LooseVersion(self.version) < LooseVersion('5.1') and self.toolchain.options.get('usempi', None):
-                bins.append('mdrun')
+            mpi_bins.append('gmx')
+            mpi_libnames.append('gromacs')
         else:
-            libnames.extend(['gmxana', 'gmx', 'md'])
-            # note: gmxpreprocess may also already be there for earlier versions
-            if LooseVersion(self.version) > LooseVersion('4.6'):
-                libnames.append('gmxpreprocess')
+            bins.extend(['editconf', 'g_lie', 'genbox', 'genconf'])
+            libnames.extend(['gmxana'])
+            if LooseVersion(self.version) >= LooseVersion('4.6'):
+                if self.cfg['build_shared_libs']:
+                    mpi_libnames.extend(['gmx', 'md'])
+                else:
+                    libnames.extend(['gmx', 'md'])
+            else:
+                mpi_libnames.extend(['gmx', 'md'])
+
+            if LooseVersion(self.version) >= LooseVersion('4.5'):
+                if LooseVersion(self.version) >= LooseVersion('4.6'):
+                    if self.cfg['build_shared_libs']:
+                        mpi_libnames.append('gmxpreprocess')
+                    else:
+                        libnames.append('gmxpreprocess')
+                else:
+                    mpi_libnames.append('gmxpreprocess')
 
         # also check for MPI-specific binaries/libraries
         if self.toolchain.options.get('usempi', None):
             if LooseVersion(self.version) < LooseVersion('4.6'):
-                mpisuff = self.cfg['mpisuffix']
+                mpisuff = self.cfg.get('mpisuffix', '_mpi')
             else:
                 mpisuff = '_mpi'
 
-            bins.extend([binary + mpisuff for binary in bins])
-            libnames.extend([libname + mpisuff for libname in libnames])
+            mpi_bins.extend([binary + mpisuff for binary in mpi_bins])
+            mpi_libnames.extend([libname + mpisuff for libname in mpi_libnames])
 
-        suff = ''
+        suffixes = ['']
 
         # make sure that configopts is a list:
         configopts_list = self.cfg['configopts']
@@ -475,13 +539,20 @@ class EB_GROMACS(CMakeMake):
         lib_files = []
         bin_files = []
 
-        for configopts in configopts_list:
-            # add the _d suffix to the suffix, in case of the double precission
-            if re.search('DGMX_DOUBLE=(ON|YES|TRUE|Y|[1-9])', configopts, re.I):
-                suff = '_d'
+        dsuff = None
+        if not get_software_root('CUDA'):
+            for configopts in configopts_list:
+                # add the _d suffix to the suffix, in case of double precision
+                if self.double_prec_pattern in configopts:
+                    dsuff = '_d'
 
-            lib_files.extend(['lib%s%s.%s' % (libname, suff, self.libext) for libname in libnames])
-            bin_files.extend([b + suff for b in bins])
+        if dsuff:
+            suffixes.extend([dsuff])
+
+        lib_files.extend([
+            'lib%s%s.%s' % (x, suff, self.libext) for x in libnames + mpi_libnames for suff in suffixes
+        ])
+        bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
@@ -489,7 +560,120 @@ class EB_GROMACS(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', b) for b in bin_files] +
-                [os.path.join(self.lib_subdir, l) for l in lib_files],
+            [os.path.join(self.lib_subdir, lib) for lib in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
+
+    def run_all_steps(self, *args, **kwargs):
+        """
+        Put configure options in place for different variants, (no)mpi, single/double precision.
+        """
+        # Save installopts so we can reset it later. The gmxapi pip install
+        # can't handle the -j argument.
+        self.orig_installopts = self.cfg['installopts']
+
+        # keep track of config/build/installopts specified in easyconfig
+        # file, so we can include them in each iteration later
+        common_config_opts = self.cfg['configopts']
+        common_build_opts = self.cfg['buildopts']
+        common_install_opts = self.cfg['installopts']
+
+        self.orig_install_cmd = self.cfg['install_cmd']
+        self.orig_build_cmd = self.cfg['build_cmd']
+
+        self.cfg['configopts'] = []
+        self.cfg['buildopts'] = []
+        self.cfg['installopts'] = []
+
+        if LooseVersion(self.version) < LooseVersion('4.6'):
+            prec_opts = {
+                'single': '--disable-double',
+                'double': '--enable-double',
+            }
+            mpi_type_opts = {
+                'nompi': '--disable-mpi',
+                'mpi': '--enable-mpi'
+            }
+        else:
+            prec_opts = {
+                'single': '-DGMX_DOUBLE=OFF',
+                'double': '-DGMX_DOUBLE=ON',
+            }
+            mpi_type_opts = {
+                'nompi': '-DGMX_MPI=OFF -DGMX_THREAD_MPI=ON',
+                'mpi': '-DGMX_MPI=ON -DGMX_THREAD_MPI=OFF'
+            }
+
+        # Double precision pattern so search for in configopts
+        self.double_prec_pattern = prec_opts['double']
+
+        # For older versions we only build/install the mdrun part for
+        # the MPI variant. So we need to be able to specify the
+        # install target depending on variant.
+        self.cfg['install_cmd'] = 'make'
+        if LooseVersion(self.version) < LooseVersion('5'):
+            # Use the fact that for older versions we just need to
+            # build and install mdrun for the MPI part
+            build_opts = {
+                'nompi': '',
+                'mpi': 'mdrun'
+            }
+            install_opts = {
+                'nompi': 'install',
+                'mpi': 'install-mdrun'
+            }
+        else:
+            build_opts = {
+                'nompi': '',
+                'mpi': ''
+            }
+            install_opts = {
+                'nompi': 'install',
+                'mpi': 'install'
+            }
+
+        precisions = ['single']
+        if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
+            precisions.append('double')
+
+        mpitypes = ['nompi']
+        if self.toolchain.options.get('usempi', None):
+            mpitypes.append('mpi')
+
+        # We need to count the number of variations to build.
+        versions_built = []
+        # Handle the different variants
+        for precision in precisions:
+            for mpitype in mpitypes:
+                versions_built.append('%s precision %s' % (precision, mpitype))
+                var_confopts = []
+                var_buildopts = []
+                var_installopts = []
+
+                var_confopts.append(mpi_type_opts[mpitype])
+                var_confopts.append(prec_opts[precision])
+                if LooseVersion(self.version) < LooseVersion('4.6'):
+                    suffix = ''
+                    if mpitype == 'mpi':
+                        suffix = "--program-suffix={0}".format(self.cfg.get('mpisuffix', '_mpi'))
+                        if precision == 'double':
+                            suffix += '_d'
+                    var_confopts.append(suffix)
+
+                var_buildopts.append(build_opts[mpitype])
+                var_installopts.append(install_opts[mpitype])
+
+                self.cfg.update('configopts', ' '.join(var_confopts + [common_config_opts]))
+                self.cfg.update('buildopts', ' '.join(var_buildopts + [common_build_opts]))
+                self.cfg.update('installopts', ' '.join(var_installopts + [common_install_opts]))
+        self.variants_to_build = len(self.cfg['configopts'])
+
+        self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
+        self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
+        return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
+
+        self.cfg['install_cmd'] = self.orig_install_cmd
+        self.cfg['build_cmd'] = self.orig_build_cmd
+
+        self.log.info("A full regression test suite is available from the GROMACS web site: %s", self.cfg['homepage'])

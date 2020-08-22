@@ -50,6 +50,7 @@ class EB_binutils(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'install_libiberty': [True, "Also install libiberty (implies building with -fPIC)", CUSTOM],
+            'use_debuginfod': [False, "Build with debuginfod (used from system)", CUSTOM],
         })
         return extra_vars
 
@@ -62,7 +63,11 @@ class EB_binutils(ConfigureMake):
             # determine list of 'lib' directories to use rpath for;
             # this should 'harden' the resulting binutils to bootstrap GCC
             # (no trouble when other libstdc++ is build etc)
-            libdirs = []
+
+            # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
+            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
+            # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file
+            libdirs = [r'\$\$ORIGIN/../lib']
             for libdir in ['/usr/lib', '/usr/lib64', '/usr/lib/x86_64-linux-gnu/']:
                 # also consider /lib, /lib64
                 alt_libdir = libdir.replace('usr/', '')
@@ -75,7 +80,8 @@ class EB_binutils(ConfigureMake):
                 elif os.path.exists(alt_libdir):
                     libdirs.append(alt_libdir)
 
-            libs += ' '.join('-Wl,-rpath=%s' % libdir for libdir in libdirs)
+            # Mind the single quotes
+            libs += ' '.join("-Wl,-rpath='%s'" % libdir for libdir in libdirs)
 
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
@@ -101,8 +107,9 @@ class EB_binutils(ConfigureMake):
                 else:
                     libs += ' ' + libz_path
 
-        self.cfg.update('preconfigopts', "env LIBS='%s'" % libs)
-        self.cfg.update('prebuildopts', "env LIBS='%s'" % libs)
+        # Using double quotes for LIBS to allow single quotes in libs
+        self.cfg.update('preconfigopts', 'LIBS="%s"' % libs)
+        self.cfg.update('prebuildopts', 'LIBS="%s"' % libs)
 
         # use correct sysroot, to make sure 'ld' also considers system libraries
         self.cfg.update('configopts', '--with-sysroot=/')
@@ -114,6 +121,12 @@ class EB_binutils(ConfigureMake):
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
         if LooseVersion(self.version) > LooseVersion('2.24'):
             self.cfg.update('configopts', "--enable-gold --enable-plugins --enable-ld=default")
+
+        if LooseVersion(self.version) >= LooseVersion('2.34'):
+            if self.cfg['use_debuginfod']:
+                self.cfg.update('configopts', '--with-debuginfod')
+            else:
+                self.cfg.update('configopts', '--without-debuginfod')
 
         # complete configuration with configure_method of parent
         super(EB_binutils, self).configure_step()
@@ -165,8 +178,8 @@ class EB_binutils(ConfigureMake):
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]
 
-        libs_fn = ['lib%s.%s' % (l, ext) for l in libs for ext in lib_exts]
-        lib_paths = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+        libs_fn = ['lib%s.%s' % (lib, ext) for lib in libs for ext in lib_exts]
+        lib_paths = [(os.path.join('lib', lib_fn), os.path.join('lib64', lib_fn)) for lib_fn in libs_fn]
 
         custom_paths = {
             'files': bin_paths + inc_paths + lib_paths,

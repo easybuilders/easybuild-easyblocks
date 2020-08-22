@@ -30,7 +30,6 @@ EasyBuild support for VMD, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 import os
-import shutil
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -60,7 +59,8 @@ class EB_VMD(ConfigureMake):
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             change_dir(self.surf_dir)
-            extract_file('surf.tar.Z', os.getcwd())
+            srcdir = extract_file('surf.tar.Z', os.getcwd(), change_into_dir=False)
+            change_dir(srcdir)
 
     def configure_step(self):
         """
@@ -94,14 +94,23 @@ class EB_VMD(ConfigureMake):
         netcdflib = os.path.join(deps['netCDF'], 'lib')
 
         # Python locations
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        env.setvar('PYTHON_INCLUDE_DIR', os.path.join(deps['Python'], 'include/python%s' % pyshortver))
+        pymajver = get_software_version('Python').split('.')[0]
+        out, ec = run_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", simple=False)
+        if ec:
+            raise EasyBuildError("Failed to determine Python include path: %s", out)
+        else:
+            env.setvar('PYTHON_INCLUDE_DIR', out.strip())
         pylibdir = det_pylibdir()
         python_libdir = os.path.join(deps['Python'], os.path.dirname(pylibdir))
         env.setvar('PYTHON_LIBRARY_DIR', python_libdir)
+        out, ec = run_cmd("python%s-config --libs" % pymajver, simple=False)
+        if ec:
+            raise EasyBuildError("Failed to determine Python library name: %s", out)
+        else:
+            env.setvar('PYTHON_LIBRARIES', out.strip())
 
         # numpy include location, easiest way to determine it is via numpy.get_include()
-        out, ec = run_cmd("python -c 'import numpy; print numpy.get_include()'", simple=False)
+        out, ec = run_cmd("python -c 'import numpy; print(numpy.get_include())'", simple=False)
         if ec:
             raise EasyBuildError("Failed to determine numpy include directory: %s", out)
         else:

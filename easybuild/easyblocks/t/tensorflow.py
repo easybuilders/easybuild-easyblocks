@@ -155,6 +155,11 @@ class EB_TensorFlow(PythonPackage):
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
+        binutils_root = get_software_root('binutils')
+        if not binutils_root:
+            raise EasyBuildError("Failed to determine installation prefix for binutils")
+        self.binutils_bin_path = os.path.join(binutils_root, 'bin')
+
         tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
@@ -256,7 +261,7 @@ class EB_TensorFlow(PythonPackage):
                 print_warning(warning_msg)
             elif not cuda_cc:
                 warning_msg = "No CUDA compute capabilities specified, so using TensorFlow default "
-                warning_msg += "(which may not optional for your system).\nYou should use "
+                warning_msg += "(which may not be optimal for your system).\nYou should use "
                 warning_msg += "the --cuda-compute-capabilities configuration option or the cuda_compute_capabilities "
                 warning_msg += "easyconfig parameter to specify a list of CUDA compute capabilities to compile with."
                 print_warning(warning_msg)
@@ -276,6 +281,8 @@ class EB_TensorFlow(PythonPackage):
             config_env_vars.update({
                 'CUDA_TOOLKIT_PATH': cuda_root,
                 'GCC_HOST_COMPILER_PATH': compiler_path,
+                # This is the binutils bin folder: https://github.com/tensorflow/tensorflow/issues/39263
+                'GCC_HOST_COMPILER_PREFIX': self.binutils_bin_path,
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
@@ -318,6 +325,8 @@ class EB_TensorFlow(PythonPackage):
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
             if nccl_root:
                 nccl_version = get_software_version('NCCL')
+                # Ignore the PKG_REVISION identifier if it exists (i.e., report 2.4.6 for 2.4.6-1 or 2.4.6-2)
+                nccl_version = nccl_version.split('-')[0]
                 config_env_vars.update({
                     'NCCL_INSTALL_PATH': nccl_root,
                 })
@@ -354,38 +363,38 @@ class EB_TensorFlow(PythonPackage):
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
-        binutils_root = get_software_root('binutils')
-        if binutils_root:
-            binutils_bin = os.path.join(binutils_root, 'bin')
-        else:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
+        inc_paths, lib_paths = [], []
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         if gcc_root:
             gcc_lib64 = os.path.join(gcc_root, 'lib64')
+            lib_paths.append(gcc_lib64)
+
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
             # figure out location of GCC include files
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
                 gcc_lib_inc = res[0]
+                inc_paths.append(gcc_lib_inc)
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
 
             # make sure include-fixed directory is where we expect it to be
             gcc_lib_inc_fixed = os.path.join(os.path.dirname(gcc_lib_inc), 'include-fixed')
-            if not os.path.exists(gcc_lib_inc_fixed):
-                raise EasyBuildError("Derived directory %s does not exist", gcc_lib_inc_fixed)
+            if os.path.exists(gcc_lib_inc_fixed):
+                inc_paths.append(gcc_lib_inc_fixed)
+            else:
+                self.log.info("Derived directory %s does not exist, so discarding it", gcc_lib_inc_fixed)
 
             # also check on location of include/c++/<gcc version> directory
             gcc_cplusplus_inc = os.path.join(gcc_root, 'include', 'c++', gcc_ver)
-            if not os.path.exists(gcc_cplusplus_inc):
+            if os.path.exists(gcc_cplusplus_inc):
+                inc_paths.append(gcc_cplusplus_inc)
+            else:
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
         else:
             raise EasyBuildError("Failed to determine installation prefix for GCC")
-
-        inc_paths = [gcc_lib_inc, gcc_lib_inc_fixed, gcc_cplusplus_inc]
-        lib_paths = [gcc_lib64]
 
         cuda_root = get_software_root('CUDA')
         if cuda_root:
@@ -393,12 +402,12 @@ class EB_TensorFlow(PythonPackage):
             lib_paths.append(os.path.join(cuda_root, 'lib64'))
 
         # fix hardcoded locations of compilers & tools
-        cxx_inc_dir_lines = '\n'.join(r'cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths)
-        cxx_inc_dir_lines_no_resolv_path = '\n'.join(r'cxx_builtin_include_directory: "%s"' % p for p in inc_paths)
+        cxx_inc_dirs = ['cxx_builtin_include_directory: "%s"' % resolve_path(p) for p in inc_paths]
+        cxx_inc_dirs += ['cxx_builtin_include_directory: "%s"' % p for p in inc_paths]
         regex_subs = [
-            (r'-B/usr/bin/', '-B%s/ %s' % (binutils_bin, ' '.join('-L%s/' % p for p in lib_paths))),
+            (r'-B/usr/bin/', '-B%s %s' % (self.binutils_bin_path, ' '.join('-L%s/' % p for p in lib_paths))),
             (r'(cxx_builtin_include_directory:).*', ''),
-            (r'^toolchain {', 'toolchain {\n' + cxx_inc_dir_lines + '\n' + cxx_inc_dir_lines_no_resolv_path),
+            (r'^toolchain {', 'toolchain {\n' + '\n'.join(cxx_inc_dirs)),
         ]
         for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
             path = which(tool)

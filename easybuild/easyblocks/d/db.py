@@ -28,7 +28,6 @@ EasyBuild support for DB, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError

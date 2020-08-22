@@ -38,7 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import compute_checksum, copy
 from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
@@ -68,24 +68,27 @@ class EB_OpenCV(CMakeMake):
 
         self.pylibdir = det_pylibdir()
 
-        ippicv_tgz = glob.glob(os.path.join(self.builddir, 'ippicv*.tgz'))
-        if ippicv_tgz:
-            if len(ippicv_tgz) == 1:
-                # copy ippicv tarball in the right place
-                # expected location is 3rdparty/ippicv/downloads/linux-<md5sum>/
-                ippicv_tgz = ippicv_tgz[0]
-                ippicv_tgz_md5 = compute_checksum(ippicv_tgz, checksum_type='md5')
-                target_subdir = os.path.join('3rdparty', 'ippicv', 'downloads', 'linux-%s' % ippicv_tgz_md5)
-                copy([ippicv_tgz], os.path.join(self.cfg['start_dir'], target_subdir))
+        if get_cpu_architecture() == X86_64:
+            # IPP are Intel's Integrated Performance Primitives - so only make sense on X86_64
+            ippicv_tgz = glob.glob(os.path.join(self.builddir, 'ippicv*.tgz'))
+            if ippicv_tgz:
+                if len(ippicv_tgz) == 1:
+                    # copy ippicv tarball in the right place
+                    # expected location is 3rdparty/ippicv/downloads/linux-<md5sum>/
+                    ippicv_tgz = ippicv_tgz[0]
+                    ippicv_tgz_md5 = compute_checksum(ippicv_tgz, checksum_type='md5')
+                    target_subdir = os.path.join('3rdparty', 'ippicv', 'downloads', 'linux-%s' % ippicv_tgz_md5)
+                    copy([ippicv_tgz], os.path.join(self.cfg['start_dir'], target_subdir))
 
-                self.cfg.update('configopts', '-DWITH_IPP=ON')
+                    self.cfg.update('configopts', '-DWITH_IPP=ON')
 
-                # for recent OpenCV 3.x versions (and newer), we must also specify the download location
-                # to prevent that the ippicv tarball is re-downloaded
-                if LooseVersion(self.version) >= LooseVersion('3.4.4'):
-                    self.cfg.update('configopts', '-DOPENCV_DOWNLOAD_PATH=%s' % self.builddir)
-            else:
-                raise EasyBuildError("Found multiple ippicv*.tgz source tarballs in %s: %s", self.builddir, ippicv_tgz)
+                    # for recent OpenCV 3.x versions (and newer), we must also specify the download location
+                    # to prevent that the ippicv tarball is re-downloaded
+                    if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                        self.cfg.update('configopts', '-DOPENCV_DOWNLOAD_PATH=%s' % self.builddir)
+                else:
+                    raise EasyBuildError("Found multiple ippicv*.tgz source tarballs in %s: %s",
+                                         self.builddir, ippicv_tgz)
 
     def configure_step(self):
         """Custom configuration procedure for OpenCV."""

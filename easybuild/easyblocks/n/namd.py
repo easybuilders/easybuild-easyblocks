@@ -27,6 +27,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
 
 
 class EB_NAMD(MakeCp):
@@ -42,14 +43,26 @@ class EB_NAMD(MakeCp):
         extra.update({
             # see http://charm.cs.illinois.edu/manuals/html/charm++/A.html
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
+            'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
-            'namd_basearch': ['Linux-x86_64', "NAMD base target architecture (compiler family is appended", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
         })
+        arch = get_cpu_architecture()
+        if arch == X86_64:
+            basearch = 'Linux-x86_64'
+        elif arch == POWER:
+            basearch = 'Linux-POWER'
+
+        cuda = get_software_root('CUDA')
+        if cuda:
+            basearch = '%s.cuda' % basearch
+
+        extra['namd_basearch'] = [basearch, "NAMD base target architecture (compiler family is appended", CUSTOM]
+
         return extra
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for NAMD, initialize class variables."""
         super(EB_NAMD, self).__init__(*args, **kwargs)
         self.namd_arch = None
@@ -63,7 +76,8 @@ class EB_NAMD(MakeCp):
         if len(self.charm_tarballs) != 1:
             raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", self.charm_tarballs)
 
-        extract_file(self.charm_tarballs[0], os.getcwd())
+        srcdir = extract_file(self.charm_tarballs[0], os.getcwd(), change_into_dir=False)
+        change_dir(srcdir)
 
     def configure_step(self):
         """Custom configure step for NAMD, we build charm++ first (if required)."""
@@ -98,9 +112,12 @@ class EB_NAMD(MakeCp):
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
         self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
 
-
-        tup = (self.cfg['charm_arch'], self.cfg['charm_opts'], self.cfg['parallel'], os.environ['CXXFLAGS'])
-        cmd = "./build charm++ %s %s --with-numa -j%s %s -DMPICH_IGNORE_CXX_SEEK" % tup
+        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
+            'arch': self.cfg['charm_arch'],
+            'cxxflags': os.environ['CXXFLAGS'] + ' -DMPICH_IGNORE_CXX_SEEK ' + self.cfg['charm_extra_cxxflags'],
+            'opts': self.cfg['charm_opts'],
+            'parallel': self.cfg['parallel'],
+        }
         charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
         self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
         run_cmd(cmd, path=charm_subdir)
@@ -164,7 +181,7 @@ class EB_NAMD(MakeCp):
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:
-                test_ok_regex = re.compile("(^Program finished.$|End of program\s*$)", re.M)
+                test_ok_regex = re.compile(r"(^Program finished.$|End of program\s*$)", re.M)
                 if test_ok_regex.search(out):
                     self.log.debug("Test '%s' ran fine." % cmd)
                 else:
@@ -178,7 +195,7 @@ class EB_NAMD(MakeCp):
         srcdir = os.path.join(self.cfg['start_dir'], self.namd_arch)
         try:
             # copy all files, except for .rootdir (required to avoid cyclic copying)
-            for item in [x for x in os.listdir(srcdir) if not x in ['.rootdir']]:
+            for item in [x for x in os.listdir(srcdir) if x not in ['.rootdir']]:
                 fullsrc = os.path.join(srcdir, item)
                 if os.path.isdir(fullsrc):
                     shutil.copytree(fullsrc, os.path.join(self.installdir, item), symlinks=False)

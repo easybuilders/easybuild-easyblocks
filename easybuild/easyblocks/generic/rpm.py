@@ -127,7 +127,7 @@ class Rpm(Binary):
         cmd = "rpm --version"
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
-        rpmver_re = re.compile("^RPM\s+version\s+(?P<version>[0-9.]+).*")
+        rpmver_re = re.compile(r"^RPM\s+version\s+(?P<version>[0-9.]+).*")
         res = rpmver_re.match(out)
         self.log.debug("RPM version found: %s" % res.group())
 
@@ -220,9 +220,9 @@ class Rpm(Binary):
         guesses = super(Rpm, self).make_module_req_guess()
 
         guesses.update({
-                        'PATH': guesses.get('PATH', []) + ['usr/bin', 'sbin', 'usr/sbin'],
-                        'LD_LIBRARY_PATH': guesses.get('LD_LIBRARY_PATH', []) + ['usr/lib', 'usr/lib64'],
-                        'MANPATH': guesses.get('MANPATH', []) + ['usr/share/man'],
-                       })
+            'PATH': guesses.get('PATH', []) + ['usr/bin', 'sbin', 'usr/sbin'],
+            'LD_LIBRARY_PATH': guesses.get('LD_LIBRARY_PATH', []) + ['usr/lib', 'usr/lib64'],
+            'MANPATH': guesses.get('MANPATH', []) + ['usr/share/man'],
+        })
 
         return guesses

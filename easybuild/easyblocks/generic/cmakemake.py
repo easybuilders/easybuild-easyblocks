@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, mkdir, which, remove_dir
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -80,6 +80,7 @@ class CMakeMake(ConfigureMake):
             'build_type': [None, "Build type for CMake, e.g. Release."
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -120,6 +121,12 @@ class CMakeMake(ConfigureMake):
 
         if builddir is None and self.cfg.get('separate_build_dir', True):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
+            # For separate_build_dir we want a clean folder. So remove if it exists
+            # This can happen when multiple iterations are done (e.g. shared, static, ...)
+            if os.path.exists(builddir):
+                self.log.warning('Build directory %s already exists (from previous iterations?). Removing...',
+                                 builddir)
+                remove_dir(builddir)
 
         if builddir:
             mkdir(builddir, parents=True)
@@ -137,6 +144,15 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
+        if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
+            # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+            localstatedir = os.path.join(self.installdir, 'var')
+            runstatedir = os.path.join(localstatedir, 'run')
+            sysconfdir = os.path.join(self.installdir, 'etc')
+            options.append("-DCMAKE_INSTALL_LOCALSTATEDIR=%s" % localstatedir)
+            options.append("-DCMAKE_INSTALL_RUNSTATEDIR=%s" % runstatedir)
+            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s" % sysconfdir)
+
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
@@ -146,6 +162,9 @@ class CMakeMake(ConfigureMake):
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
             options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        if self.cfg['generator']:
+            options.append('-G "%s"' % self.cfg['generator'])
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
@@ -200,16 +219,16 @@ class CMakeMake(ConfigureMake):
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    DEFAULT_CONFIGURE_CMD,
-                    options_string,
-                    self.cfg['configopts'],
-                    srcdir])
+                self.cfg['preconfigopts'],
+                DEFAULT_CONFIGURE_CMD,
+                options_string,
+                self.cfg['configopts'],
+                srcdir])
         else:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    self.cfg.get('configure_cmd'),
-                    self.cfg['configopts']])
+                self.cfg['preconfigopts'],
+                self.cfg.get('configure_cmd'),
+                self.cfg['configopts']])
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 

@@ -60,4 +60,3 @@ class PackedBinary(Binary, EasyBlock):
                     raise EasyBuildError("Path %s is not a file nor a directory?", srcpath)
         except OSError as err:
             raise EasyBuildError("Failed to copy unpacked sources to install directory: %s", err)
-

@@ -1,4 +1,4 @@
-## 
+##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
 # Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
@@ -57,7 +57,7 @@ class EB_Cufflinks(ConfigureMake):
                 sys.stdout.write(line)
 
         for line in fileinput.input(os.path.join(build_dir, 'src', 'common.h'), inplace=1, backup='.orig'):
-                line = re.sub(r'#include \<boost\/for\_each.hpp\>', '#include <boost/foreach.hpp>', line, count=0)
-                sys.stdout.write(line)
+            line = re.sub(r'#include \<boost\/for\_each.hpp\>', '#include <boost/foreach.hpp>', line, count=0)
+            sys.stdout.write(line)
 
         super(EB_Cufflinks, self).patch_step()
