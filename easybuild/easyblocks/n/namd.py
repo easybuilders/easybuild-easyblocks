@@ -71,10 +71,6 @@ class EB_NAMD(MakeCp):
             elif arch == POWER:
                 basearch = 'Linux-POWER'
 
-            cuda = get_software_root('CUDA')
-            if cuda:
-                basearch = '%s.cuda' % basearch
-
             self.cfg['namd_basearch'] = basearch
             self.log.info("Derived value for 'namd_basearch': %s", self.cfg['namd_basearch'])
 
@@ -118,10 +114,10 @@ class EB_NAMD(MakeCp):
         if self.toolchain.options.get('openmp', False):
             self.cfg.update('charm_arch', 'smp')
         self.cfg.update('charm_arch', charm_arch_comp)
+        self.log.info("Updated 'charm_arch': %s", self.cfg['charm_arch'])
 
-        self.log.info("Updated 'charm_arch': %s" % self.cfg['charm_arch'])
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
-        self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
+        self.log.info("Completed NAMD target architecture: %s", self.namd_arch)
 
         cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
             'arch': self.cfg['charm_arch'],
@@ -150,6 +146,7 @@ class EB_NAMD(MakeCp):
             self.cfg.update('namd_cfg_opts', '--with-tcl --tcl-prefix %s' % tcl)
             tclversion = '.'.join(get_software_version('Tcl').split('.')[0:2])
             tclv_subs = [(r'-ltcl[\d.]*\s', '-ltcl%s ' % tclversion)]
+
             apply_regex_substitutions(os.path.join('arch', '%s.tcl' % self.cfg['namd_basearch']), tclv_subs)
 
         fftw = get_software_root('FFTW')
@@ -206,7 +203,7 @@ class EB_NAMD(MakeCp):
         srcdir = os.path.join(self.cfg['start_dir'], self.namd_arch)
         try:
             # copy all files, except for .rootdir (required to avoid cyclic copying)
-            for item in [x for x in os.listdir(srcdir) if not x in ['.rootdir']]:
+            for item in [x for x in os.listdir(srcdir) if x not in ['.rootdir']]:
                 fullsrc = os.path.join(srcdir, item)
                 if os.path.isdir(fullsrc):
                     shutil.copytree(fullsrc, os.path.join(self.installdir, item), symlinks=False)
