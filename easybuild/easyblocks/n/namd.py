@@ -45,20 +45,10 @@ class EB_NAMD(MakeCp):
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
             'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
+            'namd_basearch': [None, "NAMD base target architecture (compiler family is appended)", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
         })
-        arch = get_cpu_architecture()
-        if arch == X86_64:
-            basearch = 'Linux-x86_64'
-        elif arch == POWER:
-            basearch = 'Linux-POWER'
-
-        cuda = get_software_root('CUDA')
-        if cuda:
-            basearch = '%s.cuda' % basearch
-
-        extra['namd_basearch'] = [basearch, "NAMD base target architecture (compiler family is appended", CUSTOM]
 
         return extra
 
@@ -66,6 +56,23 @@ class EB_NAMD(MakeCp):
         """Custom easyblock constructor for NAMD, initialize class variables."""
         super(EB_NAMD, self).__init__(*args, **kwargs)
         self.namd_arch = None
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_NAMD, self).prepare_step(*args, **kwargs)
+
+        if self.cfg['namd_basearch'] is None:
+
+            self.log.info("namd_basearch not specified, so determining it based a CPU arch...")
+
+            arch = get_cpu_architecture()
+            if arch == X86_64:
+                basearch = 'Linux-x86_64'
+            elif arch == POWER:
+                basearch = 'Linux-POWER'
+
+            self.cfg['namd_basearch'] = basearch
+            self.log.info("Derived value for 'namd_basearch': %s", self.cfg['namd_basearch'])
 
     def extract_step(self):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
@@ -107,10 +114,10 @@ class EB_NAMD(MakeCp):
         if self.toolchain.options.get('openmp', False):
             self.cfg.update('charm_arch', 'smp')
         self.cfg.update('charm_arch', charm_arch_comp)
+        self.log.info("Updated 'charm_arch': %s", self.cfg['charm_arch'])
 
-        self.log.info("Updated 'charm_arch': %s" % self.cfg['charm_arch'])
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
-        self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
+        self.log.info("Completed NAMD target architecture: %s", self.namd_arch)
 
         cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
             'arch': self.cfg['charm_arch'],
@@ -139,6 +146,7 @@ class EB_NAMD(MakeCp):
             self.cfg.update('namd_cfg_opts', '--with-tcl --tcl-prefix %s' % tcl)
             tclversion = '.'.join(get_software_version('Tcl').split('.')[0:2])
             tclv_subs = [(r'-ltcl[\d.]*\s', '-ltcl%s ' % tclversion)]
+
             apply_regex_substitutions(os.path.join('arch', '%s.tcl' % self.cfg['namd_basearch']), tclv_subs)
 
         fftw = get_software_root('FFTW')
