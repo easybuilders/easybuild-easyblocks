@@ -63,7 +63,7 @@ class EB_NAMD(MakeCp):
 
         if self.cfg['namd_basearch'] is None:
 
-            self.log.info("namd_basearch not specified, so determining it based a CPU arch & CUDA dep...")
+            self.log.info("namd_basearch not specified, so determining it based a CPU arch...")
 
             arch = get_cpu_architecture()
             if arch == X86_64:
