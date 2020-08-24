@@ -289,6 +289,26 @@ class EB_GCC(ConfigureMake):
         - set platform_lib based on config.guess output
         """
 
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # based on changes made to GCC in Gentoo Prefix
+            # https://gitweb.gentoo.org/repo/gentoo.git/tree/profiles/features/prefix/standalone/profile.bashrc
+
+            # add --with-sysroot configure option, to instruct GCC to consider
+            # $EPREFIX as the root filesystem of the operating system
+            # (see https://gcc.gnu.org/install/configure.html)
+            self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
+
+            # avoid that --sysroot is passed to linker by patching value for SYSROOT_SPEC in gcc/gcc.c
+            apply_regex_substitutions(os.path.join('gcc', 'gcc.c'), [('--sysroot=%R', '')])
+
+            # prefix dynamic linkers with sysroot
+            # this patches lines like:
+            # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
+            regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
+            apply_regex_substitutions(gcc_config_headers, regex_subs)
+
         # self.configopts will be reused in a 3-staged build,
         # configopts is only used in first configure
         self.configopts = self.cfg['configopts']
