@@ -35,6 +35,7 @@ class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
     """
+
     def make_module_extra(self):
         """Add all the build environment variables."""
         txt = super(BuildEnv, self).make_module_extra()

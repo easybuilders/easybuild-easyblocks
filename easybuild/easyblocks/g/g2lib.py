@@ -74,8 +74,8 @@ class EB_g2lib(ConfigureMake):
         """Custom sanity check for g2lib."""
 
         custom_paths = {
-                        'files': ["lib/libg2.a"],
-                        'dirs': []
-                       }
+            'files': ["lib/libg2.a"],
+            'dirs': []
+        }
 
         super(EB_g2lib, self).sanity_check_step(custom_paths=custom_paths)

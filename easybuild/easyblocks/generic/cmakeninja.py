@@ -36,6 +36,13 @@ from easybuild.easyblocks.generic.mesonninja import MesonNinja
 class CMakeNinja(CMakeMake, MesonNinja):
     """Support for configuring with CMake, building and installing with MesonNinja."""
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Define extra easyconfig parameters specific to CMakeMake."""
+        extra_vars = CMakeMake.extra_options(extra_vars)
+        extra_vars['generator'][0] = 'Ninja'
+        return extra_vars
+
     def configure_step(self, *args, **kwargs):
         """Configure using CMake."""
         CMakeMake.configure_step(self, *args, **kwargs)

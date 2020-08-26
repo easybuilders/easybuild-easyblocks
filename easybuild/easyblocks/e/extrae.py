@@ -27,11 +27,9 @@ EasyBuild support for building and installing Extrae, implemented as an easybloc
 
 @author Bernd Mohr (Juelich Supercomputing Centre)
 """
-import os
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.modules import get_software_root, get_software_libdir
+from easybuild.tools.modules import get_software_root
 
 
 class EB_Extrae(ConfigureMake):

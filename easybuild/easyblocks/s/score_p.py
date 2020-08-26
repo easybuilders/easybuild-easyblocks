@@ -29,6 +29,7 @@ implemented as an easyblock.
 @author: Kenneth Hoste (Ghent University)
 @author: Bernd Mohr (Juelich Supercomputing Centre)
 @author: Markus Geimer (Juelich Supercomputing Centre)
+@author: Alexander Grund (TU Dresden)
 """
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -112,8 +113,12 @@ class EB_Score_minus_P(ConfigureMake):
             'binutils': ['--with-libbfd-include=%s/include',
                          '--with-libbfd-lib=%%s/%s' % get_software_libdir('binutils', fs=['libbfd.a'])],
             'libunwind': ['--with-libunwind=%s'],
+            # Older versions use Cube
             'Cube': ['--with-cube=%s/bin'],
-            'CUDA': ['--with-libcudart=%s'],
+            # Recent versions of Cube are split into CubeLib and CubeW(riter)
+            'CubeLib': ['--with-cubelib=%s/bin'],
+            'CubeWriter': ['--with-cubew=%s/bin'],
+            'CUDA': ['--enable-cuda', '--with-libcudart=%s'],
             'OTF2': ['--with-otf2=%s/bin'],
             'OPARI2': ['--with-opari2=%s/bin'],
             'PAPI': ['--with-papi-header=%s/include', '--with-papi-lib=%%s/%s' % get_software_libdir('PAPI')],
@@ -125,6 +130,10 @@ class EB_Score_minus_P(ConfigureMake):
             dep_root = get_software_root(dep_name)
             if dep_root:
                 for dep_opt in dep_opts:
-                    self.cfg.update('configopts', dep_opt % dep_root)
+                    try:
+                        dep_opt = dep_opt % dep_root
+                    except TypeError:
+                        pass  # Ignore subtitution error when there is nothing to substitute
+                    self.cfg.update('configopts', dep_opt)
 
         super(EB_Score_minus_P, self).configure_step(*args, **kwargs)

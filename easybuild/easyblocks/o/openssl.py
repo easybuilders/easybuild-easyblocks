@@ -44,7 +44,7 @@ class EB_OpenSSL(ConfigureMake):
         """
         Configure step
         """
- 
+
         cmd = "%s %s./config --prefix=%s threads shared %s" % (self.cfg['preconfigopts'], cmd_prefix,
                                                                self.installdir, self.cfg['configopts'])
 
@@ -65,16 +65,17 @@ class EB_OpenSSL(ConfigureMake):
 
         custom_paths = {
             'files': [os.path.join(libdir, x) for x in ['libcrypto.a', 'libcrypto.so', 'libssl.a', 'libssl.so']] +
-                     ['bin/openssl'],
+            ['bin/openssl'],
             'dirs': [],
         }
 
         if LooseVersion(self.version) < LooseVersion("1.1"):
-            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.0.0'), os.path.join(libdir, 'libssl.so.1.0.0')])
+            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.0.0'),
+                                          os.path.join(libdir, 'libssl.so.1.0.0')])
             custom_paths['dirs'].append(os.path.join(libdir, 'engines'))
         else:
-            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.1'), os.path.join(libdir, 'libssl.so.1.1')])
+            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.1'),
+                                          os.path.join(libdir, 'libssl.so.1.1')])
             custom_paths['dirs'].append(os.path.join(libdir, 'engines-1.1'))
 
         super(EB_OpenSSL, self).sanity_check_step(custom_paths=custom_paths)
-    

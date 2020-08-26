@@ -49,6 +49,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
+from easybuild.tools.environment import setvar
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
@@ -69,7 +70,8 @@ class EB_Clang(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
@@ -83,9 +85,10 @@ class EB_Clang(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
-        }
-
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # disable regular out-of-source build, too simplistic for Clang to work
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
@@ -216,7 +219,7 @@ class EB_Clang(CMakeMake):
         # If that doesn't work, try with GCC
         if gcc_prefix is None:
             gcc_prefix = get_software_root('GCC')
-        
+
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
@@ -225,7 +228,6 @@ class EB_Clang(CMakeMake):
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # Configure some default options
-        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
         if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
@@ -277,6 +279,12 @@ class EB_Clang(CMakeMake):
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
 
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into
+        # not finding it by using the environment variable which is used as-is and later checked
+        # for a falsy value when determining wether CUDA was found
+        if not get_software_root('CUDA'):
+            setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
+
         self.log.info("Configuring")
         super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
 
@@ -290,12 +298,12 @@ class EB_Clang(CMakeMake):
             for patchfile in patchfiles:
                 cmakelists = os.path.join(self.llvm_src_dir, 'projects/compiler-rt', patchfile, 'CMakeLists.txt')
                 if os.path.exists(cmakelists):
-                    regex_subs = [('.*add_subdirectory\(lit_tests\).*', '')]
+                    regex_subs = [(r'.*add_subdirectory\(lit_tests\).*', '')]
                     apply_regex_substitutions(cmakelists, regex_subs)
 
             # There is a common part seperate for the specific saniters, we disable all the common tests
             cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
-            regex_subs = [('.*add_subdirectory\(tests\).*', '')]
+            regex_subs = [(r'.*add_subdirectory\(tests\).*', '')]
             apply_regex_substitutions(cmakelists, regex_subs)
 
         else:
@@ -325,6 +333,7 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_C_COMPILER='%s' " % CC
         options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
         options += self.cfg['configopts']
+        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)

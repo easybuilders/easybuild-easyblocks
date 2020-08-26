@@ -30,6 +30,7 @@ EasyBuild support for installing Tornado, implemented as an easyblock
 import os
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 
+
 class EB_Tornado(PackedBinary):
     """EasyBlock for Tornado"""
 

@@ -46,7 +46,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_MATLAB(PackedBinary):
@@ -131,8 +130,23 @@ class EB_MATLAB(PackedBinary):
         if LooseVersion(self.version) >= LooseVersion('2016b'):
             change_dir(self.builddir)
 
-        # MATLAB installer ignores TMPDIR (always uses /tmp) and might need a large tmpdir
-        tmpdir = "-tmpdir %s" % tempfile.mkdtemp()
+        # Build the cmd string
+        cmdlist = [
+            self.cfg['preinstallopts'],
+            src,
+            '-inputFile',
+            self.configfile,
+        ]
+        if LooseVersion(self.version) < LooseVersion('2020a'):
+            # MATLAB installers < 2020a ignore $TMPDIR (always use /tmp) and might need a large tmpdir
+            tmpdir = tempfile.mkdtemp()
+            cmdlist.extend([
+                '-v',
+                '-tmpdir',
+                tmpdir,
+            ])
+        cmdlist.append(self.cfg['installopts'])
+        cmd = ' '.join(cmdlist)
 
         keys = self.cfg['key']
         if keys is None:
@@ -140,25 +154,29 @@ class EB_MATLAB(PackedBinary):
         if isinstance(keys, string_type):
             keys = keys.split(',')
 
-        # Make one install for each key
-        for key in keys:
-            cmd = ' '.join([
-                self.cfg['preinstallopts'],
-                src,
-                '-v',
-                tmpdir,
-                '-inputFile',
-                self.configfile,
-                '-fileInstallationKey',
-                key,
-                self.cfg['installopts'],
-            ])
+        # Compile the installation key regex outside of the loop
+        regkey = re.compile(r"^(# )?fileInstallationKey=.*", re.M)
+
+        # Run an install for each key
+        for i, key in enumerate(keys):
+
+            self.log.info('Installing MATLAB with key %s of %s', i + 1, len(keys))
+
+            try:
+                config = read_file(self.configfile)
+                config = regkey.sub("fileInstallationKey=%s" % key, config)
+                write_file(self.configfile, config)
+
+            except IOError as err:
+                raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
+
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # check installer output for known signs of trouble
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
             ]
+
             for pattern in patterns:
                 regex = re.compile(pattern, re.I)
                 if regex.search(out):
@@ -176,6 +194,12 @@ class EB_MATLAB(PackedBinary):
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
+
+        # make MATLAB runtime available
+        if LooseVersion(self.version) >= LooseVersion('2017a'):
+            for ldlibdir in ['runtime', 'bin', os.path.join('sys', 'os')]:
+                libdir = os.path.join(ldlibdir, 'glnxa64')
+                txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', libdir)
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt

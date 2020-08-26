@@ -30,6 +30,7 @@ EasyBuild support for building and installing pbdSLAP, implemented as an easyblo
 
 from easybuild.easyblocks.generic.rpackage import RPackage
 
+
 class EB_pbdSLAP(RPackage):
     """Support for building/installing pbdSLAP."""
 

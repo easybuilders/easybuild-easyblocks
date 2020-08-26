@@ -31,16 +31,19 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
 
 class EB_impi(IntelBase):
@@ -133,7 +136,8 @@ EULA=accept
                 libfabric_src_tgz_fn = 'src.tgz'
                 if os.path.exists(os.path.join(libfabric_path, libfabric_src_tgz_fn)):
                     change_dir(libfabric_path)
-                    extract_file(libfabric_src_tgz_fn, os.getcwd())
+                    srcdir = extract_file(libfabric_src_tgz_fn, os.getcwd(), change_into_dir=False)
+                    change_dir(srcdir)
                     libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
                     make = 'make'
@@ -167,7 +171,7 @@ EULA=accept
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
-            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            regex_subs = [(r"^(\s*)I_MPI_ROOT=[^;\n]*", r"\1I_MPI_ROOT=%s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
@@ -203,14 +207,39 @@ EULA=accept
 
         custom_paths = {
             'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
-                    ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
-                    ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
-                    ["%s/libmpi.a" % lib_dir],
+            ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+            ["%s/%s" % (include_dir, x) for x in mpi_mods] +
+            ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+            ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 
-        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+
+        if LooseVersion(self.version) >= LooseVersion('2017'):
+            # Add minimal test program to sanity checks
+            impi_testsrc = os.path.join(self.installdir, 'test/test.c')
+            impi_testexe = os.path.join(self.builddir, 'mpi_test')
+            self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
+
+            # Build test program with appropriate compiler from current toolchain
+            comp_fam = self.toolchain.comp_family()
+            if comp_fam == toolchain.INTELCOMP:
+                build_comp = 'mpiicc'
+            else:
+                build_comp = 'mpicc'
+            build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
+
+            # Execute test program with appropriate MPI executable for target toolchain
+            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+
+            custom_commands.extend([
+                build_cmd,  # build test program
+                mpi_cmd_tmpl % params,  # run test program
+            ])
+
+        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """
@@ -230,9 +259,9 @@ EULA=accept
         else:
             guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
-                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
-                # IntelMPI 2019 changed the default library to be the non-mt version.
-                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
+                # The "release" library is default in v2019. Give it precedence over intel64/lib.
+                # (remember paths are *prepended*, so the last path in the list has highest priority)
+                lib_dirs = ['intel64/%s' % x for x in ['lib', 'lib/release']]
                 include_dirs = ['intel64/include']
                 path_dirs = ['intel64/bin']
                 if self.cfg['ofi_internal']:

@@ -52,7 +52,7 @@ class EB_OpenIFS(EasyBlock):
         env.setvar('OIFS_BUILD', 'opt')
         if self.toolchain.comp_family() == toolchain.GCC:
             env.setvar('OIFS_COMP', 'gnu')
-        elif self.toolchain.comp_family() == toolchain.INTELCOMP: 
+        elif self.toolchain.comp_family() == toolchain.INTELCOMP:
             env.setvar('OIFS_COMP', 'intel')
         else:
             raise EasyBuildError("Unknown compiler used, don't know how to set $OIFS_COMP.")
@@ -103,4 +103,3 @@ class EB_OpenIFS(EasyBlock):
         }
 
         super(EB_OpenIFS, self).sanity_check_step(custom_paths=custom_paths)
-

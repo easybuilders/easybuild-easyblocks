@@ -29,9 +29,7 @@ EasyBuild support for building and installing FDTD Solutions, implemented as an 
 """
 import glob
 import os
-import shutil
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.easyblocks.generic.rpm import rebuild_rpm
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir
 from easybuild.tools.run import run_cmd

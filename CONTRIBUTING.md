@@ -123,18 +123,7 @@ Issue a pull request for your branch into the main easybuild-easyblocks reposito
  * issue a pull request (see button at the top of the page) for your branch to the **_develop_** branch of the main easybuild-easyblocks repository; **note**: don't issue a pull request to the _master_ branch, as it will be simply closed by the EasyBuild team
 
  * make sure to reference the corresponding issue number in the pull request, using the notation # followed by a number, e.g. `#83`
-
-### Issue pull request for existing ticket (from command line)
-
-If you're contributing code to an existing issue you can also convert the issue to a pull request by running
-``` 
-GITHUBUSER=your_username && PASSWD=your_password && BRANCH=branch_name && ISSUE=issue_number && \
-curl --user "$GITHUBUSER:$PASSWD" --request POST \
---data "{\"issue\": \"$ISSUE\", \"head\": \"$GITHUBUSER:$BRANCH\", \"base\": \"develop\"}" \
-https://api.github.com/repos/easybuilders/easybuild-easyblocks/pulls
-```
-This is currently only supported by github from the command line and not via the web interface.
-You might also want to look into [hub](https://github.com/defunkt/hub) for more command line features.
+   * Using syntax like `Closes #83` or `Fixes #83` when you do this will mean that the issue is automatically closed when the pull request is merged (see [here](https://help.github.com/en/github/managing-your-work-on-github/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) for details).
 
 ### Review process
 

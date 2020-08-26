@@ -28,11 +28,13 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 @author: Kenneth Hoste (Ghent University)
 """
 import os
+import sys
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir, pick_python_cmd
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
 
 
@@ -75,6 +77,7 @@ class PythonBundle(Bundle):
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None
+        self.all_pylibdirs = []
 
         # figure out whether this bundle of Python packages is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
@@ -83,10 +86,39 @@ class PythonBundle(Bundle):
         """Prepare for installing bundle of Python packages."""
         super(Bundle, self).prepare_step(*args, **kwargs)
 
-        if get_software_root('Python') is None:
+        python_root = get_software_root('Python')
+        if python_root is None:
             raise EasyBuildError("Python not included as dependency!")
 
-        self.pylibdir = det_pylibdir()
+        # when system Python is used, the first 'python' command in $PATH will not be $EBROOTPYTHON/bin/python,
+        # since $EBROOTPYTHON is set to just 'Python' in that case
+        # (see handling of allow_system_deps in EasyBlock.prepare_step)
+        if which('python') == os.path.join(python_root, 'bin', 'python'):
+            # if we're using a proper Python dependency, let det_pylibdir use 'python' like it does by default
+            python_cmd = None
+        else:
+            # since det_pylibdir will use 'python' by default as command to determine Python lib directory,
+            # we need to intervene when the system Python is used, by specifying version requirements
+            # to pick_python_cmd so the right 'python' command is used;
+            # if we're using the system Python and no Python version requirements are specified,
+            # use major/minor version of Python being used in this EasyBuild session (as we also do in PythonPackage)
+            req_py_majver = self.cfg['req_py_majver']
+            if req_py_majver is None:
+                req_py_majver = sys.version_info[0]
+            req_py_minver = self.cfg['req_py_minver']
+            if req_py_minver is None:
+                req_py_minver = sys.version_info[1]
+
+            python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
+
+        self.pylibdir = det_pylibdir(python_cmd=python_cmd)
+        self.all_pylibdirs = [self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)]
+
+        # if 'python' is not used, we need to take that into account in the extensions filter
+        # (which is also used during the sanity check)
+        if python_cmd:
+            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+            self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', python_cmd), orig_exts_filter[1])
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
@@ -102,7 +134,20 @@ class PythonBundle(Bundle):
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+
+            # the temporary module file that is generated before installing extensions
+            # must add all subdirectories to $PYTHONPATH without checking existence,
+            # otherwise paths will be missing since nothing is there initially
+            if self.current_step == 'extensions':
+                new_pylibdirs = self.all_pylibdirs
+            else:
+                new_pylibdirs = [
+                    lib_dir for lib_dir in self.all_pylibdirs
+                    if os.path.exists(os.path.join(self.installdir, lib_dir))
+                ]
+
+            for pylibdir in new_pylibdirs:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 
