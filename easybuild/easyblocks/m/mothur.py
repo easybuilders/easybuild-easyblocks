@@ -30,6 +30,7 @@ EasyBuild support for Mothur, implemented as an easyblock
 import glob
 import os
 import shutil
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
@@ -84,9 +85,14 @@ class EB_Mothur(ConfigureMake):
         srcdir = os.path.join(self.builddir, self.cfg['start_dir'])
         destdir = os.path.join(self.installdir, 'bin')
         srcfile = None
+        # After version 1.43.0 uchime binary is not included in the Mothur tarball
+        if LooseVersion(self.version) > LooseVersion('1.43.0'):
+            files_to_copy = ['mothur']
+        else:
+            files_to_copy = ['mothur', 'uchime']
         try:
             os.makedirs(destdir)
-            for filename in ['mothur', 'uchime']:
+            for filename in files_to_copy:
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
         except OSError as err:
