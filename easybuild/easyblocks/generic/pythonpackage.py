@@ -222,6 +222,8 @@ class PythonPackage(ExtensionEasyBlock):
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
+                                           "to be the requirements file.", CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
@@ -442,6 +444,10 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('use_pip_editable', False):
             # add --editable option when requested, in the right place (i.e. right before the location specification)
             loc = "--editable %s" % loc
+
+        if self.cfg.get('use_pip_requirement', False):
+            # add --requirement option when requested, in the right place (i.e. right before the location specification)
+            loc = "--requirement %s" % loc
 
         cmd.extend([
             self.cfg['preinstallopts'],
