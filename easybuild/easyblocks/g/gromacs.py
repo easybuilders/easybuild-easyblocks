@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import which
+from easybuild.tools.filetools import copy_dir, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -402,6 +402,14 @@ class EB_GROMACS(CMakeMake):
             # allow to escape testing by setting runtest to False
             if self.cfg['runtest'] is None or self.cfg['runtest']:
 
+                if build_option('rpath'):
+                    # temporarily copy 'lib' to installation directory when RPATH linking is enabled;
+                    # required to fix errors like:
+                    #     "ImportError: libgmxapi.so.0: cannot open shared object file: No such file or directory"
+                    # occurs with 'make test' because _gmxapi.*.so only includes %(installdir)/lib in RPATH section,
+                    # while the libraries are only there after install step...
+                    copy_dir('lib', os.path.join(self.installdir, 'lib'))
+
                 orig_runtest = self.cfg['runtest']
                 # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
                 env.setvar('OMP_NUM_THREADS', '1')
@@ -413,6 +421,12 @@ class EB_GROMACS(CMakeMake):
                 # in parallel since it involves more compilation
                 self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
                 super(EB_GROMACS, self).test_step()
+
+                if build_option('rpath'):
+                    # clean up temporary copy of 'lib' in installation directory,
+                    # this was only there to avoid ImportError when running the tests before populating
+                    # the installation directory
+                    remove_dir(os.path.join(self.installdir, 'lib'))
 
                 self.cfg['runtest'] = orig_runtest
 
