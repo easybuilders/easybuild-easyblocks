@@ -44,9 +44,9 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import log_path
+from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -236,6 +236,19 @@ class EB_Python(ConfigureMake):
 
     def build_step(self, *args, **kwargs):
         """Custom build procedure for Python, ensure stack size limit is set to 'unlimited' (if desired)."""
+
+        # make sure installation directory doesn't already exist when building with --rpath and
+        # configuring with --enable-optimizations, since that leads to errors like:
+        #   ./python: symbol lookup error: ./python: undefined symbol: __gcov_indirect_call
+        # see also https://bugs.python.org/issue29712
+        enable_opts_flag = '--enable-optimizations'
+        if build_option('rpath') and enable_opts_flag in self.cfg['configopts']:
+            if os.path.exists(self.installdir):
+                warning_msg = "Removing existing installation directory '%s', "
+                warning_msg += "because EasyBuild is configured to use RPATH linking "
+                warning_msg += "and %s configure option is used." % enable_opts_flag
+                print_warning(warning_msg % self.installdir)
+                remove_dir(self.installdir)
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
