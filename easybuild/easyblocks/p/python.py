@@ -46,7 +46,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, remove_dir, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
+from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -145,20 +146,36 @@ class EB_Python(ConfigureMake):
             for pattern in ['include*', os.path.join('usr', 'include*')]:
                 sysroot_inc_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
 
-            if not sysroot_inc_dirs:
+            if sysroot_inc_dirs:
+                sysroot_inc_dirs = ', '.join(["'%s'" % x for x in sysroot_inc_dirs])
+            else:
                 raise EasyBuildError("No include directories found in sysroot %s!", sysroot)
 
             for pattern in ['lib*', os.path.join('usr', 'lib*')]:
                 sysroot_lib_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
 
-            if not sysroot_lib_dirs:
+            if sysroot_lib_dirs:
+                sysroot_lib_dirs = ', '.join(["'%s'" % x for x in sysroot_lib_dirs])
+            else:
                 raise EasyBuildError("No lib directories found in sysroot %s!", sysroot)
 
-            regex_subs = [
-                (r"(system_include_dirs = \[).*\]", r"\1%s]" % ', '.join(["'%s'" % x for x in sysroot_inc_dirs])),
-                (r"(system_lib_dirs = \[).*\]", r"\1%s]" % ', '.join(["'%s'" % x for x in sysroot_lib_dirs])),
-            ]
-            apply_regex_substitutions('setup.py', regex_subs)
+            setup_py_fn = 'setup.py'
+            setup_py_txt = read_file(setup_py_fn)
+
+            # newer Python versions (3.6+) have refactored code, requires different patching approach
+            if "system_include_dirs = " in setup_py_txt:
+                regex_subs = [
+                    (r"(system_include_dirs = \[).*\]", r"\1%s]" % sysroot_inc_dirs),
+                    (r"(system_lib_dirs = \[).*\]", r"\1%s]" % sysroot_lib_dirs),
+                ]
+            else:
+                regex_subs = [
+                    (r"^([ ]+)'/usr/include',", r"\1%s," % sysroot_inc_dirs),
+                    (r"^([ ]+)'/lib64', '/usr/lib64',", r"\1%s," % sysroot_lib_dirs),
+                    (r"^[ ]+'/lib', '/usr/lib',", ''),
+                ]
+
+            apply_regex_substitutions(setup_py_fn, regex_subs)
 
     def prepare_for_extensions(self):
         """
