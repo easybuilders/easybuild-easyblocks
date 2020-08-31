@@ -75,8 +75,8 @@ class EB_binutils(ConfigureMake):
 
                 libdir = os.path.join(sysroot, 'usr', libdir)
 
-                # also consider /lib, /lib64
-                alt_libdir = libdir.replace('usr/', '')
+                # also consider /lib, /lib64 (without /usr/)
+                alt_libdir = os.path.join(sysroot, libdir)
 
                 if os.path.exists(libdir):
                     libdirs.append(libdir)
@@ -120,7 +120,7 @@ class EB_binutils(ConfigureMake):
         # explicitly configure binutils to use / as sysroot
         # this is required to ensure the binutils installation works correctly with a (system)
         # GCC compiler that was explicitly configured with --with-sysroot=/;
-        # we should *not* used the value of the EasyBuild --sysroot configuration option here,
+        # we should *not* use the value of the EasyBuild --sysroot configuration option here,
         # since that leads to weird errors where the sysroot path is duplicated, like:
         #   /bin/ld.gold: error: cannot open /<sysroot>/<sysroot>/lib64/libc.so.6: No such file or directory
         self.cfg.update('configopts', '--with-sysroot=/')
