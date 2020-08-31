@@ -241,9 +241,13 @@ class EB_Python(ConfigureMake):
         # configuring with --enable-optimizations, since that leads to errors like:
         #   ./python: symbol lookup error: ./python: undefined symbol: __gcov_indirect_call
         # see also https://bugs.python.org/issue29712
-        if build_option('rpath') and '--enable-optimizations' in self.cfg['configopts']:
+        enable_opts_flag = '--enable-optimizations'
+        if build_option('rpath') and enable_opts_flag in self.cfg['configopts']:
             if os.path.exists(self.installdir):
-                print_warning("Removing existing installation directory: %s", self.installdir)
+                warning_msg = "Removing existing installation directory '%s', "
+                warning_msg += "because EasyBuild is configured to use RPATH linking "
+                warning_msg += "and %s configure option is used." % enable_opts_flag
+                print_warning(warning_msg % self.installdir)
                 remove_dir(self.installdir)
 
         if self.cfg['ulimit_unlimited']:
