@@ -295,7 +295,7 @@ class EB_GCC(ConfigureMake):
             # https://gitweb.gentoo.org/repo/gentoo.git/tree/profiles/features/prefix/standalone/profile.bashrc
 
             # add --with-sysroot configure option, to instruct GCC to consider
-            # $EPREFIX as the root filesystem of the operating system
+            # value set for EasyBuild's --sysroot configuration option as the root filesystem of the operating system
             # (see https://gcc.gnu.org/install/configure.html)
             self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
 
