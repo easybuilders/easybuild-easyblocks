@@ -46,7 +46,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -126,6 +126,39 @@ class EB_Python(ConfigureMake):
         if self.cfg['ebpythonprefixes']:
             easybuild_subdir = log_path()
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
+
+    def patch_step(self, *args, **kwargs):
+        """
+        Custom patch step for Python:
+        * patch setup.py when --sysroot EasyBuild configuration setting is used
+        """
+
+        # if we're installing Python with an alternate sysroot,
+        # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
+        # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
+        sysroot = build_option('sysroot')
+        if sysroot:
+            sysroot_inc_dirs, sysroot_lib_dirs = [], []
+
+            for pattern in ['include*', os.path.join('usr', 'include*')]:
+                sysroot_inc_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
+
+            if not sysroot_inc_dirs:
+                raise EasyBuildError("No include directories found in sysroot %s!", sysroot)
+
+            for pattern in ['lib*', os.path.join('usr', 'lib*')]:
+                sysroot_lib_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
+
+            if not sysroot_lib_dirs:
+                raise EasyBuildError("No lib directories found in sysroot %s!", sysroot)
+
+            regex_subs = [
+                (r"(system_include_dirs = \[).*\]", r"\1%s]" % ', '.join(["'%s'" % x for x in sysroot_inc_dirs])),
+                (r"(system_lib_dirs = \[).*\]", r"\1%s]" % ', '.join(["'%s'" % x for x in sysroot_lib_dirs])),
+            ]
+            apply_regex_substitutions('setup.py', regex_subs)
+
+        super(EB_Python, self).patch_step(*args, **kwargs)
 
     def prepare_for_extensions(self):
         """
