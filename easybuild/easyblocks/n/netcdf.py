@@ -136,7 +136,7 @@ class EB_netCDF(CMakeMake):
             'files': (
                 [os.path.join("bin", x) for x in binaries] +
                 [os.path.join("lib", x) for x in libs] +
-                [os.path.joib("include", x) for x in incs]
+                [os.path.join("include", x) for x in incs]
             ),
             'dirs': []
         }
