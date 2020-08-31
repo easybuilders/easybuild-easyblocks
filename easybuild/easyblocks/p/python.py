@@ -133,6 +133,8 @@ class EB_Python(ConfigureMake):
         * patch setup.py when --sysroot EasyBuild configuration setting is used
         """
 
+        super(EB_Python, self).patch_step(*args, **kwargs)
+
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
@@ -157,8 +159,6 @@ class EB_Python(ConfigureMake):
                 (r"(system_lib_dirs = \[).*\]", r"\1%s]" % ', '.join(["'%s'" % x for x in sysroot_lib_dirs])),
             ]
             apply_regex_substitutions('setup.py', regex_subs)
-
-        super(EB_Python, self).patch_step(*args, **kwargs)
 
     def prepare_for_extensions(self):
         """
