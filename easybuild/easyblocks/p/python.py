@@ -171,6 +171,7 @@ class EB_Python(ConfigureMake):
             else:
                 regex_subs = [
                     (r"^([ ]+)'/usr/include',", r"\1%s," % sysroot_inc_dirs),
+                    (r"\['/usr/include'\]", r"[%s]" % sysroot_inc_dirs),
                     (r"^([ ]+)'/lib64', '/usr/lib64',", r"\1%s," % sysroot_lib_dirs),
                     (r"^[ ]+'/lib', '/usr/lib',", ''),
                 ]
