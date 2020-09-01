@@ -35,7 +35,8 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
-from easybuild.tools.systemtools import POWER, X86_64, AARCH64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64
+from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 
 
 class EB_Mesa(MesonNinja):
