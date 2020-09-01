@@ -115,6 +115,19 @@ class EB_Qt(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('4') and LooseVersion(self.version) < LooseVersion('5'):
             self.cfg.update('configopts', '-xmlpatterns')
 
+        # disable specific features to avoid that libQt5Core.so being tagged as requiring kernel 3.17,
+        # which causes confusing problems like this even though the file exists and can be found by...
+        #     error while loading shared libraries: libQt5Core.so.5:
+        #      cannot open shared object file: No such file or directory
+        # see also:
+        # * https://bugs.gentoo.org/669994
+        # * https://github.com/NixOS/nixpkgs/commit/a7b6a9199e8db54a798d011a0946cdeb72cfc46b
+        # * https://gitweb.gentoo.org/proj/qt.git/commit/?id=9ff0752e1ee3c28818197eaaca45545708035152
+        kernel_version = os.uname()[2]
+        if LooseVersion(self.version) >= LooseVersion('5.0') and LooseVersion(kernel_version) < LooseVersion('3.17'):
+            self.cfg.update('configopts', '-no-feature-renameat2')
+            self.cfg.update('configopts', '-no-feature-getentropy')
+
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
