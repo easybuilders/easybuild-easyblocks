@@ -182,10 +182,12 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('termcolor', '2.1.0:'): 'termcolor_archive',
         ('wrapt', '2.1.0:'): 'wrapt',
     }
-    dependency_mapping = {dep_name: tf_name for (dep_name, version_range), tf_name in available_system_libs.items()
-                          if is_version_ok(version_range)}
-    python_mapping = {pkg_name: tf_name for (pkg_name, version_range), tf_name in python_system_libs.items()
-                      if is_version_ok(version_range)}
+    dependency_mapping = dict((dep_name, tf_name)
+                              for (dep_name, version_range), tf_name in available_system_libs.items()
+                              if is_version_ok(version_range))
+    python_mapping = dict((pkg_name, tf_name)
+                          for (pkg_name, version_range), tf_name in python_system_libs.items()
+                          if is_version_ok(version_range))
 
     if as_valid_libs:
         tf_names = [tf_name for tf_name, version_range in unused_system_libs.items()
