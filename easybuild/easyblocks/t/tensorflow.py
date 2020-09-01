@@ -824,10 +824,6 @@ class EB_TensorFlow(PythonPackage):
         ]
         res = super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-        # determine top-level directory
-        # start_dir is not set when TensorFlow is installed as an extension, then fall back to ext_dir
-        topdir = self.start_dir or self.ext_dir
-
         # test installation using MNIST tutorial examples
         if self.cfg['runtest']:
             pythonpath = os.getenv('PYTHONPATH', '')
@@ -845,7 +841,7 @@ class EB_TensorFlow(PythonPackage):
             for mnist_py in mnist_pys:
                 datadir = tempfile.mkdtemp(suffix='-tf-%s-data' % os.path.splitext(mnist_py)[0])
                 logdir = tempfile.mkdtemp(suffix='-tf-%s-logs' % os.path.splitext(mnist_py)[0])
-                mnist_py = os.path.join(topdir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
+                mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
                 cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
