@@ -177,7 +177,6 @@ class EB_tbb(IntelBase, ConfigureMake):
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
 
-
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
         custom_paths = {
