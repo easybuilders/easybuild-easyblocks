@@ -79,12 +79,16 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         if zlib:
             self.cfg.update('configopts', '--with-zlib=%s' % zlib)
 
+        xz_root = get_software_root('XZ')
+        if xz_root:
+            self.cfg.update('configopts', '--with-lzma=%s' % xz_root)
+
         # enable building of Python bindings if Python is a dependency (or build them ourselves for old versions)
         # disable building of Python bindings if Python is not a dependency
         if self.with_python_bindings and LooseVersion(self.version) >= LooseVersion('2.9.2'):
-                libxml2_pylibdir = os.path.join(self.installdir, self.pylibdir)
-                self.cfg.update('configopts', "--with-python=%s" % os.path.join(python, 'bin', 'python'))
-                self.cfg.update('configopts', "--with-python-install-dir=%s" % libxml2_pylibdir)
+            libxml2_pylibdir = os.path.join(self.installdir, self.pylibdir)
+            self.cfg.update('configopts', "--with-python=%s" % os.path.join(python, 'bin', 'python'))
+            self.cfg.update('configopts', "--with-python-install-dir=%s" % libxml2_pylibdir)
         else:
             self.cfg.update('configopts', '--without-python')
 

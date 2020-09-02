@@ -56,6 +56,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
+    'EPYC',  # AMD EPYC Zen-Core CPU
 ]
 
 KOKKOS_CPU_MAPPING = {
@@ -66,6 +67,8 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'knights-landing': 'KNL',
+    'zen': 'EPYC',
+    'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
 }
 
 
@@ -84,6 +87,9 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'Turing75',  # NVIDIA Turing generation CC 7.5
 }
 
+PKG_PREFIX = 'PKG_'
+PKG_USER_PREFIX = PKG_PREFIX + 'USER-'
+
 
 class EB_LAMMPS(CMakeMake):
     """
@@ -93,16 +99,17 @@ class EB_LAMMPS(CMakeMake):
     @staticmethod
     def extra_options(**kwargs):
         """Custom easyconfig parameters for LAMMPS"""
-
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
-            'general_packages': [None, "List of general packages without `PKG_` prefix.", MANDATORY],
+            'general_packages': [None, "List of general packages without '%s' prefix." % PKG_PREFIX, MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages without `PKG_USER-` prefix.", MANDATORY],
-        }
-        return CMakeMake.extra_options(extra_vars)
+            'user_packages': [None, "List user packages without '%s' prefix." % PKG_USER_PREFIX, MANDATORY],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -124,17 +131,17 @@ class EB_LAMMPS(CMakeMake):
         cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc)
 
         # cmake has its own folder
-        self.cfg['separate_build_dir'] = True
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
 
-        # Enable following packages, if not configured in easycofig
-        default_options = [
-            'BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB',
-            'BUILD_SHARED_LIBS', 'BUILD_TOOLS',
-        ]
+        # Enable following packages, if not configured in easyconfig
+        default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)
+
+        # enable building of shared libraries, if not specified already via configopts
+        if self.cfg['build_shared_libs'] is None and '-DBUILD_SHARED_LIBS=' not in self.cfg['configopts']:
+            self.cfg['build_shared_libs'] = True
 
         # Enable gzip, libpng and libjpeg-turbo support when its included as dependency
         deps = [
@@ -168,32 +175,39 @@ class EB_LAMMPS(CMakeMake):
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
-                self.cfg.update('configopts', '-DPKG_%s=on' % package)
+                self.cfg.update('configopts', '-D%s%s=on' % (PKG_PREFIX, package))
 
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
-                self.cfg.update('configopts', '-DPKG_USER-%s=on' % package)
+                self.cfg.update('configopts', '-D%s%s=on' % (PKG_USER_PREFIX, package))
 
         # Optimization settings
-        if '-DPKG_OPT=' not in self.cfg['configopts']:
-            self.cfg.update('configopts', '-DPKG_OPT=on')
+        pkg_opt = '-D%sOPT=' % PKG_PREFIX
+        if pkg_opt not in self.cfg['configopts']:
+            self.cfg.update('configopts', pkg_opt + 'on')
 
-        # USR-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-        if '-DPKG_USR-INTEL=' not in self.cfg['configopts']:
+        # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+        pkg_user_intel = '-D%sINTEL=' % PKG_USER_PREFIX
+        if pkg_user_intel not in self.cfg['configopts']:
             if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
-                self.cfg.update('configopts', '-DPKG_USER-INTEL=on')
+                self.cfg.update('configopts', pkg_user_intel + 'on')
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', '-DBUILD_MPI=yes')
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '-DBUILD_OMP=yes')
-            self.cfg.update('configopts', '-DPKG_USER-OMP=on')
+            self.cfg.update('configopts', '-D%sOMP=on' % PKG_USER_PREFIX)
 
         # FFTW
-        if get_software_root('FFTW'):
+        if get_software_root("imkl") or get_software_root("FFTW"):
             if '-DFFT=' not in self.cfg['configopts']:
-                self.cfg.update('configopts', '-DFFT=FFTW3')
+                if get_software_root("imkl"):
+                    self.log.info("Using the MKL")
+                    self.cfg.update('configopts', '-DFFT=MKL')
+                else:
+                    self.log.info("Using FFTW")
+                    self.cfg.update('configopts', '-DFFT=FFTW3')
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
@@ -204,7 +218,7 @@ class EB_LAMMPS(CMakeMake):
             if self.toolchain.options.get('openmp', None):
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
 
-            self.cfg.update('configopts', '-DPKG_KOKKOS=on')
+            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch']))
 
             # if KOKKOS and CUDA
@@ -216,7 +230,7 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif cuda:
-            self.cfg.update('configopts', '-DPKG_GPU=on')
+            self.cfg.update('configopts', '-D%sGPU=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
 
@@ -243,6 +257,10 @@ class EB_LAMMPS(CMakeMake):
             # And this should be done for every file specified above
             for check_file in check_files
         ]
+
+        # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
+        if self.toolchain.options.get('usempi', None):
+            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {

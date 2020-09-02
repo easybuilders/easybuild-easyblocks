@@ -35,9 +35,7 @@ EasyBuild support for building and installing Trinity, implemented as an easyblo
 """
 import glob
 import os
-import re
 import shutil
-import sys
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
@@ -367,8 +365,10 @@ class EB_Trinity(EasyBlock):
 
         guesses = super(EB_Trinity, self).make_module_req_guess()
 
+        install_rootdir = os.path.basename(self.cfg['start_dir'].strip('/'))
         guesses.update({
-            'PATH': [os.path.basename(self.cfg['start_dir'].strip('/'))],
+            'PATH': [install_rootdir],
+            'TRINITY_HOME': [install_rootdir],
         })
 
         return guesses

@@ -68,7 +68,7 @@ class EB_WPS(EasyBlock):
             testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
         elif LooseVersion(self.version) < LooseVersion('4.0'):
             # 2.3GB download!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2")
+            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz")
         else:
             # 2.6GB download, 29GB unpacked!!
             testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
@@ -202,7 +202,7 @@ class EB_WPS(EasyBlock):
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, knownbuildtypes.keys())
 
         # fetch option number based on build type option and selected build type
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
 
         cmd = "./configure"
         qa = {}
@@ -279,7 +279,8 @@ class EB_WPS(EasyBlock):
 
                 # unpack data
                 for path in testdata_paths:
-                    extract_file(path, tmpdir)
+                    srcdir = extract_file(path, tmpdir, change_into_dir=False)
+                    change_dir(srcdir)
 
                 namelist_file = os.path.join(tmpdir, 'namelist.wps')
 

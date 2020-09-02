@@ -216,7 +216,7 @@ class EB_SuiteSparse(ConfigureMake):
         # Latest version of SuiteSparse also compiles shared library and put them in 'lib'
         shlib_ext = get_shared_lib_ext()
         if LooseVersion(self.version) >= LooseVersion('4.5.1'):
-            libs += [os.path.join('lib', 'lib%s.%s' % (l.lower(), shlib_ext)) for l in libnames]
+            libs += [os.path.join('lib', 'lib%s.%s' % (x.lower(), shlib_ext)) for x in libnames]
 
         custom_paths = {
             'files': libs,

@@ -30,6 +30,7 @@ EasyBuild support for Mothur, implemented as an easyblock
 import glob
 import os
 import shutil
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
@@ -55,7 +56,8 @@ class EB_Mothur(ConfigureMake):
     def configure_step(self, cmd_prefix=''):
         """Configure Mothur build by setting make options."""
         # Fortran compiler and options
-        self.cfg.update('buildopts', 'FORTAN_COMPILER="%s" FORTRAN_FLAGS="%s"' % (os.getenv('F77'), os.getenv('FFLAGS')))
+        self.cfg.update('buildopts', 'FORTAN_COMPILER="%s"' % os.getenv('F77'))
+        self.cfg.update('buildopts', 'FORTRAN_FLAGS="%s"' % os.getenv('FFLAGS'))
         # enable 64-bit build
         if not self.toolchain.options['32bit']:
             self.cfg.update('buildopts', '64BIT_VERSION=yes')
@@ -83,9 +85,14 @@ class EB_Mothur(ConfigureMake):
         srcdir = os.path.join(self.builddir, self.cfg['start_dir'])
         destdir = os.path.join(self.installdir, 'bin')
         srcfile = None
+        # After version 1.43.0 uchime binary is not included in the Mothur tarball
+        if LooseVersion(self.version) > LooseVersion('1.43.0'):
+            files_to_copy = ['mothur']
+        else:
+            files_to_copy = ['mothur', 'uchime']
         try:
             os.makedirs(destdir)
-            for filename in ['mothur', 'uchime']:
+            for filename in files_to_copy:
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
         except OSError as err:
@@ -99,4 +106,3 @@ class EB_Mothur(ConfigureMake):
         }
 
         super(EB_Mothur, self).sanity_check_step(custom_paths=custom_paths)
-

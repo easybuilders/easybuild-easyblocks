@@ -319,7 +319,7 @@ class IntelBase(EasyBlock):
             else:
                 # license file entry is only applicable with license file or server type of activation
                 # also check whether specified activation type makes sense
-                lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
+                lic_file_server_activations = [ACTIVATION_EXIST_LIC, ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
                 other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
                 if self.cfg['license_activation'] in lic_file_server_activations:
                     lic_entry = "%(license_file_name)s=%(license_file)s"

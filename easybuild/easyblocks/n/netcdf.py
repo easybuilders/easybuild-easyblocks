@@ -47,6 +47,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_netCDF(CMakeMake):
     """Support for building/installing netCDF"""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Configure build: set config options and configure"""
 
@@ -62,17 +68,12 @@ class EB_netCDF(CMakeMake):
             self.cfg.update('configopts', 'FCFLAGS="%s" CC="%s" FC="%s"' % tup)
 
             # add -DgFortran to CPPFLAGS when building with GCC
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
 
             ConfigureMake.configure_step(self)
 
         else:
-            if self.toolchain.options['debug']:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=DEBUG ')
-            else:
-                self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
-
             for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
                                    ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
@@ -125,20 +126,23 @@ class EB_netCDF(CMakeMake):
         # since v4.2, the non-C libraries have been split off in seperate extensions_step
         # see netCDF-Fortran and netCDF-C++
         if LooseVersion(self.version) < LooseVersion("4.2"):
-            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]] + \
-                    ["ncvalues.h", "typesizes.mod"]
+            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]]
+            incs += ["ncvalues.h", "typesizes.mod"]
             libs += ["libnetcdf_c++.%s" % shlib_ext, "libnetcdff.%s" % shlib_ext,
                      "libnetcdf_c++.a", "libnetcdff.a"]
+        binaries = ["nc%s" % x for x in ["-config", "copy", "dump", "gen", "gen3"]]
 
         custom_paths = {
-                        'files': ["bin/nc%s" % x for x in ["-config", "copy", "dump",
-                                                          "gen", "gen3"]] +
-                                 [("lib/%s" % x, "lib64/%s" % x) for x in libs] +
-                                 ["include/%s" % x for x in incs],
-                        'dirs': []
-                       }
+            'files': (
+                [os.path.join("bin", x) for x in binaries] +
+                [os.path.join("lib", x) for x in libs] +
+                [os.path.join("include", x) for x in incs]
+            ),
+            'dirs': []
+        }
 
         super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+
 
 def set_netcdf_env_vars(log):
     """Set netCDF environment variables used by other software."""

@@ -38,7 +38,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
-from easybuild.tools.filetools import mkdir, rmtree2, symlink
+from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -52,13 +52,21 @@ class EB_Trilinos(CMakeMake):
     def extra_options():
         """Add extra config options specific to Trilinos."""
         extra_vars = {
-            'shared_libs': [False, "Build shared libs; if False, build static libs", CUSTOM],
+            'shared_libs': [None, "Deprecated. Use build_shared_libs", CUSTOM],
             'openmp': [True, "Enable OpenMP support", CUSTOM],
             'all_exts': [True, "Enable all Trilinos packages", CUSTOM],
             'skip_exts': [[], "List of Trilinos packages to skip", CUSTOM],
             'verbose': [False, "Configure for verbose output", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Constructor of custom easyblock for Trilinos."""
+        super(EB_Trilinos, self).__init__(*args, **kwargs)
+
+        if self.cfg['shared_libs'] is not None:
+            self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
+            self.cfg['build_shared_libs'] = self.cfg['shared_libs']
 
     def configure_step(self):
         """Set some extra environment variables before configuring."""
@@ -73,7 +81,8 @@ class EB_Trilinos(CMakeMake):
         cxxflags = [os.getenv('CXXFLAGS')]
         fflags = [os.getenv('FFLAGS')]
 
-        ignore_cxx_seek_mpis = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  #@UndefinedVariable
+        ignore_cxx_seek_mpis = [toolchain.INTELMPI, toolchain.MPICH,
+                                toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
         ignore_cxx_seek_flag = "-DMPICH_IGNORE_CXX_SEEK"
         if self.toolchain.mpi_family() in ignore_cxx_seek_mpis:
             cflags.append(ignore_cxx_seek_flag)
@@ -84,25 +93,18 @@ class EB_Trilinos(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="%s"' % ' '.join(cxxflags))
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % ' '.join(fflags))
 
+        # Make sure Tpetra/Kokkos Serial mode is enabled regardless of OpenMP
+        self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+        self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
+
         # OpenMP
         if self.cfg['openmp']:
             self.cfg.update('configopts', "-DTrilinos_ENABLE_OpenMP:BOOL=ON")
+            self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
 
         # MPI
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
-
-        # shared libraries
-        if self.cfg['shared_libs']:
-            self.cfg.update('configopts', "-DBUILD_SHARED_LIBS:BOOL=ON")
-        else:
-            self.cfg.update('configopts', "-DBUILD_SHARED_LIBS:BOOL=OFF")
-
-        # release or debug get_version
-        if self.toolchain.options['debug']:
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE:STRING=DEBUG")
-        else:
-            self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE:STRING=RELEASE")
 
         # enable full testing
         self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
@@ -114,15 +116,15 @@ class EB_Trilinos(CMakeMake):
         for dep in ["BLAS", "LAPACK"]:
             self.cfg.update('configopts', '-DTPL_ENABLE_%s:BOOL=ON' % dep)
             libdirs = os.getenv('%s_LIB_DIR' % dep)
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 libdirs += ";%s/lib64" % get_software_root('GCC')
             self.cfg.update('configopts', '-D%s_LIBRARY_DIRS="%s"' % (dep, libdirs))
             if self.cfg['openmp']:
                 libs = os.getenv('%s_MT_STATIC_LIBS' % dep).split(',')
             else:
                 libs = os.getenv('%s_STATIC_LIBS' % dep).split(',')
-            lib_names = ';'.join([lib_re.search(l).group(1) for l in libs])
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            lib_names = ';'.join([lib_re.search(x).group(1) for x in libs])
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 # explicitely specify static lib!
                 lib_names += ";libgfortran.a"
             self.cfg.update('configopts', '-D%s_LIBRARY_NAMES="%s"' % (dep, lib_names))
@@ -137,6 +139,7 @@ class EB_Trilinos(CMakeMake):
         suitesparse = get_software_root('SuiteSparse')
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
+            self.cfg.update('configopts', "-DTPL_ENABLE_Cholmod:BOOL=ON")
             incdirs, libdirs, libnames = [], [], []
             for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
                 incdirs.append(os.path.join(suitesparse, lib, "Include"))
@@ -158,6 +161,9 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
+            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
 
         # BLACS
         if get_software_root('BLACS'):
@@ -173,7 +179,7 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', "-DTPL_ENABLE_SCALAPACK:BOOL=ON")
             self.cfg.update('configopts', '-DSCALAPACK_INCLUDE_DIRS:PATH="%s"' % os.getenv('SCALAPACK_INC_DIR'))
             self.cfg.update('configopts', '-DSCALAPACK_LIBRARY_DIRS:PATH="%s;%s"' % (os.getenv('SCALAPACK_LIB_DIR'),
-                                                                                    os.getenv('BLACS_LIB_DIR')))
+                                                                                     os.getenv('BLACS_LIB_DIR')))
         # PETSc
         petsc = get_software_root('PETSc')
         if petsc:
@@ -181,14 +187,14 @@ class EB_Trilinos(CMakeMake):
             incdirs = [os.path.join(petsc, "include")]
             self.cfg.update('configopts', '-DPETSC_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
             petsc_libdirs = [
-                             os.path.join(petsc, "lib"),
-                             os.path.join(suitesparse, "UMFPACK", "Lib"),
-                             os.path.join(suitesparse, "CHOLMOD", "Lib"),
-                             os.path.join(suitesparse, "COLAMD", "Lib"),
-                             os.path.join(suitesparse, "AMD", "Lib"),
-                             os.getenv('FFTW_LIB_DIR'),
-                             os.path.join(get_software_root('ParMETIS'), "Lib")
-                             ]
+                os.path.join(petsc, "lib"),
+                os.path.join(suitesparse, "UMFPACK", "Lib"),
+                os.path.join(suitesparse, "CHOLMOD", "Lib"),
+                os.path.join(suitesparse, "COLAMD", "Lib"),
+                os.path.join(suitesparse, "AMD", "Lib"),
+                os.getenv('FFTW_LIB_DIR'),
+                os.path.join(get_software_root('ParMETIS'), "Lib")
+            ]
             self.cfg.update('configopts', '-DPETSC_LIBRARY_DIRS:PATH="%s"' % ';'.join(petsc_libdirs))
             petsc_libnames = ["petsc", "umfpack", "cholmod", "colamd", "amd", "parmetis", "metis"]
             petsc_libnames += [lib_re.search(x).group(1) for x in os.getenv('FFTW_STATIC_LIBS').split(',')]
@@ -202,8 +208,8 @@ class EB_Trilinos(CMakeMake):
             deproot = get_software_root(dep)
             if deproot:
                 depmap = {
-                          'SCOTCH': 'Scotch',
-                          }
+                    'SCOTCH': 'Scotch',
+                }
                 dep = depmap.get(dep, dep)
                 self.cfg.update('configopts', "-DTPL_ENABLE_%s:BOOL=ON" % dep)
                 incdir = os.path.join(deproot, "include")
@@ -262,10 +268,10 @@ class EB_Trilinos(CMakeMake):
                 "Pamgen", "RTOp", "Rythmos", "Sacado", "Shards", "Stratimikos",
                 "Teuchos", "Tpetra", "Triutils", "Zoltan"]
 
-        libs = [l for l in libs if not l in self.cfg['skip_exts']]
+        libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
         # Teuchos was refactored in 11.2
-        if LooseVersion(self.version) >= LooseVersion('11.2') and  'Teuchos' in libs:
+        if LooseVersion(self.version) >= LooseVersion('11.2') and 'Teuchos' in libs:
             libs.remove('Teuchos')
             libs.extend(['teuchoscomm', 'teuchoscore', 'teuchosnumerics', 'teuchosparameterlist', 'teuchosremainder'])
 
@@ -280,13 +286,13 @@ class EB_Trilinos(CMakeMake):
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
 
         # Get the library extension
-        if self.cfg['shared_libs']:
+        if self.cfg['build_shared_libs']:
             lib_ext = get_shared_lib_ext()
         else:
             lib_ext = 'a'
 
         custom_paths = {
-            'files': [os.path.join('lib', 'lib%s.%s' % (l.lower(), lib_ext)) for l in libs],
+            'files': [os.path.join('lib', 'lib%s.%s' % (x.lower(), lib_ext)) for x in libs],
             'dirs': ['bin', 'include']
         }
 
@@ -294,4 +300,4 @@ class EB_Trilinos(CMakeMake):
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""
-        rmtree2(self.short_start_dir)
+        remove_dir(self.short_start_dir)

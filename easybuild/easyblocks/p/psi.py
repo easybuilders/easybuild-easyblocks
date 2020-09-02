@@ -60,12 +60,14 @@ class EB_PSI(CMakeMake):
     @staticmethod
     def extra_options():
         """Extra easyconfig parameters specific to PSI."""
-
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             # always include running PSI unit tests (takes about 2h or less)
             'runtest': ["tests TESTFLAGS='-u -q'", "Run tests included with PSI, without interruption.", BUILD],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Doesn't work with out-of-source build
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def configure_step(self):
         """
@@ -143,9 +145,7 @@ class EB_PSI(CMakeMake):
             if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
                 self.log.info("Remove the CMAKE_BUILD_TYPE test in PSI4 source and the downloaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
-                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=EasyBuildRelease')
-            else:
-                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=Release')
+                self.cfg['build_type'] = 'EasyBuildRelease'
 
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', " -DENABLE_MPI=ON")

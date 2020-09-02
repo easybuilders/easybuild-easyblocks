@@ -22,7 +22,6 @@ import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir
 
 
@@ -31,13 +30,18 @@ class EB_Eigen(CMakeMake):
     Support for building Eigen.
     """
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Custom configuration procedure for Eigen."""
         # start using CMake for Eigen 3.3.4 and newer versions
         # not done for older versions, since this implies using CMake as a build dependency,
         # which is a bit strange for a header-only library like Eigen...
         if LooseVersion(self.version) >= LooseVersion('3.3.4'):
-            self.cfg['separate_build_dir'] = True
             # avoid that include files are installed into include/eigen3/Eigen, should be include/Eigen
             self.cfg.update('configopts', "-DINCLUDE_INSTALL_DIR=%s" % os.path.join(self.installdir, 'include'))
             CMakeMake.configure_step(self)

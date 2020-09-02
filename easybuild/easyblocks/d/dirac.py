@@ -31,9 +31,7 @@ import shutil
 import tempfile
 
 import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.run import run_cmd
@@ -41,6 +39,12 @@ from easybuild.tools.run import run_cmd
 
 class EB_DIRAC(CMakeMake):
     """Support for building/installing DIRAC."""
+
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """Custom configuration procedure for DIRAC."""
@@ -53,8 +57,7 @@ class EB_DIRAC(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to remove existing install directory %s: %s", self.installdir, err)
 
-        self.cfg['separate_build_dir'] = True
-        self.cfg.update('configopts', "-DENABLE_MPI=ON -DCMAKE_BUILD_TYPE=release")
+        self.cfg.update('configopts', "-DENABLE_MPI=ON")
 
         # complete configuration with configure_method of parent
         super(EB_DIRAC, self).configure_step()

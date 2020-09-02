@@ -41,14 +41,14 @@ class EB_Stata(PackedBinary):
 
     def install_step(self):
         """Custom install procedure for Stata."""
-      
+
         change_dir(self.installdir)
 
         cmd = os.path.join(self.cfg['start_dir'], 'install')
         std_qa = {
-            "Do you wish to continue\?\s*\(y/n or q to quit\)": 'y',
-            "Are you sure you want to install into .*\?\s*\(y/n or q\)": 'y',
-            "Okay to proceed\s*\(y/n or q to quit\)": 'y',
+            r"Do you wish to continue\?\s*\(y/n or q to quit\)": 'y',
+            r"Are you sure you want to install into .*\?\s*\(y/n or q\)": 'y',
+            r"Okay to proceed\s*\(y/n or q to quit\)": 'y',
         }
         no_qa = [
             "About to proceed with installation:",
@@ -58,7 +58,8 @@ class EB_Stata(PackedBinary):
         ]
         run_cmd_qa(cmd, {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 
-        print_msg("Note: you need to manually run ./stinit in %s to initialise the license for Stata!" % self.installdir)
+        print_msg("Note: you need to manually run ./stinit in %s to initialise the license for Stata!",
+                  self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check for Stata."""

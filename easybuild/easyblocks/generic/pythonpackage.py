@@ -222,6 +222,8 @@ class PythonPackage(ExtensionEasyBlock):
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
+                                           "to be the requirements file.", CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
@@ -443,6 +445,10 @@ class PythonPackage(ExtensionEasyBlock):
             # add --editable option when requested, in the right place (i.e. right before the location specification)
             loc = "--editable %s" % loc
 
+        if self.cfg.get('use_pip_requirement', False):
+            # add --requirement option when requested, in the right place (i.e. right before the location specification)
+            loc = "--requirement %s" % loc
+
         cmd.extend([
             self.cfg['preinstallopts'],
             self.install_cmd % {
@@ -663,7 +669,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
-                'Collecting .* \(from.*',  # pip
+                r'Collecting .* \(from.*',  # pip
             ]
             downloaded_deps = []
             for pattern in patterns:
@@ -703,7 +709,17 @@ class PythonPackage(ExtensionEasyBlock):
             pip_version = det_pip_version()
             if pip_version:
                 if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
+
+                    if not self.is_extension:
+                        # for stand-alone Python package installations (not part of a bundle of extensions),
+                        # we need to load the fake module file, otherwise the Python package being installed
+                        # is not "in view", and we will overlook missing dependencies...
+                        fake_mod_data = self.load_fake_module(purge=True)
+
                     run_cmd("pip check", trace=False)
+
+                    if not self.is_extension:
+                        self.clean_up_fake_module(fake_mod_data)
                 else:
                     raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
             else:

@@ -30,7 +30,6 @@ EasyBuild support for DL_POLY Classic, implemented as an easyblock
 """
 import glob
 import os
-import shutil
 
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, copy_dir

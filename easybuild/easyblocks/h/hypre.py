@@ -26,34 +26,63 @@
 EasyBuild support for Hypre, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Mikael OEhman (Chalmers University of Technology)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Hypre(ConfigureMake):
     """Support for building Hypre."""
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+
+        super(EB_Hypre, self).__init__(*args, **kwargs)
+
+        self.config_shared = False
+        self.config_static = False
+
     def configure_step(self):
         """Configure Hypre build after setting extra configure options."""
 
-        self.cfg.update('configopts', '--with-MPI-include=%s' % os.getenv('MPI_INC_DIR'))
+        if '--enable-shared' in self.cfg['configopts']:
+            self.config_shared = True
+            ext_libs = 'LIB%s'
+        else:
+            self.config_static = True
+            ext_libs = '%s_STATIC_LIBS'
 
+        # Use BLAS/LAPACK from EB
         for dep in ["BLAS", "LAPACK"]:
-            libs = ' '.join(os.getenv('%s_STATIC_LIBS' % dep).split(','))
-            self.cfg.update('configopts', '--with-%s-libs="%s"' % (dep.lower(), libs))
+            blas_libs = ' '.join(os.getenv(ext_libs % dep).split(','))
+            blas_libs = blas_libs.replace('-l', '')  # Remove any '-l' as those are prepended for shared builds
+            self.cfg.update('configopts', '--with-%s-libs="%s"' % (dep.lower(), blas_libs))
             self.cfg.update('configopts', '--with-%s-lib-dirs="%s"' % (dep.lower(),
-                                                                      os.getenv('%s_LIB_DIR' % dep)))
+                                                                       os.getenv('%s_LIB_DIR' % dep)))
+
+        # Use MPI implementation from EB
+        self.cfg.update('configopts', '--with-MPI-include=%s' % os.getenv('MPI_INC_DIR'))
 
         super(EB_Hypre, self).configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Hypre."""
 
+        # Add static and shared libs depending on configopts
+        hypre_libs = list()
+        if self.config_shared:
+            shlib_ext = get_shared_lib_ext()
+            hypre_libs.append(os.path.join('lib', 'libHYPRE.%s' % shlib_ext))
+        if self.config_static:
+            hypre_libs.append(os.path.join('lib', 'libHYPRE.a'))
+
         custom_paths = {
-                        'files':['lib/libHYPRE.a'],
-                        'dirs':['include']
-                       }
+            'files': hypre_libs,
+            'dirs': ['include']
+        }
 
         super(EB_Hypre, self).sanity_check_step(custom_paths=custom_paths)
