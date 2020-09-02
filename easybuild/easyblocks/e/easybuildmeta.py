@@ -220,7 +220,7 @@ class EB_EasyBuildMeta(PythonPackage):
     def make_module_extra(self):
         """
         Set $EB_INSTALLPYTHON to ensure that this EasyBuild installation uses the same Python executable it was
-        installed with (unless overridden by $EB_PYTHON).
+        installed with (which can still be overridden by the user with $EB_PYTHON).
         """
         txt = super(EB_EasyBuildMeta, self).make_module_extra()
         txt += self.module_generator.set_environment('EB_INSTALLPYTHON', self.python_cmd)
