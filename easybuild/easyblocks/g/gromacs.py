@@ -36,6 +36,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 import glob
 import os
 import re
+import shutil
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -45,7 +46,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, remove_dir, which
+from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -402,13 +403,26 @@ class EB_GROMACS(CMakeMake):
             # allow to escape testing by setting runtest to False
             if self.cfg['runtest'] is None or self.cfg['runtest']:
 
+                libdir = os.path.join(self.installdir, 'lib')
+                libdir_backup = None
+
                 if build_option('rpath'):
                     # temporarily copy 'lib' to installation directory when RPATH linking is enabled;
                     # required to fix errors like:
                     #     "ImportError: libgmxapi.so.0: cannot open shared object file: No such file or directory"
                     # occurs with 'make test' because _gmxapi.*.so only includes %(installdir)/lib in RPATH section,
                     # while the libraries are only there after install step...
-                    copy_dir('lib', os.path.join(self.installdir, 'lib'))
+
+                    # keep in mind that we may be performing an iterated installation:
+                    # if there already is an existing 'lib' dir in the installation,
+                    # we temporarily move it out of the way (and then restore it after running the tests)
+                    if os.path.exists(libdir):
+                        libdir_backup = find_backup_name_candidate(libdir)
+                        self.log.info("%s already exists, moving it to %s while running tests...",
+                                      libdir, libdir_backup)
+                        shutil.move(libdir, libdir_backup)
+
+                    copy_dir('lib', libdir)
 
                 orig_runtest = self.cfg['runtest']
                 # make very sure OMP_NUM_THREADS is set to 1, to avoid hanging GROMACS regression test
@@ -426,7 +440,11 @@ class EB_GROMACS(CMakeMake):
                     # clean up temporary copy of 'lib' in installation directory,
                     # this was only there to avoid ImportError when running the tests before populating
                     # the installation directory
-                    remove_dir(os.path.join(self.installdir, 'lib'))
+                    remove_dir(libdir)
+
+                    if libdir_backup:
+                        self.log.info("Restoring %s to %s after running tests", libdir_backup, libdir)
+                        shutil.move(libdir_backup, libdir)
 
                 self.cfg['runtest'] = orig_runtest
 
