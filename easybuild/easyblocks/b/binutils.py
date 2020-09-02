@@ -58,7 +58,9 @@ class EB_binutils(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for binutils: statically link to zlib, configure options."""
 
-        sysroot = build_option('sysroot')
+        # take sysroot configuration option into account;
+        # make sure we don't use None going forward since the value is used in os.path.join expressions
+        sysroot = build_option('sysroot') or os.path.sep
 
         libs = ''
 
