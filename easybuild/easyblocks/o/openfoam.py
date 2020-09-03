@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64
 
 
 class EB_OpenFOAM(EasyBlock):
