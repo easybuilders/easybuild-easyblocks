@@ -57,9 +57,15 @@ class EB_pybind11(CMakePythonPackage):
 
     def configure_step(self):
         """Avoid that a system Python is picked up when a Python module is loaded"""
+
+        # make sure right 'python' command is used for installing pybind11
         python_root = get_software_root('Python')
-        if python_root:
-            self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s/bin/python" % python_root)
+        python_exe_opt = '-DPYTHON_EXECUTABLE='
+        if python_root and python_exe_opt not in self.cfg['configopts']:
+            configopt = python_exe_opt + os.path.join(python_root, 'bin', 'python')
+            self.log.info("Adding %s to configopts since it is not specified yet", configopt)
+            self.cfg.update('configopts', configopt)
+
         super(EB_pybind11, self).configure_step()
 
     def test_step(self):
