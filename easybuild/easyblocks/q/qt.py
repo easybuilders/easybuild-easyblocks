@@ -36,7 +36,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
-from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, AARCH64
 
 
 class EB_Qt(ConfigureMake):
@@ -68,7 +69,11 @@ class EB_Qt(ConfigureMake):
             platform = self.cfg['platform']
         # if no platform is specified, try to derive it based on compiler in toolchain
         elif comp_fam in [toolchain.GCC]:  # @UndefinedVariable
-            platform = 'linux-g++-64'
+            myarch = get_cpu_architecture()
+            if myarch == AARCH64:
+                platform = 'linux-g++'
+            else:
+                platform = 'linux-g++-64'
         elif comp_fam in [toolchain.INTELCOMP]:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('4'):
                 platform = 'linux-icc-64'
