@@ -350,7 +350,15 @@ class EB_OpenFOAM(EasyBlock):
         else:
             int_size = ''
 
-        psubdir = "linux64%sDP%s%s" % (self.wm_compiler, int_size, self.build_type)
+        archpart = '64'
+        if get_cpu_architecture() == AARCH64:
+            # Variants have different abbreviations for ARM64...
+            if self.looseversion < LooseVersion("100"):
+                archpart = 'Arm64'
+            else:
+                archpart = 'ARM64'
+
+        psubdir = "linux%s%sDP%s%s" % (archpart, self.wm_compiler, int_size, self.build_type)
 
         openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
         if openfoam_extend_v3 or self.looseversion < LooseVersion("2"):
