@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,16 +31,19 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
 
 class EB_impi(IntelBase):
@@ -51,7 +54,7 @@ class EB_impi(IntelBase):
     def extra_options():
         extra_vars = {
             'libfabric_configopts': ['', 'Configure options for the provided libfabric', CUSTOM],
-            'libfabric_rebuild': [True, 'Rebuild the internal libfabric instead of using the provided binary', CUSTOM],
+            'libfabric_rebuild': [True, 'Try to rebuild internal libfabric instead of using provided binary', CUSTOM],
             'ofi_internal': [True, 'Use internal shipped libfabric instead of external libfabric', CUSTOM],
             'set_mpi_wrappers_compiler': [False, 'Override default compiler used by MPI wrapper commands', CUSTOM],
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
@@ -126,23 +129,31 @@ EULA=accept
             run_cmd(cmd, log_all=True, simple=True)
 
         # recompile libfabric (if requested)
+        # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
+        libfabric_path = os.path.join(self.installdir, 'libfabric')
         if impiver >= LooseVersion('2019') and self.cfg['libfabric_rebuild']:
             if self.cfg['ofi_internal']:
-                change_dir(os.path.join(self.installdir, 'libfabric'))
-                extract_file('src.tgz', os.getcwd())
-                libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
+                libfabric_src_tgz_fn = 'src.tgz'
+                if os.path.exists(os.path.join(libfabric_path, libfabric_src_tgz_fn)):
+                    change_dir(libfabric_path)
+                    srcdir = extract_file(libfabric_src_tgz_fn, os.getcwd(), change_into_dir=False)
+                    change_dir(srcdir)
+                    libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
-                make = 'make'
-                if self.cfg['parallel']:
-                    make += ' -j %d' % self.cfg['parallel']
+                    make = 'make'
+                    if self.cfg['parallel']:
+                        make += ' -j %d' % self.cfg['parallel']
 
-                cmds = [
-                    './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
-                    make,
-                    'make install'
-                ]
-                for cmd in cmds:
-                    run_cmd(cmd, log_all=True, simple=True)
+                    cmds = [
+                        './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                        make,
+                        'make install'
+                    ]
+                    for cmd in cmds:
+                        run_cmd(cmd, log_all=True, simple=True)
+                else:
+                    self.log.info("Rebuild of libfabric is requested, but %s does not exist, so skipping...",
+                                  libfabric_src_tgz_fn)
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
@@ -160,7 +171,7 @@ EULA=accept
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
-            regex_subs = [(r"^I_MPI_ROOT=.*", r"I_MPI_ROOT=%s; export I_MPI_ROOT" % self.installdir)]
+            regex_subs = [(r"^(\s*)I_MPI_ROOT=[^;\n]*", r"\1I_MPI_ROOT=%s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.sh') for script_path in script_paths]:
                 apply_regex_substitutions(os.path.join(self.installdir, script), regex_subs)
 
@@ -196,14 +207,39 @@ EULA=accept
 
         custom_paths = {
             'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
-                    ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-                    ["%s/%s" % (include_dir, x) for x in mpi_mods] +
-                    ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
-                    ["%s/libmpi.a" % lib_dir],
+            ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
+            ["%s/%s" % (include_dir, x) for x in mpi_mods] +
+            ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
+            ["%s/libmpi.a" % lib_dir],
             'dirs': [],
         }
 
-        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+
+        if LooseVersion(self.version) >= LooseVersion('2017'):
+            # Add minimal test program to sanity checks
+            impi_testsrc = os.path.join(self.installdir, 'test/test.c')
+            impi_testexe = os.path.join(self.builddir, 'mpi_test')
+            self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
+
+            # Build test program with appropriate compiler from current toolchain
+            comp_fam = self.toolchain.comp_family()
+            if comp_fam == toolchain.INTELCOMP:
+                build_comp = 'mpiicc'
+            else:
+                build_comp = 'mpicc'
+            build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
+
+            # Execute test program with appropriate MPI executable for target toolchain
+            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+
+            custom_commands.extend([
+                build_cmd,  # build test program
+                mpi_cmd_tmpl % params,  # run test program
+            ])
+
+        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """
@@ -223,9 +259,9 @@ EULA=accept
         else:
             guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
-                # Keep release_mt and release in front, to give priority to the possible symlinks in intel64/lib.
-                # IntelMPI 2019 changed the default library to be the non-mt version.
-                lib_dirs = ['intel64/%s' % x for x in ['lib/release_mt', 'lib/release', 'lib']]
+                # The "release" library is default in v2019. Give it precedence over intel64/lib.
+                # (remember paths are *prepended*, so the last path in the list has highest priority)
+                lib_dirs = ['intel64/%s' % x for x in ['lib', 'lib/release']]
                 include_dirs = ['intel64/include']
                 path_dirs = ['intel64/bin']
                 if self.cfg['ofi_internal']:

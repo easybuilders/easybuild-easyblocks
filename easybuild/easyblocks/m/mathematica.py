@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,6 +27,9 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 
 @author: Kenneth Hoste (Ghent University)
 """
+
+from distutils.version import LooseVersion
+import glob
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
@@ -62,19 +65,25 @@ class EB_Mathematica(Binary):
         # make sure $DISPLAY is not set (to avoid that installer uses GUI)
         orig_display = os.environ.pop('DISPLAY', None)
 
-        cmd = "./%s_%s_LINUX.sh" % (self.name, self.version)
-        shortver = '.'.join(self.version.split('.')[:2])
-        qa_install_path = "/usr/local/Wolfram/%s/%s" % (self.name, shortver)
-        qa = {
-            r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
-            r"Create directory (y/n)? >": 'y',
-            r"Should the installer attempt to make this change (y/n)? >": 'n',
-            r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"), 
-        }
-        no_qa = [
-            "Now installing.*\n\n.*\[.*\].*",
-        ]
-        run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
+        install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
+        matches = glob.glob(install_script_glob)
+        if len(matches) == 1:
+            install_script = matches[0]
+            cmd = self.cfg['preinstallopts'] + './' + install_script
+            shortver = '.'.join(self.version.split('.')[:2])
+            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
+            qa = {
+                r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
+                r"Create directory (y/n)? >": 'y',
+                r"Should the installer attempt to make this change (y/n)? >": 'n',
+                r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
+            }
+            no_qa = [
+                r"Now installing.*\n\n.*\[.*\].*",
+            ]
+            run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
+        else:
+            raise EasyBuildError("Failed to isolate install script using '%s': %s", install_script_glob, matches)
 
         # add license server configuration file
         # some relevant documentation at http://reference.wolfram.com/mathematica/tutorial/ConfigurationFiles.html
@@ -112,10 +121,25 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
+        super(EB_Mathematica, self).post_install_step()
+
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
             'files': ['bin/mathematica'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths)
+        if LooseVersion(self.version) >= LooseVersion("11.0.0"):
+            custom_paths['files'].append('Executables/wolframscript')
+        custom_commands = ['mathematica --version']
+
+        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """Add both 'bin' and 'Executables' directories to PATH."""
+
+        guesses = super(EB_Mathematica, self).make_module_req_guess()
+
+        guesses.update({'PATH': ['bin', 'Executables']})
+
+        return guesses

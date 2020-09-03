@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -85,7 +85,8 @@ class EB_HPCG(ConfigureMake):
                     txt = open(hpcg_logs[0], 'r').read()
                     self.log.debug("Contents of HPCG log file %s: %s" % (hpcg_logs[0], txt))
                     if success_regex.search(txt):
-                        self.log.info("Found pattern '%s' in HPCG log file %s, OK!", success_regex.pattern, hpcg_logs[0])
+                        self.log.info("Found pattern '%s' in HPCG log file %s, OK!",
+                                      success_regex.pattern, hpcg_logs[0])
                     else:
                         raise EasyBuildError("Failed to find pattern '%s' in HPCG log file %s",
                                              success_regex.pattern, hpcg_logs[0])

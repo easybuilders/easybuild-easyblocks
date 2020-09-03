@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,9 +36,11 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, change_dir, copy_dir, copy_file, mkdir
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions
+from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Siesta(ConfigureMake):
@@ -106,7 +108,7 @@ class EB_Siesta(ConfigureMake):
         if fftw:
             fft_inc, fft_lib = os.environ['FFT_INC_DIR'], os.environ['FFT_LIB_DIR']
             fppflags = r"\1\nFFTW_INCFLAGS = -I%s\nFFTW_LIBS = -L%s %s" % (fft_inc, fft_lib, fftw)
-            regex_newlines.append((r'(FPPFLAGS\s*=.*)$', fppflags))
+            regex_newlines.append((r'(FPPFLAGS\s*:?=.*)$', fppflags))
 
         # Make a temp installdir during the build of the various parts
         mkdir(bindir)
@@ -143,7 +145,7 @@ class EB_Siesta(ConfigureMake):
                 ]
                 apply_regex_substitutions('Makefile', regex_subs_Makefile)
 
-        else: # there's no configure on newer versions
+        else:  # there's no configure on newer versions
 
             if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
                 copy_file(os.path.join(obj_dir, 'intel.make'), arch_make)
@@ -152,13 +154,15 @@ class EB_Siesta(ConfigureMake):
             else:
                 raise EasyBuildError("There is currently no support for compiler: %s", self.toolchain.comp_family())
 
+            regex_subs.append((r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DF2003"))
+
             if self.toolchain.options.get('usempi', None):
                 regex_subs.extend([
                     (r"^(CC\s*=\s*).*$", r"\1%s" % os.environ['MPICC']),
                     (r"^(FC\s*=\s*).*$", r"\1%s" % os.environ['MPIF90']),
-                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DMPI"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DMPI"),
                 ])
-                regex_newlines.append((r"^(FPPFLAGS\s*=.*)$", r"\1\nMPI_INTERFACE = libmpi_f90.a\nMPI_INCLUDE = ."))
+                regex_newlines.append((r"^(FPPFLAGS\s*:?=.*)$", r"\1\nMPI_INTERFACE = libmpi_f90.a\nMPI_INCLUDE = ."))
                 complibs = scalapack
             else:
                 complibs = lapack
@@ -173,10 +177,55 @@ class EB_Siesta(ConfigureMake):
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF -DNCDF -DNCDF_4 -DNCDF_PARALLEL $(NETCDF_INCLUDE)"),
+                    (r"^(COMP_LIBS\s*=.*)$", r"\1 libncdf.a libfdict.a"),
                 ])
                 netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
+                netcdf_lib_and_inc += "\nINCFLAGS = $(NETCDF_INCLUDE)"
                 regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
+
+            xmlf90 = get_software_root('xmlf90')
+            if xmlf90:
+                regex_subs.append((r"^(XMLF90_ROOT\s*=).*$", r"\1%s" % xmlf90))
+
+            libpsml = get_software_root('libPSML')
+            if libpsml:
+                regex_subs.append((r"^(PSML_ROOT\s*=).*$.*", r"\1%s" % libpsml))
+
+            libgridxc = get_software_root('libGridXC')
+            if libgridxc:
+                regex_subs.append((r"^(GRIDXC_ROOT\s*=).*$", r"\1%s" % libgridxc))
+
+            libxc = get_software_root('libxc')
+            if libxc:
+                regex_subs.append((r"^#(LIBXC_ROOT\s*=).*$", r"\1 %s" % libxc))
+
+            elpa = get_software_root('ELPA')
+            if elpa:
+                elpa_ver = get_software_version('ELPA')
+                regex_subs.extend([
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__ELPA"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -I%s/include/elpa-%s/modules" % (elpa, elpa_ver)),
+                    (r"^(LIBS\s*=.*)$", r"\1 -L%s/lib -lelpa" % elpa),
+                ])
+
+            elsi = get_software_root('ELSI')
+            if elsi:
+                if not os.path.isfile(os.path.join(elsi, 'lib', 'libelsi.%s' % get_shared_lib_ext())):
+                    raise EasyBuildError("This easyblock requires ELSI shared libraries instead of static")
+
+                regex_subs.extend([
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__ELSI"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -I%s/include" % elsi),
+                    (r"^(LIBS\s*=.*)$", r"\1 $(FFTW_LIBS) -L%s/lib -lelsi" % elsi),
+                ])
+
+            metis = get_software_root('METIS')
+            if metis:
+                regex_subs.extend([
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__METIS"),
+                    (r"^(LIBS\s*=.*)$", r"\1 -L%s/lib -lmetis" % metis),
+                ])
 
         apply_regex_substitutions(arch_make, regex_subs)
 
@@ -233,10 +282,10 @@ class EB_Siesta(ConfigureMake):
             # And yes, they are re-introducing this bug.
             is_ver40_to_401 = loose_ver >= LooseVersion('4.0') and loose_ver < LooseVersion('4.0.2')
             if (is_ver40_to_401 or loose_ver == LooseVersion('4.1-b3')):
-                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
-                    apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
-                    makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
-                    apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
+                makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
+                apply_regex_substitutions(makefile, [(r"protoNEB clean", r"protoNEB")])
 
             # build_all.sh might be missing executable bit...
             adjust_permissions('./build_all.sh', stat.S_IXUSR, recursive=False, relative=True)
@@ -270,12 +319,16 @@ class EB_Siesta(ConfigureMake):
                 'SiestaSubroutine/FmixMD/Src/para',
                 'SiestaSubroutine/FmixMD/Src/simple',
                 'STM/ol-stm/Src/stm', 'STM/simple-stm/plstm',
-                'VCA/fractional', 'VCA/mixps',
                 'Vibra/Src/fcbuild', 'Vibra/Src/vibra',
-                'WFS/info_wfsx',
                 'WFS/readwf', 'WFS/readwfx', 'WFS/wfs2wfsx',
                 'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
+
+            # skip broken utils in 4.1-MaX-1.0 release, hopefully will be fixed later
+            if self.version != '4.1-MaX-1.0':
+                expected_utils.extend([
+                    'VCA/fractional', 'VCA/mixps',
+                ])
 
             if loose_ver >= LooseVersion('3.2'):
                 expected_utils.extend([
@@ -283,21 +336,26 @@ class EB_Siesta(ConfigureMake):
                 ])
 
             if loose_ver >= LooseVersion('4.0'):
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'SiestaSubroutine/ProtoNEB/Src/protoNEB',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
+                    ])
                 expected_utils.extend([
-                    'SiestaSubroutine/ProtoNEB/Src/protoNEB',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
                 if self.toolchain.options.get('usempi', None):
-                    expected_utils.extend([
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
-                    ])
+                    if self.version != '4.1-MaX-1.0':
+                        expected_utils.extend([
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
+                        ])
 
             if loose_ver < LooseVersion('4.1'):
+                expected_utils.append('WFS/info_wfsx')
                 if loose_ver >= LooseVersion('4.0'):
                     expected_utils.extend([
                         'COOP/dm_creator',
@@ -331,8 +389,12 @@ class EB_Siesta(ConfigureMake):
                     'Grimme/fdf2grimme',
                     'SpPivot/pvtsp',
                     'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
-                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs',
+                    'TS/ts2ts/ts2ts',
                 ])
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'TS/tshs2tshs/tshs2tshs',
+                    ])
 
             for util in expected_utils:
                 copy_file(os.path.join(start_dir, 'Util', util), bindir)
@@ -349,7 +411,6 @@ class EB_Siesta(ConfigureMake):
             run_cmd('make %s transiesta' % par, log_all=True, simple=True, log_output=True)
 
             copy_file(os.path.join(obj_dir, 'transiesta'), bindir)
-
 
     def build_step(self):
         """No build step for Siesta."""

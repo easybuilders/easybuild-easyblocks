@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -121,7 +121,7 @@ class EB_ANSYS(PackedBinary):
             self.set_ansysver()
 
         custom_paths = {
-           'files': [os.path.join(self.ansysver, 'fluent', 'bin', 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
-           'dirs': [os.path.join(self.ansysver, x) for x in ['ansys', 'aisol', 'CFD-Post', 'CFX']]
+            'files': [os.path.join(self.ansysver, 'fluent', 'bin', 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
+            'dirs': [os.path.join(self.ansysver, x) for x in ['ansys', 'aisol', 'CFD-Post', 'CFX']]
         }
         super(EB_ANSYS, self).sanity_check_step(custom_paths=custom_paths)

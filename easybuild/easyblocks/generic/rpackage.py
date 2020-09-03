@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,13 +33,13 @@ EasyBuild support for building and installing R packages, implemented as an easy
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 """
 import os
-import shutil
 
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
+from easybuild.easyblocks.generic.configuremake import check_config_guess, obtain_config_guess
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_cmd, parse_log_for_error
 
 
@@ -132,12 +132,8 @@ class RPackage(ExtensionEasyBlock):
         else:
             prefix = ''
 
-        if self.cfg['unpack_sources']:
-            loc = self.start_dir
-        elif self.patches:
-            loc = self.ext_dir
-        else:
-            loc = self.ext_src
+        loc = self.start_dir or self.ext_dir or self.ext_src
+
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             "R CMD INSTALL",
@@ -151,23 +147,6 @@ class RPackage(ExtensionEasyBlock):
 
         self.log.debug("make_cmdline_cmd returns %s" % cmd)
         return cmd, None
-
-    def extract_step(self):
-        """Source should not be extracted."""
-
-        if self.cfg['unpack_sources']:
-            super(RPackage, self).extract_step()
-        elif len(self.src) > 1:
-            raise EasyBuildError("Don't know how to handle R packages with multiple sources.'")
-        else:
-            try:
-                shutil.copy2(self.src[0]['path'], self.builddir)
-            except OSError as err:
-                raise EasyBuildError("Failed to copy source to build dir: %s", err)
-            self.ext_src = self.src[0]['name']
-
-            # set final path since it can't be determined from unpacked sources (used for guessing start_dir)
-            self.src[0]['finalpath'] = self.builddir
 
     def configure_step(self):
         """No configuration for installing R packages."""
@@ -195,9 +174,23 @@ class RPackage(ExtensionEasyBlock):
         else:
             self.log.debug("R package %s installed succesfully" % self.name)
 
+    def update_config_guess(self, path):
+        """Update any config.guess found in specified directory"""
+        for config_guess_dir in (root for root, _, files in os.walk(path) if 'config.guess' in files):
+            config_guess = os.path.join(config_guess_dir, 'config.guess')
+            if not check_config_guess(config_guess):
+                updated_config_guess = obtain_config_guess()
+                if updated_config_guess:
+                    self.log.debug("Replacing outdated %s with more recent %s", config_guess, updated_config_guess)
+                    copy_file(updated_config_guess, config_guess)
+                else:
+                    raise EasyBuildError("Failed to obtain updated config.guess")
+
     def install_step(self):
         """Install procedure for R packages."""
-
+        # Update config.guess if the package was extracted
+        if self.start_dir:
+            self.update_config_guess(self.start_dir)
         cmd, stdin = self.make_cmdline_cmd(prefix=os.path.join(self.installdir, self.cfg['exts_subdir']))
         self.install_R_package(cmd, inp=stdin)
 
@@ -215,16 +208,15 @@ class RPackage(ExtensionEasyBlock):
             lib_install_prefix = os.path.join(self.installdir, self.cfg['exts_subdir'])
             mkdir(lib_install_prefix, parents=True)
 
-        if self.patches:
-            super(RPackage, self).run(unpack_src=True)
-        else:
-            super(RPackage, self).run()
-
         if self.src:
+            super(RPackage, self).run(unpack_src=True)
             self.ext_src = self.src
+            self.update_config_guess(self.ext_dir)
             self.log.debug("Installing R package %s version %s." % (self.name, self.version))
             cmd, stdin = self.make_cmdline_cmd(prefix=lib_install_prefix)
         else:
+            if self.patches:
+                raise EasyBuildError("Cannot patch R package %s as no explicit source is given!", self.name)
             self.log.debug("Installing most recent version of R package %s (source not found)." % self.name)
             cmd, stdin = self.make_r_cmd(prefix=lib_install_prefix)
 

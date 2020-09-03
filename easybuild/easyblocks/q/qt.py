@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
-from easybuild.tools.systemtools import get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
 class EB_Qt(ConfigureMake):
@@ -115,6 +115,19 @@ class EB_Qt(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('4') and LooseVersion(self.version) < LooseVersion('5'):
             self.cfg.update('configopts', '-xmlpatterns')
 
+        # disable specific features to avoid that libQt5Core.so being tagged as requiring kernel 3.17,
+        # which causes confusing problems like this even though the file exists and can be found by...
+        #     error while loading shared libraries: libQt5Core.so.5:
+        #      cannot open shared object file: No such file or directory
+        # see also:
+        # * https://bugs.gentoo.org/669994
+        # * https://github.com/NixOS/nixpkgs/commit/a7b6a9199e8db54a798d011a0946cdeb72cfc46b
+        # * https://gitweb.gentoo.org/proj/qt.git/commit/?id=9ff0752e1ee3c28818197eaaca45545708035152
+        kernel_version = os.uname()[2]
+        if LooseVersion(self.version) >= LooseVersion('5.0') and LooseVersion(kernel_version) < LooseVersion('3.17'):
+            self.cfg.update('configopts', '-no-feature-renameat2')
+            self.cfg.update('configopts', '-no-feature-getentropy')
+
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
             "Type 'o' if you want to use the Open Source Edition.": 'o',
@@ -169,11 +182,14 @@ class EB_Qt(ConfigureMake):
 
         if self.cfg['check_qtwebengine']:
             glibc_version = get_glibc_version()
-            if LooseVersion(glibc_version) > LooseVersion("2.16"):
-                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
-                custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
-            else:
+            myarch = get_cpu_architecture()
+            if LooseVersion(glibc_version) <= LooseVersion("2.16"):
                 self.log.debug("Skipping check for qtwebengine, since it requires a more recent glibc.")
+            elif myarch == POWER:
+                self.log.debug("Skipping check for qtwebengine, since it is not supported on POWER.")
+            else:
+                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, x, shlib_ext) for x in ['WebEngine', 'WebEngineCore']]
+                custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
 
         if LooseVersion(self.version) >= LooseVersion('4'):
             custom_paths['files'].append('bin/xmlpatterns')

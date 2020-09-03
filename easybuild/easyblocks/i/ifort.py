@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,9 +67,9 @@ class EB_ifort(EB_icc, IntelBase):
             # idb is not shipped with ifort anymore in 2013.x versions (it is with icc though)
             bins.append('idb')
 
-        libs = ['ifcore.a', 'ifcore.%s' % shlib_ext, 'iomp5.a', 'iomp5.%s' % shlib_ext]
+        libs = ['lib%s' % lib for lib in ['ifcore.a', 'ifcore.%s' % shlib_ext, 'iomp5.a', 'iomp5.%s' % shlib_ext]]
         custom_paths = {
-            'files': [os.path.join(binprefix, x) for x in bins] + [os.path.join(libprefix, 'lib%s' % l) for l in libs],
+            'files': [os.path.join(binprefix, x) for x in bins] + [os.path.join(libprefix, lib) for lib in libs],
             'dirs': [],
         }
 

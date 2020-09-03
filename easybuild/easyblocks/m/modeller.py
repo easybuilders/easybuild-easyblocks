@@ -1,5 +1,5 @@
 ##
-# Copyright 2014-2019 Ghent University
+# Copyright 2014-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
@@ -30,7 +30,6 @@ EasyBuild support for installing Modeller, implemented as an easyblock
 import os
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd_qa
 
@@ -56,17 +55,17 @@ class EB_Modeller(EasyBlock):
 
         # by default modeller tries to install to $HOME/bin/modeller9.13
         # get this path to use it in the question/answer
-        default_install_path = "[%s]:" % os.path.join(os.path.expanduser('~'), 'bin', 'modeller%s' % self.cfg['version'])
+        default_install_path = os.path.join(os.path.expanduser('~'), 'bin', 'modeller%s' % self.cfg['version'])
 
         qa = {
-             # installer will autodetect the right arch. [3] = x86_64
-             'Select the type of your computer from the list above [3]:': '',
-             default_install_path: self.installdir,
-             'http://salilab.org/modeller/registration.html:': self.cfg["key"],
-             'https://salilab.org/modeller/registration.html:': self.cfg["key"],
-             'Press <Enter> to begin the installation:': '',
-             'Press <Enter> to continue:': ''
-             }
+            # installer will autodetect the right arch. [3] = x86_64
+            'Select the type of your computer from the list above [3]:': '',
+            "[%s]:" % default_install_path: self.installdir,
+            'http://salilab.org/modeller/registration.html:': self.cfg["key"],
+            'https://salilab.org/modeller/registration.html:': self.cfg["key"],
+            'Press <Enter> to begin the installation:': '',
+            'Press <Enter> to continue:': ''
+        }
 
         run_cmd_qa(cmd, qa, log_all=True, simple=True)
 

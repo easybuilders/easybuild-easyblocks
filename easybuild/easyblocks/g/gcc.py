@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,12 +45,13 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
+from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.utilities import nub
 
 
 COMP_CMD_SYMLINKS = {
@@ -112,8 +113,6 @@ class EB_GCC(ConfigureMake):
         # ubuntu needs the LIBRARY_PATH env var to work apparently (#363)
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
-
-        self.platform_lib = get_platform_name(withversion=True)
 
     def create_dir(self, dirname):
         """
@@ -290,6 +289,26 @@ class EB_GCC(ConfigureMake):
         - set platform_lib based on config.guess output
         """
 
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # based on changes made to GCC in Gentoo Prefix
+            # https://gitweb.gentoo.org/repo/gentoo.git/tree/profiles/features/prefix/standalone/profile.bashrc
+
+            # add --with-sysroot configure option, to instruct GCC to consider
+            # value set for EasyBuild's --sysroot configuration option as the root filesystem of the operating system
+            # (see https://gcc.gnu.org/install/configure.html)
+            self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
+
+            # avoid that --sysroot is passed to linker by patching value for SYSROOT_SPEC in gcc/gcc.c
+            apply_regex_substitutions(os.path.join('gcc', 'gcc.c'), [('--sysroot=%R', '')])
+
+            # prefix dynamic linkers with sysroot
+            # this patches lines like:
+            # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
+            regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
+            apply_regex_substitutions(gcc_config_headers, regex_subs)
+
         # self.configopts will be reused in a 3-staged build,
         # configopts is only used in first configure
         self.configopts = self.cfg['configopts']
@@ -383,14 +402,16 @@ class EB_GCC(ConfigureMake):
         else:
             objdir = self.create_dir("obj")
 
+        # note: this also triggers the use of an updated config.guess script
+        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            configopts += ' --build=' + build_type
+        if host_type:
+            configopts += ' --host=' + host_type
+
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
-
-        # instead of relying on uname, we run the same command GCC uses to
-        # determine the platform
-        out, ec = run_cmd("../config.guess", simple=False)
-        if ec == 0:
-            self.platform_lib = out.rstrip()
 
         self.run_configure_cmd(cmd)
 
@@ -605,6 +626,7 @@ class EB_GCC(ConfigureMake):
         """
         super(EB_GCC, self).post_install_step(*args, **kwargs)
 
+        # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
         for key in COMP_CMD_SYMLINKS:
             src = COMP_CMD_SYMLINKS[key]
@@ -617,6 +639,58 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
+        # Rename include-fixed directory which includes system header files that were processed by fixincludes,
+        # since these may cause problems when upgrading to newer OS version.
+        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
+        glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
+        matches = glob.glob(glob_pattern)
+        if matches:
+            if len(matches) == 1:
+                include_fixed_path = matches[0]
+
+                msg = "Found include-fixed subdirectory at %s, "
+                msg += "renaming it to avoid using system header files patched by fixincludes..."
+                self.log.info(msg, include_fixed_path)
+
+                # limits.h and syslimits.h need to be copied to include/ first,
+                # these are strictly required (by /usr/include/limits.h for example)
+                include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
+                retained_header_files = ['limits.h', 'syslimits.h']
+                for fn in retained_header_files:
+                    from_path = os.path.join(include_fixed_path, fn)
+                    to_path = os.path.join(include_path, fn)
+                    if os.path.exists(from_path):
+                        if os.path.exists(to_path):
+                            raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
+                        else:
+                            copy_file(from_path, to_path)
+                            self.log.info("%s copied to %s before renaming %s", from_path, to_path, include_fixed_path)
+                    else:
+                        self.log.warning("Can't copy non-existing file %s to %s, since it doesn't exist!",
+                                         from_path, to_path)
+
+                readme = os.path.join(include_fixed_path, 'README.easybuild')
+                readme_txt = '\n'.join([
+                    "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
+                    "since they may cause problems when the OS is upgraded to a new (minor) version.",
+                    '',
+                    "These files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    '',
+                    "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
+                    '',
+                ])
+                write_file(readme, readme_txt)
+
+                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
+                move_file(include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s to avoid using the header files in it",
+                              include_fixed_path, include_fixed_renamed)
+            else:
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
+                                     len(matches), matches)
+        else:
+            self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
+
     def sanity_check_step(self):
         """
         Custom sanity check for GCC
@@ -624,7 +698,26 @@ class EB_GCC(ConfigureMake):
 
         os_type = get_os_type()
         sharedlib_ext = get_shared_lib_ext()
-        common_infix = os.path.join('gcc', self.platform_lib, self.version)
+
+        # determine "configuration name" directory, see https://sourceware.org/autobook/autobook/autobook_17.html
+        # this differs across GCC versions;
+        # x86_64-unknown-linux-gnu was common for old GCC versions,
+        # x86_64-pc-linux-gnu is more likely with an updated config.guess script;
+        # since this is internal to GCC, we don't really care how it is named exactly,
+        # we only care that it's actually there
+
+        # we may get multiple hits (libexec/, lib/), which is fine,
+        # but we expect the same configuration name subdirectory in each of them
+        glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version)
+        matches = glob.glob(glob_pattern)
+        if matches:
+            cands = nub([os.path.basename(os.path.dirname(x)) for x in matches])
+            if len(cands) == 1:
+                config_name_subdir = cands[0]
+            else:
+                raise EasyBuildError("Found multiple candidates for configuration name: %s", ', '.join(cands))
+        else:
+            raise EasyBuildError("Failed to determine configuration name: no matches for '%s'", glob_pattern)
 
         bin_files = ["gcov"]
         lib_files = []
@@ -639,7 +732,7 @@ class EB_GCC(ConfigureMake):
             else:
                 lib_files.extend(["libasan.%s" % sharedlib_ext, "libasan.a"])
         libexec_files = []
-        dirs = ['lib/%s' % common_infix]
+        dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
         if not self.cfg['languages']:
             # default languages are c, c++, fortran
@@ -678,7 +771,8 @@ class EB_GCC(ConfigureMake):
             lib_files = [tuple([os.path.join(libdir, x) for libdir in libdirs]) for x in lib_files]
         # lib on SuSE, libexec otherwise
         libdirs = ['libexec', 'lib']
-        libexec_files = [tuple([os.path.join(libdir, common_infix, x) for libdir in libdirs]) for x in libexec_files]
+        common_infix = os.path.join('gcc', config_name_subdir, self.version)
+        libexec_files = [tuple([os.path.join(d, common_infix, x) for d in libdirs]) for x in libexec_files]
 
         old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
 
@@ -691,13 +785,14 @@ class EB_GCC(ConfigureMake):
 
     def make_module_req_guess(self):
         """
-        Make sure all GCC libs are in LD_LIBRARY_PATH
+        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
         guesses = super(EB_GCC, self).make_module_req_guess()
         guesses.update({
             'PATH': ['bin'],
-            'LD_LIBRARY_PATH': ['lib', 'lib64',
-                                'lib/gcc/%s/%s' % (self.platform_lib, self.cfg['version'])],
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
         return guesses

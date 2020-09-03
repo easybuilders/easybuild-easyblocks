@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.config import build_option
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
@@ -82,6 +83,11 @@ class EB_Perl(ConfigureMake):
         ]
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
+
+        # see https://metacpan.org/pod/distribution/perl/INSTALL#Specifying-a-logical-root-directory
+        sysroot = build_option('sysroot')
+        if sysroot:
+            configopts.append('-Dsysroot=%s' % sysroot)
 
         configopts = (' '.join(configopts)) % {'installdir': self.installdir}
 

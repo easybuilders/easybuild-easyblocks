@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -216,6 +216,14 @@ class EB_EasyBuildMeta(PythonPackage):
                 self.log.debug("Unset $%s in current env and copy of original env to make sanity check work" % env_var)
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """
+        Set $EB_PYTHON to ensure that this EasyBuild installation uses the same Python executable it was installed with.
+        """
+        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+        txt += self.module_generator.set_environment('EB_PYTHON', self.python_cmd)
+        return txt
 
     def make_module_step(self, fake=False):
         """Create module file, before copy of original environment that was tampered with is restored."""

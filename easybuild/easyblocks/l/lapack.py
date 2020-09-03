@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -214,8 +214,8 @@ class EB_LAPACK(ConfigureMake):
         """
         if not self.cfg['test_only']:
             custom_paths = {
-                            'files': ["lib/%s" % x for x in ["liblapack.a", "libtmglib.a"]],
-                            'dirs': []
-                           }
+                'files': ["lib/%s" % x for x in ["liblapack.a", "libtmglib.a"]],
+                'dirs': []
+            }
 
             super(EB_LAPACK, self).sanity_check_step(custom_paths=custom_paths)
