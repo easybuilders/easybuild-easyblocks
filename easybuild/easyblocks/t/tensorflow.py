@@ -389,7 +389,7 @@ class EB_TensorFlow(PythonPackage):
         if ignored_system_deps:
             self.log.warning('For the following dependencies TensorFlow will download a copy because an ' +
                              'EB dependency was not found: \n%s\n' +
-                             'Dependencies: %s\n',
+                             'Dependencies: %s\n' +
                              'Python packages: %s\n',
                              ', '.join(ignored_system_deps),
                              ', '.join(dep_names),
