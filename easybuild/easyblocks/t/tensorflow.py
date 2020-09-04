@@ -93,10 +93,10 @@ def get_system_libs_from_tf(source_dir):
     result = []
     if os.path.exists(syslibs_path):
         txt = read_file(syslibs_path)
-        m = re.search(r'VALID_LIBS = \[(.*?)\]', txt, re.DOTALL)
-        if not m:
+        valid_libs_match = re.search(r'VALID_LIBS\s*=\s*\[(.*?)\]', txt, re.DOTALL)
+        if not valid_libs_match:
             raise EasyBuildError('VALID_LIBS definition not found in %s', syslibs_path)
-        result = split_tf_libs_txt(m.group(1))
+        result = split_tf_libs_txt(valid_libs_match.group(1))
     return result
 
 
