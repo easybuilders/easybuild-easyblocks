@@ -35,6 +35,7 @@ import easybuild.tools.environment as env
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
 from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import get_software_root
 
 
 class EB_pybind11(CMakePythonPackage):
@@ -53,6 +54,19 @@ class EB_pybind11(CMakePythonPackage):
         extra_vars['sanity_pip_check'][0] = True
         extra_vars['download_dep_fail'][0] = True
         return extra_vars
+
+    def configure_step(self):
+        """Avoid that a system Python is picked up when a Python module is loaded"""
+
+        # make sure right 'python' command is used for installing pybind11
+        python_root = get_software_root('Python')
+        python_exe_opt = '-DPYTHON_EXECUTABLE='
+        if python_root and python_exe_opt not in self.cfg['configopts']:
+            configopt = python_exe_opt + os.path.join(python_root, 'bin', 'python')
+            self.log.info("Adding %s to configopts since it is not specified yet", configopt)
+            self.cfg.update('configopts', configopt)
+
+        super(EB_pybind11, self).configure_step()
 
     def test_step(self):
         """Run pybind11 tests"""
