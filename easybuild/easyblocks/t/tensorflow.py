@@ -246,7 +246,7 @@ class EB_TensorFlow(PythonPackage):
         """Check if the given python package exists/can be imported"""
         cmd = [self.python_cmd, '-c', 'import %s' % name]
         out, ec = run_cmd(cmd, log_ok=False)
-        self.log.debug('Existance check for %s returned %s with output: %s', name, ec, out)
+        self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
         return ec == 0
 
     def get_installed_python_packages(self):
@@ -394,6 +394,8 @@ class EB_TensorFlow(PythonPackage):
                              ', '.join(ignored_system_deps),
                              ', '.join(dep_names),
                              ', '.join(self.get_installed_python_packages()))
+        else:
+            self.log.info("All TensorFlow dependencies resolved via EasyBuild!")
 
         return system_libs, cpaths, libpaths
 
