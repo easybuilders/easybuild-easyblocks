@@ -395,7 +395,7 @@ class EB_TensorFlow(PythonPackage):
                              ', '.join(dep_names),
                              ', '.join(self.get_installed_python_packages()))
         else:
-            self.log.info("All TensorFlow dependencies resolved via EasyBuild!")
+            self.log.info("All known TensorFlow dependencies resolved via EasyBuild!")
 
         return system_libs, cpaths, libpaths
 
