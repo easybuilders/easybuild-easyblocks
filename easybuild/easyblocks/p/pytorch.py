@@ -123,6 +123,11 @@ class EB_PyTorch(PythonPackage):
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
+
+        # enable verbose mode when --debug is used (to show compiler commands)
+        if build_option('debug'):
+            options.append('VERBOSE=1')
+
         # Restrict parallelism
         options.append('MAX_JOBS=%s' % self.cfg['parallel'])
 
