@@ -242,6 +242,32 @@ class EB_TensorFlow(PythonPackage):
             else:
                 raise EasyBuildError("Specified test script %s not found!", self.cfg['test_script'])
 
+    def python_pkg_exists(self, name):
+        """Check if the given python package exists/can be imported"""
+        cmd = [self.python_cmd, '-c', 'import %s' % name]
+        out, ec = run_cmd(cmd, log_ok=False)
+        self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
+        return ec == 0
+
+    def get_installed_python_packages(self):
+        """Return list of Python package names that are installed
+
+        Note that the names are reported by pip and might be different to the name that needs to be used to import it
+        """
+        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
+        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
+                    '--format', 'json']
+        full_cmd = ' '.join(cmd_list)
+        self.log.info("Running command '%s'" % full_cmd)
+        proc = subprocess_popen_text(cmd_list, env=os.environ)
+        (stdout, stderr) = proc.communicate()
+        ec = proc.returncode
+        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
+        if ec:
+            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
+
+        return [pkg['name'] for pkg in json.loads(stdout.strip())]
+
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
         if self.cfg['with_jemalloc'] is None:
@@ -352,32 +378,24 @@ class EB_TensorFlow(PythonPackage):
                 if libpath:
                     libpaths.append(os.path.join(sw_root, libpath))
             else:
-                ignored_system_deps.append('%s (%s)' % (tf_name, dep_name))
-
-        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
-        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
-                    '--format', 'json']
-        full_cmd = ' '.join(cmd_list)
-        self.log.info("Running command '%s'" % full_cmd)
-        proc = subprocess_popen_text(cmd_list, env=os.environ)
-        (stdout, stderr) = proc.communicate()
-        ec = proc.returncode
-        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
-        if ec:
-            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
-
-        installed_package_names = [pkg['name'] for pkg in json.loads(stdout.strip())]
+                ignored_system_deps.append('%s (Dependency %s)' % (tf_name, dep_name))
 
         for pkg_name, tf_name in sorted(python_mapping.items()):
-            if pkg_name in installed_package_names:
+            if self.python_pkg_exists(pkg_name):
                 system_libs.append(tf_name)
             else:
-                ignored_system_deps.append('%s (%s)' % (tf_name, dep_name))
+                ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
-            self.log.warning('For the following dependencies TensorFlow will download a copy as an EB dependency ' +
-                             'was not found: \n%s',
-                             ', '.join(ignored_system_deps))
+            self.log.warning('For the following dependencies TensorFlow will download a copy because an ' +
+                             'EB dependency was not found: \n%s\n' +
+                             'Dependencies: %s\n' +
+                             'Python packages: %s\n',
+                             ', '.join(ignored_system_deps),
+                             ', '.join(dep_names),
+                             ', '.join(self.get_installed_python_packages()))
+        else:
+            self.log.info("All known TensorFlow dependencies resolved via EasyBuild!")
 
         return system_libs, cpaths, libpaths
 
