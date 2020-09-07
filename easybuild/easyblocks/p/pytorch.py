@@ -224,16 +224,18 @@ class EB_PyTorch(PythonPackage):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for PyTorch"""
 
-        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
-
         if self.cfg.get('download_dep_fail', True):
             # CMake might mistakenly download dependencies during configure
+            self.log.info('Checking for downloaded submodules')
             pattern = r'^-- Downloading (\w+) to /'
             downloaded_deps = re.findall(pattern, self.install_cmd_output, re.M)
 
             if downloaded_deps:
-                fail_msg = "found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+                self.log.info('Found downloaded submodules: %s', ', '.join(downloaded_deps))
+                fail_msg = 'found one or more downloaded dependencies: %s' % ', '.join(downloaded_deps)
                 self.sanity_check_fail_msgs.append(fail_msg)
+
+        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
 
     def make_module_req_guess(self):
         """Set extra environment variables for PyTorch."""
