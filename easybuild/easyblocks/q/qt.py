@@ -37,7 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
-from easybuild.tools.systemtools import POWER, AARCH64
+from easybuild.tools.systemtools import AARCH64, POWER
 
 
 class EB_Qt(ConfigureMake):
