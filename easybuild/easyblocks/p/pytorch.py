@@ -156,6 +156,7 @@ class EB_PyTorch(PythonPackage):
         options.append('USE_IBVERBS=1')
 
         if get_software_root('CUDA'):
+            options.append('USE_CUDA=1')
             cudnn_root = get_software_root('cuDNN')
             if cudnn_root:
                 options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
@@ -176,6 +177,9 @@ class EB_PyTorch(PythonPackage):
                                      '--cuda-compute-capabilities')
             self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
             options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+        else:
+            # Disable CUDA
+            options.append('USE_CUDA=0')
 
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
