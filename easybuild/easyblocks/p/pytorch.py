@@ -155,25 +155,27 @@ class EB_PyTorch(PythonPackage):
         # you can disable this by including 'USE_IBVERBS=0' in 'custom_opts' in the easyconfig file
         options.append('USE_IBVERBS=1')
 
-        cudnn_root = get_software_root('cuDNN')
-        if cudnn_root:
-            options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
-            options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
+        if get_software_root('CUDA'):
+            cudnn_root = get_software_root('cuDNN')
+            if cudnn_root:
+                options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
+                options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
 
-        nccl_root = get_software_root('NCCL')
-        if nccl_root:
-            options.append('USE_SYSTEM_NCCL=1')
-            options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
+            nccl_root = get_software_root('NCCL')
+            if nccl_root:
+                options.append('USE_SYSTEM_NCCL=1')
+                options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
 
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-        if not cuda_cc:
-            raise EasyBuildError("List of CUDA compute capabilities must be specified, either via " +
-                                 "cuda_compute_capabilities easyconfig parameter or via --cuda-compute-capabilities")
-        self.log.info("Compiling with specified list of CUDA compute capabilities: %s", ', '.join(cuda_cc))
-        options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            if not cuda_cc:
+                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                     'cuda_compute_capabilities easyconfig parameter or via '
+                                     '--cuda-compute-capabilities')
+            self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
+            options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
 
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
