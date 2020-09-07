@@ -177,7 +177,7 @@ class EB_PyTorch(PythonPackage):
 
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
-            nnpacks = ('NNPACK', 'QNNPACK', 'USE_PYTORCH_QNNPACK', 'USE_XNNPACK')
+            nnpacks = ('NNPACK', 'QNNPACK', 'PYTORCH_QNNPACK', 'XNNPACK')
             options.extend('USE_%s=0' % nnpack for nnpack in nnpacks)
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
