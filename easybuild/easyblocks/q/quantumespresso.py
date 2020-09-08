@@ -172,9 +172,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         if comp_fam == toolchain.INTELCOMP:
             # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
-            # preserving comments breaks LAXlib in QE 6.6 when stdc-predef.h is present in the system
-            # cpp = "%s -E -C" % os.getenv('CC')
-            cpp = "%s -E" % os.getenv('CC')
+            cpp = "%s -E -C" % os.getenv('CC')
             repls.append(('CPP', cpp, False))
             env.setvar('CPP', cpp)
 
@@ -279,10 +277,14 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
                                       line)
 
-                # fix order of BEEF_LIBS in QE_LIBS
                 if LooseVersion(self.version) >= LooseVersion("6.6"):
+                    # fix order of BEEF_LIBS in QE_LIBS
                     line = re.sub(r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
                                   r"QELIBS = $(BEEF_LIBS) \2 \3", line)
+
+                    # use FCCPP instead of CPP for Fortran headers
+                    line = re.sub(r"\t\$\(CPP\) \$\(CPPFLAGS\) \$< -o \$\*\.fh",
+                                  "\t$(FCCPP) $(CPPFLAGS) $< -o $*.fh", line)
 
                 sys.stdout.write(line)
         except IOError as err:
