@@ -155,30 +155,35 @@ class EB_PyTorch(PythonPackage):
         # you can disable this by including 'USE_IBVERBS=0' in 'custom_opts' in the easyconfig file
         options.append('USE_IBVERBS=1')
 
-        cudnn_root = get_software_root('cuDNN')
-        if cudnn_root:
-            options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
-            options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
+        if get_software_root('CUDA'):
+            options.append('USE_CUDA=1')
+            cudnn_root = get_software_root('cuDNN')
+            if cudnn_root:
+                options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
+                options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
 
-        nccl_root = get_software_root('NCCL')
-        if nccl_root:
-            options.append('USE_SYSTEM_NCCL=1')
-            options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
+            nccl_root = get_software_root('NCCL')
+            if nccl_root:
+                options.append('USE_SYSTEM_NCCL=1')
+                options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
 
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-        if not cuda_cc:
-            raise EasyBuildError("List of CUDA compute capabilities must be specified, either via " +
-                                 "cuda_compute_capabilities easyconfig parameter or via --cuda-compute-capabilities")
-        self.log.info("Compiling with specified list of CUDA compute capabilities: %s", ', '.join(cuda_cc))
-        options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            if not cuda_cc:
+                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                     'cuda_compute_capabilities easyconfig parameter or via '
+                                     '--cuda-compute-capabilities')
+            self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
+            options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+        else:
+            # Disable CUDA
+            options.append('USE_CUDA=0')
 
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
-            nnpacks = ('NNPACK', 'QNNPACK', 'USE_PYTORCH_QNNPACK', 'USE_XNNPACK')
-            options.extend('USE_%s=0' % nnpack for nnpack in nnpacks)
+            options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
@@ -218,16 +223,18 @@ class EB_PyTorch(PythonPackage):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for PyTorch"""
 
-        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
-
         if self.cfg.get('download_dep_fail', True):
             # CMake might mistakenly download dependencies during configure
+            self.log.info('Checking for downloaded submodules')
             pattern = r'^-- Downloading (\w+) to /'
             downloaded_deps = re.findall(pattern, self.install_cmd_output, re.M)
 
             if downloaded_deps:
-                fail_msg = "found one or more downloaded dependencies: %s" % ', '.join(downloaded_deps)
+                self.log.info('Found downloaded submodules: %s', ', '.join(downloaded_deps))
+                fail_msg = 'found one or more downloaded dependencies: %s' % ', '.join(downloaded_deps)
                 self.sanity_check_fail_msgs.append(fail_msg)
+
+        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
 
     def make_module_req_guess(self):
         """Set extra environment variables for PyTorch."""
