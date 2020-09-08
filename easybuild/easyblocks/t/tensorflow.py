@@ -389,15 +389,15 @@ class EB_TensorFlow(PythonPackage):
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
-            self.log.warning('For the following dependencies TensorFlow will download a copy because an ' +
-                             'EB dependency was not found: \n%s\n' +
-                             'Dependencies: %s\n' +
-                             'Python packages: %s\n',
+            self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
+                             'because an EB dependency was not found: \n%s\n' +
+                             'EC Dependencies: %s\n' +
+                             'Installed Python packages: %s\n',
                              ', '.join(ignored_system_deps),
                              ', '.join(dep_names),
                              ', '.join(self.get_installed_python_packages()))
         else:
-            self.log.info("All known TensorFlow dependencies resolved via EasyBuild!")
+            self.log.info("All known TensorFlow $TF_SYSTEM_LIBS dependencies resolved via EasyBuild!")
 
         return system_libs, cpaths, libpaths
 
