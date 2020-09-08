@@ -355,7 +355,7 @@ class EB_TensorFlow(PythonPackage):
 
         # Check direct dependencies
         dep_names = set(dep['name'] for dep in self.cfg.dependencies())
-        for dep_name, tf_name in sorted(dependency_mapping.items()):
+        for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 system_libs.append(tf_name)
                 # For protobuf we need protobuf and protobuf-python where the latter depends on the former
@@ -382,7 +382,7 @@ class EB_TensorFlow(PythonPackage):
             else:
                 ignored_system_deps.append('%s (Dependency %s)' % (tf_name, dep_name))
 
-        for pkg_name, tf_name in sorted(python_mapping.items()):
+        for pkg_name, tf_name in sorted(python_mapping.items(), key=lambda i: i[0].lower()):
             if self.python_pkg_exists(pkg_name):
                 system_libs.append(tf_name)
             else:
