@@ -116,15 +116,49 @@ class EB_Boost(EasyBlock):
     def configure_step(self):
         """Configure Boost build using custom tools"""
 
-        # mpi sanity check
-        if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
-            raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
+        # Disable any Boost features in the configuration (bootstrap) step, it won't be possible at later stages
+        bootstrap_opts = [opt.split('=') for opt in self.cfg['configopts'].split()]
+        bootstrap_bools = [opt[0] for opt in bootstrap_opts if len(opt) == 1]  # safekeep all boolean opts
+        bootstrap_opts = {opt[0]: opt[1].split(',') for opt in bootstrap_opts if len(opt) > 1}  # take key/value pairs
 
-        # create build directory (Boost doesn't like being built in source dir)
+        with_libs, without_libs = '--with-libraries', '--without-libraries'
+        for libs_arg in [with_libs, without_libs]:
+            if libs_arg not in bootstrap_opts:
+                bootstrap_opts.update({libs_arg: []})
+
+        # Check MPI configuration settings
+        if self.cfg['boost_mpi']:
+            if 'mpi' in bootstrap_opts[without_libs]:
+                raise EasyBuildError("Boost.MPI enabled with 'boost_mpi' but disabled by user in 'configopts'.")
+
+            if not self.toolchain.mpi_family():
+                raise EasyBuildError("Boost.MPI enabled with 'boost_mpi' but current toolchain does not support MPI.")
+            elif not self.toolchain.options.get('usempi', None):
+                self.log.warning("Boost.MPI enabled, activating 'usempi' in current toolchain.")
+                self.toolchain.options['usempi'] = True
+
+        else:
+            if 'mpi' in bootstrap_opts[with_libs]:
+                raise EasyBuildError("Boost.MPI disabled with 'boost_mpi' but enabled by user in 'configopts'.")
+            else:
+                if 'mpi' not in bootstrap_opts[without_libs]:
+                    bootstrap_opts[without_libs].append('mpi')
+                    self.log.debug("Boost.MPI disabled through '%s' in 'configopts'", without_libs)
+
+        # Update configopts
+        for libs_arg in [with_libs, without_libs]:
+            if len(bootstrap_opts[libs_arg]) == 0:
+                del bootstrap_opts[libs_arg]
+
+        new_configopts = ['='.join([opt,','.join(val)]) for opt, val in bootstrap_opts.items()]
+        new_configopts.extend(bootstrap_bools)  # re-add boolean opts
+        self.cfg['configopts'] = ' '.join(new_configopts)
+
+        # Create build directory (Boost doesn't like being built in source dir)
         self.objdir = os.path.join(self.builddir, 'obj')
         mkdir(self.objdir)
 
-        # generate config depending on compiler used
+        # Generate config depending on compiler used
         toolset = self.cfg['toolset']
         if toolset is None:
             if self.toolchain.comp_family() == toolchain.INTELCOMP:
@@ -216,13 +250,16 @@ class EB_Boost(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
+        # WARNING: at this point features can be either enabled (--with) or disabled (--without), but *not* both
+        # We use an inclusive approach because MPI is not built by default
+
         if self.cfg['only_python_bindings']:
             # magic incantation to only install Boost Python bindings is... --with-python
             # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
-            bjamoptions += " --with-python"
+            bjamoptions += " --user-config=user-config.jam --with-python"
 
         if self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi library")
+            self.log.info("Building Boost.MPI library")
             self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
 
         if self.cfg['boost_multi_thread']:
@@ -231,7 +268,7 @@ class EB_Boost(EasyBlock):
 
         # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
         if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi with multi threading")
+            self.log.info("Building Boost.MPI with multi threading")
             extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
             self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
 
