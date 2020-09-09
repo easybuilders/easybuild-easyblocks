@@ -608,10 +608,13 @@ class EB_TensorFlow(PythonPackage):
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
 
-        # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-        regex_subs = [(r"(run_shell\(\['bazel')",
-                       r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
-        apply_regex_substitutions('configure.py', regex_subs)
+        # Does no longer apply (and might not be required at all) since 1.12.0
+        if LooseVersion(self.version) < LooseVersion('1.12.0'):
+            # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
+            regex_subs = [(r"(run_shell\(\['bazel')",
+                           r"\1, '--output_base=%s', '--install_base=%s'" % (self.output_base_dir,
+                                                                             self.install_base_dir))]
+            apply_regex_substitutions('configure.py', regex_subs)
 
         # Tell Bazel to not use $HOME/.cache/bazel at all
         # See https://docs.bazel.build/versions/master/output_directories.html
@@ -619,12 +622,8 @@ class EB_TensorFlow(PythonPackage):
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
-    def build_step(self):
-        """Custom build procedure for TensorFlow."""
-
-        # pre-create target installation directory
-        mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
-
+    def patch_crosstool_files(self):
+        """Patches the CROSSTOOL files to include EasyBuild provided compiler paths"""
         inc_paths, lib_paths = [], []
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
@@ -689,6 +688,16 @@ class EB_TensorFlow(PythonPackage):
                     full_path = os.path.join(path, filename)
                     self.log.info("Patching %s", full_path)
                     apply_regex_substitutions(full_path, regex_subs)
+
+    def build_step(self):
+        """Custom build procedure for TensorFlow."""
+
+        # pre-create target installation directory
+        mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
+
+        # This seems to be no longer required since at least 2.0, likely also for older versions
+        if LooseVersion(self.version) < LooseVersion('2.0'):
+            self.patch_crosstool_files()
 
         # compose "bazel build" command with all its options...
         cmd = [self.cfg['prebuildopts'],
@@ -759,7 +768,7 @@ class EB_TensorFlow(PythonPackage):
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            if cuda_root:
+            if get_software_root('CUDA'):
                 cmd.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
