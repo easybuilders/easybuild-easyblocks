@@ -402,6 +402,15 @@ class EB_TensorFlow(PythonPackage):
 
         return system_libs, cpaths, libpaths
 
+    def setup_build_dirs(self):
+        """Setup temporary build directories"""
+        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf')
+        self.output_root_dir = os.path.join(tmpdir, 'output_root')
+        self.output_base_dir = os.path.join(tmpdir, 'output_base')
+        self.output_user_root_dir = os.path.join(tmpdir, 'output_user_root')
+        self.wrapper_dir = os.path.join(tmpdir, 'wrapper_bin')
+        self.install_base_dir = os.path.join(self.output_base_dir, 'inst_base')
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -409,8 +418,6 @@ class EB_TensorFlow(PythonPackage):
         if not binutils_root:
             raise EasyBuildError("Failed to determine installation prefix for binutils")
         self.binutils_bin_path = os.path.join(binutils_root, 'bin')
-
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
@@ -423,14 +430,14 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
-        wrapper_dir = os.path.join(tmpdir, 'bin')
-        use_wrapper = False
+        self.setup_build_dirs()
 
+        use_wrapper = False
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             # put wrappers for Intel C/C++ compilers in place (required to make sure license server is found)
             # cfr. https://github.com/bazelbuild/bazel/issues/663
             for compiler in ('icc', 'icpc'):
-                self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
+                self.write_wrapper(self.wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
             use_wrapper = True
 
         use_mpi = self.toolchain.options.get('usempi', False)
@@ -441,7 +448,7 @@ class EB_TensorFlow(PythonPackage):
                 # put wrappers for Intel MPI compiler wrappers in place
                 # (required to make sure license server and I_MPI_ROOT are found)
                 for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
-                    self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+                    self.write_wrapper(self.wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
                 use_wrapper = True
                 # set correct value for MPI_HOME
                 mpi_home = os.path.join(impi_root, 'intel64')
@@ -452,7 +459,7 @@ class EB_TensorFlow(PythonPackage):
             self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
-            env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
+            env.setvar('PATH', os.pathsep.join([self.wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
         self.handle_jemalloc()
@@ -606,7 +613,7 @@ class EB_TensorFlow(PythonPackage):
 
         # Tell Bazel to not use $HOME/.cache/bazel at all
         # See https://docs.bazel.build/versions/master/output_directories.html
-        env.setvar('TEST_TMPDIR', os.path.join(tmpdir, 'output_root'))
+        env.setvar('TEST_TMPDIR', self.output_root_dir)
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -681,13 +688,14 @@ class EB_TensorFlow(PythonPackage):
                     self.log.info("Patching %s", full_path)
                     apply_regex_substitutions(full_path, regex_subs)
 
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
-        user_root_tmpdir = tempfile.mkdtemp(suffix='-user_root')
-
         # compose "bazel build" command with all its options...
-        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir,
-               '--install_base=%s' % os.path.join(tmpdir, 'inst_base'),
-               '--output_user_root=%s' % user_root_tmpdir, 'build']
+        cmd = [self.cfg['prebuildopts'],
+               'bazel',
+               '--output_base=%s' % self.output_base_dir,
+               '--install_base=%s' % self.install_base_dir,
+               '--output_user_root=%s' % self.output_user_root_dir,
+               'build'
+               ]
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
