@@ -101,7 +101,7 @@ class EB_OpenBLAS(ConfigureMake):
             else:
                 mapped_target = mapped_target.upper()
                 self.log.info("Optarch mapped between EasyBuild and OpenBLAS to: " + mapped_target)
-                default_opts['TARGET'] = mapped_target
+                default_opts[TARGET] = mapped_target
 
         for key in sorted(default_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
@@ -237,7 +237,7 @@ class EB_OpenBLAS(ConfigureMake):
         an optimized kernel at runtime. Also removes any previous TARGET setting, if any.
         """
         default_opts['DYNAMIC_ARCH'] = 1
-        default_opts.pop('TARGET', None)
+        default_opts.pop(TARGET, None)
         self._dynamic_target = True
 
     def _get_mapped_target(self, march, openblas_targets):
