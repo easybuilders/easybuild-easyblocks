@@ -404,11 +404,13 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf')
+        # Tensorflow/Bazel needs a couple of directories where it stores build cache and artefacts
+        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
         self.output_root_dir = os.path.join(tmpdir, 'output_root')
         self.output_base_dir = os.path.join(tmpdir, 'output_base')
         self.output_user_root_dir = os.path.join(tmpdir, 'output_user_root')
         self.wrapper_dir = os.path.join(tmpdir, 'wrapper_bin')
+        # This (likely) needs to be a subdir of output_base
         self.install_base_dir = os.path.join(self.output_base_dir, 'inst_base')
 
     def configure_step(self):
