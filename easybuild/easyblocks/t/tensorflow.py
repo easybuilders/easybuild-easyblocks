@@ -132,55 +132,57 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     available_system_libs = {
         # Format: (<EB name>, <version range>): <TF name>
         #         <version range> is '<min version>:<exclusive max version>'
-        ('cURL', '2.1.0:'): 'curl',
-        ('double-conversion', '2.1.0:'): 'double_conversion',
-        ('flatbuffers', '2.1.0:'): 'flatbuffers',
+        ('cURL', '2.0.0:'): 'curl',
+        ('double-conversion', '2.0.0:'): 'double_conversion',
+        ('flatbuffers', '2.0.0:'): 'flatbuffers',
+        ('giflib', '2.0.0:2.1.0'): 'gif_archive',
         ('giflib', '2.1.0:'): 'gif',
-        ('hwloc', '2.1.0:'): 'hwloc',
-        ('ICU', '2.1.0:'): 'icu',
-        ('JsonCpp', '2.1.0:'): 'jsoncpp_git',
-        ('libjpeg-turbo', '2.1.0:2.2.0'): 'jpeg',
+        ('hwloc', '2.0.0:'): 'hwloc',
+        ('ICU', '2.0.0:'): 'icu',
+        ('JsonCpp', '2.0.0:'): 'jsoncpp_git',
+        ('libjpeg-turbo', '2.0.0:2.2.0'): 'jpeg',
         ('libjpeg-turbo', '2.2.0:'): 'libjpeg_turbo',
+        ('libpng', '2.0.0:2.1.0'): 'png_archive',
         ('libpng', '2.1.0:'): 'png',
-        ('LMDB', '2.1.0:'): 'lmdb',
-        ('NASM', '2.1.0:'): 'nasm',
-        ('nsync', '2.1.0:'): 'nsync',
-        ('PCRE', '2.1.0:'): 'pcre',
-        ('protobuf-python', '2.1.0:'): 'com_google_protobuf',
+        ('LMDB', '2.0.0:'): 'lmdb',
+        ('NASM', '2.0.0:'): 'nasm',
+        ('nsync', '2.0.0:'): 'nsync',
+        ('PCRE', '2.0.0:'): 'pcre',
+        ('protobuf-python', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
-        ('snappy', '2.1.0:'): 'snappy',
-        ('SQLite', '2.1.0:'): 'org_sqlite',
-        ('SWIG', '2.1.0:'): 'swig',
-        ('zlib', '2.1.0:2.2.0'): 'zlib_archive',
+        ('snappy', '2.0.0:'): 'snappy',
+        ('SQLite', '2.0.0:'): 'org_sqlite',
+        ('SWIG', '2.0.0:'): 'swig',
+        ('zlib', '2.0.0:2.2.0'): 'zlib_archive',
         ('zlib', '2.2.0:'): 'zlib',
     }
     # Software recognized by TF but which is always disabled (usually because no EC is known)
     # Format: <TF name>: <version range>
     unused_system_libs = {
-        'boringssl': '2.1.0:',
-        'com_github_googleapis_googleapis': '2.1.0:',
-        'com_github_googlecloudplatform_google_cloud_cpp': '2.1.0:',  # Not used due to $TF_NEED_GCP=0
+        'boringssl': '2.0.0:',
+        'com_github_googleapis_googleapis': '2.0.0:',
+        'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
-        'com_googlesource_code_re2': '2.1.0:',
-        'grpc': '2.1.0:2.2.0',
+        'com_googlesource_code_re2': '2.0.0:',
+        'grpc': '2.0.0:2.2.0',
     }
     # Python packages installed as extensions or in the Python module
     # Will be checked for availabilitly
     # Format: (<package name>, <version range>): <TF name>
     python_system_libs = {
-        ('absl', '2.1.0:'): 'absl_py',
-        ('astor', '2.1.0:'): 'astor_archive',
+        ('absl', '2.0.0:'): 'absl_py',
+        ('astor', '2.0.0:'): 'astor_archive',
         ('astunparse', '2.2.0:'): 'astunparse_archive',
-        ('cython', '2.1.0:'): 'cython',  # Part of Python EC
-        ('enum', '2.1.0:'): 'enum34_archive',  # Part of Python3
-        ('functools', '2.1.0:'): 'functools32_archive',  # Part of Python3
-        ('gast', '2.1.0:'): 'gast_archive',
-        ('keras_applications', '2.1.0:2.2.0'): 'keras_applications_archive',
-        ('opt_einsum', '2.1.0:'): 'opt_einsum_archive',
-        ('pasta', '2.1.0:'): 'pasta',
-        ('six', '2.1.0:'): 'six_archive',  # Part of Python EC
-        ('termcolor', '2.1.0:'): 'termcolor_archive',
-        ('wrapt', '2.1.0:'): 'wrapt',
+        ('cython', '2.0.0:'): 'cython',  # Part of Python EC
+        ('enum', '2.0.0:'): 'enum34_archive',  # Part of Python3
+        ('functools', '2.0.0:'): 'functools32_archive',  # Part of Python3
+        ('gast', '2.0.0:'): 'gast_archive',
+        ('keras_applications', '2.0.0:2.2.0'): 'keras_applications_archive',
+        ('opt_einsum', '2.0.0:'): 'opt_einsum_archive',
+        ('pasta', '2.0.0:'): 'pasta',
+        ('six', '2.0.0:'): 'six_archive',  # Part of Python EC
+        ('termcolor', '2.0.0:'): 'termcolor_archive',
+        ('wrapt', '2.0.0:'): 'wrapt',
     }
     dependency_mapping = dict((dep_name, tf_name)
                               for (dep_name, version_range), tf_name in available_system_libs.items()
@@ -353,7 +355,7 @@ class EB_TensorFlow(PythonPackage):
 
         # Check direct dependencies
         dep_names = set(dep['name'] for dep in self.cfg.dependencies())
-        for dep_name, tf_name in sorted(dependency_mapping.items()):
+        for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 system_libs.append(tf_name)
                 # For protobuf we need protobuf and protobuf-python where the latter depends on the former
@@ -380,22 +382,22 @@ class EB_TensorFlow(PythonPackage):
             else:
                 ignored_system_deps.append('%s (Dependency %s)' % (tf_name, dep_name))
 
-        for pkg_name, tf_name in sorted(python_mapping.items()):
+        for pkg_name, tf_name in sorted(python_mapping.items(), key=lambda i: i[0].lower()):
             if self.python_pkg_exists(pkg_name):
                 system_libs.append(tf_name)
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
-            self.log.warning('For the following dependencies TensorFlow will download a copy because an ' +
-                             'EB dependency was not found: \n%s\n' +
-                             'Dependencies: %s\n' +
-                             'Python packages: %s\n',
+            self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
+                             'because an EB dependency was not found: \n%s\n' +
+                             'EC Dependencies: %s\n' +
+                             'Installed Python packages: %s\n',
                              ', '.join(ignored_system_deps),
                              ', '.join(dep_names),
                              ', '.join(self.get_installed_python_packages()))
         else:
-            self.log.info("All known TensorFlow dependencies resolved via EasyBuild!")
+            self.log.info("All known TensorFlow $TF_SYSTEM_LIBS dependencies resolved via EasyBuild!")
 
         return system_libs, cpaths, libpaths
 
