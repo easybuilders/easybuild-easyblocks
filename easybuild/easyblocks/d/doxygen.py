@@ -60,4 +60,6 @@ class EB_Doxygen(CMakeMake):
             'dirs': []
         }
 
-        super(EB_Doxygen, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["doxygen --help"]
+
+        super(EB_Doxygen, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
