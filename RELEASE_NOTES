@@ -5,7 +5,7 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 224 software-specific easyblocks and 37 generic easyblocks.
 
-v4.3.0 (September 11th 2020)
+v4.3.0 (September 13th 2020)
 ----------------------------
 
 feature release
@@ -25,7 +25,7 @@ feature release
   - update QuantumESPRESSO easyblock to support version 6.6 (#2112)
   - allow NAMD to be built on POWER, and also use the CUDA arch info (#2113, #2123)
   - update Libint easyblock for versions >= 2.6.0 + add custom easyconfig parameter to enable Fortran support (#2116)
-  - update TensorFlow easyblock to use system/EasyBuild installed libraries (#2117, #2165, #2163)
+  - update TensorFlow easyblock to use system/EasyBuild installed libraries (#2117, #2165, #2163, #2172)
   - add support in NAMD easyblock to pass additional C++ compiler options for building Charm++ component with + wrap them in single quotes (#2118)
   - automatically add required '-G Ninja' option when using CMakeNinja easyblock + add 'generator' custom easyconfig parameter for CMakeMake (#2120)
   - make several easyblocks aware of --sysroot EasyBuild configuration option: binutils (#2147, #2159), CMakeMake (#2152), GCC (#2143), Perl (#2142), Python (#2148, #2149)
