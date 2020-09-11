@@ -3,7 +3,73 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 222 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 224 software-specific easyblocks and 37 generic easyblocks.
+
+v4.3.0 (September 11th 2020)
+----------------------------
+
+feature release
+
+- 2 new software-specific easyblocks:
+  - Pybind11 (#2115), PyTorch (#2104)
+- minor enhancements, including:
+  - update MATLAB easyblock to use new binary installer for versions >= 2020a (#2058)
+  - add option use_pip_requirement to allow providing a requirements file to the pip command, as a source (#2064)
+  - update CP2K easyblock for recent versions (>= 7.0) (#2069)
+  - add multi_deps support into qscintilla easyblock (#2077)
+  - update Mothur easyblock to work with 1.44.0 and higher (#2084)
+  - update MotionCor2 easyblock to add support for v1.3.2 (#2100)
+  - update Tinker easyblock to handle skipping of tests depending on version and link with fftw_omp (#2102)
+  - launch test & sanity check commands through mpirun for netcdf4-python if MPI support is enabled (#2106)
+  - handle installation of pip & setuptools in Python 3.4+ (#2108)
+  - update QuantumESPRESSO easyblock to support version 6.6 (#2112)
+  - allow NAMD to be built on POWER, and also use the CUDA arch info (#2113)
+  - update Libint easyblock for versions >= 2.6.0 + add custom easyconfig parameter to enable Fortran support (#2116)
+  - make TensorFlow use system/EasyBuild installed libraries (#2117)
+  - add support in NAMD easyblock to pass additional C++ compiler options for building Charm++ component with + wrap them in single quotes (#2118)
+  - automatically add required -G Ninja when using CMakeNinja easyblock + add 'generator' custom easyconfig parameter for CMakeMake (#2120)
+  - make Perl easyblock aware of --sysroot EasyBuild configuration option (#2142)
+  - make GCC easyblock aware of --sysroot EasyBuild configuration option (#2143)
+  - take --sysroot EasyBuild configuration option into account in binutils easyblock (#2147)
+  - make Mesa easyblock aware of aarch64 (#2153)
+  - update TensorFlow easyblock to support installing TensorFlow 2.0 with dependencies provided through EasyBuild (#2165)
+- various bug fixes, including:
+  - make TensorFlow easyblock ignore the PKG_REVISION identifier if NCCL version if it exists (#2085)
+  - add 'lib' symlink in tbb installation directory when building from source (#2103)
+  - handle GNUInstallDirs special cases in CMakeMake easyblock (#2105, #2124)
+  - patch ELPA's manual_cpp script to fix hardcoded /usr/bin/python (#2107)
+  - make TensorFlow easyblock also set $GCC_HOST_COMPILER_PREFIX to specify binutils location (#2110)
+  - ensure stand-alone Python package being installed is in view when running 'pip check' by loading fake module first (#2114)
+  - be more patient when running interactive configure script for WRF (#2119)
+  - fix default value for custom 'namd_basearch' easyconfig parameter in NAMD easyblock (#2123)
+  - make sure self.start_dir is set to a full path before constructing installation command in RPackage easyblock (#2125)
+  - correctly check whether 'modinc' easyconfig parameter is set to True in CP2K easyblock (#2138)
+  - update PSI easyblock to correctly find Python and enable PCMSolver/CheMPS2 (#2141)
+  - fix running GROMACS tests when using 'eb --rpath' (#2144)
+  - fix call to os.path.join in sanity checks of netcdf easyblock (#2145)
+  - remove existing Python installation directory if both 'eb --rpath' and --enable-optimizations configuration parameter are used (#2146)
+  - patch setup.py when installing Python with 'eb --sysroot=...' to fix issues with building of _ssl module (#2148)
+  - fix patching of hardcoded paths in Python's setup.py for older Python versions when EasyBuild is configured with --sysroot (#2149)
+  - ensure libQt5Core.so is compatible with older Linux kernels by disabling renameat2 and getentropy features (#2151)
+  - let CMakeMake easyblock set -DCMAKE_SYSROOT based on --sysroot EasyBuild configuration setting, and auto-enable using full path to compiler commands when doing so (#2152)
+  - take existing 'lib' subdir into account when copying it to test GROMACS installation (#2154)
+  - remove duplicate empty line in tbb easyblock which makes code linter check fail (#2155)
+  - solve issue where pybind11 picks up on the system Python instead of one provided by a module (#2158)
+  - avoid setting sysroot to None in binutils easyblock (#2159)
+  - fix Qt5 easyblock to support installation on Arm/aarch64 (requires platform to be linux-g++) (#2160)
+  - fix OpenFOAM easyblock to support installation on Arm/aarch64 systems (#2162)
+  - fix Python package detection in TensorFlow easyblock and improve warning message (#2163)
+  - explicitely enable/disable CUDA options in PyTorch easyblock + fix download check in sanity check + fix for disabling of *NNPACK on POWER systems (#2164)
+  - fix sanity check in Mathematica easyblock for 11.x versions older than 11.3 (#2168)
+  - unset $COLUMNS if it is set to '0' before running Perl's configure script (#2169)
+- other changes:
+  - remove version check against the version.txt file in CUDA easyblock (#2097)
+  - filter out Python in SLEPc configure (#2101)
+  - switch to status badge based on tests run in GitHub Actions CI in README (#2126)
+  - fix code style issues to make flake8 checks pass (#2128-#2137)
+  - limit test configurations in Travis CI to only Python 2.6 (#2139)
+  - enable flake8 on CI (#2140)
+
 
 v4.2.2 (July 8th 2020)
 ----------------------
