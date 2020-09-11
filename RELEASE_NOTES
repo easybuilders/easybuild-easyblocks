@@ -30,6 +30,7 @@ feature release
   - automatically add required '-G Ninja' option when using CMakeNinja easyblock + add 'generator' custom easyconfig parameter for CMakeMake (#2120)
   - make several easyblocks aware of --sysroot EasyBuild configuration option: binutils (#2147, #2159), CMakeMake (#2152), GCC (#2143), Perl (#2142), Python (#2148, #2149)
   - make Mesa easyblock aware of aarch64 (#2153)
+  - enhance sanity check in custom Doxygen easyblock to catch broken installation (#2171)
 - various bug fixes, including:
   - make TensorFlow easyblock ignore the PKG_REVISION identifier if NCCL version if it exists (#2085)
   - remove version check against the version.txt file in CUDA easyblock (#2097)
