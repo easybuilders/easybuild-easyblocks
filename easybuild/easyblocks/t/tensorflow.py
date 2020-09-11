@@ -367,11 +367,12 @@ class EB_TensorFlow(PythonPackage):
                 if not sw_root:
                     continue
                 incpath = os.path.join(sw_root, 'include')
-                if dep_name == 'JsonCpp':
-                    # Need to use the install prefix instead: https://github.com/tensorflow/tensorflow/issues/42303
-                    incpath = sw_root
                 if os.path.exists(incpath):
                     cpaths.append(incpath)
+                    if dep_name == 'JsonCpp' and LooseVersion(self.version) < LooseVersion('2.3'):
+                        # Need to add the install prefix or patch the sources:
+                        # https://github.com/tensorflow/tensorflow/issues/42303
+                        cpaths.append(sw_root)
                     if dep_name == 'protobuf':
                         # Need to set INCLUDEDIR as TF wants to symlink headers from there:
                         # https://github.com/tensorflow/tensorflow/issues/37835
