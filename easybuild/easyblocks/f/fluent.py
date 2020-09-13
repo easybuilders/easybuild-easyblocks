@@ -58,7 +58,7 @@ class EB_FLUENT(PackedBinary):
 
     def install_step(self):
         """Custom install procedure for FLUENT."""
-        extra_args =''
+        extra_args = ''
         # only include -noroot flag for older versions
         if LooseVersion(self.version) < LooseVersion('15.0'):
             extra_args += '-noroot'

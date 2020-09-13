@@ -40,6 +40,7 @@ class EB_Bioconductor(RPackage):
     The Bioconductor package extends RPackage to use a different source
     And using the biocLite package to do the installation.
     """
+
     def make_cmdline_cmd(self):
         """Create a command line to install an R library."""
         raise EasyBuildError("Don't know how to install a specific version of a Bioconductor package.")

@@ -42,12 +42,11 @@ import shutil
 import sys
 import tempfile
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import mkdir, read_file, write_file
+from easybuild.tools.filetools import read_file, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_platform_name
@@ -78,7 +77,8 @@ class EB_GAMESS_minus_US(EasyBlock):
             self.testdir = tempfile.mkdtemp()
             # make sure test dir doesn't contain [ or ], rungms csh script doesn't handle that well ("set: No match")
             if re.search(r'[\[\]]', self.testdir):
-                raise EasyBuildError("Temporary dir for tests '%s' will cause problems with rungms csh script", self.testdir)
+                error_msg = "Temporary dir for tests '%s' will cause problems with rungms csh script"
+                raise EasyBuildError(error_msg, self.testdir)
 
     def extract_step(self):
         """Extract sources."""
@@ -220,7 +220,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         else:
             self.log.info("The libddi.a library (%s) was successfully built." % libddi)
 
-        ddikick =  os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
+        ddikick = os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
         if os.path.isfile(ddikick):
             self.log.info("The ddikick.x executable (%s) was successfully built." % ddikick)
 
@@ -269,7 +269,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
             # run all exam<id> tests, dump output to exam<id>.log
             n_tests = 47
-            for i in range(1, n_tests+1):
+            for i in range(1, n_tests + 1):
                 test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, '1', '2'])
                 (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
                 write_file('exam%02d.log' % i, out)

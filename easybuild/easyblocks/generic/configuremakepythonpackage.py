@@ -23,7 +23,8 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for Python packages that are configured with 'python configure/make/make install', implemented as an easyblock
+EasyBuild support for Python packages that are configured with 'python configure/make/make install',
+implemented as an easyblock
 
 @author: Bart Verleye (Centre for eResearch, Auckland)
 @author: Kenneth Hoste (Ghent University)

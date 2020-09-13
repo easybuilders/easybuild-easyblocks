@@ -78,11 +78,11 @@ class EB_Maple(Binary):
             "Downloads & Service Packs. [Y/n]:": 'n',
         }
         std_qa = {
-            "Choose Install Folder \[.*\]:": self.installdir,
-            "\[2\] Network License.*\nPlease choose an option \[.\] :": '2',
-            "\[1\] Single Server.*\n.*\nPlease choose an option \[.\] :": '1',
-            "Port number \[[0-9]+\]:": '',
-            "Enable periodic checking for Maple .* updates after installation \[Y/n\]:": 'n',
+            r"Choose Install Folder \[.*\]:": self.installdir,
+            r"\[2\] Network License.*\nPlease choose an option \[.\] :": '2',
+            r"\[1\] Single Server.*\n.*\nPlease choose an option \[.\] :": '1',
+            r"Port number \[[0-9]+\]:": '',
+            r"Enable periodic checking for Maple .* updates after installation \[Y/n\]:": 'n',
         }
 
         no_qa = [
@@ -91,7 +91,7 @@ class EB_Maple(Binary):
             'Launching installer...',
             "Configuring the installer for this system's environment...",
             'Unpacking the JRE...',
-            '\[[-|]*',
+            r'\[[-|]*',
         ]
 
         run_cmd_qa(cmd, qa, std_qa=std_qa, no_qa=no_qa, log_all=True, simple=True)
@@ -105,7 +105,7 @@ class EB_Maple(Binary):
                     "Do you accept this license? [y/n]:": 'y',
                 }
                 std_qa = {
-                    "Please specify the path to your existing Maple .* Installation.\s*\n\s*\[.*\]:": self.installdir,
+                    r"Please specify the path to your existing Maple .* Installation.\s*\n\s*\[.*\]:": self.installdir,
                 }
                 run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True)
             else:

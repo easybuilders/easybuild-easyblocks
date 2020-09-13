@@ -129,8 +129,11 @@ class EB_Mathematica(Binary):
             'files': ['bin/mathematica'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
-        if LooseVersion(self.version) >= LooseVersion("11.0.0"):
+        if LooseVersion(self.version) >= LooseVersion("11.3.0"):
             custom_paths['files'].append('Executables/wolframscript')
+        elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
+            custom_paths['files'].append('bin/wolframscript')
+
         custom_commands = ['mathematica --version']
 
         super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
