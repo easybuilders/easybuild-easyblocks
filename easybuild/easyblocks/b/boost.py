@@ -274,7 +274,7 @@ class EB_Boost(EasyBlock):
         if self.cfg['only_python_bindings']:
             # magic incantation to only install Boost Python bindings is... --with-python
             # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
-            bjamoptions += " --user-config=user-config.jam --with-python"
+            bjamoptions += " --with-python"
 
         if self.cfg['boost_mpi']:
             self.log.info("Building Boost.MPI library")
