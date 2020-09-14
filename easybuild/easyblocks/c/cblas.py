@@ -56,13 +56,15 @@ class EB_CBLAS(ConfigureMake):
         self.cfg.update('buildopts', 'CFLAGS="%s -DADD_"' % os.getenv('CFLAGS'))
         self.cfg.update('buildopts', 'FFLAGS="%s -DADD_"' % os.getenv('FFLAGS'))
 
+        extra_blas_libs = '-lmkl_intel_thread -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_core'
+
         blas_lib_dir = os.getenv('BLAS_LIB_DIR')
-        blas_libs = []
+        blas_libs = [] + extra_blas_libs.split()
         for blas_lib in os.getenv('BLAS_STATIC_LIBS').split(','):
             blas_lib = os.path.join(blas_lib_dir, blas_lib)
             if os.path.exists(blas_lib):
                 blas_libs.append(blas_lib)
-        self.cfg.update('buildopts', 'BLLIB="%s %s -lmkl_intel_thread -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_core"' % (' '.join(blas_libs), os.getenv('LIBS', '')))
+        self.cfg.update('buildopts', 'BLLIB="%s %s"' % (' '.join(blas_libs), os.getenv('LIBS', '')))
 
     # default build procedure should do
 
