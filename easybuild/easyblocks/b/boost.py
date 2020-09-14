@@ -117,6 +117,7 @@ class EB_Boost(EasyBlock):
         """Configure Boost build using custom tools"""
 
         # Disable any Boost features in the configuration (bootstrap) step, it won't be possible at later stages
+        # Settings in 'configopts' added manually have precedence
         bootstrap_opts = [opt.split('=') for opt in self.cfg['configopts'].split()]
         bootstrap_opt_pairs = dict()  # key/value pairs
         bootstrap_opt_bools = list()  # boolean opts (just for safekeeping)
@@ -142,19 +143,21 @@ class EB_Boost(EasyBlock):
                 self.log.warning("Boost.MPI enabled, but MPI in toolchain is not. Activating 'usempi'.")
                 self.toolchain.options['usempi'] = True
 
-        else:
-            if 'mpi' in bootstrap_opt_pairs[with_libs]:
-                raise EasyBuildError("Boost.MPI disabled with 'boost_mpi' but enabled by user in 'configopts'.")
-            else:
-                if 'mpi' not in bootstrap_opt_pairs[without_libs]:
-                    bootstrap_opt_pairs[without_libs].append('mpi')
-                    self.log.debug("Boost.MPI disabled through '%s' in 'configopts'", without_libs)
+        elif 'mpi' in bootstrap_opt_pairs[with_libs]:
+            raise EasyBuildError("Boost.MPI disabled with 'boost_mpi' but enabled by user in 'configopts'.")
+        elif 'mpi' not in bootstrap_opt_pairs[without_libs]:
+            bootstrap_opt_pairs[without_libs].append('mpi')
+            self.log.debug("Boost.MPI disabled through '%s' in 'configopts'", without_libs)
 
         # Check Python configuration settings
-        if not self.pyvers:
-            if 'python' not in bootstrap_opt_pairs[without_libs] + bootstrap_opt_pairs[with_libs]:
-                bootstrap_opt_pairs[without_libs].append('python')
-                self.log.debug("Boost.Python disabled through '%s' in 'configopts'", without_libs)
+        python_root = get_software_root('Python')
+        if python_root:
+            if 'python' not in bootstrap_opt_pairs[without_libs]:
+                bootstrap_opt_pairs.update({'--with-python-root': [python_root]})
+                self.log.debug("Boost.Python enabled using Python in %s", python_root)
+        elif 'python' not in bootstrap_opt_pairs[without_libs] + bootstrap_opt_pairs[with_libs]:
+            bootstrap_opt_pairs[without_libs].append('python')
+            self.log.debug("Boost.Python disabled through '%s' in 'configopts'", without_libs)
 
         # Update configopts
         for libs_arg in [with_libs, without_libs]:
@@ -164,7 +167,7 @@ class EB_Boost(EasyBlock):
         new_configopts = ['='.join([opt, ','.join(val)]) for opt, val in bootstrap_opt_pairs.items()]
         new_configopts.extend(bootstrap_opt_bools)  # re-add boolean opts
         self.cfg['configopts'] = ' '.join(new_configopts)
-        print(self.cfg['configopts'])
+
         # Create build directory (Boost doesn't like being built in source dir)
         self.objdir = os.path.join(self.builddir, 'obj')
         mkdir(self.objdir)
@@ -183,7 +186,7 @@ class EB_Boost(EasyBlock):
         tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
-        # Fine grained configurations are passed through file 'user-config.jam'
+        # Fine grained configurations are set in file 'user-config.jam'
         user_config = ''
 
         # Configure the boost mpi module
@@ -219,12 +222,6 @@ class EB_Boost(EasyBlock):
 
             self.log.debug("Updating configuration file 'user-config.jam' with MPI settings")
             user_config = '\n'.join([user_config, user_config_mpi])
-
-        # Configure the boost python module
-        if self.pyvers:
-            self.log.debug("Updating configuration file 'user-config.jam' with Python settings")
-            user_config_py = "using python : : %s ;\n" % os.path.join(get_software_root('Python'), 'bin/python')
-            user_config = '\n'.join([user_config, user_config_py])
 
         write_file('user-config.jam', user_config, append=True)
 
