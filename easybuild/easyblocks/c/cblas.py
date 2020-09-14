@@ -32,7 +32,8 @@ import glob
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -81,12 +82,14 @@ class EB_CBLAS(ConfigureMake):
             for solib in glob.glob(os.path.join(srcdir, 'libcblas.so*')):
                 copy_file(solib, os.path.join(targetdir, os.path.basename(solib)))
 
+        copy_dir(os.path.join(self.cfg['start_dir'], 'include'), os.path.join(self.installdir, 'include'))
+
     def sanity_check_step(self):
         """
         Custom sanity check for CBLAS.
         """
         custom_paths = {
             'files': ['lib/libcblas.a', 'lib/libcblas.%s' % get_shared_lib_ext()],
-            'dirs': [],
+            'dirs': ['include'],
         }
         super(EB_CBLAS, self).sanity_check_step(custom_paths=custom_paths)
