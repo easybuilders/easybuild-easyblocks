@@ -145,12 +145,18 @@ class EB_Boost(EasyBlock):
                     bootstrap_opts[without_libs].append('mpi')
                     self.log.debug("Boost.MPI disabled through '%s' in 'configopts'", without_libs)
 
+        # Check Python configuration settings
+        if not self.pyvers:
+            if 'python' not in bootstrap_opts[without_libs] and 'python' not in bootstrap_opts[with_libs]:
+                bootstrap_opts[without_libs].append('python')
+                self.log.debug("Boost.Python disabled through '%s' in 'configopts'", without_libs)
+
         # Update configopts
         for libs_arg in [with_libs, without_libs]:
             if len(bootstrap_opts[libs_arg]) == 0:
                 del bootstrap_opts[libs_arg]
 
-        new_configopts = ['='.join([opt,','.join(val)]) for opt, val in bootstrap_opts.items()]
+        new_configopts = ['='.join([opt, ','.join(val)]) for opt, val in bootstrap_opts.items()]
         new_configopts.extend(bootstrap_bools)  # re-add boolean opts
         self.cfg['configopts'] = ' '.join(new_configopts)
 
@@ -172,20 +178,20 @@ class EB_Boost(EasyBlock):
         tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
+        # Fine grained configurations are passed through file 'user-config.jam'
+        user_config = ''
+
+        # Configure the boost mpi module
+        # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
+        # let Boost.Build know to look here for the config file
         if self.cfg['boost_mpi']:
 
-            self.toolchain.options['usempi'] = True
-            # configure the boost mpi module
-            # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
-            # let Boost.Build know to look here for the config file
-
-            txt = ''
             # Check if using a Cray toolchain and configure MPI accordingly
             if self.toolchain.toolchain_family() == toolchain.CRAYPE:
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
-                    txt = '\n'.join([
+                    user_config_mpi = '\n'.join([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
                         ': %s' % craygccversion,
@@ -202,10 +208,20 @@ class EB_Boost(EasyBlock):
                     ])
                 else:
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
+            # MPI families without specific configuration
             else:
-                txt = "using mpi : %s ;" % os.getenv("MPICXX")
+                user_config_mpi = "using mpi : %s ;" % os.getenv("MPICXX")
 
-            write_file('user-config.jam', txt, append=True)
+            self.log.debug("Updating configuration file 'user-config.jam' with MPI settings")
+            user_config = '\n'.join([user_config, user_config_mpi])
+
+        # Configure the boost python module
+        if self.pyvers:
+            self.log.debug("Updating configuration file 'user-config.jam' with Python settings")
+            user_config_py = "using python : : %s" % os.path.join(get_software_root('Python'), 'bin/python')
+            user_config = '\n'.join([user_config, user_config_py])
+
+        write_file('user-config.jam', user_config, append=True)
 
     def build_boost_variant(self, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
