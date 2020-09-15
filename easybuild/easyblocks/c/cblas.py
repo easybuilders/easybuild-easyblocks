@@ -32,8 +32,8 @@ import glob
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, copy_file
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -57,14 +57,17 @@ class EB_CBLAS(ConfigureMake):
         self.cfg.update('buildopts', 'CFLAGS="%s -DADD_"' % os.getenv('CFLAGS'))
         self.cfg.update('buildopts', 'FFLAGS="%s -DADD_"' % os.getenv('FFLAGS'))
 
-        extra_blas_libs = '-lmkl_intel_thread -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_core'
-
         blas_lib_dir = os.getenv('BLAS_LIB_DIR')
-        blas_libs = [] + extra_blas_libs.split()
+        blas_libs = []
         for blas_lib in os.getenv('BLAS_STATIC_LIBS').split(','):
             blas_lib = os.path.join(blas_lib_dir, blas_lib)
             if os.path.exists(blas_lib):
                 blas_libs.append(blas_lib)
+
+        if get_software_root("imkl"):
+            extra_blas_libs = '-lmkl_intel_thread -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_core'
+            blas_libs += extra_blas_libs.split()
+
         self.cfg.update('buildopts', 'BLLIB="%s %s"' % (' '.join(blas_libs), os.getenv('LIBS', '')))
 
     # default build procedure should do
