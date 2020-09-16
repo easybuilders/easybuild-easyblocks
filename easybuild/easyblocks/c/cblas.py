@@ -65,8 +65,8 @@ class EB_CBLAS(ConfigureMake):
                 blas_libs.append(blas_lib)
 
         if get_software_root("imkl"):
-            extra_blas_libs = '-lmkl_intel_thread -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_core'
-            blas_libs += extra_blas_libs.split()
+            extra_blas_libs = ['mkl_intel_thread', 'mkl_lapack95_lp64', 'mkl_intel_lp64', 'mkl_core']
+            blas_libs += extra_blas_libs
 
         self.cfg.update('buildopts', 'BLLIB="%s %s"' % (' '.join(blas_libs), os.getenv('LIBS', '')))
 
