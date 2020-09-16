@@ -700,13 +700,14 @@ class EB_TensorFlow(PythonPackage):
             self.patch_crosstool_files()
 
         # compose "bazel build" command with all its options...
-        cmd = [self.cfg['prebuildopts'],
-               'bazel',
-               '--output_base=%s' % self.output_base_dir,
-               '--install_base=%s' % self.install_base_dir,
-               '--output_user_root=%s' % self.output_user_root_dir,
-               'build'
-               ]
+        cmd = [
+            self.cfg['prebuildopts'],
+            'bazel',
+            '--output_base=%s' % self.output_base_dir,
+            '--install_base=%s' % self.install_base_dir,
+            '--output_user_root=%s' % self.output_user_root_dir,
+            'build',
+        ]
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
