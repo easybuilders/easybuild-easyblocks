@@ -28,7 +28,6 @@ EasyBuild support for building and installing RAxML, implemented as an easyblock
 """
 import os
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import get_cpu_features
