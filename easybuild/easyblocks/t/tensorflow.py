@@ -215,6 +215,7 @@ class EB_TensorFlow(PythonPackage):
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
         }
 
@@ -472,7 +473,7 @@ class EB_TensorFlow(PythonPackage):
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
-            'TF_ENABLE_XLA': '0',  # XLA JIT support
+            'TF_ENABLE_XLA': ('0', '1')[bool(self.cfg['with_xla'])],  # XLA JIT support
             'TF_NEED_CUDA': ('0', '1')[bool(cuda_root)],
             'TF_NEED_GCP': '0',  # Google Cloud Platform
             'TF_NEED_GDR': '0',
