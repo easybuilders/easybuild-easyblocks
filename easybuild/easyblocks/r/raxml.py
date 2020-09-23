@@ -34,7 +34,7 @@ from easybuild.tools.systemtools import get_cpu_features
 
 
 class EB_RAxML(MakeCp):
-    """Support for building and installing MSM."""
+    """Support for building and installing RAxML."""
     @staticmethod
     def extra_options(extra_vars=None):
         """Change default values of options"""
@@ -61,7 +61,10 @@ class EB_RAxML(MakeCp):
         cpu_features.update([None])  # add generic build
 
         # Build features supported by RAxML, grouped in non-MPI and MPI
-        build_labels = {'nompi': [None, 'PTHREADS'], 'mpi': ['MPI', 'HYBRID']}
+        build_labels = {
+            'nompi': [None, 'PTHREADS'],
+            'mpi': ['MPI', 'HYBRID'],
+        }
 
         # List of Makefiles in the build
         makefile = ('Makefile', 'gcc', '.')
