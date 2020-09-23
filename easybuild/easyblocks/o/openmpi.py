@@ -81,7 +81,7 @@ class EB_OpenMPI(ConfigureMake):
             if config_opt_unused(dep.lower()):
                 dep_root = get_software_root(dep)
                 if dep_root:
-                    if dep in 'libfabric':
+                    if dep == 'libfabric':
                         opt_name = 'ofi'
                     else:
                         opt_name = dep.lower()
