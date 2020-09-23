@@ -77,11 +77,15 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--without-verbs')
 
         # handle dependencies
-        for dep in ['CUDA', 'hwloc', 'libevent', 'PMIx', 'UCX']:
+        for dep in ['CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX']:
             if config_opt_unused(dep.lower()):
                 dep_root = get_software_root(dep)
                 if dep_root:
-                    self.cfg.update('configopts', '--with-%s=%s' % (dep.lower(), dep_root))
+                    if dep == 'libfabric':
+                        opt_name = 'ofi'
+                    else:
+                        opt_name = dep.lower()
+                    self.cfg.update('configopts', '--with-%s=%s' % (opt_name, dep_root))
 
         super(EB_OpenMPI, self).configure_step()
 
