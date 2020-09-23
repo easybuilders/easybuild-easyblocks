@@ -241,4 +241,6 @@ class EB_PyTorch(PythonPackage):
 
         guesses = super(EB_PyTorch, self).make_module_req_guess()
         guesses['CMAKE_PREFIX_PATH'] = [os.path.join(self.pylibdir, 'torch')]
+        # Required to dynamically load libcaffe2_nvrtc.so
+        guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
         return guesses
