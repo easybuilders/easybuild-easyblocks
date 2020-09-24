@@ -403,6 +403,17 @@ class EB_TensorFlow(PythonPackage):
 
         return system_libs, cpaths, libpaths
 
+    def setup_build_dirs(self):
+        """Setup temporary build directories"""
+        # Tensorflow/Bazel needs a couple of directories where it stores build cache and artefacts
+        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        self.output_root_dir = os.path.join(tmpdir, 'output_root')
+        self.output_base_dir = os.path.join(tmpdir, 'output_base')
+        self.output_user_root_dir = os.path.join(tmpdir, 'output_user_root')
+        self.wrapper_dir = os.path.join(tmpdir, 'wrapper_bin')
+        # This (likely) needs to be a subdir of output_base
+        self.install_base_dir = os.path.join(self.output_base_dir, 'inst_base')
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -410,8 +421,6 @@ class EB_TensorFlow(PythonPackage):
         if not binutils_root:
             raise EasyBuildError("Failed to determine installation prefix for binutils")
         self.binutils_bin_path = os.path.join(binutils_root, 'bin')
-
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-configure')
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
@@ -424,14 +433,14 @@ class EB_TensorFlow(PythonPackage):
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
 
-        wrapper_dir = os.path.join(tmpdir, 'bin')
-        use_wrapper = False
+        self.setup_build_dirs()
 
+        use_wrapper = False
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
             # put wrappers for Intel C/C++ compilers in place (required to make sure license server is found)
             # cfr. https://github.com/bazelbuild/bazel/issues/663
             for compiler in ('icc', 'icpc'):
-                self.write_wrapper(wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
+                self.write_wrapper(self.wrapper_dir, compiler, 'NOT-USED-WITH-ICC')
             use_wrapper = True
 
         use_mpi = self.toolchain.options.get('usempi', False)
@@ -442,7 +451,7 @@ class EB_TensorFlow(PythonPackage):
                 # put wrappers for Intel MPI compiler wrappers in place
                 # (required to make sure license server and I_MPI_ROOT are found)
                 for compiler in (os.getenv('MPICC'), os.getenv('MPICXX')):
-                    self.write_wrapper(wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
+                    self.write_wrapper(self.wrapper_dir, compiler, os.getenv('I_MPI_ROOT'))
                 use_wrapper = True
                 # set correct value for MPI_HOME
                 mpi_home = os.path.join(impi_root, 'intel64')
@@ -453,7 +462,7 @@ class EB_TensorFlow(PythonPackage):
             self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
-            env.setvar('PATH', os.pathsep.join([wrapper_dir, os.getenv('PATH')]))
+            env.setvar('PATH', os.pathsep.join([self.wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
         self.handle_jemalloc()
@@ -600,23 +609,22 @@ class EB_TensorFlow(PythonPackage):
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
 
-        # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-        regex_subs = [(r"(run_shell\(\['bazel')",
-                       r"\1, '--output_base=%s', '--install_base=%s'" % (tmpdir, os.path.join(tmpdir, 'inst_base')))]
-        apply_regex_substitutions('configure.py', regex_subs)
+        # Does no longer apply (and might not be required at all) since 1.12.0
+        if LooseVersion(self.version) < LooseVersion('1.12.0'):
+            # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
+            regex_subs = [(r"(run_shell\(\['bazel')",
+                           r"\1, '--output_base=%s', '--install_base=%s'" % (self.output_base_dir,
+                                                                             self.install_base_dir))]
+            apply_regex_substitutions('configure.py', regex_subs)
 
         # Tell Bazel to not use $HOME/.cache/bazel at all
         # See https://docs.bazel.build/versions/master/output_directories.html
-        env.setvar('TEST_TMPDIR', os.path.join(tmpdir, 'output_root'))
+        env.setvar('TEST_TMPDIR', self.output_root_dir)
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
-    def build_step(self):
-        """Custom build procedure for TensorFlow."""
-
-        # pre-create target installation directory
-        mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
-
+    def patch_crosstool_files(self):
+        """Patches the CROSSTOOL files to include EasyBuild provided compiler paths"""
         inc_paths, lib_paths = [], []
 
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
@@ -682,13 +690,25 @@ class EB_TensorFlow(PythonPackage):
                     self.log.info("Patching %s", full_path)
                     apply_regex_substitutions(full_path, regex_subs)
 
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-build')
-        user_root_tmpdir = tempfile.mkdtemp(suffix='-user_root')
+    def build_step(self):
+        """Custom build procedure for TensorFlow."""
+
+        # pre-create target installation directory
+        mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
+
+        # This seems to be no longer required since at least 2.0, likely also for older versions
+        if LooseVersion(self.version) < LooseVersion('2.0'):
+            self.patch_crosstool_files()
 
         # compose "bazel build" command with all its options...
-        cmd = [self.cfg['prebuildopts'], 'bazel', '--output_base=%s' % tmpdir,
-               '--install_base=%s' % os.path.join(tmpdir, 'inst_base'),
-               '--output_user_root=%s' % user_root_tmpdir, 'build']
+        cmd = [
+            self.cfg['prebuildopts'],
+            'bazel',
+            '--output_base=%s' % self.output_base_dir,
+            '--install_base=%s' % self.install_base_dir,
+            '--output_user_root=%s' % self.output_user_root_dir,
+            'build',
+        ]
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
@@ -750,7 +770,7 @@ class EB_TensorFlow(PythonPackage):
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            if cuda_root:
+            if get_software_root('CUDA'):
                 cmd.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
@@ -779,12 +799,6 @@ class EB_TensorFlow(PythonPackage):
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
-
-        # avoid that pip (ab)uses $HOME/.cache/pip
-        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
-        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
-
         # find .whl file that was built, and install it using 'pip install'
         if ("-rc" in self.version):
             whl_version = self.version.replace("-rc", "rc")
