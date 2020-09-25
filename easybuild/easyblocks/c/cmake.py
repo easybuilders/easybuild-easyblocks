@@ -66,6 +66,7 @@ class EB_CMake(ConfigureMake):
 
         cmake_prefix_path = os.environ.get('CMAKE_PREFIX_PATH', '').split(':')
         cmake_library_path = os.environ.get('CMAKE_LIBRARY_PATH', '').split(':')
+        cmake_include_path = []
 
         available_system_options = ['BZIP2', 'CURL', 'EXPAT', 'LIBARCHIVE', 'ZLIB']
         for dep in self.cfg.dependencies():
@@ -89,7 +90,19 @@ class EB_CMake(ConfigureMake):
             if dep_name_upper in available_system_options and '-system-' + dep_name.lower() not in configure_opts:
                 add_cmake_opts['CMAKE_USE_SYSTEM_' + dep_name_upper] = 'ON'
 
-        for var, values in {'CMAKE_PREFIX_PATH': cmake_prefix_path, 'CMAKE_LIBRARY_PATH': cmake_library_path}.items():
+        sysroot = build_option('sysroot')
+        if sysroot:
+            self.log.info("Found sysroot '%s', adding it to $CMAKE_PREFIX_PATH and $CMAKE_LIBRARY_PATH", sysroot)
+            cmake_prefix_path.append(sysroot)
+            cmake_library_path.append(os.path.join(sysroot, 'usr', 'lib'))
+            cmake_include_path.append(os.path.join(sysroot, 'usr', 'include'))
+
+        cmake_path_env_vars = {
+            'CMAKE_PREFIX_PATH': cmake_prefix_path,
+            'CMAKE_LIBRARY_PATH': cmake_library_path,
+            'CMAKE_INCLUDE_PATH': cmake_include_path,
+        }
+        for var, values in cmake_path_env_vars.items():
             value = ':'.join(values)
             if os.environ.get(var, '') != value:
                 env.setvar(var, value)
