@@ -85,7 +85,6 @@ class EB_MUMmer(ConfigureMake):
         for srcdir, dest, files in file_tuples:
             destdir = os.path.join(self.installdir, dest)
             mkdir(destdir, parents=True)
-            srcfile = None
             for filename in files:
                 srcfile = os.path.join(srcdir, filename)
                 copy_file(srcfile, destdir)
