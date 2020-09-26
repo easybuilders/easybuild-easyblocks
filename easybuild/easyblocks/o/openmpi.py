@@ -29,6 +29,7 @@ EasyBuild support for OpenMPI, implemented as an easyblock
 """
 import os
 import re
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.modules import get_software_root
@@ -61,21 +62,6 @@ class EB_OpenMPI(ConfigureMake):
             if config_opt_unused(key, enable_opt=True):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
-        # check whether VERBS support should be enabled
-        if config_opt_unused('verbs'):
-
-            # auto-detect based on available OS packages
-            verbs = False
-            for osdep in ['libibverbs-dev', 'libibverbs-devel', 'rdma-core-devel']:
-                if check_os_dependency(osdep):
-                    verbs = True
-                    break
-
-            if verbs:
-                self.cfg.update('configopts', '--with-verbs')
-            else:
-                self.cfg.update('configopts', '--without-verbs')
-
         # handle dependencies
         for dep in ['CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX']:
             if config_opt_unused(dep.lower()):
@@ -86,6 +72,28 @@ class EB_OpenMPI(ConfigureMake):
                     else:
                         opt_name = dep.lower()
                     self.cfg.update('configopts', '--with-%s=%s' % (opt_name, dep_root))
+
+        # check whether VERBS support should be enabled
+        if config_opt_unused('verbs'):
+
+            # for OpenMPI v4.x, the openib BTL should be disabled when UCX is used;
+            # this is required to avoid "error initializing an OpenFabrics device" warnings,
+            # see also https://www.open-mpi.org/faq/?category=all#ofa-device-error
+            if LooseVersion(self.version) >= LooseVersion('4.0.0') and '--with-ucx=' in self.cfg['configopts']:
+                self.cfg.update('configopts', '--without-verbs')
+
+            else:
+                # auto-detect based on available OS packages
+                verbs = False
+                for osdep in ['libibverbs-dev', 'libibverbs-devel', 'rdma-core-devel']:
+                    if check_os_dependency(osdep):
+                        verbs = True
+                        break
+
+                if verbs:
+                    self.cfg.update('configopts', '--with-verbs')
+                else:
+                    self.cfg.update('configopts', '--without-verbs')
 
         super(EB_OpenMPI, self).configure_step()
 
