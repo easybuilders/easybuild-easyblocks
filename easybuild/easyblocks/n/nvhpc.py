@@ -40,7 +40,6 @@ import stat
 import sys
 
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
@@ -99,8 +98,8 @@ class EB_NVHPC(PackedBinary):
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
-            'NVHPC_DEFAULT_CUDA': str(self.cfg['default_cuda_version']).lower(), #10.2, 11.0
-            'NVHPC_STDPAR_CUDACC': str(self.cfg['compute_capability']).lower(), #70, #80
+            'NVHPC_DEFAULT_CUDA': str(self.cfg['default_cuda_version']),  # 10.2, 11.0
+            'NVHPC_STDPAR_CUDACC': str(self.cfg['compute_capability']),  # 70, 80
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
@@ -198,4 +197,3 @@ class EB_NVHPC(PackedBinary):
         txt = super(EB_NVHPC, self).make_module_extra()
         txt += self.module_generator.set_environment('NVHPC', self.installdir)
         return txt
-
