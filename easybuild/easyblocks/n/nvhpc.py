@@ -78,11 +78,11 @@ class EB_NVHPC(PackedBinary):
             'compute_capability':   ["70", "Compute Capability (70, 80, ...)", CUSTOM],
             'module_byo_compilers': [False, "BYO Compilers: Remove compilers from module", CUSTOM],
             'module_nvhpc_own_mpi': [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
+            'module_add_cuda':      [False, "Add NVHPC's CUDA to module", CUSTOM],
             'module_add_math_libs': [False, "Add NVHPC's math libraries to module", CUSTOM],
-            'module_add_profilers': [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM],
             'module_add_nccl':      [False, "Add NVHPC's NCCL library to module", CUSTOM],
             'module_add_nvshmem':   [False, "Add NVHPC's NVSHMEM library to module", CUSTOM],
-            'module_add_cuda':      [False, "Add NVHPC's CUDA to module", CUSTOM]
+            'module_add_profilers': [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM]
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -123,7 +123,7 @@ class EB_NVHPC(PackedBinary):
                 if os.path.islink(path):
                     os.remove(path)
 
-        # install (or update) siterc file to make NVHPC consider $LIBRARY_PATHT
+        # install (or update) siterc file to make NVHPC consider $LIBRARY_PATH
         siterc_path = os.path.join(compilers_subdir, 'bin', 'siterc')
         write_file(siterc_path, SITERC_LIBRARY_PATH, append=True)
         self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
@@ -142,11 +142,19 @@ class EB_NVHPC(PackedBinary):
         }
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths)
 
-    def _nvhpc_extended_components(self, dirs, basepath, env_vars__folders):
-        for env_var, folder in env_vars__folders.items():
+    def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
+        """
+        Extends the `dirs` dictionary of key:environment_variables, value:list_of_directories with additional vars and dirs.
+        The dictionary key for a new env var will be created if it doesn't exist.
+        Also, the relative path specified in the `env_vars_dirs` dict is absolutized with the `basepath` prefix.
+        """
+        for env_var, folders in sorted(env_vars_dirs.items()):
             if env_var not in dirs:
                 dirs[env_var] = []
-            dirs[env_var].append(os.path.join(basepath, folder))
+            if isinstance(folders, list) is False:
+                folders = [folders]
+            for folder in folders:
+                dirs[env_var].append(os.path.join(basepath, folder))
 
     def make_module_req_guess(self):
         """Prefix subdirectories in NVHPC install dir considered for environment variables defined in module file."""
@@ -176,8 +184,7 @@ class EB_NVHPC(PackedBinary):
         ## NVHPC is shipped with NVIDIA's GPU profilers; enable them by setting the according environment variables
         if self.cfg['module_add_profilers'] is True:
             self.nvhpc_profilers_basedir = os.path.join(self.nvhpc_install_subdir, "profilers")
-            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, {'PATH': 'Nsight_Compute'})
-            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, {'PATH': 'Nsight_Systems/bin'})
+            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, {'PATH': ['Nsight_Compute', 'Nsight_Systems/bin']})
         ## NVHPC is shipped with NCCL; enable it by setting the according environment variables
         if self.cfg['module_add_nccl'] is True:
             self.nvhpc_nccl_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nccl")
