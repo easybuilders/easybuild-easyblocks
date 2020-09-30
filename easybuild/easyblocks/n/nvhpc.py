@@ -176,27 +176,52 @@ class EB_NVHPC(PackedBinary):
         ## NVHPC is shipped with a compiled OpenMPI installation; enable it by setting the according environment variables
         if self.cfg['module_nvhpc_own_mpi'] is True:
             self.nvhpc_mpi_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "mpi")
-            self._nvhpc_extended_components(dirs, self.nvhpc_mpi_basedir, {'PATH': 'bin', 'CPATH': 'include', 'LD_LIBRARY_PATH': 'lib'})
+            env_vars_dirs = {
+                'PATH': 'bin', 
+                'CPATH': 'include', 
+                'LD_LIBRARY_PATH': 'lib'
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_mpi_basedir, env_vars_dirs)
         ## NVHPC is shipped with math libraries in a dedicated folder; enable them by setting the according environment variables
         if self.cfg['module_add_math_libs'] is True:
             self.nvhpc_math_basedir = os.path.join(self.nvhpc_install_subdir, "math_libs")
-            self._nvhpc_extended_components(dirs, self.nvhpc_math_basedir, {'CPATH': 'include', 'LD_LIBRARY_PATH': 'lib64'})
+            env_vars_dirs = {
+                'CPATH': 'include',
+                'LD_LIBRARY_PATH': 'lib64'
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_math_basedir, env_vars_dirs)
         ## NVHPC is shipped with NVIDIA's GPU profilers; enable them by setting the according environment variables
         if self.cfg['module_add_profilers'] is True:
             self.nvhpc_profilers_basedir = os.path.join(self.nvhpc_install_subdir, "profilers")
-            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, {'PATH': ['Nsight_Compute', 'Nsight_Systems/bin']})
+            env_vars_dirs = {
+                'PATH': ['Nsight_Compute', 'Nsight_Systems/bin']
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, env_vars_dirs)
         ## NVHPC is shipped with NCCL; enable it by setting the according environment variables
         if self.cfg['module_add_nccl'] is True:
             self.nvhpc_nccl_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nccl")
-            self._nvhpc_extended_components(dirs, self.nvhpc_nccl_basedir, {'CPATH': 'include', 'LD_LIBRARY_PATH': 'lib'})
+            env_vars_dirs = {
+                'CPATH': 'include',
+                'LD_LIBRARY_PATH': 'lib'
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_nccl_basedir, env_vars_dirs)
         ## NVHPC is shipped with NVSHMEM; enable it by setting the according environment variables
         if self.cfg['module_add_nvshmem'] is True:
             self.nvhpc_nvshmem_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nvshmem")
-            self._nvhpc_extended_components(dirs, self.nvhpc_nvshmem_basedir, {'CPATH': 'include', 'LD_LIBRARY_PATH': 'lib'})
+            env_vars_dirs = {
+                'CPATH': 'include',
+                'LD_LIBRARY_PATH': 'lib'
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_nvshmem_basedir, env_vars_dirs)
         ## NVHPC is shipped with CUDA; rather use this CUDA than an external CUDA module (via $CUDA_HOME) by setting the according environment variables
         if self.cfg['module_add_cuda'] is True:
             self.nvhpc_cuda_basedir = os.path.join(self.nvhpc_install_subdir, "cuda")
-            self._nvhpc_extended_components(dirs, self.nvhpc_cuda_basedir, {'PATH': 'bin', 'LD_LIBRARY_PATH': 'lib64', 'CPATH': 'include'})
+            env_vars_dirs = {
+                'PATH': 'bin',
+                'LD_LIBRARY_PATH': 'lib64',
+                'CPATH': 'include'
+            }
+            self._nvhpc_extended_components(dirs, self.nvhpc_cuda_basedir, env_vars_dirs)
         return dirs
 
     def make_module_extra(self):
