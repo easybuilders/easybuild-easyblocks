@@ -108,7 +108,6 @@ class EB_NVHPC(PackedBinary):
                 error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
                 raise EasyBuildError(error_msg)
 
-
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
@@ -191,8 +190,8 @@ class EB_NVHPC(PackedBinary):
         if self.cfg['module_nvhpc_own_mpi']:
             self.nvhpc_mpi_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "mpi")
             env_vars_dirs = {
-                'PATH': 'bin', 
-                'CPATH': 'include', 
+                'PATH': 'bin',
+                'CPATH': 'include',
                 'LD_LIBRARY_PATH': 'lib'
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_mpi_basedir, env_vars_dirs)
