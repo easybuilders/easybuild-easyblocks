@@ -44,7 +44,8 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
 from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.build_log import EasyBuildError
 
 
 # contents for siterc file to make PGI/NVHPC pick up $LIBRARY_PATH
@@ -74,7 +75,7 @@ class EB_NVHPC(PackedBinary):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'default_cuda_version': ["10.1", "CUDA Version to be used as default (10.2, 11.0, ...)", CUSTOM],
+            'default_cuda_version': [None, "CUDA Version to be used as default (10.2, 11.0, ...)", CUSTOM],
             'compute_capability':   ["70", "Compute Capability (70, 80, ...)", CUSTOM],
             'module_byo_compilers': [False, "BYO Compilers: Remove compilers from module", CUSTOM],
             'module_nvhpc_own_mpi': [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
@@ -95,10 +96,23 @@ class EB_NVHPC(PackedBinary):
     def install_step(self):
         """Install by running install command."""
 
+        default_cuda_version = self.cfg['default_cuda_version']
+        if default_cuda_version is None:
+            module_cuda_version_full = get_software_version('CUDA')
+            if module_cuda_version_full is not None:
+                default_cuda_version = '.'.join(module_cuda_version_full.split('.')[:2])
+            else:
+                error_msg = "A default CUDA version is needed for installation of NVHPC. "
+                error_msg += "It can not be determined automatically and needs to be added manually. "
+                error_msg += "You can edit the easyconfig file, "
+                error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
+                raise EasyBuildError(error_msg)
+
+
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
-            'NVHPC_DEFAULT_CUDA': str(self.cfg['default_cuda_version']),  # 10.2, 11.0
+            'NVHPC_DEFAULT_CUDA': str(default_cuda_version),  # 10.2, 11.0
             'NVHPC_STDPAR_CUDACC': str(self.cfg['compute_capability']),  # 70, 80
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
