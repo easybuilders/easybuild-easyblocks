@@ -39,7 +39,6 @@ import re
 import stat
 import sys
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
@@ -157,7 +156,7 @@ class EB_NVHPC(PackedBinary):
 
     def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
         """
-        Extends the `dirs` dictionary of key:environment_variables, value:list_of_directories with additional vars and dirs.
+        Extends `dirs` dict of key:environment_variables, value:list_of_directories with additional vars and dirs.
         The dictionary key for a new env var will be created if it doesn't exist.
         Also, the relative path specified in the `env_vars_dirs` dict is absolutized with the `basepath` prefix.
         """
