@@ -26,15 +26,10 @@
 EasyBuild support for building and installing DIRAC, implemented as an easyblock
 """
 import os
-import re
 import shutil
-import tempfile
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
-from easybuild.tools.run import run_cmd
 
 
 class EB_DIRAC(CMakeMake):
@@ -57,74 +52,12 @@ class EB_DIRAC(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to remove existing install directory %s: %s", self.installdir, err)
 
-        self.cfg.update('configopts', "-DENABLE_MPI=ON")
+        # MPI?
+        if self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', "-DENABLE_MPI=ON")
 
         # complete configuration with configure_method of parent
         super(EB_DIRAC, self).configure_step()
-
-    def test_step(self):
-        """Custom built-in test procedure for DIRAC."""
-        if self.cfg['runtest']:
-
-            if not build_option('mpi_tests'):
-                self.log.info("Skipping testing of DIRAC since MPI testing is disabled")
-                return
-
-            # set up test environment
-            # see http://diracprogram.org/doc/release-14/installation/testing.html
-            env.setvar('DIRAC_TMPDIR', tempfile.mkdtemp(prefix='dirac-test-'))
-            env.setvar('DIRAC_MPI_COMMAND', self.toolchain.mpi_cmd_for('', self.cfg['parallel']))
-
-            # run tests (may take a while, especially if some tests take a while to time out)
-            self.log.info("Running tests may take a while, especially if some tests timeout (default timeout is 1500s)")
-            cmd = "make test"
-            out, ec = run_cmd(cmd, simple=False, log_all=False, log_ok=False)
-
-            # check that majority of tests pass
-            # some may fail due to timeout, but that's acceptable
-            # cfr. https://groups.google.com/forum/#!msg/dirac-users/zEd5-xflBnY/OQ1pSbuX810J
-
-            # over 90% of tests should pass
-            passed_regex = re.compile('^(9|10)[0-9.]+% tests passed', re.M)
-            if not passed_regex.search(out) and not self.dry_run:
-                raise EasyBuildError("Too many failed tests; '%s' not found in test output: %s",
-                                     passed_regex.pattern, out)
-
-            # extract test results
-            test_result_regex = re.compile(r'^\s*[0-9]+/[0-9]+ Test \s*#[0-9]+: .*', re.M)
-            test_results = test_result_regex.findall(out)
-            if test_results:
-                self.log.info("Found %d test results: %s", len(test_results), test_results)
-            elif self.dry_run:
-                # dummy test result
-                test_results = ["1/1 Test  #1: dft_alda_xcfun .............................   Passed   72.29 sec"]
-            else:
-                raise EasyBuildError("Couldn't find *any* test results?")
-
-            test_count_regex = re.compile(r'^\s*[0-9]+/([0-9]+)')
-            res = test_count_regex.search(test_results[0])
-            if res:
-                test_count = int(res.group(1))
-            elif self.dry_run:
-                # a single dummy test result
-                test_count = 1
-            else:
-                raise EasyBuildError("Failed to determine total test count from %s using regex '%s'",
-                                     test_results[0], test_count_regex.pattern)
-
-            if len(test_results) != test_count:
-                raise EasyBuildError("Expected to find %s test results, but found %s", test_count, len(test_results))
-
-            # check test results, only 'Passed' or 'Timeout' are acceptable outcomes
-            faulty_tests = []
-            for test_result in test_results:
-                if ' Passed ' not in test_result:
-                    self.log.warning("Found failed test: %s", test_result)
-                    if '***Timeout' not in test_result:
-                        faulty_tests.append(test_result)
-
-            if faulty_tests:
-                raise EasyBuildError("Found tests failing due to something else than timeout: %s", faulty_tests)
 
     def sanity_check_step(self):
         """Custom sanity check for DIRAC."""
