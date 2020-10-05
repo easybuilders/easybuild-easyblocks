@@ -485,12 +485,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         upftools = []
         if 'upf' in targets or 'all' in targets:
             if LooseVersion(self.version) < LooseVersion("6.6"):
-                #upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                #            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                #            "virtual.x"] #GAS virtual is now virtual_v2.x
                 upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x",
-                           ] # "virtual_v2.x"
+                            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x"]
                 if LooseVersion(self.version) > LooseVersion("5"):
                     upftools.extend(["interpolate.x", "upf2casino.x"])
                 if LooseVersion(self.version) >= LooseVersion("6.3"):
