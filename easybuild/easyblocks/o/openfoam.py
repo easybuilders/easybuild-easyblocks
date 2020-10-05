@@ -373,7 +373,8 @@ class EB_OpenFOAM(EasyBlock):
             adjust_permissions(fullpath, stat.S_IROTH, add=True, recursive=True, ignore_errors=True)
             adjust_permissions(fullpath, stat.S_IXOTH, add=True, recursive=True, onlydirs=True, ignore_errors=True)
 
-        # create symlinks in lib directory to libraries in mpi subdirectory
+        # create symlinks in the lib directory to all libraries in the mpi subdirectory
+        # to make sure they take precedence over the libraries in the dummy subdirectory
         shlib_ext = get_shared_lib_ext()
         psubdir = self.det_psubdir()
         openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
@@ -382,12 +383,10 @@ class EB_OpenFOAM(EasyBlock):
         else:
             libdir = os.path.join(self.installdir, self.openfoamdir, "platforms", psubdir, "lib")
         mpilibsdir = os.path.join(libdir, "mpi")
-        print(mpilibsdir)
         if os.path.exists(mpilibsdir):
             for lib in glob.glob(os.path.join(mpilibsdir, "*.%s" % shlib_ext)):
                 libname = os.path.basename(lib)
                 dst = os.path.join(libdir, libname)
-                print(lib, os.path.join("mpi", libname))
                 os.symlink(os.path.join("mpi", libname), dst)
 
     def sanity_check_step(self):
