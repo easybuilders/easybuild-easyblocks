@@ -36,7 +36,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_cmd_qa
-from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, POWER
 
 
 class EB_Qt(ConfigureMake):
@@ -68,7 +69,11 @@ class EB_Qt(ConfigureMake):
             platform = self.cfg['platform']
         # if no platform is specified, try to derive it based on compiler in toolchain
         elif comp_fam in [toolchain.GCC]:  # @UndefinedVariable
-            platform = 'linux-g++-64'
+            myarch = get_cpu_architecture()
+            if myarch == AARCH64:
+                platform = 'linux-g++'
+            else:
+                platform = 'linux-g++-64'
         elif comp_fam in [toolchain.INTELCOMP]:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('4'):
                 platform = 'linux-icc-64'
@@ -114,6 +119,19 @@ class EB_Qt(ConfigureMake):
         # -xmlpatterns is not a known configure option for Qt 5.x, but there xmlpatterns support is enabled by default
         if LooseVersion(self.version) >= LooseVersion('4') and LooseVersion(self.version) < LooseVersion('5'):
             self.cfg.update('configopts', '-xmlpatterns')
+
+        # disable specific features to avoid that libQt5Core.so being tagged as requiring kernel 3.17,
+        # which causes confusing problems like this even though the file exists and can be found by...
+        #     error while loading shared libraries: libQt5Core.so.5:
+        #      cannot open shared object file: No such file or directory
+        # see also:
+        # * https://bugs.gentoo.org/669994
+        # * https://github.com/NixOS/nixpkgs/commit/a7b6a9199e8db54a798d011a0946cdeb72cfc46b
+        # * https://gitweb.gentoo.org/proj/qt.git/commit/?id=9ff0752e1ee3c28818197eaaca45545708035152
+        kernel_version = os.uname()[2]
+        if LooseVersion(self.version) >= LooseVersion('5.0') and LooseVersion(kernel_version) < LooseVersion('3.17'):
+            self.cfg.update('configopts', '-no-feature-renameat2')
+            self.cfg.update('configopts', '-no-feature-getentropy')
 
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
         qa = {
@@ -175,7 +193,7 @@ class EB_Qt(ConfigureMake):
             elif myarch == POWER:
                 self.log.debug("Skipping check for qtwebengine, since it is not supported on POWER.")
             else:
-                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, l, shlib_ext) for l in ['WebEngine', 'WebEngineCore']]
+                qtwebengine_libs = ['libQt%s%s.%s' % (libversion, x, shlib_ext) for x in ['WebEngine', 'WebEngineCore']]
                 custom_paths['files'].extend([os.path.join('lib', lib) for lib in qtwebengine_libs])
 
         if LooseVersion(self.version) >= LooseVersion('4'):

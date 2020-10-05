@@ -31,7 +31,6 @@ EasyBuild support for building and installing FreeSurfer, implemented as an easy
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
-from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.tools.filetools import write_file
 

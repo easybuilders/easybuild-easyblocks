@@ -33,7 +33,6 @@ import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-import easybuild.tools.environment as env
 from easybuild.tools.run import run_cmd
 
 

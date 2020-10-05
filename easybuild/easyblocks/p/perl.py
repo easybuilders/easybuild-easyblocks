@@ -32,6 +32,8 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.config import build_option
+from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
@@ -87,7 +89,19 @@ class EB_Perl(ConfigureMake):
         if self.cfg['use_perl_threads']:
             configopts.append('-Dusethreads')
 
+        # see https://metacpan.org/pod/distribution/perl/INSTALL#Specifying-a-logical-root-directory
+        sysroot = build_option('sysroot')
+        if sysroot:
+            configopts.append('-Dsysroot=%s' % sysroot)
+
         configopts = (' '.join(configopts)) % {'installdir': self.installdir}
+
+        # if $COLUMNS is set to 0, 'ls' produces a warning like:
+        #   ls: ignoring invalid width in environment variable COLUMNS: 0
+        # this confuses Perl's Configure script and makes it fail,
+        # so just unset $COLUMNS if it set to 0...
+        if os.getenv('COLUMNS', None) == '0':
+            unset_env_vars(['COLUMNS'])
 
         cmd = '%s ./Configure -de -Dcc="$CC" -Dccflags="$CFLAGS" %s' % (self.cfg['preconfigopts'], configopts)
         run_cmd(cmd, log_all=True, simple=True)

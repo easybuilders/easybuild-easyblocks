@@ -36,7 +36,6 @@ import os
 import shutil
 from distutils.version import LooseVersion
 
-import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -198,7 +197,7 @@ class EB_GATE(CMakeMake):
             dirs = []
             if LooseVersion(self.version) < '7.0':
                 extra_files += ["Utilities/itkzlib/%s" % x for x in ['itk_zlib_mangle.h', 'zconf.h',
-                                                                    'zlibDllConfig.h', 'zlib.h']]
+                                                                     'zlibDllConfig.h', 'zlib.h']]
                 extra_files += ["Utilities/MetaIO/%s" % x for x in ['localMetaConfiguration.h', 'metaDTITube.h',
                                                                     'metaImage.h', 'metaMesh.h', 'metaTubeGraph.h',
                                                                     'metaUtils.h']]
@@ -213,6 +212,6 @@ class EB_GATE(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', subdir, 'Gate')] + extra_files,
-            'dirs' : dirs,
+            'dirs': dirs,
         }
         super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths)

@@ -82,7 +82,7 @@ class EB_PGI(PackedBinary):
     def extra_options():
         extra_vars = {
             'install_amd': [True, "Install AMD software components", CUSTOM],
-            'install_java': [True, "Install Java JRE for graphical debugger",  CUSTOM],
+            'install_java': [True, "Install Java JRE for graphical debugger", CUSTOM],
             'install_managed': [True, "Install OpenACC Unified Memory Evaluation package", CUSTOM],
             'install_nvidia': [True, "Install CUDA Toolkit Components", CUSTOM],
             'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
@@ -141,7 +141,7 @@ class EB_PGI(PackedBinary):
             'PGI_INSTALL_MANAGED': str(self.cfg['install_managed']).lower(),
             'PGI_INSTALL_NVIDIA': str(self.cfg['install_nvidia']).lower(),
             'PGI_SILENT': 'true',
-            }
+        }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(pgi_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
 

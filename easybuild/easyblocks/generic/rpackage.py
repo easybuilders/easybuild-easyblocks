@@ -132,7 +132,10 @@ class RPackage(ExtensionEasyBlock):
         else:
             prefix = ''
 
-        loc = self.start_dir or self.ext_dir or self.ext_src
+        if self.start_dir:
+            loc = os.path.join(self.ext_dir or os.path.sep, self.start_dir)
+        else:
+            loc = self.ext_dir or self.ext_src
 
         cmd = ' '.join([
             self.cfg['preinstallopts'],

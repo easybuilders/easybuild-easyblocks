@@ -30,7 +30,6 @@ General EasyBuild support for installing the Enthought Python Distribution
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.tools.run import run_cmd
 
 
 class EB_EPD(Binary):
@@ -44,4 +43,3 @@ class EB_EPD(Binary):
         if self.cfg['install_cmd'] is None:
             self.cfg['install_cmd'] = "./epd_free-%s-x86_64.sh -b -p %s" % (self.version, self.installdir)
         super(EB_EPD, self).install_step()
-

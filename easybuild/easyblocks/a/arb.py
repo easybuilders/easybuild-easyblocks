@@ -92,7 +92,7 @@ class EB_ARB(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ARB."""
         custom_paths = {
-            'files': [os.path.join(self.subdir, "bin/arb") ],
+            'files': [os.path.join(self.subdir, "bin/arb")],
             'dirs': [os.path.join(self.subdir, x) for x in ["lib"]],
         }
         super(EB_ARB, self).sanity_check_step(custom_paths=custom_paths)

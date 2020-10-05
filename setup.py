@@ -38,7 +38,7 @@ from distutils import log
 from distutils.core import setup
 
 sys.path.append('easybuild')
-from easyblocks import VERSION
+from easyblocks import VERSION  # noqa
 
 FRAMEWORK_MAJVER = str(VERSION).split('.')[0]
 
@@ -58,7 +58,8 @@ setup(
     version=str(VERSION),
     author="EasyBuild community",
     author_email="easybuild@lists.ugent.be",
-    description="""Python modules which implement support for installing particular (groups of) software packages with EasyBuild.""",
+    description="""Python modules which implement support for installing particular
+ (groups of) software packages with EasyBuild.""",
     license="GPLv2",
     keywords="software build building installation installing compilation HPC scientific",
     url="https://easybuilders.github.io/easybuild",

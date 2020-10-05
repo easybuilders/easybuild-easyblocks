@@ -78,8 +78,8 @@ class EB_SLEPc(ConfigureMake):
         self.log.debug('SLEPC_DIR: %s' % os.getenv('SLEPC_DIR'))
 
         # optional dependencies
-        depfilter = self.cfg.builddependencies() + ["PETSc"]
-        deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
+        dep_filter = self.cfg.builddependencies() + ['PETSc', 'Python']
+        deps = [dep['name'] for dep in self.cfg.dependencies() if dep['name'] not in dep_filter]
         for dep in deps:
             deproot = get_software_root(dep)
             if deproot:
@@ -92,7 +92,7 @@ class EB_SLEPc(ConfigureMake):
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
         else:
             # regular './configure --prefix=X' for non-source install
-            
+
             # make sure old install dir is removed first
             self.make_installdir(dontcreate=True)
 

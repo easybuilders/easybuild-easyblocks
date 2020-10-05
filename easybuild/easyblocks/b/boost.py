@@ -156,7 +156,7 @@ class EB_Boost(EasyBlock):
                         ': %s' % craygccversion,
                         ': CC ',
                         ': <compileflags>-I$(CRAY_MPICH2_DIR)/include ',
-                        '  <linkflags>-L$(CRAY_MPICH2_DIR)/lib \ ',
+                        r'  <linkflags>-L$(CRAY_MPICH2_DIR)/lib \ ',
                         '; ',
                         'using mpi ',
                         ': CC ',

@@ -47,6 +47,7 @@ class EB_ipp(IntelBase):
     """
     Support for installing Intel Integrated Performance Primitives library
     """
+
     def install_step(self):
         """
         Actual installation
