@@ -331,7 +331,7 @@ class EB_OpenFOAM(EasyBlock):
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
     def det_psubdir(self):
-        """Determine the installtion directory for OpenFOAM libraries."""
+        """Determine the platform-specific installation directory for OpenFOAM."""
         # OpenFOAM >= 3.0.0 can use 64 bit integers
         # same goes for OpenFOAM-Extend >= 4.1
         if 'extend' in self.name.lower():
