@@ -359,6 +359,10 @@ class EB_TensorFlow(PythonPackage):
         for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 system_libs.append(tf_name)
+                # When using cURL (which uses the system OpenSSL), we also need to use "boringssl"
+                # which essentially resolves to using OpenSSL as the API and library names are compatible
+                if dep_name == 'cURL':
+                    system_libs.append('boringssl')
                 # For protobuf we need protobuf and protobuf-python where the latter depends on the former
                 # For includes etc. we need to get the values from protobuf
                 if dep_name == 'protobuf-python':
