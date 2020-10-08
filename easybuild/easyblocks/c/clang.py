@@ -42,7 +42,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.modules import get_software_root
@@ -178,6 +178,9 @@ class EB_Clang(CMakeMake):
 
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
+
+        if all(dep['name'] != 'ncurses' for dep in self.cfg['dependencies']):
+            print_warning('Clang requires ncurses to run, did you forgot to add it to dependencies?')
 
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
@@ -433,7 +436,8 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
-        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
+        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
