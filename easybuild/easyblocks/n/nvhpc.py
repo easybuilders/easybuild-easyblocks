@@ -109,11 +109,11 @@ class EB_NVHPC(PackedBinary):
                 raise EasyBuildError(error_msg)
 
         ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
-        cfg_default_compute_capability = build_option('cuda_compute_capabilities')[0]  # only single values supported
-        if ec_default_compute_capability is not None:
+        cfg_default_compute_capability = build_option('cuda_compute_capabilities')
+        if cfg_default_compute_capability is not None:
+            default_compute_capability = cfg_default_compute_capability[0].replace(".", "")
+        elif ec_default_compute_capability is not None:
             default_compute_capability = ec_default_compute_capability
-        elif cfg_default_compute_capability is not None:
-            default_compute_capability = cfg_default_compute_capability.replace(".", "")
         else:
             error_msg = "A default Compute Capability is needed for installation of NVHPC."
             error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilits=7.0',"
