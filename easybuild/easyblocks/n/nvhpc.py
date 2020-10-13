@@ -180,12 +180,15 @@ class EB_NVHPC(PackedBinary):
             self.log.info("Removing $CPATH entry: %s", dirs['CPATH'])
             del dirs['CPATH']
 
-        # EasyBlock Options:
-        ## BYO Compilers allows for using NVHPC's libraries and tools with other, external compilers
+        # EasyBlock option parsing follows:
+        # BYO Compilers:
+        # Use NVHPC's libraries and tools with other, external compilers
         if self.cfg['module_byo_compilers']:
             if 'PATH' in dirs:
                 del dirs["PATH"]
-        ## NVHPC is shipped with a compiled OpenMPI installation; enable it by setting the according environment variables
+        # Own MPI:
+        # NVHPC is shipped with a compiled OpenMPI installation
+        # Enable it by setting according environment variables
         if self.cfg['module_nvhpc_own_mpi']:
             self.nvhpc_mpi_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "mpi")
             env_vars_dirs = {
@@ -194,7 +197,9 @@ class EB_NVHPC(PackedBinary):
                 'LD_LIBRARY_PATH': 'lib'
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_mpi_basedir, env_vars_dirs)
-        ## NVHPC is shipped with math libraries in a dedicated folder; enable them by setting the according environment variables
+        # Math Libraries:
+        # NVHPC is shipped with math libraries (in a dedicated folder)
+        # Enable them by setting according environment variables
         if self.cfg['module_add_math_libs']:
             self.nvhpc_math_basedir = os.path.join(self.nvhpc_install_subdir, "math_libs")
             env_vars_dirs = {
@@ -202,14 +207,18 @@ class EB_NVHPC(PackedBinary):
                 'LD_LIBRARY_PATH': 'lib64'
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_math_basedir, env_vars_dirs)
-        ## NVHPC is shipped with NVIDIA's GPU profilers; enable them by setting the according environment variables
+        # GPU Profilers:
+        # NVHPC is shipped with NVIDIA's GPU profilers (Nsight Compute/Nsight Systems)
+        # Enable them by setting the according environment variables
         if self.cfg['module_add_profilers']:
             self.nvhpc_profilers_basedir = os.path.join(self.nvhpc_install_subdir, "profilers")
             env_vars_dirs = {
                 'PATH': ['Nsight_Compute', 'Nsight_Systems/bin']
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, env_vars_dirs)
-        ## NVHPC is shipped with NCCL; enable it by setting the according environment variables
+        # NCCL:
+        # NVHPC is shipped with NCCL
+        # Enable it by setting the according environment variables
         if self.cfg['module_add_nccl']:
             self.nvhpc_nccl_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nccl")
             env_vars_dirs = {
@@ -217,7 +226,9 @@ class EB_NVHPC(PackedBinary):
                 'LD_LIBRARY_PATH': 'lib'
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_nccl_basedir, env_vars_dirs)
-        ## NVHPC is shipped with NVSHMEM; enable it by setting the according environment variables
+        # NVSHMEM:
+        # NVHPC is shipped with NVSHMEM
+        # Enable it by setting the according environment variables
         if self.cfg['module_add_nvshmem']:
             self.nvhpc_nvshmem_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nvshmem")
             env_vars_dirs = {
@@ -225,7 +236,9 @@ class EB_NVHPC(PackedBinary):
                 'LD_LIBRARY_PATH': 'lib'
             }
             self._nvhpc_extended_components(dirs, self.nvhpc_nvshmem_basedir, env_vars_dirs)
-        ## NVHPC is shipped with CUDA; rather use this CUDA than an external CUDA module (via $CUDA_HOME) by setting the according environment variables
+        # CUDA:
+        # NVHPC is shipped with CUDA (possibly multiple versions)
+        # Rather use this CUDA than an external CUDA (via $CUDA_HOME) by setting according environment variables
         if self.cfg['module_add_cuda']:
             self.nvhpc_cuda_basedir = os.path.join(self.nvhpc_install_subdir, "cuda")
             env_vars_dirs = {
