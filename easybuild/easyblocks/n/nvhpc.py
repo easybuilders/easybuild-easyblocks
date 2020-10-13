@@ -44,6 +44,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.config import build_option
 from easybuild.tools.build_log import EasyBuildError
 
 
@@ -74,15 +75,15 @@ class EB_NVHPC(PackedBinary):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'default_cuda_version': [None, "CUDA Version to be used as default (10.2, 11.0, ...)", CUSTOM],
-            'compute_capability':   ["70", "Compute Capability (70, 80, ...)", CUSTOM],
-            'module_byo_compilers': [False, "BYO Compilers: Remove compilers from module", CUSTOM],
-            'module_nvhpc_own_mpi': [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
-            'module_add_cuda':      [False, "Add NVHPC's CUDA to module", CUSTOM],
-            'module_add_math_libs': [False, "Add NVHPC's math libraries to module", CUSTOM],
-            'module_add_nccl':      [False, "Add NVHPC's NCCL library to module", CUSTOM],
-            'module_add_nvshmem':   [False, "Add NVHPC's NVSHMEM library to module", CUSTOM],
-            'module_add_profilers': [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM]
+            'default_cuda_version':      [None, "CUDA Version to be used as default (10.2 or 11.0 or ...)", CUSTOM],
+            'cuda_compute_capabilities': [None, "Compute Capability (7.0 or 8.0 or ...)", CUSTOM],
+            'module_byo_compilers':      [False, "BYO Compilers: Remove compilers from module", CUSTOM],
+            'module_nvhpc_own_mpi':      [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
+            'module_add_cuda':           [False, "Add NVHPC's CUDA to module", CUSTOM],
+            'module_add_math_libs':      [False, "Add NVHPC's math libraries to module", CUSTOM],
+            'module_add_nccl':           [False, "Add NVHPC's NCCL library to module", CUSTOM],
+            'module_add_nvshmem':        [False, "Add NVHPC's NVSHMEM library to module", CUSTOM],
+            'module_add_profilers':      [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM]
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -107,11 +108,23 @@ class EB_NVHPC(PackedBinary):
                 error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
                 raise EasyBuildError(error_msg)
 
+        ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
+        cfg_default_compute_capability = build_option('cuda_compute_capabilities')[0]  # only single values supported
+        if ec_default_compute_capability is not None:
+            default_compute_capability = ec_default_compute_capability
+        elif cfg_default_compute_capability is not None:
+            default_compute_capability = cfg_default_compute_capability.replace(".", "")
+        else:
+            error_msg = "A default Compute Capability is needed for installation of NVHPC."
+            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilits=7.0',"
+            error_msg += "or use 'eb --cuda-compute-capabilities=7.0' from the command line."
+            raise EasyBuildError(error_msg)
+
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
             'NVHPC_DEFAULT_CUDA': str(default_cuda_version),  # 10.2, 11.0
-            'NVHPC_STDPAR_CUDACC': str(self.cfg['compute_capability']),  # 70, 80
+            'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single values, no list!
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
