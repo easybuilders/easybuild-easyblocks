@@ -45,7 +45,7 @@ from easybuild.tools.filetools import adjust_permissions, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.config import build_option
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 
 
 # contents for siterc file to make PGI/NVHPC pick up $LIBRARY_PATH
@@ -76,7 +76,6 @@ class EB_NVHPC(PackedBinary):
     def extra_options():
         extra_vars = {
             'default_cuda_version':      [None, "CUDA Version to be used as default (10.2 or 11.0 or ...)", CUSTOM],
-            'cuda_compute_capabilities': [None, "Compute Capability (7.0 or 8.0 or ...)", CUSTOM],
             'module_byo_compilers':      [False, "BYO Compilers: Remove compilers from module", CUSTOM],
             'module_nvhpc_own_mpi':      [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
             'module_add_cuda':           [False, "Add NVHPC's CUDA to module", CUSTOM],
@@ -108,23 +107,37 @@ class EB_NVHPC(PackedBinary):
                 error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
                 raise EasyBuildError(error_msg)
 
+        # Parse default_compute_capability from different sources (CLI has priority)
         ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
         cfg_default_compute_capability = build_option('cuda_compute_capabilities')
         if cfg_default_compute_capability is not None:
-            default_compute_capability = cfg_default_compute_capability[0].replace(".", "")
+            default_compute_capability = cfg_default_compute_capability
         elif ec_default_compute_capability is not None:
             default_compute_capability = ec_default_compute_capability
         else:
             error_msg = "A default Compute Capability is needed for installation of NVHPC."
-            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilits=7.0',"
+            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilities=7.0',"
             error_msg += "or use 'eb --cuda-compute-capabilities=7.0' from the command line."
             raise EasyBuildError(error_msg)
+
+        # Extract first element of default_compute_capability list, if it is a list
+        if isinstance(default_compute_capability, list):
+            _before_default_compute_capability = default_compute_capability
+            default_compute_capability = _before_default_compute_capability[0]
+            print_warning(
+                "Replaced list of compute capabilities {before} with first element of list {after}"\
+                .format(
+                    before=_before_default_compute_capability,
+                    after=default_compute_capability
+                )
+            )
+        default_compute_capability.replace(".", "")
 
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
             'NVHPC_DEFAULT_CUDA': str(default_cuda_version),  # 10.2, 11.0
-            'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single values, no list!
+            'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single value, no list!
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
