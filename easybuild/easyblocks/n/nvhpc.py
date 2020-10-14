@@ -176,7 +176,7 @@ class EB_NVHPC(PackedBinary):
         for env_var, folders in sorted(env_vars_dirs.items()):
             if env_var not in dirs:
                 dirs[env_var] = []
-            if isinstance(folders, list) is False:
+            if not isinstance(folders, list):
                 folders = [folders]
             for folder in folders:
                 dirs[env_var].append(os.path.join(basepath, folder))
