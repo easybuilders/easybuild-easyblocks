@@ -178,7 +178,8 @@ class EB_NVHPC(PackedBinary):
             'dirs': [os.path.join(prefix, 'compilers', 'bin'), os.path.join(prefix, 'compilers', 'lib'),
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
-        super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["%s -v" % custom_paths["files"][0]]
+        super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
         """
