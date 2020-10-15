@@ -90,7 +90,7 @@ class EB_NAMD(MakeCp):
             if len(charm_tarballs) != 1:
                 raise EasyBuildError("Expected to find exactly one tarball for Charm++, found: %s", charm_tarballs)
 
-            srcdir = extract_file(self.charm_tarballs[0], os.getcwd(), change_into_dir=False)
+            srcdir = extract_file(charm_tarballs[0], os.getcwd(), change_into_dir=False)
             change_dir(srcdir)
             self.charm_subdir = '.'.join(os.path.basename(charm_tarballs[0]).split('.')[:-1])
 
