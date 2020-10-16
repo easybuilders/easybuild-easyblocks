@@ -90,6 +90,7 @@ class EB_NVHPC(PackedBinary):
         """Easyblock constructor, define custom class variables specific to NVHPC."""
         super(EB_NVHPC, self).__init__(*args, **kwargs)
 
+        # Potential improvement: get "Linux_x86_64" from easybuild.tools.systemtools' get_cpu_architecture()
         self.nvhpc_install_subdir = os.path.join('Linux_x86_64', self.version)
 
     def install_step(self):
