@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,15 +37,31 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, mkdir, which, remove_dir
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
+def setup_cmake_env(tc):
+    """Setup env variables that cmake needs in an EasyBuild context."""
+
+    # Set the search paths for CMake
+    tc_ipaths = tc.get_variable("CPPFLAGS", list)
+    tc_lpaths = tc.get_variable("LDFLAGS", list)
+    cpaths = os.getenv('CPATH', '').split(os.pathsep)
+    lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
+    include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
+    library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
+    setvar("CMAKE_INCLUDE_PATH", include_paths)
+    setvar("CMAKE_LIBRARY_PATH", library_paths)
 
 
 class CMakeMake(ConfigureMake):
@@ -59,27 +75,58 @@ class CMakeMake(ConfigureMake):
             'abs_path_compilers': [False, "Specify compilers via absolute file path (not via command names)", CUSTOM],
             'allow_system_boost': [False, "Always allow CMake to pick up on Boost installed in OS "
                                           "(even if Boost is included as a dependency)", CUSTOM],
+            'build_shared_libs': [None, "Build shared library (instead of static library)"
+                                        "None can be used to add no flag (usually results in static library)", CUSTOM],
+            'build_type': [None, "Build type for CMake, e.g. Release."
+                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [False, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for CMakeMake easyblock"""
+        super(CMakeMake, self).__init__(*args, **kwargs)
+        self._lib_ext = None
+
+    @property
+    def lib_ext(self):
+        """Return the extension for libraries build based on `build_shared_libs` or None if that is unset"""
+        if self._lib_ext is None:
+            build_shared_libs = self.cfg.get('build_shared_libs')
+            if build_shared_libs:
+                self._lib_ext = get_shared_lib_ext()
+            elif build_shared_libs is not None:
+                self._lib_ext = 'a'
+        return self._lib_ext
+
+    @lib_ext.setter
+    def lib_ext(self, value):
+        self._lib_ext = value
+
+    @property
+    def build_type(self):
+        """Build type set in the EasyConfig with default determined by toolchainopts"""
+        build_type = self.cfg.get('build_type')
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        return build_type
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
-        # Set the search paths for CMake
-        tc_ipaths = self.toolchain.get_variable("CPPFLAGS", list)
-        tc_lpaths = self.toolchain.get_variable("LDFLAGS", list)
-        cpaths = os.getenv('CPATH', '').split(os.pathsep)
-        lpaths = os.getenv('LD_LIBRARY_PATH', '').split(os.pathsep)
-        include_paths = os.pathsep.join(nub(tc_ipaths + cpaths))
-        library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
-        setvar("CMAKE_INCLUDE_PATH", include_paths)
-        setvar("CMAKE_LIBRARY_PATH", library_paths)
+        setup_cmake_env(self.toolchain)
 
-        if builddir is None and self.cfg.get('separate_build_dir', False):
+        if builddir is None and self.cfg.get('separate_build_dir', True):
             builddir = os.path.join(self.builddir, 'easybuild_obj')
+            # For separate_build_dir we want a clean folder. So remove if it exists
+            # This can happen when multiple iterations are done (e.g. shared, static, ...)
+            if os.path.exists(builddir):
+                self.log.warning('Build directory %s already exists (from previous iterations?). Removing...',
+                                 builddir)
+                remove_dir(builddir)
 
         if builddir:
             mkdir(builddir, parents=True)
@@ -90,11 +137,56 @@ class CMakeMake(ConfigureMake):
 
         if srcdir is None:
             if self.cfg.get('srcdir', None) is not None:
-                srcdir = self.cfg['srcdir']
+                # Note that the join returns srcdir if it is absolute
+                srcdir = os.path.join(default_srcdir, self.cfg['srcdir'])
             else:
                 srcdir = default_srcdir
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+
+        if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
+            # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+            localstatedir = os.path.join(self.installdir, 'var')
+            runstatedir = os.path.join(localstatedir, 'run')
+            sysconfdir = os.path.join(self.installdir, 'etc')
+            options.append("-DCMAKE_INSTALL_LOCALSTATEDIR=%s" % localstatedir)
+            options.append("-DCMAKE_INSTALL_RUNSTATEDIR=%s" % runstatedir)
+            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s" % sysconfdir)
+
+        if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
+            if self.cfg.get('build_type') is not None:
+                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+        else:
+            options.append('-DCMAKE_BUILD_TYPE=%s' % self.build_type)
+
+        # Add -fPIC flag if necessary
+        if self.toolchain.options['pic']:
+            options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        if self.cfg['generator']:
+            options.append('-G "%s"' % self.cfg['generator'])
+
+        # pass --sysroot value down to CMake,
+        # and enable using absolute paths to compiler commands to avoid
+        # that CMake picks up compiler from sysroot rather than toolchain compiler...
+        sysroot = build_option('sysroot')
+        if sysroot:
+            options.append('-DCMAKE_SYSROOT=%s' % sysroot)
+            self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
+            self.cfg['abs_path_compilers'] = True
+
+        # Set flag for shared libs if requested
+        # Not adding one allows the project to choose a default
+        build_shared_libs = self.cfg.get('build_shared_libs')
+        if build_shared_libs is not None:
+            # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
+            # This is to allow self.lib_ext to be determined correctly.
+            # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
+            # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
+            if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
+                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
+
         env_to_options = {
             'CC': 'CMAKE_C_COMPILER',
             'CFLAGS': 'CMAKE_C_FLAGS',
@@ -136,17 +228,23 @@ class CMakeMake(ConfigureMake):
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    DEFAULT_CONFIGURE_CMD,
-                    options_string,
-                    self.cfg['configopts'],
-                    srcdir])
+                self.cfg['preconfigopts'],
+                DEFAULT_CONFIGURE_CMD,
+                options_string,
+                self.cfg['configopts'],
+                srcdir])
         else:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    self.cfg.get('configure_cmd'),
-                    self.cfg['configopts']])
+                self.cfg['preconfigopts'],
+                self.cfg.get('configure_cmd'),
+                self.cfg['configopts']])
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
+
+    def test_step(self):
+        """CMake specific test setup"""
+        # When using ctest for tests (default) then show verbose output if a test fails
+        setvar('CTEST_OUTPUT_ON_FAILURE', 'True')
+        super(CMakeMake, self).test_step()

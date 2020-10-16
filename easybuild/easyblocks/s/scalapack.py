@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import os
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.blacs import det_interface  #@UnresolvedImport
+from easybuild.easyblocks.blacs import det_interface  # @UnresolvedImport
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.toolchains.linalg.acml import Acml
 from easybuild.toolchains.linalg.atlas import Atlas
@@ -75,9 +75,9 @@ class EB_ScaLAPACK(ConfigureMake):
         """Build ScaLAPACK using make after setting make options."""
 
         # MPI compiler commands
-        known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  #@UndefinedVariable
-        known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  #@UndefinedVariable
-        known_mpi_libs += [toolchain.INTELMPI]  #@UndefinedVariable
+        known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
+        known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  # @UndefinedVariable
+        known_mpi_libs += [toolchain.INTELMPI]  # @UndefinedVariable
         if os.getenv('MPICC') and os.getenv('MPIF77') and os.getenv('MPIF90'):
             mpicc = os.getenv('MPICC')
             mpif77 = os.getenv('MPIF77')
@@ -223,8 +223,8 @@ class EB_ScaLAPACK(ConfigureMake):
 
         # include files and libraries
         path_info = [
-            ('SRC', 'include', '.h'), # include files
-            ('', 'lib', '.a'), # libraries
+            ('SRC', 'include', '.h'),  # include files
+            ('', 'lib', '.a'),  # libraries
         ]
         for (srcdir, destdir, ext) in path_info:
 

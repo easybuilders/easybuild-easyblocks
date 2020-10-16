@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2019 Ghent University
+# Copyright 2012-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -91,7 +91,7 @@ class EB_R(ConfigureMake):
         out = ConfigureMake.configure_step(self)
 
         # check output of configure command to verify BLAS/LAPACK settings
-        ext_libs_regex = re.compile("External libraries:.*BLAS\((?P<BLAS>.*)\).*LAPACK\((?P<LAPACK>.*)\)")
+        ext_libs_regex = re.compile(r"External libraries:.*BLAS\((?P<BLAS>.*)\).*LAPACK\((?P<LAPACK>.*)\)")
         res = ext_libs_regex.search(out)
         if res:
             for lib in ['BLAS', 'LAPACK']:
@@ -135,7 +135,7 @@ class EB_R(ConfigureMake):
 
         custom_paths = {
             'files': ['bin/%s' % x for x in ['R', 'Rscript']] +
-                     [(os.path.join('lib64', 'R', f), os.path.join('lib', 'R', f)) for f in libfiles],
+            [(os.path.join('lib64', 'R', f), os.path.join('lib', 'R', f)) for f in libfiles],
             'dirs': [],
         }
         super(EB_R, self).sanity_check_step(custom_paths=custom_paths)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2019 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ class CrayToolchain(Bundle):
     """
     Compiler toolchain: generate module file only, nothing to build/install
     """
+
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment (skip loaded of dependencies)."""
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ import stat
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.run import run_cmd
 
@@ -39,14 +40,25 @@ from easybuild.tools.run import run_cmd
 class EB_FLUENT(PackedBinary):
     """Support for installing FLUENT."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = PackedBinary.extra_options()
+        extra_vars['subdir_version'] = [None, "Version to use to determine installation subdirectory", CUSTOM]
+        return extra_vars
+
     def __init__(self, *args, **kwargs):
         """Custom constructor for FLUENT easyblock, initialize/define class parameters."""
         super(EB_FLUENT, self).__init__(*args, **kwargs)
-        self.fluent_verdir = 'v%s' % ''.join(self.version.split('.')[:2])
+
+        subdir_version = self.cfg['subdir_version']
+        if subdir_version is None:
+            subdir_version = ''.join(self.version.split('.')[:2])
+
+        self.fluent_verdir = 'v%s' % subdir_version
 
     def install_step(self):
         """Custom install procedure for FLUENT."""
-        extra_args =''
+        extra_args = ''
         # only include -noroot flag for older versions
         if LooseVersion(self.version) < LooseVersion('15.0'):
             extra_args += '-noroot'

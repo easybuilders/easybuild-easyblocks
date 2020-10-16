@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -80,9 +80,9 @@ class EB_SCOTCH(EasyBlock):
             (r"^CCP\s*=.*$", "CCP\t= $(MPICC)"),
             (r"^CCD\s*=.*$", "CCD\t= $(MPICC)"),
             # append -lpthread to LDFLAGS
-            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=\g<ldflags> -lpthread"),
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", r"LDFLAGS\t=\g<ldflags> -lpthread"),
             # prepend -L${EBROOTZLIB}/lib to LDFLAGS
-            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", "LDFLAGS\t=-L${EBROOTZLIB}/lib \g<ldflags>"),
+            (r"^LDFLAGS\s*=(?P<ldflags>.*$)", r"LDFLAGS\t=-L${EBROOTZLIB}/lib \g<ldflags>"),
         ]
         apply_regex_substitutions(makefile_inc, regex_subs)
 
@@ -156,14 +156,14 @@ class EB_SCOTCH(EasyBlock):
                     'dggath', 'dgmap', 'dgord', 'dgpart', 'dgscat', 'dgtst', 'gbase', 'gcv', 'gmap',
                     'gmk_hy', 'gmk_m2', 'gmk_m3', 'gmk_msh', 'gmk_ub2', 'gmtst', 'gord', 'gotst',
                     'gout', 'gpart', 'gscat', 'gtst', 'mcv', 'mmk_m2', 'mmk_m3', 'mord', 'mtst']
-        custom_paths['files'].extend([os.path.join('bin', b) for b in binaries])
+        custom_paths['files'].extend([os.path.join('bin', x) for x in binaries])
 
         headers = ['esmumps', 'ptscotch', 'ptscotchf', 'scotch', 'scotchf']
-        custom_paths['files'].extend([os.path.join('include', '%s.h' % h) for h in headers])
+        custom_paths['files'].extend([os.path.join('include', '%s.h' % x) for x in headers])
 
         libraries = ['esmumps', 'ptesmumps', 'ptscotch', 'ptscotcherr', 'ptscotcherrexit',
                      'scotch', 'scotch_group', 'scotcherr', 'scotcherrexit']
-        custom_paths['files'].extend([os.path.join('lib', 'lib%s.a' % l) for l in libraries])
+        custom_paths['files'].extend([os.path.join('lib', 'lib%s.a' % x) for x in libraries])
 
         custom_commands = []
 

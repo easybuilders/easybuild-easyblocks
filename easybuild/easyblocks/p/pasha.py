@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,7 +47,8 @@ class EB_Pasha(ConfigureMake):
             raise EasyBuildError("TBB module not loaded.")
 
         self.cfg.update('buildopts', "TBB_DIR=%s/tbb MPI_DIR='' MPI_INC='' " % tbb)
-        self.cfg.update('buildopts', 'MPI_CXX="%s" OPM_FLAG="%s"' % (os.getenv('MPICXX'), self.toolchain.get_flag('openmp')))
+        self.cfg.update('buildopts', 'MPI_CXX="%s"' % os.getenv('MPICXX'))
+        self.cfg.update('buildopts', 'OPM_FLAG="%s"' % self.toolchain.get_flag('openmp'))
         self.cfg.update('buildopts', 'MPI_LIB="" MY_CXX="%s" MPICH_IGNORE_CXX_SEEK=1' % os.getenv('CXX'))
 
     def install_step(self):
@@ -60,8 +61,8 @@ class EB_Pasha(ConfigureMake):
         """Custom sanity check for Pasha"""
 
         custom_paths = {
-                        'files':["bin/pasha-%s" % x for x in ["kmergen", "pregraph", "graph"]],
-                        'dirs':[],
-                       }
+            'files': ["bin/pasha-%s" % x for x in ["kmergen", "pregraph", "graph"]],
+            'dirs': [],
+        }
 
         super(EB_Pasha, self).sanity_check_step(custom_paths=custom_paths)

@@ -27,7 +27,7 @@ class EB_Bowtie2(MakeCp):
     """
     Support for building bowtie2 (ifast and sensitive read alignment)
     - create Make.UNKNOWN
-    - build with make and install 
+    - build with make and install
     """
     @staticmethod
     def extra_options(extra_vars=None):

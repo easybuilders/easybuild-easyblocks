@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,8 +32,8 @@ import glob
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.filetools import copy_dir, copy_file
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -56,12 +56,18 @@ class EB_CBLAS(ConfigureMake):
         self.cfg.update('buildopts', 'FC="%s"' % os.getenv('F77'))
         self.cfg.update('buildopts', 'CFLAGS="%s -DADD_"' % os.getenv('CFLAGS'))
         self.cfg.update('buildopts', 'FFLAGS="%s -DADD_"' % os.getenv('FFLAGS'))
+
         blas_lib_dir = os.getenv('BLAS_LIB_DIR')
         blas_libs = []
         for blas_lib in os.getenv('BLAS_STATIC_LIBS').split(','):
             blas_lib = os.path.join(blas_lib_dir, blas_lib)
             if os.path.exists(blas_lib):
                 blas_libs.append(blas_lib)
+
+        if get_software_root("imkl"):
+            extra_blas_libs = ['-lmkl_intel_thread', '-lmkl_lapack95_lp64', '-lmkl_intel_lp64', '-lmkl_core']
+            blas_libs += extra_blas_libs
+
         self.cfg.update('buildopts', 'BLLIB="%s %s"' % (' '.join(blas_libs), os.getenv('LIBS', '')))
 
     # default build procedure should do
@@ -79,12 +85,14 @@ class EB_CBLAS(ConfigureMake):
             for solib in glob.glob(os.path.join(srcdir, 'libcblas.so*')):
                 copy_file(solib, os.path.join(targetdir, os.path.basename(solib)))
 
+        copy_dir(os.path.join(self.cfg['start_dir'], 'include'), os.path.join(self.installdir, 'include'))
+
     def sanity_check_step(self):
         """
         Custom sanity check for CBLAS.
         """
         custom_paths = {
             'files': ['lib/libcblas.a', 'lib/libcblas.%s' % get_shared_lib_ext()],
-            'dirs': [],
+            'dirs': ['include'],
         }
         super(EB_CBLAS, self).sanity_check_step(custom_paths=custom_paths)

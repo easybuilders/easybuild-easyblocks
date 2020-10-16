@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -70,7 +70,7 @@ class EB_g2clib(ConfigureMake):
             # copy library
             targetdir = os.path.join(self.installdir, "lib")
             os.mkdir(targetdir)
-            
+
             # not documented AFAIK, but real
             if LooseVersion(self.version) < LooseVersion('1.6.0'):
                 fn = "libgrib2c.a"
@@ -82,7 +82,7 @@ class EB_g2clib(ConfigureMake):
 
             # make link so other software still finds libgrib2c.a
             if LooseVersion(self.version) >= LooseVersion('1.6.0'):
-                os.symlink("libg2c_v%s.a" % self.version, os.path.join(targetdir,"libgrib2c.a"))
+                os.symlink("libg2c_v%s.a" % self.version, os.path.join(targetdir, "libgrib2c.a"))
 
             # copy header files
             targetdir = os.path.join(self.installdir, "include")
@@ -98,8 +98,8 @@ class EB_g2clib(ConfigureMake):
         """Custom sanity check for g2clib."""
 
         custom_paths = {
-                        'files': ["lib/libgrib2c.a"],
-                        'dirs': ["include"]
-                       }
+            'files': ["lib/libgrib2c.a"],
+            'dirs': ["include"]
+        }
 
         super(EB_g2clib, self).sanity_check_step(custom_paths=custom_paths)

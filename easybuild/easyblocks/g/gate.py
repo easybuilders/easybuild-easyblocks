@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,6 @@ import os
 import shutil
 from distutils.version import LooseVersion
 
-import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -50,10 +49,13 @@ class EB_GATE(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'default_platform': ['openPBS', "Default cluster platform to set", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Out of source build doesn't work due to sub tools beeing 'make'd
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialise class variables."""
@@ -195,7 +197,7 @@ class EB_GATE(CMakeMake):
             dirs = []
             if LooseVersion(self.version) < '7.0':
                 extra_files += ["Utilities/itkzlib/%s" % x for x in ['itk_zlib_mangle.h', 'zconf.h',
-                                                                    'zlibDllConfig.h', 'zlib.h']]
+                                                                     'zlibDllConfig.h', 'zlib.h']]
                 extra_files += ["Utilities/MetaIO/%s" % x for x in ['localMetaConfiguration.h', 'metaDTITube.h',
                                                                     'metaImage.h', 'metaMesh.h', 'metaTubeGraph.h',
                                                                     'metaUtils.h']]
@@ -210,6 +212,6 @@ class EB_GATE(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', subdir, 'Gate')] + extra_files,
-            'dirs' : dirs,
+            'dirs': dirs,
         }
         super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths)

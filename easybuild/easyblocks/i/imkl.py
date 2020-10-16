@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, rmtree2
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -133,7 +133,9 @@ class EB_imkl(IntelBase):
                 'COMPONENTS': 'ALL',
             }
 
-        super(EB_imkl, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+        super(EB_imkl, self).install_step(
+            silent_cfg_names_map=silent_cfg_names_map,
+            silent_cfg_extras=silent_cfg_extras)
 
     def make_module_req_guess(self):
         """
@@ -144,20 +146,21 @@ class EB_imkl(IntelBase):
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
                 retdict = {
-                    'PATH': ['bin', 'mkl/bin', 'mkl/bin/intel64', 'composerxe-2011/bin'],
+                    'PATH': [],
                     'LD_LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'MANPATH': ['man', 'man/en_US'],
                     'CPATH': ['mkl/include', 'mkl/include/fftw'],
+                    'PKG_CONFIG_PATH': ['mkl/bin/pkgconfig'],
                 }
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic'];
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
                     elif LooseVersion(self.version) >= LooseVersion('11.1'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic'];
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
                     else:
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic'];
-                return retdict;
+                        retdict['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
+                return retdict
         else:
             if self.cfg['m32']:
                 return {
@@ -196,7 +199,7 @@ class EB_imkl(IntelBase):
 
         if self.cfg['m32']:
             extra = {
-                'libmkl.%s' % shlib_ext : 'GROUP (-lmkl_intel -lmkl_intel_thread -lmkl_core)',
+                'libmkl.%s' % shlib_ext: 'GROUP (-lmkl_intel -lmkl_intel_thread -lmkl_core)',
                 'libmkl_em64t.a': 'GROUP (libmkl_intel.a libmkl_intel_thread.a libmkl_core.a)',
                 'libmkl_solver.a': 'GROUP (libmkl_solver.a)',
                 'libmkl_scalapack.a': 'GROUP (libmkl_scalapack_core.a)',
@@ -349,7 +352,7 @@ class EB_imkl(IntelBase):
                         except OSError as err:
                             raise EasyBuildError("Failed to move %s to %s: %s", src, dest, err)
 
-                    rmtree2(tmpbuild)
+                    remove_dir(tmpbuild)
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel MKL."""
