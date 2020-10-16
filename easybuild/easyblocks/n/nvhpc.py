@@ -175,12 +175,13 @@ class EB_NVHPC(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for NVHPC"""
         prefix = self.nvhpc_install_subdir
+        compiler_names = ['nvc', 'nvc++', 'nvfortran']
         custom_paths = {
-            'files': [os.path.join(prefix, 'compilers', 'bin', x) for x in ['nvc', 'nvc++', 'nvfortran', 'siterc']],
+            'files': [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names + ['siterc']],
             'dirs': [os.path.join(prefix, 'compilers', 'bin'), os.path.join(prefix, 'compilers', 'lib'),
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
-        custom_commands = ["%s -v" % custom_paths["files"][0]]
+        custom_commands = ["%s -v" % compiler for compiler in compiler_names]
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
