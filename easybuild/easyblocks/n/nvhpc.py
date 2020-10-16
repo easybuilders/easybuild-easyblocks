@@ -124,14 +124,16 @@ class EB_NVHPC(PackedBinary):
         if isinstance(default_compute_capability, list):
             _before_default_compute_capability = default_compute_capability
             default_compute_capability = _before_default_compute_capability[0]
-            print_warning(
-                "Replaced list of compute capabilities {before} with first element of list {after}"\
-                .format(
-                    before=_before_default_compute_capability,
-                    after=default_compute_capability
-                )
-            )
-        default_compute_capability.replace(".", "")
+            warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
+            warning_msg += "with first element of list {}".format(default_compute_capability)
+            print_warning(warning_msg)
+
+        # Remove dot-divider for CC; error out if it is not a string
+        if isinstance(default_compute_capability, str):
+            default_compute_capability = default_compute_capability.replace('.', '')
+        else:
+            raise EasyBuildError("Unexpected non-string value encountered for compute capability: %s",
+                                 default_compute_capability)
 
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
