@@ -76,13 +76,13 @@ class EB_NVHPC(PackedBinary):
     def extra_options():
         extra_vars = {
             'default_cuda_version':      [None, "CUDA Version to be used as default (10.2 or 11.0 or ...)", CUSTOM],
-            'module_byo_compilers':      [False, "BYO Compilers: Remove compilers from module", CUSTOM],
-            'module_nvhpc_own_mpi':      [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM],
             'module_add_cuda':           [False, "Add NVHPC's CUDA to module", CUSTOM],
             'module_add_math_libs':      [False, "Add NVHPC's math libraries to module", CUSTOM],
             'module_add_nccl':           [False, "Add NVHPC's NCCL library to module", CUSTOM],
             'module_add_nvshmem':        [False, "Add NVHPC's NVSHMEM library to module", CUSTOM],
-            'module_add_profilers':      [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM]
+            'module_add_profilers':      [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM],
+            'module_byo_compilers':      [False, "BYO Compilers: Remove compilers from module", CUSTOM],
+            'module_nvhpc_own_mpi':      [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM]
         }
         return PackedBinary.extra_options(extra_vars)
 
