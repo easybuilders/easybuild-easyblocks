@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2019 Ghent University
+# Copyright 2018-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,15 +63,16 @@ class EB_CFDEMcoupling(EasyBlock):
                 orig_dir = os.path.join(self.builddir, pkg_topdirs[0])
                 move_file(orig_dir, target_dir)
             else:
-                raise EasyBuildError("Failed to find subdirectory for %s in %s %s", pkgname, self.builddir, top_dirs)
+                error_msg = "Failed to find subdirectory for %s in %s %s (missing sources for %s?)",
+                raise EasyBuildError(error_msg, pkgname, self.builddir, top_dirs, pkgname)
 
-        # always use env.setvar instead of os.putenv or os.environ for defining environment variables
         env.setvar('CFDEM_VERSION', self.version)
         env.setvar('CFDEM_PROJECT_DIR', self.cfdem_project_dir)
 
         # define $CFDEM_PROJECT_USER_DIR to an empty existing directory
-        env.setvar('CFDEM_PROJECT_USER_DIR', os.path.join(self.builddir, 'CFDEM_PROJECT_USER_DIR'))
-        mkdir(os.getenv('CFDEM_PROJECT_USER_DIR'), parents=True)
+        project_user_dir = os.path.join(self.builddir, 'project_user_dir')
+        env.setvar('CFDEM_PROJECT_USER_DIR', project_user_dir)
+        mkdir(project_user_dir, parents=True)
 
         cfdem_bashrc = os.path.join(self.cfdem_project_dir, 'src', 'lagrangian', 'cfdemParticle', 'etc', 'bashrc')
         env.setvar('CFDEM_bashrc', cfdem_bashrc)
@@ -91,12 +92,21 @@ class EB_CFDEMcoupling(EasyBlock):
         vtk_root = get_software_root('VTK')
         if vtk_root:
             vtk_ver_maj_min = '.'.join(get_software_version('VTK').split('.')[:2])
-            env.setvar('VTK_INC_USR', '-I%s' % os.path.join(vtk_root, 'include', 'vtk-%s' % vtk_ver_maj_min))
-            env.setvar('VTK_LIB_USR', '-L%s' % os.path.join(vtk_root, 'lib'))
+            vtk_inc = os.path.join(vtk_root, 'include', 'vtk-%s' % vtk_ver_maj_min)
+            if os.path.exists(vtk_inc):
+                env.setvar('VTK_INC_USR', '-I%s' % vtk_inc)
+            else:
+                raise EasyBuildError("Expected directory %s does not exist!", vtk_inc)
+
+            vtk_lib = os.path.join(vtk_root, 'lib')
+            if os.path.exists(vtk_lib):
+                env.setvar('VTK_LIB_USR', '-L%s' % vtk_lib)
+            else:
+                raise EasyBuildError("Expected directory %s does not exist!", vtk_lib)
         else:
             raise EasyBuildError("VTK not included as dependency")
 
-        # can't seem to use defined 'cfdemSysTest' alias...
+        # can't seem to use defined 'cfdemSysTest' alias, so call cfdemSystemTest.sh script directly...
         cmd = "source $CFDEM_bashrc && $CFDEM_SRC_DIR/lagrangian/cfdemParticle/etc/cfdemSystemTest.sh"
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
