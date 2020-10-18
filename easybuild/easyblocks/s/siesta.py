@@ -100,6 +100,11 @@ class EB_Siesta(ConfigureMake):
             (r"^(LDFLAGS\s*=).*$", r"\1 %s %s" % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])),
         ]
 
+        regex_subs_gfortran = [
+            (r"^(FCFLAGS_free_f90\s*=.*)$", r"\1 -ffree-line-length-none"),
+            (r"^(FPPFLAGS_free_F90\s*=.*)$", r"\1 -ffree-line-length-none"),
+        ]
+
         netcdff_loc = get_software_root('netCDF-Fortran')
         if netcdff_loc:
             # Needed for gfortran at least
@@ -145,6 +150,9 @@ class EB_Siesta(ConfigureMake):
                 ]
                 apply_regex_substitutions('Makefile', regex_subs_Makefile)
 
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                apply_regex_substitutions(arch_make, regex_subs_gfortran)
+
         else:  # there's no configure on newer versions
 
             if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
@@ -173,6 +181,9 @@ class EB_Siesta(ConfigureMake):
                 (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s" % os.environ['FCFLAGS']),
             ])
             regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nWXML = libwxml.a"))
+
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                regex_subs.extend(regex_subs_gfortran)
 
             if netcdff_loc:
                 regex_subs.extend([
