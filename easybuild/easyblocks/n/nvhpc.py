@@ -113,11 +113,11 @@ class EB_NVHPC(PackedBinary):
         cfg_default_compute_capability = build_option('cuda_compute_capabilities')
         if cfg_default_compute_capability is not None:
             default_compute_capability = cfg_default_compute_capability
-        elif ec_default_compute_capability is not None:
+        elif ec_default_compute_capability and ec_default_compute_capability is not None:
             default_compute_capability = ec_default_compute_capability
         else:
             error_msg = "A default Compute Capability is needed for installation of NVHPC."
-            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilities=7.0',"
+            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilities=\"7.0\"',"
             error_msg += "or use 'eb --cuda-compute-capabilities=7.0' from the command line."
             raise EasyBuildError(error_msg)
 
