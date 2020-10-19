@@ -83,153 +83,158 @@ class EB_ScaLAPACK(CMakeMake):
             else:
                 copy_file(src, dest)
 
+    def build_libscalapack_make(self):
+        """Build libscalapack using 'make -j', after determining the options to pass to make."""
+        # MPI compiler commands
+        known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
+        known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  # @UndefinedVariable
+        known_mpi_libs += [toolchain.INTELMPI]  # @UndefinedVariable
+        if os.getenv('MPICC') and os.getenv('MPIF77') and os.getenv('MPIF90'):
+            mpicc = os.getenv('MPICC')
+            mpif77 = os.getenv('MPIF77')
+            mpif90 = os.getenv('MPIF90')
+        elif self.toolchain.mpi_family() in known_mpi_libs:
+            mpicc = 'mpicc'
+            mpif77 = 'mpif77'
+            mpif90 = 'mpif90'
+        else:
+            raise EasyBuildError("Don't know which compiler commands to use.")
+
+        # determine build options BLAS and LAPACK libs
+        extra_makeopts = []
+
+        acml = get_software_root(Acml.LAPACK_MODULE_NAME[0])
+        lapack = get_software_root(Lapack.LAPACK_MODULE_NAME[0])
+        openblas = get_software_root(OpenBLAS.LAPACK_MODULE_NAME[0])
+        intelmkl = get_software_root(IntelMKL.LAPACK_MODULE_NAME[0])
+
+        if lapack:
+            extra_makeopts.append('LAPACKLIB=%s' % os.path.join(lapack, 'lib', 'liblapack.a'))
+
+            for blas in [Atlas, Blis, GotoBLAS]:
+                blas_root = get_software_root(blas.BLAS_MODULE_NAME[0])
+                if blas_root:
+                    blas_libs = ' '.join(['-l%s' % lib for lib in blas.BLAS_LIB])
+                    blas_libdir = os.path.join(blas_root, 'lib')
+                    extra_makeopts.append('BLASLIB="-L%s %s -lpthread"' % (blas_libdir, blas_libs))
+                    break
+
+            if not blas_root:
+                raise EasyBuildError("Failed to find a known BLAS library, don't know how to define 'BLASLIB'")
+
+        elif acml:
+            acml_base_dir = os.getenv('ACML_BASEDIR', 'NO_ACML_BASEDIR')
+            acml_static_lib = os.path.join(acml, acml_base_dir, 'lib', 'libacml.a')
+            extra_makeopts.extend([
+                'BLASLIB="%s -lpthread"' % acml_static_lib,
+                'LAPACKLIB=%s' % acml_static_lib
+            ])
+        elif openblas:
+            libdir = os.path.join(openblas, 'lib')
+            blas_libs = ' '.join(['-l%s' % lib for lib in OpenBLAS.BLAS_LIB])
+            extra_makeopts.extend([
+                'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
+                'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
+            ])
+        elif intelmkl:
+            libdir = os.path.join(intelmkl, 'mkl', 'lib', 'intel64')
+            blas_libs = os.environ['LIBLAPACK']
+            extra_makeopts.extend([
+                'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
+                'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
+            ])
+        else:
+            raise EasyBuildError("Unknown LAPACK library used, no idea how to set BLASLIB/LAPACKLIB make options")
+
+        # build procedure changed in v2.0.0
+        if self.loosever < LooseVersion('2.0.0'):
+
+            blacs = get_software_root(Blacs.BLACS_MODULE_NAME[0])
+            if not blacs:
+                raise EasyBuildError("BLACS not available, yet required for ScaLAPACK version < 2.0.0")
+
+            # determine interface
+            interface = det_interface(self.log, os.path.join(blacs, 'bin'))
+
+            # set build and BLACS dir correctly
+            extra_makeopts.append('home=%s BLACSdir=%s' % (self.cfg['start_dir'], blacs))
+
+            # set BLACS libs correctly
+            blacs_libs = [
+                ('BLACSFINIT', "F77init"),
+                ('BLACSCINIT', "Cinit"),
+                ('BLACSLIB', "")
+            ]
+            for (var, lib) in blacs_libs:
+                extra_makeopts.append('%s=%s/lib/libblacs%s.a' % (var, blacs, lib))
+
+            # set compilers and options
+            noopt = ''
+            if self.toolchain.options['noopt']:
+                noopt += " -O0"
+            if self.toolchain.options['pic']:
+                noopt += " -fPIC"
+            extra_makeopts += [
+                'F77="%s"' % mpif77,
+                'CC="%s"' % mpicc,
+                'NOOPT="%s"' % noopt,
+                'CCFLAGS="-O3 %s"' % os.getenv('CFLAGS')
+            ]
+
+            # set interface
+            extra_makeopts.append("CDEFS='-D%s -DNO_IEEE $(USEMPI)'" % interface)
+
+        else:
+
+            # determine interface
+            if self.toolchain.mpi_family() in known_mpi_libs:
+                interface = 'Add_'
+            else:
+                raise EasyBuildError("Don't know which interface to pick for the MPI library being used.")
+
+            # set compilers and options
+            extra_makeopts += [
+                'FC="%s"' % mpif90,
+                'CC="%s"' % mpicc,
+                'CCFLAGS="%s"' % os.getenv('CFLAGS'),
+                'FCFLAGS="%s"' % os.getenv('FFLAGS'),
+            ]
+
+            # set interface
+            extra_makeopts.append('CDEFS="-D%s"' % interface)
+
+        # update make opts, and build_step
+        saved_buildopts = self.cfg['buildopts']
+
+        # Only build the library first, that can be done in parallel.
+        # Creating libscalapack.a may fail in parallel, but should work
+        # fine with non-parallel make afterwards
+        self.cfg.update('buildopts', 'lib')
+        self.cfg.update('buildopts', ' '.join(extra_makeopts))
+
+        # Copied from ConfigureMake easyblock
+        paracmd = ''
+        if self.cfg['parallel']:
+            paracmd = "-j %s" % self.cfg['parallel']
+
+        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+
+        # Ignore exit code for parallel run
+        (out, _) = run_cmd(cmd, log_ok=False, log_all=False, simple=False)
+
+        # Now prepare to remake libscalapack.a serially and the tests.
+        self.cfg['buildopts'] = saved_buildopts
+        self.cfg.update('buildopts', ' '.join(extra_makeopts))
+
+        remove_file('libscalapack.a')
+        self.cfg['parallel'] = 1
+
     def build_step(self):
         """Build ScaLAPACK using make after setting make options."""
 
+        # only do a parallel pre-build of libscalapack and set up build options if we're not using CMake
         if not self.use_cmake:
-            # MPI compiler commands
-            known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
-            known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  # @UndefinedVariable
-            known_mpi_libs += [toolchain.INTELMPI]  # @UndefinedVariable
-            if os.getenv('MPICC') and os.getenv('MPIF77') and os.getenv('MPIF90'):
-                mpicc = os.getenv('MPICC')
-                mpif77 = os.getenv('MPIF77')
-                mpif90 = os.getenv('MPIF90')
-            elif self.toolchain.mpi_family() in known_mpi_libs:
-                mpicc = 'mpicc'
-                mpif77 = 'mpif77'
-                mpif90 = 'mpif90'
-            else:
-                raise EasyBuildError("Don't know which compiler commands to use.")
-
-            # determine build options BLAS and LAPACK libs
-            extra_makeopts = []
-
-            acml = get_software_root(Acml.LAPACK_MODULE_NAME[0])
-            lapack = get_software_root(Lapack.LAPACK_MODULE_NAME[0])
-            openblas = get_software_root(OpenBLAS.LAPACK_MODULE_NAME[0])
-            intelmkl = get_software_root(IntelMKL.LAPACK_MODULE_NAME[0])
-
-            if lapack:
-                extra_makeopts.append('LAPACKLIB=%s' % os.path.join(lapack, 'lib', 'liblapack.a'))
-
-                for blas in [Atlas, Blis, GotoBLAS]:
-                    blas_root = get_software_root(blas.BLAS_MODULE_NAME[0])
-                    if blas_root:
-                        blas_libs = ' '.join(['-l%s' % lib for lib in blas.BLAS_LIB])
-                        blas_libdir = os.path.join(blas_root, 'lib')
-                        extra_makeopts.append('BLASLIB="-L%s %s -lpthread"' % (blas_libdir, blas_libs))
-                        break
-
-                if not blas_root:
-                    raise EasyBuildError("Failed to find a known BLAS library, don't know how to define 'BLASLIB'")
-
-            elif acml:
-                acml_base_dir = os.getenv('ACML_BASEDIR', 'NO_ACML_BASEDIR')
-                acml_static_lib = os.path.join(acml, acml_base_dir, 'lib', 'libacml.a')
-                extra_makeopts.extend([
-                    'BLASLIB="%s -lpthread"' % acml_static_lib,
-                    'LAPACKLIB=%s' % acml_static_lib
-                ])
-            elif openblas:
-                libdir = os.path.join(openblas, 'lib')
-                blas_libs = ' '.join(['-l%s' % lib for lib in OpenBLAS.BLAS_LIB])
-                extra_makeopts.extend([
-                    'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
-                    'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
-                ])
-            elif intelmkl:
-                libdir = os.path.join(intelmkl, 'mkl', 'lib', 'intel64')
-                blas_libs = os.environ['LIBLAPACK']
-                extra_makeopts.extend([
-                    'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
-                    'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
-                ])
-            else:
-                raise EasyBuildError("Unknown LAPACK library used, no idea how to set BLASLIB/LAPACKLIB make options")
-
-            # build procedure changed in v2.0.0
-            if self.loosever < LooseVersion('2.0.0'):
-
-                blacs = get_software_root(Blacs.BLACS_MODULE_NAME[0])
-                if not blacs:
-                    raise EasyBuildError("BLACS not available, yet required for ScaLAPACK version < 2.0.0")
-
-                # determine interface
-                interface = det_interface(self.log, os.path.join(blacs, 'bin'))
-
-                # set build and BLACS dir correctly
-                extra_makeopts.append('home=%s BLACSdir=%s' % (self.cfg['start_dir'], blacs))
-
-                # set BLACS libs correctly
-                blacs_libs = [
-                    ('BLACSFINIT', "F77init"),
-                    ('BLACSCINIT', "Cinit"),
-                    ('BLACSLIB', "")
-                ]
-                for (var, lib) in blacs_libs:
-                    extra_makeopts.append('%s=%s/lib/libblacs%s.a' % (var, blacs, lib))
-
-                # set compilers and options
-                noopt = ''
-                if self.toolchain.options['noopt']:
-                    noopt += " -O0"
-                if self.toolchain.options['pic']:
-                    noopt += " -fPIC"
-                extra_makeopts += [
-                    'F77="%s"' % mpif77,
-                    'CC="%s"' % mpicc,
-                    'NOOPT="%s"' % noopt,
-                    'CCFLAGS="-O3 %s"' % os.getenv('CFLAGS')
-                ]
-
-                # set interface
-                extra_makeopts.append("CDEFS='-D%s -DNO_IEEE $(USEMPI)'" % interface)
-
-            else:
-
-                # determine interface
-                if self.toolchain.mpi_family() in known_mpi_libs:
-                    interface = 'Add_'
-                else:
-                    raise EasyBuildError("Don't know which interface to pick for the MPI library being used.")
-
-                # set compilers and options
-                extra_makeopts += [
-                    'FC="%s"' % mpif90,
-                    'CC="%s"' % mpicc,
-                    'CCFLAGS="%s"' % os.getenv('CFLAGS'),
-                    'FCFLAGS="%s"' % os.getenv('FFLAGS'),
-                ]
-
-                # set interface
-                extra_makeopts.append('CDEFS="-D%s"' % interface)
-
-            # update make opts, and build_step
-            saved_buildopts = self.cfg['buildopts']
-
-            # Only build the library first, that can be done in parallel.
-            # Creating libscalapack.a may fail in parallel, but should work
-            # fine with non-parallel make afterwards
-            self.cfg.update('buildopts', 'lib')
-            self.cfg.update('buildopts', ' '.join(extra_makeopts))
-
-            # Copied from ConfigureMake easyblock
-            paracmd = ''
-            if self.cfg['parallel']:
-                paracmd = "-j %s" % self.cfg['parallel']
-
-            cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
-
-            # Ignore exit code for parallel run
-            (out, _) = run_cmd(cmd, log_ok=False, log_all=False, simple=False)
-
-            # Now remake libscalapack.a serially and the tests.
-            self.cfg['buildopts'] = saved_buildopts
-            self.cfg.update('buildopts', ' '.join(extra_makeopts))
-
-            remove_file('libscalapack.a')
-            self.cfg['parallel'] = 1
+            self.build_libscalapack_make()
 
         super(EB_ScaLAPACK, self).build_step()
 
@@ -239,7 +244,7 @@ class EB_ScaLAPACK(CMakeMake):
         if self.use_cmake:
             super(EB_ScaLAPACK, self).install_step()
         else:
-            # include files and libraries
+            # 'manually' install ScaLAPACK by copying headers and libraries if we're not using CMake
             path_info = [
                 ('SRC', 'include', '.h'),  # include files
                 ('', 'lib', '.a'),  # libraries
@@ -257,7 +262,7 @@ class EB_ScaLAPACK(CMakeMake):
         """Custom sanity check for ScaLAPACK."""
 
         custom_paths = {
-            'files': ["lib/libscalapack.a"],
+            'files': [os.path.join('lib', 'libscalapack.a')],
             'dirs': []
         }
 
