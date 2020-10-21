@@ -627,6 +627,25 @@ class PythonPackage(ExtensionEasyBlock):
         if pythonpath is not None:
             env.setvar('PYTHONPATH', pythonpath, verbose=False)
 
+        # get the full list of what was installed from pip freeze to generate extension list
+        if self.cfg.get('use_pip_requirement', False):
+            extensions = []
+            for single_dir in abs_pylibdirs:
+                cmd = "pip freeze --path %s" % single_dir
+                (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+                for line in out.split("\n"):
+                    parts = line.split("==")
+                    if len(parts) != 2:
+                        continue
+                    else:
+                        extensions += [(parts[0],parts[1])]
+            extensions = list(set(extensions))
+            if self.cfg["exts_list"]:
+                self.cfg["exts_list"] = list(set(extensions + self.cfg["exts_list"]))
+            else:
+                self.cfg["exts_list"] = list(set(extensions))
+
+
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
 
