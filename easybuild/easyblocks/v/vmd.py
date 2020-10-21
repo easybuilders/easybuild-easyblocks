@@ -28,7 +28,6 @@ EasyBuild support for VMD, implemented as an easyblock
 
 @author: Stephane Thiell (Stanford University)
 @author: Kenneth Hoste (HPC-UGent)
-@author: Pawel Pomorski (Compute Canada)
 """
 import os
 
@@ -69,8 +68,7 @@ class EB_VMD(ConfigureMake):
         """
         # make sure required dependencies are available
         deps = {}
-
-        for dep in ['Python']:
+        for dep in ['FLTK', 'Mesa', 'netCDF', 'Python', 'Tcl', 'Tk']:
             deps[dep] = get_software_root(dep)
             if deps[dep] is None:
                 raise EasyBuildError("Required dependency %s is missing", dep)
@@ -79,19 +77,16 @@ class EB_VMD(ConfigureMake):
         for dep in ['ACTC', 'CUDA', 'OptiX']:
             deps[dep] = get_software_root(dep)
 
-        # specify Tcl/Tk locations & libraries in nix
-
-        tclinc = os.path.join(os.getenv('NIXUSER_PROFILE'),'include')
-        tcllib = os.path.join(os.getenv('NIXUSER_PROFILE'),'lib')
-
+        # specify Tcl/Tk locations & libraries
+        tclinc = os.path.join(deps['Tcl'], 'include')
+        tcllib = os.path.join(deps['Tcl'], 'lib')
         env.setvar('TCL_INCLUDE_DIR', tclinc)
         env.setvar('TCL_LIBRARY_DIR', tcllib)
 
-        env.setvar('TK_INCLUDE_DIR', tclinc)
-        env.setvar('TK_LIBRARY_DIR', tcllib) 
+        env.setvar('TK_INCLUDE_DIR', os.path.join(deps['Tk'], 'include'))
+        env.setvar('TK_LIBRARY_DIR', os.path.join(deps['Tk'], 'lib'))
 
-        tclshortver = 8.6
-
+        tclshortver = '.'.join(get_software_version('Tcl').split('.')[:2])
         self.cfg.update('buildopts', 'TCLLDFLAGS="-ltcl%s"' % tclshortver)
 
         # Netcdf locations
@@ -162,11 +157,11 @@ class EB_VMD(ConfigureMake):
         # PTHREADS: enable support for POSIX threads
         # COLVARS: enable support for collective variables (related to NAMD/LAMMPS)
         # NOSILENT: verbose build command
-        # OPENGL - nix install 
-        # MESA - nix install
-        # FLTK - nix install
-        # NETCDF - from easybuild
-        self.cfg.update('configopts', "LINUXAMD64 LP64 IMD PTHREADS FLTK TK COLVARS NOSILENT TCL OPENGL MESA NETCDF", allow_duplicate=False)
+        # FLTK: enable the standard FLTK GUI
+        # TK: enable TK to support extension GUI elements
+        # OPENGL: enable OpenGL
+        self.cfg.update(
+            'configopts', "LINUXAMD64 LP64 IMD PTHREADS COLVARS NOSILENT FLTK TK OPENGL", allow_duplicate=False)
 
         # add additional configopts based on available dependencies
         for key in deps:
