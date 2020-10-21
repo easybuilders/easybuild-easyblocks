@@ -116,19 +116,22 @@ class EB_LAMMPS(CMakeMake):
         super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
-        if self.cfg['kokkos'] and get_software_root('CUDA'):
+        if 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] and get_software_root('CUDA'):
+            self.cuda = True
+        else:
+            self.cuda = False
+        if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
 
-        cuda = get_software_root('CUDA')
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         ec_cuda_cc = self.cfg['cuda_compute_capabilities']
         cfg_cuda_cc = build_option('cuda_compute_capabilities')
-        cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc)
+        cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=self.cuda)
 
         # cmake has its own folder
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
@@ -219,17 +222,18 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
 
             self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
-            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch']))
+            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'],
+                                                                                 cuda=self.cuda))
 
             # if KOKKOS and CUDA
-            if cuda:
+            if self.cuda:
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
                 self.cfg.update('configopts', '-DKOKKOS_ENABLE_CUDA=yes')
                 self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                 self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
 
         # CUDA only
-        elif cuda:
+        elif self.cuda:
             self.cfg.update('configopts', '-D%sGPU=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
@@ -303,13 +307,15 @@ def get_cuda_gpu_arch(cuda_cc):
     return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
 
 
-def get_kokkos_arch(cuda_cc, kokkos_arch):
+def get_kokkos_arch(cuda_cc, kokkos_arch, cuda=None):
     """
     Return KOKKOS ARCH in LAMMPS required format, which is either 'CPU_ARCH' or 'CPU_ARCH;GPU_ARCH'.
 
     see: https://lammps.sandia.gov/doc/Build_extras.html#kokkos
     """
-    cuda = get_software_root('CUDA')
+    if cuda is None or not isinstance(cuda, bool):
+        cuda = get_software_root('CUDA')
+ 
     processor_arch = None
 
     if kokkos_arch:
@@ -356,16 +362,19 @@ def get_kokkos_arch(cuda_cc, kokkos_arch):
     return kokkos_arch
 
 
-def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc):
+def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=None):
     """
     Checks if cuda-compute-capabilities is set and prints warning if it gets declared on multiple places.
 
     :param cfg_cuda_cc: cuda-compute-capabilities from cli config
     :param ec_cuda_cc: cuda-compute-capabilities from easyconfig
+    :param cuda: boolean to check if cuda should be enabled or not
     :return: returns preferred cuda-compute-capabilities
     """
 
-    cuda = get_software_root('CUDA')
+    if cuda is None or not isinstance(cuda, bool):
+        cuda = get_software_root('CUDA')
+
     cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
 
     if cuda:
