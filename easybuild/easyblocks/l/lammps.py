@@ -117,10 +117,7 @@ class EB_LAMMPS(CMakeMake):
         super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
-        if 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] and get_software_root('CUDA'):
-            self.cuda = True
-        else:
-            self.cuda = False
+        self.cuda = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] and get_software_root('CUDA')
         if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
 
@@ -220,16 +217,16 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['kokkos']:
 
             if self.toolchain.options.get('openmp', None):
-                self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
+                self.cfg.update('configopts', '-DKokkos_ENABLE_OPENMP=yes')
 
-            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
-            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'],
+            self.cfg.update('configopts', '-D%sKokkos=on' % PKG_PREFIX)
+            self.cfg.update('configopts', '-DKokkos_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'],
                                                                                  cuda=self.cuda))
 
             # if KOKKOS and CUDA
             if self.cuda:
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
-                self.cfg.update('configopts', '-DKOKKOS_ENABLE_CUDA=yes')
+                self.cfg.update('configopts', '-DKokkos_ENABLE_CUDA=yes')
                 self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                 self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
 
