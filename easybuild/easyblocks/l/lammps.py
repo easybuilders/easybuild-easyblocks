@@ -315,7 +315,7 @@ def get_kokkos_arch(cuda_cc, kokkos_arch, cuda=None):
     """
     if cuda is None or not isinstance(cuda, bool):
         cuda = get_software_root('CUDA')
- 
+
     processor_arch = None
 
     if kokkos_arch:
