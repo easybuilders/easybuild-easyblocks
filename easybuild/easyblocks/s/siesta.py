@@ -36,6 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -453,7 +454,7 @@ class EB_Siesta(ConfigureMake):
             'dirs': [],
         }
         custom_commands = []
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi', None) and build_option('mpi_tests'):
             # make sure Siesta was indeed built with support for running in parallel
             # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
             mpi_test_cmd = "cd %s && " % self.builddir
