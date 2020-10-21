@@ -92,7 +92,7 @@ class EB_QScintilla(ConfigureMake):
         """Custom build procedure for QScintilla."""
 
         # make sure that $CXXFLAGS is being passed down
-        self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
+        self.cfg.update('buildopts', r'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
 
         super(EB_QScintilla, self).build_step()
 
@@ -121,7 +121,7 @@ class EB_QScintilla(ConfigureMake):
             # in case PyQt5's sip was installed in directories that are specific to each version of python
             # as could happen with multi_deps
             pyqt_sipdir = find_glob_pattern(os.path.join(self.pyqt_root, 'share', 'python%s*' % pyshortver,
-                                            'site-packages', 'sip', self.pyqt_pkg_name), False)
+                                                         'site-packages', 'sip', self.pyqt_pkg_name), False)
             # fall back to a single sipdir
             if not pyqt_sipdir:
                 pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)

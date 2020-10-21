@@ -36,11 +36,10 @@ import fileinput
 import os
 import re
 import sys
-from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -68,7 +67,7 @@ class EB_NCL(EasyBlock):
         run_cmd(cmd, log_all=True, simple=True)
 
         # figure out name of config file
-        cfg_regexp = re.compile('^\s*SYSTEM_INCLUDE\s*=\s*"(.*)"\s*$', re.M)
+        cfg_regexp = re.compile(r'^\s*SYSTEM_INCLUDE\s*=\s*"(.*)"\s*$', re.M)
         f = open("Makefile", "r")
         txt = f.read()
         f.close()
@@ -103,7 +102,7 @@ class EB_NCL(EasyBlock):
         # replace config entries that are already there
         for line in fileinput.input(cfg_filename, inplace=1, backup='%s.orig' % cfg_filename):
             for (key, val) in list(macrodict.items()):
-                regexp = re.compile("(#define %s\s*).*" % key)
+                regexp = re.compile(r"(#define %s\s*).*" % key)
                 match = regexp.search(line)
                 if match:
                     line = "#define %s %s\n" % (key, val)
@@ -158,9 +157,9 @@ class EB_NCL(EasyBlock):
 
         opt_deps = ["netCDF-Fortran", "GDAL"]
         libs_map = {
-                    'netCDF-Fortran': '-lnetcdff -lnetcdf',
-                    'GDAL': '-lgdal',
-                   }
+            'netCDF-Fortran': '-lnetcdff -lnetcdf',
+            'GDAL': '-lgdal',
+        }
         for dep in opt_deps:
             root = get_software_root(dep)
             if root:
@@ -180,7 +179,7 @@ class EB_NCL(EasyBlock):
                         "Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root)
                     )
 
-        cfgtxt="""#ifdef FirstSite
+        cfgtxt = """#ifdef FirstSite
 #endif /* FirstSite */
 
 #ifdef SecondSite
@@ -206,10 +205,10 @@ class EB_NCL(EasyBlock):
 
 #endif /* SecondSite */
 """ % {
-       'installdir': self.installdir,
-       'libs': libs,
-       'includes': includes
-      }
+            'installdir': self.installdir,
+            'libs': libs,
+            'includes': includes
+        }
 
         f = open("config/Site.local", "w")
         f.write(cfgtxt)

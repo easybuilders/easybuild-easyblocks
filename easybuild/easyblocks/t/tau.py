@@ -197,7 +197,7 @@ class EB_TAU(ConfigureMake):
             raise EasyBuildError("Failed to determine MPI include/library paths, no MPI available in toolchain?")
 
         # make sure selected default TAU makefile will be available
-        avail_makefiles = ['Makefile.' + l for l in self.variant_labels]
+        avail_makefiles = ['Makefile.' + x for x in self.variant_labels]
         if self.cfg['tau_makefile'] not in avail_makefiles:
             raise EasyBuildError("Specified tau_makefile %s will not be available (only: %s)",
                                  self.cfg['tau_makefile'], avail_makefiles)
@@ -252,8 +252,8 @@ class EB_TAU(ConfigureMake):
             'files':
                 [os.path.join('bin', 'pprof'), os.path.join('include', 'TAU.h'),
                  os.path.join('lib', 'libTAU.%s' % get_shared_lib_ext())] +
-                [os.path.join('lib', 'lib%s.a' % l) for l in self.variant_labels] +
-                [os.path.join('lib', 'Makefile.' + l) for l in self.variant_labels],
+                [os.path.join('lib', 'lib%s.a' % x) for x in self.variant_labels] +
+                [os.path.join('lib', 'Makefile.' + x) for x in self.variant_labels],
             'dirs': [],
         }
         super(EB_TAU, self).sanity_check_step(custom_paths=custom_paths)

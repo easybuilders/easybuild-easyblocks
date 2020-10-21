@@ -267,10 +267,10 @@ class EB_CP2K(EasyBlock):
             # get list of modinc source files
             modincdir = os.path.join(imkl, self.cfg["modincprefix"], 'include')
 
-            if type(self.cfg["modinc"]) == list:
+            if isinstance(self.cfg["modinc"], list):
                 modfiles = [os.path.join(modincdir, x) for x in self.cfg["modinc"]]
 
-            elif type(self.cfg["modinc"]) == bool and type(self.cfg["modinc"]):
+            elif isinstance(self.cfg["modinc"], bool) and self.cfg["modinc"]:
                 modfiles = glob.glob(os.path.join(modincdir, '*.f90'))
 
             else:
@@ -742,7 +742,7 @@ class EB_CP2K(EasyBlock):
                 raise EasyBuildError("Regression test failed (non-zero exit code): %s", regtest_output)
 
             # pattern to search for regression test summary
-            re_pattern = "number\s+of\s+%s\s+tests\s+(?P<cnt>[0-9]+)"
+            re_pattern = r"number\s+of\s+%s\s+tests\s+(?P<cnt>[0-9]+)"
 
             # find total number of tests
             regexp = re.compile(re_pattern % "", re.M | re.I)

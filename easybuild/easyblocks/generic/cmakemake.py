@@ -80,6 +80,7 @@ class CMakeMake(ConfigureMake):
             'build_type': [None, "Build type for CMake, e.g. Release."
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -143,6 +144,15 @@ class CMakeMake(ConfigureMake):
 
         options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
 
+        if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
+            # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+            localstatedir = os.path.join(self.installdir, 'var')
+            runstatedir = os.path.join(localstatedir, 'run')
+            sysconfdir = os.path.join(self.installdir, 'etc')
+            options.append("-DCMAKE_INSTALL_LOCALSTATEDIR=%s" % localstatedir)
+            options.append("-DCMAKE_INSTALL_RUNSTATEDIR=%s" % runstatedir)
+            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s" % sysconfdir)
+
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
@@ -152,6 +162,18 @@ class CMakeMake(ConfigureMake):
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
             options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+
+        if self.cfg['generator']:
+            options.append('-G "%s"' % self.cfg['generator'])
+
+        # pass --sysroot value down to CMake,
+        # and enable using absolute paths to compiler commands to avoid
+        # that CMake picks up compiler from sysroot rather than toolchain compiler...
+        sysroot = build_option('sysroot')
+        if sysroot:
+            options.append('-DCMAKE_SYSROOT=%s' % sysroot)
+            self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
+            self.cfg['abs_path_compilers'] = True
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
@@ -206,16 +228,16 @@ class CMakeMake(ConfigureMake):
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    DEFAULT_CONFIGURE_CMD,
-                    options_string,
-                    self.cfg['configopts'],
-                    srcdir])
+                self.cfg['preconfigopts'],
+                DEFAULT_CONFIGURE_CMD,
+                options_string,
+                self.cfg['configopts'],
+                srcdir])
         else:
             command = ' '.join([
-                    self.cfg['preconfigopts'],
-                    self.cfg.get('configure_cmd'),
-                    self.cfg['configopts']])
+                self.cfg['preconfigopts'],
+                self.cfg.get('configure_cmd'),
+                self.cfg['configopts']])
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 

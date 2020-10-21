@@ -35,6 +35,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
@@ -57,6 +58,10 @@ class EB_binutils(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for binutils: statically link to zlib, configure options."""
 
+        # take sysroot configuration option into account;
+        # make sure we don't use None going forward since the value is used in os.path.join expressions
+        sysroot = build_option('sysroot') or os.path.sep
+
         libs = ''
 
         if self.toolchain.is_system_toolchain():
@@ -68,9 +73,12 @@ class EB_binutils(ConfigureMake):
             # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
             # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file
             libdirs = [r'\$\$ORIGIN/../lib']
-            for libdir in ['/usr/lib', '/usr/lib64', '/usr/lib/x86_64-linux-gnu/']:
-                # also consider /lib, /lib64
-                alt_libdir = libdir.replace('usr/', '')
+            for libdir in ['lib', 'lib64', os.path.join('lib', 'x86_64-linux-gnu')]:
+
+                libdir = os.path.join(sysroot, 'usr', libdir)
+
+                # also consider /lib, /lib64 (without /usr/)
+                alt_libdir = os.path.join(sysroot, libdir)
 
                 if os.path.exists(libdir):
                     libdirs.append(libdir)
@@ -111,7 +119,12 @@ class EB_binutils(ConfigureMake):
         self.cfg.update('preconfigopts', 'LIBS="%s"' % libs)
         self.cfg.update('prebuildopts', 'LIBS="%s"' % libs)
 
-        # use correct sysroot, to make sure 'ld' also considers system libraries
+        # explicitly configure binutils to use / as sysroot
+        # this is required to ensure the binutils installation works correctly with a (system)
+        # GCC compiler that was explicitly configured with --with-sysroot=/;
+        # we should *not* use the value of the EasyBuild --sysroot configuration option here,
+        # since that leads to weird errors where the sysroot path is duplicated, like:
+        #   /bin/ld.gold: error: cannot open /<sysroot>/<sysroot>/lib64/libc.so.6: No such file or directory
         self.cfg.update('configopts', '--with-sysroot=/')
 
         # build both static and shared libraries for recent binutils versions (default is only static)
@@ -178,8 +191,8 @@ class EB_binutils(ConfigureMake):
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]
 
-        libs_fn = ['lib%s.%s' % (l, ext) for l in libs for ext in lib_exts]
-        lib_paths = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+        libs_fn = ['lib%s.%s' % (lib, ext) for lib in libs for ext in lib_exts]
+        lib_paths = [(os.path.join('lib', lib_fn), os.path.join('lib64', lib_fn)) for lib_fn in libs_fn]
 
         custom_paths = {
             'files': bin_paths + inc_paths + lib_paths,

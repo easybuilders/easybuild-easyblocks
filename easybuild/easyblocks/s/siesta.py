@@ -343,7 +343,7 @@ class EB_Siesta(ConfigureMake):
                         'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
                         'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
                         'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
-                        ])
+                    ])
                 expected_utils.extend([
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])

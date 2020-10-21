@@ -56,7 +56,7 @@ class EB_UFC(CMakePythonPackage):
             if not deproot:
                 raise EasyBuildError("%s module not loaded?", dep)
             else:
-                depsdict.update({dep:deproot})
+                depsdict.update({dep: deproot})
 
         # SWIG version more recent than 2.0.4 have a regression
         # which causes problems with e.g. DOLFIN if UFC was built with it

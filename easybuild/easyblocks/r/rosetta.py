@@ -100,9 +100,9 @@ class EB_Rosetta(EasyBlock):
 
         self.detect_cxx()
         cxx_ver = None
-        if self.toolchain.comp_family() in [toolchain.GCC]:  #@UndefinedVariable
+        if self.toolchain.comp_family() in [toolchain.GCC]:  # @UndefinedVariable
             cxx_ver = '.'.join(get_software_version('GCC').split('.')[:2])
-        elif self.toolchain.comp_family() in [toolchain.INTELCOMP]:  #@UndefinedVariable
+        elif self.toolchain.comp_family() in [toolchain.INTELCOMP]:  # @UndefinedVariable
             cxx_ver = '.'.join(get_icc_version().split('.')[:2])
         else:
             raise EasyBuildError("Don't know how to determine C++ compiler version.")
@@ -133,6 +133,12 @@ class EB_Rosetta(EasyBlock):
             "       'prepends': {",
             "       },",
             "       'appends': {",
+            "           'program_path': %s," % str(paths),
+            "           'flags': {",
+            "               'compile': %s," % str(flags),
+            # "              'mode': %s," % str(o_flags),
+            "           },",
+            "           'defines': %s," % str(defines),
             "       },",
             "       'overrides': {",
             "           'ENV': os.environ,",
@@ -148,7 +154,7 @@ class EB_Rosetta(EasyBlock):
 
         # make sure specified compiler version is accepted by patching it in
         os_fp = os.path.join(self.srcdir, "tools/build/options.settings")
-        cxxver_re = re.compile('(.*"%s".*)(,\s*"\*"\s*],.*)' % self.cxx, re.M)
+        cxxver_re = re.compile(r'(.*"%s".*)(,\s*"\*"\s*],.*)' % self.cxx, re.M)
         for line in fileinput.input(os_fp, inplace=1, backup='.orig.eb'):
             line = cxxver_re.sub(r'\1, "%s"\2' % cxx_ver, line)
             sys.stdout.write(line)
@@ -190,7 +196,7 @@ class EB_Rosetta(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Failed to walk build/src dir: %s", err)
             # copy binaries/libraries to install dir
-            lib_re = re.compile("^lib.*\.%s$" % shlib_ext)
+            lib_re = re.compile(r"^lib.*\.%s$" % shlib_ext)
             try:
                 for fil in os.listdir(builddir):
                     srcfile = os.path.join(builddir, fil)
@@ -260,7 +266,7 @@ class EB_Rosetta(EasyBlock):
         binaries = ["AbinitioRelax", "backrub", "cluster", "combine_silent", "extract_pdbs",
                     "idealize_jd2", "packstat", "relax", "score_jd2", "score"]
         custom_paths = {
-            'files':["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
-            'dirs':[],
+            'files': ["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
+            'dirs': [],
         }
         super(EB_Rosetta, self).sanity_check_step(custom_paths=custom_paths)

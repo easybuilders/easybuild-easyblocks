@@ -44,9 +44,10 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import log_path
+from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.filetools import change_dir, mkdir, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
+from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
@@ -127,6 +128,56 @@ class EB_Python(ConfigureMake):
             easybuild_subdir = log_path()
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
+    def patch_step(self, *args, **kwargs):
+        """
+        Custom patch step for Python:
+        * patch setup.py when --sysroot EasyBuild configuration setting is used
+        """
+
+        super(EB_Python, self).patch_step(*args, **kwargs)
+
+        # if we're installing Python with an alternate sysroot,
+        # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
+        # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
+        sysroot = build_option('sysroot')
+        if sysroot:
+            sysroot_inc_dirs, sysroot_lib_dirs = [], []
+
+            for pattern in ['include*', os.path.join('usr', 'include*')]:
+                sysroot_inc_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
+
+            if sysroot_inc_dirs:
+                sysroot_inc_dirs = ', '.join(["'%s'" % x for x in sysroot_inc_dirs])
+            else:
+                raise EasyBuildError("No include directories found in sysroot %s!", sysroot)
+
+            for pattern in ['lib*', os.path.join('usr', 'lib*')]:
+                sysroot_lib_dirs.extend(glob.glob(os.path.join(sysroot, pattern)))
+
+            if sysroot_lib_dirs:
+                sysroot_lib_dirs = ', '.join(["'%s'" % x for x in sysroot_lib_dirs])
+            else:
+                raise EasyBuildError("No lib directories found in sysroot %s!", sysroot)
+
+            setup_py_fn = 'setup.py'
+            setup_py_txt = read_file(setup_py_fn)
+
+            # newer Python versions (3.6+) have refactored code, requires different patching approach
+            if "system_include_dirs = " in setup_py_txt:
+                regex_subs = [
+                    (r"(system_include_dirs = \[).*\]", r"\1%s]" % sysroot_inc_dirs),
+                    (r"(system_lib_dirs = \[).*\]", r"\1%s]" % sysroot_lib_dirs),
+                ]
+            else:
+                regex_subs = [
+                    (r"^([ ]+)'/usr/include',", r"\1%s," % sysroot_inc_dirs),
+                    (r"\['/usr/include'\]", r"[%s]" % sysroot_inc_dirs),
+                    (r"^([ ]+)'/lib64', '/usr/lib64',", r"\1%s," % sysroot_lib_dirs),
+                    (r"^[ ]+'/lib', '/usr/lib',", ''),
+                ]
+
+            apply_regex_substitutions(setup_py_fn, regex_subs)
+
     def prepare_for_extensions(self):
         """
         Set default class and filter for Python packages
@@ -156,6 +207,13 @@ class EB_Python(ConfigureMake):
 
     def configure_step(self):
         """Set extra configure options."""
+
+        # Check for and report distutils user configs which may make the installation fail
+        # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
+        for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
+            if os.path.exists(cfg):
+                raise EasyBuildError("Legacy distutils user configuration file found at %s. Aborting.", cfg)
+
         self.cfg.update('configopts', "--enable-shared")
 
         # Explicitely enable thread support on < 3.7 (always on 3.7+)
@@ -184,6 +242,11 @@ class EB_Python(ConfigureMake):
         # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
             self.cfg.update('configopts', "--enable-optimizations")
+
+        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
+        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+            # Default, but do it explicitly
+            self.cfg.update('configopts', "--with-ensurepip=upgrade")
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
@@ -232,10 +295,27 @@ class EB_Python(ConfigureMake):
             }
             self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
 
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
         super(EB_Python, self).configure_step()
 
     def build_step(self, *args, **kwargs):
         """Custom build procedure for Python, ensure stack size limit is set to 'unlimited' (if desired)."""
+
+        # make sure installation directory doesn't already exist when building with --rpath and
+        # configuring with --enable-optimizations, since that leads to errors like:
+        #   ./python: symbol lookup error: ./python: undefined symbol: __gcov_indirect_call
+        # see also https://bugs.python.org/issue29712
+        enable_opts_flag = '--enable-optimizations'
+        if build_option('rpath') and enable_opts_flag in self.cfg['configopts']:
+            if os.path.exists(self.installdir):
+                warning_msg = "Removing existing installation directory '%s', "
+                warning_msg += "because EasyBuild is configured to use RPATH linking "
+                warning_msg += "and %s configure option is used." % enable_opts_flag
+                print_warning(warning_msg % self.installdir)
+                remove_dir(self.installdir)
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
@@ -344,6 +424,16 @@ class EB_Python(ConfigureMake):
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
         ]
+
+        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+            # Check that pip and setuptools are installed
+            custom_paths['files'].extend([
+                os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
+            ])
+            custom_commands.extend([
+                "python -c 'import pip'",
+                "python -c 'import setuptools'",
+            ])
 
         if get_software_root('Tk'):
             # also check whether importing tkinter module works, name is different for Python v2.x and v3.x

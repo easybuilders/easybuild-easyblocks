@@ -35,7 +35,8 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64
+from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 
 
 class EB_Mesa(MesonNinja):
@@ -48,6 +49,16 @@ class EB_Mesa(MesonNinja):
 
         self.gallium_configopts = []
 
+        # Mesa fails to build with libunwind on aarch64
+        # See https://github.com/easybuilders/easybuild-easyblocks/issues/2150
+        if get_cpu_architecture() == AARCH64:
+            given_config_opts = self.cfg.get('configopts')
+            if "-Dlibunwind=true" in given_config_opts:
+                self.log.warning('libunwind not supported on aarch64, stripping from configopts!')
+                configopts_libunwind_stripped = given_config_opts.replace('-Dlibunwind=true', '-Dlibunwind=false')
+                self.cfg.set_keys({'configopts': configopts_libunwind_stripped})
+                self.log.warning('New configopts after stripping: ' + self.cfg.get('configopts'))
+
         # Check user-defined Gallium drivers
         gallium_drivers = self.get_configopt_value('gallium-drivers')
 
@@ -55,8 +66,9 @@ class EB_Mesa(MesonNinja):
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
             arch_gallium_drivers = {
-                'x86_64': ['swrast', 'swr'],
-                'POWER': ['swrast'],
+                X86_64: ['swrast', 'swr'],
+                POWER: ['swrast'],
+                AARCH64: ['swrast'],
             }
             if arch in arch_gallium_drivers:
                 gallium_drivers = arch_gallium_drivers[arch]

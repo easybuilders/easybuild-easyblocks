@@ -27,4 +27,4 @@ Special handling of R easyblocks, due to clash with easybuild.easyblocks.r names
 
 author: Kenneth Hoste (Ghent University)
 """
-from easybuild.easyblocks.r.r import *
+from easybuild.easyblocks.r.r import *  # noqa

@@ -46,7 +46,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import which
+from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -326,7 +326,6 @@ class EB_GROMACS(CMakeMake):
             # set regression test path
             prefix = 'regressiontests'
             if any([src['name'].startswith(prefix) for src in self.src]):
-                major_minor_version = '.'.join(self.version.split('.')[:2])
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
@@ -412,6 +411,27 @@ class EB_GROMACS(CMakeMake):
             # allow to escape testing by setting runtest to False
             if self.cfg['runtest'] is None or self.cfg['runtest']:
 
+                libdir = os.path.join(self.installdir, 'lib')
+                libdir_backup = None
+
+                if build_option('rpath'):
+                    # temporarily copy 'lib' to installation directory when RPATH linking is enabled;
+                    # required to fix errors like:
+                    #     "ImportError: libgmxapi.so.0: cannot open shared object file: No such file or directory"
+                    # occurs with 'make test' because _gmxapi.*.so only includes %(installdir)/lib in RPATH section,
+                    # while the libraries are only there after install step...
+
+                    # keep in mind that we may be performing an iterated installation:
+                    # if there already is an existing 'lib' dir in the installation,
+                    # we temporarily move it out of the way (and then restore it after running the tests)
+                    if os.path.exists(libdir):
+                        libdir_backup = find_backup_name_candidate(libdir)
+                        self.log.info("%s already exists, moving it to %s while running tests...",
+                                      libdir, libdir_backup)
+                        shutil.move(libdir, libdir_backup)
+
+                    copy_dir('lib', libdir)
+
                 orig_runtest = self.cfg['runtest']
 
                 if LooseVersion(self.version) < LooseVersion('2019'):
@@ -425,6 +445,16 @@ class EB_GROMACS(CMakeMake):
                 # in parallel since it involves more compilation
                 self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
                 super(EB_GROMACS, self).test_step()
+
+                if build_option('rpath'):
+                    # clean up temporary copy of 'lib' in installation directory,
+                    # this was only there to avoid ImportError when running the tests before populating
+                    # the installation directory
+                    remove_dir(libdir)
+
+                    if libdir_backup:
+                        self.log.info("Restoring %s to %s after running tests", libdir_backup, libdir)
+                        shutil.move(libdir_backup, libdir)
 
                 self.cfg['runtest'] = orig_runtest
 
@@ -461,7 +491,7 @@ class EB_GROMACS(CMakeMake):
                     for subdir in [libdir, os.path.join(libdir, '*')]:
                         libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
                         if libpaths:
-                            self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir)+1:]
+                            self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
                             self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
                             break
             if not self.lib_subdir:
@@ -572,7 +602,7 @@ class EB_GROMACS(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', b) for b in bin_files] +
-                [os.path.join(self.lib_subdir, l) for l in lib_files],
+            [os.path.join(self.lib_subdir, lib) for lib in lib_files],
             'dirs': dirs,
         }
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)

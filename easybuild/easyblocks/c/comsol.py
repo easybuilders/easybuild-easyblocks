@@ -30,7 +30,6 @@ EasyBuild support for installing COMSOL, implemented as an easyblock
 """
 import os
 import re
-import shutil
 import stat
 
 import easybuild.tools.environment as env

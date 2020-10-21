@@ -58,6 +58,7 @@ stringr
 )
 """
 
+
 class EB_MXNet(MakeCp):
     """Easyblock to build and install MXNet"""
 

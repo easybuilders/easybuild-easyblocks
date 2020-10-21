@@ -43,7 +43,8 @@ class EB_BWA(ConfigureMake):
         """
         self.files = ["bwa", "qualfa2fq.pl", "xa2multi.pl"]
         if LooseVersion(self.version) < LooseVersion("0.7.0"):
-            # solid2fastq was dropped in recent versions because the same functionality is covered by other tools already
+            # solid2fastq was dropped in recent versions because the same functionality
+            # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
             self.files.append("solid2fastq.pl")
 

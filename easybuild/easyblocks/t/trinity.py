@@ -42,9 +42,7 @@ Original Authors:
 """
 import glob
 import os
-import re
 import shutil
-import sys
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
