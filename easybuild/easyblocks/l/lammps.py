@@ -133,7 +133,7 @@ class EB_LAMMPS(CMakeMake):
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         ec_cuda_cc = self.cfg['cuda_compute_capabilities']
         cfg_cuda_cc = build_option('cuda_compute_capabilities')
-        if not isinstance(cfg_cuda_cc, list):
+        if cfg_cuda_cc and not isinstance(cfg_cuda_cc, list):
             raise EasyBuildError("cuda_compute_capabilities in easyconfig should be provided as list of strings, " +
                                  "(for example ['8.0', '7.5']). Got %s" % cfg_cuda_cc)
         cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=self.cuda)
