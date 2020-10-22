@@ -97,6 +97,11 @@ class EB_LAMMPS(CMakeMake):
     Support for building and installing LAMMPS
     """
 
+    def __init__(self, *args, **kwargs):
+        super(EB_LAMMPS, self).__init__(args, kwargs)
+        self.cuda = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] or \
+                    hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+
     @staticmethod
     def extra_options(**kwargs):
         """Custom easyconfig parameters for LAMMPS"""
@@ -117,7 +122,6 @@ class EB_LAMMPS(CMakeMake):
         super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
-        self.cuda = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] and get_software_root('CUDA')
         if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
 
@@ -129,6 +133,9 @@ class EB_LAMMPS(CMakeMake):
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         ec_cuda_cc = self.cfg['cuda_compute_capabilities']
         cfg_cuda_cc = build_option('cuda_compute_capabilities')
+        if not isinstance(cfg_cuda_cc, list):
+            raise EasyBuildError("cuda_compute_capabilities in easyconfig should be provided as list of strings, " +
+                                 "(for example ['8.0', '7.5']). Got %s" % cfg_cuda_cc)
         cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=self.cuda)
 
         # cmake has its own folder
@@ -162,7 +169,7 @@ class EB_LAMMPS(CMakeMake):
         if '-DDOWNLOAD_EIGEN3=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DDOWNLOAD_EIGEN3=no')
 
-        # Compiler complains about 'Eigen3_DIR' not beeing set, but acutally it needs 'EIGEN3_INCLUDE_DIR'.
+        # Compiler complains about 'Eigen3_DIR' not being set, but actually it needs 'EIGEN3_INCLUDE_DIR'.
         # see: https://github.com/lammps/lammps/issues/1110
         # Enable Eigen when its included as dependency dependency:
         eigen_root = get_software_root('Eigen')
