@@ -98,7 +98,7 @@ class EB_LAMMPS(CMakeMake):
     """
 
     def __init__(self, *args, **kwargs):
-        super(EB_LAMMPS, self).__init__(args, kwargs)
+        super(EB_LAMMPS, self).__init__(*args, **kwargs)
         self.cuda = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] or \
                     hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
 
