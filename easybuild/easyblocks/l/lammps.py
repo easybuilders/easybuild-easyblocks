@@ -98,9 +98,12 @@ class EB_LAMMPS(CMakeMake):
     """
 
     def __init__(self, *args, **kwargs):
+        """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
         super(EB_LAMMPS, self).__init__(*args, **kwargs)
-        self.cuda = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()] or \
-                    hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+
+        cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
+        cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+        self.cuda = cuda_dep or cuda_toolchain
 
     @staticmethod
     def extra_options(**kwargs):
