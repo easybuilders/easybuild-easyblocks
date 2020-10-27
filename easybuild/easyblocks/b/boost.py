@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -156,7 +156,7 @@ class EB_Boost(EasyBlock):
                         ': %s' % craygccversion,
                         ': CC ',
                         ': <compileflags>-I$(CRAY_MPICH2_DIR)/include ',
-                        '  <linkflags>-L$(CRAY_MPICH2_DIR)/lib \ ',
+                        r'  <linkflags>-L$(CRAY_MPICH2_DIR)/lib \ ',
                         '; ',
                         'using mpi ',
                         ': CC ',

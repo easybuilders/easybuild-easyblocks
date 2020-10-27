@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,11 +32,8 @@ EasyBuild support for building and installing Anaconda/Miniconda, implemented as
 import os
 import stat
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, rmtree2
+from easybuild.tools.filetools import adjust_permissions, remove_dir
 from easybuild.tools.run import run_cmd
 
 
@@ -46,11 +43,11 @@ class EB_Anaconda(Binary):
     def install_step(self):
         """Copy all files in build directory to the install directory"""
 
-        rmtree2(self.installdir)
+        remove_dir(self.installdir)
         install_script = self.src[0]['name']
 
-        adjust_permissions(os.path.join(self.builddir, install_script), stat.S_IRUSR|stat.S_IXUSR)
-        
+        adjust_permissions(os.path.join(self.builddir, install_script), stat.S_IRUSR | stat.S_IXUSR)
+
         cmd = "%s ./%s -p %s -b -f" % (self.cfg['preinstallopts'], install_script, self.installdir)
         self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
         run_cmd(cmd, log_all=True, simple=True)

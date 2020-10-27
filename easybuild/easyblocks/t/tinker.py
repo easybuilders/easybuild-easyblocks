@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,8 @@ EasyBuild support for building and installing TINKER, implemented as an easybloc
 import glob
 import os
 import tempfile
+
+from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
@@ -79,7 +81,7 @@ class EB_TINKER(EasyBlock):
 
         # patch 'link.make' script to use FFTW provided via EasyBuild
         link_make_fp = os.path.join(self.cfg['start_dir'], self.build_subdir, 'link.make')
-        regex_subs = [(r"libfftw3_threads.a libfftw3.a", r"-L$EBROOTFFTW/lib -lfftw3_threads -lfftw3")]
+        regex_subs = [(r"libfftw3_threads.a libfftw3.a", r"-L$EBROOTFFTW/lib -lfftw3_omp -lfftw3")]
         apply_regex_substitutions(link_make_fp, regex_subs)
 
         # patch *.make files to get rid of hardcoded -openmp flag,
@@ -117,8 +119,18 @@ class EB_TINKER(EasyBlock):
 
             # run all tests via the provided 'run' scripts
             tests = glob.glob(os.path.join(testdir, '*.run'))
-            # gpcr takes too logn (~1h), ifabp fails due to input issues (?)
-            tests = [t for t in tests if not (t.endswith('gpcr.run') or t.endswith('ifabp.run'))]
+
+            # gpcr takes too long (~1h)
+            skip_tests = ['gpcr']
+            if (LooseVersion(self.version) < LooseVersion('8.7.2')):
+                # ifabp fails due to input issues (?)
+                skip_tests.append('ifabp')
+            if (LooseVersion(self.version) >= LooseVersion('8.7.2')):
+                # salt and dialinine takes too long
+                skip_tests.extend(['salt', 'dialanine'])
+
+            tests = [t for t in tests if not any([t.endswith('%s.run' % x) for x in skip_tests])]
+
             for test in tests:
                 run_cmd(test)
 

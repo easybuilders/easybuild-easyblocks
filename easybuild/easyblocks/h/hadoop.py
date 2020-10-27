@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,7 +49,7 @@ class EB_Hadoop(Tarball):
         extra_vars = {
             'build_native_libs': [False, "Build native libraries", CUSTOM],
             'extra_native_libs': [[], "Extra native libraries to install (list of tuples)", CUSTOM],
-         }
+        }
         return Tarball.extra_options(extra_vars)
 
     def build_step(self):

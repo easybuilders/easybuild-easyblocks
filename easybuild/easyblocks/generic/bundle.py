@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -74,6 +74,8 @@ class Bundle(EasyBlock):
         # list of sources for bundle itself *must* be empty
         if self.cfg['sources']:
             raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
+        if self.cfg['patches']:
+            raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
@@ -109,7 +111,7 @@ class Bundle(EasyBlock):
             comp_cfg['easyblock'] = None
 
             # reset list of sources/source_urls/checksums
-            comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = []
+            comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
 
             for key in self.cfg['default_component_specs']:
                 comp_cfg[key] = self.cfg['default_component_specs'][key]
@@ -151,6 +153,9 @@ class Bundle(EasyBlock):
                 # add per-component checksums for patches to list of checksums for patches
                 checksums_patches.extend(comp_cfg['checksums'][src_cnt:])
 
+            if comp_cfg['patches']:
+                self.cfg.update('patches', comp_cfg['patches'])
+
             self.comp_cfgs.append(comp_cfg)
 
         self.cfg.update('checksums', checksums_patches)
@@ -169,6 +174,10 @@ class Bundle(EasyBlock):
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
 
         return checksum_issues
+
+    def patch_step(self):
+        """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
+        pass
 
     def configure_step(self):
         """Collect altroot/altversion info."""
@@ -189,7 +198,8 @@ class Bundle(EasyBlock):
         comp_cnt = len(self.cfg['components'])
         for idx, cfg in enumerate(self.comp_cfgs):
 
-            print_msg("installing bundle component %s v%s (%d/%d)..." % (cfg['name'], cfg['version'], idx+1, comp_cnt))
+            print_msg("installing bundle component %s v%s (%d/%d)..." %
+                      (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
 
             comp = cfg.easyblock(cfg)

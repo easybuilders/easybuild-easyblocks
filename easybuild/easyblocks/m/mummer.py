@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
@@ -30,16 +30,11 @@ EasyBuild support for building and installing MUMmer, implemented as an easybloc
 @author: Jens Timmerman (Ghent University)
 @author: Matt Lesko (NIH/NHGRI)
 """
-
-import fileinput
-import re
 import os
-import shutil
-import sys
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.perl import get_major_perl_version
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, mkdir
 from easybuild.tools.run import run_cmd
 
 
@@ -71,14 +66,16 @@ class EB_MUMmer(ConfigureMake):
     def install_step(self):
         """Patch files to avoid use of build dir, install by copying files to install dir."""
         # patch build dir out of files, replace by install dir
+        pattern = r'%s' % self.cfg['start_dir']
+        if pattern[-1] == os.path.sep:
+            pattern = pattern[:-1]
+
+        installdir_bin = os.path.join(self.installdir, 'bin')
+
         for fil in [f for f in os.listdir(self.cfg['start_dir']) if os.path.isfile(f)]:
-            self.log.debug("Patching build dir out of %s, replacing by install bin dir)" % fil)
-            pat = r'%s' % self.cfg['start_dir']
-            if pat[-1] == os.path.sep:
-                pat = pat[:-1]
-            for line in fileinput.input(fil, inplace=1, backup='.orig.eb'):
-                line = re.sub(pat, os.path.join(self.installdir, 'bin'), line)
-                sys.stdout.write(line)
+            self.log.debug("Patching build dir out of %s, replacing by install bin dir)", fil)
+            apply_regex_substitutions(fil, [(pattern, installdir_bin)])
+
         # copy files to install dir
         file_tuples = [
             (self.cfg['start_dir'], 'bin', self.bin_files),
@@ -87,15 +84,10 @@ class EB_MUMmer(ConfigureMake):
         ]
         for srcdir, dest, files in file_tuples:
             destdir = os.path.join(self.installdir, dest)
-            srcfile = None
-            try:
-                os.makedirs(destdir)
-                for filename in files:
-                    srcfile = os.path.join(srcdir, filename)
-                    shutil.copy2(srcfile, destdir)
-
-            except OSError as err:
-                raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+            mkdir(destdir, parents=True)
+            for filename in files:
+                srcfile = os.path.join(srcdir, filename)
+                copy_file(srcfile, destdir)
 
     def make_module_extra(self):
         """Correctly prepend $PATH and $PERLXLIB for MUMmer."""

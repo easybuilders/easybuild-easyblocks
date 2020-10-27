@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for installing the Intel Threading Building Blocks (TBB) libra
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Simon Branford (University of Birmingham)
 """
 
 import glob
@@ -43,26 +44,28 @@ from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTA
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.systemtools import get_gcc_version, get_platform_name
+from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
 
 
-def get_tbb_gccprefix():
+def get_tbb_gccprefix(libpath):
     """
     Find the correct gcc version for the lib dir of TBB
     """
     # using get_software_version('GCC') won't work if the system toolchain is used
-    gccversion = get_software_version('GCC')
+    gccversion = get_software_version('GCCcore') or get_software_version('GCC')
     # manual approach to at least have the system version of gcc
     if not gccversion:
         gccversion = get_gcc_version()
 
     # TBB directory structure
-    # https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Linux_OS.htm
+    # https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Linux_OS.html
     tbb_gccprefix = 'gcc4.4'  # gcc version 4.4 or higher that may or may not support exception_ptr
     if gccversion:
         gccversion = LooseVersion(gccversion)
         if gccversion >= LooseVersion("4.1") and gccversion < LooseVersion("4.4"):
             tbb_gccprefix = 'gcc4.1'  # gcc version number between 4.1 and 4.4 that do not support exception_ptr
+        elif os.path.isdir(os.path.join(libpath, 'gcc4.8')) and gccversion >= LooseVersion("4.8"):
+            tbb_gccprefix = 'gcc4.8'
 
     return tbb_gccprefix
 
@@ -76,10 +79,13 @@ class EB_tbb(IntelBase, ConfigureMake):
 
         self.libpath = 'UNKNOWN'
         platform_name = get_platform_name()
+        myarch = get_cpu_architecture()
         if platform_name.startswith('x86_64'):
             self.arch = "intel64"
         elif platform_name.startswith('i386') or platform_name.startswith('i686'):
             self.arch = 'ia32'
+        elif myarch == POWER:
+            self.arch = 'ppc64'
         else:
             raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
 
@@ -140,6 +146,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
             # determine libdir
             os.chdir(self.installdir)
+            self.libpath = os.path.join('tbb', 'libs', 'intel64')
             if LooseVersion(self.version) < LooseVersion('4.1.0'):
                 libglob = 'tbb/lib/intel64/cc*libc*_kernel*'
                 libs = sorted(glob.glob(libglob), key=LooseVersion)
@@ -150,20 +157,23 @@ class EB_tbb(IntelBase, ConfigureMake):
                 else:
                     raise EasyBuildError("No libs found using %s in %s", libglob, self.installdir)
             else:
-                libdir = get_tbb_gccprefix()
+                libdir = get_tbb_gccprefix(self.libpath)
 
-            self.libpath = os.path.join('tbb', 'libs', 'intel64', libdir)
+            self.libpath = os.path.join(self.libpath, libdir)
             self.log.debug("self.libpath: %s" % self.libpath)
             # applications go looking into tbb/lib so we move what's in there to libs
-            # and symlink the right lib from /tbb/libs/intel64/... to lib
             install_libpath = os.path.join(self.installdir, 'tbb', 'lib')
             shutil.move(install_libpath, os.path.join(self.installdir, 'tbb', 'libs'))
+            # and symlink the right lib from /tbb/libs/intel64/... to lib
             os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
         else:
             # no custom install step when building from source (building is done in install directory)
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
             if len(cand_lib_paths) == 1:
+                # applications go looking into tbb/lib so we symlink the location where they are built  to lib
                 self.libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
+                install_libpath = os.path.join(self.installdir, 'lib')
+                os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
 

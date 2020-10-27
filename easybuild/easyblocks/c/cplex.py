@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -92,6 +92,8 @@ class EB_CPLEX(Binary):
             "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
             "CHOOSE LOCALE BY NUMBER:": '',
             "Choose Instance Management Option:": '',
+            "No model content or proprietary data will be sent.\n1- Yes\n2- No\n"
+            "ENTER THE NUMBER OF THE DESIRED CHOICE:": '2',
         }
         noqanda = [r'Installing\.\.\..*\n.*------.*\n\n.*============.*\n.*$']
 

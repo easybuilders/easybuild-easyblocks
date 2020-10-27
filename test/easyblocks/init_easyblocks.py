@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2019 Ghent University
+# Copyright 2013-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -108,7 +108,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
             self.assertTrue(isinstance(extra_options[key], list))
             self.assertTrue(len(extra_options[key]), 3)
 
-    class_regex = re.compile("^class (.*)\(.*", re.M)
+    class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
     self.log.debug("easyblock: %s" % easyblock)
 
@@ -136,7 +136,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     if re.search('def prepare_step', txt):
         regex = re.compile(r"def prepare_step\(self, \*args, \*\*kwargs\):")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
-    if re.search('\.prepare_step\(', txt):
+    if re.search(r'\.prepare_step\(', txt):
         regex = re.compile(r"\.prepare_step\(.*\*args,.*\*\*kwargs\.*\)")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
 
@@ -189,6 +189,10 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
 
 def suite():
     """Return all easyblock initialisation tests."""
+    def make_inner_test(easyblock, **kwargs):
+        def innertest(self):
+            template_init_test(self, easyblock, **kwargs)
+        return innertest
 
     # dynamically generate a separate test for each of the available easyblocks
     easyblocks_path = get_paths_for("easyblocks")[0]
@@ -199,14 +203,12 @@ def suite():
         # dynamically define new inner functions that can be added as class methods to InitTest
         if os.path.basename(easyblock) == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            code = "def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock
+            innertest = make_inner_test(easyblock, name='GCC', version='system')
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            code = "def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock
+            innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
         else:
-            code = "def innertest(self): template_init_test(self, '%s')" % easyblock
-
-        exec(code, globals())
+            innertest = make_inner_test(easyblock)
 
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))

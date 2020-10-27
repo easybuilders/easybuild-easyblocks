@@ -1,3 +1,5 @@
+.. image:: https://github.com/easybuilders/easybuild-easyblocks/workflows/easyblocks%20unit%20tests/badge.svg?branch=develop
+
 .. image:: https://easybuilders.github.io/easybuild/images/easybuild_logo_small.png
    :align: center
 
@@ -32,15 +34,3 @@ Related Python packages:
     with the latest compatible versions of the easybuild-framework and easybuild-easyblocks packages
   * GitHub repository: https://github.com/easybuilders/easybuild-easyconfigs
   * PyPi: https://pypi.python.org/pypi/easybuild-easyconfigs
-
-*Build status overview:*
-
-* **master** branch:
-
-  .. image:: https://travis-ci.org/easybuilders/easybuild-easyblocks.svg?branch=master
-      :target: https://travis-ci.org/easybuilders/easybuild-easyblocks/branches
-
-* **develop** branch:
-
-  .. image:: https://travis-ci.org/easybuilders/easybuild-easyblocks.svg?branch=develop
-      :target: https://travis-ci.org/easybuilders/easybuild-easyblocks/branches

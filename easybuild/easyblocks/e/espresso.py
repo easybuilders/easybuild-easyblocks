@@ -18,8 +18,6 @@ EasyBuild support for building and installing ESPResSo, implemented as an easybl
 """
 import os
 
-import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
@@ -46,7 +44,7 @@ class EB_ESPResSo(ConfigureMake):
         """Custom built-in test procedure for ESPResSo, parallel version."""
 
         if self.cfg['runtest']:
-            cmd = './runtest.sh -p 2 *.tcl'  
+            cmd = './runtest.sh -p 2 *.tcl'
             (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, path="testsuite")
 
             if ec:
@@ -58,15 +56,15 @@ class EB_ESPResSo(ConfigureMake):
 
     def install_step(self):
         """Build is done in install dir, so no separate install step."""
-        pass 
+        pass
 
     def sanity_check_step(self):
         """Custom sanity check for ESPResSo."""
 
         custom_paths = {
-                        'files' : [os.path.join(self.install_subdir, 'Espresso')],
-                        'dirs'  : [os.path.join(self.install_subdir, x) for x in ['samples', 'scripts', 'tools']],
-                       }
+            'files': [os.path.join(self.install_subdir, 'Espresso')],
+            'dirs': [os.path.join(self.install_subdir, x) for x in ['samples', 'scripts', 'tools']],
+        }
 
         super(EB_ESPResSo, self).sanity_check_step(custom_paths=custom_paths)
 

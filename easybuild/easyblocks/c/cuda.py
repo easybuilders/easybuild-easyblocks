@@ -1,7 +1,8 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University, Forschungszentrum Juelich GmbH
+# Copyright:: Copyright 2012-2019 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University,
+#             Forschungszentrum Juelich GmbH
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste, Damian Alvarez
 # License::   MIT/GPL
 # $Id$
@@ -21,7 +22,6 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Ward Poelmans (Free University of Brussels)
 """
 import os
-import re
 import stat
 
 from distutils.version import LooseVersion
@@ -29,7 +29,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush, read_file, which, write_file
+from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
+from easybuild.tools.filetools import remove_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
@@ -100,6 +101,22 @@ class EB_CUDA(Binary):
             self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
                             self.installdir, self.installdir))
 
+        if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
+            # Workaround for
+            # https://devtalk.nvidia.com/default/topic/1063995/cuda-setup-and-installation/cuda-10-1-243-10-1-update-2-ppc64le-run-file-installation-issue/
+            install_script = " && ".join([
+                "mkdir -p %(installdir)s/targets/ppc64le-linux/include",
+                "([ -e %(installdir)s/include ] || ln -s targets/ppc64le-linux/include %(installdir)s/include)",
+                "cp -r %(builddir)s/builds/cublas/src %(installdir)s/.",
+                install_script
+            ]) % {
+                'installdir': self.installdir,
+                'builddir': self.builddir
+            }
+
+        # Use C locale to avoid localized questions and crash on CUDA 10.1
+        self.cfg.update('preinstallopts', "export LANG=C && ")
+
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
             'interpreter': install_interpreter,
@@ -130,9 +147,18 @@ class EB_CUDA(Binary):
         if 'DISPLAY' in os.environ:
             os.environ.pop('DISPLAY')
 
-        # overriding maxhits default value to 300 (300s wait for nothing to change in the output without seeing a known
-        # question)
-        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=300)
+        # cuda-installer creates /tmp/cuda-installer.log (ignoring TMPDIR)
+        # Try to remove it before running the installer.
+        # This will fail with a usable error if it can't be removed
+        # instead of segfaulting in the cuda-installer.
+        remove_file('/tmp/cuda-installer.log')
+
+        # overriding maxhits default value to 1000 (seconds to wait for nothing to change in the output
+        # without seeing a known question)
+        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=1000)
+
+        # Remove the cuda-installer log file
+        remove_file('/tmp/cuda-installer.log')
 
         # check if there are patches to apply
         if len(self.src) > 1:
@@ -177,11 +203,6 @@ class EB_CUDA(Binary):
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
-
-        if LooseVersion(self.version) > LooseVersion("9"):
-            versionfile = read_file(os.path.join(self.installdir, "version.txt"))
-            if not re.search("Version %s$" % self.version, versionfile):
-                raise EasyBuildError("Unable to find the correct version (%s) in the version.txt file", self.version)
 
         shlib_ext = get_shared_lib_ext()
 

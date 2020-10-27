@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,6 +47,12 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_netCDF(CMakeMake):
     """Support for building/installing netCDF"""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Configure build: set config options and configure"""
 
@@ -62,25 +68,46 @@ class EB_netCDF(CMakeMake):
             self.cfg.update('configopts', 'FCFLAGS="%s" CC="%s" FC="%s"' % tup)
 
             # add -DgFortran to CPPFLAGS when building with GCC
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
 
             ConfigureMake.configure_step(self)
 
         else:
-            self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG " ')
-            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z')]:
+            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
+                                   ('PnetCDF', 'pnetcdf')]:
                 dep_root = get_software_root(dep)
                 dep_libdir = get_software_libdir(dep)
+
                 if dep_root:
                     incdir = os.path.join(dep_root, 'include')
                     self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s ' % (dep.upper(), incdir))
+
                     if dep == 'HDF5':
                         env.setvar('HDF5_ROOT', dep_root)
-                        libhdf5 = os.path.join(dep_root, dep_libdir, 'libhdf5.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_LIB=%s ' % libhdf5)
-                        libhdf5_hl = os.path.join(dep_root, dep_libdir, 'libhdf5_hl.%s' % shlib_ext)
-                        self.cfg.update('configopts', '-DHDF5_HL_LIB=%s ' % libhdf5_hl)
+                        self.cfg.update('configopts', '-DUSE_HDF5=ON')
+
+                        hdf5cmvars = {
+                            # library name: (cmake option suffix in netcdf<4.4, cmake option suffix in netcfd>=4.4)
+                            'hdf5': ('LIB', 'C_LIBRARY'),
+                            'hdf5_hl': ('HL_LIB', 'HL_LIBRARY'),
+                        }
+
+                        for libname in hdf5cmvars:
+                            if LooseVersion(self.version) < LooseVersion("4.4"):
+                                cmvar = hdf5cmvars[libname][0]
+                            else:
+                                cmvar = hdf5cmvars[libname][1]
+                            libhdf5 = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
+                            self.cfg.update('configopts', '-DHDF5_%s=%s ' % (cmvar, libhdf5))
+                            # 4.4 forgot to set HDF5_<lang>_LIBRARIES
+                            if LooseVersion(self.version) == LooseVersion("4.4.0"):
+                                lang = 'HL' if cmvar[0] == 'H' else 'C'
+                                self.cfg.update('configopts', '-DHDF5_%s_LIBRARIES=%s ' % (lang, libhdf5))
+
+                    elif dep == 'PnetCDF':
+                        self.cfg.update('configopts', '-DENABLE_PNETCDF=ON')
+
                     else:
                         libso = os.path.join(dep_root, dep_libdir, 'lib%s.%s' % (libname, shlib_ext))
                         self.cfg.update('configopts', '-D%s_LIBRARY=%s ' % (dep.upper(), libso))
@@ -99,20 +126,23 @@ class EB_netCDF(CMakeMake):
         # since v4.2, the non-C libraries have been split off in seperate extensions_step
         # see netCDF-Fortran and netCDF-C++
         if LooseVersion(self.version) < LooseVersion("4.2"):
-            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]] + \
-                    ["ncvalues.h", "typesizes.mod"]
+            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]]
+            incs += ["ncvalues.h", "typesizes.mod"]
             libs += ["libnetcdf_c++.%s" % shlib_ext, "libnetcdff.%s" % shlib_ext,
                      "libnetcdf_c++.a", "libnetcdff.a"]
+        binaries = ["nc%s" % x for x in ["-config", "copy", "dump", "gen", "gen3"]]
 
         custom_paths = {
-                        'files': ["bin/nc%s" % x for x in ["-config", "copy", "dump",
-                                                          "gen", "gen3"]] +
-                                 [("lib/%s" % x, "lib64/%s" % x) for x in libs] +
-                                 ["include/%s" % x for x in incs],
-                        'dirs': []
-                       }
+            'files': (
+                [os.path.join("bin", x) for x in binaries] +
+                [os.path.join("lib", x) for x in libs] +
+                [os.path.join("include", x) for x in incs]
+            ),
+            'dirs': []
+        }
 
         super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+
 
 def set_netcdf_env_vars(log):
     """Set netCDF environment variables used by other software."""

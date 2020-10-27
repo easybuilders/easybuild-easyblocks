@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -93,10 +94,19 @@ class EB_VEP(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""
+
         custom_paths = {
             'files': ['vep'],
             'dirs': ['modules/Bio/EnsEMBL/VEP'],
         }
+
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_majver = get_major_perl_version()
+            perl_ver = get_software_version('Perl')
+            perl_libpath = os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)
+            bio_ensembl_xs_ext = os.path.join(perl_libpath, 'x86_64-linux-thread-multi', 'Bio', 'EnsEMBL', 'XS.pm')
+            custom_paths['files'].extend([bio_ensembl_xs_ext])
+
         custom_commands = ['vep --help']
 
         super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
@@ -105,9 +115,14 @@ class EB_VEP(EasyBlock):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
+        perl_libpath = [self.api_mods_subdir]
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_ver = get_software_version('Perl')
+            perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
+
         guesses = super(EB_VEP, self).make_module_req_guess()
         guesses = {
             'PATH': '',
-            'PERL%sLIB' % perl_majver: self.api_mods_subdir,
+            'PERL%sLIB' % perl_majver: perl_libpath,
         }
         return guesses

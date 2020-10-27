@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_libQGLViewer(ConfigureMake):
     """Support for building/installing libQGLViewer."""
 
@@ -39,7 +40,7 @@ class EB_libQGLViewer(ConfigureMake):
         """Custom configuration procedure for libQGLViewer: qmake PREFIX=/install/path ..."""
 
         cmd = "%(preconfigopts)s qmake PREFIX=%(installdir)s %(configopts)s" % {
-            'preconfigopts': self.cfg['preconfigopts'],            
+            'preconfigopts': self.cfg['preconfigopts'],
             'installdir': self.installdir,
             'configopts': self.cfg['configopts'],
         }
@@ -48,9 +49,10 @@ class EB_libQGLViewer(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for libQGLViewer."""
         shlib_ext = get_shared_lib_ext()
-        
+
         custom_paths = {
             'files': [('lib/libQGLViewer.prl', 'lib64/libQGLViewer.prl'),
-		      ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
+                      ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
             'dirs': ['include/QGLViewer'],
         }
+        super(EB_libQGLViewer, self).sanity_check_step(custom_paths=custom_paths)

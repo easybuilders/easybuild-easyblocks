@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2019 Ghent University
+# Copyright 2015-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -101,7 +101,8 @@ class GeneralEasyblockTest(TestCase):
 
         # determine path to where easybuild.framework is imported from, so we can hard set $PYTHONPATH
         # this is required to dance around issues with easy-install.pth files determining the actual Python search path
-        # see also http://blog.olgabotvinnik.com/blog/2014/03/03/2014-03-03-pythonpath-is-a-liar-site-py-and-easy-install-pth-tell/
+        # see also
+        # http://blog.olgabotvinnik.com/blog/2014/03/03/2014-03-03-pythonpath-is-a-liar-site-py-and-easy-install-pth-tell/
         import easybuild.framework
         framework_path = up(easybuild.framework.__file__, 3)
 
