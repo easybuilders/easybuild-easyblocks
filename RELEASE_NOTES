@@ -3,7 +3,44 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 224 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 225 software-specific easyblocks and 37 generic easyblocks.
+
+v4.3.1 (October 30th 2020)
+--------------------------
+
+update/bugfix release
+
+- 2 new software-specific easyblocks:
+  - CFDEMcoupling (#1439), NVHPC (aka PGI) (#2190)
+- minor enhancements, including:
+  - support having PyQt5 installed as part of Qt5 in QScintilla easyblock (#2040)
+  - update TensorFlow easyblock to put Bazel build files in build directory + avoid unnecessary runtime patching (#2166)
+  - update CBLAS easyblock for toolchains that include imkl (#2175)
+  - add workaround for duplicate prefix path in Eigen CMake config (#2176)
+  - enable CTEST_OUTPUT_ON_FAILURE for CMake test_step (#2181)
+  - add XLA build support to TensorFlow easyblock (#2182)
+  - also consider libfabric dep (--with-ofi) when setting default OpenMPI configure options (#2184)
+  - make easyblock for installing CMake aware of --sysroot (#2187)
+  - make OpenBLAS respect the parallelism set by easybuild (#2191)
+  - handle option of building Michigan State University CCT3 & CCSD3A methods in GAMESS_US easyblock (#2194)
+  - add support to RubyGem easyblock for installing zipped gems (#2203)
+  - update ScaLAPACK easyblock to support installation with CMake for recent versions (>= v2.1.0) (#2205)
+  - add support for NVHPC toolchain in Score-P easyblock (#2206)
+- various bug fixes, including:
+  - add torch/lib subdirectory in Python lib dir to $LD_LIBRARY_PATH for PyTorch installations  (#2183)
+  - update MUMmer easyblock to use apply_regex_substitutions and copy_file functions (#2185)
+  - configure OpenMPI 4.x with --without-verbs when using UCX (#2188)
+  - take into account that zlib may be listed in --filter-deps in custom easyblock for XML R package (#2189)
+  - add sanity check commands to clang and print warning for missing ncurses (#2193)
+  - enhance OpenFOAM easyblock to add symlinks for libraries to ensure 'mpi' versions have preference over 'dummy' versions (#2196)
+  - leverage installed OpenSSL/BoringSSL when cURL is used as a dependency for TensorFlow (#2197)
+  - add -ffree-line-length-none to gfortran flags in Siesta easyblock (#2204)
+  - respect --disable-mpi-tests in Siesta easyblock (#2207)
+  - only enable CUDA in LAMMPS if it is an explicit dep + add support for building for NVIDIA Ampere GPUs (#2208)
+- other changes, including:
+  - set $EB_INSTALLPYTHON in module generated for EasyBuild rather than setting $EB_PYTHON, to allow overriding Python command to be used for running EasyBuild with $EB_PYTHON (#2109)
+  - remove unused custom easyblock for DIRAC (#2192, #2198)
+
 
 v4.3.0 (September 13th 2020)
 ----------------------------
