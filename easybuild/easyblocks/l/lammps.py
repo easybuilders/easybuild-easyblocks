@@ -77,7 +77,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
-    'INTEL_GEN',  #Intel GPUs Gen9+
+    'INTEL_GEN',  # Intel GPUs Gen9+
 ]
 
 KOKKOS_CPU_MAPPING = {
