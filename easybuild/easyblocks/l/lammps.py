@@ -44,19 +44,40 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
 KOKKOS_CPU_ARCH_LIST = [
-    'ARMv80',  # ARMv8.0 Compatible CPU
-    'ARMv81',  # ARMv8.1 Compatible CPU
-    'ARMv8-ThunderX',  # ARMv8 Cavium ThunderX CPU
-    'BGQ',  # IBM Blue Gene/Q CPUs
-    'Power8',  # IBM POWER8 CPUs
-    'Power9',  # IBM POWER9 CPUs
-    'SNB',  # Intel Sandy/Ivy Bridge CPUs
-    'HSW',  # Intel Haswell CPUs
-    'BDW',  # Intel Broadwell Xeon E-class CPUs
-    'SKX',  # Intel Sky Lake Xeon E-class HPC CPUs (AVX512)
+    'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
+    'ZEN',  # AMD Zen class CPU (AVX 2)
+    'ZEN2',  # AMD Zen2 class CPU (AVX 2)
+    'ARMV80',  # ARMv8.0 Compatible CPU
+    'ARMV81',  # ARMv8.1 Compatible CPU
+    'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
+    'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
+    'WSM',  # Intel Westmere CPU (SSE 4.2)
+    'SNB',  # Intel Sandy/Ivy Bridge CPU (AVX 1)
+    'HSW',  # Intel Haswell CPU (AVX 2)
+    'BDW',  # Intel Broadwell Xeon E-class CPU (AVX 2 + transactional mem)
+    'SKX',  # Intel Sky Lake Xeon E-class HPC CPU (AVX512 + transactional mem)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
-    'EPYC',  # AMD EPYC Zen-Core CPU
+    'BGQ',  # IBM Blue Gene/Q CPU
+    'POWER7',  # IBM POWER7 CPU
+    'POWER8',  # IBM POWER8 CPU
+    'POWER9',  # IBM POWER9 CPU
+    'KEPLER30',  # NVIDIA Kepler generation CC 3.0 GPU
+    'KEPLER32',  # NVIDIA Kepler generation CC 3.2 GPU
+    'KEPLER35',  # NVIDIA Kepler generation CC 3.5 GPU
+    'KEPLER37',  # NVIDIA Kepler generation CC 3.7 GPU
+    'MAXWELL50',  # NVIDIA Maxwell generation CC 5.0 GPU
+    'MAXWELL52',  # NVIDIA Maxwell generation CC 5.2 GPU
+    'MAXWELL53',  # NVIDIA Maxwell generation CC 5.3 GPU
+    'PASCAL60',  # NVIDIA Pascal generation CC 6.0 GPU
+    'PASCAL61',  # NVIDIA Pascal generation CC 6.1 GPU
+    'VOLTA70',  # NVIDIA Volta generation CC 7.0 GPU
+    'VOLTA72',  # NVIDIA Volta generation CC 7.2 GPU
+    'TURING75',  # NVIDIA Turing generation CC 7.5 GPU
+    'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
+    'VEGA900',  # AMD GPU MI25 GFX900
+    'VEGA906',  # AMD GPU MI50/MI60 GFX906
+    'INTEL_GEN',  #Intel GPUs Gen9+
 ]
 
 KOKKOS_CPU_MAPPING = {
@@ -67,24 +88,25 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'knights-landing': 'KNL',
-    'zen': 'EPYC',
-    'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
+    'zen': 'ZEN',
+    'zen2': 'ZEN2',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
 }
 
 
 KOKKOS_GPU_ARCH_TABLE = {
-    '3.0': 'Kepler30',  # NVIDIA Kepler generation CC 3.0
-    '3.2': 'Kepler32',  # NVIDIA Kepler generation CC 3.2
-    '3.5': 'Kepler35',  # NVIDIA Kepler generation CC 3.5
-    '3.7': 'Kepler37',  # NVIDIA Kepler generation CC 3.7
-    '5.0': 'Maxwell50',  # NVIDIA Maxwell generation CC 5.0
-    '5.2': 'Maxwell52',  # NVIDIA Maxwell generation CC 5.2
-    '5.3': 'Maxwell53',  # NVIDIA Maxwell generation CC 5.3
-    '6.0': 'Pascal60',  # NVIDIA Pascal generation CC 6.0
-    '6.1': 'Pascal61',  # NVIDIA Pascal generation CC 6.1
-    '7.0': 'Volta70',  # NVIDIA Volta generation CC 7.0
-    '7.2': 'Volta72',  # NVIDIA Volta generation CC 7.2
-    '7.5': 'Turing75',  # NVIDIA Turing generation CC 7.5
+    '3.0': 'KEPLER30',  # NVIDIA Kepler generation CC 3.0
+    '3.2': 'KEPLER32',  # NVIDIA Kepler generation CC 3.2
+    '3.5': 'KEPLER35',  # NVIDIA Kepler generation CC 3.5
+    '3.7': 'KEPLER37',  # NVIDIA Kepler generation CC 3.7
+    '5.0': 'MAXWELL50',  # NVIDIA Maxwell generation CC 5.0
+    '5.2': 'MAXWELL52',  # NVIDIA Maxwell generation CC 5.2
+    '5.3': 'MAXWELL53',  # NVIDIA Maxwell generation CC 5.3
+    '6.0': 'PASCAL60',  # NVIDIA Pascal generation CC 6.0
+    '6.1': 'PASCAL61',  # NVIDIA Pascal generation CC 6.1
+    '7.0': 'VOLTA70',  # NVIDIA Volta generation CC 7.0
+    '7.2': 'VOLTA72',  # NVIDIA Volta generation CC 7.2
+    '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
+    '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
 }
 
 PKG_PREFIX = 'PKG_'
@@ -95,6 +117,14 @@ class EB_LAMMPS(CMakeMake):
     """
     Support for building and installing LAMMPS
     """
+
+    def __init__(self, *args, **kwargs):
+        """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
+        super(EB_LAMMPS, self).__init__(*args, **kwargs)
+
+        cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
+        cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+        self.cuda = cuda_dep or cuda_toolchain
 
     @staticmethod
     def extra_options(**kwargs):
@@ -116,19 +146,21 @@ class EB_LAMMPS(CMakeMake):
         super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
-        if self.cfg['kokkos'] and get_software_root('CUDA'):
+        if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
 
-        cuda = get_software_root('CUDA')
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         ec_cuda_cc = self.cfg['cuda_compute_capabilities']
         cfg_cuda_cc = build_option('cuda_compute_capabilities')
-        cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc)
+        if cfg_cuda_cc and not isinstance(cfg_cuda_cc, list):
+            raise EasyBuildError("cuda_compute_capabilities in easyconfig should be provided as list of strings, " +
+                                 "(for example ['8.0', '7.5']). Got %s" % cfg_cuda_cc)
+        cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=self.cuda)
 
         # cmake has its own folder
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
@@ -161,7 +193,7 @@ class EB_LAMMPS(CMakeMake):
         if '-DDOWNLOAD_EIGEN3=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DDOWNLOAD_EIGEN3=no')
 
-        # Compiler complains about 'Eigen3_DIR' not beeing set, but acutally it needs 'EIGEN3_INCLUDE_DIR'.
+        # Compiler complains about 'Eigen3_DIR' not being set, but actually it needs 'EIGEN3_INCLUDE_DIR'.
         # see: https://github.com/lammps/lammps/issues/1110
         # Enable Eigen when its included as dependency dependency:
         eigen_root = get_software_root('Eigen')
@@ -214,22 +246,24 @@ class EB_LAMMPS(CMakeMake):
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
         if self.cfg['kokkos']:
+            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
+
+            processor_arch, gpu_arch = get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
 
             if self.toolchain.options.get('openmp', None):
-                self.cfg.update('configopts', '-DKOKKOS_ENABLE_OPENMP=yes')
-
-            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
-            self.cfg.update('configopts', '-DKOKKOS_ARCH="%s"' % get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch']))
+                self.cfg.update('configopts', '-DKokkos_ENABLE_OPENMP=yes')
+                self.cfg.update('configopts', '-DKokkos_ARCH_%s=yes' % processor_arch)
 
             # if KOKKOS and CUDA
-            if cuda:
+            if self.cuda:
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
-                self.cfg.update('configopts', '-DKOKKOS_ENABLE_CUDA=yes')
+                self.cfg.update('configopts', '-DKokkos_ENABLE_CUDA=yes')
+                self.cfg.update('configopts', '-DKokkos_ARCH_%s=yes' % gpu_arch)
                 self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                 self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
 
         # CUDA only
-        elif cuda:
+        elif self.cuda:
             self.cfg.update('configopts', '-D%sGPU=on' % PKG_PREFIX)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
@@ -303,13 +337,15 @@ def get_cuda_gpu_arch(cuda_cc):
     return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
 
 
-def get_kokkos_arch(cuda_cc, kokkos_arch):
+def get_kokkos_arch(cuda_cc, kokkos_arch, cuda=None):
     """
-    Return KOKKOS ARCH in LAMMPS required format, which is either 'CPU_ARCH' or 'CPU_ARCH;GPU_ARCH'.
+    Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
 
     see: https://lammps.sandia.gov/doc/Build_extras.html#kokkos
     """
-    cuda = get_software_root('CUDA')
+    if cuda is None or not isinstance(cuda, bool):
+        cuda = get_software_root('CUDA')
+
     processor_arch = None
 
     if kokkos_arch:
@@ -332,9 +368,9 @@ def get_kokkos_arch(cuda_cc, kokkos_arch):
 
         print_msg("Determined cpu arch: %s" % processor_arch)
 
+    gpu_arch = None
     if cuda:
         # CUDA below
-        gpu_arch = None
         for cc in sorted(cuda_cc, reverse=True):
             gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
             if gpu_arch:
@@ -348,24 +384,22 @@ def get_kokkos_arch(cuda_cc, kokkos_arch):
             error_msg += "was not found in listed options [%s]." % KOKKOS_GPU_ARCH_TABLE
             raise EasyBuildError(error_msg)
 
-        kokkos_arch = "%s;%s" % (processor_arch, gpu_arch)
-
-    else:
-        kokkos_arch = processor_arch
-
-    return kokkos_arch
+    return processor_arch, gpu_arch
 
 
-def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc):
+def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=None):
     """
     Checks if cuda-compute-capabilities is set and prints warning if it gets declared on multiple places.
 
     :param cfg_cuda_cc: cuda-compute-capabilities from cli config
     :param ec_cuda_cc: cuda-compute-capabilities from easyconfig
+    :param cuda: boolean to check if cuda should be enabled or not
     :return: returns preferred cuda-compute-capabilities
     """
 
-    cuda = get_software_root('CUDA')
+    if cuda is None or not isinstance(cuda, bool):
+        cuda = get_software_root('CUDA')
+
     cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
 
     if cuda:
