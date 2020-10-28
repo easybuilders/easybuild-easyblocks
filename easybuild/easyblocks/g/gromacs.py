@@ -329,7 +329,7 @@ class EB_GROMACS(CMakeMake):
             if get_software_root('imkl'):
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' %
-                    os.path.join(os.getenv('MKLROOT'), 'include'))
+                                os.path.join(os.getenv('MKLROOT'), 'include'))
                 libs = os.getenv('LAPACK_STATIC_LIBS').split(',')
                 mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in libs if lib != 'libgfortran.a']
                 mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group -lpthread -lm -ldl']
