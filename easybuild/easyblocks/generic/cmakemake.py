@@ -242,3 +242,9 @@ class CMakeMake(ConfigureMake):
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
+
+    def test_step(self):
+        """CMake specific test setup"""
+        # When using ctest for tests (default) then show verbose output if a test fails
+        setvar('CTEST_OUTPUT_ON_FAILURE', 'True')
+        super(CMakeMake, self).test_step()

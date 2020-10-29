@@ -50,12 +50,16 @@ class EB_QScintilla(ConfigureMake):
 
         pyqt5 = get_software_root('PyQt5')
         pyqt = get_software_root('PyQt')
+        qt5 = get_software_root('Qt5')
         if pyqt5:
             self.pyqt_root = pyqt5
             self.pyqt_pkg_name = "PyQt5"
         elif pyqt:
             self.pyqt_root = pyqt
             self.pyqt_pkg_name = "PyQt4"
+        elif qt5:
+            self.pyqt_root = qt5
+            self.pyqt_pkg_name = "PyQt5"
         else:
             raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
 
