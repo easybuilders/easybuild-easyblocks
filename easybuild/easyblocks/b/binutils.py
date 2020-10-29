@@ -125,6 +125,7 @@ class EB_binutils(ConfigureMake):
         # we should *not* use the value of the EasyBuild --sysroot configuration option here,
         # since that leads to weird errors where the sysroot path is duplicated, like:
         #   /bin/ld.gold: error: cannot open /<sysroot>/<sysroot>/lib64/libc.so.6: No such file or directory
+        # (see also https://gcc.gnu.org/legacy-ml/gcc-help/2006-08/msg00212.html)
         self.cfg.update('configopts', '--with-sysroot=/')
 
         # build both static and shared libraries for recent binutils versions (default is only static)
