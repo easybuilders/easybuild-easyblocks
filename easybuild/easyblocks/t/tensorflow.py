@@ -421,10 +421,21 @@ class EB_TensorFlow(PythonPackage):
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
+        # determine location where binutils commands (ar, as, ld, nm, ...) are installed (and double check to be sure)
         binutils_root = get_software_root('binutils')
-        if not binutils_root:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
-        self.binutils_bin_path = os.path.join(binutils_root, 'bin')
+        if binutils_root:
+            self.binutils_bin_path = os.path.join(binutils_root, 'bin')
+        else:
+            sysroot = build_option('sysroot') or '/'
+            self.binutils_bin_path = os.path.join(sysroot, 'usr', 'bin')
+
+        missing_cmds = []
+        for cmd in ['ar', 'as', 'ld', 'nm']:
+            if not os.path.exists(os.path.join(self.binutils_bin_path, cmd)):
+                missing_cmds.append(cmd)
+        if missing_cmds:
+            raise EasyBuildError("One or more binutils commands not found in %s: %s",
+                                 self.binutils_bin_path, ', '.join(missing_cmds))
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
