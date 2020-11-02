@@ -424,9 +424,7 @@ class EB_TensorFlow(PythonPackage):
         # determine location where binutils' ld command is installed
         # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
         ld_path = which('ld')
-        self.log.info("Found ld at %s", ld_path)
         self.binutils_bin_path = os.path.dirname(ld_path)
-        self.log.info("Assuming that all binutils tools are located at %s", self.binutils_bin_path)
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
