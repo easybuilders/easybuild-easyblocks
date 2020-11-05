@@ -74,12 +74,12 @@ class EB_Metagenome_minus_Atlas_Bundle(PythonBundle):
         adjust_permissions(slurm_status, stat.S_IXUSR)
 
 
-CLUSTER_CONFIG_FILE_TEXT = """
+CLUSTER_CONFIG_FILE_TEXT = r"""
 __default__:
   nodes: 1
 """
 
-CONFIG_FILE_TEXT = """
+CONFIG_FILE_TEXT = r"""
 restart-times: 0
 cluster-config: "%s" #abs path
 cluster: "scheduler.py" #
@@ -92,7 +92,7 @@ rerun-incomplete: true  # recomended for cluster submissions
 keep-going: false
 """
 
-KEY_MAPPING_TEXT = """
+KEY_MAPPING_TEXT = r"""
 # only parameters defined in key_mapping (see below) are passed to the command in the order specified.
 system: "slurm" #check if system is defined below
 
@@ -128,7 +128,7 @@ lsf:
 # for other cluster systems see: https://slurm.schedmd.com/rosetta.pdf
 """
 
-LSF_STATUS_TEXT = """
+LSF_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
 import os
@@ -152,7 +152,7 @@ map_state={"PEND":'running',
 print(map_state.get(state,'failed'))
 """
 
-PBS_STATUS_TEXT = """
+PBS_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
 import sys
@@ -181,7 +181,7 @@ except (subprocess.CalledProcessError, IndexError, KeyboardInterrupt) as e:
     print("failed")
 """
 
-SCHEDULER_TEXT = """
+SCHEDULER_TEXT = r"""
 #!/usr/bin/env python3
 
 import sys, os
@@ -262,7 +262,7 @@ else:
     print(jobid)
 """
 
-SLURM_STATUS_TEXT = """
+SLURM_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
 import re
