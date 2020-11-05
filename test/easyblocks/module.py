@@ -231,7 +231,7 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
             # $JAVA_HOME must be set for IMOD
             os.environ['JAVA_HOME'] = tmpdir
 
-        elif app_class == PythonBundle:
+        elif app_class == PythonBundle or PythonBundle in bases:
             # $EBROOTPYTHON must be set for PythonBundle easyblock
             os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
 
