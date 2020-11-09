@@ -170,10 +170,10 @@ class CMakeMake(ConfigureMake):
         # and enable using absolute paths to compiler commands to avoid
         # that CMake picks up compiler from sysroot rather than toolchain compiler...
         sysroot = build_option('sysroot')
-        if sysroot:
-            options.append('-DCMAKE_SYSROOT=%s' % sysroot)
-            self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
-            self.cfg['abs_path_compilers'] = True
+        #if sysroot:
+        #    options.append('-DCMAKE_SYSROOT=%s' % sysroot)
+        #    self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
+        #    self.cfg['abs_path_compilers'] = True
 
         # Set flag for shared libs if requested
         # Not adding one allows the project to choose a default
