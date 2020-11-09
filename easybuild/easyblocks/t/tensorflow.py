@@ -148,7 +148,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('NASM', '2.0.0:'): 'nasm',
         ('nsync', '2.0.0:'): 'nsync',
         ('PCRE', '2.0.0:'): 'pcre',
-        ('protobuf-python', '2.0.0:'): 'com_google_protobuf',
+        ('protobuf', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
         ('snappy', '2.0.0:'): 'snappy',
         ('SQLite', '2.0.0:'): 'org_sqlite',
@@ -177,6 +177,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('enum', '2.0.0:'): 'enum34_archive',  # Part of Python3
         ('functools', '2.0.0:'): 'functools32_archive',  # Part of Python3
         ('gast', '2.0.0:'): 'gast_archive',
+        ('google.protobuf', '2.0.0:'): 'com_google_protobuf',
         ('keras_applications', '2.0.0:2.2.0'): 'keras_applications_archive',
         ('opt_einsum', '2.0.0:'): 'opt_einsum_archive',
         ('pasta', '2.0.0:'): 'pasta',
@@ -348,6 +349,9 @@ class EB_TensorFlow(PythonPackage):
         Returns a tuple of lists: $TF_SYSTEM_LIBS names, include paths, library paths
         """
         dependency_mapping, python_mapping = get_system_libs_for_version(self.version)
+        # Some TF dependencies require both a (usually C++) dependency and a Python package
+        deps_with_python_pkg = set(tf_name for tf_name in dependency_mapping.values()
+                                   if tf_name in python_mapping.values())
 
         system_libs = []
         cpaths = []
@@ -358,15 +362,17 @@ class EB_TensorFlow(PythonPackage):
         dep_names = set(dep['name'] for dep in self.cfg.dependencies())
         for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
+                if tf_name in deps_with_python_pkg:
+                    pkg_name = next(cur_pkg_name for cur_pkg_name, cur_tf_name in python_mapping.items()
+                                    if cur_tf_name == tf_name)
+                    # Simply ignore. Error reporting is done in the other loop
+                    if not self.python_pkg_exists(pkg_name):
+                        continue
                 system_libs.append(tf_name)
                 # When using cURL (which uses the system OpenSSL), we also need to use "boringssl"
                 # which essentially resolves to using OpenSSL as the API and library names are compatible
                 if dep_name == 'cURL':
                     system_libs.append('boringssl')
-                # For protobuf we need protobuf and protobuf-python where the latter depends on the former
-                # For includes etc. we need to get the values from protobuf
-                if dep_name == 'protobuf-python':
-                    dep_name = 'protobuf'
                 sw_root = get_software_root(dep_name)
                 # Dependency might be filtered via --filter-deps. In that case assume globally installed version
                 if not sw_root:
@@ -390,7 +396,9 @@ class EB_TensorFlow(PythonPackage):
 
         for pkg_name, tf_name in sorted(python_mapping.items(), key=lambda i: i[0].lower()):
             if self.python_pkg_exists(pkg_name):
-                system_libs.append(tf_name)
+                # If it is in deps_with_python_pkg we already added it
+                if tf_name not in deps_with_python_pkg:
+                    system_libs.append(tf_name)
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
