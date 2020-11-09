@@ -53,7 +53,7 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
 
 
-EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
+EXTS_FILTER_PYTHON_PACKAGES = ('PYTHONNOUSERSITE=1 python -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
