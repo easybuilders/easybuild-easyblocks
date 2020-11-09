@@ -152,7 +152,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('pybind11', '2.2.0:'): 'pybind11',
         ('snappy', '2.0.0:'): 'snappy',
         ('SQLite', '2.0.0:'): 'org_sqlite',
-        ('SWIG', '2.0.0:'): 'swig',
+        ('SWIG', '2.0.0:2.4.0'): 'swig',
         ('zlib', '2.0.0:2.2.0'): 'zlib_archive',
         ('zlib', '2.2.0:'): 'zlib',
     }
@@ -174,7 +174,9 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('astor', '2.0.0:'): 'astor_archive',
         ('astunparse', '2.2.0:'): 'astunparse_archive',
         ('cython', '2.0.0:'): 'cython',  # Part of Python EC
+        ('dill', '2.4.0:'): 'dill_archive',
         ('enum', '2.0.0:'): 'enum34_archive',  # Part of Python3
+        ('flatbuffers', '2.4.0:'): 'flatbuffers',
         ('functools', '2.0.0:'): 'functools32_archive',  # Part of Python3
         ('gast', '2.0.0:'): 'gast_archive',
         ('google.protobuf', '2.0.0:'): 'com_google_protobuf',
@@ -182,7 +184,9 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('opt_einsum', '2.0.0:'): 'opt_einsum_archive',
         ('pasta', '2.0.0:'): 'pasta',
         ('six', '2.0.0:'): 'six_archive',  # Part of Python EC
+        ('tblib', '2.4.0:'): 'tblib_archive',
         ('termcolor', '2.0.0:'): 'termcolor_archive',
+        ('typing_extensions', '2.4.0:'): 'typing_extensions_archive',
         ('wrapt', '2.0.0:'): 'wrapt',
     }
     dependency_mapping = dict((dep_name, tf_name)
@@ -385,9 +389,12 @@ class EB_TensorFlow(PythonPackage):
                         # https://github.com/tensorflow/tensorflow/issues/42303
                         cpaths.append(sw_root)
                     if dep_name == 'protobuf':
-                        # Need to set INCLUDEDIR as TF wants to symlink headers from there:
-                        # https://github.com/tensorflow/tensorflow/issues/37835
-                        env.setvar('INCLUDEDIR', incpath)
+                        if LooseVersion(self.version) < LooseVersion('2.4'):
+                            # Need to set INCLUDEDIR as TF wants to symlink files from there:
+                            # https://github.com/tensorflow/tensorflow/issues/37835
+                            env.setvar('INCLUDEDIR', incpath)
+                        else:
+                            env.setvar('PROTOBUF_INCLUDE_PATH', incpath)
                 libpath = get_software_libdir(dep_name)
                 if libpath:
                     libpaths.append(os.path.join(sw_root, libpath))
