@@ -528,6 +528,15 @@ class EB_CP2K(EasyBlock):
         options['FCFLAGSOPT'] += ' $(DFLAGS) $(CFLAGS) -fmax-stack-var-size=32768'
         options['FCFLAGSOPT2'] += ' $(DFLAGS) $(CFLAGS)'
 
+        gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
+        if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('7.1'):
+            # -fallow-argument-mismatch is required for CP2K 7.1 (and older) when compiling with GCC 10.x & more recent,
+            # see https://github.com/cp2k/cp2k/issues/1157, https://github.com/cp2k/dbcsr/issues/351,
+            # https://github.com/cp2k/dbcsr/commit/58ee9709545deda8524cab804bf1f88a61a864ac and
+            # https://gcc.gnu.org/legacy-ml/gcc-patches/2019-10/msg01861.html
+            options['FCFLAGSOPT'] += ' -fallow-argument-mismatch'
+            options['FCFLAGSOPT2'] += ' -fallow-argument-mismatch'
+
         return options
 
     def configure_ACML(self, options):
