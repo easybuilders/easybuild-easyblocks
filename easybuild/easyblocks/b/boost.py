@@ -76,9 +76,10 @@ class EB_Boost(EasyBlock):
         extra_vars = {
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
             'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
-            'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
+            'extra_cxxflags': [None, "Extra C++ compiler flags to use", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
             'only_python_bindings': [False, "Only install Boost.Python library providing Python bindings", CUSTOM],
+            'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
             'use_glibcxx11_abi': [None, "Use the GLIBCXX11 ABI", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -198,8 +199,14 @@ class EB_Boost(EasyBlock):
                 cxxflags += '1'
             else:
                 cxxflags += '0'
+
+        extra_cxxflags = self.cfg.get('extra_cxxflags')
+        if extra_cxxflags:
+            cxxflags += ' ' + extra_cxxflags
+
         if cxxflags is not None:
             bjamoptions += " cxxflags='%s'" % cxxflags
+
         ldflags = os.getenv('LDFLAGS')
         if ldflags is not None:
             bjamoptions += " linkflags='%s'" % ldflags
