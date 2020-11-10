@@ -90,7 +90,7 @@ class EB_wxPython(PythonPackage):
             cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
                    'prefix': self.installdir,
                    'version': self.version,
-                   'pyver': pyver }
+                   'pyver': pyver}
         else:
             script = os.path.join('wxPython', 'build-wxpython.py')
             cmd = INSTALL_CMD % {
