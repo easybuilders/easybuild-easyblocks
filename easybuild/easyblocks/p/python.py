@@ -241,7 +241,11 @@ class EB_Python(ConfigureMake):
         # Enable further optimizations at the cost of a longer build
         # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
-            self.cfg.update('configopts', "--enable-optimizations")
+            # only configure with --enable-optimizations when compiling Python with (recent) GCC compiler
+            if self.toolchain.comp_family() == toolchain.GCC:
+                gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+                if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
+                    self.cfg.update('configopts', "--enable-optimizations")
 
         # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
         if LooseVersion(self.version) >= LooseVersion('3.4.0'):
