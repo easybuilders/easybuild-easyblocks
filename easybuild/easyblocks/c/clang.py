@@ -293,11 +293,11 @@ class EB_Clang(CMakeMake):
             cfg_cuda_cc = build_option('cuda_compute_capabilities')
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             if not cuda_cc:
-                raise EasyBuildError("Can't build Clang with CUDA support "\
+                raise EasyBuildError("Can't build Clang with CUDA support "
                                      "without specifying 'cuda-compute-capabilities'")
             default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
             if not self.cfg['default_cuda_capability']:
-                print_warning("No default CUDA capability defined! "\
+                print_warning("No default CUDA capability defined! "
                               "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             default_cc = default_cc.replace('.', '')
