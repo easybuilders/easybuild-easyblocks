@@ -284,31 +284,28 @@ class EB_Clang(CMakeMake):
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
 
-        # If 'NVPTX' is in the build targets we assume the user would like
-        # OpenMP offload support as well
+        # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
         if 'NVPTX' in build_targets:
-            # list of CUDA compute capabilities to use can be specifed in two
-            # ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom
-            # cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via
-            # --cuda-compute-capabilities configuration option;
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
             ec_cuda_cc = self.cfg['cuda_compute_capabilities']
             cfg_cuda_cc = build_option('cuda_compute_capabilities')
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             if not cuda_cc:
-                raise EasyBuildError("Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'")
+                raise EasyBuildError("Can't build Clang with CUDA support "\
+                                     "without specifying 'cuda-compute-capabilities'")
             default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
             if not self.cfg['default_cuda_capability']:
-                print_warning("No default CUDA capability defined! Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
+                print_warning("No default CUDA capability defined! "\
+                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             default_cc = default_cc.replace('.', '')
             self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
             self.cfg.update('configopts', '-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=%s' % ','.join(cuda_cc))
-        # If we don't want to build with CUDA (not in dependencies) trick
-        # CMakes FindCUDA module into not finding it by using the environment
-        # variable which is used as-is and later checked for a falsy value when
-        # determining wether CUDA was found
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
+        # using the environment variable which is used as-is and later checked for a falsy value when determining
+        # whether CUDA was found
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
