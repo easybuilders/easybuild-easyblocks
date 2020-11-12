@@ -276,11 +276,16 @@ class EB_Boost(EasyBlock):
                 suffix = ''
             custom_paths['files'].append(os.path.join('lib', 'libboost_python%s.%s' % (suffix, shlib_ext)))
 
+        lib_mt_suffix = '-mt'
+        # MT libraries gained an extra suffix from v1.69.0 onwards
+        if LooseVersion(self.version) >= LooseVersion("1.69.0"):
+            lib_mt_suffix += '-x64'
+
         if self.cfg['boost_multi_thread']:
-            custom_paths['files'].append(os.path.join('lib', 'libboost_thread-mt.%s' % shlib_ext))
+            custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
         if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
-            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi-mt.%s' % shlib_ext))
+            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
 
