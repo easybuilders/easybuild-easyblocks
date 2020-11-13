@@ -225,7 +225,7 @@ class EB_NCL(EasyBlock):
     def install_step(self):
         """Build in install dir using build_step."""
 
-        cmd = "make Everything"
+        cmd = "%s make Everything %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
