@@ -91,6 +91,10 @@ class EB_NVHPC(PackedBinary):
         """Easyblock constructor, define custom class variables specific to NVHPC."""
         super(EB_NVHPC, self).__init__(*args, **kwargs)
 
+        # Ideally we should be using something like `easybuild.tools.systemtools.get_cpu_architecture` here, however,
+        # on `ppc64le` systems this function returns `POWER` instead of `ppc64le`. Since this path needs to reflect
+        # `arch` (https://easybuild.readthedocs.io/en/latest/version-specific/easyconfig_templates.html) the same
+        # procedure from `templates.py` was reused here:
         architecture = 'Linux_%s' % platform.uname()[4]
         self.nvhpc_install_subdir = os.path.join(architecture, self.version)
 
