@@ -56,7 +56,7 @@ def det_wrf_subdir(wrf_version):
     if LooseVersion(wrf_version) < LooseVersion('4.0'):
         wrf_subdir = 'WRFV%s' % wrf_version.split('.')[0]
     else:
-        wrf_subdir = 'WRF-v%s' % wrf_version
+        wrf_subdir = 'WRF-%s' % wrf_version
 
     return wrf_subdir
 
