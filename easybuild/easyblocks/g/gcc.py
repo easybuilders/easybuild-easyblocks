@@ -340,21 +340,22 @@ class EB_GCC(ConfigureMake):
                     'val': os.getenv('LD_LIBRARY_PATH')
                 }
                 env.setvar('LD_LIBRARY_PATH', ld_lib_path)
-                extra_source = {1: "nvptx-tools", 2: "newlib"} [self.iter_idx]
+                extra_source = {1: "nvptx-tools", 2: "newlib"}[self.iter_idx]
                 extra_source_dirs = glob.glob(os.path.join(self.builddir, '%s-*' % extra_source))
                 if len(extra_source_dirs) != 1:
                     raise EasyBuildError("Failed to isolate %s source dir" % extra_source)
                 if self.iter_idx == 1:
                     # compile nvptx-tools
                     change_dir(extra_source_dirs[0])
-                else: # self.iter_idx == 2
+                else:  # self.iter_idx == 2
                     # compile nvptx target compiler
                     symlink(os.path.join(extra_source_dirs[0], 'newlib'), 'newlib')
                     self.create_dir("build-nvptx-gcc")
                     self.cfg.update('configopts', self.configopts)
                     self.cfg.update('configopts', "--with-build-time-tools=%s/nvptx-none/bin" % self.installdir)
                     self.cfg.update('configopts', "--target=nvptx-none")
-                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % self.determine_build_and_host_type()[1])
+                    host_type = self.determine_build_and_host_type()[1]
+                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
                     self.cfg.update('configopts', "--disable-sjlj-exceptions")
                     self.cfg.update('configopts', "--enable-newlib-io-long-long")
                     self.cfg['configure_cmd_prefix'] = '../'
