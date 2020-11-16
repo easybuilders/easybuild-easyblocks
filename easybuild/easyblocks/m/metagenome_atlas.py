@@ -31,15 +31,12 @@ import os
 import stat
 
 from easybuild.tools.filetools import adjust_permissions, write_file
-from easybuild.easyblocks.generic.pythonbundle import PythonBundle
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 
 
-class EB_Metagenome_minus_Atlas_Bundle(PythonBundle):
+class EB_Metagenome_Atlas(PythonPackage):
     """
     Support for building/installing Metagenome-Atlas.
-
-    This easyblock has to be named differently from 'EB_Metagenome_minus_Atlas' due to being Bundle with extensions.
-    Otherwise it tries to install itself in extension step, which fails.
     """
 
     def post_install_step(self):
@@ -72,6 +69,21 @@ class EB_Metagenome_minus_Atlas_Bundle(PythonBundle):
         adjust_permissions(pbs_status, stat.S_IXUSR)
         adjust_permissions(scheduler, stat.S_IXUSR)
         adjust_permissions(slurm_status, stat.S_IXUSR)
+
+    def sanity_check_step(self):
+        """
+        Custom sanity check for Metagenome-Atlas.
+        """
+        custom_paths = {
+            'files': ['bin/atlas'],
+            'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
+        }
+        custom_commands = [
+            'atlas --version',
+            'atlas init --help',
+            'atlas run --help',
+        ]
+        super(PythonPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
 
 CLUSTER_CONFIG_FILE_TEXT = r"""
