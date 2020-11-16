@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2020 Ghent University
+# Copyright 2020-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -86,7 +86,7 @@ cluster: "scheduler.py" #
 cluster-status: "slurm_status.py" #
 max-jobs-per-second: 10
 max-status-checks-per-second: 10
-cores: 99 # how many jobs you want to submit to your cluster queue
+cores: 1 # how many jobs you want to submit to your cluster queue
 local-cores: 1
 rerun-incomplete: true  # recomended for cluster submissions
 keep-going: false
