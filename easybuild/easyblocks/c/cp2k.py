@@ -480,10 +480,12 @@ class EB_CP2K(EasyBlock):
         if ifortver >= LooseVersion("2018.5"):
             self.make_instructions += "mp2_optimize_ri_basis.o: mp2_optimize_ri_basis.F\n" \
                 "\t$(FC) -c $(subst O2,O0,$(FCFLAGSOPT)) $<\n"
+            self.log.info("Optimization level of mp2_optimize_ri_basis.F was decreased to '-O0'")
 
         # RHEL8 intel/2020a lots of CPASSERT failed (due to high optimization in cholesky decomposition)
         if ifortver >= LooseVersion("2019"):
             self.make_instructions += "cp_fm_cholesky.o: cp_fm_cholesky.F\n\t$(FC) -c $(FCFLAGS2) $<\n"
+            self.log.info("Optimization flags for cp_fm_cholesky.F is set to '%s'", options['FCFLAGSOPT2'])
 
         # -i-static has been deprecated prior to 2013, but was still usable. From 2015 it is not.
         if ifortver < LooseVersion("2013"):
