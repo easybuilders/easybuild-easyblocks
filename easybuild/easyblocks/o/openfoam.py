@@ -70,7 +70,14 @@ class EB_OpenFOAM(EasyBlock):
 
         # version may start with 'v' for some variants of OpenFOAM
         # we need to strip this off to avoid problems when comparing LooseVersion instances in Python 3
-        self.looseversion = LooseVersion(self.version.strip('v+'))
+        clean_version = self.version.strip('v+')
+
+        # take into account versions like '4.x',
+        # assume it's equivalent to a very recent minor version (.99)
+        if '.x' in clean_version:
+            clean_version = clean_version.replace('.x', '.99')
+
+        self.looseversion = LooseVersion(clean_version)
 
         if 'extend' in self.name.lower():
             if self.looseversion >= LooseVersion('3.0'):
