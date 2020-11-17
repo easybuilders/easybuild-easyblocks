@@ -245,19 +245,16 @@ EULA=accept
         """
         A dictionary of possible directories to look for
         """
+        guesses = super(EB_impi, self).make_module_req_guess()
         if self.cfg['m32']:
             lib_dirs = ['lib', 'lib/ia32', 'ia32/lib']
-            include_dirs = ['include']
-            return {
+            guesses.update({
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
-                'MANPATH': ['man'],
-                'CPATH': include_dirs,
                 'MIC_LD_LIBRARY_PATH': ['mic/lib'],
-            }
+            })
         else:
-            guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # The "release" library is default in v2019. Give it precedence over intel64/lib.
                 # (remember paths are *prepended*, so the last path in the list has highest priority)
@@ -282,7 +279,7 @@ EULA=accept
                 'CPATH': include_dirs,
             })
 
-            return guesses
+        return guesses
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
