@@ -40,8 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd, parse_log_for_error
 from easybuild.tools import systemtools
-#from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
-from juliapackage import JuliaPackage
+from easybuild.easyblocks.generic.juliapackage import JuliaPackage
 
 
 class JuliaBundle(Bundle):
