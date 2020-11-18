@@ -35,7 +35,7 @@ import socket
 
 from easybuild.tools.config import build_option
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd, parse_log_for_error
@@ -51,7 +51,7 @@ class EB_Julia(ConfigureMake):
         extra_vars = {
             'arch_name': [None, "Change julia's Project.toml pathname", CUSTOM],
         }
-        return PackedBinary.extra_options(extra_vars)
+        return ConfigureMake.extra_options(extra_vars)
 
 
     def get_environment_folder(self):
@@ -92,6 +92,20 @@ class EB_Julia(ConfigureMake):
         """Initliaze RPackage-specific class variables."""
         super(EB_Julia, self).__init__(*args, **kwargs)
 
+        arch_map = {
+            "sse3": ("nocona", ""),
+            "avx": ("sandybridge", "OPENBLAS_TARGET_ARCH=SANDYBRIDGE"),
+            "avx2": ("haswell", "OPENBLAS_TARGET_ARCH=HASWELL"),
+            "avx512": ("skx", "OPENBLAS_TARGET_ARCH=SKYLAKEX"),
+        }
+        target, openblas = arch_map[os.getenv('RSNT_ARCH')]
+        for opts in "buildopts", "installopts":
+            self.cfg.update(opts, "prefix=%s" % self.installdir)
+            self.cfg.update(opts, "USE_BINARYBUILDER=0")
+            # Specifying JULIA_CPU_TARGET allows use on non-identical CPUs.  Doesn't affect JIT or linked toolchain components.
+            self.cfg.update(opts, "JULIA_CPU_TARGET=%s" % target)
+            self.cfg.update(opts, openblas)
+
         self.user_depot = self.get_user_depot_path()
         extensions_depot = os.path.join(self.installdir, 'extensions')
         local_share_depot = os.path.join(self.installdir, 'local', 'share', 'julia')
@@ -104,6 +118,10 @@ class EB_Julia(ConfigureMake):
         self.user_load_path = '@:@#.#.#-%s' % self.get_environment_folder()
         self.admin_load_path = '%s:@stdlib' % os.path.join(extensions_depot, "environments", '-'.join([self.version, self.get_environment_folder()]))
         self.julia_load_path = ':'.join([self.user_load_path, self.admin_load_path])
+
+    def configure_step(self):
+        """No custom configure step for Julia"""
+        pass
 
     def sanity_check_step(self):
         """Custom sanity check for Julia."""
