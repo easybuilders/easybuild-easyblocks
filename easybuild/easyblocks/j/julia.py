@@ -127,7 +127,7 @@ class EB_Julia(ConfigureMake):
         """Custom sanity check for Julia."""
 
         custom_paths = {
-            'files': [os.path.join('bin', 'julia'), 'LICENSE.md'],
+            'files': [os.path.join('bin', 'julia')],
             'dirs': ['bin', 'include', 'lib', 'share'],
         }
         custom_commands = [
