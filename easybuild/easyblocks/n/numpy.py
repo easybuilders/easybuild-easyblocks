@@ -66,7 +66,17 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
+        if LooseVersion(self.version) >= LooseVersion('1.15'):
+            # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
+            test_code = 'sys.exit(not numpy.test(verbose=2))'
+        else:
+            # Return value is a TextTestResult. Check the errors member for any error
+            test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
+        # Prepend imports
+        test_code = "import sys; import numpy; " + test_code
+        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+        # see http://projects.scipy.org/numpy/ticket/182
+        self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
