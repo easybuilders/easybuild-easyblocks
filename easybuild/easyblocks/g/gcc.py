@@ -644,10 +644,17 @@ class EB_GCC(ConfigureMake):
         # since these may cause problems when upgrading to newer OS version.
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
         glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
-        matches = glob.glob(glob_pattern)
-        if matches:
-            if len(matches) == 1:
-                include_fixed_path = matches[0]
+        paths = glob.glob(glob_pattern)
+        if paths:
+            # weed out paths that point to the same location,
+            # for example when 'lib64' is a symlink to 'lib'
+            include_fixed_paths = []
+            for path in paths:
+                if not any(os.path.samefile(path, x) for x in include_fixed_paths):
+                    include_fixed_paths.append(path)
+
+            if len(include_fixed_paths) == 1:
+                include_fixed_path = include_fixed_paths[0]
 
                 msg = "Found include-fixed subdirectory at %s, "
                 msg += "renaming it to avoid using system header files patched by fixincludes..."
@@ -688,7 +695,7 @@ class EB_GCC(ConfigureMake):
                               include_fixed_path, include_fixed_renamed)
             else:
                 raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
-                                     len(matches), matches)
+                                     len(include_fixed_paths), include_fixed_paths)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
