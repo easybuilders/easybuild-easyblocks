@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, which, remove_dir
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir, which, write_file
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -171,7 +171,40 @@ class CMakeMake(ConfigureMake):
         # that CMake picks up compiler from sysroot rather than toolchain compiler...
         sysroot = build_option('sysroot')
         if sysroot:
-            options.append('-DCMAKE_SYSROOT=%s' % sysroot)
+
+            # only use toolchain file if -DCMAKE_TOOLCHAIN_FILE is not set yet in configopts
+            if '-DCMAKE_TOOLCHAIN_FILE=' not in self.cfg['configopts']:
+
+                # create toolchain file, and tell CMake to use it via CMAKE_TOOLCHAIN_FILE;
+                # see https://cmake.org/cmake/help/latest/variable/CMAKE_TOOLCHAIN_FILE.html
+                # and https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling-for-linux
+                cmake_toolchain_file = os.path.join(self.builddir, 'toolchain.cmake')
+
+                cmake_toolchain_lines = [
+                    # path that CMake should pass to compiler via --sysroot,
+                    # see https://cmake.org/cmake/help/latest/variable/CMAKE_SYSROOT.html
+                    "set(CMAKE_SYSROOT %s)" % sysroot,
+                    # root path that CMake should search, used for find_library & co;
+                    # see https://cmake.org/cmake/help/latest/variable/CMAKE_FIND_ROOT_PATH.html
+                    "set(CMAKE_FIND_ROOT_PATH %s)" % sysroot,
+                ]
+
+                # instruct CMake to only use paths listed in CMAKE_FIND_ROOT_PATH;
+                # when --sysroot is specifed in EasyBuild, nothing from the host sysroot (/) should be used;
+                # see https://cmake.org/cmake/help/latest/variable/CMAKE_FIND_ROOT_PATH_MODE_LIBRARY.html
+                root_path_modes = ['INCLUDE', 'LIBRARY', 'PACKAGE', 'PROGRAM']
+                cmake_toolchain_lines.extend("set(CMAKE_FIND_ROOT_PATH_MODE_%s ONLY)" % x for x in root_path_modes)
+
+                write_file(cmake_toolchain_file, '\n'.join(cmake_toolchain_lines) + '\n')
+                options.append('-DCMAKE_TOOLCHAIN_FILE=%s' % cmake_toolchain_file)
+
+            if '-DCMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX=' not in self.cfg['configopts']:
+                # add -DCMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX=64 option to ensure libraries are searched
+                # in *both* <sysroot>/usr/lib64 and <sysroot>/usr/lib;
+                # see https://cmake.org/cmake/help/latest/variable/CMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX.html
+                # and https://cmake.org/cmake/help/latest/command/find_library.html
+                options.append('-DCMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX=64')
+
             self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
             self.cfg['abs_path_compilers'] = True
 
