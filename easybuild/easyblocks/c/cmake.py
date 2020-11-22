@@ -67,6 +67,10 @@ class EB_CMake(ConfigureMake):
             if os.path.exists(unixpaths_cmake):
                 regex_subs = [
                     (r' /([a-z])', r' %s/\1' % sysroot),
+                    # also replace hardcoded '/' (root path)
+                    (r' / ', r' %s ' % sysroot),
+                    # also replace just '/' appearing at the end of a line
+                    (r' /$', r' %s' % sysroot),
                 ]
                 apply_regex_substitutions(unixpaths_cmake, regex_subs)
             else:
