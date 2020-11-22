@@ -64,8 +64,14 @@ class EB_CMake(ConfigureMake):
             # https://gitweb.gentoo.org/repo/gentoo.git/tree/dev-util/cmake/files/cmake-3.14.0_rc3-prefix-dirs.patch
             srcdir = os.path.join(self.builddir, 'cmake-%s' % self.version)
             unixpaths_cmake = os.path.join(srcdir, 'Modules', 'Platform', 'UnixPaths.cmake')
+            self.log.info("Patching %s to take into account --sysroot=%s", unixpaths_cmake, sysroot)
+
+            sysroot_lib_dirs = [os.path.join(sysroot, x) for x in ['/usr/lib64', '/usr/lib', '/lib64', '/lib']]
             if os.path.exists(unixpaths_cmake):
                 regex_subs = [
+                    # add <sysroot>/usr/lib* and <sysroot>/lib* paths to CMAKE_SYSTEM_LIBRARY_PATH
+                    (r'(APPEND CMAKE_SYSTEM_LIBRARY_PATH)', r'\1 %s' % ' '.join(sysroot_lib_dirs)),
+                    # replace all hardcoded paths like /usr with <sysroot>/usr
                     (r' /([a-z])', r' %s/\1' % sysroot),
                     # also replace hardcoded '/' (root path)
                     (r' / ', r' %s ' % sysroot),
