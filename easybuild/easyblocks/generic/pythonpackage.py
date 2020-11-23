@@ -609,10 +609,16 @@ class PythonPackage(ExtensionEasyBlock):
         for pylibdir in abs_pylibdirs:
             mkdir(pylibdir, parents=True)
 
-        # set PYTHONPATH as expected
-        pythonpath = os.getenv('PYTHONPATH')
-        new_pythonpath = os.pathsep.join([x for x in abs_pylibdirs + [pythonpath] if x is not None])
-        env.setvar('PYTHONPATH', new_pythonpath, verbose=False)
+        abs_bindir = os.path.join(self.installdir, 'bin')
+
+        # set PYTHONPATH and PATH as expected
+        old_values = dict()
+        for name, new_values in (('PYTHONPATH', abs_pylibdirs), ('PATH', [abs_bindir])):
+            old_value = os.getenv(name)
+            old_values[name] = old_value
+            new_value = os.pathsep.join(new_values + ([old_value] if old_value else []))
+            if new_value:
+                env.setvar(name, new_value, verbose=False)
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
@@ -623,9 +629,11 @@ class PythonPackage(ExtensionEasyBlock):
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
 
-        # restore PYTHONPATH if it was set
-        if pythonpath is not None:
-            env.setvar('PYTHONPATH', pythonpath, verbose=False)
+        # restore env vars if it they were set
+        for name in ('PYTHONPATH', 'PATH'):
+            value = old_values[name]
+            if value is not None:
+                env.setvar(name, value, verbose=False)
 
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
