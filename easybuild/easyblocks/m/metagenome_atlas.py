@@ -42,6 +42,7 @@ class EB_Metagenome_Atlas(PythonPackage):
     def post_install_step(self):
         """Create snakemake config files"""
 
+        # https://metagenome-atlas.readthedocs.io/en/latest/usage/getting_started.html#set-up-of-cluster-execution
         # Files were obtained by:
         # cookiecutter https://github.com/metagenome-atlas/clusterprofile.git -o ~/.config/snakemake
 
@@ -86,11 +87,16 @@ class EB_Metagenome_Atlas(PythonPackage):
         super(PythonPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/cluster_config.yaml
 CLUSTER_CONFIG_FILE_TEXT = r"""
 __default__:
   nodes: 1
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/config.yaml
+# modified cores to 1
 CONFIG_FILE_TEXT = r"""
 restart-times: 0
 cluster-config: "%s" #abs path
@@ -104,6 +110,8 @@ rerun-incomplete: true  # recomended for cluster submissions
 keep-going: false
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/key_mapping.yaml
 KEY_MAPPING_TEXT = r"""
 # only parameters defined in key_mapping (see below) are passed to the command in the order specified.
 system: "slurm" #check if system is defined below
@@ -140,6 +148,8 @@ lsf:
 # for other cluster systems see: https://slurm.schedmd.com/rosetta.pdf
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/lsf_status.py
 LSF_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
@@ -164,6 +174,8 @@ map_state={"PEND":'running',
 print(map_state.get(state,'failed'))
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/pbs_status.py
 PBS_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
@@ -193,6 +205,9 @@ except (subprocess.CalledProcessError, IndexError, KeyboardInterrupt) as e:
     print("failed")
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/scheduler.py
+# enhanced with parsing below comment '# get jobid if the string contains cluster name as well separated by ;'
 SCHEDULER_TEXT = r"""
 #!/usr/bin/env python3
 
@@ -274,6 +289,8 @@ else:
     print(jobid)
 """
 
+# obtained from
+# https://github.com/metagenome-atlas/clusterprofile/blob/master/{{cookiecutter.profile_name}}/slurm_status.py
 SLURM_STATUS_TEXT = r"""
 #!/usr/bin/env python3
 
