@@ -268,6 +268,14 @@ class EB_GCC(ConfigureMake):
         """
         Run a configure command, with some extra checking (e.g. for unrecognized options).
         """
+        # note: this also triggers the use of an updated config.guess script
+        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            cmd += ' --build=' + build_type
+        if host_type:
+            cmd += ' --host=' + host_type
+
         (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
 
         if ec != 0:
@@ -438,14 +446,6 @@ class EB_GCC(ConfigureMake):
             self.stage1prefix = objdir
         else:
             objdir = self.create_dir("obj")
-
-        # note: this also triggers the use of an updated config.guess script
-        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
-        build_type, host_type = self.determine_build_and_host_type()
-        if build_type:
-            configopts += ' --build=' + build_type
-        if host_type:
-            configopts += ' --host=' + host_type
 
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
