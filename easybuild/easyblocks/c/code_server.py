@@ -31,6 +31,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture
 
+
 class EB_code_minus_server(PackedBinary):
     """
     Support for installing code-server.
