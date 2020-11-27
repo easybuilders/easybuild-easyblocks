@@ -123,6 +123,8 @@ class EB_LAMMPS(CMakeMake):
         """Custom configuration procedure for LAMMPS."""
         if not get_software_root('VTK'):
             self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
+        if not get_software_root('ScaFaCoS'):
+            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'SCAFACOS']
 
         cuda = get_software_root('CUDA')
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
