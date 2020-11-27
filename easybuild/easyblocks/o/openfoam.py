@@ -406,7 +406,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
-        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
+        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ['paraFoam', 'foamMonitor']] + \
                [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
                [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
@@ -447,7 +447,14 @@ class EB_OpenFOAM(EasyBlock):
             'dirs': dirs,
         }
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = [
+            # test the OpenFOAM environment
+            "source $FOAM_BASH",
+            # test monitorFoam (exit code will only be 0 if all dependencies are met)
+            "foamMonitor -help",
+        ]
+
+        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""
