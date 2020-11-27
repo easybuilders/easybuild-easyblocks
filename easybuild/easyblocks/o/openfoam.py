@@ -447,11 +447,14 @@ class EB_OpenFOAM(EasyBlock):
             'dirs': dirs,
         }
 
+        # test the OpenFOAM environment in BASH
+        load_openfoam_env = "source $FOAM_BASH"
+        # test monitorFoam (exit code will only be 0 if all dependencies are met)
+        test_monitorFoam = " && ".join([load_openfoam_env, "foamMonitor -help"])
+
         custom_commands = [
-            # test the OpenFOAM environment
-            "source $FOAM_BASH",
-            # test monitorFoam (exit code will only be 0 if all dependencies are met)
-            "foamMonitor -help",
+            load_openfoam_env,
+            test_monitorFoam,
         ]
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
