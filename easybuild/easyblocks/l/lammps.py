@@ -128,6 +128,8 @@ class EB_LAMMPS(CMakeMake):
             self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'SCAFACOS']
         if not get_software_root('yaff'):
             self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'YAFF']
+            self.cfg['sanity_check_commands'] = [x for x in self.cfg['sanity_check_commands']
+                                                 if 'yaff' not in x]
 
         cuda = get_software_root('CUDA')
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
