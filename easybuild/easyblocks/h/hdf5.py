@@ -61,7 +61,6 @@ class EB_HDF5(ConfigureMake):
         # configure options for dependencies
         self.known_deps = [
             {'name': 'Szip', 'with': 'szlib', 'lib': '-lsz'},
-            {'name': 'zlib', 'with': 'zlib', 'lib': '-lz'},
         ]
 
     def configure_step(self):
