@@ -89,7 +89,7 @@ KOKKOS_CPU_MAPPING = {
     'cascadelake': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
-    'zen2': 'ZEN2',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
+    'zen2': 'ZEN2',
 }
 
 
