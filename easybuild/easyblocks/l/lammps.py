@@ -69,6 +69,7 @@ KOKKOS_CPU_MAPPING = {
     'knights-landing': 'KNL',
     'zen': 'EPYC',
     'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
+    'power9le': 'Power9',
 }
 
 
