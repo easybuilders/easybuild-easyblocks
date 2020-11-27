@@ -121,8 +121,7 @@ class EB_LAMMPS(CMakeMake):
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
-        vtk = get_software_root('VTK')
-        if not vtk:
+        if not get_software_root('VTK'):
             self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
 
         cuda = get_software_root('CUDA')
