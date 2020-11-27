@@ -41,7 +41,7 @@ class EB_code_minus_server(PackedBinary):
         myarch = get_cpu_architecture()
         if myarch == X86_64:
             mapped_arch = 'amd64'
-        elif myarch == POWER:
+        elif myarch == AARCH64:
             mapped_arch = 'arm64'
         else:
             raise EasyBuildError("Architecture %s is not supported for code-server on EasyBuild", myarch)
