@@ -175,12 +175,13 @@ class EB_Python(ConfigureMake):
                     (r"^([ ]+)'/lib64', '/usr/lib64',", r"\1%s," % sysroot_lib_dirs),
                     (r"^[ ]+'/lib', '/usr/lib',", ''),
                 ]
-                # replace remaining hardcoded paths that with '/usr/include', '/usr/lib' or '/usr/local',
-                # inject sysroot in front to avoid picking up anything outside of sysroot
-                for usr_subdir in ('usr/include', 'usr/lib', 'usr/local'):
-                    sysroot_usr_subdir = os.path.join(sysroot, usr_subdir)
-                    regex_subs.append((r"'/%s" % usr_subdir, r"'%s" % sysroot_usr_subdir))
-                    regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
+
+            # replace remaining hardcoded paths that with '/usr/include', '/usr/lib' or '/usr/local',
+            # inject sysroot in front to avoid picking up anything outside of sysroot
+            for usr_subdir in ('usr/include', 'usr/lib', 'usr/local'):
+                sysroot_usr_subdir = os.path.join(sysroot, usr_subdir)
+                regex_subs.append((r"'/%s" % usr_subdir, r"'%s" % sysroot_usr_subdir))
+                regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
 
