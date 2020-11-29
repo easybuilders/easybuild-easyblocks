@@ -406,12 +406,16 @@ class EB_OpenFOAM(EasyBlock):
 
         # some randomly selected binaries
         # if one of these is missing, it's very likely something went wrong
-        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ['paraFoam', 'foamMonitor']] + \
+        bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, "buoyantSimpleFoam")] + \
                [os.path.join(toolsdir, "%sFoam" % x) for x in ["boundary", "engine"]] + \
                [os.path.join(toolsdir, "surface%s" % x) for x in ["Add", "Find", "Smooth"]] + \
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
+
+        # test setting up the OpenFOAM environment in bash shell
+        load_openfoam_env = "source $FOAM_BASH"
+        custom_commands = [load_openfoam_env]
 
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
@@ -442,20 +446,17 @@ class EB_OpenFOAM(EasyBlock):
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
+        if 'extend' not in self.name.lower():
+            # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
+            bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
+
+            # test foamMonitor; exit code will only be 0 if all dependencies are met
+            custom_commands.append(' && '.join([load_openfoam_env, "foamMonitor -help"]))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
         }
-
-        # test the OpenFOAM environment in BASH
-        load_openfoam_env = "source $FOAM_BASH"
-        # test monitorFoam (exit code will only be 0 if all dependencies are met)
-        test_monitorFoam = " && ".join([load_openfoam_env, "foamMonitor -help"])
-
-        custom_commands = [
-            load_openfoam_env,
-            test_monitorFoam,
-        ]
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
