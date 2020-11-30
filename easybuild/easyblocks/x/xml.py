@@ -32,6 +32,7 @@ import os
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.rpackage import RPackage
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 
 
@@ -46,5 +47,9 @@ class EB_XML(RPackage):
 
         if zlib:
             env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
+        elif 'zlib' in build_option('filter_deps'):
+            self.log.info("zlib included in list of filtered dependencies, so no need to tweak $LIBS")
+        else:
+            raise EasyBuildError("zlib module not loaded (required)")
 
         super(EB_XML, self).install_R_package(cmd, inp)
