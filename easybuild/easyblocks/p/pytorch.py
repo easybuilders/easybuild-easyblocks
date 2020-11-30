@@ -37,7 +37,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 
@@ -120,6 +120,17 @@ class EB_PyTorch(PythonPackage):
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
         super(EB_PyTorch, self).configure_step()
+
+        # PyTorch preferes cmake3 over cmake which usually does not exist
+        cmake_root = get_software_root('CMake')
+        cmake_version = get_software_version('CMake')
+        if cmake_root and not os.path.isfile(os.path.join(cmake_root, 'bin', 'cmake3')):
+            if cmake_version and cmake_version.split('.')[0] != '3':
+                raise EasyBuildError('PyTorch requires CMake 3 but CMake %s was found', cmake_version)
+            cmake_bin_dir = tempfile.mkdtemp(suffix='cmake-bin')
+            self.log.warning('Creating symlink `cmake3` in %s to avoid PyTorch picking up a system CMake. ' +
+                             'Reinstall the CMake module to avoid this!', cmake_bin_dir)
+            os.symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']

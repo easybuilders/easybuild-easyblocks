@@ -119,6 +119,15 @@ class EB_CMake(ConfigureMake):
 
         super(EB_CMake, self).configure_step()
 
+    def install_step(self):
+        """Create symlinks for CMake binaries"""
+        # Some applications assume the existance of e.g. cmake3 to distinguish it from cmake, which can be 2 or 3
+        maj_ver = self.version.split('.')[0]
+        bin_path = os.path.join(self.installdir, 'bin')
+        for binary in ('ccmake', 'cmake', 'cpack', 'ctest'):
+            symlink_name = binary + maj_ver
+            os.symlink(os.path.join(bin_path, binary), os.path.join(bin_path, symlink_name))
+
     def sanity_check_step(self):
         """
         Custom sanity check for CMake.
