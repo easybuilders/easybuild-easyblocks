@@ -446,12 +446,14 @@ class EB_OpenFOAM(EasyBlock):
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
-        if 'extend' not in self.name.lower():
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.4.0"):
             # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
             bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
 
-            # test foamMonitor; exit code will only be 0 if all dependencies are met
-            custom_commands.append(' && '.join([load_openfoam_env, "foamMonitor -help"]))
+            # test foamMonitor; wrap `foamMonitor -h` to generate exit code 1 if any dependency is missing
+            # the command `foamMonitor -h` does not return correct exit codes on its own in all versions
+            test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
+            custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
 
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
