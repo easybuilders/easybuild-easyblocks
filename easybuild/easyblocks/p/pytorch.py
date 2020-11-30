@@ -131,6 +131,8 @@ class EB_PyTorch(PythonPackage):
             self.log.warning('Creating symlink `cmake3` in %s to avoid PyTorch picking up a system CMake. ' +
                              'Reinstall the CMake module to avoid this!', cmake_bin_dir)
             os.symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
+            path = "%s:%s" % (cmake_bin_dir, os.getenv('PATH'))
+            env.setvar('PATH', path)
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
