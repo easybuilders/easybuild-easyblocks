@@ -27,12 +27,13 @@ EasyBlock for installing code-server, implemented as an easyblock
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 
+from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture
 
 
-class EB_code_minus_server(PackedBinary):
+class EB_code_minus_server(PackedBinary, EasyBlock):
     """
     Support for installing code-server.
     """
@@ -41,13 +42,44 @@ class EB_code_minus_server(PackedBinary):
         """ Init the easyblock adding a new mapped_arch template var """
         myarch = get_cpu_architecture()
         if myarch == X86_64:
-            mapped_arch = 'amd64'
+            self.mapped_arch = 'amd64'
         elif myarch == AARCH64:
-            mapped_arch = 'arm64'
+            self.mapped_arch = 'arm64'
         else:
             raise EasyBuildError("Architecture %s is not supported for code-server on EasyBuild", myarch)
 
         super(EB_code_minus_server, self).__init__(*args, **kwargs)
 
-        self.cfg.template_values['mapped_arch'] = mapped_arch
+        self.cfg.template_values['mapped_arch'] = self.mapped_arch
         self.cfg.generate_template_values()
+
+    def install_step(self):
+        """Custom install step for code-server."""
+        install_cmd = self.cfg.get('install_cmd', None)
+        if install_cmd is None:
+            cmd = 'cp -a code-server-%s-linux-%s/* %s' % (self.version, self.mapped_arch, self.installdir)
+            # set the install command to a default
+            self.log.info("For %s, using default installation command '%s'..." % (self.name, cmd))
+            self.cfg['install_cmd'] = cmd
+        super(EB_code_minus_server, self).install_step()
+
+    def sanity_check_step(self):
+        """Custom sanity check for code-server."""
+        custom_paths = {
+            'files': ['bin/code-server'],
+            'dirs': ['bin', 'lib', 'node_modules'],
+        }
+
+        custom_commands = ["code-server --help"]
+
+        res = super(EB_code_minus_server, self).sanity_check_step(
+            custom_paths=custom_paths,
+            custom_commands=custom_commands
+        )
+
+        return res
+
+    def make_module_extra(self):
+        """Add the default directories to the PATH."""
+        txt = EasyBlock.make_module_extra(self)
+        return txt
