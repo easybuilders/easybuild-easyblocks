@@ -95,7 +95,7 @@ class EB_HDF5(ConfigureMake):
 
         # set RUNPARALLEL if MPI is enabled in this toolchain
         if self.toolchain.options.get('usempi', None):
-            env.setvar('RUNPARALLEL', r'mpirun -np \$\${NPROCS:=2}')
+            env.setvar('RUNPARALLEL', r'mpirun -np $${NPROCS:=3}')
 
         super(EB_HDF5, self).configure_step()
 
