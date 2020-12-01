@@ -39,6 +39,7 @@ from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.filetools import symlink
 
 
 class EB_PyTorch(PythonPackage):
@@ -117,10 +118,9 @@ class EB_PyTorch(PythonPackage):
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
                 if is_version_ok(version_range)]
 
-    def configure_step(self):
-        """Custom configure procedure for PyTorch."""
-        super(EB_PyTorch, self).configure_step()
-
+    def prepare_step(self, *args, **kwargs):
+        """Make sure that versioned CMake alias exists"""
+        super(EB_PyTorch, self).prepare_step(*args, **kwargs)
         # PyTorch preferes cmake3 over cmake which usually does not exist
         cmake_root = get_software_root('CMake')
         cmake_version = get_software_version('CMake')
@@ -130,9 +130,13 @@ class EB_PyTorch(PythonPackage):
             cmake_bin_dir = tempfile.mkdtemp(suffix='cmake-bin')
             self.log.warning('Creating symlink `cmake3` in %s to avoid PyTorch picking up a system CMake. ' +
                              'Reinstall the CMake module to avoid this!', cmake_bin_dir)
-            os.symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
+            symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
             path = "%s:%s" % (cmake_bin_dir, os.getenv('PATH'))
             env.setvar('PATH', path)
+
+    def configure_step(self):
+        """Custom configure procedure for PyTorch."""
+        super(EB_PyTorch, self).configure_step()
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']

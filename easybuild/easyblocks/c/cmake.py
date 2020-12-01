@@ -32,6 +32,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_libdir
 import easybuild.tools.environment as env
+from easybuild.tools.filetools import symlink
 
 
 class EB_CMake(ConfigureMake):
@@ -126,7 +127,7 @@ class EB_CMake(ConfigureMake):
         bin_path = os.path.join(self.installdir, 'bin')
         for binary in ('ccmake', 'cmake', 'cpack', 'ctest'):
             symlink_name = binary + maj_ver
-            os.symlink(os.path.join(bin_path, binary), os.path.join(bin_path, symlink_name))
+            symlink(binary, os.path.join(bin_path, symlink_name), use_abspath_source=False)
 
     def sanity_check_step(self):
         """
