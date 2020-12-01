@@ -176,8 +176,11 @@ class EB_Python(ConfigureMake):
                     (r"^[ ]+'/lib', '/usr/lib',", ''),
                 ]
 
-            # replace remaining hardcoded paths that with '/usr/include', '/usr/lib' or '/usr/local',
-            # inject sysroot in front to avoid picking up anything outside of sysroot
+            # Replace remaining hardcoded paths like '/usr/include', '/usr/lib' or '/usr/local',
+            # where these paths are appearing inside single quotes (').
+            # Inject sysroot in front to avoid picking up anything outside of sysroot,
+            # We can leverage the single quotes such that we do not accidentally fiddle with other entries,
+            # like /prefix/usr/include .
             for usr_subdir in ('usr/include', 'usr/lib', 'usr/local'):
                 sysroot_usr_subdir = os.path.join(sysroot, usr_subdir)
                 regex_subs.append((r"'/%s" % usr_subdir, r"'%s" % sysroot_usr_subdir))
