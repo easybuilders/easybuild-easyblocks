@@ -18,20 +18,6 @@ from easybuild.tools.systemtools import POWER, get_cpu_architecture
 class EB_JAX(EasyBlock):
     """Support for building/installing JAX."""
 
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Define extra easyconfig parameters specific to JAX."""
-        extra = Binary.extra_options(extra_vars)
-        extra.update({
-            'templates': [[], "List of templates.", CUSTOM],
-            'sysconfig': [None, "system.config file to install.", CUSTOM],
-        })
-        return extra
-
-    def extract_step(self):
-        """Extract JAX installation files."""
-        EasyBlock.extract_step(self)
-
     def configure_step(self):
         """No configuration for JAX."""
         pass
@@ -75,45 +61,11 @@ class EB_JAX(EasyBlock):
 
         super(EB_JAX, self).install_step()
 
-        # copy license file
-        lic_path = os.path.join(self.installdir, 'licences')
-        try:
-            shutil.copy2(self.cfg['license_file'], lic_path)
-        except OSError as err:
-            raise EasyBuildError("Failed to copy license file to %s: %s", lic_path, err)
-
-        # copy templates
-        templ_path = os.path.join(self.installdir, 'templates')
-        for templ in self.cfg['templates']:
-            path = self.obtain_file(templ, extension='qtf')
-            if path:
-                self.log.debug('Template file %s found' % path)
-            else:
-                raise EasyBuildError('No template file named %s found', templ)
-
-            try:
-                # use shutil.copy (not copy2) so that permissions of copied file match with rest of installation
-                shutil.copy(path, templ_path)
-            except OSError as err:
-                raise EasyBuildError("Failed to copy template %s to %s: %s", templ, templ_path, err)
-
-        # copy system.config if requested
-        sysconf_path = os.path.join(self.installdir, 'system.config')
-        if self.cfg['sysconfig'] is not None:
-            path = self.obtain_file(self.cfg['sysconfig'], extension=False)
-            if path:
-                self.log.debug('system.config file %s found' % path)
-            else:
-                raise EasyBuildError('No system.config file named %s found', sysconf_path)
-
-            copy_file(path, sysconf_path)
-            adjust_permissions(sysconf_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH,
-                               recursive=False, relative=False)
-
     def sanity_check_step(self):
         """Custom sanity check for JAX."""
         custom_paths = {
-            'files': ['bin/ddt', 'bin/map'],
-            'dirs': [],
+            'files': [],
+            'dirs': ['lib/python{}/site-packages/jax'.format(self.pyshortver),
+                     'lib/python{}/site-packages/jaxlib'.format(self.pyshortver)],
         }
         super(EB_JAX, self).sanity_check_step(custom_paths=custom_paths)
