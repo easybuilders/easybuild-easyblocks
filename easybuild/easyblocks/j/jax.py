@@ -18,7 +18,7 @@ class EB_JAX(EasyBlock):
     def build_step(self):
         """No build step for JAX."""
         cuda = get_software_root('CUDA')
-        cudnn= get_software_root('CuDNN')
+        cudnn = get_software_root('CuDNN')
         bazel = get_software_root('Bazel')
         binutils = get_software_root('binutils')
         if self.cfg['prebuildopts'] is None:
@@ -40,8 +40,8 @@ class EB_JAX(EasyBlock):
             self.cfg['buildopts'] += '--noenable_mkl_dnn '
             if get_cpu_architecture() == POWER:
                 # Tell Bazel to tell NVCC to tell the compiler to use -mno-float128
-                self.cfg['buildopts'] += ('--bazel_options=--per_file_copt=.*cu\.cc.*'
-                                          '@-nvcc_options=compiler-options=-mno-float128 ')
+                self.cfg['buildopts'] += (r'--bazel_options=--per_file_copt=.*cu\.cc.*'
+                                           '@-nvcc_options=compiler-options=-mno-float128 ')
 
     def install_step(self):
         """Install JAX using install script."""
