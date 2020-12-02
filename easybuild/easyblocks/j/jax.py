@@ -41,7 +41,7 @@ class EB_JAX(EasyBlock):
             if get_cpu_architecture() == POWER:
                 # Tell Bazel to tell NVCC to tell the compiler to use -mno-float128
                 self.cfg['buildopts'] += (r'--bazel_options=--per_file_copt=.*cu\.cc.*'
-                                           '@-nvcc_options=compiler-options=-mno-float128 ')
+                                          '@-nvcc_options=compiler-options=-mno-float128 ')
 
     def install_step(self):
         """Install JAX using install script."""
