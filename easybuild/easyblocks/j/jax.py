@@ -3,16 +3,9 @@ EasyBuild support for building and installing JAX, implemented as an easyblock
 
 @author: Andrew Edmondson (University of Birmingham)
 """
-import os
-import shutil
-import stat
-
-from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.modules import get_software_root
 
 
 class EB_JAX(EasyBlock):
@@ -24,10 +17,10 @@ class EB_JAX(EasyBlock):
 
     def build_step(self):
         """No build step for JAX."""
-        cuda = get_software_root(dep['CUDA'])
-        cudnn= get_software_root(dep['CuDNN'])
-        bazel = get_software_root(dep['Bazel'])
-        binutils = get_software_root(dep['binutils'])
+        cuda = get_software_root('CUDA')
+        cudnn= get_software_root('CuDNN')
+        bazel = get_software_root('Bazel')
+        binutils = get_software_root('binutils')
         if self.cfg['prebuildopts'] is None:
             self.cfg['prebuildopts'] = 'export TF_CUDA_PATHS="{}" '.format(cuda)
             self.cfg['prebuildopts'] += 'GCC_HOST_COMPILER_PREFIX="{}/bin" '.format(binutils)
