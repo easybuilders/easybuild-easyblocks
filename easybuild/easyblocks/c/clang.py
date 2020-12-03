@@ -78,6 +78,7 @@ class EB_Clang(CMakeMake):
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for example, 'libomp')", CUSTOM],
             'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
             'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
@@ -123,6 +124,7 @@ class EB_Clang(CMakeMake):
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
             lld/          Unpack lld-*.tar.gz here
+            lldb/         Unpack lldb-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -157,6 +159,9 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+
+        if self.cfg["build_lldb"]:
+            find_source_dir('lldb-*', os.path.join(self.llvm_src_dir, 'tools', 'lldb'))
 
         if self.cfg["libcxx"]:
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
@@ -449,6 +454,9 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             custom_paths['files'].extend(["bin/lld"])
+
+        if self.cfg["build_lldb"]:
+            custom_paths['files'].extend(["bin/lldb"])
 
         if self.cfg["libcxx"]:
             custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
