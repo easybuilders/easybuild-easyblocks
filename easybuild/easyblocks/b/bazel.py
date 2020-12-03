@@ -41,12 +41,11 @@ from easybuild.framework.easyconfig import CUSTOM
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
 
-    def extra_options(extra_vars=None):
+    def extra_options():
         """Extra easyconfig parameters specific to EB_Bazel."""
-        extra_vars = dict(EasyBlock.extra_options(extra_vars))
-        extra_vars.update({
+        extra_vars = {
             'static': [False, "Build statically linked executables", CUSTOM],
-        })
+        }
         return EasyBlock.extra_options(extra_vars)
 
     def fixup_hardcoded_paths(self):
