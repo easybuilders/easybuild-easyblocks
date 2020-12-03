@@ -77,9 +77,10 @@ class EB_JAX(EasyBlock):
 
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
-        cuda = get_software_root('CUDA')
         txt = super(EB_JAX, self).make_module_extra()
-        txt += self.module_generator.set_environment('XLA_FLAGS', "--xla_gpu_cuda_data_dir={}/bin".format(cuda))
+        cuda = get_software_root('CUDA')
+        if cuda:
+            txt += self.module_generator.set_environment('XLA_FLAGS', "--xla_gpu_cuda_data_dir={}/bin".format(cuda))
         txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
 
         return txt
