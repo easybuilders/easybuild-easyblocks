@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
 
+    @staticmethod
     def extra_options():
         """Extra easyconfig parameters specific to EB_Bazel."""
         extra_vars = {
