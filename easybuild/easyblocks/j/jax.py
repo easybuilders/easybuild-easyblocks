@@ -53,11 +53,16 @@ class EB_JAX(EasyBlock):
 
     def install_step(self):
         """Install JAX"""
-        if self.cfg['install_cmd'] is None:
-            self.cfg['install_cmd'] = '(cd build && pip install --prefix {} .) &&'.format(self.installdir)
-            self.cfg['install_cmd'] = 'pip install --prefix {} .'.format(self.installdir)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            '(cd build && pip install --prefix {} .) && pip install --prefix {} .'.format(self.installdir,
+                                                                                          self.installdir),
+            self.cfg['installopts'],
+        ])
 
-        super(EB_JAX, self).install_step()
+        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+        return out
 
     def make_module_step(self, fake=False):
         """Make the module"""
@@ -67,17 +72,16 @@ class EB_JAX(EasyBlock):
             self.cfg['modextravars']['XLA_FLAGS'] = "--xla_gpu_cuda_data_dir={}/bin".format(cuda)
 
         if 'PYTHONPATH' not in self.cfg['modextrapaths']:
-            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            self.cfg['modextrapaths']['PYTHONPATH'] = 'lib/python{}/site-packages'.format(pyshortver)
+            #pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            self.cfg['modextrapaths']['PYTHONPATH'] = 'lib/python%(pyshortver)s/site-packages'
 
         return super(EB_JAX, self).make_module_step(fake)
 
     def sanity_check_step(self):
         """Custom sanity check for JAX."""
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
         custom_paths = {
             'files': [],
-            'dirs': ['lib/python{}/site-packages/jax'.format(pyshortver),
-                     'lib/python{}/site-packages/jaxlib'.format(pyshortver)],
+            'dirs': ['lib/python%(pyshortver)s/site-packages/jax',
+                     'lib/python%(pyshortver)s/site-packages/jaxlib'],
         }
         super(EB_JAX, self).sanity_check_step(custom_paths=custom_paths)
