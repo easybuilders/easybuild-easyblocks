@@ -43,7 +43,7 @@ class EB_Bazel(EasyBlock):
 
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to EB_Bazel."""
-        extra_vars = dict(ConfigureMake.extra_options(extra_vars))
+        extra_vars = dict(EasyBlock.extra_options(extra_vars))
         extra_vars.update({
             'static': [False, "Build statically linked executables", CUSTOM],
         })
