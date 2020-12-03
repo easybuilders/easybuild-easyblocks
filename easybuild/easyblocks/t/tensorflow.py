@@ -222,6 +222,10 @@ class EB_TensorFlow(PythonPackage):
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
+            'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
+            'test_tag_filters': ['', "Comma-separated list of tags to filter for during the test step", CUSTOM],
+            'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
+                               "Use None to not set a specific limit (uses a default value).", CUSTOM],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -636,9 +640,6 @@ class EB_TensorFlow(PythonPackage):
                                                                              self.install_base_dir))]
             apply_regex_substitutions('configure.py', regex_subs)
 
-        # Tell Bazel to not use $HOME/.cache/bazel at all
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        env.setvar('TEST_TMPDIR', self.output_root_dir)
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -719,32 +720,39 @@ class EB_TensorFlow(PythonPackage):
         if LooseVersion(self.version) < LooseVersion('2.0'):
             self.patch_crosstool_files()
 
-        # compose "bazel build" command with all its options...
-        cmd = [
-            self.cfg['prebuildopts'],
-            'bazel',
+        # Options passed to the bazel command
+        self.bazel_opts = [
             '--output_base=%s' % self.output_base_dir,
             '--install_base=%s' % self.install_base_dir,
             '--output_user_root=%s' % self.output_user_root_dir,
-            'build',
         ]
+        jvm_max_memory = self.cfg['jvm_max_memory']
+        if self.cfg['jvm_max_memory']:
+            jvm_startup_memory = min(512, int(jvm_max_memory))
+            self.bazel_opts.extend([
+                '--host_jvm_args=-Xms%sm' % jvm_startup_memory,
+                '--host_jvm_args=-Xmx%sm' % jvm_max_memory
+            ])
+
+        # Options passed to the target (build/test), e.g. --config arguments
+        self.target_opts = []
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
-        cmd.append('--compilation_mode=opt')
+        self.target_opts.append('--compilation_mode=opt')
 
         # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
         # https://docs.bazel.build/versions/master/user-manual.html#flag--config
-        cmd.append('--config=opt')
+        self.target_opts.append('--config=opt')
 
         # make Bazel print full command line + make it verbose on failures
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
-        cmd.extend(['--subcommands', '--verbose_failures'])
+        self.target_opts.extend(['--subcommands', '--verbose_failures'])
 
         # Disable support of AWS platform via config switch introduced in 1.12.1
         if LooseVersion(self.version) >= LooseVersion('1.12.1'):
-            cmd.append('--config=noaws')
+            self.target_opts.append('--config=noaws')
 
         # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
         # and will hang forever building the TensorFlow package.
@@ -752,10 +760,10 @@ class EB_TensorFlow(PythonPackage):
         parallel = self.cfg['parallel']
         if self.cfg['maxparallel'] is None:
             parallel = min(parallel, 64)
-        cmd.append('--jobs=%s' % parallel)
+        self.target_opts.append('--jobs=%s' % parallel)
 
         if self.toolchain.options.get('pic', None):
-            cmd.append('--copt="-fPIC"')
+            self.target_opts.append('--copt="-fPIC"')
 
         # include install location of Python packages in $PYTHONPATH,
         # and specify that value of $PYTHONPATH should be passed down into Bazel build environment;
@@ -767,44 +775,49 @@ class EB_TensorFlow(PythonPackage):
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
         if cpaths:
-            cmd.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
+            self.target_opts.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
         if libpaths:
-            cmd.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
-        cmd.append('--action_env=PYTHONPATH')
+            self.target_opts.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
+        self.target_opts.append('--action_env=PYTHONPATH')
         # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
         if 'EBPYTHONPREFIXES' in os.environ:
-            cmd.append('--action_env=EBPYTHONPREFIXES')
+            self.target_opts.append('--action_env=EBPYTHONPREFIXES')
 
         # Ignore user environment for Python
-        cmd.append('--action_env=PYTHONNOUSERSITE=1')
+        self.target_opts.append('--action_env=PYTHONNOUSERSITE=1')
 
         # use same configuration for both host and target programs, which can speed up the build
         # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
         # see https://docs.bazel.build/versions/master/guide.html#configurations
         if self.toolchain.options.get('optarch'):
-            cmd.append('--distinct_host_configuration=false')
-
-        cmd.append(self.cfg['buildopts'])
+            self.target_opts.append('--distinct_host_configuration=false')
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
             if get_software_root('CUDA'):
-                cmd.append('--config=cuda')
+                self.target_opts.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
-            cmd.extend(['--config=mkl'])
-            cmd.insert(0, "export TF_MKL_DOWNLOAD=0 &&")
-            cmd.insert(0, "export TF_MKL_ROOT=%s &&" % mkl_root)
+            self.target_opts.append('--config=mkl')
+            env.setvar('TF_MKL_ROOT', mkl_root)
         elif self.cfg['with_mkl_dnn']:
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
-            cmd.extend(['--config=mkl'])
-            cmd.insert(0, "export TF_MKL_DOWNLOAD=1 && ")
+            self.target_opts.append('--config=mkl')
 
-        # specify target of the build command as last argument
-        cmd.append('//tensorflow/tools/pip_package:build_pip_package')
+        # Compose final command
+        cmd = (
+            [self.cfg['prebuildopts']]
+            + ['bazel']
+            + self.bazel_opts
+            + ['build']
+            + self.target_opts
+            + [self.cfg['buildopts']]
+            # specify target of the build command as last argument
+            + ['//tensorflow/tools/pip_package:build_pip_package']
+        )
 
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
@@ -813,8 +826,42 @@ class EB_TensorFlow(PythonPackage):
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def test_step(self):
-        """No (reliable) custom test procedure for TensorFlow."""
-        pass
+        """Run TensorFlow unit tests"""
+        # IMPORTANT: This code allows experiments with running TF tests but may change
+        test_targets = self.cfg['test_targets']
+        if not test_targets:
+            self.log.info('No targets selected for tests. Set e.g. test_targets = ["//tensorflow/python/..."] '
+                          'to run TensorFlow tests.')
+            return
+        # Allow a string as the test_targets (useful for C&P testing from TF sources)
+        if not isinstance(test_targets, list):
+            test_targets = test_targets.split(' ')
+
+        test_opts = self.target_opts
+        test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
+        # Can only run 1 test per GPU, be safe and run 1 at a time
+        test_opts.append('--local_test_jobs=1')
+        # Don't build tests which won't be executed
+        test_opts.append('--build_tests_only')
+
+        test_tag_filters = self.cfg['test_tag_filters']
+        if test_tag_filters:
+            # Add both build and test tag filters as done by the TF CI scripts
+            test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
+
+        # Compose final command
+        cmd = (
+            [self.cfg['pretestopts']]
+            + ['bazel']
+            + self.bazel_opts
+            + ['test']
+            + test_opts
+            + [self.cfg['testopts'], '--']
+            # specify targets to test as last argument
+            + test_targets
+        )
+
+        run_cmd(' '.join(cmd), log_all=True, simple=True)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
