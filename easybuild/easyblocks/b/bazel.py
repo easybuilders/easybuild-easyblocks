@@ -40,6 +40,14 @@ from easybuild.tools.run import run_cmd
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
 
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to EB_Bazel."""
+        extra_vars = dict(ConfigureMake.extra_options(extra_vars))
+        extra_vars.update({
+            'static': [False, "Build statically linked executables", CUSTOM],
+        })
+        return EasyBlock.extra_options(extra_vars)
+
     def fixup_hardcoded_paths(self):
         """Patch out hard coded paths to compiler and binutils tools"""
         binutils_root = get_software_root('binutils')
@@ -116,7 +124,11 @@ class EB_Bazel(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        static = ''
+        if self.cfg['static'] is True:
+            static = 'export BAZEL_LINKOPTS=-static-libstdc++:-static-libgcc BAZEL_LINKLIBS=-l%:libstdc++.a:-lm && '
+
+        cmd = '%s %s ./compile.sh' % (static, self.cfg['prebuildopts'])
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
