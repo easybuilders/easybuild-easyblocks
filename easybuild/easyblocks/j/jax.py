@@ -5,7 +5,7 @@ EasyBuild support for building and installing JAX, implemented as an easyblock
 """
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 
