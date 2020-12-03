@@ -7,6 +7,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 
 
 class EB_JAX(EasyBlock):
@@ -64,24 +65,21 @@ class EB_JAX(EasyBlock):
 
         return out
 
-    def make_module_step(self, fake=False):
-        """Make the module"""
-
-        if 'XLA_FLAGS' not in self.cfg['modextravars']:
-            cuda = get_software_root('CUDA')
-            self.cfg['modextravars']['XLA_FLAGS'] = "--xla_gpu_cuda_data_dir={}/bin".format(cuda)
-
-        if 'PYTHONPATH' not in self.cfg['modextrapaths']:
-            #pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            self.cfg['modextrapaths']['PYTHONPATH'] = 'lib/python%(pyshortver)s/site-packages'
-
-        return super(EB_JAX, self).make_module_step(fake)
-
     def sanity_check_step(self):
         """Custom sanity check for JAX."""
+        pylibdir = det_pylibdir()
         custom_paths = {
             'files': [],
-            'dirs': ['lib/python%(pyshortver)s/site-packages/jax',
-                     'lib/python%(pyshortver)s/site-packages/jaxlib'],
+            'dirs': ['{}/jax'.format(pylibdir),
+                     '{}/jaxlib'.format(pylibdir)],
         }
         super(EB_JAX, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        """Add module entries specific to Amber/AmberTools"""
+        cuda = get_software_root('CUDA')
+        txt = super(EB_JAX, self).make_module_extra()
+        txt += self.module_generator.set_environment('XLA_FLAGS', "--xla_gpu_cuda_data_dir={}/bin".format(cuda))
+        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
+
+        return txt
