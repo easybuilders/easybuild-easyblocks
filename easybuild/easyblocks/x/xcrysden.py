@@ -41,11 +41,14 @@ from easybuild.tools.modules import get_software_root, get_software_version
 
 def get_library_root(libname):
     """ Find directory for liblibname.so or liblibname.a in $LIBRARY_PATH """
-    library_path = os.getenv('LIBRARY_PATH').split(':')
-    for path in library_path:
-        if (os.path.exists(os.path.join(path, 'lib%s.so'%libname)) or
-            os.path.exists(os.path.join(path, 'lib%s.a'%libname))):
-            return path
+    if os.getenv("EBROOTGENTOO"):
+        return os.getenv("EBROOTGENTOO")
+    else:
+        library_path = os.getenv('LIBRARY_PATH').split(':')
+        for path in library_path:
+            if (os.path.exists(os.path.join(path, 'lib%s.so'%libname)) or
+                os.path.exists(os.path.join(path, 'lib%s.a'%libname))):
+                return path
     return ""
 
 class EB_XCrySDen(ConfigureMake):
