@@ -90,6 +90,18 @@ class EB_Perl(ConfigureMake):
         if sysroot:
             configopts.append('-Dsysroot=%s' % sysroot)
 
+            configopts.append('-Dlocincpth="%s"' % os.path.join(sysroot, 'usr', 'include'))
+
+            # also specify 'lib*' subdirectories to consider in specified sysroot, via glibpth configure option;
+            # we can list both lib64 and lib here, the Configure script will eliminate non-existing paths...
+            sysroot_lib_paths = [
+                os.path.join(sysroot, 'lib64'),
+                os.path.join(sysroot, 'lib'),
+                os.path.join(sysroot, 'usr', 'lib64'),
+                os.path.join(sysroot, 'usr', 'lib'),
+            ]
+            configopts.append('-Dglibpth="%s"' % ' '.join(sysroot_lib_paths))
+
         configopts = (' '.join(configopts)) % {'installdir': self.installdir}
 
         # if $COLUMNS is set to 0, 'ls' produces a warning like:
