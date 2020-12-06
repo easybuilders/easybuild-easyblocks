@@ -33,7 +33,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
-from easybuild.tools.environment import unset_env_vars
+from easybuild.tools.environment import setvar, unset_env_vars
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
@@ -135,6 +135,12 @@ class EB_Perl(ConfigureMake):
         # build and install additional modules with PerlModule easyblock
         self.cfg['exts_defaultclass'] = "PerlModule"
         self.cfg['exts_filter'] = EXTS_FILTER_PERL_MODULES
+
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # define $OPENSSL_PREFIX to ensure that Net-SSLeay extension picks up OpenSSL
+            # from specified sysroot rather than from host OS
+            setvar('OPENSSL_PREFIX', sysroot)
 
     def sanity_check_step(self):
         """Custom sanity check for Perl."""
