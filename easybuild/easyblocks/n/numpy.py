@@ -68,23 +68,6 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
 
-        if self.cfg['ignore_test_result']:
-            test_code = 'numpy.test(verbose=2)'
-        else:
-            if LooseVersion(self.version) >= LooseVersion('1.15'):
-                # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
-                test_code = 'sys.exit(not numpy.test(verbose=2))'
-            else:
-                # Return value is a TextTestResult. Check the errors member for any error
-                test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
-
-        # Prepend imports
-        test_code = "import sys; import numpy; " + test_code
-
-        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
-        # see http://projects.scipy.org/numpy/ticket/182
-        self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
-
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
 
@@ -231,6 +214,26 @@ class EB_numpy(FortranPythonPackage):
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
+
+        # determine command to use to run numpy test suite,
+        # and whether test results should be ignored or not
+        if self.cfg['ignore_test_result']:
+            test_code = 'numpy.test(verbose=2)'
+        else:
+            if LooseVersion(self.version) >= LooseVersion('1.15'):
+                # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
+                test_code = 'sys.exit(not numpy.test(verbose=2))'
+            else:
+                # Return value is a TextTestResult. Check the errors member for any error
+                test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
+
+        # Prepend imports
+        test_code = "import sys; import numpy; " + test_code
+
+        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+        # see http://projects.scipy.org/numpy/ticket/182
+        self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
+
         super(EB_numpy, self).test_step()
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
