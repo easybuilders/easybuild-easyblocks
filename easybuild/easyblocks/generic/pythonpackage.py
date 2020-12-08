@@ -511,7 +511,7 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('check_ldshared') is None:
             pyver = det_python_version(self.python_cmd)
             recent_py2 = pyver.startswith('2') and LooseVersion(pyver) >= LooseVersion('2.7.15')
-            if recent_py2 or LooseVersion(pyver) >= LooseVersion('3.7'):
+            if recent_py2 or LooseVersion(pyver) >= LooseVersion('3.6'):
                 self.log.info("Checking of $LDSHARED auto-enabled for sufficiently recent Python version %s", pyver)
                 self.cfg['check_ldshared'] = True
             else:
