@@ -27,12 +27,14 @@ EasyBuild support for wxPython, implemented as an easyblock
 
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 @author: Kenneth Hoste (HPC-UGent)
+@author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
 """
-
+import glob
 import os
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
+from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -102,6 +104,15 @@ class EB_wxPython(PythonPackage):
             cmd = cmd + " --wxpy_installdir=%s --install" % self.installdir
 
         run_cmd(cmd, log_all=True, simple=True)
+
+        # add symbolic links for libwx_*so.0 files
+        # (which are created automatically by 'build.py install', but not by 'pip install *.whl')
+        wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
+        cwd = change_dir(wx_lib_dir)
+        lib_so_files = glob.glob('libwx*.so.0')
+        for lib_so_file in lib_so_files:
+            symlink(lib_so_file, lib_so_file[:-2])
+        change_dir(cwd)
 
     def sanity_check_step(self):
         """Custom sanity check for wxPython."""
