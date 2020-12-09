@@ -31,8 +31,6 @@ EasyBuild support for building and installing RELION, implemented as an easybloc
 import os
 import stat
 
-import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
@@ -40,6 +38,7 @@ from easybuild.tools.filetools import adjust_permissions, mkdir, write_file
 from easybuild.tools.modules import get_software_root
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+
 
 class EB_RELION(CMakeMake):
     """Support for building/installing RELION"""
@@ -298,7 +297,7 @@ class EB_RELION(CMakeMake):
             'RELION_QSUB_NRTHREADS': self.cfg['qsub_threads'],  # Default for 'Number of threads'
             'RELION_THREAD_MAX': self.cfg['qsub_threads_max'],  # Maximum number of threads available from the GUI
             'RELION_MINIMUM_DEDICATED': self.cfg['qsub_ppn'],  # Default for 'Minimum dedicated cores per node'
-             # Allow user to change the 'Minimum dedicated cores per node'
+            # Allow user to change the 'Minimum dedicated cores per node'
             'RELION_ALLOW_CHANGE_MINIMUM_DEDICATED': '1' if self.cfg['qsub_ppn_edit'] else '0',
             'RELION_SCRATCH_DIR': self.cfg['tmp'],  # Default scratch directory in the GUI
         }
