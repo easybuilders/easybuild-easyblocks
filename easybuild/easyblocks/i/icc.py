@@ -147,10 +147,12 @@ class EB_icc(IntelBase):
         """
         prefix = None
 
+        guesses = super(EB_icc, self).make_module_req_guess()
+
         # guesses per environment variables
         # some of these paths only apply to certain versions, but that doesn't really matter
         # existence of paths is checked by module generator before 'prepend-paths' statements are included
-        guesses = {
+        guesses.update({
             'CLASSPATH': ['daal/lib/daal.jar'],
             # 'include' is deliberately omitted, including it causes problems, e.g. with complex.h and std::complex
             # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
@@ -161,7 +163,7 @@ class EB_icc(IntelBase):
             'MANPATH': ['debugger/gdb/intel64/share/man', 'man/common', 'man/en_US', 'share/man'],
             'PATH': [],
             'TBBROOT': ['tbb'],
-        }
+        })
 
         if self.cfg['m32']:
             # 32-bit toolchain

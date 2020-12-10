@@ -172,8 +172,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
             repls.append(('CPP', cpp, False))
             env.setvar('CPP', cpp)
 
-            # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
-            env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
+        # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
+        env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)

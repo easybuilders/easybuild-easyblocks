@@ -40,16 +40,32 @@ from easybuild.tools.run import run_cmd
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
 
-    def configure_step(self):
-        """Custom configuration procedure for Bazel."""
-
+    def fixup_hardcoded_paths(self):
+        """Patch out hard coded paths to compiler and binutils tools"""
         binutils_root = get_software_root('binutils')
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
         # only patch Bazel scripts if binutils & GCC installation prefix could be determined
-        if binutils_root and gcc_root:
+        if not binutils_root or not gcc_root:
+            self.log.info("Not patching Bazel build scripts, installation prefix for binutils/GCC not found")
+            return
 
+        # replace hardcoded paths in (unix_)cc_configure.bzl
+        # hard-coded paths in (unix_)cc_configure.bzl were removed in 0.19.0
+        if LooseVersion(self.version) < LooseVersion('0.19.0'):
+            regex_subs = [
+                (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
+                (r'"/usr/bin', '"' + os.path.join(binutils_root, 'bin')),
+            ]
+            for conf_bzl in ['cc_configure.bzl', 'unix_cc_configure.bzl']:
+                filepath = os.path.join('tools', 'cpp', conf_bzl)
+                if os.path.exists(filepath):
+                    apply_regex_substitutions(filepath, regex_subs)
+
+        # replace hardcoded paths in CROSSTOOL
+        # CROSSTOOL script is no longer there in Bazel 0.24.0
+        if LooseVersion(self.version) < LooseVersion('0.24.0'):
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
             if res and len(res) == 1:
                 gcc_lib_inc = res[0]
@@ -65,36 +81,27 @@ class EB_Bazel(EasyBlock):
             if not os.path.exists(gcc_cplusplus_inc):
                 raise EasyBuildError("Derived directory %s does not exist", gcc_cplusplus_inc)
 
-            # replace hardcoded paths in CROSSTOOL
-
-            # CROSSTOOL script is no longer there in Bazel 0.24.0
-            if LooseVersion(self.version) < LooseVersion('0.24.0'):
-                regex_subs = [
-                    (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
-                    (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
-                    (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_bis),
-                    (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
-                ]
-                for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
-                    path = which(tool)
-                    if path:
-                        regex_subs.append((os.path.join('/usr', 'bin', tool), path))
-                    else:
-                        raise EasyBuildError("Failed to determine path to '%s'", tool)
-
-                apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
-
-            # replace hardcoded paths in (unix_)cc_configure.bzl
             regex_subs = [
                 (r'-B/usr/bin', '-B%s' % os.path.join(binutils_root, 'bin')),
-                (r'"/usr/bin', '"' + os.path.join(binutils_root, 'bin')),
+                (r'(cxx_builtin_include_directory:.*)/usr/lib/gcc', r'\1%s' % gcc_lib_inc),
+                (r'(cxx_builtin_include_directory:.*)/usr/local/include', r'\1%s' % gcc_lib_inc_bis),
+                (r'(cxx_builtin_include_directory:.*)/usr/include', r'\1%s' % gcc_cplusplus_inc),
             ]
-            for conf_bzl in ['cc_configure.bzl', 'unix_cc_configure.bzl']:
-                filepath = os.path.join('tools', 'cpp', conf_bzl)
-                if os.path.exists(filepath):
-                    apply_regex_substitutions(filepath, regex_subs)
-        else:
-            self.log.info("Not patching Bazel build scripts, installation prefix for binutils/GCC not found")
+            for tool in ['ar', 'cpp', 'dwp', 'gcc', 'ld']:
+                path = which(tool)
+                if path:
+                    regex_subs.append((os.path.join('/usr', 'bin', tool), path))
+                else:
+                    raise EasyBuildError("Failed to determine path to '%s'", tool)
+
+            apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
+
+    def configure_step(self):
+        """Custom configuration procedure for Bazel."""
+
+        # Last instance of hardcoded paths was removed in 0.24.0
+        if LooseVersion(self.version) < LooseVersion('0.24.0'):
+            self.fixup_hardcoded_paths()
 
         # enable building in parallel
         bazel_args = '--jobs=%d' % self.cfg['parallel']

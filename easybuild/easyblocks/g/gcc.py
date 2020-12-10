@@ -32,6 +32,7 @@ EasyBuild support for building and installing GCC, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Toon Willems (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
 import glob
 import os
@@ -45,7 +46,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
@@ -85,6 +86,7 @@ class EB_GCC(ConfigureMake):
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
             'withlto': [True, "Enable LTO support", CUSTOM],
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
+            'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -266,6 +268,14 @@ class EB_GCC(ConfigureMake):
         """
         Run a configure command, with some extra checking (e.g. for unrecognized options).
         """
+        # note: this also triggers the use of an updated config.guess script
+        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            cmd += ' --build=' + build_type
+        if host_type:
+            cmd += ' --host=' + host_type
+
         (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
 
         if ec != 0:
@@ -307,7 +317,8 @@ class EB_GCC(ConfigureMake):
             # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
             gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
             regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
-            apply_regex_substitutions(gcc_config_headers, regex_subs)
+            for gcc_config_header in gcc_config_headers:
+                apply_regex_substitutions(gcc_config_header, regex_subs)
 
         # self.configopts will be reused in a 3-staged build,
         # configopts is only used in first configure
@@ -322,6 +333,41 @@ class EB_GCC(ConfigureMake):
         # enable specified language support
         if self.cfg['languages']:
             self.configopts += " --enable-languages=%s" % ','.join(self.cfg['languages'])
+
+        if self.cfg['withnvptx']:
+            if self.iter_idx == 0:
+                self.configopts += " --without-cuda-driver"
+                self.configopts += " --enable-offload-targets=nvptx-none"
+            else:
+                # register installed GCC as compiler to use nvptx
+                path = "%s/bin:%s" % (self.installdir, os.getenv('PATH'))
+                env.setvar('PATH', path)
+
+                ld_lib_path = "%(dir)s/lib64:%(dir)s/lib:%(val)s" % {
+                    'dir': self.installdir,
+                    'val': os.getenv('LD_LIBRARY_PATH')
+                }
+                env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+                extra_source = {1: "nvptx-tools", 2: "newlib"}[self.iter_idx]
+                extra_source_dirs = glob.glob(os.path.join(self.builddir, '%s-*' % extra_source))
+                if len(extra_source_dirs) != 1:
+                    raise EasyBuildError("Failed to isolate %s source dir" % extra_source)
+                if self.iter_idx == 1:
+                    # compile nvptx-tools
+                    change_dir(extra_source_dirs[0])
+                else:  # self.iter_idx == 2
+                    # compile nvptx target compiler
+                    symlink(os.path.join(extra_source_dirs[0], 'newlib'), 'newlib')
+                    self.create_dir("build-nvptx-gcc")
+                    self.cfg.update('configopts', self.configopts)
+                    self.cfg.update('configopts', "--with-build-time-tools=%s/nvptx-none/bin" % self.installdir)
+                    self.cfg.update('configopts', "--target=nvptx-none")
+                    host_type = self.determine_build_and_host_type()[1]
+                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
+                    self.cfg.update('configopts', "--disable-sjlj-exceptions")
+                    self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                    self.cfg['configure_cmd_prefix'] = '../'
+                return super(EB_GCC, self).configure_step()
 
         # enable building of libiberty, if desired
         if self.cfg['withlibiberty']:
@@ -402,14 +448,6 @@ class EB_GCC(ConfigureMake):
         else:
             objdir = self.create_dir("obj")
 
-        # note: this also triggers the use of an updated config.guess script
-        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
-        build_type, host_type = self.determine_build_and_host_type()
-        if build_type:
-            configopts += ' --build=' + build_type
-        if host_type:
-            configopts += ' --host=' + host_type
-
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
 
@@ -418,6 +456,10 @@ class EB_GCC(ConfigureMake):
         self.disable_lto_mpfr_old_gcc(objdir)
 
     def build_step(self):
+
+        if self.iter_idx > 0:
+            # call standard build_step for nvptx-tools and nvptx GCC
+            return super(EB_GCC, self).build_step()
 
         if self.stagedbuild:
 
@@ -643,10 +685,17 @@ class EB_GCC(ConfigureMake):
         # since these may cause problems when upgrading to newer OS version.
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
         glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
-        matches = glob.glob(glob_pattern)
-        if matches:
-            if len(matches) == 1:
-                include_fixed_path = matches[0]
+        paths = glob.glob(glob_pattern)
+        if paths:
+            # weed out paths that point to the same location,
+            # for example when 'lib64' is a symlink to 'lib'
+            include_fixed_paths = []
+            for path in paths:
+                if not any(os.path.samefile(path, x) for x in include_fixed_paths):
+                    include_fixed_paths.append(path)
+
+            if len(include_fixed_paths) == 1:
+                include_fixed_path = include_fixed_paths[0]
 
                 msg = "Found include-fixed subdirectory at %s, "
                 msg += "renaming it to avoid using system header files patched by fixincludes..."
@@ -687,9 +736,21 @@ class EB_GCC(ConfigureMake):
                               include_fixed_path, include_fixed_renamed)
             else:
                 raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
-                                     len(matches), matches)
+                                     len(include_fixed_paths), include_fixed_paths)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
+
+    def run_all_steps(self, *args, **kwargs):
+        """
+        If withnvptx is set, use iterated build:
+        iteration 0 builds the regular host compiler
+        iteration 1 builds nvptx-tools
+        iteration 2 builds the nvptx target compiler
+        """
+        if self.cfg['withnvptx']:
+            self.cfg['configopts'] = [self.cfg['configopts']] * 3
+            self.cfg['buildopts'] = [self.cfg['buildopts']] * 3
+        return super(EB_GCC, self).run_all_steps(*args, **kwargs)
 
     def sanity_check_step(self):
         """
@@ -756,6 +817,10 @@ class EB_GCC(ConfigureMake):
             libexec_files.extend(['lto1', 'lto-wrapper'])
             if os_type in ['Linux']:
                 libexec_files.append('liblto_plugin.%s' % sharedlib_ext)
+
+        if self.cfg['withnvptx']:
+            bin_files.extend(['nvptx-none-as', 'nvptx-none-ld'])
+            lib_files.append('libgomp-plugin-nvptx.%s' % sharedlib_ext)
 
         bin_files = ["bin/%s" % x for x in bin_files]
         libdirs64 = ['lib64']

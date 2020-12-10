@@ -134,6 +134,7 @@ class EB_PyTorch(PythonPackage):
         # BLAS Interface
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
+            options.append('INTEL_MKL_DIR=$MKLROOT')
         else:
             # This is what PyTorch defaults to if no MKL is found. Make this explicit here
             options.append('BLAS=Eigen')

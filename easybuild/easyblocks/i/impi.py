@@ -41,6 +41,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_20
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
@@ -245,19 +246,16 @@ EULA=accept
         """
         A dictionary of possible directories to look for
         """
+        guesses = super(EB_impi, self).make_module_req_guess()
         if self.cfg['m32']:
             lib_dirs = ['lib', 'lib/ia32', 'ia32/lib']
-            include_dirs = ['include']
-            return {
+            guesses.update({
                 'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
-                'MANPATH': ['man'],
-                'CPATH': include_dirs,
                 'MIC_LD_LIBRARY_PATH': ['mic/lib'],
-            }
+            })
         else:
-            guesses = {}
             if LooseVersion(self.version) >= LooseVersion('2019'):
                 # The "release" library is default in v2019. Give it precedence over intel64/lib.
                 # (remember paths are *prepended*, so the last path in the list has highest priority)
@@ -282,7 +280,7 @@ EULA=accept
                 'CPATH': include_dirs,
             })
 
-            return guesses
+        return guesses
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
@@ -315,5 +313,13 @@ EULA=accept
             txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cxx=icpc')
             # -fc also works, but -f90 takes precedence
             txt += self.module_generator.set_alias('mpiifort', 'mpiifort -f90=ifort')
+
+        # set environment variable UCX_TLS to 'all', this works in all hardware configurations
+        # needed with UCX regardless of the transports available (even without a Mellanox HCA)
+        # more information in easybuilders/easybuild-easyblocks#2253
+        if get_software_root('UCX'):
+            # do not overwrite settings in the easyconfig
+            if 'UCX_TLS' not in self.cfg['modextravars']:
+                txt += self.module_generator.set_environment('UCX_TLS', 'all')
 
         return txt

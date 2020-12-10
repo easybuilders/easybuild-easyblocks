@@ -129,7 +129,7 @@ class EB_Qt(ConfigureMake):
         # * https://github.com/NixOS/nixpkgs/commit/a7b6a9199e8db54a798d011a0946cdeb72cfc46b
         # * https://gitweb.gentoo.org/proj/qt.git/commit/?id=9ff0752e1ee3c28818197eaaca45545708035152
         kernel_version = os.uname()[2]
-        if LooseVersion(self.version) >= LooseVersion('5.0') and LooseVersion(kernel_version) < LooseVersion('3.17'):
+        if LooseVersion(self.version) >= LooseVersion('5.10') and LooseVersion(kernel_version) < LooseVersion('3.17'):
             self.cfg.update('configopts', '-no-feature-renameat2')
             self.cfg.update('configopts', '-no-feature-getentropy')
 

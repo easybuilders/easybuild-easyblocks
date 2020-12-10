@@ -3,7 +3,49 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 225 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 227 software-specific easyblocks and 37 generic easyblocks.
+
+v4.3.2 (December 10th 2020)
+---------------------------
+
+update/bugfix release
+
+- 2 new software-specific easyblocks:
+  - code-server (#2255), Metagenome-Atlas (#2219)
+- minor enhancements, including:
+  - add -fallow-argument-mismatch option when building CP2K 7.1 or older with GCC 10.x (#2223)
+  - update TensorFlow easyblock for upcoming TensorFlow 2.4 (#2225)
+  - add support for building Clang with OpenMP offload support (#2229)
+  - enhance OpenMPI easyblock to catch any --with-ucx* configure options (#2230)
+  - take into account preinstallopts and installopts in custom easyblock for NCL (#2234)
+  - add support for withnvptx easyconfig parameter, to enable GPU offloading, in GCC easyblock (#2235)
+  - take into account versions like '4.x' in OpenFOAM easyblock (#2239)
+  - also add 'bin' subdir to $PATH when installing a Python package (#2244)
+- various bug fixes, including:
+  - fix two bugs in GROMACS easyblock when using GCC & MKL for FFT and BLAS/LAPACK (#2212)
+  - fix version check in Qt5 easyblock w.r.t. disabling features on old Linux kernel versions (#2220)
+  - always define $FCCPP in QuantumESPRESSO easyblock (not just when using Intel compilers) (#2221)
+  - allow wxPython to be installed as an extension (#2227, #2275)
+  - only configure Python with --enable-optimizations when compiling Python with (recent) GCC compiler (#2228)
+  - fix sanity check for Boost MT libraries (#2231)
+  - fix hardcoded path in NVHPC easyblock to support multiple architectures (#2233)
+  - fix CPASSERT test faults on RHEL8 in CP2K easyblock (#2236)
+  - stop silently ignoring failing numpy tests, but include support for ignoring (failing) numpy tests (#2238, #2271)
+  - append to module guesses in easyblocks for Chapel, icc, imkl and impi (rather than overwriting guesses from parent easyblock) (#2242)
+  - weed out duplicates when determining paths to include-fixed subdirectory in GCC easyblock (#2245)
+  - prepend all hardcoded /usr/* paths with sysroot in Python's setup.py installation script (#2246)
+  - don't try to patch newer versions of Bazel where the patches won't apply (#2249)
+  - fix setting of $RUNPARALLEL in HDF5 easyblock (#2250)
+  - move --build and --host logic to run_configure_cmd in GCC easyblock (#2252)
+  - set $UCX_TLS in module for impi installation on top of UCX, and allow it to be overwritten in impi easyconfig file (#2253, #2258)
+  - enhance PyTorch easyblock to ensure it finds MKL (via $MKLROOT) (#2257)
+  - use integer division to determine number MPI ranks to use in WRF test step (#2266)
+  - also specify locincpth and glibpth configure options for Perl based on --sysroot (#2268)
+- other changes, including:
+  - add link to GCC mailing list thread confirming that binutils should not be configured with --with-sysroot=$EASYBUILD_SYSROOT when GCC is being configured like that (#2215)
+  - pass paths to patch one by one to apply_regex_substitutions in GCC easyblock when --sysroot is set (#2217)
+    - workaround for regression in apply_regex_substitutions introduced in EasyBuild v4.3.1 (which was fixed for v4.3.2)
+
 
 v4.3.1 (October 29th 2020)
 --------------------------
