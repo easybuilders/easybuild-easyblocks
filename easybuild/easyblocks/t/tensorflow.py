@@ -224,6 +224,8 @@ class EB_TensorFlow(PythonPackage):
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
             'test_tag_filters': ['', "Comma-separated list of tags to filter for during the test step", CUSTOM],
+            'test_jobs': [None, "Number of test jobs to run in parallel. Use None to automatically determine a value",
+                          CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
         }
@@ -842,8 +844,18 @@ class EB_TensorFlow(PythonPackage):
 
         test_opts = self.target_opts
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
-        # Can only run 1 test per GPU, be safe and run 1 at a time
-        test_opts.append('--local_test_jobs=1')
+        if self.cfg['test_jobs']:
+            num_test_jobs = int(self.cfg['test_jobs'])
+        else:
+            # Can (likely) only run 1 test per GPU
+            (gpu_ct, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
+            try:
+                num_test_jobs = min(self.cfg['parallel'], max(1, int(gpu_ct.strip()))) if ec == 0 else 1
+            except Exception:
+                self.log.info('Failed to get the number of GPUs on this system. Using only 1 test job')
+                num_test_jobs = 1
+        test_opts.append('--local_test_jobs=%s' % num_test_jobs)
+
         # Don't build tests which won't be executed
         test_opts.append('--build_tests_only')
 
