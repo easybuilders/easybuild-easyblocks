@@ -122,6 +122,7 @@ class EB_CMake(ConfigureMake):
 
     def install_step(self):
         """Create symlinks for CMake binaries"""
+        super(EB_CMake, self).install_step()
         # Some applications assume the existance of e.g. cmake3 to distinguish it from cmake, which can be 2 or 3
         maj_ver = self.version.split('.')[0]
         bin_path = os.path.join(self.installdir, 'bin')
