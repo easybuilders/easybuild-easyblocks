@@ -116,7 +116,7 @@ class EB_RELION(CMakeMake):
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             # RELION provides a default template to submit jobs in a generic batch scheduler with qsub
-            'queue_cmd': [None, "Command to submit jobs to the scheduler", MANDATORY],
+            'queue_cmd': ['qsub', "Command to submit jobs to the scheduler", MANDATORY],
             'queue_name': [None, "Name of the default submission queue for RELION", MANDATORY],
             'qsub_mpi': [4, "Default number of MPI procs showed in RELION's GUI", CUSTOM],
             'qsub_mpi_max': [20, "Maximum number of MPI procs allowed in RELION's GUI", CUSTOM],
