@@ -177,6 +177,30 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     return pylibdir
 
 
+def get_pylibdirs(python_cmd):
+    """Return a list of python library paths to use. The first entry will be the main one"""
+    log = fancylogger.getLogger('get_pylibdirs', fname=False)
+
+    # pylibdir is the 'main' Python lib directory
+    pylibdir = det_pylibdir(python_cmd=python_cmd)
+    log.debug("Python library dir: %s" % pylibdir)
+
+    # on (some) multilib systems, the platform-specific library directory for the system Python is different
+    # cfr. http://serverfault.com/a/88739/126446
+    # so, we keep a list of different Python lib directories to take into account
+    all_pylibdirs = nub([pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)])
+    log.debug("All Python library dirs: %s" % all_pylibdirs)
+
+    # make very sure an entry starting with lib/ is present,
+    # since older versions of setuptools hardcode 'lib' rather than using the value produced by
+    # distutils.sysconfig.get_python_lib (which may always be lib64/...)
+    if not any(pylibdir.startswith('lib' + os.path.sep) for pylibdir in all_pylibdirs):
+        pylibdir = os.path.join('lib', *pylibdir.split(os.path.sep)[1:])
+        all_pylibdirs.append(pylibdir)
+        log.debug("No lib/ entry found in list of Python lib dirs, so added it: %s", all_pylibdirs)
+    return all_pylibdirs
+
+
 def det_pip_version():
     """Determine version of currently active 'pip' command."""
 
@@ -331,23 +355,8 @@ class PythonPackage(ExtensionEasyBlock):
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
 
-        # pylibdir is the 'main' Python lib directory
-        self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
-        self.log.debug("Python library dir: %s" % self.pylibdir)
-
-        # on (some) multilib systems, the platform-specific library directory for the system Python is different
-        # cfr. http://serverfault.com/a/88739/126446
-        # so, we keep a list of different Python lib directories to take into account
-        self.all_pylibdirs = nub([self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=self.python_cmd)])
-        self.log.debug("All Python library dirs: %s" % self.all_pylibdirs)
-
-        # make very sure an entry starting with lib/ is present,
-        # since older versions of setuptools hardcode 'lib' rather than using the value produced by
-        # distutils.sysconfig.get_python_lib (which may always be lib64/...)
-        if not any(pylibdir.startswith('lib/') for pylibdir in self.all_pylibdirs):
-            pylibdir = os.path.join('lib', *self.pylibdir.split(os.path.sep)[1:])
-            self.all_pylibdirs.append(pylibdir)
-            self.log.debug("No lib/ entry found in list of Python lib dirs, so added it: %s", self.all_pylibdirs)
+        self.all_pylibdirs = get_pylibdirs(python_cmd=self.python_cmd)
+        self.pylibdir = self.all_pylibdirs[0]
 
     def prepare_python(self):
         """Python-specific preperations."""
