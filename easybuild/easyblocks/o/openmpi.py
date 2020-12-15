@@ -79,7 +79,7 @@ class EB_OpenMPI(ConfigureMake):
             # for OpenMPI v4.x, the openib BTL should be disabled when UCX is used;
             # this is required to avoid "error initializing an OpenFabrics device" warnings,
             # see also https://www.open-mpi.org/faq/?category=all#ofa-device-error
-            if LooseVersion(self.version) >= LooseVersion('4.0.0') and '--with-ucx=' in self.cfg['configopts']:
+            if LooseVersion(self.version) >= LooseVersion('4.0.0') and '--with-ucx' in self.cfg['configopts']:
                 self.cfg.update('configopts', '--without-verbs')
 
             else:

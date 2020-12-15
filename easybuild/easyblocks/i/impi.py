@@ -314,11 +314,12 @@ EULA=accept
             # -fc also works, but -f90 takes precedence
             txt += self.module_generator.set_alias('mpiifort', 'mpiifort -f90=ifort')
 
-        # set environment variable UCX_TLS to 'all', this will work in all setups
+        # set environment variable UCX_TLS to 'all', this works in all hardware configurations
         # needed with UCX regardless of the transports available (even without a Mellanox HCA)
-        # since impi v2019.8, the MLX provider works without UCX_TLS, but setting it does not hurt
-        ucx_root = get_software_root('UCX')
-        if ucx_root:
-            txt += self.module_generator.set_environment('UCX_TLS', 'all')
+        # more information in easybuilders/easybuild-easyblocks#2253
+        if get_software_root('UCX'):
+            # do not overwrite settings in the easyconfig
+            if 'UCX_TLS' not in self.cfg['modextravars']:
+                txt += self.module_generator.set_environment('UCX_TLS', 'all')
 
         return txt
