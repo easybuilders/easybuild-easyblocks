@@ -28,6 +28,7 @@ EasyBuild support for building and installing Bazel, implemented as an easyblock
 from distutils.version import LooseVersion
 import glob
 import os
+import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -96,12 +97,23 @@ class EB_Bazel(EasyBlock):
 
             apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
 
+    def prepare_step(self, *args, **kwargs):
+        """Setup bazel output root"""
+        super(EB_Bazel, self).prepare_step(*args, **kwargs)
+        self.bazel_tmp_dir = tempfile.mkdtemp(suffix='-bazel-tmp', dir=self.builddir)
+        self.output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
+
     def configure_step(self):
         """Custom configuration procedure for Bazel."""
 
         # Last instance of hardcoded paths was removed in 0.24.0
         if LooseVersion(self.version) < LooseVersion('0.24.0'):
             self.fixup_hardcoded_paths()
+
+        # Keep temporary directory in case of error. EB will clean it up on success
+        apply_regex_substitutions(os.path.join('scripts', 'bootstrap', 'buildenv.sh'), [
+            (r'atexit cleanup_tempdir_.*', '')
+        ])
 
         # enable building in parallel
         bazel_args = '--jobs=%d' % self.cfg['parallel']
@@ -112,12 +124,41 @@ class EB_Bazel(EasyBlock):
         # See https://github.com/bazelbuild/bazel/issues/10377
         bazel_args += ' --host_javabase=@local_jdk//:jdk'
 
+        # Link C++ libs statically, see https://github.com/bazelbuild/bazel/issues/4137
+        env.setvar('BAZEL_LINKOPTS', '-static-libstdc++:-static-libgcc')
+        env.setvar('BAZEL_LINKLIBS', '-l%:libstdc++.a')
+
         env.setvar('EXTRA_BAZEL_ARGS', bazel_args)
+        env.setvar('EMBED_LABEL', self.version)
+        env.setvar('VERBOSE', 'yes')
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        # The initial bootstrap of bazel is done in TMPDIR
+        cmd = 'TMPDIR="%s" %s bash -c "set -x && ./compile.sh"' % (self.bazel_tmp_dir, self.cfg['prebuildopts'])
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+    def test_step(self):
+        """Test the compilation"""
+
+        runtest = self.cfg['runtest']
+        if runtest:
+            if runtest is True:
+                runtest = 'test'
+            cmd = " ".join([
+                self.cfg['pretestopts'],
+                os.path.join('output', 'bazel'),
+                # Avoid bazel using $HOME
+                '--output_user_root=%s' % self.output_user_root,
+                runtest,
+                '--jobs=%d' % self.cfg['parallel'],
+                # Be more verbose
+                '--subcommands', '--verbose_failures',
+                # Just build tests
+                '--build_tests_only',
+                self.cfg['testopts']
+            ])
+            run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Custom install procedure for Bazel."""
