@@ -36,6 +36,7 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Joachim Hein (Lund University)
 @author: Michele Dolfi (ETH Zurich)
+@author: Mandes Schoenherr (NIWA)
 """
 from distutils.version import LooseVersion
 import fileinput
@@ -120,8 +121,12 @@ class EB_Boost(EasyBlock):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
 
         # create build directory (Boost doesn't like being built in source dir)
-        self.objdir = os.path.join(self.builddir, 'obj')
-        mkdir(self.objdir)
+        try:
+            self.objdir = os.path.join(self.builddir, 'obj')
+            mkdir(self.objdir)
+            self.log.debug("Succesfully created directory %s" % self.objdir)
+        except OSError as err:
+            raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
 
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
@@ -225,12 +230,12 @@ class EB_Boost(EasyBlock):
             self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
 
         if self.cfg['boost_multi_thread']:
-            self.log.info("Building boost with multi threading")
+            self.log.info("Building boost with multithreading")
             self.build_boost_variant(bjamoptions + " threading=multi --layout=tagged", paracmd)
 
         # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
         if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi with multi threading")
+            self.log.info("Building boost_mpi with multithreading")
             extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
             self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
 
