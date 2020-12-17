@@ -409,7 +409,7 @@ class EB_NWChem(ConfigureMake):
         """
         Simply test that we can execute the binary - this fails sometimes with PMI errors
         """
-        cmd = os.path.join(self.builddir, 'bin/nwchem')
+        cmd = os.path.join(self.builddir, 'nwchem-%s/bin/LINUX64/nwchem' % self.version)
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
         return out
 
