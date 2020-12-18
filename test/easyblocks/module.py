@@ -194,7 +194,7 @@ class ModuleOnlyTest(TestCase):
         self.assertTrue(pick_python_cmd(123, 456) is None)
 
 
-def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extra_txt=''):
+def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=''):
     """Test whether all easyblocks are compatible with --module-only."""
 
     tmpdir = tempfile.mkdtemp()
@@ -291,6 +291,9 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
         # if this doesn't fail, the test succeeds
         app = app_class(EasyConfig(self.eb_file))
 
+        assert app.installdir.startswith(TMPDIR)  # Just to be sure...
+        mkdir(app.installdir, parents=True)  # Pretend this exists
+
         # run all steps, most should be skipped
         orig_workdir = os.getcwd()
         try:
@@ -309,6 +312,8 @@ def template_module_only_test(self, easyblock, name='foo', version='1.3.2', extr
                 remove_file(modulerc)
         else:
             modfile = os.path.join(TMPDIR, 'modules', 'all', name, version)
+            if toolchain:
+                modfile = '-'.join([modfile, toolchain['name'], toolchain['version']])
             luamodfile = '%s.lua' % modfile
             self.assertTrue(os.path.exists(modfile) or os.path.exists(luamodfile),
                             "Module file %s or %s was generated" % (modfile, luamodfile))
@@ -370,23 +375,25 @@ def suite():
     write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.2.3.4.5'), "#%Module")
 
     for easyblock in easyblocks:
+        eb_fn = os.path.basename(easyblock)
         # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
-        if os.path.basename(easyblock) == 'systemcompiler.py':
+        if eb_fn == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
-        elif os.path.basename(easyblock) == 'systemmpi.py':
+        elif eb_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
-        elif os.path.basename(easyblock) == 'craytoolchain.py':
+        elif eb_fn == 'craytoolchain.py':
             # make sure that a (known) PrgEnv is included as a dependency
             extra_txt = 'dependencies = [("PrgEnv-gnu/1.2.3", EXTERNAL_MODULE)]'
-            innertest = make_inner_test(easyblock, extra_txt=extra_txt)
-        elif os.path.basename(easyblock) == 'modulerc.py':
+            innertest = make_inner_test(easyblock, name='CrayCC', extra_txt=extra_txt)
+        elif eb_fn == 'modulerc.py':
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
-            innertest = make_inner_test(easyblock, version='1.2.3.4', extra_txt=extra_txt)
+            innertest = make_inner_test(easyblock, name='foo', version='1.2.3.4', extra_txt=extra_txt)
         else:
-            innertest = make_inner_test(easyblock)
+            # Make up some unique name
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')
 
         innertest.__doc__ = "Test for using --module-only with easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
