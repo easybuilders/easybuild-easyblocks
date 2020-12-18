@@ -224,8 +224,8 @@ class EB_TensorFlow(PythonPackage):
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
             'test_tag_filters': ['', "Comma-separated list of tags to filter for during the test step", CUSTOM],
-            'test_jobs': [None, "Number of test jobs to run in parallel. Use None to automatically determine a value",
-                          CUSTOM],
+            'test_jobs': [None, "Number of test jobs to run in parallel." +
+                                "Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
         }
@@ -732,7 +732,7 @@ class EB_TensorFlow(PythonPackage):
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
         jvm_max_memory = self.cfg['jvm_max_memory']
-        if self.cfg['jvm_max_memory']:
+        if jvm_max_memory:
             jvm_startup_memory = min(512, int(jvm_max_memory))
             self.bazel_opts.extend([
                 '--host_jvm_args=-Xms%sm' % jvm_startup_memory,
