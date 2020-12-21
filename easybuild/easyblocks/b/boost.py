@@ -36,6 +36,7 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Joachim Hein (Lund University)
 @author: Michele Dolfi (ETH Zurich)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 from distutils.version import LooseVersion
 import fileinput
@@ -115,15 +116,63 @@ class EB_Boost(EasyBlock):
     def configure_step(self):
         """Configure Boost build using custom tools"""
 
-        # mpi sanity check
-        if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
-            raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
+        # Disable any Boost features in the configuration (bootstrap) step, it won't be possible at later stages
+        # Settings in 'configopts' added manually have precedence
+        bootstrap_opts = [opt.split('=') for opt in self.cfg['configopts'].split()]
+        bootstrap_opt_pairs = dict()  # key/value pairs
+        bootstrap_opt_bools = list()  # boolean opts (just for safekeeping)
+        for opt in bootstrap_opts:
+            if len(opt) > 1:
+                bootstrap_opt_pairs.update({opt[0]: opt[1].split(',')})
+            else:
+                bootstrap_opt_bools.append(opt[0])
 
-        # create build directory (Boost doesn't like being built in source dir)
+        with_libs, without_libs = '--with-libraries', '--without-libraries'
+        for libs_arg in [with_libs, without_libs]:
+            if libs_arg not in bootstrap_opt_pairs:
+                bootstrap_opt_pairs.update({libs_arg: []})
+
+        # Check MPI configuration settings
+        if self.cfg['boost_mpi']:
+            if 'mpi' in bootstrap_opt_pairs[without_libs]:
+                raise EasyBuildError("Boost.MPI enabled with 'boost_mpi' but disabled by user in 'configopts'.")
+
+            if not self.toolchain.mpi_family():
+                raise EasyBuildError("Boost.MPI enabled with 'boost_mpi' but current toolchain does not support MPI.")
+            elif not self.toolchain.options.get('usempi', None):
+                self.log.warning("Boost.MPI enabled, but MPI in toolchain is not. Activating 'usempi'.")
+                self.toolchain.options['usempi'] = True
+
+        elif 'mpi' in bootstrap_opt_pairs[with_libs]:
+            raise EasyBuildError("Boost.MPI disabled with 'boost_mpi' but enabled by user in 'configopts'.")
+        elif 'mpi' not in bootstrap_opt_pairs[without_libs]:
+            bootstrap_opt_pairs[without_libs].append('mpi')
+            self.log.debug("Boost.MPI disabled through '%s' in 'configopts'", without_libs)
+
+        # Check Python configuration settings
+        python_root = get_software_root('Python')
+        if python_root:
+            if 'python' not in bootstrap_opt_pairs[without_libs]:
+                bootstrap_opt_pairs.update({'--with-python-root': [python_root]})
+                self.log.debug("Boost.Python enabled using Python in %s", python_root)
+        elif 'python' not in bootstrap_opt_pairs[without_libs] + bootstrap_opt_pairs[with_libs]:
+            bootstrap_opt_pairs[without_libs].append('python')
+            self.log.debug("Boost.Python disabled through '%s' in 'configopts'", without_libs)
+
+        # Update configopts
+        for libs_arg in [with_libs, without_libs]:
+            if len(bootstrap_opt_pairs[libs_arg]) == 0:
+                del bootstrap_opt_pairs[libs_arg]
+
+        new_configopts = ['='.join([opt, ','.join(val)]) for opt, val in bootstrap_opt_pairs.items()]
+        new_configopts.extend(bootstrap_opt_bools)  # re-add boolean opts
+        self.cfg['configopts'] = ' '.join(new_configopts)
+
+        # Create build directory (Boost doesn't like being built in source dir)
         self.objdir = os.path.join(self.builddir, 'obj')
         mkdir(self.objdir)
 
-        # generate config depending on compiler used
+        # Generate config depending on compiler used
         toolset = self.cfg['toolset']
         if toolset is None:
             if self.toolchain.comp_family() == toolchain.INTELCOMP:
@@ -137,20 +186,20 @@ class EB_Boost(EasyBlock):
         tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
+        # Fine grained configurations are set in file 'user-config.jam'
+        user_config = ''
+
+        # Configure the boost mpi module
+        # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
+        # let Boost.Build know to look here for the config file
         if self.cfg['boost_mpi']:
 
-            self.toolchain.options['usempi'] = True
-            # configure the boost mpi module
-            # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
-            # let Boost.Build know to look here for the config file
-
-            txt = ''
             # Check if using a Cray toolchain and configure MPI accordingly
             if self.toolchain.toolchain_family() == toolchain.CRAYPE:
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
-                    txt = '\n'.join([
+                    user_config_mpi = '\n'.join([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
                         ': %s' % craygccversion,
@@ -167,10 +216,14 @@ class EB_Boost(EasyBlock):
                     ])
                 else:
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
+            # MPI families without specific configuration
             else:
-                txt = "using mpi : %s ;" % os.getenv("MPICXX")
+                user_config_mpi = "using mpi : %s ;\n" % os.getenv("MPICXX")
 
-            write_file('user-config.jam', txt, append=True)
+            self.log.debug("Updating configuration file 'user-config.jam' with MPI settings")
+            user_config = '\n'.join([user_config, user_config_mpi])
+
+        write_file('user-config.jam', user_config, append=True)
 
     def build_boost_variant(self, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
@@ -215,13 +268,16 @@ class EB_Boost(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
+        # WARNING: at this point features can be either enabled (--with) or disabled (--without), but *not* both
+        # We use an inclusive approach because MPI is not built by default
+
         if self.cfg['only_python_bindings']:
             # magic incantation to only install Boost Python bindings is... --with-python
             # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
             bjamoptions += " --with-python"
 
         if self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi library")
+            self.log.info("Building Boost.MPI library")
             self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
 
         if self.cfg['boost_multi_thread']:
@@ -230,7 +286,7 @@ class EB_Boost(EasyBlock):
 
         # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
         if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi with multi threading")
+            self.log.info("Building Boost.MPI with multi threading")
             extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
             self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
 
