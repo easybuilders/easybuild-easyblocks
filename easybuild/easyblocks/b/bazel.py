@@ -152,6 +152,7 @@ class EB_Bazel(EasyBlock):
                 '--output_user_root=%s' % self.output_user_root,
                 runtest,
                 '--jobs=%d' % self.cfg['parallel'],
+                '--host_javabase=@local_jdk//:jdk',
                 # Be more verbose
                 '--subcommands', '--verbose_failures',
                 # Just build tests
