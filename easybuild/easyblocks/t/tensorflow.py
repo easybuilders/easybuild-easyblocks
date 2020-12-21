@@ -430,14 +430,10 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
-        # Tensorflow/Bazel needs a couple of directories where it stores build cache and artefacts
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
-        self.output_root_dir = os.path.join(tmpdir, 'output_root')
-        self.output_base_dir = os.path.join(tmpdir, 'output_base')
-        self.output_user_root_dir = os.path.join(tmpdir, 'output_user_root')
-        self.wrapper_dir = os.path.join(tmpdir, 'wrapper_bin')
-        # This (likely) needs to be a subdir of output_base
-        self.install_base_dir = os.path.join(self.output_base_dir, 'inst_base')
+        # Path where Bazel will store its output, build artefacts etc.
+        self.output_user_root_dir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
+        self.wrapper_dir = tempfile.mkdtemp(suffix='-wrapper_bin', dir=self.builddir)
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -644,13 +640,9 @@ class EB_TensorFlow(PythonPackage):
         if LooseVersion(self.version) < LooseVersion('1.12.0'):
             # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
             regex_subs = [(r"(run_shell\(\['bazel')",
-                           r"\1, '--output_base=%s', '--install_base=%s'" % (self.output_base_dir,
-                                                                             self.install_base_dir))]
+                           r"\1, '--output_user_root=%s'" % self.output_user_root_dir)]
             apply_regex_substitutions('configure.py', regex_subs)
 
-        # Tell Bazel to not use $HOME/.cache/bazel at all
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        env.setvar('TEST_TMPDIR', self.output_root_dir)
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -733,8 +725,6 @@ class EB_TensorFlow(PythonPackage):
 
         # Options passed to the bazel command
         self.bazel_opts = [
-            '--output_base=%s' % self.output_base_dir,
-            '--install_base=%s' % self.install_base_dir,
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
         jvm_max_memory = self.cfg['jvm_max_memory']
