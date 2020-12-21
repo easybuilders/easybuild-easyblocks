@@ -851,6 +851,8 @@ class EB_TensorFlow(PythonPackage):
             (gpu_ct, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
             try:
                 num_test_jobs = min(self.cfg['parallel'], max(1, int(gpu_ct.strip()))) if ec == 0 else 1
+                test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs)
+                test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
             except Exception:
                 self.log.info('Failed to get the number of GPUs on this system. Using only 1 test job')
                 num_test_jobs = 1
