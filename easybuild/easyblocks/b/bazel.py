@@ -134,8 +134,11 @@ class EB_Bazel(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        # The initial bootstrap of bazel is done in TMPDIR
-        cmd = 'TMPDIR="%s" %s bash -c "set -x && ./compile.sh"' % (self.bazel_tmp_dir, self.cfg['prebuildopts'])
+        cmd = ' '.join([
+            "TMPDIR='%s'" % self.bazel_tmp_dir,  # The initial bootstrap of bazel is done in TMPDIR
+            self.cfg['prebuildopts'],
+            "bash -c 'set -x && ./compile.sh'",  # Show the commands the script is running to faster debug failures
+        ])
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def test_step(self):
@@ -143,6 +146,7 @@ class EB_Bazel(EasyBlock):
 
         runtest = self.cfg['runtest']
         if runtest:
+            # This could be used to pass options to Bazel: runtest = '--bazel-opt=foo test'
             if runtest is True:
                 runtest = 'test'
             cmd = " ".join([
