@@ -442,6 +442,12 @@ class EB_TensorFlow(PythonPackage):
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
+        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
+        # and will hang forever building the TensorFlow package.
+        # So limit to something high but still reasonable while allowing ECs to overwrite it
+        if self.cfg['maxparallel'] is None:
+            self.cfg['parallel'] = min(self.cfg['parallel'], 64)
+
         binutils_root = get_software_root('binutils')
         if not binutils_root:
             raise EasyBuildError("Failed to determine installation prefix for binutils")
@@ -759,13 +765,7 @@ class EB_TensorFlow(PythonPackage):
         if LooseVersion(self.version) >= LooseVersion('1.12.1'):
             self.target_opts.append('--config=noaws')
 
-        # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
-        # and will hang forever building the TensorFlow package.
-        # So limit to something high but still reasonable while allowing ECs to overwrite it
-        parallel = self.cfg['parallel']
-        if self.cfg['maxparallel'] is None:
-            parallel = min(parallel, 64)
-        self.target_opts.append('--jobs=%s' % parallel)
+        self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
 
         if self.toolchain.options.get('pic', None):
             self.target_opts.append('--copt="-fPIC"')
