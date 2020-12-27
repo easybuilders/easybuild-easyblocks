@@ -38,6 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_AOCC(PackedBinary):
     """
     Support for installing the AOCC compilers
@@ -53,18 +54,18 @@ class EB_AOCC(PackedBinary):
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, define custom class variables specific to AOCC."""
         super(EB_AOCC, self).__init__(*args, **kwargs)
-        
+
         # EULA for AOCC must be accepted via --accept-eula EasyBuild configuration option,
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
-        
+
         self.clangversion = self.cfg['clangversion']
 
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',
         }
-        
+
         if self.version in map_aocc_to_clang_ver:
             return map_aocc_to_clang_ver[self.version]
         else:
@@ -78,8 +79,9 @@ class EB_AOCC(PackedBinary):
 
     def prepare_step(self, *args, **kwargs):
         super(EB_AOCC, self).prepare_step(*args, **kwargs)
-        
-        # AOCC is based on Clang. Try to guess the clangversion from the AOCC version if clangversion is not specified in the easyconfig
+
+        # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
+        # if clangversion is not specified in the easyconfig
         if self.clangversion is None:
             self.clangversion = self._aocc_guess_clang_version()
 
