@@ -55,10 +55,6 @@ class EB_AOCC(PackedBinary):
         """Easyblock constructor, define custom class variables specific to AOCC."""
         super(EB_AOCC, self).__init__(*args, **kwargs)
 
-        # EULA for AOCC must be accepted via --accept-eula EasyBuild configuration option,
-        # or via 'accept_eula = True' in easyconfig file
-        self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
-
         self.clangversion = self.cfg['clangversion']
 
     def _aocc_guess_clang_version(self):
@@ -79,6 +75,10 @@ class EB_AOCC(PackedBinary):
 
     def prepare_step(self, *args, **kwargs):
         super(EB_AOCC, self).prepare_step(*args, **kwargs)
+
+        # EULA for AOCC must be accepted via --accept-eula EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 
         # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
         # if clangversion is not specified in the easyconfig
