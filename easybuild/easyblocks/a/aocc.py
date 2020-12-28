@@ -78,12 +78,12 @@ class EB_AOCC(PackedBinary):
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 
-        super(EB_AOCC, self).install_step()
-
         # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
         # if clangversion is not specified in the easyconfig
         if self.clangversion is None:
             self.clangversion = self._aocc_guess_clang_version()
+
+        super(EB_AOCC, self).install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for AOCC, based on sanity check for Clang."""
