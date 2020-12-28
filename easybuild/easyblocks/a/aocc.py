@@ -26,7 +26,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-Support for building and installing AOCC, implemented as an easyblock.
+Support for installing AOCC, implemented as an easyblock.
 
 @author: Sebastian Achilles (Forschungszentrum Juelich GmbH)
 """
@@ -47,7 +47,7 @@ class EB_AOCC(PackedBinary):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'clangversion':      [None, "Clang Version on which AOCC is based on (10.0.0 or 11.0.0 or ...)", CUSTOM],
+            'clangversion': [None, "Clang Version on which AOCC is based on (10.0.0 or 11.0.0 or ...)", CUSTOM],
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -90,18 +90,21 @@ class EB_AOCC(PackedBinary):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
-                "bin/clang", "bin/clang++", "bin/flang", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt",
-                "bin/llvm-link", "bin/llvm-config", "bin/llvm-symbolizer", "include/llvm-c/Core.h",
-                "include/clang-c/Index.h", "lib/libclang.%s" % shlib_ext,
-                "lib/clang/%s/include/stddef.h" % self.clangversion, "bin/scan-build", "bin/scan-view",
-                "bin/lld",
-                "lib/libc++.%s" % shlib_ext, "lib/libc++abi.%s" % shlib_ext,
-                "lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.clangversion,
+                'bin/clang', 'bin/clang++', 'bin/flang', 'bin/lld', 'bin/llvm-ar', 'bin/llvm-as', 'bin/llvm-config',
+                'bin/llvm-link', 'bin/llvm-nm', 'bin/llvm-symbolizer', 'bin/opt', 'bin/scan-build', 'bin/scan-view',
+                'include/clang-c/Index.h', 'include/llvm-c/Core.h', 'lib/clang/%s/include/omp.h' % self.clangversion,
+                'lib/clang/%s/include/stddef.h' % self.clangversion, 'lib/libc++.%s' % shlib_ext,
+                'lib/libc++abi.%s' % shlib_ext, 'lib/libclang.%s' % shlib_ext, 'lib/libomp.%s' % shlib_ext,
             ],
-            'dirs': ["bin", "lib", "lib32", "include/clang", "include/llvm", "lib/clang/%s/lib" % self.clangversion],
+            'dirs': ['include/llvm', 'lib/clang/%s/lib' % self.clangversion, 'lib32'],
         }
 
-        custom_commands = ['clang --help', 'clang++ --help', 'flang --help', 'llvm-config --cxxflags']
+        custom_commands = [
+            "clang --help",
+            "clang++ --help",
+            "flang --help",
+            "llvm-config --cxxflags",
+        ]
         super(EB_AOCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
@@ -120,6 +123,6 @@ class EB_AOCC(PackedBinary):
         Include C_INCLUDE_PATH and CPLUS_INCLUDE_PATH as an addition to default ones
         """
         guesses = super(EB_AOCC, self).make_module_req_guess()
-        guesses.update({'C_INCLUDE_PATH': ['include']})
-        guesses.update({'CPLUS_INCLUDE_PATH': ['include']})
+        guesses['C_INCLUDE_PATH'] = ['include']
+        guesses['CPLUS_INCLUDE_PATH'] = ['include']
         return guesses
