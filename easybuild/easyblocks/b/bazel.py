@@ -142,7 +142,7 @@ class EB_Bazel(EasyBlock):
     def build_step(self):
         """Custom build procedure for Bazel."""
         cmd = ' '.join([
-            "TMPDIR='%s'" % self.bazel_tmp_dir,  # The initial bootstrap of bazel is done in TMPDIR
+            "export TMPDIR='%s' &&" % self.bazel_tmp_dir,  # The initial bootstrap of bazel is done in TMPDIR
             self.cfg['prebuildopts'],
             "bash -c 'set -x && ./compile.sh'",  # Show the commands the script is running to faster debug failures
         ])
