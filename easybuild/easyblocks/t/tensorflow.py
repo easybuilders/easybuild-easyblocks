@@ -636,10 +636,11 @@ class EB_TensorFlow(PythonPackage):
         for (key, val) in sorted(config_env_vars.items()):
             env.setvar(key, val)
 
-        # Does no longer apply (and might not be required at all) since 1.12.0
-        if LooseVersion(self.version) < LooseVersion('1.12.0'):
-            # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-            regex_subs = [(r"(run_shell\(\['bazel')",
+        # configure.py (called by configure script) already calls bazel to determine the bazel version
+        # Since 2.3.0 `bazel --version` is used which doesn't extract bazel, prior it did
+        # Hence make sure it doesn't extract into $HOME/.cache/bazel
+        if LooseVersion(self.version) < LooseVersion('2.3.0'):
+            regex_subs = [(r"('bazel', '--batch')",
                            r"\1, '--output_user_root=%s'" % self.output_user_root_dir)]
             apply_regex_substitutions('configure.py', regex_subs)
 
