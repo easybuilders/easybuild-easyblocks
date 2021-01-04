@@ -34,6 +34,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
 
@@ -176,6 +177,7 @@ class EB_BerkeleyGW(ConfigureMake):
         """Custom test step for BerkeleyGW."""
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
+            setvar('OMP_NUM_THREADS', '4')
         super(EB_BerkeleyGW, self).test_step()
 
     def sanity_check_step(self):
