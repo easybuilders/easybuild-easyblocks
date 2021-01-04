@@ -180,7 +180,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
             repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
             repls.append(('FFLAGS', '-assume byterecl', True))
         elif comp_fam == toolchain.GCC:
-            repls.append(('F90FLAGS', '-cpp', True))
+            f90_flags = ['-cpp']
+            if LooseVersion(get_software_version('GCC')) >= LooseVersion('10'):
+                f90_flags.append('-fallow-argument-mismatch')
+            repls.append(('F90FLAGS', ' '.join(f90_flags), True))
 
         super(EB_QuantumESPRESSO, self).configure_step()
 
