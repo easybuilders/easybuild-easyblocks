@@ -36,10 +36,20 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
+
+    @staticmethod
+    def extra_options():
+        """Extra easyconfig parameters specific to EB_Bazel."""
+        extra_vars = {
+            'static': [None, 'Build statically linked executables ' +
+                             '(default: True for Bazel >= 1.0 else False)', CUSTOM],
+        }
+        return EasyBlock.extra_options(extra_vars)
 
     def fixup_hardcoded_paths(self):
         """Patch out hard coded paths to compiler and binutils tools"""
@@ -132,8 +142,13 @@ class EB_Bazel(EasyBlock):
         bazel_args += ' --host_javabase=@local_jdk//:jdk'
 
         # Link C++ libs statically, see https://github.com/bazelbuild/bazel/issues/4137
-        env.setvar('BAZEL_LINKOPTS', '-static-libstdc++:-static-libgcc')
-        env.setvar('BAZEL_LINKLIBS', '-l%:libstdc++.a')
+        static = self.cfg['static']
+        if static is None:
+            # Works for Bazel 1.x and higher
+            static = LooseVersion(self.version) >= LooseVersion('1.0.0')
+        if static:
+            env.setvar('BAZEL_LINKOPTS', '-static-libstdc++:-static-libgcc')
+            env.setvar('BAZEL_LINKLIBS', '-l%:libstdc++.a')
 
         env.setvar('EXTRA_BAZEL_ARGS', bazel_args)
         env.setvar('EMBED_LABEL', self.version)
