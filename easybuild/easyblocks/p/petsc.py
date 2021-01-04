@@ -156,11 +156,18 @@ class EB_PETSc(ConfigureMake):
 
             # Python extensions_step
             if get_software_root('Python'):
-                self.cfg.update('configopts', '--with-numpy=1')
 
-                with_mpi4py_opt = '--with-mpi4py'
-                if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
-                    self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
+                # enable numpy support, but only if numpy is available
+                (_, ec) = run_cmd("python -c 'import numpy'", log_all=True, simple=False)
+                if ec == 0:
+                    self.cfg.update('configopts', '--with-numpy=1')
+
+                # enable mpi4py support, but only if mpi4py is available
+                (_, ec) = run_cmd("python -c 'import mpi4py'", log_all=True, simple=False)
+                if ec == 0:
+                    with_mpi4py_opt = '--with-mpi4py'
+                    if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
+                        self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
             deps = ["FFTW", "ScaLAPACK"]
