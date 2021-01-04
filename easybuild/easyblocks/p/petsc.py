@@ -210,7 +210,7 @@ class EB_PETSc(ConfigureMake):
             # filter out deps handled seperately
             sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
                         'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
-            depfilter = self.cfg.builddependencies() + sep_deps
+            depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
