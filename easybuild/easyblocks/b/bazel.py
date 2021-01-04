@@ -103,6 +103,13 @@ class EB_Bazel(EasyBlock):
         self.bazel_tmp_dir = tempfile.mkdtemp(suffix='-bazel-tmp', dir=self.builddir)
         self.output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
 
+    def extract_step(self):
+        """Extract Bazel sources."""
+        # Older Bazel won't build when the output_user_root is a subfolder of the source folder
+        # So create a dedicated source folder
+        self.cfg.update('unpack_options', '-d src')
+        super(EB_Bazel, self).extract_step()
+
     def configure_step(self):
         """Custom configuration procedure for Bazel."""
 
