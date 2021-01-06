@@ -264,7 +264,12 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         extra_options = app_class.extra_options()
         for (key, val) in extra_options.items():
             if val[2] == MANDATORY:
-                extra_txt += '%s = "foo"\n' % key
+                # use default value if any is set, otherwise use "foo"
+                if val[0]:
+                    test_param = val[0]
+                else:
+                    test_param = 'foo'
+                extra_txt += '%s = "%s"\n' % (key, test_param)
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)
