@@ -121,11 +121,11 @@ class PythonBundle(Bundle):
             orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
             self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', python_cmd), orig_exts_filter[1])
 
-    def extensions_step(self):
+    def extensions_step(self, *args, **kwargs):
         """Install extensions (usually PythonPackages)"""
         # don't add user site directory to sys.path (equivalent to python -s)
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        super(PythonBundle, self).extensions_step()
+        super(PythonBundle, self).extensions_step(*args, **kwargs)
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
