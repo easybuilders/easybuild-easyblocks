@@ -32,7 +32,7 @@ import sys
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir, pick_python_cmd
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, pick_python_cmd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
@@ -111,8 +111,8 @@ class PythonBundle(Bundle):
 
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
-        self.pylibdir = det_pylibdir(python_cmd=python_cmd)
-        self.all_pylibdirs = [self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)]
+        self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
+        self.pylibdir = self.all_pylibdirs[0]
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
