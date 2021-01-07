@@ -161,6 +161,7 @@ class EB_NEURON(CMakeMake):
         # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
         # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
         # others) to be considered a mistake in the distribution
+        binaries = []
         if LooseVersion(self.version) < LooseVersion('7.4'):
             binaries.append("hoc_ed")
 
