@@ -120,7 +120,8 @@ class EB_NEURON(CMakeMake):
             if python_root:
                 self.with_python = True
                 self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=ON -DPYTHON_EXECUTABLE=%s/bin/python" % python_root)
-                self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON -DNRN_MODULE_INSTALL_OPTIONS='--prefix=%s'" % self.installdir)
+                self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON "
+                                "-DNRN_MODULE_INSTALL_OPTIONS='--prefix=%s'" % self.installdir)
 
             # determine Python lib dir
             self.pylibdir = det_pylibdir()
@@ -177,8 +178,8 @@ class EB_NEURON(CMakeMake):
                         "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
             libs = ["nrniv", "rxdmath"]
             if self.with_python:
-                extra_dirs += [os.path.join("lib","python"),
-                               os.path.join("lib","python%(pyshortver)s","site-packages")]
+                extra_dirs += [os.path.join("lib", "python"),
+                               os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         self.cfg['sanity_check_paths'] = {
