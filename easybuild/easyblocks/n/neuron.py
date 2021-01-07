@@ -68,7 +68,7 @@ class EB_NEURON(CMakeMake):
 
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
-        if LooseVersion(self.version) < LooseVersion('7.8'):
+        if LooseVersion(self.version) < LooseVersion('7.8.1'):
             # enable support for distributed simulations if desired
             if self.cfg['paranrn']:
                 self.cfg.update('configopts', '--with-paranrn')
@@ -135,7 +135,7 @@ class EB_NEURON(CMakeMake):
         super(EB_NEURON, self).install_step()
 
         # with the CMakeMake, the python module is installed automatically
-        if LooseVersion(self.version) < LooseVersion('7.8'):
+        if LooseVersion(self.version) < LooseVersion('7.8.1'):
             if self.with_python:
                 pypath = os.path.join('src', 'nrnpython')
                 try:
@@ -165,7 +165,7 @@ class EB_NEURON(CMakeMake):
             binaries.append("hoc_ed")
 
         extra_dirs = []
-        if LooseVersion(self.version) < LooseVersion('7.8'):
+        if LooseVersion(self.version) < LooseVersion('7.8.1'):
             binaries = ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
                         "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
             binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc",
