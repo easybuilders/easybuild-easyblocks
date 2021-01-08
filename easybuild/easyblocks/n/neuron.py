@@ -62,9 +62,7 @@ class EB_NEURON(CMakeMake):
         extra_vars = {
             'paranrn': [True, "Enable support for distributed simulations.", CUSTOM],
         }
-        extra_vars.update(ConfigureMake.extra_options())
-        extra_vars.update(CMakeMake.extra_options())
-        return extra_vars
+        return CMakeMake.extra_options(extra_vars)
 
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
