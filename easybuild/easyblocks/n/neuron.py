@@ -164,28 +164,30 @@ class EB_NEURON(CMakeMake):
         if LooseVersion(self.version) < LooseVersion('7.4'):
             binaries.append("hoc_ed")
 
-        extra_dirs = []
+        sanity_check_dirs = ['share/nrn']
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
-            binaries = ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
+            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
                         "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
             binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc",
                                                "oc_makefile", "ocmodl"]]
             libs = ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi", "nrnoc", "nrnpython",
                     "oc", "ocxt", "scopmath", "sparse13", "sundials"]
+            sanity_check_dirs += ['include/nrn']
         # list of included binaries changed with cmake. See
         # https://github.com/neuronsimulator/nrn/issues/899
         else:
-            binaries = ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
+            binaries += ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
                         "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
             libs = ["nrniv", "rxdmath"]
+            sanity_check_dirs += ['include']
             if self.with_python:
-                extra_dirs += [os.path.join("lib", "python"),
+                sanity_check_dirs += [os.path.join("lib", "python"),
                                os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         self.cfg['sanity_check_paths'] = {
             'files': [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs],
-            'dirs': ['include', 'share/nrn'] + extra_dirs,
+            'dirs': sanity_check_dirs,
         }
 
         super(EB_NEURON, self).sanity_check_step()
