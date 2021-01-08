@@ -158,37 +158,35 @@ class EB_NEURON(CMakeMake):
         # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
         # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
         # others) to be considered a mistake in the distribution
-        binaries = []
-        if LooseVersion(self.version) < LooseVersion('7.4'):
-            binaries.append("hoc_ed")
-
+        binaries = ["neurondemo", "nrngui", "nrniv", "nrnivmodl", "nocmodl", "modlunit", "nrnmech_makefile",
+                    "mkthreadsafe"]
+        libs = ["nrniv"]
         sanity_check_dirs = ['share/nrn']
+
+        if LooseVersion(self.version) < LooseVersion('7.4'):
+            binaries += ["hoc_ed"]
+
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
-            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
-                         "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
-            binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc",
-                                               "oc_makefile", "ocmodl"]]
-            libs = ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi", "nrnoc", "nrnpython",
-                    "oc", "ocxt", "scopmath", "sparse13", "sundials"]
+            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mos2nrn", "mos2nrn2.sh", "oc"]
+            binaries += ["nrn%s" % x for x in ["iv_makefile", "oc", "oc_makefile", "ocmodl"]]
+            libs += ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrnmpi", "nrnoc", "nrnpython",
+                     "oc", "ocxt", "scopmath", "sparse13", "sundials"]
             sanity_check_dirs += ['include/nrn']
         # list of included binaries changed with cmake. See
         # https://github.com/neuronsimulator/nrn/issues/899
         else:
-            binaries += ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
-                         "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
-            libs = ["nrniv", "rxdmath"]
+            binaries += ["nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
+            libs += ["rxdmath"]
             sanity_check_dirs += ['include']
             if self.with_python:
-                sanity_check_dirs += [os.path.join("lib", "python"),
-                                      os.path.join("lib", "python%(pyshortver)s", "site-packages")]
+                sanity_check_dirs += [os.path.join("lib", "python"), self.pylibdir]
 
-        # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        self.cfg['sanity_check_paths'] = {
+        custom_paths = {
             'files': [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs],
             'dirs': sanity_check_dirs,
         }
 
-        super(EB_NEURON, self).sanity_check_step()
+        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
 
         try:
             fake_mod_data = self.load_fake_module()
