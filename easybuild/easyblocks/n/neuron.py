@@ -168,7 +168,7 @@ class EB_NEURON(CMakeMake):
         sanity_check_dirs = ['share/nrn']
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
             binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
-                        "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
+                         "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
             binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc",
                                                "oc_makefile", "ocmodl"]]
             libs = ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi", "nrnoc", "nrnpython",
@@ -178,12 +178,12 @@ class EB_NEURON(CMakeMake):
         # https://github.com/neuronsimulator/nrn/issues/899
         else:
             binaries += ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
-                        "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
+                         "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
             libs = ["nrniv", "rxdmath"]
             sanity_check_dirs += ['include']
             if self.with_python:
                 sanity_check_dirs += [os.path.join("lib", "python"),
-                               os.path.join("lib", "python%(pyshortver)s", "site-packages")]
+                                      os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         self.cfg['sanity_check_paths'] = {
