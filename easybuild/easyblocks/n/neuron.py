@@ -268,7 +268,7 @@ class EB_NEURON(CMakeMake):
 
         # we need to make sure the correct compiler is set in the environment,
         # since NEURON features compilation at runtime
-        for var in ['CC', 'MPICH_CC']:
+        for var in ['CC', 'CXX', 'MPICC', 'MPICXX', 'MPICH_CC', 'MPICH_CXX']:
             val = os.getenv(var)
             if val:
                 txt += self.module_generator.set_environment(var, val)
