@@ -63,9 +63,7 @@ class EB_NEURON(CMakeMake):
             'paranrn': [True, "Enable support for distributed simulations.", CUSTOM],
             'with_python': [False, "Enable support for python", CUSTOM],
         }
-        extra_vars.update(ConfigureMake.extra_options())
-        extra_vars.update(CMakeMake.extra_options())
-        return extra_vars
+        return CMakeMake.extra_options(extra_vars)
 
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
@@ -161,34 +159,37 @@ class EB_NEURON(CMakeMake):
         # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
         # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
         # others) to be considered a mistake in the distribution
-        binaries = []
-        if LooseVersion(self.version) < LooseVersion('7.4'):
-            binaries.append("hoc_ed")
-
+        binaries = ["neurondemo", "nrngui", "nrniv", "nrnivmodl", "nocmodl", "modlunit", "nrnmech_makefile",
+                    "mkthreadsafe"]
+        libs = ["nrniv"]
         sanity_check_dirs = ['share/nrn']
+
+        if LooseVersion(self.version) < LooseVersion('7.4'):
+            binaries += ["hoc_ed"]
+
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
-            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mkthreadsafe", "modlunit", "mos2nrn",
-                         "mos2nrn2.sh", "neurondemo", "nocmodl", "oc"]
-            binaries += ["nrn%s" % x for x in ["gui", "iv", "iv_makefile", "ivmodl", "mech_makefile", "oc",
-                                               "oc_makefile", "ocmodl"]]
-            libs = ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrniv", "nrnmpi", "nrnoc", "nrnpython",
-                    "oc", "ocxt", "scopmath", "sparse13", "sundials"]
+            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mos2nrn", "mos2nrn2.sh", "oc"]
+            binaries += ["nrn%s" % x for x in ["iv_makefile", "oc", "oc_makefile", "ocmodl"]]
+            libs += ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrnmpi", "nrnoc", "nrnpython",
+                     "oc", "ocxt", "scopmath", "sparse13", "sundials"]
             sanity_check_dirs += ['include/nrn']
         # list of included binaries changed with cmake. See
         # https://github.com/neuronsimulator/nrn/issues/899
         else:
-            binaries += ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
-                         "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
-            libs = ["nrniv", "rxdmath"]
+            binaries += ["nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
+            libs += ["rxdmath"]
             sanity_check_dirs += ['include']
             if self.with_python:
                 sanity_check_dirs += [os.path.join("lib", "python"),
                                       os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
+        # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
+        # ensure that we only add to paths specified in the EasyConfig
+        sanity_check_files = [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs]
         self.cfg['sanity_check_paths'] = {
-            'files': [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs],
-            'dirs': sanity_check_dirs,
+                'files': sanity_check_files,
+                'dirs': sanity_check_dirs,
         }
 
         super(EB_NEURON, self).sanity_check_step()
@@ -259,14 +260,6 @@ class EB_NEURON(CMakeMake):
             'PATH': [os.path.join(self.hostcpu, 'bin')],
         })
 
-        if self.with_python:
-            if self.cfg['multi_deps']:
-                guesses.update({'EBPYTHONPREFIXES': ['']})
-            else:
-                guesses.update({
-                    'PYTHONPATH': [self.pylibdir],
-                })
-
         return guesses
 
     def make_module_extra(self):
@@ -276,7 +269,7 @@ class EB_NEURON(CMakeMake):
 
         # we need to make sure the correct compiler is set in the environment,
         # since NEURON features compilation at runtime
-        for var in ['CC', 'MPICH_CC']:
+        for var in ['CC', 'CXX', 'MPICC', 'MPICXX', 'MPICH_CC', 'MPICH_CXX']:
             val = os.getenv(var)
             if val:
                 txt += self.module_generator.set_environment(var, val)
@@ -291,6 +284,4 @@ class EB_NEURON(CMakeMake):
                 txt += self.module_generator.prepend_paths('PYTHONPATH', [self.pylibdir])
             # also adds lib/python to PYTHONPATH
             txt += self.module_generator.prepend_paths('PYTHONPATH', ['lib/python'])
-        return txt
-
         return txt
