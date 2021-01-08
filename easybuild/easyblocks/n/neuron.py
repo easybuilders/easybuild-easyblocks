@@ -254,14 +254,6 @@ class EB_NEURON(CMakeMake):
             'PATH': [os.path.join(self.hostcpu, 'bin')],
         })
 
-        if self.with_python:
-            if self.cfg['multi_deps']:
-                guesses.update({'EBPYTHONPREFIXES': ['']})
-            else:
-                guesses.update({
-                    'PYTHONPATH': [self.pylibdir],
-                })
-
         return guesses
 
     def make_module_extra(self):
