@@ -279,5 +279,3 @@ class EB_NEURON(CMakeMake):
             # also adds lib/python to PYTHONPATH
             txt += self.module_generator.prepend_paths('PYTHONPATH', ['lib/python'])
         return txt
-
-        return txt
