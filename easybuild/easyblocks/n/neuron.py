@@ -179,14 +179,19 @@ class EB_NEURON(CMakeMake):
             libs += ["rxdmath"]
             sanity_check_dirs += ['include']
             if self.with_python:
-                sanity_check_dirs += [os.path.join("lib", "python"), self.pylibdir]
+                sanity_check_dirs += [os.path.join("lib", "python"),
+                                      os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
-        custom_paths = {
-            'files': [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs],
-            'dirs': sanity_check_dirs,
+        # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
+        # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
+        # ensure that we only add to paths specified in the EasyConfig
+        sanity_check_files = [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs]
+        self.cfg['sanity_check_paths'] = {
+                'files': sanity_check_files,
+                'dirs': sanity_check_dirs,
         }
 
-        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_NEURON, self).sanity_check_step()
 
         try:
             fake_mod_data = self.load_fake_module()
