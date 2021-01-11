@@ -414,7 +414,8 @@ class IntelBase(EasyBlock):
         Actual installation for versions 2021.x onwards.
         """
         # require that EULA is accepted
-        self.check_accepted_eula()
+        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
 
         # exactly one "source" file is expected: the (offline) installation script
         if len(self.src) == 1:
