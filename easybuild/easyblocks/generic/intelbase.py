@@ -38,6 +38,7 @@ Generic EasyBuild support for installing Intel tools, implemented as an easybloc
 import os
 import re
 import shutil
+import stat
 import tempfile
 from distutils.version import LooseVersion
 
@@ -46,7 +47,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, mkdir, read_file, remove_file, write_file
+from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
+from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
 from easybuild.tools.run import run_cmd
 
 
@@ -301,8 +303,8 @@ class IntelBase(EasyBlock):
         """Binary installation files, so no building."""
         pass
 
-    def install_step(self, silent_cfg_names_map=None, silent_cfg_extras=None):
-        """Actual installation
+    def install_step_classic(self, silent_cfg_names_map=None, silent_cfg_extras=None):
+        """Actual installation for versions prior to 2021.x
 
         - create silent cfg file
         - set environment parameters
@@ -406,6 +408,54 @@ class IntelBase(EasyBlock):
         ])
 
         return run_cmd(cmd, log_all=True, simple=True, log_output=True)
+
+    def install_step_oneapi(self, *args, **kwargs):
+        """
+        Actual installation for versions 2021.x onwards.
+        """
+        # require that EULA is accepted
+        self.check_accepted_eula()
+
+        # exactly one "source" file is expected: the (offline) installation script
+        if len(self.src) == 1:
+            install_script = self.src[0]['name']
+        else:
+            src_fns = ', '.join([x['name'] for x in self.src])
+            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
+
+        adjust_permissions(install_script, stat.S_IXUSR)
+
+        # see https://software.intel.com/content/www/us/en/develop/documentation/...
+        # .../installation-guide-for-intel-oneapi-toolkits-linux/top/...
+        # .../local-installer-full-package/install-with-command-line.html
+        cmd = [
+            self.cfg['preinstallopts'],
+            './' + install_script,
+            '-a',  # required to specify that following are options for installer
+            '--action install',
+            '--silent',
+            '--eula accept',
+            '--install-dir ' + self.installdir,
+        ]
+
+        if self.install_components:
+            cmd.extend([
+                '--components',
+                ':'.join(self.install_components),
+            ])
+
+        cmd.append(self.cfg['installopts'])
+
+        return run_cmd(' '.join(cmd), log_all=True, simple=True, log_output=True)
+
+    def install_step(self, *args, **kwargs):
+        """
+        Install Intel software
+        """
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            return self.install_step_oneapi(*args, **kwargs)
+        else:
+            return self.install_step_classic(*args, **kwargs)
 
     def move_after_install(self):
         """Move installed files to correct location after installation."""
