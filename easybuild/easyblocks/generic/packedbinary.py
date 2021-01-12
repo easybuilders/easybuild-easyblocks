@@ -28,11 +28,10 @@ EasyBlock for binary applications that need unpacking, e.g., binary applications
 @author: Jens Timmerman (Ghent University)
 """
 import os
-import shutil
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy
 
 
 class PackedBinary(Binary, EasyBlock):
@@ -45,18 +44,16 @@ class PackedBinary(Binary, EasyBlock):
         EasyBlock.extract_step(self)
 
     def install_step(self):
-        """Copy all unpacked source directories to install directory, one-by-one."""
-        try:
-            os.chdir(self.builddir)
-            for src in os.listdir(self.builddir):
+        """Copy all unpacked source files/directories to install directory, one-by-one."""
+        os.chdir(self.builddir)
+        for src in os.listdir(self.builddir):
+            if self.cfg.get('install_cmd', None):
                 srcpath = os.path.join(self.builddir, src)
-                if os.path.isdir(srcpath):
-                    # copy files to install dir via Binary
+                copy(srcpath, self.installdir)
+            else:
+                if os.path.isdir(src):
                     self.cfg['start_dir'] = src
-                    Binary.install_step(self)
-                elif os.path.isfile(srcpath):
-                    shutil.copy2(srcpath, self.installdir)
                 else:
-                    raise EasyBuildError("Path %s is not a file nor a directory?", srcpath)
-        except OSError as err:
-            raise EasyBuildError("Failed to copy unpacked sources to install directory: %s", err)
+                    self.cfg['start_dir'] = self.builddir
+                # the case where there is an install_cmd is handled by the Binary easyblock
+                Binary.install_step(self)
