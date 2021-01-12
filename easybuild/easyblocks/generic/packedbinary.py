@@ -47,7 +47,7 @@ class PackedBinary(Binary, EasyBlock):
         """Copy all unpacked source files/directories to install directory, one-by-one."""
         os.chdir(self.builddir)
         for src in os.listdir(self.builddir):
-            if self.cfg.get('install_cmd', None):
+            if self.cfg.get('install_cmd', None) is None:
                 srcpath = os.path.join(self.builddir, src)
                 copy(srcpath, self.installdir)
             else:
