@@ -50,7 +50,7 @@ class PackedBinary(Binary, EasyBlock):
         for src in os.listdir(self.builddir):
             srcpath = os.path.join(self.builddir, src)
             # we only handle the case of a single file and no install_cmd here
-            if os.path.isfile(srcpath) and self.cfg.get('install_cmd', None) is None:
+            if os.path.isfile(src) and self.cfg.get('install_cmd', None) is None:
                 copy(srcpath, self.installdir)
             else:
                 if os.path.isdir(src):
