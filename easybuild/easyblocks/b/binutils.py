@@ -166,8 +166,21 @@ class EB_binutils(ConfigureMake):
                           os.path.join(self.installdir, 'include', 'libiberty.h'))
 
             if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
-                          os.path.join(self.installdir, 'lib', 'libiberty.a'))
+                # Be a bit careful about where we install into
+                libdir = os.path.join(self.installdir, 'lib')
+                if os.path.exists(dirName) and os.path.isdir(dirName):
+                    if not os.listdir(dirName):
+                        # At this point the lib directory should be populated, if not try the other option
+                        libdir = os.path.join(self.installdir, 'lib64')
+                else:
+                    # If the directory doesn't exist, try the other option
+                    libdir = os.path.join(self.installdir, 'lib64')
+                # Make sure the target exists (it should, otherwise our sanity check will fail)
+                if os.path.exists(dirName) and os.path.isdir(dirName) and os.listdir(dirName):
+                    copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
+                              os.path.join(libdir, 'libiberty.a'))
+                else:
+                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty", libdir)
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
                 copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
