@@ -180,7 +180,8 @@ class EB_binutils(ConfigureMake):
                     copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
                               os.path.join(libdir, 'libiberty.a'))
                 else:
-                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty", libdir)
+                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty",
+                                         libdir)
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
                 copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
