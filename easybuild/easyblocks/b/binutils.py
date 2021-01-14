@@ -168,15 +168,15 @@ class EB_binutils(ConfigureMake):
             if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
                 # Be a bit careful about where we install into
                 libdir = os.path.join(self.installdir, 'lib')
-                if os.path.exists(dirName) and os.path.isdir(dirName):
-                    if not os.listdir(dirName):
+                if os.path.exists(libdir) and os.path.isdir(libdir):
+                    if not os.listdir(libdir):
                         # At this point the lib directory should be populated, if not try the other option
                         libdir = os.path.join(self.installdir, 'lib64')
                 else:
                     # If the directory doesn't exist, try the other option
                     libdir = os.path.join(self.installdir, 'lib64')
                 # Make sure the target exists (it should, otherwise our sanity check will fail)
-                if os.path.exists(dirName) and os.path.isdir(dirName) and os.listdir(dirName):
+                if os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir):
                     copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
                               os.path.join(libdir, 'libiberty.a'))
                 else:
