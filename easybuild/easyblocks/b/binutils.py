@@ -72,7 +72,7 @@ class EB_binutils(ConfigureMake):
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
             # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
             # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file
-            libdirs = [r'\$\$ORIGIN/../lib']
+            libdirs = [r'\$\$ORIGIN/../lib', r'\$\$ORIGIN/../lib64']
             for libdir in ['lib', 'lib64', os.path.join('lib', 'x86_64-linux-gnu')]:
 
                 libdir = os.path.join(sysroot, 'usr', libdir)
