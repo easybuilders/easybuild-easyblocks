@@ -87,6 +87,7 @@ class EB_Clang(CMakeMake):
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
+            'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -119,6 +120,8 @@ class EB_Clang(CMakeMake):
             openmp/       Unpack openmp-*.tar.xz here
           tools/
             clang/        Unpack clang-*.tar.gz here
+              tools/
+                extra/    Unpack clang-tools-extra-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
@@ -162,7 +165,10 @@ class EB_Clang(CMakeMake):
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
             find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
-        find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+        find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+
+        if self.cfg["build_extra_clang_tools"]:
+            find_source_dir('clang-tools-extra-*', os.path.join(self.llvm_src_dir, 'tools/clang/tools', 'extra'))
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
@@ -455,6 +461,9 @@ class EB_Clang(CMakeMake):
         }
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
+
+        if self.cfg['build_extra_clang_tools'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+            custom_paths['files'].extend(["bin/clang-tidy"])
 
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
