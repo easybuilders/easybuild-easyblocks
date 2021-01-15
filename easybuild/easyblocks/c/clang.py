@@ -284,6 +284,12 @@ class EB_Clang(CMakeMake):
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
 
+        # If hwloc is included as a dep, use it in OpenMP runtime for affinity
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            self.cfg.update('configopts', '-DLIBOMP_USE_HWLOC=ON')
+            self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
+
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
         if 'NVPTX' in build_targets:
             # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
