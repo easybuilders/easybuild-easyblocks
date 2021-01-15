@@ -251,6 +251,13 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
+        # If Z3 is included as a dep, enable support in static analyzer (if enabled)
+        if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
+            z3_root = get_software_root("Z3")
+            if z3_root:
+                self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
+                self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
+
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
