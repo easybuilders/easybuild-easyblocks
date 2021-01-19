@@ -224,7 +224,10 @@ class EB_TensorFlow(PythonPackage):
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
-            'test_tag_filters': ['', "Comma-separated list of tags to filter for during the test step", CUSTOM],
+            'test_tag_filters_cpu': ['', "Comma-separated list of tags to filter for during the CPU test step", CUSTOM],
+            'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step",
+                                     CUSTOM],
+            'testopts_gpu': ['', 'Test options for the GPU test step', CUSTOM],
             'test_jobs': [None, "Number of test jobs to run in parallel." +
                                 "Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
@@ -854,41 +857,98 @@ class EB_TensorFlow(PythonPackage):
 
         test_opts = self.target_opts
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
+        test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
+
         if self.cfg['test_jobs']:
-            num_test_jobs = int(self.cfg['test_jobs'])
+            num_test_jobs = {'cpu': int(self.cfg['test_jobs']), 'gpu': int(self.cfg['test_jobs'])}
         else:
-            # Can (likely) only run 1 test per GPU
             (gpu_ct, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
             try:
-                num_test_jobs = min(self.cfg['parallel'], max(1, int(gpu_ct.strip()))) if ec == 0 else 1
-                test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs)
-                test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
+                if ec != 0:
+                    raise RuntimeError()  # Caught below
+                gpu_ct = max(1, int(gpu_ct.strip()))
             except Exception:
                 self.log.info('Failed to get the number of GPUs on this system. Using only 1 test job')
-                num_test_jobs = 1
-        test_opts.append('--local_test_jobs=%s' % num_test_jobs)
+                gpu_ct = 1
 
-        # Don't build tests which won't be executed
-        test_opts.append('--build_tests_only')
+            num_gpus_to_use = min(self.cfg['parallel'], gpu_ct)
+            # Can (likely) only run 1 test per GPU but don't need to limit CPU tests
+            num_test_jobs = {'cpu': self.cfg['parallel'], 'gpu': num_gpus_to_use}
 
-        test_tag_filters = self.cfg['test_tag_filters']
-        if test_tag_filters:
+        # These are used by the `parallel_gpu_execute` helper script from TF
+        test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs['gpu'])
+        test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
+
+        cfg_testopts = {'cpu': self.cfg['testopts'], 'gpu': self.cfg['testopts_gpu']}
+
+        for device in ('cpu', 'gpu'):
+            # Determine tests to run
+            test_tag_filters_name = 'test_tag_filters_' + device
+            test_tag_filters = self.cfg[test_tag_filters_name]
+            if not test_tag_filters:
+                self.log.info('Skipping %s test because %s is not set', device, test_tag_filters_name)
+                continue
+            else:
+                self.log.info('Starting %s test', device)
+
+            current_test_opts = test_opts[:]
+            current_test_opts.append('--local_test_jobs=%s' % num_test_jobs[device])
+
             # Add both build and test tag filters as done by the TF CI scripts
-            test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
+            current_test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
 
-        # Compose final command
-        cmd = (
-            [self.cfg['pretestopts']]
-            + ['bazel']
-            + self.bazel_opts
-            + ['test']
-            + test_opts
-            + [self.cfg['testopts'], '--']
-            # specify targets to test as last argument
-            + test_targets
-        )
+            # TF can only run tests explicitely marked as 'gpu' on GPUs and those don't work on cpu
+            # See https://github.com/tensorflow/tensorflow/issues/45664
+            if device == 'cpu':
+                current_test_opts.append('--test_env=CUDA_VISIBLE_DEVICES=-1')
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True)
+            # Append user specified options last
+            current_test_opts.append(cfg_testopts[device])
+
+            # Compose final command
+            cmd = ' '.join(
+                [self.cfg['pretestopts']]
+                + ['bazel']
+                + self.bazel_opts
+                + ['test']
+                + current_test_opts
+                + ['--']
+                # specify targets to test as last argument
+                + test_targets
+            )
+
+            stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
+            if ec:
+                fail_msg = 'Tests on %s (cmd: %s) failed with exit code %s and output:\n%s' % (
+                    device, cmd, ec, stdouterr)
+                self.log.warning(fail_msg)
+                # Try to enhance error message
+                failed_tests = []
+                failed_test_logs = dict()
+                # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
+                for m in re.finditer(r'^(//[a-zA-Z_/:]+) + FAILED', stdouterr, re.MULTILINE):
+                    test_name = m.group(1)
+                    failed_tests.append(test_name)
+                    # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
+                    test_folder = test_name[2:].replace(':', '/')
+                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
+                    log_match = test_log_re.match(stdouterr, m.end())
+                    if log_match:
+                        failed_test_logs[test_name] = log_match.group(2)
+                # Print info about failed tests to log
+                for test_name, log_path in failed_test_logs.items():
+                    if os.path.exists(log_path):
+                        self.log.warning('Test %s failed with output\n%s', test_name,
+                                         read_file(log_path, log_error=False))
+                if failed_tests:
+                    raise EasyBuildError(
+                        'At least %s %s tests failed:\n%s',
+                        len(failed_tests), device, ', '.join(failed_tests)
+                    )
+                else:
+                    raise EasyBuildError(fail_msg)
+            else:
+                self.log.info('Tests on %s succeeded with output:\n%s', device, stdouterr)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
