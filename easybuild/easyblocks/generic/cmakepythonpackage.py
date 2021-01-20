@@ -33,6 +33,8 @@ EasyBuild support for Python packages that are configured with CMake, implemente
 """
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.py2vs3 import string_type
 
 
 class CMakePythonPackage(CMakeMake, PythonPackage):
@@ -51,6 +53,13 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         """Easyconfig parameters specific to Python packages thar are configured/built/installed via CMake"""
         extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
         extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
+            # redefine 'runtest' as the default CMakeMake runtest
+            'runtest': [None, ('Indicates if a test should be run after make; should specify argument '
+                       'after make (for e.g.,"test" for make test)'), CUSTOM],
+            # define 'runtest_python' as the runtest of PythonPackage
+            'runtest_python': [True, 'Test to run for Python package.', CUSTOM]
+        })
         # enable out-of-source build
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -70,14 +79,24 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         """Build Python package with cmake"""
         return CMakeMake.build_step(self, *args, **kwargs)
 
+    def test_step(self):
+        """Combined test with CMakeMake and PythonPackage tests"""
+
+        # any test set in runtest is passed to CMakeMake
+        if self.cfg['runtest'] and isinstance(self.cfg['runtest'], string_type):
+            CMakeMake.test_step(self)
+
+        # any test set in runtest_python is passed to PythonPackage
+        if self.cfg['runtest_python']:
+            self.cfg['runtest'] = self.cfg['runtest_python']
+            return PythonPackage.test_step(self)
+
     def install_step(self):
         """Install with cmake install"""
         return CMakeMake.install_step(self)
 
     def sanity_check_step(self, *args, **kwargs):
-        """
-        Custom sanity check for Python packages
-        """
+        """Custom sanity check for Python packages"""
         return PythonPackage.sanity_check_step(self, *args, **kwargs)
 
     def make_module_extra(self):
