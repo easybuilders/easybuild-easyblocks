@@ -31,9 +31,13 @@ EasyBuild support for Python packages that are configured with CMake, implemente
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import os
+
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import change_dir
 from easybuild.tools.py2vs3 import string_type
 
 
@@ -54,11 +58,15 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
         extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
         extra_vars.update({
-            # redefine 'runtest' as the default CMakeMake runtest
-            'runtest': [None, ('Indicates if a test should be run after make; should specify argument '
-                       'after make (for e.g.,"test" for make test)'), CUSTOM],
-            # define 'runtest_python' as the runtest of PythonPackage
-            'runtest_python': [True, 'Test to run for Python package.', CUSTOM]
+            'start_dir_python': [None, ('Path to Python package source code. It will be installed as a regular '
+                                        'Python package after the installation process with make.'), CUSTOM],
+            # redefine default options to be exclusive of PythonPackage
+            'installopts': ['', 'Extra options for installation of Python package', CUSTOM],
+            'runtest': [True, 'Test to run for the Python package.', CUSTOM],
+            # add extra options as their counterparts for CMakeMake
+            'installopts_make': ['', 'Extra options for installation with make', CUSTOM],
+            'runtest_make': [None, ('Indicates if a test should be run after make; should specify argument '
+                                    'after make (for e.g.,"test" for make test)'), CUSTOM],
         })
         # enable out-of-source build
         extra_vars['separate_build_dir'][0] = True
@@ -81,19 +89,61 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
 
     def test_step(self):
         """Combined test with CMakeMake and PythonPackage tests"""
+        runtest_python = self.cfg['runtest']
 
-        # any test set in runtest is passed to CMakeMake
-        if self.cfg['runtest'] and isinstance(self.cfg['runtest'], string_type):
+        # execute 'runtest_make' in test step of CMakeMake
+        if self.cfg['runtest_make'] and isinstance(self.cfg['runtest_make'], string_type):
+            self.cfg['runtest'] = self.cfg['runtest_make']
             CMakeMake.test_step(self)
 
-        # any test set in runtest_python is passed to PythonPackage
-        if self.cfg['runtest_python']:
-            self.cfg['runtest'] = self.cfg['runtest_python']
+        # execute 'runtest' in test step of PythonPackage
+        self.cfg['runtest'] = runtest_python
+        if self.cfg['runtest']:
             return PythonPackage.test_step(self)
 
     def install_step(self):
-        """Install with cmake install"""
-        return CMakeMake.install_step(self)
+        """
+        Always install with CMakeMake install step
+        Python packages not part of CMakeMake installation can be installed separately with PythonPackage
+        """
+        # set installopts for installation with CMakeMake
+        installopts_python = self.cfg['installopts']
+        self.cfg['installopts'] = self.cfg['installopts_make']
+
+        if self.cfg['start_dir_python'] is None:
+            return CMakeMake.install_step(self)
+        else:
+            CMakeMake.install_step(self)
+
+            # update build environment with CMakeMake installation
+            new_buildenv = [
+                ('LD_LIBRARY_PATH', 'lib'),
+                ('CPATH', 'include'),
+            ]
+            for (envar, envpath) in new_buildenv:
+                oldvar = os.environ.get(envar, '')
+                newvar = os.path.join(self.installdir, envpath)
+                setvar(envar, os.pathsep.join([newvar, oldvar]))
+
+            # set installopts for installation with PythonPackage
+            self.cfg['installopts'] = installopts_python
+
+            # move to Python package source directory
+            if os.path.isabs(self.cfg['start_dir_python']):
+                pysrc_dir = self.cfg['start_dir_python']
+            else:
+                pysrc_dir = os.path.join(self.builddir, 'easybuild_obj', self.cfg['start_dir_python'])
+
+            change_dir(pysrc_dir)
+
+            return PythonPackage.install_step(self)
+
+    def post_install_step(self):
+        """Reset working directory before post-installation commands"""
+
+        change_dir(os.path.join(self.builddir, 'easybuild_obj'))
+
+        super(CMakePythonPackage, self).post_install_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for Python packages"""
