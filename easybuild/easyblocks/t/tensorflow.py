@@ -218,7 +218,8 @@ class EB_TensorFlow(PythonPackage):
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
-            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
+            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)." +
+                                    "Unsupported starting at TensorFlow 1.12!", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
@@ -492,10 +493,12 @@ class EB_TensorFlow(PythonPackage):
             env.setvar('PATH', os.pathsep.join([self.wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
-        self.handle_jemalloc()
 
         self.verify_system_libs_info()
         self.system_libs_info = self.get_system_libs()
+
+        # Options passed to the target (build/test), e.g. --config arguments
+        self.target_opts = []
 
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
@@ -509,25 +512,45 @@ class EB_TensorFlow(PythonPackage):
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
+            'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
             'TF_ENABLE_XLA': ('0', '1')[bool(self.cfg['with_xla'])],  # XLA JIT support
             'TF_NEED_CUDA': ('0', '1')[bool(cuda_root)],
-            'TF_NEED_GCP': '0',  # Google Cloud Platform
-            'TF_NEED_GDR': '0',
-            'TF_NEED_HDFS': '0',  # Hadoop File System
-            'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
-            'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
-            'TF_NEED_OPENCL_SYCL': '0',
             'TF_NEED_ROCM': '0',
-            'TF_NEED_S3': '0',  # Amazon S3 File System
             'TF_NEED_TENSORRT': '0',
-            'TF_NEED_VERBS': '0',
-            'TF_NEED_AWS': '0',  # Amazon AWS Platform
-            'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
             'TF_SET_ANDROID_WORKSPACE': '0',
-            'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
             'TF_SYSTEM_LIBS': ','.join(self.system_libs_info[0]),
         }
+        if LooseVersion(self.version) < LooseVersion('1.10'):
+            config_env_vars['TF_NEED_S3'] = '0'  # Renamed to TF_NEED_AWS in 1.9.0-rc2 and 1.10, not 1.9.0
+        # Options removed in 1.12.0
+        if LooseVersion(self.version) < LooseVersion('1.12'):
+            self.handle_jemalloc()
+            config_env_vars.update({
+                'TF_NEED_AWS': '0',  # Amazon AWS Platform
+                'TF_NEED_GCP': '0',  # Google Cloud Platform
+                'TF_NEED_GDR': '0',
+                'TF_NEED_HDFS': '0',  # Hadoop File System
+                'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
+                'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+                'TF_NEED_VERBS': '0',
+            })
+        elif self.cfg['with_jemalloc'] is True:
+            print_warning('Jemalloc is not supported in TensorFlow %s, the EC option with_jemalloc has no effect',
+                          self.version)
+        # Disable support of some features via config switch introduced in 1.12.1
+        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+            self.target_opts += ['--config=noaws', '--config=nogcp', '--config=nohdfs']
+            # Removed in 2.1
+            if LooseVersion(self.version) < LooseVersion('2.1'):
+                self.target_opts.append('--config=nokafka')
+        # MPI support removed in 2.1
+        if LooseVersion(self.version) < LooseVersion('2.1'):
+            config_env_vars['TF_NEED_MPI'] = ('0', '1')[bool(use_mpi)]
+        # SYCL support removed in 2.4
+        if LooseVersion(self.version) < LooseVersion('2.4'):
+            config_env_vars['TF_NEED_OPENCL_SYCL'] = '0'
+
         if cuda_root:
             cuda_version = get_software_version('CUDA')
             cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
@@ -633,7 +656,10 @@ class EB_TensorFlow(PythonPackage):
                     'TF_TENSORRT_VERSION': tensorrt_version,
                 })
 
-        for (key, val) in sorted(config_env_vars.items()):
+        configure_py_contents = read_file('configure.py')
+        for key, val in sorted(config_env_vars.items()):
+            if key.startswith('TF_') and key not in configure_py_contents:
+                self.log.warn('Did not find %s option in configure.py. Setting might not have any effect', key)
             env.setvar(key, val)
 
         # configure.py (called by configure script) already calls bazel to determine the bazel version
@@ -736,9 +762,6 @@ class EB_TensorFlow(PythonPackage):
                 '--host_jvm_args=-Xmx%sm' % jvm_max_memory
             ])
 
-        # Options passed to the target (build/test), e.g. --config arguments
-        self.target_opts = []
-
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
         self.target_opts.append('--compilation_mode=opt')
@@ -751,10 +774,6 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         self.target_opts.extend(['--subcommands', '--verbose_failures'])
-
-        # Disable support of AWS platform via config switch introduced in 1.12.1
-        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
-            self.target_opts.append('--config=noaws')
 
         self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
 
