@@ -319,7 +319,7 @@ class EB_GCC(ConfigureMake):
             gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
             regex_subs = [
                 ('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot),
-                ('(DYNAMIC_LINKER_PREFIX\s+) ""', r'\1"%s"' % sysroot),
+                ('(DYNAMIC_LINKER_PREFIX\\s+) ""', r'\1"%s"' % sysroot),
             ]
             for gcc_config_header in gcc_config_headers:
                 apply_regex_substitutions(gcc_config_header, regex_subs)
