@@ -315,8 +315,12 @@ class EB_GCC(ConfigureMake):
             # prefix dynamic linkers with sysroot
             # this patches lines like:
             # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            # for PowerPC (rs6000) we have to set DYNAMIC_LINKER_PREFIX to sysroot
             gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
-            regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
+            regex_subs = [
+                ('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot),
+                ('(DYNAMIC_LINKER_PREFIX\s+) ""', r'\1"%s"' % sysroot),
+            ]
             for gcc_config_header in gcc_config_headers:
                 apply_regex_substitutions(gcc_config_header, regex_subs)
 
