@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
 
 
 class EB_OpenFOAM(EasyBlock):
@@ -355,12 +355,15 @@ class EB_OpenFOAM(EasyBlock):
             int_size = ''
 
         archpart = '64'
-        if get_cpu_architecture() == AARCH64:
+        arch = get_cpu_architecture()
+        if arch == AARCH64:
             # Variants have different abbreviations for ARM64...
             if self.looseversion < LooseVersion("100"):
                 archpart = 'Arm64'
             else:
                 archpart = 'ARM64'
+        elif arch == POWER:
+            archpart = 'PPC64le'
 
         psubdir = "linux%s%sDP%s%s" % (archpart, self.wm_compiler, int_size, self.build_type)
         return psubdir
