@@ -41,7 +41,7 @@ from easybuild.tools.filetools import change_dir
 from easybuild.tools.py2vs3 import string_type
 
 
-class CMakePythonPackage(CMakeMake, PythonPackage):
+class CMakePythonPackage(PythonPackage, CMakeMake):
     """Build a Python package and module with cmake.
 
     Some packages use cmake to first build and install C Python packages
@@ -72,19 +72,14 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Initialize with PythonPackage."""
-        PythonPackage.__init__(self, *args, **kwargs)
-
     def configure_step(self, *args, **kwargs):
-        """Main configuration using cmake"""
-
-        PythonPackage.configure_step(self, *args, **kwargs)
+        """Add extra configuration using CMakeMake"""
+        super(CMakePythonPackage, self).configure_step()
 
         return CMakeMake.configure_step(self, *args, **kwargs)
 
     def build_step(self, *args, **kwargs):
-        """Build Python package with cmake"""
+        """Build Python package with CMakeMake"""
         return CMakeMake.build_step(self, *args, **kwargs)
 
     def test_step(self):
@@ -99,7 +94,7 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         # execute 'runtest' in test step of PythonPackage
         self.cfg['runtest'] = runtest_python
         if self.cfg['runtest']:
-            return PythonPackage.test_step(self)
+            super(CMakePythonPackage, self).test_step()
 
     def install_step(self):
         """
@@ -111,8 +106,10 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         self.cfg['installopts'] = self.cfg['installopts_make']
 
         if self.cfg['start_dir_python'] is None:
+            # single install with CMakeMake
             return CMakeMake.install_step(self)
         else:
+            # install with CMakeMake plus PythonPackage
             CMakeMake.install_step(self)
 
             # update build environment with CMakeMake installation
@@ -136,19 +133,9 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
 
             change_dir(pysrc_dir)
 
-            return PythonPackage.install_step(self)
+            super(CMakePythonPackage, self).install_step()
 
     def post_install_step(self):
         """Reset working directory before post-installation commands"""
-
         change_dir(os.path.join(self.builddir, 'easybuild_obj'))
-
         super(CMakePythonPackage, self).post_install_step()
-
-    def sanity_check_step(self, *args, **kwargs):
-        """Custom sanity check for Python packages"""
-        return PythonPackage.sanity_check_step(self, *args, **kwargs)
-
-    def make_module_extra(self):
-        """Add extra Python package module parameters"""
-        return PythonPackage.make_module_extra(self)
