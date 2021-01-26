@@ -30,6 +30,7 @@ EasyBuild support for Python packages that are configured with CMake, implemente
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 
