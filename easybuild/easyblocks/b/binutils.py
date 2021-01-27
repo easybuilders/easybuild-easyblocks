@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -206,6 +206,9 @@ class EB_binutils(ConfigureMake):
                 os.path.join('include', 'libiberty.h'),
             ])
 
+        # All binaries support --version, check that they can be run
+        custom_commands = ['%s --version' % os.path.join(self.installdir, 'bin', b) for b in binaries]
+
         # if zlib is listed as a build dependency, it should have been linked in statically
         build_deps = self.cfg.dependencies(build_only=True)
         if any(dep['name'] == 'zlib' for dep in build_deps):
@@ -221,4 +224,4 @@ class EB_binutils(ConfigureMake):
                 if re.search(r'libz\.%s' % shlib_ext, out):
                     raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, out)
 
-        super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
