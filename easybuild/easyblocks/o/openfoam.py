@@ -386,12 +386,19 @@ class EB_OpenFOAM(EasyBlock):
             libdir = os.path.join(self.installdir, self.openfoamdir, "lib", psubdir)
         else:
             libdir = os.path.join(self.installdir, self.openfoamdir, "platforms", psubdir, "lib")
-        mpilibsdir = os.path.join(libdir, "mpi")
+
+        # OpenFOAM v2012 puts mpi into eb-mpi
+        if self.looseversion >= LooseVersion("2012"):
+            mpidir = "eb-mpi"
+        else:
+            mpidir = "mpi"
+        mpilibsdir = os.path.join(libdir, mpidir)
+
         if os.path.exists(mpilibsdir):
             for lib in glob.glob(os.path.join(mpilibsdir, "*.%s" % shlib_ext)):
                 libname = os.path.basename(lib)
                 dst = os.path.join(libdir, libname)
-                os.symlink(os.path.join("mpi", libname), dst)
+                os.symlink(os.path.join(mpidir, libname), dst)
 
     def sanity_check_step(self):
         """Custom sanity check for OpenFOAM"""
@@ -439,9 +446,15 @@ class EB_OpenFOAM(EasyBlock):
             else:
                 libs.extend([os.path.join(libsdir, "libparMetisDecomp.%s" % shlib_ext)])
         else:
+            # OpenFOAM v2012 puts mpi into eb-mpi
+            if self.looseversion >= LooseVersion("2012"):
+                mpidir = "eb-mpi"
+            else:
+                mpidir = "mpi"
+
             # there must be a dummy one and an mpi one for both
-            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", "mpi"]] + \
-                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", "mpi"]] +\
+            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", mpidir]] + \
+                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", mpidir]] +\
                    [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext)] + \
                    [os.path.join(libsdir, "dummy", "libscotchDecomp.%s" % shlib_ext)]
 
