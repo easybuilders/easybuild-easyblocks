@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2020 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -795,23 +795,22 @@ class EB_GCC(ConfigureMake):
         libexec_files = []
         dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        if not self.cfg['languages']:
-            # default languages are c, c++, fortran
-            bin_files = ["c++", "cpp", "g++", "gcc", "gcov", "gfortran"]
-            lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
-            libexec_files = ['cc1', 'cc1plus', 'collect2', 'f951']
+        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
 
-        if 'c' in self.cfg['languages']:
+        if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
+            libexec_files.extend(['cc1', 'collect2'])
 
-        if 'c++' in self.cfg['languages']:
+        if 'c++' in languages:
             bin_files.extend(['c++', 'g++'])
             dirs.append('include/c++/%s' % self.version)
             lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
+            libexec_files.append('cc1plus')  # c++ requires c, so collect2 not mentioned again
 
-        if 'fortran' in self.cfg['languages']:
+        if 'fortran' in languages:
             bin_files.append('gfortran')
             lib_files.extend(['libgfortran.%s' % sharedlib_ext, 'libgfortran.a'])
+            libexec_files.append('f951')
 
         if self.cfg['withlto']:
             libexec_files.extend(['lto1', 'lto-wrapper'])
@@ -846,7 +845,17 @@ class EB_GCC(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        for lang, compiler in (('c', 'gcc'), ('c++', 'g++')):
+            if lang in languages:
+                # Simple test compile
+                cmd = 'echo "int main(){} " | %s -x %s -o/dev/null -'
+                compiler_path = os.path.join(self.installdir, 'bin', compiler)
+                custom_commands.append(cmd % (compiler_path, lang))
+                if self.cfg['withlto']:
+                    custom_commands.append(cmd % (compiler_path, lang + ' -flto -fuse-linker-plugin'))
+
+        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """
