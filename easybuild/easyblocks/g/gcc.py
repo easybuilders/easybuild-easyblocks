@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -854,8 +854,14 @@ class EB_GCC(ConfigureMake):
                 custom_commands.append(cmd % (compiler_path, lang))
                 if self.cfg['withlto']:
                     custom_commands.append(cmd % (compiler_path, lang + ' -flto -fuse-linker-plugin'))
+        if custom_commands:
+            # Load binutils to do the compile tests
+            extra_modules = [d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils']
+        else:
+            extra_modules = None
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                              extra_modules=extra_modules)
 
     def make_module_req_guess(self):
         """
