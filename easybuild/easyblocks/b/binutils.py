@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,25 +58,33 @@ class EB_binutils(ConfigureMake):
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
-        compiler = os.environ.get('CC', 'gcc')
-        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler, simple=False, log_all=True)
+
+        # determine C compiler command: use $CC, fall back to 'gcc' (when using system toolchain)
+        compiler_cmd = os.environ.get('CC', 'gcc')
+
+        # determine library search paths for GCC
+        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd, simple=False, log_all=True)
         if ec:
-            raise EasyBuildError('Failed to determine library search dirs from compiler %s', compiler)
+            raise EasyBuildError("Failed to determine library search dirs from compiler %s", compiler_cmd)
+
         m = re.search('^libraries: *=(.*)$', stdout, re.M)
         paths = nub(os.path.abspath(p) for p in m.group(1).split(os.pathsep))
-        self.log.debug('Unique library search paths from compiler %s: %s', compiler, paths)
-        # Remove all folders that do not exist
+        self.log.debug('Unique library search paths from compiler %s: %s', compiler_cmd, paths)
+
+        # Filter out all paths that do not exist
         paths = [p for p in paths if os.path.exists(p)]
-        self.log.debug('Existing library search paths: %s', paths)
+        self.log.debug("Existing library search paths: %s", ', '.join(paths))
+
         result = []
         for path in paths:
             if any(os.path.samefile(path, p) for p in result):
-                self.log.debug('Skipping symlink to existing path: %s', path)
+                self.log.debug("Skipping symlink to existing path: %s", path)
             elif not glob.glob(os.path.join(path, '*.so*')):
-                self.log.debug('Skipping path with no shared libraries: %s', path)
+                self.log.debug("Skipping path with no shared libraries: %s", path)
             else:
                 result.append(path)
-        self.log.info('Determined library search paths: %s', ', '.join(result))
+
+        self.log.info("Determined library search paths: %s", ', '.join(result))
         return result
 
     def configure_step(self):
@@ -86,13 +94,14 @@ class EB_binutils(ConfigureMake):
             # determine list of 'lib' directories to use rpath for;
             # this should 'harden' the resulting binutils to bootstrap GCC
             # (no trouble when other libstdc++ is build etc)
+            lib_paths = self.determine_used_library_paths()
 
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
-            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
-            # Escaping: Double $$ for Make to get literal $ORIGIN in the file
-            libdirs = [r'$$ORIGIN/../lib'] + self.determine_used_library_paths()
+            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056;
+            # double $$ to get literal $ORIGIN in the file when command is run
+            lib_paths = [r'$$ORIGIN/../lib'] + lib_paths
             # Mind the single quotes
-            libs = ["-Wl,-rpath='%s'" % libdir for libdir in libdirs]
+            libs = ["-Wl,-rpath='%s'" % x for x in lib_paths]
         else:
             libs = []
 
@@ -120,7 +129,6 @@ class EB_binutils(ConfigureMake):
                 else:
                     libs.append(libz_path)
 
-        # Using double quotes for LIBS to allow single quotes in libs
         env.setvar('LIBS', ' '.join(libs))
 
         # explicitly configure binutils to use / as sysroot
@@ -211,7 +219,7 @@ class EB_binutils(ConfigureMake):
             ])
 
         # All binaries support --version, check that they can be run
-        custom_commands = ['%s --version' % os.path.join(self.installdir, 'bin', b) for b in binaries]
+        custom_commands = ['%s --version' % b for b in binaries]
 
         # if zlib is listed as a build dependency, it should have been linked in statically
         build_deps = self.cfg.dependencies(build_only=True)
