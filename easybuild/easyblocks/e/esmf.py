@@ -60,6 +60,10 @@ class EB_ESMF(ConfigureMake):
             compiler = comp_family.lower()
         env.setvar('ESMF_COMPILER', compiler)
 
+        if self.toolchain.options.get('optarch'):
+            env.setvar('ESMF_F90COMPILEOPTS', os.getenv('F90FLAGS'))
+            env.setvar('ESMF_CXXCOMPILEOPTS', os.getenv('CXXFLAGS'))
+
         # specify MPI communications library
         comm = None
         mpi_family = self.toolchain.mpi_family()
