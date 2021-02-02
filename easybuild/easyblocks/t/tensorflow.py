@@ -509,6 +509,8 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
+        self._with_cuda = bool(cuda_root)
+
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
             'MPI_HOME': mpi_home,
@@ -517,7 +519,7 @@ class EB_TensorFlow(PythonPackage):
             'TF_CUDA_CLANG': '0',
             'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
             'TF_ENABLE_XLA': ('0', '1')[bool(self.cfg['with_xla'])],  # XLA JIT support
-            'TF_NEED_CUDA': ('0', '1')[bool(cuda_root)],
+            'TF_NEED_CUDA': ('0', '1')[self._with_cuda],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_ROCM': '0',
             'TF_NEED_TENSORRT': '0',
@@ -554,7 +556,7 @@ class EB_TensorFlow(PythonPackage):
         if LooseVersion(self.version) < LooseVersion('2.4'):
             config_env_vars['TF_NEED_OPENCL_SYCL'] = '0'
 
-        if cuda_root:
+        if self._with_cuda:
             cuda_version = get_software_version('CUDA')
             cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
 
@@ -813,7 +815,7 @@ class EB_TensorFlow(PythonPackage):
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            if get_software_root('CUDA'):
+            if self._with_cuda:
                 self.target_opts.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
@@ -859,16 +861,17 @@ class EB_TensorFlow(PythonPackage):
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
 
-        if self.cfg['test_jobs']:
+        if self.cfg['test_jobs'] or not self._with_cuda:
             num_test_jobs = {'cpu': int(self.cfg['test_jobs']), 'gpu': int(self.cfg['test_jobs'])}
         else:
-            (gpu_ct, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
+            (out, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
             try:
                 if ec != 0:
-                    raise RuntimeError()  # Caught below
-                gpu_ct = max(1, int(gpu_ct.strip()))
-            except Exception:
-                self.log.info('Failed to get the number of GPUs on this system. Using only 1 test job')
+                    raise RuntimeError("nvidia-smi returned exit code %s" % ec)
+                gpu_ct = max(1, int(out.strip()))
+            except (RuntimeError, ValueError) as err:
+                self.log.warning("Failed to get the number of GPUs on this system: %s", err)
+                self.log.info("Using only 1 GPU for tests")
                 gpu_ct = 1
 
             num_gpus_to_use = min(self.cfg['parallel'], gpu_ct)
@@ -881,7 +884,8 @@ class EB_TensorFlow(PythonPackage):
 
         cfg_testopts = {'cpu': self.cfg['testopts'], 'gpu': self.cfg['testopts_gpu']}
 
-        for device in ('cpu', 'gpu'):
+        devices = ('cpu', 'gpu') if self._with_cuda else ('cpu', )
+        for device in devices:
             # Determine tests to run
             test_tag_filters_name = 'test_tag_filters_' + device
             test_tag_filters = self.cfg[test_tag_filters_name]
@@ -897,7 +901,8 @@ class EB_TensorFlow(PythonPackage):
             # Add both build and test tag filters as done by the TF CI scripts
             current_test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
 
-            # TF can only run tests explicitely marked as 'gpu' on GPUs and those don't work on cpu
+            # Disable all GPUs for the CPU tests as otherwise TF will still use GPUs and fail
+            # Only tests explicitely marked with the 'gpu' tag can run with GPUs visible
             # See https://github.com/tensorflow/tensorflow/issues/45664
             if device == 'cpu':
                 current_test_opts.append('--test_env=CUDA_VISIBLE_DEVICES=-1')
@@ -926,16 +931,16 @@ class EB_TensorFlow(PythonPackage):
                 failed_tests = []
                 failed_test_logs = dict()
                 # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
-                for m in re.finditer(r'^(//[a-zA-Z_/:]+) + FAILED', stdouterr, re.MULTILINE):
-                    test_name = m.group(1)
+                for match in re.finditer(r'^(//[a-zA-Z_/:]+) + FAILED', stdouterr, re.MULTILINE):
+                    test_name = match.group(1)
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
                     test_folder = test_name[2:].replace(':', '/')
                     test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
-                    log_match = test_log_re.match(stdouterr, m.end())
+                    log_match = test_log_re.match(stdouterr, match.end())
                     if log_match:
                         failed_test_logs[test_name] = log_match.group(2)
-                # Print info about failed tests to log
+                # When TF logs are found enhance the below error by additionally logging the details about failed tests
                 for test_name, log_path in failed_test_logs.items():
                     if os.path.exists(log_path):
                         self.log.warning('Test %s failed with output\n%s', test_name,
