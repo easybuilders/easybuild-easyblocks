@@ -667,7 +667,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.silent = build_option('silent')
         # See EasyBlock.run_all_steps
         for (step_name, descr, step_methods, skippable) in steps:
-            if self._skip_step(step_name, skippable):
+            if self.skip_step(step_name, skippable):
                 print_msg("\t%s [skipped]" % descr, log=self.log, silent=self.silent)
             else:
                 if self.dry_run:
