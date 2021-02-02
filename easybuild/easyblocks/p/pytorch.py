@@ -51,7 +51,9 @@ class EB_PyTorch(PythonPackage):
         extra_vars.update({
             'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
             'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
-                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM]
+                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
+            'ptx': ['latest', 'For which compute architectures PTX code should be generated. Can be '
+                              '"first", "latest", None or any PyTorch supported architecture, e.g. "3.7"', CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -193,6 +195,16 @@ class EB_PyTorch(PythonPackage):
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
+            ptx = self.cfg['ptx']
+            if ptx == 'latest':
+                cuda_cc[-1] += '+PTX'
+            elif ptx == 'first':
+                cuda_cc[0] += '+PTX'
+            elif ptx is not None:
+                if ptx in cuda_cc:
+                    cuda_cc.remove(ptx)
+                cuda_cc.append(ptx + '+PTX')
+
             self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
             options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
         else:
