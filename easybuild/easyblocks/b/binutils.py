@@ -97,8 +97,8 @@ class EB_binutils(ConfigureMake):
             lib_paths = self.determine_used_library_paths()
 
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
-            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056;
-            # double $$ to get literal $ORIGIN in the file when command is run
+            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
+            # To get literal $ORIGIN through Make we need to escape it by doubling $$, else it's a variable to Make
             lib_paths = [r'$$ORIGIN/../lib'] + lib_paths
             # Mind the single quotes
             libs = ["-Wl,-rpath='%s'" % x for x in lib_paths]
