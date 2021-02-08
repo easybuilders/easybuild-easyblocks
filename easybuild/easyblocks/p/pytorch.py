@@ -151,7 +151,7 @@ class EB_PyTorch(PythonPackage):
                 cuda_cache_dir = tempfile.mkdtemp(suffix='-cuda_cache', dir=self.builddir)
                 env.setvar('CUDA_CACHE_DISABLE', '0')
                 env.setvar('CUDA_CACHE_PATH', cuda_cache_dir)
-                env.setvar('CUDA_CACHE_MAXSIZE', cuda_cache_maxsize)
+                env.setvar('CUDA_CACHE_MAXSIZE', str(cuda_cache_maxsize))
 
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
