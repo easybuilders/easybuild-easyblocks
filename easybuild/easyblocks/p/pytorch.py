@@ -54,6 +54,12 @@ class EB_PyTorch(PythonPackage):
                                 'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
             'ptx': ['last', 'For which compute architectures PTX code should be generated. Can be '
                             '"first", "last", None or any PyTorch supported arch, e.g. "3.7"', CUSTOM],
+            'cuda_cache_maxsize': [
+                None,
+                'Maximum size of the cache (in bytes) used by CUDA for JIT compilation of PTX code. '
+                'Use "None" to let EasyBuild choose a value or "0" to disable the cache',
+                CUSTOM
+            ],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -135,6 +141,17 @@ class EB_PyTorch(PythonPackage):
             symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
             path = "%s:%s" % (cmake_bin_dir, os.getenv('PATH'))
             env.setvar('PATH', path)
+        if get_software_root('CUDA'):
+            cuda_cache_maxsize = self.cfg['cuda_cache_maxsize']
+            if cuda_cache_maxsize is None:
+                cuda_cache_maxsize = 1 * 1024 * 1024  # 1 GB default value
+            if cuda_cache_maxsize == 0:
+                env.setvar('CUDA_CACHE_DISABLE', '1')
+            else:
+                cuda_cache_dir = tempfile.mkdtemp(suffix='-cuda_cache', dir=self.builddir)
+                env.setvar('CUDA_CACHE_DISABLE', '0')
+                env.setvar('CUDA_CACHE_PATH', cuda_cache_dir)
+                env.setvar('CUDA_CACHE_MAXSIZE', cuda_cache_maxsize)
 
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
