@@ -144,7 +144,7 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('CUDA'):
             cuda_cache_maxsize = self.cfg['cuda_cache_maxsize']
             if cuda_cache_maxsize is None:
-                cuda_cache_maxsize = 1 * 1024 * 1024  # 1 GB default value
+                cuda_cache_maxsize = 1 * 1024 * 1024 * 1024  # 1 GB default value
             if cuda_cache_maxsize == 0:
                 env.setvar('CUDA_CACHE_DISABLE', '1')
             else:
