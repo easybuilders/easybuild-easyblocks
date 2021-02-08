@@ -52,8 +52,8 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
             'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
                                 'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
-            'ptx': ['latest', 'For which compute architectures PTX code should be generated. Can be '
-                              '"first", "latest", None or any PyTorch supported arch, e.g. "3.7"', CUSTOM],
+            'ptx': ['last', 'For which compute architectures PTX code should be generated. Can be '
+                            '"first", "last", None or any PyTorch supported arch, e.g. "3.7"', CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -196,7 +196,7 @@ class EB_PyTorch(PythonPackage):
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
             ptx = self.cfg['ptx']
-            if ptx == 'latest':
+            if ptx == 'last':
                 cuda_cc[-1] += '+PTX'
             elif ptx == 'first':
                 cuda_cc[0] += '+PTX'
