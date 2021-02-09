@@ -862,7 +862,8 @@ class EB_TensorFlow(PythonPackage):
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
 
         if self.cfg['test_jobs'] or not self._with_cuda:
-            num_test_jobs = {'cpu': int(self.cfg['test_jobs']), 'gpu': int(self.cfg['test_jobs'])}
+            num_test_jobs = int(self.cfg['test_jobs'] or self.cfg['parallel'])
+            num_test_jobs = {'cpu': num_test_jobs, 'gpu': num_test_jobs}
         else:
             (out, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
             try:
