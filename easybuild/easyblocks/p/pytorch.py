@@ -196,6 +196,7 @@ class EB_PyTorch(PythonPackage):
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
             ptx = self.cfg['ptx']
+            cuda_cc = cuda_cc[:]  # Don't modify original list
             if ptx == 'last':
                 cuda_cc[-1] += '+PTX'
             elif ptx == 'first':
