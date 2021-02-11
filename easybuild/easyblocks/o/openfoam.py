@@ -195,6 +195,7 @@ class EB_OpenFOAM(EasyBlock):
         # that would change the cOPT/c++OPT values from their empty setting.
         suffixes = ['', 'Opt']
         wmake_rules_files = [os.path.join(ldir, lang + suff) for ldir in ldirs for lang in langs for suff in suffixes]
+        wmake_rules_files += [os.path.join(ldir, "general") for ldir in ldirs]
 
         mpicc = os.environ['MPICC']
         mpicxx = os.environ['MPICXX']
@@ -226,6 +227,8 @@ class EB_OpenFOAM(EasyBlock):
             regex_subs = []
             for comp_var, newval in comp_vars.items():
                 regex_subs.append((r"^(%s\s*=\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
+            # replace /lib/cpp by cpp, but keep the arguments
+            regex_subs.append((r"^(CPP\s*=\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # enable verbose build for debug purposes
