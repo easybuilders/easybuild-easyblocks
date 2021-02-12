@@ -230,8 +230,8 @@ class EB_TensorFlow(PythonPackage):
             'test_tag_filters_cpu': ['', "Comma-separated list of tags to filter for during the CPU test step", CUSTOM],
             'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step", CUSTOM],
             'testopts_gpu': ['', 'Test options for the GPU test step', CUSTOM],
-            'test_jobs': [None, "Number of test jobs to run in parallel." +
-                                "Use None (default) to automatically determine a value", CUSTOM],
+            'test_max_parallel': [None, "Maximum number of test jobs to run in parallel (GPU tests are limitted by " +
+                                  "the number of GPUs). Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
         }
@@ -864,29 +864,39 @@ class EB_TensorFlow(PythonPackage):
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
 
         # determine number of cores/GPUs to use for tests
-        if self.cfg['test_jobs'] or not self._with_cuda:
-            num_test_jobs = int(self.cfg['test_jobs'] or self.cfg['parallel'])
-            num_test_jobs = {
-                CPU_DEVICE: num_test_jobs,
-                GPU_DEVICE: num_test_jobs,
-            }
-        else:
-            # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
-            (out, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
-            try:
-                if ec != 0:
-                    raise RuntimeError("nvidia-smi returned exit code %s" % ec)
-                gpu_ct = max(1, int(out.strip()))
-            except (RuntimeError, ValueError) as err:
-                self.log.warning("Failed to get the number of GPUs on this system: %s", err)
-                self.log.info("Using only 1 GPU for tests")
-                gpu_ct = 1
+        max_num_test_jobs = int(self.cfg['test_max_parallel'] or self.cfg['parallel'])
+        if self._with_cuda:
+            if not which('nvidia-smi', log_error=False):
+                print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
+                num_gpus_to_use = 0
+            elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':
+                print_warning('GPUs explicitely disabled via CUDA_VISIBLE_DEVICES. Skipping GPU tests!')
+                num_gpus_to_use = 0
+            else:
+                # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
+                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_all=True, regexp=False)
+                try:
+                    if ec != 0:
+                        raise RuntimeError("nvidia-smi returned exit code %s" % ec)
+                    gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
+                except (RuntimeError, ValueError) as err:
+                    self.log.warning("Failed to get the number of GPUs on this system: %s", err)
+                    gpu_ct = 0
 
-            num_gpus_to_use = min(self.cfg['parallel'], gpu_ct)
+                if gpu_ct == 0:
+                    print_warning('No GPUs found. Skipping GPU tests!')
+
+                num_gpus_to_use = min(max_num_test_jobs, gpu_ct)
+
             # Can (likely) only run 1 test per GPU but don't need to limit CPU tests
             num_test_jobs = {
                 CPU_DEVICE: self.cfg['parallel'],
                 GPU_DEVICE: num_gpus_to_use,
+            }
+        else:
+            num_test_jobs = {
+                CPU_DEVICE: max_num_test_jobs,
+                GPU_DEVICE: 0,
             }
 
         cfg_testopts = {
@@ -895,7 +905,8 @@ class EB_TensorFlow(PythonPackage):
         }
 
         devices = [CPU_DEVICE]
-        if self._with_cuda:
+        # Skip GPU tests if not build with CUDA or no test jobs set (e.g. due to no GPUs available)
+        if self._with_cuda and num_test_jobs[GPU_DEVICE]:
             devices.append(GPU_DEVICE)
             # Propagate those environment variables to the tests if they are set
             important_cuda_env_vars = (
