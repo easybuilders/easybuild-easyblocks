@@ -218,7 +218,7 @@ class EB_TensorFlow(PythonPackage):
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
-            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)." +
+            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
                                     "Unsupported starting at TensorFlow 1.12!", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
