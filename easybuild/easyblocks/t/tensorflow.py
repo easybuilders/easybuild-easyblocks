@@ -230,7 +230,7 @@ class EB_TensorFlow(PythonPackage):
             'test_tag_filters_cpu': ['', "Comma-separated list of tags to filter for during the CPU test step", CUSTOM],
             'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step", CUSTOM],
             'testopts_gpu': ['', 'Test options for the GPU test step', CUSTOM],
-            'test_max_parallel': [None, "Maximum number of test jobs to run in parallel (GPU tests are limitted by " +
+            'test_max_parallel': [None, "Maximum number of test jobs to run in parallel (GPU tests are limited by " +
                                   "the number of GPUs). Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
