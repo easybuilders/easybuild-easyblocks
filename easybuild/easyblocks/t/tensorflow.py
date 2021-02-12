@@ -889,10 +889,6 @@ class EB_TensorFlow(PythonPackage):
                 GPU_DEVICE: num_gpus_to_use,
             }
 
-        # These are used by the `parallel_gpu_execute` helper script from TF
-        test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
-        test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
-
         cfg_testopts = {
             CPU_DEVICE: self.cfg['testopts'],
             GPU_DEVICE: self.cfg['testopts_gpu'],
@@ -901,6 +897,23 @@ class EB_TensorFlow(PythonPackage):
         devices = [CPU_DEVICE]
         if self._with_cuda:
             devices.append(GPU_DEVICE)
+            # Propagate those environment variables to the tests if they are set
+            important_cuda_env_vars = (
+                'CUDA_CACHE_DISABLE',
+                'CUDA_CACHE_MAXSIZE',
+                'CUDA_CACHE_PATH',
+                'CUDA_FORCE_PTX_JIT',
+                'CUDA_DISABLE_PTX_JIT'
+            )
+            test_opts.extend(
+                '--test_env=' + var_name
+                for var_name in important_cuda_env_vars
+                if var_name in os.environ
+            )
+
+            # These are used by the `parallel_gpu_execute` helper script from TF
+            test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
+            test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
 
         for device in devices:
             # Determine tests to run
