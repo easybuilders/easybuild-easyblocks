@@ -53,6 +53,9 @@ from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_nam
 from easybuild.tools.py2vs3 import subprocess_popen_text
 
 
+CPU_DEVICE = 'cpu'
+GPU_DEVICE = 'gpu'
+
 # Wrapper for Intel(MPI) compilers, where required environment variables
 # are hardcoded to make sure they are present;
 # this is required because Bazel resets the environment in which
@@ -225,8 +228,7 @@ class EB_TensorFlow(PythonPackage):
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
             'test_tag_filters_cpu': ['', "Comma-separated list of tags to filter for during the CPU test step", CUSTOM],
-            'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step",
-                                     CUSTOM],
+            'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step", CUSTOM],
             'testopts_gpu': ['', 'Test options for the GPU test step', CUSTOM],
             'test_jobs': [None, "Number of test jobs to run in parallel." +
                                 "Use None (default) to automatically determine a value", CUSTOM],
@@ -861,10 +863,15 @@ class EB_TensorFlow(PythonPackage):
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
 
+        # determine number of cores/GPUs to use for tests
         if self.cfg['test_jobs'] or not self._with_cuda:
             num_test_jobs = int(self.cfg['test_jobs'] or self.cfg['parallel'])
-            num_test_jobs = {'cpu': num_test_jobs, 'gpu': num_test_jobs}
+            num_test_jobs = {
+                CPU_DEVICE: num_test_jobs,
+                GPU_DEVICE: num_test_jobs,
+            }
         else:
+            # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
             (out, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
             try:
                 if ec != 0:
@@ -877,15 +884,24 @@ class EB_TensorFlow(PythonPackage):
 
             num_gpus_to_use = min(self.cfg['parallel'], gpu_ct)
             # Can (likely) only run 1 test per GPU but don't need to limit CPU tests
-            num_test_jobs = {'cpu': self.cfg['parallel'], 'gpu': num_gpus_to_use}
+            num_test_jobs = {
+                CPU_DEVICE: self.cfg['parallel'],
+                GPU_DEVICE: num_gpus_to_use,
+            }
 
         # These are used by the `parallel_gpu_execute` helper script from TF
-        test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs['gpu'])
+        test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
         test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
 
-        cfg_testopts = {'cpu': self.cfg['testopts'], 'gpu': self.cfg['testopts_gpu']}
+        cfg_testopts = {
+            CPU_DEVICE: self.cfg['testopts'],
+            GPU_DEVICE: self.cfg['testopts_gpu'],
+        }
 
-        devices = ('cpu', 'gpu') if self._with_cuda else ('cpu', )
+        devices = [CPU_DEVICE]
+        if self._with_cuda:
+            devices.append(GPU_DEVICE)
+
         for device in devices:
             # Determine tests to run
             test_tag_filters_name = 'test_tag_filters_' + device
@@ -902,11 +918,12 @@ class EB_TensorFlow(PythonPackage):
             # Add both build and test tag filters as done by the TF CI scripts
             current_test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
 
-            # Disable all GPUs for the CPU tests as otherwise TF will still use GPUs and fail
-            # Only tests explicitely marked with the 'gpu' tag can run with GPUs visible
-            # See https://github.com/tensorflow/tensorflow/issues/45664
-            if device == 'cpu':
-                current_test_opts.append('--test_env=CUDA_VISIBLE_DEVICES=-1')
+            # Disable all GPUs for the CPU tests, by setting $CUDA_VISIBLE_DEVICES to -1,
+            # otherwise TensorFlow will still use GPUs and fail.
+            # Only tests explicitely marked with the 'gpu' tag can run with GPUs visible;
+            # see https://github.com/tensorflow/tensorflow/issues/45664
+            if device == CPU_DEVICE:
+                current_test_opts.append("--test_env=CUDA_VISIBLE_DEVICES='-1'")
 
             # Append user specified options last
             current_test_opts.append(cfg_testopts[device])
@@ -932,7 +949,7 @@ class EB_TensorFlow(PythonPackage):
                 failed_tests = []
                 failed_test_logs = dict()
                 # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
-                for match in re.finditer(r'^(//[a-zA-Z_/:]+) + FAILED', stdouterr, re.MULTILINE):
+                for match in re.finditer(r'^(//[a-zA-Z_/:]+)\s+FAILED', stdouterr, re.MULTILINE):
                     test_name = match.group(1)
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
