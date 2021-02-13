@@ -890,7 +890,7 @@ class EB_TensorFlow(PythonPackage):
 
             # Can (likely) only run 1 test per GPU but don't need to limit CPU tests
             num_test_jobs = {
-                CPU_DEVICE: self.cfg['parallel'],
+                CPU_DEVICE: max_num_test_jobs,
                 GPU_DEVICE: num_gpus_to_use,
             }
         else:
