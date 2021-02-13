@@ -908,23 +908,6 @@ class EB_TensorFlow(PythonPackage):
         # Skip GPU tests if not build with CUDA or no test jobs set (e.g. due to no GPUs available)
         if self._with_cuda and num_test_jobs[GPU_DEVICE]:
             devices.append(GPU_DEVICE)
-            # Propagate those environment variables to the tests if they are set
-            important_cuda_env_vars = (
-                'CUDA_CACHE_DISABLE',
-                'CUDA_CACHE_MAXSIZE',
-                'CUDA_CACHE_PATH',
-                'CUDA_FORCE_PTX_JIT',
-                'CUDA_DISABLE_PTX_JIT'
-            )
-            test_opts.extend(
-                '--test_env=' + var_name
-                for var_name in important_cuda_env_vars
-                if var_name in os.environ
-            )
-
-            # These are used by the `parallel_gpu_execute` helper script from TF
-            test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
-            test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
 
         for device in devices:
             # Determine tests to run
@@ -948,6 +931,24 @@ class EB_TensorFlow(PythonPackage):
             # see https://github.com/tensorflow/tensorflow/issues/45664
             if device == CPU_DEVICE:
                 current_test_opts.append("--test_env=CUDA_VISIBLE_DEVICES='-1'")
+            else:
+                # Propagate those environment variables to the GPU tests if they are set
+                important_cuda_env_vars = (
+                    'CUDA_CACHE_DISABLE',
+                    'CUDA_CACHE_MAXSIZE',
+                    'CUDA_CACHE_PATH',
+                    'CUDA_FORCE_PTX_JIT',
+                    'CUDA_DISABLE_PTX_JIT'
+                )
+                current_test_opts.extend(
+                    '--test_env=' + var_name
+                    for var_name in important_cuda_env_vars
+                    if var_name in os.environ
+                )
+
+                # These are used by the `parallel_gpu_execute` helper script from TF
+                current_test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
+                current_test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
 
             # Append user specified options last
             current_test_opts.append(cfg_testopts[device])
