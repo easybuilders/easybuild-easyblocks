@@ -70,9 +70,10 @@ class EB_FLUENT(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for FLUENT."""
+        bindir = os.path.join(self.fluent_verdir, 'fluent', 'bin')
         custom_paths = {
-            'files': ["%s/fluent/bin/fluent%s" % (self.fluent_verdir, x) for x in ['', '_arch', '_sysinfo']],
-            'dirs': ["%s/%s" % (self.fluent_verdir, x) for x in ["ansys", "aisol", "CFD-Post"]]
+            'files': [os.path.join(bindir, 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
+            'dirs': [os.path.join(self.fluent_verdir, x) for x in ['aisol', 'CFD-Post']]
         }
         super(EB_FLUENT, self).sanity_check_step(custom_paths=custom_paths)
 
