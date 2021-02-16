@@ -94,7 +94,10 @@ class EB_Trilinos(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % ' '.join(fflags))
 
         # Make sure Tpetra/Kokkos Serial mode is enabled regardless of OpenMP
-        self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+        if LooseVersion(self.version) >= LooseVersion('13.0'):
+            self.cfg.update('configopts', "-DKokkos_ENABLE_SERIAL:BOOL=ON")
+        else:
+            self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
         self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
 
         # OpenMP
@@ -284,6 +287,15 @@ class EB_Trilinos(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('12.6'):
             libs.remove('Galeri')
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
+        # Mesquite and MOOCHO packages gone in 12.18:
+        if LooseVersion(self.version) >= LooseVersion('12.18'):
+            libs.remove('Mesquite')
+            libs.remove('MOOCHO')
+
+        # GlobiPack package gone in 13.0:
+        if LooseVersion(self.version) >= LooseVersion('13.0'):
+            libs.remove('GlobiPack')
 
         # Get the library extension
         if self.cfg['build_shared_libs']:
