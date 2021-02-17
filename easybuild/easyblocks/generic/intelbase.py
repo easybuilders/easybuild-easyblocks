@@ -195,18 +195,18 @@ class IntelBase(EasyBlock):
 
     def clean_home_subdir(self):
         """Remove contents of (local) 'intel' directory home subdir, where stuff is cached."""
-
-        self.log.debug("Cleaning up %s..." % self.home_subdir_local)
-        try:
-            for tree in os.listdir(self.home_subdir_local):
-                self.log.debug("... removing %s subtree" % tree)
-                path = os.path.join(self.home_subdir_local, tree)
-                if os.path.isfile(path) or os.path.islink(path):
-                    remove_file(path)
-                else:
-                    shutil.rmtree(path)
-        except OSError as err:
-            raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
+        if os.path.exists(self.home_subdir_local):
+            self.log.debug("Cleaning up %s..." % self.home_subdir_local)
+            try:
+                for tree in os.listdir(self.home_subdir_local):
+                    self.log.debug("... removing %s subtree" % tree)
+                    path = os.path.join(self.home_subdir_local, tree)
+                    if os.path.isfile(path) or os.path.islink(path):
+                        remove_file(path)
+                    else:
+                        shutil.rmtree(path)
+            except OSError as err:
+                raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
 
     def setup_local_home_subdir(self):
         """
