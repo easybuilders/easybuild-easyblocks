@@ -49,7 +49,7 @@ class EB_intel_minus_compilers(IntelBase):
         if LooseVersion(self.version) < LooseVersion('2021'):
             raise EasyBuildError("Invalid version %s, should be >= 2021.x" % self.version)
 
-        self.compilers_subdir = os.path.join('compiler', 'latest', 'linux')
+        self.compilers_subdir = os.path.join('compiler', self.version, 'linux')
 
     def prepare_step(self, *args, **kwargs):
         """
