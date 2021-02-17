@@ -63,19 +63,11 @@ class EB_intel_minus_compilers(IntelBase):
         super(EB_intel_minus_compilers, self).prepare_step(*args, **kwargs)
 
     def configure_step(self):
-        """Configure installation: specify components to install."""
+        """Configure installation."""
 
         # redefine $HOME for install step, to avoid that anything is stored in $HOME/intel
         # (like the 'installercache' database)
         self.cfg['preinstallopts'] += " HOME=%s " % self.builddir
-
-        # see output of "<script> -a --list-components"
-        self.install_components = [
-            # oneAPI DPC++/C++ Compiler & C++ Compiler Classic
-            'intel.oneapi.lin.dpcpp-cpp-compiler-pro',
-            # Fortran Compiler & Fortran Compiler Classic
-            'intel.oneapi.lin.ifort-compiler',
-        ]
 
     def install_step(self):
         """
