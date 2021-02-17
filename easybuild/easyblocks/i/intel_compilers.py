@@ -65,8 +65,9 @@ class EB_intel_minus_compilers(IntelBase):
     def configure_step(self):
         """Configure installation: specify components to install."""
 
-        # redefine $HOME, to avoid that anything is stored in $HOME/intel (like the 'installercache' database)
-        os.environ['HOME'] = self.builddir
+        # redefine $HOME for install step, to avoid that anything is stored in $HOME/intel
+        # (like the 'installercache' database)
+        self.cfg['preinstallopts'] += " HOME=%s " % self.builddir
 
         # see output of "<script> -a --list-components"
         self.install_components = [
