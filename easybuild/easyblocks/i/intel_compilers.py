@@ -31,7 +31,7 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_msg
 
 
 class EB_intel_minus_compilers(IntelBase):
@@ -76,6 +76,19 @@ class EB_intel_minus_compilers(IntelBase):
             # Fortran Compiler & Fortran Compiler Classic
             'intel.oneapi.lin.ifort-compiler',
         ]
+
+    def install_step(self):
+        """
+        Install step: install each 'source file' one by one.
+        To install a patch release of Intel oneAPI compilers, we need to install the HPC Toolkit first,
+        and then separate updates for the C++ and Fortran compilers...
+        """
+        srcs = self.src[:]
+        cnt = len(srcs)
+        for idx, src in enumerate(srcs):
+            print_msg("installing part %d/%s (%s)..." % (idx + 1, cnt, src['name']))
+            self.src = [src]
+            super(EB_intel_minus_compilers, self).install_step()
 
     def sanity_check_step(self):
         """
