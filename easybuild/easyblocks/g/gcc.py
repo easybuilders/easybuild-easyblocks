@@ -599,6 +599,14 @@ class EB_GCC(ConfigureMake):
                     if lib == "gmp":
                         # make sure correct GMP is found
                         libpath = os.path.join(stage2prefix, 'lib')
+
+                        # fall back to lib64 directory if lib was not found,
+                        # give up if neither are there
+                        if not os.path.exists(libpath):
+                            libpath += '64'
+                        if not os.path.exists(libpath):
+                            raise EasyBuildError("lib(64) subdirectory not found in %s!" % stage2prefix)
+
                         incpath = os.path.join(stage2prefix, 'include')
 
                         cppflags = os.getenv('CPPFLAGS', '')
