@@ -72,8 +72,8 @@ class EB_intel_minus_compilers(IntelBase):
     def install_step(self):
         """
         Install step: install each 'source file' one by one.
-        To install a patch release of Intel oneAPI compilers, we need to install the HPC Toolkit first,
-        and then separate updates for the C++ and Fortran compilers...
+        Installing the Intel compilers could be done via a single installation file (HPC Toolkit),
+        or with separate installation files (patch releases of the C++ and Fortran compilers).
         """
         srcs = self.src[:]
         cnt = len(srcs)
