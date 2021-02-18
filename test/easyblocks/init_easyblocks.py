@@ -212,6 +212,9 @@ def suite():
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif os.path.basename(easyblock) == 'intel_compilers.py':
+            # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
+            innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
         else:
             innertest = make_inner_test(easyblock)
 
