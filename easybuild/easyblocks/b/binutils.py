@@ -70,9 +70,13 @@ class EB_binutils(ConfigureMake):
             # (no trouble when other libstdc++ is build etc)
 
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
-            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
-            # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file
+            # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056;
+            # Escaping: Double $$ for Make, \$ for shell to get literal $ORIGIN in the file;
+            # We need to include both 'lib' and 'lib64' here, to ensure this works as intended
+            # across different operating systems,
+            # see https://github.com/easybuilders/easybuild-easyconfigs/issues/11976
             libdirs = [r'\$\$ORIGIN/../lib', r'\$\$ORIGIN/../lib64']
+
             for libdir in ['lib', 'lib64', os.path.join('lib', 'x86_64-linux-gnu')]:
 
                 libdir = os.path.join(sysroot, 'usr', libdir)
@@ -168,13 +172,10 @@ class EB_binutils(ConfigureMake):
             if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
                 # Be a bit careful about where we install into
                 libdir = os.path.join(self.installdir, 'lib')
-                if os.path.exists(libdir) and os.path.isdir(libdir):
-                    if not os.listdir(libdir):
-                        # At this point the lib directory should be populated, if not try the other option
-                        libdir = os.path.join(self.installdir, 'lib64')
-                else:
-                    # If the directory doesn't exist, try the other option
+                # At this point the lib directory should exist and be populated, if not try the other option
+                if not (os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir)):
                     libdir = os.path.join(self.installdir, 'lib64')
+
                 # Make sure the target exists (it should, otherwise our sanity check will fail)
                 if os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir):
                     copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
