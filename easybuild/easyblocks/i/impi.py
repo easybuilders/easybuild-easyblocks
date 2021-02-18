@@ -294,21 +294,27 @@ EULA=accept
                 ]
                 manpath = os.path.join(mpi_subdir, 'man')
 
+                if self.cfg['ofi_internal']:
+                    libfabric_dir = os.path.join('mpi', '2021.1.1', 'libfabric')
+                    lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
+                    path_dirs.append(os.path.join(libfabric_dir, 'bin'))
+                    guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
+
             elif impi_ver >= LooseVersion('2019'):
                 # The "release" library is default in v2019. Give it precedence over intel64/lib.
                 # (remember paths are *prepended*, so the last path in the list has highest priority)
-                lib_dirs = ['intel64/%s' % x for x in ['lib', 'lib/release']]
-                include_dirs = ['intel64/include']
-                path_dirs = ['intel64/bin']
+                lib_dirs = [os.path.join('intel64', x) for x in ['lib', os.path.join('lib', 'release')]]
+                include_dirs = [os.path.join('intel64', 'include')]
+                path_dirs = [os.path.join('intel64', 'bin')]
                 if self.cfg['ofi_internal']:
-                    lib_dirs.append('intel64/libfabric/lib')
-                    path_dirs.append('intel64/libfabric/bin')
-                    guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
+                    lib_dirs.append(os.path.join('intel64', 'libfabric', 'lib'))
+                    path_dirs.append(os.path.join('intel64', 'libfabric', 'bin'))
+                    guesses['FI_PROVIDER_PATH'] = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
             else:
-                lib_dirs = ['lib/em64t', 'lib64']
+                lib_dirs = [os.path.join('lib', 'em64t'), 'lib64']
                 include_dirs = ['include64']
-                path_dirs = ['bin/intel64', 'bin64']
-                guesses['MIC_LD_LIBRARY_PATH'] = ['mic/lib']
+                path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
+                guesses['MIC_LD_LIBRARY_PATH'] = [os.path.join('mic', 'lib')]
 
             guesses.update({
                 'PATH': path_dirs,
