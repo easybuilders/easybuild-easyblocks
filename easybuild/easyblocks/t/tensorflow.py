@@ -53,6 +53,9 @@ from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_nam
 from easybuild.tools.py2vs3 import subprocess_popen_text
 
 
+CPU_DEVICE = 'cpu'
+GPU_DEVICE = 'gpu'
+
 # Wrapper for Intel(MPI) compilers, where required environment variables
 # are hardcoded to make sure they are present;
 # this is required because Bazel resets the environment in which
@@ -218,14 +221,17 @@ class EB_TensorFlow(PythonPackage):
             # see https://developer.nvidia.com/cuda-gpus
             'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
-            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default)", CUSTOM],
+            'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
+                                    "Unsupported starting at TensorFlow 1.12!", CUSTOM],
             'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
-            'test_tag_filters': ['', "Comma-separated list of tags to filter for during the test step", CUSTOM],
-            'test_jobs': [None, "Number of test jobs to run in parallel." +
-                                "Use None (default) to automatically determine a value", CUSTOM],
+            'test_tag_filters_cpu': ['', "Comma-separated list of tags to filter for during the CPU test step", CUSTOM],
+            'test_tag_filters_gpu': ['', "Comma-separated list of tags to filter for during the GPU test step", CUSTOM],
+            'testopts_gpu': ['', 'Test options for the GPU test step', CUSTOM],
+            'test_max_parallel': [None, "Maximum number of test jobs to run in parallel (GPU tests are limited by " +
+                                  "the number of GPUs). Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
         }
@@ -430,14 +436,10 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
-        # Tensorflow/Bazel needs a couple of directories where it stores build cache and artefacts
-        tmpdir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
-        self.output_root_dir = os.path.join(tmpdir, 'output_root')
-        self.output_base_dir = os.path.join(tmpdir, 'output_base')
-        self.output_user_root_dir = os.path.join(tmpdir, 'output_user_root')
-        self.wrapper_dir = os.path.join(tmpdir, 'wrapper_bin')
-        # This (likely) needs to be a subdir of output_base
-        self.install_base_dir = os.path.join(self.output_base_dir, 'inst_base')
+        # Path where Bazel will store its output, build artefacts etc.
+        self.output_user_root_dir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
+        self.wrapper_dir = tempfile.mkdtemp(suffix='-wrapper_bin', dir=self.builddir)
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -496,10 +498,12 @@ class EB_TensorFlow(PythonPackage):
             env.setvar('PATH', os.pathsep.join([self.wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
-        self.handle_jemalloc()
 
         self.verify_system_libs_info()
         self.system_libs_info = self.get_system_libs()
+
+        # Options passed to the target (build/test), e.g. --config arguments
+        self.target_opts = []
 
         cuda_root = get_software_root('CUDA')
         cudnn_root = get_software_root('cuDNN')
@@ -507,32 +511,54 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
+        self._with_cuda = bool(cuda_root)
+
         config_env_vars = {
             'CC_OPT_FLAGS': os.getenv('CXXFLAGS'),
             'MPI_HOME': mpi_home,
             'PYTHON_BIN_PATH': self.python_cmd,
             'PYTHON_LIB_PATH': os.path.join(self.installdir, self.pylibdir),
             'TF_CUDA_CLANG': '0',
-            'TF_ENABLE_XLA': ('0', '1')[bool(self.cfg['with_xla'])],  # XLA JIT support
-            'TF_NEED_CUDA': ('0', '1')[bool(cuda_root)],
-            'TF_NEED_GCP': '0',  # Google Cloud Platform
-            'TF_NEED_GDR': '0',
-            'TF_NEED_HDFS': '0',  # Hadoop File System
-            'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
-            'TF_NEED_MPI': ('0', '1')[bool(use_mpi)],
-            'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
-            'TF_NEED_OPENCL_SYCL': '0',
-            'TF_NEED_ROCM': '0',
-            'TF_NEED_S3': '0',  # Amazon S3 File System
-            'TF_NEED_TENSORRT': '0',
-            'TF_NEED_VERBS': '0',
-            'TF_NEED_AWS': '0',  # Amazon AWS Platform
-            'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
-            'TF_SET_ANDROID_WORKSPACE': '0',
             'TF_DOWNLOAD_CLANG': '0',  # Still experimental in TF 2.1.0
+            'TF_ENABLE_XLA': ('0', '1')[bool(self.cfg['with_xla'])],  # XLA JIT support
+            'TF_NEED_CUDA': ('0', '1')[self._with_cuda],
+            'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
+            'TF_NEED_ROCM': '0',
+            'TF_NEED_TENSORRT': '0',
+            'TF_SET_ANDROID_WORKSPACE': '0',
             'TF_SYSTEM_LIBS': ','.join(self.system_libs_info[0]),
         }
-        if cuda_root:
+        if LooseVersion(self.version) < LooseVersion('1.10'):
+            config_env_vars['TF_NEED_S3'] = '0'  # Renamed to TF_NEED_AWS in 1.9.0-rc2 and 1.10, not 1.9.0
+        # Options removed in 1.12.0
+        if LooseVersion(self.version) < LooseVersion('1.12'):
+            self.handle_jemalloc()
+            config_env_vars.update({
+                'TF_NEED_AWS': '0',  # Amazon AWS Platform
+                'TF_NEED_GCP': '0',  # Google Cloud Platform
+                'TF_NEED_GDR': '0',
+                'TF_NEED_HDFS': '0',  # Hadoop File System
+                'TF_NEED_JEMALLOC': ('0', '1')[self.cfg['with_jemalloc']],
+                'TF_NEED_KAFKA': '0',  # Amazon Kafka Platform
+                'TF_NEED_VERBS': '0',
+            })
+        elif self.cfg['with_jemalloc'] is True:
+            print_warning('Jemalloc is not supported in TensorFlow %s, the EC option with_jemalloc has no effect',
+                          self.version)
+        # Disable support of some features via config switch introduced in 1.12.1
+        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+            self.target_opts += ['--config=noaws', '--config=nogcp', '--config=nohdfs']
+            # Removed in 2.1
+            if LooseVersion(self.version) < LooseVersion('2.1'):
+                self.target_opts.append('--config=nokafka')
+        # MPI support removed in 2.1
+        if LooseVersion(self.version) < LooseVersion('2.1'):
+            config_env_vars['TF_NEED_MPI'] = ('0', '1')[bool(use_mpi)]
+        # SYCL support removed in 2.4
+        if LooseVersion(self.version) < LooseVersion('2.4'):
+            config_env_vars['TF_NEED_OPENCL_SYCL'] = '0'
+
+        if self._with_cuda:
             cuda_version = get_software_version('CUDA')
             cuda_maj_min_ver = '.'.join(cuda_version.split('.')[:2])
 
@@ -637,20 +663,20 @@ class EB_TensorFlow(PythonPackage):
                     'TF_TENSORRT_VERSION': tensorrt_version,
                 })
 
-        for (key, val) in sorted(config_env_vars.items()):
+        configure_py_contents = read_file('configure.py')
+        for key, val in sorted(config_env_vars.items()):
+            if key.startswith('TF_') and key not in configure_py_contents:
+                self.log.warn('Did not find %s option in configure.py. Setting might not have any effect', key)
             env.setvar(key, val)
 
-        # Does no longer apply (and might not be required at all) since 1.12.0
-        if LooseVersion(self.version) < LooseVersion('1.12.0'):
-            # patch configure.py (called by configure script) to avoid that Bazel abuses $HOME/.cache/bazel
-            regex_subs = [(r"(run_shell\(\['bazel')",
-                           r"\1, '--output_base=%s', '--install_base=%s'" % (self.output_base_dir,
-                                                                             self.install_base_dir))]
+        # configure.py (called by configure script) already calls bazel to determine the bazel version
+        # Since 2.3.0 `bazel --version` is used which doesn't extract bazel, prior it did
+        # Hence make sure it doesn't extract into $HOME/.cache/bazel
+        if LooseVersion(self.version) < LooseVersion('2.3.0'):
+            regex_subs = [(r"('bazel', '--batch')",
+                           r"\1, '--output_user_root=%s'" % self.output_user_root_dir)]
             apply_regex_substitutions('configure.py', regex_subs)
 
-        # Tell Bazel to not use $HOME/.cache/bazel at all
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        env.setvar('TEST_TMPDIR', self.output_root_dir)
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -733,8 +759,6 @@ class EB_TensorFlow(PythonPackage):
 
         # Options passed to the bazel command
         self.bazel_opts = [
-            '--output_base=%s' % self.output_base_dir,
-            '--install_base=%s' % self.install_base_dir,
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
         jvm_max_memory = self.cfg['jvm_max_memory']
@@ -744,9 +768,6 @@ class EB_TensorFlow(PythonPackage):
                 '--host_jvm_args=-Xms%sm' % jvm_startup_memory,
                 '--host_jvm_args=-Xmx%sm' % jvm_max_memory
             ])
-
-        # Options passed to the target (build/test), e.g. --config arguments
-        self.target_opts = []
 
         # build with optimization enabled
         # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
@@ -760,10 +781,6 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         self.target_opts.extend(['--subcommands', '--verbose_failures'])
-
-        # Disable support of AWS platform via config switch introduced in 1.12.1
-        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
-            self.target_opts.append('--config=noaws')
 
         self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
 
@@ -800,7 +817,7 @@ class EB_TensorFlow(PythonPackage):
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            if get_software_root('CUDA'):
+            if self._with_cuda:
                 self.target_opts.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
@@ -844,41 +861,142 @@ class EB_TensorFlow(PythonPackage):
 
         test_opts = self.target_opts
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
-        if self.cfg['test_jobs']:
-            num_test_jobs = int(self.cfg['test_jobs'])
+        test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
+
+        # determine number of cores/GPUs to use for tests
+        max_num_test_jobs = int(self.cfg['test_max_parallel'] or self.cfg['parallel'])
+        if self._with_cuda:
+            if not which('nvidia-smi', log_error=False):
+                print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
+                num_gpus_to_use = 0
+            elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':
+                print_warning('GPUs explicitely disabled via CUDA_VISIBLE_DEVICES. Skipping GPU tests!')
+                num_gpus_to_use = 0
+            else:
+                # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
+                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_all=True, regexp=False)
+                try:
+                    if ec != 0:
+                        raise RuntimeError("nvidia-smi returned exit code %s" % ec)
+                    gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
+                except (RuntimeError, ValueError) as err:
+                    self.log.warning("Failed to get the number of GPUs on this system: %s", err)
+                    gpu_ct = 0
+
+                if gpu_ct == 0:
+                    print_warning('No GPUs found. Skipping GPU tests!')
+
+                num_gpus_to_use = min(max_num_test_jobs, gpu_ct)
+
+            # Can (likely) only run 1 test per GPU but don't need to limit CPU tests
+            num_test_jobs = {
+                CPU_DEVICE: max_num_test_jobs,
+                GPU_DEVICE: num_gpus_to_use,
+            }
         else:
-            # Can (likely) only run 1 test per GPU
-            (gpu_ct, ec) = run_cmd("nvidia-smi --list-gpus | wc -l", regexp=False)
-            try:
-                num_test_jobs = min(self.cfg['parallel'], max(1, int(gpu_ct.strip()))) if ec == 0 else 1
-                test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs)
-                test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
-            except Exception:
-                self.log.info('Failed to get the number of GPUs on this system. Using only 1 test job')
-                num_test_jobs = 1
-        test_opts.append('--local_test_jobs=%s' % num_test_jobs)
+            num_test_jobs = {
+                CPU_DEVICE: max_num_test_jobs,
+                GPU_DEVICE: 0,
+            }
 
-        # Don't build tests which won't be executed
-        test_opts.append('--build_tests_only')
+        cfg_testopts = {
+            CPU_DEVICE: self.cfg['testopts'],
+            GPU_DEVICE: self.cfg['testopts_gpu'],
+        }
 
-        test_tag_filters = self.cfg['test_tag_filters']
-        if test_tag_filters:
+        devices = [CPU_DEVICE]
+        # Skip GPU tests if not build with CUDA or no test jobs set (e.g. due to no GPUs available)
+        if self._with_cuda and num_test_jobs[GPU_DEVICE]:
+            devices.append(GPU_DEVICE)
+
+        for device in devices:
+            # Determine tests to run
+            test_tag_filters_name = 'test_tag_filters_' + device
+            test_tag_filters = self.cfg[test_tag_filters_name]
+            if not test_tag_filters:
+                self.log.info('Skipping %s test because %s is not set', device, test_tag_filters_name)
+                continue
+            else:
+                self.log.info('Starting %s test', device)
+
+            current_test_opts = test_opts[:]
+            current_test_opts.append('--local_test_jobs=%s' % num_test_jobs[device])
+
             # Add both build and test tag filters as done by the TF CI scripts
-            test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
+            current_test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
 
-        # Compose final command
-        cmd = (
-            [self.cfg['pretestopts']]
-            + ['bazel']
-            + self.bazel_opts
-            + ['test']
-            + test_opts
-            + [self.cfg['testopts'], '--']
-            # specify targets to test as last argument
-            + test_targets
-        )
+            # Disable all GPUs for the CPU tests, by setting $CUDA_VISIBLE_DEVICES to -1,
+            # otherwise TensorFlow will still use GPUs and fail.
+            # Only tests explicitely marked with the 'gpu' tag can run with GPUs visible;
+            # see https://github.com/tensorflow/tensorflow/issues/45664
+            if device == CPU_DEVICE:
+                current_test_opts.append("--test_env=CUDA_VISIBLE_DEVICES='-1'")
+            else:
+                # Propagate those environment variables to the GPU tests if they are set
+                important_cuda_env_vars = (
+                    'CUDA_CACHE_DISABLE',
+                    'CUDA_CACHE_MAXSIZE',
+                    'CUDA_CACHE_PATH',
+                    'CUDA_FORCE_PTX_JIT',
+                    'CUDA_DISABLE_PTX_JIT'
+                )
+                current_test_opts.extend(
+                    '--test_env=' + var_name
+                    for var_name in important_cuda_env_vars
+                    if var_name in os.environ
+                )
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True)
+                # These are used by the `parallel_gpu_execute` helper script from TF
+                current_test_opts.append('--test_env=TF_GPU_COUNT=%s' % num_test_jobs[GPU_DEVICE])
+                current_test_opts.append('--test_env=TF_TESTS_PER_GPU=1')
+
+            # Append user specified options last
+            current_test_opts.append(cfg_testopts[device])
+
+            # Compose final command
+            cmd = ' '.join(
+                [self.cfg['pretestopts']]
+                + ['bazel']
+                + self.bazel_opts
+                + ['test']
+                + current_test_opts
+                + ['--']
+                # specify targets to test as last argument
+                + test_targets
+            )
+
+            stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
+            if ec:
+                fail_msg = 'Tests on %s (cmd: %s) failed with exit code %s and output:\n%s' % (
+                    device, cmd, ec, stdouterr)
+                self.log.warning(fail_msg)
+                # Try to enhance error message
+                failed_tests = []
+                failed_test_logs = dict()
+                # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
+                for match in re.finditer(r'^(//[a-zA-Z_/:]+)\s+FAILED', stdouterr, re.MULTILINE):
+                    test_name = match.group(1)
+                    failed_tests.append(test_name)
+                    # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
+                    test_folder = test_name[2:].replace(':', '/')
+                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
+                    log_match = test_log_re.match(stdouterr, match.end())
+                    if log_match:
+                        failed_test_logs[test_name] = log_match.group(2)
+                # When TF logs are found enhance the below error by additionally logging the details about failed tests
+                for test_name, log_path in failed_test_logs.items():
+                    if os.path.exists(log_path):
+                        self.log.warning('Test %s failed with output\n%s', test_name,
+                                         read_file(log_path, log_error=False))
+                if failed_tests:
+                    raise EasyBuildError(
+                        'At least %s %s tests failed:\n%s',
+                        len(failed_tests), device, ', '.join(failed_tests)
+                    )
+                else:
+                    raise EasyBuildError(fail_msg)
+            else:
+                self.log.info('Tests on %s succeeded with output:\n%s', device, stdouterr)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""

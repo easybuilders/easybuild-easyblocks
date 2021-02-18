@@ -101,6 +101,10 @@ class EB_NVHPC(PackedBinary):
     def install_step(self):
         """Install by running install command."""
 
+        # EULA for NVHPC must be accepted via --accept-eula EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html')
+
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is None:
             module_cuda_version_full = get_software_version('CUDA')

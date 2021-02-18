@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
 
 
 class EB_OpenFOAM(EasyBlock):
@@ -355,12 +355,15 @@ class EB_OpenFOAM(EasyBlock):
             int_size = ''
 
         archpart = '64'
-        if get_cpu_architecture() == AARCH64:
+        arch = get_cpu_architecture()
+        if arch == AARCH64:
             # Variants have different abbreviations for ARM64...
             if self.looseversion < LooseVersion("100"):
                 archpart = 'Arm64'
             else:
                 archpart = 'ARM64'
+        elif arch == POWER:
+            archpart = 'PPC64le'
 
         psubdir = "linux%s%sDP%s%s" % (archpart, self.wm_compiler, int_size, self.build_type)
         return psubdir
@@ -389,12 +392,19 @@ class EB_OpenFOAM(EasyBlock):
             libdir = os.path.join(self.installdir, self.openfoamdir, "lib", psubdir)
         else:
             libdir = os.path.join(self.installdir, self.openfoamdir, "platforms", psubdir, "lib")
-        mpilibsdir = os.path.join(libdir, "mpi")
+
+        # OpenFOAM v2012 puts mpi into eb-mpi
+        if self.looseversion >= LooseVersion("2012"):
+            mpilibssubdir = "eb-mpi"
+        else:
+            mpilibssubdir = "mpi"
+        mpilibsdir = os.path.join(libdir, mpilibssubdir)
+
         if os.path.exists(mpilibsdir):
             for lib in glob.glob(os.path.join(mpilibsdir, "*.%s" % shlib_ext)):
                 libname = os.path.basename(lib)
                 dst = os.path.join(libdir, libname)
-                os.symlink(os.path.join("mpi", libname), dst)
+                os.symlink(os.path.join(mpilibssubdir, libname), dst)
 
     def sanity_check_step(self):
         """Custom sanity check for OpenFOAM"""
@@ -438,9 +448,15 @@ class EB_OpenFOAM(EasyBlock):
             else:
                 libs.extend([os.path.join(libsdir, "libparMetisDecomp.%s" % shlib_ext)])
         else:
+            # OpenFOAM v2012 puts mpi into eb-mpi
+            if self.looseversion >= LooseVersion("2012"):
+                mpilibssubdir = "eb-mpi"
+            else:
+                mpilibssubdir = "mpi"
+
             # there must be a dummy one and an mpi one for both
-            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", "mpi"]] + \
-                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", "mpi"]] +\
+            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", mpilibssubdir]] + \
+                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", mpilibssubdir]] +\
                    [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext)] + \
                    [os.path.join(libsdir, "dummy", "libscotchDecomp.%s" % shlib_ext)]
 
