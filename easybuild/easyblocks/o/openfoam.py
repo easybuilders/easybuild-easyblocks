@@ -483,6 +483,34 @@ class EB_OpenFOAM(EasyBlock):
             'dirs': dirs,
         }
 
+        # run motorBike tutorial case to ensure the installation is functional (if it's available);
+        # only for recent (>= v6.0) versions of openfoam.org variant
+        if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
+            openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
+            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if os.path.exists(motorbike_path):
+                cmds = [
+                    "cp -a %s %s" % (motorbike_path, self.builddir),
+                    "cd %s" % os.path.join(self.builddir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/triSurface/",
+                    "runApplication surfaceFeatures",
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh -overwrite",
+                    "runParallel patchSummary",
+                    "runParallel potentialFoam",
+                    "runParallel simpleFoam",
+                    "runApplication reconstructParMesh -constant",
+                    "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % os.path.basename(motorbike_path),
+                ]
+                # all commands need to be run in a single shell command,
+                # because sourcing $FOAM_BASH sets up environment
+                custom_commands.append(' && '.join(cmds))
+
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
