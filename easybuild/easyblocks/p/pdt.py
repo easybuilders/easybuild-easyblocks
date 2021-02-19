@@ -73,8 +73,12 @@ class EB_PDT(ConfigureMake):
             raise EasyBuildError("Compiler family not supported yet: %s" % comp_fam)
         self.cfg.update('configopts', compiler_opt)
 
+        # PDT's configure script ignores CFLAGS/CXXFLAGS set in the environment,
+        # but allows to pass in custom flags via configure option
+        useropt = os.getenv('CXXFLAGS')
         if self.toolchain.options['pic']:
-            self.cfg.update('-useropt=-fPIC')
+            useropt += ' -fPIC'
+        self.cfg.update('configopts', '-useropt="%s"' % useropt)
 
         # Configure creates required subfolders in installdir, so create first (but only once, during first iteration)
         if self.iter_idx == 0:

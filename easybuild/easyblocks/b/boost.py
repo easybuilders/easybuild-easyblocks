@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Joachim Hein (Lund University)
 @author: Michele Dolfi (ETH Zurich)
+@author: Simon Branford (University of Birmingham)
 """
 from distutils.version import LooseVersion
 import fileinput
@@ -51,7 +52,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import UNKNOWN, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, UNKNOWN, get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
 class EB_Boost(EasyBlock):
@@ -276,11 +277,19 @@ class EB_Boost(EasyBlock):
                 suffix = ''
             custom_paths['files'].append(os.path.join('lib', 'libboost_python%s.%s' % (suffix, shlib_ext)))
 
+        lib_mt_suffix = '-mt'
+        # MT libraries gained an extra suffix from v1.69.0 onwards
+        if LooseVersion(self.version) >= LooseVersion("1.69.0"):
+            if get_cpu_architecture() == POWER:
+                lib_mt_suffix += '-p64'
+            else:
+                lib_mt_suffix += '-x64'
+
         if self.cfg['boost_multi_thread']:
-            custom_paths['files'].append(os.path.join('lib', 'libboost_thread-mt.%s' % shlib_ext))
+            custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
         if self.cfg['boost_mpi'] and self.cfg['boost_multi_thread']:
-            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi-mt.%s' % shlib_ext))
+            custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
 

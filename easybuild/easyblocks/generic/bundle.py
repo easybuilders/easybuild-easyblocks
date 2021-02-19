@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -90,6 +90,9 @@ class Bundle(EasyBlock):
 
             comp_cfg = self.cfg.copy()
 
+            comp_cfg['name'] = comp_name
+            comp_cfg['version'] = comp_version
+
             easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
             if easyblock is None:
                 raise EasyBuildError("No easyblock specified for component %s v%s", comp_cfg['name'],
@@ -103,8 +106,6 @@ class Bundle(EasyBlock):
             extra_opts = comp_cfg.easyblock.extra_options()
             comp_cfg.extend_params(copy.deepcopy(extra_opts))
 
-            comp_cfg['name'] = comp_name
-            comp_cfg['version'] = comp_version
             comp_cfg.generate_template_values()
 
             # do not inherit easyblock to use from parent (since that would result in an infinite loop in install_step)

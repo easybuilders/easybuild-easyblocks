@@ -1,6 +1,6 @@
 ##
 # Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -85,6 +85,9 @@ class EB_Clang(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
+            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
+            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
+            'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -117,6 +120,8 @@ class EB_Clang(CMakeMake):
             openmp/       Unpack openmp-*.tar.xz here
           tools/
             clang/        Unpack clang-*.tar.gz here
+              tools/
+                extra/    Unpack clang-tools-extra-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
@@ -160,7 +165,10 @@ class EB_Clang(CMakeMake):
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
             find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
-        find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+        find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+
+        if self.cfg["build_extra_clang_tools"]:
+            find_source_dir('clang-tools-extra-*', os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
@@ -249,6 +257,13 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
+        # If Z3 is included as a dep, enable support in static analyzer (if enabled)
+        if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
+            z3_root = get_software_root("Z3")
+            if z3_root:
+                self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
+                self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
+
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
@@ -282,9 +297,34 @@ class EB_Clang(CMakeMake):
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
 
-        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into
-        # not finding it by using the environment variable which is used as-is and later checked
-        # for a falsy value when determining wether CUDA was found
+        # If hwloc is included as a dep, use it in OpenMP runtime for affinity
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            self.cfg.update('configopts', '-DLIBOMP_USE_HWLOC=ON')
+            self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
+
+        # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
+        if 'NVPTX' in build_targets:
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            if not cuda_cc:
+                raise EasyBuildError("Can't build Clang with CUDA support "
+                                     "without specifying 'cuda-compute-capabilities'")
+            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
+            if not self.cfg['default_cuda_capability']:
+                print_warning("No default CUDA capability defined! "
+                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
+            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+            default_cc = default_cc.replace('.', '')
+            self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
+            self.cfg.update('configopts', '-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=%s' % ','.join(cuda_cc))
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
+        # using the environment variable which is used as-is and later checked for a falsy value when determining
+        # whether CUDA was found
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
@@ -421,6 +461,9 @@ class EB_Clang(CMakeMake):
         }
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
+
+        if self.cfg['build_extra_clang_tools'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+            custom_paths['files'].extend(["bin/clang-tidy"])
 
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])

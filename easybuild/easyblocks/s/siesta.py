@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -100,6 +101,11 @@ class EB_Siesta(ConfigureMake):
             (r"^(LDFLAGS\s*=).*$", r"\1 %s %s" % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])),
         ]
 
+        regex_subs_gfortran = [
+            (r"^(FCFLAGS_free_f90\s*=.*)$", r"\1 -ffree-line-length-none"),
+            (r"^(FPPFLAGS_free_F90\s*=.*)$", r"\1 -ffree-line-length-none"),
+        ]
+
         netcdff_loc = get_software_root('netCDF-Fortran')
         if netcdff_loc:
             # Needed for gfortran at least
@@ -145,6 +151,9 @@ class EB_Siesta(ConfigureMake):
                 ]
                 apply_regex_substitutions('Makefile', regex_subs_Makefile)
 
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                apply_regex_substitutions(arch_make, regex_subs_gfortran)
+
         else:  # there's no configure on newer versions
 
             if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
@@ -173,6 +182,9 @@ class EB_Siesta(ConfigureMake):
                 (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s" % os.environ['FCFLAGS']),
             ])
             regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nWXML = libwxml.a"))
+
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                regex_subs.extend(regex_subs_gfortran)
 
             if netcdff_loc:
                 regex_subs.extend([
@@ -442,7 +454,7 @@ class EB_Siesta(ConfigureMake):
             'dirs': [],
         }
         custom_commands = []
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi', None) and build_option('mpi_tests'):
             # make sure Siesta was indeed built with support for running in parallel
             # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
             mpi_test_cmd = "cd %s && " % self.builddir

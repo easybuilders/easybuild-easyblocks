@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -151,11 +151,16 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
         extra_options = app_class.extra_options()
         check_extra_options_format(extra_options)
 
-        # extend easyconfig to make sure mandatory custom easyconfig paramters are defined
+        # extend easyconfig to make sure mandatory custom easyconfig parameters are defined
         extra_txt = ''
         for (key, val) in extra_options.items():
             if val[2] == MANDATORY:
-                extra_txt += '%s = "foo"\n' % key
+                # use default value if any is set, otherwise use "foo"
+                if val[0]:
+                    test_param = val[0]
+                else:
+                    test_param = 'foo'
+                extra_txt += '%s = "%s"\n' % (key, test_param)
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt)
@@ -207,6 +212,9 @@ def suite():
         elif os.path.basename(easyblock) == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif os.path.basename(easyblock) == 'intel_compilers.py':
+            # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
+            innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
         else:
             innertest = make_inner_test(easyblock)
 

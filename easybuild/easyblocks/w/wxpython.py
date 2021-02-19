@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,12 +27,14 @@ EasyBuild support for wxPython, implemented as an easyblock
 
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 @author: Kenneth Hoste (HPC-UGent)
+@author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
 """
-
+import glob
 import os
 
 from distutils.version import LooseVersion
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
+from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -79,7 +81,18 @@ class EB_wxPython(PythonPackage):
                 'script': script,
                 'prefix': self.installdir,
             }
-            cmd = cmd + " %s -v install" % self.wxflag
+            # install fails and attempts to install in the python module. building the wheel, and then installing it
+            cmd = cmd + " %s -v bdist_wheel" % self.wxflag
+            run_cmd(cmd, log_all=True, simple=True)
+
+            # get whether it is 35, 36, 37, 38, etc.
+            pyver = det_python_version(self.python_cmd)
+            pyver = pyver[0] + pyver[2]
+
+            cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+                   'prefix': self.installdir,
+                   'version': self.version,
+                   'pyver': pyver}
         else:
             script = os.path.join('wxPython', 'build-wxpython.py')
             cmd = INSTALL_CMD % {
@@ -91,6 +104,15 @@ class EB_wxPython(PythonPackage):
             cmd = cmd + " --wxpy_installdir=%s --install" % self.installdir
 
         run_cmd(cmd, log_all=True, simple=True)
+
+        # add symbolic links for libwx_*so.0 files
+        # (which are created automatically by 'build.py install', but not by 'pip install *.whl')
+        wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
+        cwd = change_dir(wx_lib_dir)
+        lib_so_files = glob.glob('libwx*.so.0')
+        for lib_so_file in lib_so_files:
+            symlink(lib_so_file, lib_so_file[:-2])
+        change_dir(cwd)
 
     def sanity_check_step(self):
         """Custom sanity check for wxPython."""
@@ -133,7 +155,7 @@ class EB_wxPython(PythonPackage):
             # also test importing wx.lib.wxcairo
             custom_commands = [(self.python_cmd, '-c "import wx.lib.wxcairo"')]
 
-        super(EB_wxPython, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_wxPython, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom update for $PYTHONPATH for wxPython."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,17 +29,27 @@ EasyBuild support for Ruby Gems, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import shutil
 
 import easybuild.tools.environment as env
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
 class RubyGem(ExtensionEasyBlock):
     """Builds and installs Ruby Gems."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to RubyGem easyblock."""
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars)
+        extra_vars.update({
+            'gem_file': [None, "Path to gem file in unpacked sources", CUSTOM],
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """RubyGem easyblock constructor."""
@@ -58,18 +68,27 @@ class RubyGem(ExtensionEasyBlock):
         self.install_step()
 
     def extract_step(self):
-        """Skip extraction, gemfiles will be installed as downloaded"""
-        if len(self.src) > 1:
-            raise EasyBuildError("Don't know how to handle Ruby gems with multiple sources.'")
-        else:
-            try:
-                shutil.copy2(self.src[0]['path'], self.builddir)
-            except OSError as err:
-                raise EasyBuildError("Failed to copy source to build dir: %s", err)
-            self.ext_src = self.src[0]['name']
+        """Skip extraction of .gem files, which are installed as downloaded"""
 
-            # set final path since it can't be determined from unpacked sources (used for guessing start_dir)
-            self.src[0]['finalpath'] = self.builddir
+        if len(self.src) > 1:
+            raise EasyBuildError("Don't know how to handle Ruby gems with multiple sources.")
+        else:
+            src = self.src[0]
+            if src['path'].endswith('.gem'):
+                copy_file(src['path'], self.builddir)
+                self.ext_src = src['name']
+                # set final path since it can't be determined from unpacked sources (used for guessing start_dir)
+                src['finalpath'] = self.builddir
+            else:
+                # unpack zipped gems, use specified path to gem file
+                super(RubyGem, self).extract_step()
+
+                if self.cfg['gem_file']:
+                    self.ext_src = os.path.join(src['finalpath'], self.cfg['gem_file'])
+                    if not os.path.exists(self.ext_src):
+                        raise EasyBuildError("Gem file not found at %s", self.ext_src)
+                else:
+                    raise EasyBuildError("Location to gem file in unpacked sources must be specified via gem_file")
 
     def configure_step(self):
         """No separate configuration for Ruby Gems."""

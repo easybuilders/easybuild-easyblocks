@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2020 Ghent University
+# Copyright 2020-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,8 +37,9 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.filetools import symlink
 
 
 class EB_PyTorch(PythonPackage):
@@ -117,6 +118,22 @@ class EB_PyTorch(PythonPackage):
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
                 if is_version_ok(version_range)]
 
+    def prepare_step(self, *args, **kwargs):
+        """Make sure that versioned CMake alias exists"""
+        super(EB_PyTorch, self).prepare_step(*args, **kwargs)
+        # PyTorch preferes cmake3 over cmake which usually does not exist
+        cmake_root = get_software_root('CMake')
+        cmake_version = get_software_version('CMake')
+        if cmake_root and not os.path.isfile(os.path.join(cmake_root, 'bin', 'cmake3')):
+            if cmake_version and cmake_version.split('.')[0] != '3':
+                raise EasyBuildError('PyTorch requires CMake 3 but CMake %s was found', cmake_version)
+            cmake_bin_dir = tempfile.mkdtemp(suffix='cmake-bin')
+            self.log.warning('Creating symlink `cmake3` in %s to avoid PyTorch picking up a system CMake. ' +
+                             'Reinstall the CMake module to avoid this!', cmake_bin_dir)
+            symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
+            path = "%s:%s" % (cmake_bin_dir, os.getenv('PATH'))
+            env.setvar('PATH', path)
+
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
         super(EB_PyTorch, self).configure_step()
@@ -134,6 +151,7 @@ class EB_PyTorch(PythonPackage):
         # BLAS Interface
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
+            options.append('INTEL_MKL_DIR=$MKLROOT')
         else:
             # This is what PyTorch defaults to if no MKL is found. Make this explicit here
             options.append('BLAS=Eigen')
