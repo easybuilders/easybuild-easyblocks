@@ -504,6 +504,8 @@ class EB_OpenFOAM(EasyBlock):
                     "runParallel simpleFoam",
                     "runApplication reconstructParMesh -constant",
                     "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % os.path.basename(motorbike_path),
                 ]
                 # all commands need to be run in a single shell command,
                 # because sourcing $FOAM_BASH sets up environment
