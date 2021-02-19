@@ -87,7 +87,7 @@ class EB_MATLAB(PackedBinary):
         try:
             copy_file(os.path.join(self.cfg['start_dir'], 'installer_input.txt'), self.configfile)
 
-            # read file in binary mode to avoid UTF-8 encoding issues whe using Python 3,
+            # read file in binary mode to avoid UTF-8 encoding issues when using Python 3,
             # due to non-UTF-8 characters...
             config = read_file(self.configfile, mode='rb')
 
