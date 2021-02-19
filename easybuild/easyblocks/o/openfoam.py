@@ -485,7 +485,7 @@ class EB_OpenFOAM(EasyBlock):
 
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
-        if self.looseversion >= LooseVersion('6.0') and self.looseversion < LooseVersion('100'):
+        if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
             motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
             if os.path.exists(motorbike_path):
