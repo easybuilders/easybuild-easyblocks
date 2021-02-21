@@ -43,13 +43,14 @@ from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.utilities import nub
+from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
@@ -655,10 +656,26 @@ class PythonPackage(ExtensionEasyBlock):
         super(PythonPackage, self).run(*args, **kwargs)
 
         # configure, build, test, install
-        self.configure_step()
-        self.build_step()
-        self.test_step()
-        self.install_step()
+        # See EasyBlock.get_steps
+        steps = [
+            (CONFIGURE_STEP, 'configuring', [lambda x: x.configure_step], True),
+            (BUILD_STEP, 'building', [lambda x: x.build_step], True),
+            (TEST_STEP, 'testing', [lambda x: x.test_step], True),
+            (INSTALL_STEP, "installing", [lambda x: x.install_step], True),
+        ]
+        self.skip = False  # --skip does not apply here
+        self.silent = build_option('silent')
+        # See EasyBlock.run_all_steps
+        for (step_name, descr, step_methods, skippable) in steps:
+            if self.skip_step(step_name, skippable):
+                print_msg("\t%s [skipped]" % descr, log=self.log, silent=self.silent)
+            else:
+                if self.dry_run:
+                    self.dry_run_msg("\t%s... [DRY RUN]\n", descr)
+                else:
+                    print_msg("\t%s..." % descr, log=self.log, silent=self.silent)
+                    for step_method in step_methods:
+                        step_method(self)()
 
     def load_module(self, *args, **kwargs):
         """
