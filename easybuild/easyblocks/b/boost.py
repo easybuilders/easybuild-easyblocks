@@ -52,7 +52,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import POWER, UNKNOWN, get_cpu_architecture, get_glibc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
+from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
 class EB_Boost(EasyBlock):
@@ -280,7 +281,9 @@ class EB_Boost(EasyBlock):
         lib_mt_suffix = '-mt'
         # MT libraries gained an extra suffix from v1.69.0 onwards
         if LooseVersion(self.version) >= LooseVersion("1.69.0"):
-            if get_cpu_architecture() == POWER:
+            if get_cpu_architecture() == AARCH64:
+                lib_mt_suffix += '-a64'
+            elif get_cpu_architecture() == POWER:
                 lib_mt_suffix += '-p64'
             else:
                 lib_mt_suffix += '-x64'
