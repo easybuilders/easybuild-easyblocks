@@ -98,8 +98,11 @@ class EB_binutils(ConfigureMake):
 
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
             # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
-            # To get literal $ORIGIN through Make we need to escape it by doubling $$, else it's a variable to Make
-            lib_paths = [r'$$ORIGIN/../lib'] + lib_paths
+            # To get literal $ORIGIN through Make we need to escape it by doubling $$, else it's a variable to Make;
+            # We need to include both 'lib' and 'lib64' here, to ensure this works as intended
+            # across different operating systems,
+            # see https://github.com/easybuilders/easybuild-easyconfigs/issues/11976
+            lib_paths = [r'$$ORIGIN/../lib', r'$$ORIGIN/../lib64'] + lib_paths
             # Mind the single quotes
             libs = ["-Wl,-rpath='%s'" % x for x in lib_paths]
         else:
@@ -178,8 +181,19 @@ class EB_binutils(ConfigureMake):
                           os.path.join(self.installdir, 'include', 'libiberty.h'))
 
             if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
-                          os.path.join(self.installdir, 'lib', 'libiberty.a'))
+                # Be a bit careful about where we install into
+                libdir = os.path.join(self.installdir, 'lib')
+                # At this point the lib directory should exist and be populated, if not try the other option
+                if not (os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir)):
+                    libdir = os.path.join(self.installdir, 'lib64')
+
+                # Make sure the target exists (it should, otherwise our sanity check will fail)
+                if os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir):
+                    copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
+                              os.path.join(libdir, 'libiberty.a'))
+                else:
+                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty",
+                                         libdir)
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
                 copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),

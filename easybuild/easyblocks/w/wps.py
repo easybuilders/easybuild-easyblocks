@@ -62,16 +62,16 @@ class EB_WPS(EasyBlock):
         self.build_in_installdir = True
         self.comp_fam = None
         self.compile_script = None
-        testdata_urls = ["http://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
+        testdata_urls = ["https://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
         if LooseVersion(self.version) < LooseVersion('3.8'):
             # 697MB download, 16GB unpacked!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
         elif LooseVersion(self.version) < LooseVersion('4.0'):
             # 2.3GB download!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz")
         else:
             # 2.6GB download, 29GB unpacked!!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
         if self.cfg.get('testdata') is None:
             self.cfg['testdata'] = testdata_urls
 

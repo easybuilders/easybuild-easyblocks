@@ -430,6 +430,10 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
 
+        # test setting up the OpenFOAM environment in bash shell
+        load_openfoam_env = "source $FOAM_BASH"
+        custom_commands = [load_openfoam_env]
+
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
             bins.extend([
@@ -465,12 +469,49 @@ class EB_OpenFOAM(EasyBlock):
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.4.0"):
+            # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
+            bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
+
+            # test foamMonitor; wrap `foamMonitor -h` to generate exit code 1 if any dependency is missing
+            # the command `foamMonitor -h` does not return correct exit codes on its own in all versions
+            test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
+            custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
         }
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths)
+        # run motorBike tutorial case to ensure the installation is functional (if it's available);
+        # only for recent (>= v6.0) versions of openfoam.org variant
+        if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
+            openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
+            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if os.path.exists(motorbike_path):
+                cmds = [
+                    "cp -a %s %s" % (motorbike_path, self.builddir),
+                    "cd %s" % os.path.join(self.builddir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/triSurface/",
+                    "runApplication surfaceFeatures",
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh -overwrite",
+                    "runParallel patchSummary",
+                    "runParallel potentialFoam",
+                    "runParallel simpleFoam",
+                    "runApplication reconstructParMesh -constant",
+                    "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % os.path.basename(motorbike_path),
+                ]
+                # all commands need to be run in a single shell command,
+                # because sourcing $FOAM_BASH sets up environment
+                custom_commands.append(' && '.join(cmds))
+
+        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""
