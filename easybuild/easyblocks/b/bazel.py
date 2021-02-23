@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,7 @@ EasyBuild support for building and installing Bazel, implemented as an easyblock
 from distutils.version import LooseVersion
 import glob
 import os
+import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -35,10 +36,20 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_Bazel(EasyBlock):
     """Support for building/installing Bazel."""
+
+    @staticmethod
+    def extra_options():
+        """Extra easyconfig parameters specific to EB_Bazel."""
+        extra_vars = {
+            'static': [None, 'Build statically linked executables ' +
+                             '(default: True for Bazel >= 1.0 else False)', CUSTOM],
+        }
+        return EasyBlock.extra_options(extra_vars)
 
     def fixup_hardcoded_paths(self):
         """Patch out hard coded paths to compiler and binutils tools"""
@@ -96,12 +107,30 @@ class EB_Bazel(EasyBlock):
 
             apply_regex_substitutions(os.path.join('tools', 'cpp', 'CROSSTOOL'), regex_subs)
 
+    def prepare_step(self, *args, **kwargs):
+        """Setup bazel output root"""
+        super(EB_Bazel, self).prepare_step(*args, **kwargs)
+        self.bazel_tmp_dir = tempfile.mkdtemp(suffix='-bazel-tmp', dir=self.builddir)
+        self.output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
+
+    def extract_step(self):
+        """Extract Bazel sources."""
+        # Older Bazel won't build when the output_user_root is a subfolder of the source folder
+        # So create a dedicated source folder
+        self.cfg.update('unpack_options', '-d src')
+        super(EB_Bazel, self).extract_step()
+
     def configure_step(self):
         """Custom configuration procedure for Bazel."""
 
         # Last instance of hardcoded paths was removed in 0.24.0
         if LooseVersion(self.version) < LooseVersion('0.24.0'):
             self.fixup_hardcoded_paths()
+
+        # Keep temporary directory in case of error. EB will clean it up on success
+        apply_regex_substitutions(os.path.join('scripts', 'bootstrap', 'buildenv.sh'), [
+            (r'atexit cleanup_tempdir_.*', '')
+        ])
 
         # enable building in parallel
         bazel_args = '--jobs=%d' % self.cfg['parallel']
@@ -112,12 +141,51 @@ class EB_Bazel(EasyBlock):
         # See https://github.com/bazelbuild/bazel/issues/10377
         bazel_args += ' --host_javabase=@local_jdk//:jdk'
 
+        # Link C++ libs statically, see https://github.com/bazelbuild/bazel/issues/4137
+        static = self.cfg['static']
+        if static is None:
+            # Works for Bazel 1.x and higher
+            static = LooseVersion(self.version) >= LooseVersion('1.0.0')
+        if static:
+            env.setvar('BAZEL_LINKOPTS', '-static-libstdc++:-static-libgcc')
+            env.setvar('BAZEL_LINKLIBS', '-l%:libstdc++.a')
+
         env.setvar('EXTRA_BAZEL_ARGS', bazel_args)
+        env.setvar('EMBED_LABEL', self.version)
+        env.setvar('VERBOSE', 'yes')
 
     def build_step(self):
         """Custom build procedure for Bazel."""
-        cmd = '%s ./compile.sh' % self.cfg['prebuildopts']
+        cmd = ' '.join([
+            "export TMPDIR='%s' &&" % self.bazel_tmp_dir,  # The initial bootstrap of bazel is done in TMPDIR
+            self.cfg['prebuildopts'],
+            "bash -c 'set -x && ./compile.sh'",  # Show the commands the script is running to faster debug failures
+        ])
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+    def test_step(self):
+        """Test the compilation"""
+
+        runtest = self.cfg['runtest']
+        if runtest:
+            # This could be used to pass options to Bazel: runtest = '--bazel-opt=foo test'
+            if runtest is True:
+                runtest = 'test'
+            cmd = " ".join([
+                self.cfg['pretestopts'],
+                os.path.join('output', 'bazel'),
+                # Avoid bazel using $HOME
+                '--output_user_root=%s' % self.output_user_root,
+                runtest,
+                '--jobs=%d' % self.cfg['parallel'],
+                '--host_javabase=@local_jdk//:jdk',
+                # Be more verbose
+                '--subcommands', '--verbose_failures',
+                # Just build tests
+                '--build_tests_only',
+                self.cfg['testopts']
+            ])
+            run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Custom install procedure for Bazel."""

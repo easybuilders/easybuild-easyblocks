@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,7 +78,11 @@ class EB_impi(IntelBase):
         - execute command
         """
         impiver = LooseVersion(self.version)
-        if impiver >= LooseVersion('4.0.1'):
+
+        if impiver >= LooseVersion('2021'):
+            super(EB_impi, self).install_step()
+
+        elif impiver >= LooseVersion('4.0.1'):
             # impi starting from version 4.0.1.x uses standard installation procedure.
 
             silent_cfg_names_map = {}
@@ -163,7 +167,11 @@ EULA=accept
         super(EB_impi, self).post_install_step()
 
         impiver = LooseVersion(self.version)
-        if impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
+
+        if impiver >= LooseVersion('2021'):
+            self.log.info("No post-install action for impi v%s", self.version)
+
+        elif impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
             if impiver >= LooseVersion('2018.0.128'):
                 script_paths = [os.path.join('intel64', 'bin')]
             else:
@@ -188,38 +196,51 @@ EULA=accept
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
 
-        suff = "64"
+        impi_ver = LooseVersion(self.version)
+
+        suff = '64'
         if self.cfg['m32']:
-            suff = ""
+            suff = ''
 
         mpi_mods = ['mpi.mod']
-        if LooseVersion(self.version) > LooseVersion('4.0'):
-            mpi_mods.extend(["mpi_base.mod", "mpi_constants.mod", "mpi_sizeofs.mod"])
+        if impi_ver > LooseVersion('4.0'):
+            mpi_mods.extend(['mpi_base.mod', 'mpi_constants.mod', 'mpi_sizeofs.mod'])
 
-        if LooseVersion(self.version) >= LooseVersion('2019'):
-            bin_dir = 'intel64/bin'
-            include_dir = 'intel64/include'
-            lib_dir = 'intel64/lib/release'
+        if impi_ver >= LooseVersion('2021'):
+            mpi_subdir = os.path.join('mpi', 'latest')
+            bin_dir = os.path.join(mpi_subdir, 'bin')
+            include_dir = os.path.join(mpi_subdir, 'include')
+            lib_dir = os.path.join(mpi_subdir, 'lib', 'release')
+
+        elif impi_ver >= LooseVersion('2019'):
+            bin_dir = os.path.join('intel64', 'bin')
+            include_dir = os.path.join('intel64', 'include')
+            lib_dir = os.path.join('intel64', 'lib', 'release')
         else:
             bin_dir = 'bin%s' % suff
             include_dir = 'include%s' % suff
             lib_dir = 'lib%s' % suff
-            mpi_mods.extend(["i_malloc.h"])
+            mpi_mods.extend(['i_malloc.h'])
 
+        shlib_ext = get_shared_lib_ext()
         custom_paths = {
-            'files': ["%s/mpi%s" % (bin_dir, x) for x in ["icc", "icpc", "ifort"]] +
-            ["%s/mpi%s.h" % (include_dir, x) for x in ["cxx", "f", "", "o", "of"]] +
-            ["%s/%s" % (include_dir, x) for x in mpi_mods] +
-            ["%s/libmpi.%s" % (lib_dir, get_shared_lib_ext())] +
-            ["%s/libmpi.a" % lib_dir],
+            'files': [os.path.join(bin_dir, 'mpi%s' % x) for x in ['icc', 'icpc', 'ifort']] +
+            [os.path.join(include_dir, 'mpi%s.h' % x) for x in ['cxx', 'f', '', 'o', 'of']] +
+            [os.path.join(include_dir, x) for x in mpi_mods] +
+            [os.path.join(lib_dir, 'libmpi.%s' % shlib_ext)] +
+            [os.path.join(lib_dir, 'libmpi.a')],
             'dirs': [],
         }
 
         custom_commands = []
 
-        if LooseVersion(self.version) >= LooseVersion('2017'):
+        if impi_ver >= LooseVersion('2017'):
             # Add minimal test program to sanity checks
-            impi_testsrc = os.path.join(self.installdir, 'test/test.c')
+            if impi_ver >= LooseVersion('2021'):
+                impi_testsrc = os.path.join(self.installdir, 'mpi', 'latest', 'test', 'test.c')
+            else:
+                impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
+
             impi_testexe = os.path.join(self.builddir, 'mpi_test')
             self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
@@ -256,27 +277,50 @@ EULA=accept
                 'MIC_LD_LIBRARY_PATH': ['mic/lib'],
             })
         else:
-            if LooseVersion(self.version) >= LooseVersion('2019'):
+            manpath = 'man'
+
+            impi_ver = LooseVersion(self.version)
+            if impi_ver >= LooseVersion('2021'):
+                mpi_subdir = os.path.join('mpi', 'latest')
+                lib_dirs = [
+                    os.path.join(mpi_subdir, 'lib'),
+                    os.path.join(mpi_subdir, 'lib', 'release'),
+                    os.path.join(mpi_subdir, 'libfabric', 'lib'),
+                ]
+                include_dirs = [os.path.join(mpi_subdir, 'include')]
+                path_dirs = [
+                    os.path.join(mpi_subdir, 'bin'),
+                    os.path.join(mpi_subdir, 'libfabric', 'bin'),
+                ]
+                manpath = os.path.join(mpi_subdir, 'man')
+
+                if self.cfg['ofi_internal']:
+                    libfabric_dir = os.path.join('mpi', '2021.1.1', 'libfabric')
+                    lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
+                    path_dirs.append(os.path.join(libfabric_dir, 'bin'))
+                    guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
+
+            elif impi_ver >= LooseVersion('2019'):
                 # The "release" library is default in v2019. Give it precedence over intel64/lib.
                 # (remember paths are *prepended*, so the last path in the list has highest priority)
-                lib_dirs = ['intel64/%s' % x for x in ['lib', 'lib/release']]
-                include_dirs = ['intel64/include']
-                path_dirs = ['intel64/bin']
+                lib_dirs = [os.path.join('intel64', x) for x in ['lib', os.path.join('lib', 'release')]]
+                include_dirs = [os.path.join('intel64', 'include')]
+                path_dirs = [os.path.join('intel64', 'bin')]
                 if self.cfg['ofi_internal']:
-                    lib_dirs.append('intel64/libfabric/lib')
-                    path_dirs.append('intel64/libfabric/bin')
-                    guesses['FI_PROVIDER_PATH'] = ['intel64/libfabric/lib/prov']
+                    lib_dirs.append(os.path.join('intel64', 'libfabric', 'lib'))
+                    path_dirs.append(os.path.join('intel64', 'libfabric', 'bin'))
+                    guesses['FI_PROVIDER_PATH'] = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
             else:
-                lib_dirs = ['lib/em64t', 'lib64']
+                lib_dirs = [os.path.join('lib', 'em64t'), 'lib64']
                 include_dirs = ['include64']
-                path_dirs = ['bin/intel64', 'bin64']
-                guesses['MIC_LD_LIBRARY_PATH'] = ['mic/lib']
+                path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
+                guesses['MIC_LD_LIBRARY_PATH'] = [os.path.join('mic', 'lib')]
 
             guesses.update({
                 'PATH': path_dirs,
                 'LD_LIBRARY_PATH': lib_dirs,
                 'LIBRARY_PATH': lib_dirs,
-                'MANPATH': ['man'],
+                'MANPATH': [manpath],
                 'CPATH': include_dirs,
             })
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -69,6 +69,7 @@ KOKKOS_CPU_MAPPING = {
     'knights-landing': 'KNL',
     'zen': 'EPYC',
     'zen2': 'EPYC',  # KOKKOS doesn't seem to distinguish between zen and zen2 (yet?)
+    'power9le': 'Power9',
 }
 
 
@@ -121,6 +122,14 @@ class EB_LAMMPS(CMakeMake):
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
+        if not get_software_root('VTK'):
+            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
+        if not get_software_root('ScaFaCoS'):
+            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'SCAFACOS']
+        if not get_software_root('yaff'):
+            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'YAFF']
+            self.cfg['sanity_check_commands'] = [x for x in self.cfg['sanity_check_commands']
+                                                 if 'yaff' not in x]
 
         cuda = get_software_root('CUDA')
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
@@ -186,11 +195,12 @@ class EB_LAMMPS(CMakeMake):
         if pkg_opt not in self.cfg['configopts']:
             self.cfg.update('configopts', pkg_opt + 'on')
 
-        # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-        pkg_user_intel = '-D%sINTEL=' % PKG_USER_PREFIX
-        if pkg_user_intel not in self.cfg['configopts']:
-            if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
-                self.cfg.update('configopts', pkg_user_intel + 'on')
+        if get_cpu_architecture() == X86_64:
+            # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+            pkg_user_intel = '-D%sINTEL=' % PKG_USER_PREFIX
+            if pkg_user_intel not in self.cfg['configopts']:
+                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
+                    self.cfg.update('configopts', pkg_user_intel + 'on')
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):

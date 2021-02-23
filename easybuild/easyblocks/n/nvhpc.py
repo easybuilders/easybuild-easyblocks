@@ -1,6 +1,6 @@
 ##
 # Copyright 2015-2019 Bart Oldeman
-# Copyright 2016-2020 Forschungszentrum Juelich
+# Copyright 2016-2021 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -100,6 +100,10 @@ class EB_NVHPC(PackedBinary):
 
     def install_step(self):
         """Install by running install command."""
+
+        # EULA for NVHPC must be accepted via --accept-eula EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html')
 
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is None:
