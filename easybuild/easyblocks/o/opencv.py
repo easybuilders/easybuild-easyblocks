@@ -115,6 +115,13 @@ class EB_OpenCV(CMakeMake):
             else:
                 self.cfg.update('configopts', '-DWITH_CUDA=OFF')
 
+        # disable bundled protobuf if it is a dependency
+        if 'BUILD_PROTOBUF' not in self.cfg['configopts']:
+            if get_software_root('protobuf'):
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=OFF')
+            else:
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=ON')
+
         # configure for dependency libraries
         for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'libwebp', 'OpenEXR', 'zlib']:
             if dep in ['libpng', 'LibTIFF', 'libwebp']:
