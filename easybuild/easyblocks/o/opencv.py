@@ -116,8 +116,8 @@ class EB_OpenCV(CMakeMake):
                 self.cfg.update('configopts', '-DWITH_CUDA=OFF')
 
         # configure for dependency libraries
-        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'zlib']:
-            if dep in ['libpng', 'LibTIFF']:
+        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'libwebp', 'OpenEXR', 'zlib']:
+            if dep in ['libpng', 'LibTIFF', 'libwebp']:
                 # strip off 'lib'
                 opt_name = dep[3:].upper()
             elif dep == 'libjpeg-turbo':
@@ -128,6 +128,8 @@ class EB_OpenCV(CMakeMake):
             shlib_ext = get_shared_lib_ext()
             if dep == 'zlib':
                 lib_file = 'libz.%s' % shlib_ext
+            elif dep == 'OpenEXR':
+                lib_file = 'libIex.%s' % shlib_ext
             else:
                 lib_file = 'lib%s.%s' % (opt_name.lower(), shlib_ext)
 
