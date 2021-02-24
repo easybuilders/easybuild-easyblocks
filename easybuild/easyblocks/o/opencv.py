@@ -135,16 +135,19 @@ class EB_OpenCV(CMakeMake):
             shlib_ext = get_shared_lib_ext()
             if dep == 'zlib':
                 lib_file = 'libz.%s' % shlib_ext
-            elif dep == 'OpenEXR':
-                lib_file = 'libIex.%s' % shlib_ext
             else:
                 lib_file = 'lib%s.%s' % (opt_name.lower(), shlib_ext)
 
             dep_root = get_software_root(dep)
             if dep_root:
-                self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, os.path.join(dep_root, 'include')))
-                libdir = get_software_libdir(dep, only_one=True)
-                self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, os.path.join(dep_root, libdir, lib_file)))
+                if dep == 'OpenEXR':
+                    self.cfg.update('configopts', '-D%s_ROOT=%s' % (opt_name, dep_root))
+                else:
+                    inc_path = os.path.join(dep_root, 'include')
+                    self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, inc_path))
+                    libdir = get_software_libdir(dep, only_one=True)
+                    lib_path = os.path.join(dep_root, libdir, lib_file)
+                    self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, lib_path))
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
