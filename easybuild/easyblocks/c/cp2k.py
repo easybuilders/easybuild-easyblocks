@@ -701,13 +701,20 @@ class EB_CP2K(EasyBlock):
                     break
 
             # location of do_regtest script
-            cfg_fn = "cp2k_regtest.cfg"
+            cfg_fn = 'cp2k_regtest.cfg'
+
             regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
-            regtest_cmd = "%s -nosvn -nobuild -config %s" % (regtest_script, cfg_fn)
+            regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
+            if LooseVersion(self.version) < LooseVersion('8.0'):
+                # -nosvn option was removed in CP2K 8.1
+                regtest_cmd.insert(1, '-nosvn')
+
             # older version of CP2K
             if not os.path.exists(regtest_script):
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'do_regtest')
-                regtest_cmd = "%s -nocvs -quick -nocompile -config %s" % (regtest_script, cfg_fn)
+                regtest_cmd = [regtest_script, '-nocvs', '-quick', '-nocompile', '-config', cfg_fn]
+
+            regtest_cmd = ' '.join(regtest_cmd)
 
             # patch do_regtest so that reference output is used
             if regtest_refdir:
