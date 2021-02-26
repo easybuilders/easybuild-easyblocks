@@ -228,12 +228,30 @@ class EB_CP2K(EasyBlock):
             else:
                 options['DFLAGS'] += ' -D__ELPA3'
 
-        # CUDA
+        # CUDA support
+        # see https://github.com/cp2k/cp2k/blob/master/INSTALL.md#2j-cuda-optional-improved-performance-on-gpu-systems
         cuda = get_software_root('CUDA')
         if cuda:
-            options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC'
-            options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt'
-            options['NVCC'] = ' nvcc'
+            # check GPU architecture(s) to build for
+            cuda_cc_sm_vals = self.cfg.template_values.get('cuda_sm_comma_sep')
+            if cuda_cc_sm_vals:
+                gpu_targets = '--gpu-code=%s' % cuda_cc_sm_vals
+            else:
+                gpu_targets = ''
+
+            options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC -D__PW_CUDA -D__GRID_CUDA'
+            options['LIBS'] += ' -lcudart -lnvrtc -lcuda -lcublas -lcufft -lrt'
+            options['NVCC'] = 'nvcc'
+            options['NVFLAGS'] = ' '.join([
+                options['DFLAGS'],
+                '-O3',
+                '--std=c++11',
+                gpu_targets,
+                # control host compilers + options
+                '-ccbin="%s"' % os.getenv('CXX'),
+                '-Xcompiler="%s"' % os.getenv('CXXFLAGS'),
+            ])
+            options['GPUVER'] = 'V100'
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
