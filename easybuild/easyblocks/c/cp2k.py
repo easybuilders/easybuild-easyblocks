@@ -819,9 +819,11 @@ class EB_CP2K(EasyBlock):
             self.postmsg += test_report("FAILED")
             self.postmsg += test_report("WRONG")
 
-            # number of new tests, will be high if a non-suitable regtest reference was used
-            # will report error if count is positive (is that what we want?)
-            self.postmsg += test_report("NEW")
+            # there are no more 'new' tests from CP2K 8.1 onwards
+            if LooseVersion(self.version) < LooseVersion('8.0'):
+                # number of new tests, will be high if a non-suitable regtest reference was used
+                # will report error if count is positive (is that what we want?)
+                self.postmsg += test_report("NEW")
 
             # number of correct tests: just report
             test_report("CORRECT")
