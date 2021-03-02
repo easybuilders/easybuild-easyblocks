@@ -705,8 +705,8 @@ class EB_CP2K(EasyBlock):
 
             regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
             regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
-            if LooseVersion(self.version) < LooseVersion('8.0'):
-                # -nosvn option was removed in CP2K 8.1
+            if LooseVersion(self.version) < LooseVersion('7.1'):
+                # -nosvn option was removed in CP2K 7.1
                 regtest_cmd.insert(1, '-nosvn')
 
             # older version of CP2K
