@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -176,6 +176,16 @@ class EB_Python(ConfigureMake):
                     (r"^[ ]+'/lib', '/usr/lib',", ''),
                 ]
 
+            # Replace remaining hardcoded paths like '/usr/include', '/usr/lib' or '/usr/local',
+            # where these paths are appearing inside single quotes (').
+            # Inject sysroot in front to avoid picking up anything outside of sysroot,
+            # We can leverage the single quotes such that we do not accidentally fiddle with other entries,
+            # like /prefix/usr/include .
+            for usr_subdir in ('usr/include', 'usr/lib', 'usr/local'):
+                sysroot_usr_subdir = os.path.join(sysroot, usr_subdir)
+                regex_subs.append((r"'/%s" % usr_subdir, r"'%s" % sysroot_usr_subdir))
+                regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
+
             apply_regex_substitutions(setup_py_fn, regex_subs)
 
     def prepare_for_extensions(self):
@@ -241,7 +251,11 @@ class EB_Python(ConfigureMake):
         # Enable further optimizations at the cost of a longer build
         # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
-            self.cfg.update('configopts', "--enable-optimizations")
+            # only configure with --enable-optimizations when compiling Python with (recent) GCC compiler
+            if self.toolchain.comp_family() == toolchain.GCC:
+                gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+                if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
+                    self.cfg.update('configopts', "--enable-optimizations")
 
         # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
         if LooseVersion(self.version) >= LooseVersion('3.4.0'):

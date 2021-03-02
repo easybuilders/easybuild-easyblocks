@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -205,7 +205,7 @@ class EB_Trilinos(CMakeMake):
 
         # other Third-Party Libraries (TPLs)
         deps = self.cfg.dependencies()
-        builddeps = self.cfg.builddependencies() + ["SuiteSparse"]
+        builddeps = [d['name'] for d in self.cfg.builddependencies()] + ["SuiteSparse"]
         deps = [dep['name'] for dep in deps if not dep['name'] in builddeps]
         for dep in deps:
             deproot = get_software_root(dep)

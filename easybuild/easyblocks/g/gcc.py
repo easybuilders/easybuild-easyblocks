@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -315,9 +315,14 @@ class EB_GCC(ConfigureMake):
             # prefix dynamic linkers with sysroot
             # this patches lines like:
             # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            # for PowerPC (rs6000) we have to set DYNAMIC_LINKER_PREFIX to sysroot
             gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
-            regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
-            apply_regex_substitutions(gcc_config_headers, regex_subs)
+            regex_subs = [
+                ('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot),
+                ('(DYNAMIC_LINKER_PREFIX\\s+)""', r'\1"%s"' % sysroot),
+            ]
+            for gcc_config_header in gcc_config_headers:
+                apply_regex_substitutions(gcc_config_header, regex_subs)
 
         # self.configopts will be reused in a 3-staged build,
         # configopts is only used in first configure
@@ -684,10 +689,17 @@ class EB_GCC(ConfigureMake):
         # since these may cause problems when upgrading to newer OS version.
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
         glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
-        matches = glob.glob(glob_pattern)
-        if matches:
-            if len(matches) == 1:
-                include_fixed_path = matches[0]
+        paths = glob.glob(glob_pattern)
+        if paths:
+            # weed out paths that point to the same location,
+            # for example when 'lib64' is a symlink to 'lib'
+            include_fixed_paths = []
+            for path in paths:
+                if not any(os.path.samefile(path, x) for x in include_fixed_paths):
+                    include_fixed_paths.append(path)
+
+            if len(include_fixed_paths) == 1:
+                include_fixed_path = include_fixed_paths[0]
 
                 msg = "Found include-fixed subdirectory at %s, "
                 msg += "renaming it to avoid using system header files patched by fixincludes..."
@@ -728,7 +740,7 @@ class EB_GCC(ConfigureMake):
                               include_fixed_path, include_fixed_renamed)
             else:
                 raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
-                                     len(matches), matches)
+                                     len(include_fixed_paths), include_fixed_paths)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
@@ -787,23 +799,22 @@ class EB_GCC(ConfigureMake):
         libexec_files = []
         dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        if not self.cfg['languages']:
-            # default languages are c, c++, fortran
-            bin_files = ["c++", "cpp", "g++", "gcc", "gcov", "gfortran"]
-            lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
-            libexec_files = ['cc1', 'cc1plus', 'collect2', 'f951']
+        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
 
-        if 'c' in self.cfg['languages']:
+        if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
+            libexec_files.extend(['cc1', 'collect2'])
 
-        if 'c++' in self.cfg['languages']:
+        if 'c++' in languages:
             bin_files.extend(['c++', 'g++'])
             dirs.append('include/c++/%s' % self.version)
             lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
+            libexec_files.append('cc1plus')  # c++ requires c, so collect2 not mentioned again
 
-        if 'fortran' in self.cfg['languages']:
+        if 'fortran' in languages:
             bin_files.append('gfortran')
             lib_files.extend(['libgfortran.%s' % sharedlib_ext, 'libgfortran.a'])
+            libexec_files.append('f951')
 
         if self.cfg['withlto']:
             libexec_files.extend(['lto1', 'lto-wrapper'])
@@ -838,7 +849,23 @@ class EB_GCC(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        for lang, compiler in (('c', 'gcc'), ('c++', 'g++')):
+            if lang in languages:
+                # Simple test compile
+                cmd = 'echo "int main(){} " | %s -x %s -o/dev/null -'
+                compiler_path = os.path.join(self.installdir, 'bin', compiler)
+                custom_commands.append(cmd % (compiler_path, lang))
+                if self.cfg['withlto']:
+                    custom_commands.append(cmd % (compiler_path, lang + ' -flto -fuse-linker-plugin'))
+        if custom_commands:
+            # Load binutils to do the compile tests
+            extra_modules = [d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils']
+        else:
+            extra_modules = None
+
+        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                              extra_modules=extra_modules)
 
     def make_module_req_guess(self):
         """

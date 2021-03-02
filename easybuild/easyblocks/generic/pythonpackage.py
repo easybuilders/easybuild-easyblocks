@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,13 +43,14 @@ from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.utilities import nub
+from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
@@ -175,6 +176,30 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     pylibdir = txt[len(prefix):]
     log.debug("Determined pylibdir using '%s': %s", cmd, pylibdir)
     return pylibdir
+
+
+def get_pylibdirs(python_cmd):
+    """Return a list of python library paths to use. The first entry will be the main one"""
+    log = fancylogger.getLogger('get_pylibdirs', fname=False)
+
+    # pylibdir is the 'main' Python lib directory
+    pylibdir = det_pylibdir(python_cmd=python_cmd)
+    log.debug("Python library dir: %s" % pylibdir)
+
+    # on (some) multilib systems, the platform-specific library directory for the system Python is different
+    # cfr. http://serverfault.com/a/88739/126446
+    # so, we keep a list of different Python lib directories to take into account
+    all_pylibdirs = nub([pylibdir, det_pylibdir(plat_specific=True, python_cmd=python_cmd)])
+    log.debug("All Python library dirs: %s" % all_pylibdirs)
+
+    # make very sure an entry starting with lib/ is present,
+    # since older versions of setuptools hardcode 'lib' rather than using the value produced by
+    # distutils.sysconfig.get_python_lib (which may always be lib64/...)
+    if not any(pylibdir.startswith('lib' + os.path.sep) for pylibdir in all_pylibdirs):
+        pylibdir = os.path.join('lib', *pylibdir.split(os.path.sep)[1:])
+        all_pylibdirs.append(pylibdir)
+        log.debug("No lib/ entry found in list of Python lib dirs, so added it: %s", all_pylibdirs)
+    return all_pylibdirs
 
 
 def det_pip_version():
@@ -331,23 +356,8 @@ class PythonPackage(ExtensionEasyBlock):
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
 
-        # pylibdir is the 'main' Python lib directory
-        self.pylibdir = det_pylibdir(python_cmd=self.python_cmd)
-        self.log.debug("Python library dir: %s" % self.pylibdir)
-
-        # on (some) multilib systems, the platform-specific library directory for the system Python is different
-        # cfr. http://serverfault.com/a/88739/126446
-        # so, we keep a list of different Python lib directories to take into account
-        self.all_pylibdirs = nub([self.pylibdir, det_pylibdir(plat_specific=True, python_cmd=self.python_cmd)])
-        self.log.debug("All Python library dirs: %s" % self.all_pylibdirs)
-
-        # make very sure an entry starting with lib/ is present,
-        # since older versions of setuptools hardcode 'lib' rather than using the value produced by
-        # distutils.sysconfig.get_python_lib (which may always be lib64/...)
-        if not any(pylibdir.startswith('lib/') for pylibdir in self.all_pylibdirs):
-            pylibdir = os.path.join('lib', *self.pylibdir.split(os.path.sep)[1:])
-            self.all_pylibdirs.append(pylibdir)
-            self.log.debug("No lib/ entry found in list of Python lib dirs, so added it: %s", self.all_pylibdirs)
+        self.all_pylibdirs = get_pylibdirs(python_cmd=self.python_cmd)
+        self.pylibdir = self.all_pylibdirs[0]
 
     def prepare_python(self):
         """Python-specific preperations."""
@@ -609,10 +619,16 @@ class PythonPackage(ExtensionEasyBlock):
         for pylibdir in abs_pylibdirs:
             mkdir(pylibdir, parents=True)
 
-        # set PYTHONPATH as expected
-        pythonpath = os.getenv('PYTHONPATH')
-        new_pythonpath = os.pathsep.join([x for x in abs_pylibdirs + [pythonpath] if x is not None])
-        env.setvar('PYTHONPATH', new_pythonpath, verbose=False)
+        abs_bindir = os.path.join(self.installdir, 'bin')
+
+        # set PYTHONPATH and PATH as expected
+        old_values = dict()
+        for name, new_values in (('PYTHONPATH', abs_pylibdirs), ('PATH', [abs_bindir])):
+            old_value = os.getenv(name)
+            old_values[name] = old_value
+            new_value = os.pathsep.join(new_values + ([old_value] if old_value else []))
+            if new_value:
+                env.setvar(name, new_value, verbose=False)
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
@@ -623,9 +639,11 @@ class PythonPackage(ExtensionEasyBlock):
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
 
-        # restore PYTHONPATH if it was set
-        if pythonpath is not None:
-            env.setvar('PYTHONPATH', pythonpath, verbose=False)
+        # restore env vars if it they were set
+        for name in ('PYTHONPATH', 'PATH'):
+            value = old_values[name]
+            if value is not None:
+                env.setvar(name, value, verbose=False)
 
         # get the full list of what was installed from pip freeze to generate extension list
         if self.cfg.get('use_pip_requirement', False):
@@ -657,10 +675,26 @@ class PythonPackage(ExtensionEasyBlock):
         super(PythonPackage, self).run(*args, **kwargs)
 
         # configure, build, test, install
-        self.configure_step()
-        self.build_step()
-        self.test_step()
-        self.install_step()
+        # See EasyBlock.get_steps
+        steps = [
+            (CONFIGURE_STEP, 'configuring', [lambda x: x.configure_step], True),
+            (BUILD_STEP, 'building', [lambda x: x.build_step], True),
+            (TEST_STEP, 'testing', [lambda x: x.test_step], True),
+            (INSTALL_STEP, "installing", [lambda x: x.install_step], True),
+        ]
+        self.skip = False  # --skip does not apply here
+        self.silent = build_option('silent')
+        # See EasyBlock.run_all_steps
+        for (step_name, descr, step_methods, skippable) in steps:
+            if self.skip_step(step_name, skippable):
+                print_msg("\t%s [skipped]" % descr, log=self.log, silent=self.silent)
+            else:
+                if self.dry_run:
+                    self.dry_run_msg("\t%s... [DRY RUN]\n", descr)
+                else:
+                    print_msg("\t%s..." % descr, log=self.log, silent=self.silent)
+                    for step_method in step_methods:
+                        step_method(self)()
 
     def load_module(self, *args, **kwargs):
         """
