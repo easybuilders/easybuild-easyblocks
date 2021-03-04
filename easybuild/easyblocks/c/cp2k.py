@@ -616,6 +616,8 @@ class EB_CP2K(EasyBlock):
         options['DFLAGS'] += ' -D__FFTW3'
         if self.cfg['type'] == 'psmp':
             libfft = os.getenv('LIBFFT_MT', '')
+            if libfft:
+                libfft += ' -lfftw3_omp'
         else:
             libfft = os.getenv('LIBFFT', '')
         options['LIBS'] += ' -L%s %s' % (os.getenv('FFT_LIB_DIR', '.'), libfft)
