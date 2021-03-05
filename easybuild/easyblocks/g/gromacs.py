@@ -177,7 +177,10 @@ class EB_GROMACS(CMakeMake):
                     self.log.info("skipping configure step")
                     return
 
-                self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                if LooseVersion(self.version) >= LooseVersion('2021'):
+                    self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                else:
+                    self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS find and uses a system-wide CUDA compiler
