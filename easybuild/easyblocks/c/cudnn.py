@@ -16,7 +16,7 @@ EasyBuild support for cuDNN, implemented as an easyblock
 """
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64, get_cpu_architecture
 
 
 class EB_cuDNN(Tarball):
@@ -29,6 +29,8 @@ class EB_cuDNN(Tarball):
             cudnnarch = 'x64'
         elif myarch == POWER:
             cudnnarch = 'ppc64le'
+        elif myarch == AARCH64:
+            cudnnarch = 'aarch64sbsa'
         else:
             raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
 
