@@ -66,6 +66,8 @@ class EB_CUDA(Binary):
             cudaarch = ''
         elif myarch == POWER:
             cudaarch = '_ppc64le'
+        elif myarch == AARCH64:
+            cudaarch = '_sbsa'
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
