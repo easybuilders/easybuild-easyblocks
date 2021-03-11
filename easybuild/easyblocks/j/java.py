@@ -55,7 +55,7 @@ class EB_Java(PackedBinary):
         else:
             raise EasyBuildError("Architecture %s is not supported for Java on EasyBuild", myarch)
 
-        super(EB_cuDNN, self).__init__(*args, **kwargs)
+        super(EB_Java, self).__init__(*args, **kwargs)
 
         self.cfg.template_values['javaarch'] = javaarch
         self.cfg.generate_template_values()
