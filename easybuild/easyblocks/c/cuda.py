@@ -32,7 +32,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64, get_cpu_architecture, get_shared_lib_ext
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
