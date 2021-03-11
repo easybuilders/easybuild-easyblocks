@@ -27,6 +27,7 @@ EasyBlock for installing Java, implemented as an easyblock
 
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
+@author: Robert Mijakovic (LuxProvide)
 """
 
 import os
