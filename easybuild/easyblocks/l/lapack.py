@@ -31,7 +31,7 @@ EasyBuild support for building and installing LAPACK, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-
+from distutils.version import LooseVersion
 import glob
 import os
 
@@ -100,11 +100,30 @@ class EB_LAPACK(ConfigureMake):
         else:
             copy_file(src, dest)
 
+        # control compiler commands being used
+        self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
+        # older versions use FORTRAN, newer versions use FC for Fortran compiler command
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            fc_var = 'FC'
+        else:
+            fc_var = 'FORTRAN'
+        self.cfg.update('buildopts', '%s="%s"' % (fc_var, os.getenv('FC')))
+
         # set optimization flags
+
+        self.cfg.update('buildopts', 'CFLAGS="%s -m64"' % os.getenv('CFLAGS'))
+
+        # Fortran compiler flags are controlled via OPTS in older version, via FFLAGS in newer versions
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            fflags_var = 'FFLAGS'
+        else:
+            fflags_var = 'OPTS'
+        self.cfg.update('buildopts', '%s="%s -m64"' % (fflags_var, os.getenv('FFLAGS')))
+
         fpic = ''
         if self.toolchain.options['pic']:
             fpic = '-fPIC'
-        self.cfg.update('buildopts', 'OPTS="$FFLAGS -m64" NOOPT="%s -m64 -O0"' % fpic)
+        self.cfg.update('buildopts', 'NOOPT="%s -m64 -O0"' % fpic)
 
         # prematurely exit configure when we're only testing
         if self.cfg['test_only']:
