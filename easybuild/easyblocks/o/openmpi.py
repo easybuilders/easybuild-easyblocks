@@ -144,7 +144,7 @@ class EB_OpenMPI(ConfigureMake):
             'mpif90': os.getenv('F90', 'gfortran'),
         }
         if self.java:
-            expected['mpijavac': 'javac']
+            expected['mpijavac'] = 'javac'
         # actual pattern for gfortran is "GNU Fortran"
         for key in ['mpifort', 'mpif90']:
             if expected[key] == 'gfortran':
