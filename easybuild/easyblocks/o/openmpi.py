@@ -40,7 +40,7 @@ class EB_OpenMPI(ConfigureMake):
     """OpenMPI easyblock."""
 
     def __init__(self, *args, **kwargs):
-        super(EB_OpenMPI, self).__init__(args, kwargs)
+        super(EB_OpenMPI, self).__init__(*args, **kwargs)
         # Define whether we support the OpenMPI Java wrappers (default is no)
         self.java = False
 
