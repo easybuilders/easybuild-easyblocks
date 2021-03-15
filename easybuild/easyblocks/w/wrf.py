@@ -186,7 +186,7 @@ class EB_WRF(EasyBlock):
             build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
 
         # run configure script
-        cmd = ' '.join([ self.cfg['preconfigopts'],'./configure',self.cfg['configopts']])
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {
             # named group in match will be used to construct answer
             "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
