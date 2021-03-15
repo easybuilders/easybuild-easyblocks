@@ -39,13 +39,20 @@ from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
 class EB_OpenMPI(ConfigureMake):
     """OpenMPI easyblock."""
 
+    def __init__(self, *args, **kwargs):
+        super(EB_OpenMPI, self).__init__(args, kwargs)
+        # Define whether we support the OpenMPI Java wrappers (default is no)
+        self.java = False
+
     def configure_step(self):
         """Custom configuration step for OpenMPI."""
 
-        def config_opt_unused(key, enable_opt=False):
+        def config_opt_unused(key, enable_opt=False, enable_mpi=False):
             """Helper function to check whether a configure option is already specified in 'configopts'."""
             if enable_opt:
                 regex = re.compile('--(disable|enable)-%s' % key)
+            elif enable_mpi:
+                regex = re.compile('--(disable|enable)-mpi-%s' % key)
             else:
                 regex = re.compile('--(with|without)-%s' % key)
 
@@ -72,6 +79,16 @@ class EB_OpenMPI(ConfigureMake):
                     else:
                         opt_name = dep.lower()
                     self.cfg.update('configopts', '--with-%s=%s' % (opt_name, dep_root))
+
+        # handle Java support
+        java = 'java'
+        if config_opt_unused(java, enable_mpi=True):
+            dep_root = get_software_root(java)
+            if dep_root:
+                self.cfg.update('configopts',
+                                '--enable-mpi-%s --with-jdk-bindir=%s/bin --with-jdk-headers=%s/include' %
+                                (opt_name, dep_root, dep_root))
+                self.java = True
 
         # check whether VERBS support should be enabled
         if config_opt_unused('verbs'):
@@ -101,11 +118,15 @@ class EB_OpenMPI(ConfigureMake):
         """Custom sanity check for OpenMPI."""
 
         bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper', 'orterun']
+        if self.java:
+            bin_names.append('mpijavac')
         bin_files = [os.path.join('bin', x) for x in bin_names]
 
         shlib_ext = get_shared_lib_ext()
         lib_names = ['mpi_mpifh', 'mpi', 'ompitrace', 'open-pal', 'open-rte']
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
+        if self.java:
+            lib_files.extend([os.path.join('lib', '%s.jar' % x) for x in ['mpi', 'shmem']])
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
         inc_files = [os.path.join('include', x + '.h') for x in inc_names]
@@ -122,6 +143,8 @@ class EB_OpenMPI(ConfigureMake):
             'mpifort': os.getenv('FC', 'gfortran'),
             'mpif90': os.getenv('F90', 'gfortran'),
         }
+        if self.java:
+            expected['mpijavac': 'javac']
         # actual pattern for gfortran is "GNU Fortran"
         for key in ['mpifort', 'mpif90']:
             if expected[key] == 'gfortran':
