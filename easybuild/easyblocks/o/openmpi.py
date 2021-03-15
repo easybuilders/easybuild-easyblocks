@@ -87,7 +87,7 @@ class EB_OpenMPI(ConfigureMake):
             if dep_root:
                 self.cfg.update('configopts',
                                 '--enable-mpi-%s --with-jdk-bindir=%s/bin --with-jdk-headers=%s/include' %
-                                (opt_name, dep_root, dep_root))
+                                (java, dep_root, dep_root))
                 self.java = True
 
         # check whether VERBS support should be enabled
