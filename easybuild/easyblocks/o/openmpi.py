@@ -126,7 +126,7 @@ class EB_OpenMPI(ConfigureMake):
         lib_names = ['mpi_mpifh', 'mpi', 'ompitrace', 'open-pal', 'open-rte']
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
         if self.java:
-            lib_files.extend([os.path.join('lib', '%s.jar' % x) for x in ['mpi', 'shmem']])
+            lib_files.append(os.path.join('lib', 'mpi.jar'))
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
         inc_files = [os.path.join('include', x + '.h') for x in inc_names]
