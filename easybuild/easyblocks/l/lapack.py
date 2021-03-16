@@ -111,7 +111,7 @@ class EB_LAPACK(ConfigureMake):
 
         # set optimization flags
 
-        self.cfg.update('buildopts', 'CFLAGS="%s -m64"' % os.getenv('CFLAGS'))
+        self.cfg.update('buildopts', 'CFLAGS="%s"' % os.getenv('CFLAGS'))
 
         # Fortran compiler flags are controlled via OPTS in older version, via FFLAGS in newer versions
         if LooseVersion(self.version) >= LooseVersion('3.9.0'):
@@ -120,12 +120,12 @@ class EB_LAPACK(ConfigureMake):
         else:
             fflags_var = 'OPTS'
             noopt_var = 'NOOPT'
-        self.cfg.update('buildopts', '%s="%s -m64"' % (fflags_var, os.getenv('FFLAGS')))
+        self.cfg.update('buildopts', '%s="%s"' % (fflags_var, os.getenv('FFLAGS')))
 
         fpic = ''
         if self.toolchain.options['pic']:
             fpic = '-fPIC'
-        self.cfg.update('buildopts', '%s="%s -m64 -O0"' % (noopt_var, fpic))
+        self.cfg.update('buildopts', '%s="%s -O0"' % (noopt_var, fpic))
 
         # prematurely exit configure when we're only testing
         if self.cfg['test_only']:
