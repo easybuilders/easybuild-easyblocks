@@ -45,10 +45,12 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2013_update12') and loosever < LooseVersion('2018'):
-            self.subdir = 'vtune_amplifier_xe'
+        if loosever >= LooseVersion('2020'):
+            self.subdir = 'vtune_profiler'
         elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
+        elif loosever >= LooseVersion('2013_update12'):
+            self.subdir = 'vtune_amplifier_xe'
 
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
@@ -82,6 +84,9 @@ class EB_VTune(IntelBase):
 
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
-        binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
+        if LooseVersion(self.version) >= LooseVersion('2020'):
+            binaries = ['vtune', 'amplxe-feedback', 'vtune-gui', 'amplxe-runss']
+        else:
+            binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
         custom_paths = self.get_custom_paths_tools(binaries)
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)
