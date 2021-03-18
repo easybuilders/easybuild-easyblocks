@@ -51,7 +51,7 @@ class EB_PyTorch(PythonPackage):
         extra_vars.update({
             'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
             'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
-                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM]
+                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -193,8 +193,12 @@ class EB_PyTorch(PythonPackage):
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
+
             self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
-            options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+            # This variable is also used at runtime (e.g. for tests) and if it is not set PyTorch will automatically
+            # determine the compute capability of a GPU in the system and use that which may fail tests if
+            # it is to new for the used nvcc
+            env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
         else:
             # Disable CUDA
             options.append('USE_CUDA=0')
