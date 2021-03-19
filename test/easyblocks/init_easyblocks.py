@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import which, write_file
 from easybuild.tools.options import set_tmpdir
 # these imports are required because of checks done in template_init_test
 from easybuild.tools.environment import modify_env, read_environment  # noqa
