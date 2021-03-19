@@ -58,6 +58,11 @@ class EasyBlockSpecificTest(TestCase):
         self.orig_sys_stdout = sys.stdout
         self.orig_sys_stderr = sys.stderr
         self.orig_environ = copy.deepcopy(os.environ)
+        # make sure that the EasyBuild installation is still known even if we purge an EB module
+        if os.getenv('EB_SCRIPT_PATH') is None:
+            eb_path = which('eb')
+            if eb_path is not None:
+                os.environ['EB_SCRIPT_PATH'] = eb_path
 
     def tearDown(self):
         """Test cleanup."""

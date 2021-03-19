@@ -54,7 +54,7 @@ from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS, Singleton
 from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, read_file, remove_dir
-from easybuild.tools.filetools import remove_file, write_file
+from easybuild.tools.filetools import remove_file, which, write_file
 from easybuild.tools.modules import get_software_root_env_var_name, get_software_version_env_var_name
 from easybuild.tools.options import set_tmpdir
 
@@ -104,6 +104,12 @@ class ModuleOnlyTest(TestCase):
         os.close(fd)
 
         self.orig_environ = copy.deepcopy(os.environ)
+
+        # make sure that the EasyBuild installation is still known even if we purge an EB module
+        if os.getenv('EB_SCRIPT_PATH') is None:
+            eb_path = which('eb')
+            if eb_path is not None:
+                os.environ['EB_SCRIPT_PATH'] = eb_path
 
     def tearDown(self):
         """Clean up after running test."""

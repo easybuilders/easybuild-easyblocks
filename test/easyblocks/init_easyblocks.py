@@ -53,6 +53,12 @@ from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa  # noqa
 class InitTest(TestCase):
     """ Baseclass for easyblock testcases """
 
+    # make sure that the EasyBuild installation is still known even if we purge an EB module
+    if os.getenv('EB_SCRIPT_PATH') is None:
+        eb_path = which('eb')
+        if eb_path is not None:
+            os.environ['EB_SCRIPT_PATH'] = eb_path
+
     # initialize configuration (required for e.g. default modules_tool setting)
     eb_go = eboptions.parse_options()
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
