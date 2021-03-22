@@ -255,7 +255,7 @@ class PythonPackage(ExtensionEasyBlock):
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
-        # This even works, when the name is not all lowercase, i.e. PYPI_LOWER_SOURCE doesn't seem to be required.
+        # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
         if 'source_urls' not in extra_vars:
             src_urls = DEFAULT_CONFIG['source_urls']
             src_urls[0] = [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE']
