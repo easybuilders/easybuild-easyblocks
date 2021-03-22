@@ -60,6 +60,7 @@ class EB_AOCC(PackedBinary):
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',
+            '3.0.0': '12.0.0',
         }
 
         if self.version in map_aocc_to_clang_ver:
