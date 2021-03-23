@@ -336,8 +336,8 @@ class EB_Siesta(ConfigureMake):
                 'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
 
-            # skip broken utils in 4.1-MaX-1.0 release, hopefully will be fixed later
-            if self.version != '4.1-MaX-1.0':
+            # skip broken utils in 4.1-MaX-{1.0;3.0} releases, hopefully will be fixed later
+            if self.version != '4.1-MaX-1.0' and self.version != '4.1-MaX-3.0':
                 expected_utils.extend([
                     'VCA/fractional', 'VCA/mixps',
                 ])
@@ -348,7 +348,7 @@ class EB_Siesta(ConfigureMake):
                 ])
 
             if loose_ver >= LooseVersion('4.0'):
-                if self.version != '4.1-MaX-1.0':
+                if self.version != '4.1-MaX-1.0' and self.version != '4.1-MaX-3.0':
                     expected_utils.extend([
                         'SiestaSubroutine/ProtoNEB/Src/protoNEB',
                         'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
@@ -360,7 +360,7 @@ class EB_Siesta(ConfigureMake):
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
                 if self.toolchain.options.get('usempi', None):
-                    if self.version != '4.1-MaX-1.0':
+                    if self.version != '4.1-MaX-1.0' and self.version != '4.1-MaX-3.0':
                         expected_utils.extend([
                             'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
                             'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
@@ -403,7 +403,7 @@ class EB_Siesta(ConfigureMake):
                     'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
                     'TS/ts2ts/ts2ts',
                 ])
-                if self.version != '4.1-MaX-1.0':
+                if self.version != '4.1-MaX-1.0' and self.version != '4.1-MaX-3.0':
                     expected_utils.extend([
                         'TS/tshs2tshs/tshs2tshs',
                     ])
