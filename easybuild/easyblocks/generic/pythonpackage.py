@@ -246,7 +246,8 @@ class PythonPackage(ExtensionEasyBlock):
             'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed "
                                         "and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
-            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
+                               CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
@@ -423,6 +424,17 @@ class PythonPackage(ExtensionEasyBlock):
             # set Python lib directories
             self.set_pylibdirs()
 
+    def _should_unpack_source(self):
+        """Determine whether we need to unpack the source(s)"""
+        unpack_sources = self.cfg.get('unpack_sources')
+        if unpack_sources is None:
+            src = self.src
+            if not isinstance(src, string_type):
+                src = src[0]['path']
+            _, ext = os.path.splitext(src)
+            unpack_sources = ext.lower() != '.whl'
+        return unpack_sources
+
     def get_installed_python_packages(self, names_only=True, python_cmd=None):
         """Return list of Python packages that are installed
 
@@ -484,7 +496,7 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        if self.cfg.get('unpack_sources', True):
+        if self._should_unpack_source():
             # specify current directory
             loc = '.'
         else:
@@ -536,7 +548,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def extract_step(self):
         """Unpack source files, unless instructed otherwise."""
-        if self.cfg.get('unpack_sources', True):
+        if self._should_unpack_source():
             super(PythonPackage, self).extract_step()
 
     def prerun(self):
@@ -714,7 +726,7 @@ class PythonPackage(ExtensionEasyBlock):
             raise EasyBuildError("No source found for Python package %s, required for installation. (src: %s)",
                                  self.name, self.src)
         # we unpack unless explicitly told otherwise
-        kwargs.setdefault('unpack_src', self.cfg.get('unpack_sources', True))
+        kwargs.setdefault('unpack_src', self._should_unpack_source())
         super(PythonPackage, self).run(*args, **kwargs)
 
         # configure, build, test, install
