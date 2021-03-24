@@ -409,14 +409,16 @@ class PythonPackage(ExtensionEasyBlock):
             # set Python lib directories
             self.set_pylibdirs()
 
-    def get_installed_python_packages(self, names_only=True):
+    def get_installed_python_packages(self, names_only=True, python_cmd=None):
         """Return list of Python packages that are installed
 
         When names_only is True then only the names are returned, else the full info from `pip list`.
         Note that the names are reported by pip and might be different to the name that need to be used to import it
         """
+        if python_cmd is None:
+            python_cmd = self.python_cmd
         # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
-        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
+        cmd_list = [python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
                     '--format', 'json']
         full_cmd = ' '.join(cmd_list)
         self.log.info("Running command '%s'" % full_cmd)
@@ -770,11 +772,13 @@ class PythonPackage(ExtensionEasyBlock):
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:
             # when installing for multiple Python versions, we must use 'python', not a full-path 'python' command!
+            python_cmd = 'python'
             if 'exts_filter' not in kwargs:
                 kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
         else:
             # 'python' is replaced by full path to active 'python' command
             # (which is required especially when installing with system Python)
+            python_cmd = self.python_cmd
             if 'exts_filter' not in kwargs:
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
@@ -796,7 +800,7 @@ class PythonPackage(ExtensionEasyBlock):
                     # by using setup.py as the installation method for a package which is released as a generic wheel
                     # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
                     # so it will contain a version, but the raw tar.gz does not.
-                    pkgs = self.get_installed_python_packages(names_only=False)
+                    pkgs = self.get_installed_python_packages(names_only=False, python_cmd=python_cmd)
                     faulty_version = '0.0.0'
                     faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
                     self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
