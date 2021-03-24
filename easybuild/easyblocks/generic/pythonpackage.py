@@ -423,10 +423,12 @@ class PythonPackage(ExtensionEasyBlock):
         proc = subprocess_popen_text(cmd_list, env=os.environ)
         (stdout, stderr) = proc.communicate()
         ec = proc.returncode
-        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
+        msg = "Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr)
         if ec:
+            self.log.info(msg)
             raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
 
+        self.log.debug(msg)
         pkgs = json.loads(stdout.strip())
         if names_only:
             return [pkg['name'] for pkg in pkgs]
@@ -797,6 +799,7 @@ class PythonPackage(ExtensionEasyBlock):
                     pkgs = self.get_installed_python_packages(names_only=False)
                     faulty_version = '0.0.0'
                     faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
+                    self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
                     if faulty_pkg_names:
                         raise EasyBuildError("The following Python packages were not installed correctly and show a "
                                              "version of '%s':\n%s\nThis may be solved by using the whl file instead "
