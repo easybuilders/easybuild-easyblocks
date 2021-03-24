@@ -31,6 +31,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import json
 import os
 import re
 import sys
@@ -49,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import string_type
+from easybuild.tools.py2vs3 import string_type, subprocess_popen_text
 from easybuild.tools.run import run_cmd
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
@@ -408,6 +409,30 @@ class PythonPackage(ExtensionEasyBlock):
             # set Python lib directories
             self.set_pylibdirs()
 
+    def get_installed_python_packages(self, names_only=True):
+        """Return list of Python packages that are installed
+
+        When names_only is True then only the names are returned, else the full info from `pip list`.
+        Note that the names are reported by pip and might be different to the name that need to be used to import it
+        """
+        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
+        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
+                    '--format', 'json']
+        full_cmd = ' '.join(cmd_list)
+        self.log.info("Running command '%s'" % full_cmd)
+        proc = subprocess_popen_text(cmd_list, env=os.environ)
+        (stdout, stderr) = proc.communicate()
+        ec = proc.returncode
+        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
+        if ec:
+            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
+
+        pkgs = json.loads(stdout.strip())
+        if names_only:
+            return [pkg['name'] for pkg in pkgs]
+        else:
+            return pkgs
+
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
@@ -765,6 +790,18 @@ class PythonPackage(ExtensionEasyBlock):
                         fake_mod_data = self.load_fake_module(purge=True)
 
                     run_cmd("pip check", trace=False)
+                    # Also check for a common issue where the package version shows up as 0.0.0 often caused
+                    # by using setup.py as the installation method for a package which is released as a generic wheel
+                    # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
+                    # so it will contain a version, but the raw tar.gz does not.
+                    pkgs = self.get_installed_python_packages(names_only=False)
+                    faulty_version = '0.0.0'
+                    faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
+                    if faulty_pkg_names:
+                        raise EasyBuildError("The following Python packages were not installed correctly and show a "
+                                             "version of '%s':\n%s\nThis may be solved by using the whl file instead "
+                                             "as the source. See e.g. the SOURCE*_WHL templates",
+                                             '\n'.join(faulty_pkg_names), faulty_version)
 
                     if not self.is_extension:
                         self.clean_up_fake_module(fake_mod_data)
