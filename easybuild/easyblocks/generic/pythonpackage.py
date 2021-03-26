@@ -257,7 +257,8 @@ class PythonPackage(ExtensionEasyBlock):
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
         if 'source_urls' not in extra_vars:
-            src_urls = DEFAULT_CONFIG['source_urls']
+            # Create a copy so the defaults are not modified by the following line
+            src_urls = DEFAULT_CONFIG['source_urls'][:]
             src_urls[0] = [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE']
             extra_vars['source_urls'] = src_urls
 
