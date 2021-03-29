@@ -747,7 +747,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
-                r'Collecting .* \(from.*',  # pip
+                r'Collecting .*',  # pip
             ]
             downloaded_deps = []
             for pattern in patterns:
