@@ -92,13 +92,12 @@ class EB_CUDA(Binary):
         elif LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("10.1"):
             install_interpreter = "perl"
             install_script = "cuda-installer.pl"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            # note: samples are installed by default
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
         else:
             install_interpreter = ""
             install_script = "./cuda-installer"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
-            self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
+            self.cfg.update('installopts', "--silent --samples --toolkit --toolkitpath=%s --defaultroot=%s" % (
                             self.installdir, self.installdir))
 
         if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
@@ -219,6 +218,8 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
+        if LooseVersion(self.version) > LooseVersion('5'):
+            custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
         if LooseVersion(self.version) >= LooseVersion('7'):
