@@ -280,8 +280,8 @@ class EB_CP2K(EasyBlock):
                 '--std=c++11',
                 '-arch sm_%s' % cuda_cc.replace('.', ''),
                 # control host compilers + options
-                '-ccbin="%s"' % os.getenv('CXX'),
-                '-Xcompiler="%s"' % os.getenv('CXXFLAGS'),
+                "-ccbin='%s'" % os.getenv('CXX'),
+                "-Xcompiler='%s'" % os.getenv('CXXFLAGS'),
             ])
 
         # avoid group nesting
