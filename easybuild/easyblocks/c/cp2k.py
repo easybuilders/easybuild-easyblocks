@@ -90,6 +90,7 @@ class EB_CP2K(EasyBlock):
         extra_vars = {
             'extracflags': ['', "Extra CFLAGS to be added", CUSTOM],
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
+            'gpuver': [None, "Value for GPUVER configuration setting, specifies type of GPU to build for", CUSTOM],
             'ignore_regtest_fails': [False, ("Ignore failures in regression test "
                                              "(should be used with care)"), CUSTOM],
             'library': [False, "Also build CP2K as a library", CUSTOM],
@@ -98,9 +99,9 @@ class EB_CP2K(EasyBlock):
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use "
                             "all found at given prefix"), CUSTOM],
             'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
-            'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
             'plumed': [None, "Enable PLUMED support", CUSTOM],
+            'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
         }
@@ -232,12 +233,43 @@ class EB_CP2K(EasyBlock):
         # see https://github.com/cp2k/cp2k/blob/master/INSTALL.md#2j-cuda-optional-improved-performance-on-gpu-systems
         cuda = get_software_root('CUDA')
         if cuda:
-            # check GPU architecture(s) to build for
-            cuda_cc_sm_vals = self.cfg.template_values.get('cuda_sm_comma_sep')
-            if cuda_cc_sm_vals:
-                gpu_targets = ' '.join("-arch %s" % x for x in cuda_cc_sm_vals.split(','))
+            # determine CUDA compute capability to use based on --cuda-compute-capabilities in EasyBuild configuration,
+            # or cuda_compute_capabilities easyconfig parameter (fallback);
+            # must be a single value to build CP2K with CUDA support!
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg.get('cuda_compute_capabilities')
+            if len(cuda_cc) == 1:
+                cuda_cc = cuda_cc[0]
+            elif cuda_cc:
+                error_msg = "Exactly one CUDA compute capability must be specified, found %d: %s"
+                raise EasyBuildError(error_msg, len(cuda_cc), ', '.join(cuda_cc))
             else:
-                gpu_targets = ''
+                error_msg = "Exactly one CUDA compute capability must be specified via "
+                error_msg += "--cuda-compute-capabilities or the cuda_compute_capabilities easyconfig parameter."
+                raise EasyBuildError(error_msg)
+
+            # GPUVER must be set, required by the DBCSR component,
+            # see exts/dbcsr/Makefile and the parameters_*.json in src/acc/libsmm_acc/libcusmm/;
+            # determine string value to use based on select CUDA compute capability, unless specified explicitly via
+            # custom 'gpuver' easyconfig parameter
+            gpuver = self.cfg['gpuver']
+
+            if gpuver is None:
+                cuda_cc_lv = LooseVersion(cuda_cc)
+                known_gpuver = [
+                    ('7.0', 'V100'),
+                    ('6.0', 'P100'),
+                    ('3.7', 'K80'),
+                    ('3.5', 'K40'),
+                ]
+                for min_cuda_cc, val in known_gpuver:
+                    if cuda_cc_lv >= LooseVersion(min_cuda_cc):
+                        gpuver = val
+                        break
+
+            if gpuver is None:
+                raise EasyBuildError("Failed to determine value for required GPUVER setting!")
+            else:
+                options['GPUVER'] = gpuver
 
             options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC -D__PW_CUDA -D__GRID_CUDA'
             options['LIBS'] += ' -lcudart -lnvrtc -lcuda -lcublas -lcufft -lrt'
@@ -246,14 +278,11 @@ class EB_CP2K(EasyBlock):
                 options['DFLAGS'],
                 '-O3',
                 '--std=c++11',
-                gpu_targets,
+                '-arch sm_%s' % cuda_cc.replace('.', ''),
                 # control host compilers + options
                 '-ccbin="%s"' % os.getenv('CXX'),
                 '-Xcompiler="%s"' % os.getenv('CXXFLAGS'),
             ])
-            # note: we deliberately do not set GPUVER, which is used by in the Makefile for the DBCSR component
-            # to determine which value to pass to -arch, since we're taking care of that ourselves in NVFLAGS
-            options['GPUVER'] = ''
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
