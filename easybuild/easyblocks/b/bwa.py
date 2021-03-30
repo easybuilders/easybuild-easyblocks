@@ -18,13 +18,11 @@ EasyBuild support for building and installing BWA, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 """
-
 import os
-import shutil
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file, mkdir
 
 
 class EB_BWA(ConfigureMake):
@@ -35,18 +33,28 @@ class EB_BWA(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to BWA."""
         super(EB_BWA, self).__init__(*args, **kwargs)
-        self.files = []
 
-    def configure_step(self):
-        """
-        Empty function as bwa comes with _no_ configure script
-        """
-        self.files = ["bwa", "qualfa2fq.pl", "xa2multi.pl"]
-        if LooseVersion(self.version) < LooseVersion("0.7.0"):
+        self.files = ['bwa', 'qualfa2fq.pl', 'xa2multi.pl']
+        if LooseVersion(self.version) < LooseVersion('0.7.0'):
             # solid2fastq was dropped in recent versions because the same functionality
             # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
-            self.files.append("solid2fastq.pl")
+            self.files.append('solid2fastq.pl')
+
+    def configure_step(self):
+        """
+        Empty function as BWA comes with _no_ configure script
+        """
+        pass
+
+    def build_step(self):
+        """Custom build procedure: pass down compiler command and options as arguments to 'make'."""
+
+        for env_var in ('CC', 'CFLAGS'):
+            if env_var + '=' not in self.cfg['buildopts']:
+                self.cfg.update('buildopts', env_var + '="$' + env_var + '"')
+
+        super(EB_BWA, self).build_step()
 
     def install_step(self):
         """
@@ -54,26 +62,26 @@ class EB_BWA(ConfigureMake):
         """
         srcdir = self.cfg['start_dir']
         destdir = os.path.join(self.installdir, 'bin')
-        mandir = os.path.join(self.installdir, 'man')
-        manman1dir = os.path.join(self.installdir, 'man/man1')
+        mkdir(destdir)
+        for filename in self.files:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, destdir)
+
         manfile = os.path.join(srcdir, 'bwa.1')
-        srcfile = None
-        try:
-            os.makedirs(destdir)
-            os.makedirs(mandir)
-            os.makedirs(manman1dir)
-            for filename in self.files:
-                srcfile = os.path.join(srcdir, filename)
-                shutil.copy2(srcfile, destdir)
-            shutil.copy2(manfile, manman1dir)
-        except OSError as err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+        manman1dir = os.path.join(self.installdir, 'man', 'man1')
+        mkdir(manman1dir, parents=True)
+        copy_file(manfile, manman1dir)
 
     def sanity_check_step(self):
         """Custom sanity check for BWA."""
+
         custom_paths = {
-            'files': ["bin/%s" % x for x in self.files],
+            'files': [os.path.join('bin', x) for x in self.files],
             'dirs': []
         }
 
-        super(EB_BWA, self).sanity_check_step(custom_paths=custom_paths)
+        # 'bwa' command doesn't have a --help option, but it does print help-like information to stderr
+        # when run without arguments (and exits with exit code 1)
+        custom_commands = ["bwa 2>&1 | grep 'index sequences in the FASTA format'"]
+
+        super(EB_BWA, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

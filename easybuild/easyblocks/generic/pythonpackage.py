@@ -31,6 +31,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+import json
 import os
 import re
 import sys
@@ -42,12 +43,14 @@ import easybuild.tools.environment as env
 from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
+from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import string_type
+from easybuild.tools.py2vs3 import string_type, subprocess_popen_text
 from easybuild.tools.run import run_cmd
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
@@ -252,6 +255,14 @@ class PythonPackage(ExtensionEasyBlock):
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
+        # Use PYPI_SOURCE as the default for source_urls.
+        # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
+        if 'source_urls' not in extra_vars:
+            # Create a copy so the defaults are not modified by the following line
+            src_urls = DEFAULT_CONFIG['source_urls'][:]
+            src_urls[0] = [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE']
+            extra_vars['source_urls'] = src_urls
+
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -398,6 +409,34 @@ class PythonPackage(ExtensionEasyBlock):
         if self.python_cmd:
             # set Python lib directories
             self.set_pylibdirs()
+
+    def get_installed_python_packages(self, names_only=True, python_cmd=None):
+        """Return list of Python packages that are installed
+
+        When names_only is True then only the names are returned, else the full info from `pip list`.
+        Note that the names are reported by pip and might be different to the name that need to be used to import it
+        """
+        if python_cmd is None:
+            python_cmd = self.python_cmd
+        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
+        cmd_list = [python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
+                    '--format', 'json']
+        full_cmd = ' '.join(cmd_list)
+        self.log.info("Running command '%s'" % full_cmd)
+        proc = subprocess_popen_text(cmd_list, env=os.environ)
+        (stdout, stderr) = proc.communicate()
+        ec = proc.returncode
+        msg = "Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr)
+        if ec:
+            self.log.info(msg)
+            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
+
+        self.log.debug(msg)
+        pkgs = json.loads(stdout.strip())
+        if names_only:
+            return [pkg['name'] for pkg in pkgs]
+        else:
+            return pkgs
 
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
@@ -734,11 +773,13 @@ class PythonPackage(ExtensionEasyBlock):
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:
             # when installing for multiple Python versions, we must use 'python', not a full-path 'python' command!
+            python_cmd = 'python'
             if 'exts_filter' not in kwargs:
                 kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
         else:
             # 'python' is replaced by full path to active 'python' command
             # (which is required especially when installing with system Python)
+            python_cmd = self.python_cmd
             if 'exts_filter' not in kwargs:
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
@@ -756,6 +797,19 @@ class PythonPackage(ExtensionEasyBlock):
                         fake_mod_data = self.load_fake_module(purge=True)
 
                     run_cmd("pip check", trace=False)
+                    # Also check for a common issue where the package version shows up as 0.0.0 often caused
+                    # by using setup.py as the installation method for a package which is released as a generic wheel
+                    # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
+                    # so it will contain a version, but the raw tar.gz does not.
+                    pkgs = self.get_installed_python_packages(names_only=False, python_cmd=python_cmd)
+                    faulty_version = '0.0.0'
+                    faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
+                    self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
+                    if faulty_pkg_names:
+                        raise EasyBuildError("The following Python packages were not installed correctly and show a "
+                                             "version of '%s':\n%s\nThis may be solved by using the whl file instead "
+                                             "as the source. See e.g. the SOURCE*_WHL templates",
+                                             '\n'.join(faulty_pkg_names), faulty_version)
 
                     if not self.is_extension:
                         self.clean_up_fake_module(fake_mod_data)
