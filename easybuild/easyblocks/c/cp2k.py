@@ -235,7 +235,7 @@ class EB_CP2K(EasyBlock):
             # check GPU architecture(s) to build for
             cuda_cc_sm_vals = self.cfg.template_values.get('cuda_sm_comma_sep')
             if cuda_cc_sm_vals:
-                gpu_targets = '--gpu-code=%s' % cuda_cc_sm_vals
+                gpu_targets = ' '.join("-arch %s" % x for x in cuda_cc_sm_vals.split(','))
             else:
                 gpu_targets = ''
 
@@ -251,7 +251,9 @@ class EB_CP2K(EasyBlock):
                 '-ccbin="%s"' % os.getenv('CXX'),
                 '-Xcompiler="%s"' % os.getenv('CXXFLAGS'),
             ])
-            options['GPUVER'] = 'V100'
+            # note: we deliberately do not set GPUVER, which is used by in the Makefile for the DBCSR component
+            # to determine which value to pass to -arch, since we're taking care of that ourselves in NVFLAGS
+            options['GPUVER'] = ''
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
