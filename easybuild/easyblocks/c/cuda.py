@@ -97,8 +97,11 @@ class EB_CUDA(Binary):
         else:
             install_interpreter = ""
             install_script = "./cuda-installer"
-            self.cfg.update('installopts', "--silent --samples --toolkit --toolkitpath=%s --defaultroot=%s" % (
-                            self.installdir, self.installdir))
+            # samples are installed in two places with identical copies:
+            # self.installdir/samples and $HOME/NVIDIA_CUDA-11.2_Samples
+            # changing the second location to a scratch location (self.builddir) avoids the duplicate
+            self.cfg.update('installopts', "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
+                            self.builddir, self.installdir, self.installdir))
 
         if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
             # Workaround for
