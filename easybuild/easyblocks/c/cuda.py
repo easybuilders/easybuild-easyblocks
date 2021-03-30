@@ -29,7 +29,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_dir, mkdir, patch_perl_script_autoflush
+from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
