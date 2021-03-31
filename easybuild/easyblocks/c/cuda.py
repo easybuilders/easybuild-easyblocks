@@ -103,6 +103,12 @@ class EB_CUDA(Binary):
             self.cfg.update('installopts',
                             "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
                                 self.builddir, self.installdir, self.installdir))
+            # When eb is called via sudo -u someuser -i eb ..., the installer may try to chown samples to the
+            # original user using the SUDO_USER environment variable, which fails
+            if "SUDO_USER" in os.environ:
+                self.log.info("SUDO_USER was defined as '%s', need to unset it to avoid problems..." %
+                              os.environ["SUDO_USER"])
+                del os.environ["SUDO_USER"]
 
         if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
             # Workaround for
