@@ -806,10 +806,15 @@ class PythonPackage(ExtensionEasyBlock):
                     faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
                     self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
                     if faulty_pkg_names:
-                        raise EasyBuildError("The following Python packages were not installed correctly and show a "
-                                             "version of '%s':\n%s\nThis may be solved by using the whl file instead "
-                                             "as the source. See e.g. the SOURCE*_WHL templates",
-                                             '\n'.join(faulty_pkg_names), faulty_version)
+                        msg = (
+                            "The following Python packages were likely not installed correctly because they show a "
+                            "version of '%s':\n%s\n"
+                            "This may be solved by using a *-none-any.whl file as the source instead. "
+                            "See e.g. the SOURCE*_WHL templates.\n"
+                            "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
+                            "required (check the source for a pyproject.toml and see PEP517 for details on that)."
+                         ) % (faulty_version, '\n'.join(faulty_pkg_names))
+                        raise EasyBuildError(msg)
 
                     if not self.is_extension:
                         self.clean_up_fake_module(fake_mod_data)
