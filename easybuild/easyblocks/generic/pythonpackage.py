@@ -241,9 +241,14 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
-            'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed", CUSTOM],
+            'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed "
+                                        "and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
+            # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
+            # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
+            'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
             'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
@@ -796,7 +801,14 @@ class PythonPackage(ExtensionEasyBlock):
                         # is not "in view", and we will overlook missing dependencies...
                         fake_mod_data = self.load_fake_module(purge=True)
 
-                    run_cmd("pip check", trace=False)
+                    pip_check_errors = []
+
+                    pip_check_msg, ec = run_cmd("pip check", log_ok=False)
+                    if ec:
+                        pip_check_errors.append('`pip check` failed:\n%s' % pip_check_msg)
+                    else:
+                        self.log.info('`pip check` completed successfully')
+
                     # Also check for a common issue where the package version shows up as 0.0.0 often caused
                     # by using setup.py as the installation method for a package which is released as a generic wheel
                     # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
@@ -804,6 +816,23 @@ class PythonPackage(ExtensionEasyBlock):
                     pkgs = self.get_installed_python_packages(names_only=False, python_cmd=python_cmd)
                     faulty_version = '0.0.0'
                     faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
+
+                    for unversioned_package in self.cfg.get('unversioned_packages', []):
+                        try:
+                            faulty_pkg_names.remove(unversioned_package)
+                            self.log.debug('Excluding unversioned package %s from check', unversioned_package)
+                        except ValueError:
+                            try:
+                                version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
+                            except StopIteration:
+                                msg = ('Package %s in unversioned_packages was not found in the installed packages. '
+                                       'Check that the name from `pip list` is used which may be different than the '
+                                       'module name.' % unversioned_package)
+                            else:
+                                msg = ('Package %s in unversioned_packages Has a version of %s which is valid. '
+                                       'Please remove it from unversioned_packages.' % (unversioned_package, version))
+                            pip_check_errors.append(msg)
+
                     self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
                     if faulty_pkg_names:
                         msg = (
@@ -814,10 +843,13 @@ class PythonPackage(ExtensionEasyBlock):
                             "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
                             "required (check the source for a pyproject.toml and see PEP517 for details on that)."
                          ) % (faulty_version, '\n'.join(faulty_pkg_names))
-                        raise EasyBuildError(msg)
+                        pip_check_errors.append(msg)
 
                     if not self.is_extension:
                         self.clean_up_fake_module(fake_mod_data)
+
+                    if pip_check_errors:
+                        raise EasyBuildError('\n'.join(pip_check_errors))
                 else:
                     raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
             else:
