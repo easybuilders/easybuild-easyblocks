@@ -829,7 +829,7 @@ class PythonPackage(ExtensionEasyBlock):
                                        'Check that the name from `pip list` is used which may be different than the '
                                        'module name.' % unversioned_package)
                             else:
-                                msg = ('Package %s in unversioned_packages Has a version of %s which is valid. '
+                                msg = ('Package %s in unversioned_packages has a version of %s which is valid. '
                                        'Please remove it from unversioned_packages.' % (unversioned_package, version))
                             pip_check_errors.append(msg)
 
