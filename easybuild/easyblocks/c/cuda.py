@@ -1,14 +1,26 @@
 ##
-# This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
+# Copyright 2012-2021 Ghent University
 #
-# Copyright:: Copyright 2012-2019 Cyprus Institute / CaSToRC, Uni.Lu, NTUA, Ghent University,
-#             Forschungszentrum Juelich GmbH
-# Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste, Damian Alvarez
-# License::   MIT/GPL
-# $Id$
+# This file is part of EasyBuild,
+# originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
+# with support of Ghent University (http://ugent.be/hpc),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
+# and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
 #
-# This work implements a part of the HPCBIOS project and is a component of the policy:
-# http://hpcbios.readthedocs.org/en/latest/HPCBIOS_2012-99.html
+# https://github.com/easybuilders/easybuild
+#
+# EasyBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation v2.
+#
+# EasyBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
 EasyBuild support for CUDA, implemented as an easyblock
@@ -20,6 +32,7 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich)
 @author: Ward Poelmans (Free University of Brussels)
+@author: Robert Mijakovic (LuxProvide S.A.)
 """
 import os
 import stat
@@ -32,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -62,10 +75,12 @@ class EB_CUDA(Binary):
     def __init__(self, *args, **kwargs):
         """ Init the cuda easyblock adding a new cudaarch template var """
         myarch = get_cpu_architecture()
-        if myarch == X86_64:
-            cudaarch = ''
+        if myarch == AARCH64:
+            cudaarch = '_sbsa'
         elif myarch == POWER:
             cudaarch = '_ppc64le'
+        elif myarch == X86_64:
+            cudaarch = ''
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
