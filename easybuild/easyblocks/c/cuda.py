@@ -42,8 +42,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, patch_perl_script_autoflush
-from easybuild.tools.filetools import remove_file, which, write_file
+from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
+from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 
@@ -194,7 +194,7 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
-        ldconfig = which('ldconfig')
+        ldconfig = which('ldconfig', log_ok=False, log_error=False)
         sbin_dirs = ['/sbin', '/usr/sbin']
         if not ldconfig:
             # ldconfig is usually in /sbin or /usr/sbin
@@ -210,9 +210,19 @@ class EB_CUDA(Binary):
             path = os.environ.get('PATH', '')
             raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
 
+        stubs_dir = os.path.join(self.installdir, 'lib64', 'stubs')
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
-        cmd = ' '.join([ldconfig, '-N', os.path.join(self.installdir, 'lib64', 'stubs')])
+        cmd = ' '.join([ldconfig, '-N', stubs_dir])
         run_cmd(cmd)
+
+        # GCC searches paths in LIBRARY_PATH and the system paths suffixed with ../lib64 or ../lib first
+        # This means stubs/../lib64 is searched before the system /lib64 folder containing a potentially older libcuda.
+        # See e.g. https://github.com/easybuilders/easybuild-easyconfigs/issues/12348
+        # Workaround: Create a copy that matches this pattern
+        new_stubs_dir = os.path.join(self.installdir, 'stubs')
+        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'))
+        # Also create the lib dir as a symlink
+        symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
 
         super(EB_CUDA, self).post_install_step()
 
@@ -221,12 +231,7 @@ class EB_CUDA(Binary):
 
         shlib_ext = get_shared_lib_ext()
 
-        chk_libdir = ["lib64"]
-
-        # Versions higher than 6 do not provide 32 bit libraries
-        if LooseVersion(self.version) < LooseVersion("6"):
-            chk_libdir += ["lib"]
-
+        chk_libdir = ["lib64", "lib"]
         culibs = ["cublas", "cudart", "cufft", "curand", "cusparse"]
         custom_paths = {
             'files': [os.path.join("bin", x) for x in ["fatbinary", "nvcc", "nvlink", "ptxas"]] +
@@ -274,7 +279,7 @@ class EB_CUDA(Binary):
         guesses.update({
             'PATH': bin_path,
             'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': ['lib64', os.path.join('lib64', 'stubs')],
+            'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
             'CPATH': inc_path,
         })
 
