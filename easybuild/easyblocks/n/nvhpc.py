@@ -101,7 +101,7 @@ class EB_NVHPC(PackedBinary):
     def install_step(self):
         """Install by running install command."""
 
-        # EULA for NVHPC must be accepted via --accept-eula EasyBuild configuration option,
+        # EULA for NVHPC must be accepted via --accept-eula-for EasyBuild configuration option,
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html')
 
