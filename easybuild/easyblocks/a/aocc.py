@@ -75,7 +75,7 @@ class EB_AOCC(PackedBinary):
             raise EasyBuildError('\n'.join(error_lines))
 
     def install_step(self):
-        # EULA for AOCC must be accepted via --accept-eula EasyBuild configuration option,
+        # EULA for AOCC must be accepted via --accept-eula-for EasyBuild configuration option,
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 
