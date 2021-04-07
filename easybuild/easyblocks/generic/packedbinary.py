@@ -32,7 +32,7 @@ import os
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy
+from easybuild.tools.filetools import change_dir, copy
 
 
 class PackedBinary(Binary, EasyBlock):
@@ -46,16 +46,16 @@ class PackedBinary(Binary, EasyBlock):
 
     def install_step(self):
         """Copy all unpacked source files/directories to install directory, one-by-one."""
-        os.chdir(self.builddir)
+        change_dir(self.builddir)
         for src in os.listdir(self.builddir):
             srcpath = os.path.join(self.builddir, src)
             # we only handle the case of a single file and no install_cmd here
-            if os.path.isfile(src) and self.cfg.get('install_cmd', None) is None:
+            if os.path.isfile(srcpath) and self.cfg.get('install_cmd', None) is None:
                 copy(srcpath, self.installdir)
             else:
-                if os.path.isdir(src):
+                if os.path.isdir(srcpath):
                     self.cfg['start_dir'] = src
-                elif os.path.isfile(src):
+                elif os.path.isfile(srcpath):
                     self.cfg['start_dir'] = self.builddir
                 else:
                     raise EasyBuildError("Path %s is not a file nor a directory?", srcpath)
