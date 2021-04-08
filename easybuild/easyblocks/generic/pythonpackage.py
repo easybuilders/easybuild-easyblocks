@@ -59,10 +59,10 @@ from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_TARGET = "easy_install"
-EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
-PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
-SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
-SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
+EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s %(postextinstallcmds)s"
+PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s %(postextinstallcmds)s"
+SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s %(postextinstallcmds)s"
+SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s %(postextinstallcmds)s"
 UNKNOWN = 'UNKNOWN'
 
 
@@ -259,6 +259,8 @@ class PythonPackage(ExtensionEasyBlock):
                                            "to be the requirements file.", CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'postextinstallcmds': ['', "List of additional commands to execute "
+                                       "after installation as an extension", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
@@ -503,6 +505,10 @@ class PythonPackage(ExtensionEasyBlock):
             # add --requirement option when requested, in the right place (i.e. right before the location specification)
             loc = "--requirement %s" % loc
 
+        postextinstallcmds = self.cfg.get('postextinstallcmds')
+        if postextinstallcmds:
+            postextinstallcmds = ' && ' + ' && '.join(postextinstallcmds)
+
         cmd.extend([
             self.cfg['preinstallopts'],
             self.install_cmd % {
@@ -511,6 +517,7 @@ class PythonPackage(ExtensionEasyBlock):
                 'loc': loc,
                 'prefix': prefix,
                 'python': self.python_cmd,
+                'postextinstallcmds': postextinstallcmds,
             },
         ])
 
