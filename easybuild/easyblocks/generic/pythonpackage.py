@@ -59,9 +59,15 @@ from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_TARGET = "easy_install"
-EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s %(postextinstallcmds)s"
+EASY_INSTALL_INSTALL_CMD = (
+    "%(python)s setup.py " +
+    EASY_INSTALL_TARGET +
+    " --prefix=%(prefix)s %(installopts)s %(loc)s %(postextinstallcmds)s"
+)
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s %(postextinstallcmds)s"
-SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s %(postextinstallcmds)s"
+SETUP_PY_INSTALL_CMD = (
+    "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s %(postextinstallcmds)s"
+)
 SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s %(postextinstallcmds)s"
 UNKNOWN = 'UNKNOWN'
 
