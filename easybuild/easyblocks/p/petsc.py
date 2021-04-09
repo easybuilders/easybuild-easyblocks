@@ -187,14 +187,16 @@ class EB_PETSc(ConfigureMake):
             if LooseVersion(self.version) < LooseVersion("3.5"):
                 deps.append("BLACS")
             for dep in deps:
-                inc = os.getenv('%s_INC_DIR' % dep.upper())
                 libdir = os.getenv('%s_LIB_DIR' % dep.upper())
                 libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
-                if inc and libdir and libs:
+                if libdir and libs:
                     with_arg = "--with-%s" % dep.lower()
                     self.cfg.update('configopts', '%s=1' % with_arg)
-                    self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                     self.cfg.update('configopts', '%s-lib=[%s/%s]' % (with_arg, libdir, libs))
+
+                    inc = os.getenv('%s_INC_DIR' % dep.upper())
+                    if inc:
+                        self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                 else:
                     self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
@@ -296,8 +298,9 @@ class EB_PETSc(ConfigureMake):
             run_cmd(cmd, log_all=True, simple=True)
 
         # PETSc > 3.5, make does not accept -j
+        # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
-            env.setvar('MAKE_NP', str(self.cfg['parallel']))
+            self.cfg.update('buildopts', "MAKE_NP=%s" % self.cfg['parallel'])
             self.cfg['parallel'] = None
 
     # default make should be fine

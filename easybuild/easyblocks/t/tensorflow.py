@@ -34,7 +34,6 @@ import os
 import re
 import stat
 import tempfile
-import json
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -50,7 +49,6 @@ from easybuild.tools.filetools import is_readable, read_file, which, write_file,
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
-from easybuild.tools.py2vs3 import subprocess_popen_text
 
 
 CPU_DEVICE = 'cpu'
@@ -268,25 +266,6 @@ class EB_TensorFlow(PythonPackage):
         out, ec = run_cmd(cmd, log_ok=False)
         self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
         return ec == 0
-
-    def get_installed_python_packages(self):
-        """Return list of Python package names that are installed
-
-        Note that the names are reported by pip and might be different to the name that needs to be used to import it
-        """
-        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
-        cmd_list = [self.python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
-                    '--format', 'json']
-        full_cmd = ' '.join(cmd_list)
-        self.log.info("Running command '%s'" % full_cmd)
-        proc = subprocess_popen_text(cmd_list, env=os.environ)
-        (stdout, stderr) = proc.communicate()
-        ec = proc.returncode
-        self.log.info("Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr))
-        if ec:
-            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
-
-        return [pkg['name'] for pkg in json.loads(stdout.strip())]
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
