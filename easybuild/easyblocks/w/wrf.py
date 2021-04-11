@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -186,7 +186,7 @@ class EB_WRF(EasyBlock):
             build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
 
         # run configure script
-        cmd = "./configure"
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {
             # named group in match will be used to construct answer
             "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
@@ -308,7 +308,7 @@ class EB_WRF(EasyBlock):
             # determine number of MPI ranks to use in tests (1/2 of available processors + 1);
             # we need to limit max number of MPI ranks (8 is too high for some tests, 4 is OK),
             # since otherwise run may fail because domain size is too small
-            n_mpi_ranks = min(self.cfg['parallel'] / 2 + 1, 4)
+            n_mpi_ranks = min(self.cfg['parallel'] // 2 + 1, 4)
 
             # prepare run command
 

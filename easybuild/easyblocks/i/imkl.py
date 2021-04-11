@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -141,44 +141,44 @@ class EB_imkl(IntelBase):
         """
         A dictionary of possible directories to look for
         """
+        guesses = super(EB_imkl, self).make_module_req_guess()
+
         if LooseVersion(self.version) >= LooseVersion('10.3'):
             if self.cfg['m32']:
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
-                retdict = {
+                guesses.update({
                     'PATH': [],
                     'LD_LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
                     'MANPATH': ['man', 'man/en_US'],
                     'CPATH': ['mkl/include', 'mkl/include/fftw'],
                     'PKG_CONFIG_PATH': ['mkl/bin/pkgconfig'],
-                }
+                })
                 if LooseVersion(self.version) >= LooseVersion('11.0'):
                     if LooseVersion(self.version) >= LooseVersion('11.3'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
+                        guesses['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
                     elif LooseVersion(self.version) >= LooseVersion('11.1'):
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
+                        guesses['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
                     else:
-                        retdict['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
-                return retdict
+                        guesses['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
         else:
             if self.cfg['m32']:
-                return {
+                guesses.update({
                     'PATH': ['bin', 'bin/ia32', 'tbb/bin/ia32'],
                     'LD_LIBRARY_PATH': ['lib', 'lib/32'],
                     'LIBRARY_PATH': ['lib', 'lib/32'],
                     'MANPATH': ['man', 'share/man', 'man/en_US'],
-                    'CPATH': ['include'],
-                }
+                })
 
             else:
-                return {
+                guesses.update({
                     'PATH': ['bin', 'bin/intel64', 'tbb/bin/em64t'],
                     'LD_LIBRARY_PATH': ['lib', 'lib/em64t'],
                     'LIBRARY_PATH': ['lib', 'lib/em64t'],
                     'MANPATH': ['man', 'share/man', 'man/en_US'],
-                    'CPATH': ['include'],
-                }
+                })
+        return guesses
 
     def make_module_extra(self):
         """Overwritten from Application to add extra txt"""

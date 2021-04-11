@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,6 +58,8 @@ class EB_PETSc(ConfigureMake):
         self.prefix_lib = ''
         self.prefix_bin = ''
 
+        self.with_python = False
+
         if self.cfg['sourceinstall']:
             self.prefix_inc = self.petsc_subdir
             self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
@@ -88,6 +90,17 @@ class EB_PETSc(ConfigureMake):
             self.build_in_installdir = True
 
         super(EB_PETSc, self).make_builddir()
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+
+        super(EB_PETSc, self).prepare_step(*args, **kwargs)
+
+        # build with Python support if Python is loaded as a non-build (runtime) dependency
+        build_deps = self.cfg.dependencies(build_only=True)
+        if get_software_root('Python') and not any(x['name'] == 'Python' for x in build_deps):
+            self.with_python = True
+            self.log.info("Python included as runtime dependency, so enabling Python support")
 
     def configure_step(self):
         """
@@ -155,26 +168,35 @@ class EB_PETSc(ConfigureMake):
                                          papi_inc_file, papi_lib)
 
             # Python extensions_step
-            if get_software_root('Python'):
-                self.cfg.update('configopts', '--with-numpy=1')
+            if self.with_python:
 
-                with_mpi4py_opt = '--with-mpi4py'
-                if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
-                    self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
+                # enable numpy support, but only if numpy is available
+                (_, ec) = run_cmd("python -c 'import numpy'", log_all=True, simple=False)
+                if ec == 0:
+                    self.cfg.update('configopts', '--with-numpy=1')
+
+                # enable mpi4py support, but only if mpi4py is available
+                (_, ec) = run_cmd("python -c 'import mpi4py'", log_all=True, simple=False)
+                if ec == 0:
+                    with_mpi4py_opt = '--with-mpi4py'
+                    if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
+                        self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
             deps = ["FFTW", "ScaLAPACK"]
             if LooseVersion(self.version) < LooseVersion("3.5"):
                 deps.append("BLACS")
             for dep in deps:
-                inc = os.getenv('%s_INC_DIR' % dep.upper())
                 libdir = os.getenv('%s_LIB_DIR' % dep.upper())
                 libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
-                if inc and libdir and libs:
+                if libdir and libs:
                     with_arg = "--with-%s" % dep.lower()
                     self.cfg.update('configopts', '%s=1' % with_arg)
-                    self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                     self.cfg.update('configopts', '%s-lib=[%s/%s]' % (with_arg, libdir, libs))
+
+                    inc = os.getenv('%s_INC_DIR' % dep.upper())
+                    if inc:
+                        self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                 else:
                     self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
@@ -190,7 +212,7 @@ class EB_PETSc(ConfigureMake):
             # filter out deps handled seperately
             sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
                         'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
-            depfilter = self.cfg.builddependencies() + sep_deps
+            depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
@@ -276,8 +298,9 @@ class EB_PETSc(ConfigureMake):
             run_cmd(cmd, log_all=True, simple=True)
 
         # PETSc > 3.5, make does not accept -j
+        # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
-            env.setvar('MAKE_NP', str(self.cfg['parallel']))
+            self.cfg.update('buildopts', "MAKE_NP=%s" % self.cfg['parallel'])
             self.cfg['parallel'] = None
 
     # default make should be fine
@@ -353,7 +376,7 @@ class EB_PETSc(ConfigureMake):
             custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
         custom_commands = []
-        if get_software_root('Python'):
+        if self.with_python:
             custom_commands.append("python -m PetscBinaryIO --help")
 
         super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -108,6 +108,8 @@ class ModuleRC(EasyBlock):
                     else:
                         raise EasyBuildError("%s exists but is not a symlink to %s", modulerc_symlink, modulerc)
                 else:
+                    # Make sure folder exists
+                    mkdir(os.path.dirname(modulerc_symlink), parents=True)
                     symlink(modulerc, modulerc_symlink)
                     print_msg("created symlink %s to .modulerc file at %s", modulerc_symlink, modulerc, log=self.log)
 

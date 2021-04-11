@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -210,6 +210,9 @@ class CMakeMake(ConfigureMake):
 
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
+
+        # disable CMake user package repository
+        options.append('-DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE')
 
         if not self.cfg.get('allow_system_boost', False):
             # don't pick up on system Boost if Boost is included as dependency

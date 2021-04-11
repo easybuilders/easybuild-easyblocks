@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,6 +59,9 @@ class EB_ESMF(ConfigureMake):
         else:
             compiler = comp_family.lower()
         env.setvar('ESMF_COMPILER', compiler)
+
+        env.setvar('ESMF_F90COMPILEOPTS', os.getenv('F90FLAGS'))
+        env.setvar('ESMF_CXXCOMPILEOPTS', os.getenv('CXXFLAGS'))
 
         # specify MPI communications library
         comm = None

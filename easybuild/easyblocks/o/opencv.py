@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -115,9 +115,16 @@ class EB_OpenCV(CMakeMake):
             else:
                 self.cfg.update('configopts', '-DWITH_CUDA=OFF')
 
+        # disable bundled protobuf if it is a dependency
+        if 'BUILD_PROTOBUF' not in self.cfg['configopts']:
+            if get_software_root('protobuf'):
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=OFF')
+            else:
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=ON')
+
         # configure for dependency libraries
-        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'zlib']:
-            if dep in ['libpng', 'LibTIFF']:
+        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'libwebp', 'OpenEXR', 'zlib']:
+            if dep in ['libpng', 'LibTIFF', 'libwebp']:
                 # strip off 'lib'
                 opt_name = dep[3:].upper()
             elif dep == 'libjpeg-turbo':
@@ -133,9 +140,14 @@ class EB_OpenCV(CMakeMake):
 
             dep_root = get_software_root(dep)
             if dep_root:
-                self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, os.path.join(dep_root, 'include')))
-                libdir = get_software_libdir(dep, only_one=True)
-                self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, os.path.join(dep_root, libdir, lib_file)))
+                if dep == 'OpenEXR':
+                    self.cfg.update('configopts', '-D%s_ROOT=%s' % (opt_name, dep_root))
+                else:
+                    inc_path = os.path.join(dep_root, 'include')
+                    self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, inc_path))
+                    libdir = get_software_libdir(dep, only_one=True)
+                    lib_path = os.path.join(dep_root, libdir, lib_file)
+                    self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, lib_path))
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options

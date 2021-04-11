@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -177,7 +177,10 @@ class EB_GROMACS(CMakeMake):
                     self.log.info("skipping configure step")
                     return
 
-                self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                if LooseVersion(self.version) >= LooseVersion('2021'):
+                    self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                else:
+                    self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS find and uses a system-wide CUDA compiler
@@ -326,12 +329,14 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
 
-            if get_software_root('imkl'):
+            imkl_root = get_software_root('imkl')
+            if imkl_root:
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
-                self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="$EBROOTMKL/mkl/include" ')
+                imkl_include = os.path.join(imkl_root, 'mkl', 'include')
+                self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' % imkl_include)
                 libs = os.getenv('LAPACK_STATIC_LIBS').split(',')
                 mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in libs if lib != 'libgfortran.a']
-                mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group']
+                mkl_libs = ['-Wl,--start-group'] + mkl_libs + ['-Wl,--end-group -lpthread -lm -ldl']
                 self.cfg.update('configopts', '-DMKL_LIBRARIES="%s" ' % ';'.join(mkl_libs))
             else:
                 for libname in ['BLAS', 'LAPACK']:

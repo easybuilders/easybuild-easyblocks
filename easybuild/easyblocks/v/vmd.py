@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2020 Ghent University
-# Copyright 2015-2020 Stanford University
+# Copyright 2009-2021 Ghent University
+# Copyright 2015-2021 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,7 +94,8 @@ class EB_VMD(ConfigureMake):
         netcdflib = os.path.join(deps['netCDF'], 'lib')
 
         # Python locations
-        pymajver = get_software_version('Python').split('.')[0]
+        pyver = get_software_version('Python')
+        pymajver = pyver.split('.')[0]
         out, ec = run_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", simple=False)
         if ec:
             raise EasyBuildError("Failed to determine Python include path: %s", out)
@@ -103,7 +104,10 @@ class EB_VMD(ConfigureMake):
         pylibdir = det_pylibdir()
         python_libdir = os.path.join(deps['Python'], os.path.dirname(pylibdir))
         env.setvar('PYTHON_LIBRARY_DIR', python_libdir)
-        out, ec = run_cmd("python%s-config --libs" % pymajver, simple=False)
+        if LooseVersion(pyver) >= LooseVersion('3.8'):
+            out, ec = run_cmd("python%s-config --libs --embed" % pymajver, simple=False)
+        else:
+            out, ec = run_cmd("python%s-config --libs" % pymajver, simple=False)
         if ec:
             raise EasyBuildError("Failed to determine Python library name: %s", out)
         else:

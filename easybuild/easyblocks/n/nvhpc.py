@@ -1,6 +1,6 @@
 ##
 # Copyright 2015-2019 Bart Oldeman
-# Copyright 2016-2020 Forschungszentrum Juelich
+# Copyright 2016-2021 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -38,6 +38,7 @@ import fileinput
 import re
 import stat
 import sys
+import platform
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
@@ -90,11 +91,19 @@ class EB_NVHPC(PackedBinary):
         """Easyblock constructor, define custom class variables specific to NVHPC."""
         super(EB_NVHPC, self).__init__(*args, **kwargs)
 
-        # Potential improvement: get "Linux_x86_64" from easybuild.tools.systemtools' get_cpu_architecture()
-        self.nvhpc_install_subdir = os.path.join('Linux_x86_64', self.version)
+        # Ideally we should be using something like `easybuild.tools.systemtools.get_cpu_architecture` here, however,
+        # on `ppc64le` systems this function returns `POWER` instead of `ppc64le`. Since this path needs to reflect
+        # `arch` (https://easybuild.readthedocs.io/en/latest/version-specific/easyconfig_templates.html) the same
+        # procedure from `templates.py` was reused here:
+        architecture = 'Linux_%s' % platform.uname()[4]
+        self.nvhpc_install_subdir = os.path.join(architecture, self.version)
 
     def install_step(self):
         """Install by running install command."""
+
+        # EULA for NVHPC must be accepted via --accept-eula-for EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html')
 
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is None:

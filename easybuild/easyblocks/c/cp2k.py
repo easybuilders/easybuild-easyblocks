@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -476,6 +476,17 @@ class EB_CP2K(EasyBlock):
 
         ifortver = LooseVersion(get_software_version('ifort'))
 
+        # Required due to memory leak that occurs if high optimizations are used (from CP2K 7.1 intel-popt-makefile)
+        if ifortver >= LooseVersion("2018.5"):
+            self.make_instructions += "mp2_optimize_ri_basis.o: mp2_optimize_ri_basis.F\n" \
+                "\t$(FC) -c $(subst O2,O0,$(FCFLAGSOPT)) $<\n"
+            self.log.info("Optimization level of mp2_optimize_ri_basis.F was decreased to '-O0'")
+
+        # RHEL8 intel/2020a lots of CPASSERT failed (due to high optimization in cholesky decomposition)
+        if ifortver >= LooseVersion("2019"):
+            self.make_instructions += "cp_fm_cholesky.o: cp_fm_cholesky.F\n\t$(FC) -c $(FCFLAGS2) $<\n"
+            self.log.info("Optimization flags for cp_fm_cholesky.F is set to '%s'", options['FCFLAGSOPT2'])
+
         # -i-static has been deprecated prior to 2013, but was still usable. From 2015 it is not.
         if ifortver < LooseVersion("2013"):
             options['LDFLAGS'] += ' -i-static '
@@ -527,6 +538,15 @@ class EB_CP2K(EasyBlock):
 
         options['FCFLAGSOPT'] += ' $(DFLAGS) $(CFLAGS) -fmax-stack-var-size=32768'
         options['FCFLAGSOPT2'] += ' $(DFLAGS) $(CFLAGS)'
+
+        gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
+        if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('7.1'):
+            # -fallow-argument-mismatch is required for CP2K 7.1 (and older) when compiling with GCC 10.x & more recent,
+            # see https://github.com/cp2k/cp2k/issues/1157, https://github.com/cp2k/dbcsr/issues/351,
+            # https://github.com/cp2k/dbcsr/commit/58ee9709545deda8524cab804bf1f88a61a864ac and
+            # https://gcc.gnu.org/legacy-ml/gcc-patches/2019-10/msg01861.html
+            options['FCFLAGSOPT'] += ' -fallow-argument-mismatch'
+            options['FCFLAGSOPT2'] += ' -fallow-argument-mismatch'
 
         return options
 
@@ -681,13 +701,20 @@ class EB_CP2K(EasyBlock):
                     break
 
             # location of do_regtest script
-            cfg_fn = "cp2k_regtest.cfg"
+            cfg_fn = 'cp2k_regtest.cfg'
+
             regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
-            regtest_cmd = "%s -nosvn -nobuild -config %s" % (regtest_script, cfg_fn)
+            regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
+            if LooseVersion(self.version) < LooseVersion('7.1'):
+                # -nosvn option was removed in CP2K 7.1
+                regtest_cmd.insert(1, '-nosvn')
+
             # older version of CP2K
             if not os.path.exists(regtest_script):
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'do_regtest')
-                regtest_cmd = "%s -nocvs -quick -nocompile -config %s" % (regtest_script, cfg_fn)
+                regtest_cmd = [regtest_script, '-nocvs', '-quick', '-nocompile', '-config', cfg_fn]
+
+            regtest_cmd = ' '.join(regtest_cmd)
 
             # patch do_regtest so that reference output is used
             if regtest_refdir:
@@ -792,9 +819,11 @@ class EB_CP2K(EasyBlock):
             self.postmsg += test_report("FAILED")
             self.postmsg += test_report("WRONG")
 
-            # number of new tests, will be high if a non-suitable regtest reference was used
-            # will report error if count is positive (is that what we want?)
-            self.postmsg += test_report("NEW")
+            # there are no more 'new' tests from CP2K 8.1 onwards
+            if LooseVersion(self.version) < LooseVersion('8.0'):
+                # number of new tests, will be high if a non-suitable regtest reference was used
+                # will report error if count is positive (is that what we want?)
+                self.postmsg += test_report("NEW")
 
             # number of correct tests: just report
             test_report("CORRECT")
