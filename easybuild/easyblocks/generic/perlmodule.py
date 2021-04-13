@@ -110,12 +110,14 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
     def install_extension(self):
         """Perform the actual Perl module build/installation procedure"""
 
+        # Providing a name only is useful to make sure the module exists, e.g. as part of another module
         if not self.src:
-            raise EasyBuildError("No source found for Perl module %s, required for installation. (src: %s)",
-                                 self.name, self.src)
-        ExtensionEasyBlock.install_extension(self, unpack_src=True)
-
-        self.install_perl_module()
+            if self.patches:
+                raise EasyBuildError("Cannot patch Perl module %s as no explicit source is given!", self.name)
+            self.log.debug("Skipping installation step of Perl module %s as no source was given." % self.name)
+        else:
+            ExtensionEasyBlock.install_extension(self, unpack_src=True)
+            self.install_perl_module()
 
     def configure_step(self):
         """No separate configuration for Perl modules."""
