@@ -448,8 +448,9 @@ class EB_Python(ConfigureMake):
 
         if self._has_ensure_pip():
             # Check that pip and setuptools are installed
+            py_maj_version = self.version.split('.')[0]
             custom_paths['files'].extend([
-                os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
+                os.path.join('bin', pip) for pip in ('pip', 'pip' + py_maj_version, 'pip' + self.pyshortver)
             ])
             custom_commands.extend([
                 "python -c 'import pip'",
