@@ -215,6 +215,13 @@ class EB_Python(ConfigureMake):
                 result = True
         return result
 
+    def _has_ensure_pip(self):
+        """Check if  this Python version has/should have the ensurepip package"""
+        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
+        # And in 2.7.9+: https://docs.python.org/2.7/whatsnew/2.7.html#pep-477-backport-ensurepip-pep-453-to-python-2-7
+        version = LooseVersion(self.version)
+        return version >= LooseVersion('3.4.0') or (version < LooseVersion('3') and version >= LooseVersion('2.7.9'))
+
     def configure_step(self):
         """Set extra configure options."""
 
@@ -257,9 +264,8 @@ class EB_Python(ConfigureMake):
                 if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
                     self.cfg.update('configopts', "--enable-optimizations")
 
-        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
-            # Default, but do it explicitly
+        if self._has_ensure_pip():
+            # Default in 3.4+, required in 2.7
             self.cfg.update('configopts', "--with-ensurepip=upgrade")
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
@@ -436,7 +442,7 @@ class EB_Python(ConfigureMake):
             "python -c 'import readline'",  # make sure readline support was built correctly
         ]
 
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+        if self._has_ensure_pip():
             # Check that pip and setuptools are installed
             custom_paths['files'].extend([
                 os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
