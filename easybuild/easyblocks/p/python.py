@@ -136,6 +136,10 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).patch_step(*args, **kwargs)
 
+        if self._has_ensure_pip():
+            # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
+            apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
+
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
