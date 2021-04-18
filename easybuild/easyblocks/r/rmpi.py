@@ -40,7 +40,7 @@ from easybuild.easyblocks.generic.rpackage import RPackage
 class EB_Rmpi(RPackage):
     """Build and install Rmpi R library."""
 
-    def run(self):
+    def run(self, **kwargs):
         """Set various configure arguments prior to building."""
 
         mpi_types = {
@@ -63,4 +63,5 @@ class EB_Rmpi(RPackage):
             "--with-mpi=%s" % self.toolchain.get_software_root(self.toolchain.MPI_MODULE_NAME)[0],
             "--with-Rmpi-type=%s" % Rmpi_type,
         ]
-        super(EB_Rmpi, self).run()  # it might be needed to get the R cmd and run it with mympirun...
+        # it might be needed to get the R cmd and run it with mympirun...
+        super(EB_Rmpi, self).run(**kwargs)
