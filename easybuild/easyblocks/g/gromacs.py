@@ -492,7 +492,6 @@ class EB_GROMACS(CMakeMake):
             if not self.lib_subdir:
                 raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
-
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
         if self.iter_idx < self.variants_to_build - 1:
