@@ -396,6 +396,9 @@ def suite():
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
             innertest = make_inner_test(easyblock, name='foo', version='1.2.3.4', extra_txt=extra_txt)
+        elif eb_fn == 'intel_compilers.py':
+            # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
+            innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
         else:
             # Make up some unique name
             innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')

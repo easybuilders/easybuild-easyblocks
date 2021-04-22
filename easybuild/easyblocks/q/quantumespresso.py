@@ -407,8 +407,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # extract build targets as list
         targets = self.cfg['buildopts'].split()
 
-        # build list of expected binaries based on make targets
-        bins = ["iotk", "iotk.x", "iotk_print_kinds.x"]
+        bins = []
+        if LooseVersion(self.version) < LooseVersion("6.7"):
+            # build list of expected binaries based on make targets
+            bins.extend(["iotk", "iotk.x", "iotk_print_kinds.x"])
 
         if 'cp' in targets or 'all' in targets:
             bins.extend(["cp.x", "wfdd.x"])

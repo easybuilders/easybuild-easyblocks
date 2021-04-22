@@ -60,6 +60,7 @@ class EB_AOCC(PackedBinary):
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',
+            '3.0.0': '12.0.0',
         }
 
         if self.version in map_aocc_to_clang_ver:
@@ -74,7 +75,7 @@ class EB_AOCC(PackedBinary):
             raise EasyBuildError('\n'.join(error_lines))
 
     def install_step(self):
-        # EULA for AOCC must be accepted via --accept-eula EasyBuild configuration option,
+        # EULA for AOCC must be accepted via --accept-eula-for EasyBuild configuration option,
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 

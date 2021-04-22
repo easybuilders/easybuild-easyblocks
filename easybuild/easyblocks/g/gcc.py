@@ -315,8 +315,12 @@ class EB_GCC(ConfigureMake):
             # prefix dynamic linkers with sysroot
             # this patches lines like:
             # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            # for PowerPC (rs6000) we have to set DYNAMIC_LINKER_PREFIX to sysroot
             gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
-            regex_subs = [('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot)]
+            regex_subs = [
+                ('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot),
+                ('(DYNAMIC_LINKER_PREFIX\\s+)""', r'\1"%s"' % sysroot),
+            ]
             for gcc_config_header in gcc_config_headers:
                 apply_regex_substitutions(gcc_config_header, regex_subs)
 
@@ -795,23 +799,22 @@ class EB_GCC(ConfigureMake):
         libexec_files = []
         dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        if not self.cfg['languages']:
-            # default languages are c, c++, fortran
-            bin_files = ["c++", "cpp", "g++", "gcc", "gcov", "gfortran"]
-            lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
-            libexec_files = ['cc1', 'cc1plus', 'collect2', 'f951']
+        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
 
-        if 'c' in self.cfg['languages']:
+        if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
+            libexec_files.extend(['cc1', 'collect2'])
 
-        if 'c++' in self.cfg['languages']:
+        if 'c++' in languages:
             bin_files.extend(['c++', 'g++'])
             dirs.append('include/c++/%s' % self.version)
             lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
+            libexec_files.append('cc1plus')  # c++ requires c, so collect2 not mentioned again
 
-        if 'fortran' in self.cfg['languages']:
+        if 'fortran' in languages:
             bin_files.append('gfortran')
             lib_files.extend(['libgfortran.%s' % sharedlib_ext, 'libgfortran.a'])
+            libexec_files.append('f951')
 
         if self.cfg['withlto']:
             libexec_files.extend(['lto1', 'lto-wrapper'])
@@ -846,7 +849,23 @@ class EB_GCC(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        for lang, compiler in (('c', 'gcc'), ('c++', 'g++')):
+            if lang in languages:
+                # Simple test compile
+                cmd = 'echo "int main(){} " | %s -x %s -o/dev/null -'
+                compiler_path = os.path.join(self.installdir, 'bin', compiler)
+                custom_commands.append(cmd % (compiler_path, lang))
+                if self.cfg['withlto']:
+                    custom_commands.append(cmd % (compiler_path, lang + ' -flto -fuse-linker-plugin'))
+        if custom_commands:
+            # Load binutils to do the compile tests
+            extra_modules = [d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils']
+        else:
+            extra_modules = None
+
+        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                              extra_modules=extra_modules)
 
     def make_module_req_guess(self):
         """
