@@ -43,7 +43,7 @@ from easybuild.tools.py2vs3 import string_type
 
 
 class CMakePythonPackage(PythonPackage, CMakeMake):
-    """Build a Python package and module with cmake.
+    """Build a Python package and module with CMake.
 
     Some packages use cmake to first build and install C Python packages
     and then put the Python package in lib/pythonX.Y/site-packages.
@@ -51,7 +51,11 @@ class CMakePythonPackage(PythonPackage, CMakeMake):
     We install this in a seperate location and generate a module file
     which sets the PYTHONPATH.
 
-    We use the default CMake implementation, and use make_module_extra from PythonPackage.
+    The steps of CMakePythonPackage are based on PythonPackage, except for
+    the configure and build steps which use CMakeMake. The tests can be
+    arbitrarily carried out with both. The installation is always done with
+    CMake, but the option 'start_dir_python' allows to execute an extra install
+    with PythonPackage.
     """
     @staticmethod
     def extra_options(extra_vars=None):
