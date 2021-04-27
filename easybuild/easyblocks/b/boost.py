@@ -49,7 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy, mkdir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
@@ -78,7 +78,9 @@ class EB_Boost(EasyBlock):
         extra_vars = {
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
             'boost_multi_thread': [False, "Build boost with multi-thread option", CUSTOM],
-            'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
+            'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset' for bootstrap.sh)", CUSTOM],
+            'build_toolset': [None, "Toolset to use for Boost compilation "
+                                    "('toolset' for b2, default calculated from toolset)", CUSTOM],
             'mpi_launcher': [None, "Launcher to use when running MPI regression tests", CUSTOM],
             'only_python_bindings': [False, "Only install Boost.Python library providing Python bindings", CUSTOM],
             'use_glibcxx11_abi': [None, "Use the GLIBCXX11 ABI", CUSTOM],
@@ -139,6 +141,23 @@ class EB_Boost(EasyBlock):
         tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
+        # Use build_toolset if specified or the bootstrap toolset without the OS suffix
+        self.toolset = self.cfg['build_toolset'] or re.sub('-linux$', '', toolset)
+
+        user_config = []
+
+        # Explicitely set the compiler path to avoid B2 checking some standard paths like /opt
+        cxx = os.getenv('CXX')
+        if cxx:
+            cxx_abs = which(cxx, log_error=False)
+            if not cxx_abs:
+                raise EasyBuildError("Could not find $CXX (%s) in $PATH (%s). Check your modules!",
+                                     cxx, os.getenv('PATH'))
+            # Remove default toolset config which may lead to duplicate toolsets (e.g. for intel-linux)
+            apply_regex_substitutions('project-config.jam', [('using %s ;' % toolset, '')])
+            # Add our toolset config with no version and full path to compiler
+            user_config.append("using %s : : %s ;" % (self.toolset, cxx_abs))
+
         if self.cfg['boost_mpi']:
 
             self.toolchain.options['usempi'] = True
@@ -146,13 +165,12 @@ class EB_Boost(EasyBlock):
             # http://www.boost.org/doc/libs/1_47_0/doc/html/mpi/getting_started.html
             # let Boost.Build know to look here for the config file
 
-            txt = ''
             # Check if using a Cray toolchain and configure MPI accordingly
             if self.toolchain.toolchain_family() == toolchain.CRAYPE:
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
-                    txt = '\n'.join([
+                    user_config.extend([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
                         ': %s' % craygccversion,
@@ -170,9 +188,9 @@ class EB_Boost(EasyBlock):
                 else:
                     raise EasyBuildError("Bailing out: only PrgEnv-gnu supported for now")
             else:
-                txt = "using mpi : %s ;" % os.getenv("MPICXX")
+                user_config.append("using mpi : %s ;" % os.getenv("MPICXX"))
 
-            write_file('user-config.jam', txt, append=True)
+        write_file('user-config.jam', '\n'.join(user_config), append=True)
 
     def build_boost_variant(self, bjamoptions, paracmd):
         """Build Boost library with specified options for bjam."""
@@ -184,12 +202,14 @@ class EB_Boost(EasyBlock):
             self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
         # clean up before proceeding with next build
-        run_cmd("./%s --clean-all" % self.bjamcmd, log_all=True, simple=True)
+        run_cmd("./%s %s --clean-all" % (self.bjamcmd, bjamoptions), log_all=True, simple=True)
 
     def build_step(self):
         """Build Boost with bjam tool."""
 
-        bjamoptions = " --prefix=%s" % self.objdir
+        bjamoptions = " --prefix=%s --user-config=user-config.jam" % self.objdir
+        if 'toolset=' not in self.cfg['buildopts']:
+            bjamoptions += " toolset=" + self.toolset
 
         cxxflags = os.getenv('CXXFLAGS')
         # only disable -D_GLIBCXX_USE_CXX11_ABI if use_glibcxx11_abi was explicitly set to False
@@ -224,7 +244,7 @@ class EB_Boost(EasyBlock):
 
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
-            self.build_boost_variant(bjamoptions + " --user-config=user-config.jam --with-mpi", paracmd)
+            self.build_boost_variant(bjamoptions + " --with-mpi", paracmd)
 
         if self.cfg['boost_multi_thread']:
             self.log.info("Building boost with multi threading")
@@ -233,7 +253,7 @@ class EB_Boost(EasyBlock):
         # if both boost_mpi and boost_multi_thread are enabled, build boost mpi with multi-thread support
         if self.cfg['boost_multi_thread'] and self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi with multi threading")
-            extra_bjamoptions = " --user-config=user-config.jam --with-mpi threading=multi --layout=tagged"
+            extra_bjamoptions = " --with-mpi threading=multi --layout=tagged"
             self.build_boost_variant(bjamoptions + extra_bjamoptions, paracmd)
 
         # install remainder of boost libraries
