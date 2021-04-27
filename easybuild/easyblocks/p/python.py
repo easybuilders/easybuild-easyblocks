@@ -376,9 +376,14 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
+        # Create non-versioned symlinks for python and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            symlink(python_binary_path + self.pyshortver, python_binary_path)
+            symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        if self._has_ensure_pip():
+            pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
+            if not os.path.isfile(pip_binary_path):
+                symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg['ebpythonprefixes']:
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
