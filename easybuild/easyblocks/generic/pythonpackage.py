@@ -239,6 +239,8 @@ class PythonPackage(ExtensionEasyBlock):
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
+            'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
+                                   "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed "
@@ -345,6 +347,10 @@ class PythonPackage(ExtensionEasyBlock):
 
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
+
+            pip_no_index = self.cfg.get('pip_no_index', None)
+            if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
+                self.cfg.update('installopts', '--no-index')
 
             # avoid that pip (ab)uses $HOME/.cache/pip
             # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
