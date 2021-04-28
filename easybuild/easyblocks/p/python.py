@@ -43,6 +43,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.easyconfig import disable_templating
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -136,9 +137,12 @@ class EB_Python(ConfigureMake):
             # Python installations must be clean
             'sanity_pip_check': True,
         }
-        for key, value in ext_defaults.items():
-            if key not in self.cfg['exts_default_options']:
-                self.cfg['exts_default_options'][key] = value
+        # Disable templating to update the underlying values
+        with disable_templating(self.cfg):
+            for key, value in ext_defaults.items():
+                if key not in self.cfg['exts_default_options']:
+                    self.cfg['exts_default_options'][key] = value
+        self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
     def patch_step(self, *args, **kwargs):
         """
