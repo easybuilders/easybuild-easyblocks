@@ -49,6 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -149,14 +150,11 @@ class EB_Boost(EasyBlock):
         # Explicitely set the compiler path to avoid B2 checking some standard paths like /opt
         cxx = os.getenv('CXX')
         if cxx:
-            cxx_abs = which(cxx, log_error=False)
-            if not cxx_abs:
-                raise EasyBuildError("Could not find $CXX (%s) in $PATH (%s). Check your modules!",
-                                     cxx, os.getenv('PATH'))
+            cxx = which(cxx, on_error=ERROR)
             # Remove default toolset config which may lead to duplicate toolsets (e.g. for intel-linux)
             apply_regex_substitutions('project-config.jam', [('using %s ;' % toolset, '')])
             # Add our toolset config with no version and full path to compiler
-            user_config.append("using %s : : %s ;" % (self.toolset, cxx_abs))
+            user_config.append("using %s : : %s ;" % (self.toolset, cxx))
 
         if self.cfg['boost_mpi']:
 
