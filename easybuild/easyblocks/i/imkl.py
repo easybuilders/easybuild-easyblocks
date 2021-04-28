@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, remove_dir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -183,7 +183,13 @@ class EB_imkl(IntelBase):
     def make_module_extra(self):
         """Overwritten from Application to add extra txt"""
         txt = super(EB_imkl, self).make_module_extra()
-        txt += self.module_generator.set_environment('MKLROOT', os.path.join(self.installdir, 'mkl'))
+
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            mklroot = os.path.join(self.installdir, 'mkl', self.version)
+        else:
+            mklroot = os.path.join(self.installdir, 'mkl')
+
+        txt += self.module_generator.set_environment('MKLROOT', mklroot)
         return txt
 
     def post_install_step(self):
@@ -216,7 +222,11 @@ class EB_imkl(IntelBase):
                 'libmkl_cdft.a': 'GROUP (libmkl_cdft_core.a)'
             }
 
-        if LooseVersion(self.version) >= LooseVersion('10.3'):
+        loosever = LooseVersion(self.version)
+
+        if loosever >= LooseVersion('2021'):
+            libsubdir = os.path.join('mkl', self.version, 'lib', 'intel64')
+        elif loosever >= LooseVersion('10.3'):
             libsubdir = os.path.join('mkl', 'lib', 'intel64')
         else:
             if self.cfg['m32']:
@@ -227,18 +237,15 @@ class EB_imkl(IntelBase):
         for fil, txt in extra.items():
             dest = os.path.join(self.installdir, libsubdir, fil)
             if not os.path.exists(dest):
-                try:
-                    f = open(dest, 'w')
-                    f.write(txt)
-                    f.close()
-                    self.log.info("File %s written" % dest)
-                except IOError as err:
-                    raise EasyBuildError("Can't write file %s: %s", dest, err)
+                write_file(dest, txt)
 
         # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
 
-            if LooseVersion(self.version) >= LooseVersion('10.3'):
+            if loosever >= LooseVersion('2021'):
+                intsubdir = os.path.join('mkl', self.version, 'interfaces')
+                inttarget = 'libintel64'
+            elif loosever >= LooseVersion('10.3'):
                 intsubdir = os.path.join('mkl', 'interfaces')
                 inttarget = 'libintel64'
             else:
@@ -262,7 +269,9 @@ class EB_imkl(IntelBase):
             compopt = None
             # determine whether we're using a non-Intel GCC-based or PGI-based toolchain
             # can't use toolchain.comp_family, because of system toolchain used when installing imkl
-            if get_software_root('icc') is None:
+            if get_software_root('icc') or get_software_root('intel-compilers'):
+                compopt = 'compiler=intel'
+            else:
                 # check for PGI first, since there's a GCC underneath PGI too...
                 if get_software_root('PGI'):
                     compopt = 'compiler=pgi'
@@ -270,8 +279,6 @@ class EB_imkl(IntelBase):
                     compopt = 'compiler=gnu'
                 else:
                     raise EasyBuildError("Not using Intel/GCC/PGI compilers, don't know how to build wrapper libs")
-            else:
-                compopt = 'compiler=intel'
 
             # patch makefiles for cdft wrappers when PGI is used as compiler
             if get_software_root('PGI'):
@@ -366,15 +373,15 @@ class EB_imkl(IntelBase):
         extralibs = ['libmkl_blacs_intelmpi_%(suff)s.' + shlib_ext, 'libmkl_scalapack_%(suff)s.' + shlib_ext]
 
         if self.cfg['interfaces']:
-            compsuff = '_intel'
-            if get_software_root('icc') is None:
-                # check for PGI first, since there's a GCC underneath PGI too...
-                if get_software_root('PGI'):
-                    compsuff = '_pgi'
-                elif get_software_root('GCC'):
-                    compsuff = '_gnu'
-                else:
-                    raise EasyBuildError("Not using Intel/GCC/PGI, don't know compiler suffix for FFTW libraries.")
+            if get_software_root('icc') or get_software_root('intel-compilers'):
+                compsuff = '_intel'
+            # check for PGI first, since there's a GCC underneath PGI too...
+            elif get_software_root('PGI'):
+                compsuff = '_pgi'
+            elif get_software_root('GCC'):
+                compsuff = '_gnu'
+            else:
+                raise EasyBuildError("Not using Intel/GCC/PGI, don't know compiler suffix for FFTW libraries.")
 
             precs = ['_double', '_single']
             if ver < LooseVersion('11'):
@@ -399,23 +406,39 @@ class EB_imkl(IntelBase):
                     bits = ['']
                 libs += ['libfftw%s%s%s.a' % x for x in itertools.product(fftw_cdft_vers, bits, pics)]
 
-        if ver >= LooseVersion('10.3'):
-            if self.cfg['m32']:
-                raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)
+        if ver >= LooseVersion('10.3') and self.cfg['m32']:
+            raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)
+
+        if ver >= LooseVersion('2021'):
+            basedir = os.path.join('mkl', self.version)
+
+            mkldirs = [
+                os.path.join(basedir, 'bin'),
+                os.path.join(basedir, 'lib', 'intel64'),
+                os.path.join(basedir, 'include'),
+            ]
+            libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
+
+            mklfiles = [
+                os.path.join(basedir, 'lib', 'intel64', 'libmkl_core.%s' % shlib_ext),
+                os.path.join(basedir, 'include', 'mkl.h'),
+            ]
+            mklfiles.extend([os.path.join(basedir, 'lib', 'intel64', lib) for lib in libs])
+
+        elif ver >= LooseVersion('10.3'):
+            mkldirs = ['bin', 'mkl/bin', 'mkl/lib/intel64', 'mkl/include']
+            if ver < LooseVersion('11.3'):
+                mkldirs.append('mkl/bin/intel64')
+            libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
+            mklfiles = ['mkl/lib/intel64/libmkl.%s' % shlib_ext, 'mkl/include/mkl.h'] + \
+                       ['mkl/lib/intel64/%s' % lib for lib in libs]
+            if ver >= LooseVersion('10.3.4') and ver < LooseVersion('11.1'):
+                mkldirs += ['compiler/lib/intel64']
             else:
-                mkldirs = ['bin', 'mkl/bin', 'mkl/lib/intel64', 'mkl/include']
-                if ver < LooseVersion('11.3'):
-                    mkldirs.append('mkl/bin/intel64')
-                libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
-                mklfiles = ['mkl/lib/intel64/libmkl.%s' % shlib_ext, 'mkl/include/mkl.h'] + \
-                           ['mkl/lib/intel64/%s' % lib for lib in libs]
-                if ver >= LooseVersion('10.3.4') and ver < LooseVersion('11.1'):
-                    mkldirs += ['compiler/lib/intel64']
+                if ver >= LooseVersion('2017.0.0'):
+                    mkldirs += ['lib/intel64_lin']
                 else:
-                    if ver >= LooseVersion('2017.0.0'):
-                        mkldirs += ['lib/intel64_lin']
-                    else:
-                        mkldirs += ['lib/intel64']
+                    mkldirs += ['lib/intel64']
 
         else:
             if self.cfg['m32']:
