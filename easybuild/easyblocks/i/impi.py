@@ -295,7 +295,7 @@ EULA=accept
                 manpath = os.path.join(mpi_subdir, 'man')
 
                 if self.cfg['ofi_internal']:
-                    libfabric_dir = os.path.join('mpi', '2021.1.1', 'libfabric')
+                    libfabric_dir = os.path.join('mpi', 'latest', 'libfabric')
                     lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
                     path_dirs.append(os.path.join(libfabric_dir, 'bin'))
                     guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
