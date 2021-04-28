@@ -200,6 +200,11 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
+        # The only installed packages at this point are default installed ones, e.g. pip&setuptools
+        # And we want to upgrade them cleanly, i.e. uninstall them
+        if 'pip_ignore_installed' not in self.cfg['exts_default_options']:
+            self.cfg['exts_default_options']['pip_ignore_installed'] = False
+
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
         msg = "Unsetting '%s' easyconfig parameter before building/installing extensions: %s"
