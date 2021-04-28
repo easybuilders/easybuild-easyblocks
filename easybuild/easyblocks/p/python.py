@@ -208,6 +208,12 @@ class EB_Python(ConfigureMake):
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
 
+    def extensions_step(self, *args, **kwargs):
+        """Install extensions (PythonPackages)"""
+        # don't add user site directory to sys.path (equivalent to python -s)
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        super(EB_Python, self).extensions_step(*args, **kwargs)
+
     def auto_detect_lto_support(self):
         """Return True, if LTO should be enabled for current toolchain"""
         result = False
