@@ -147,21 +147,31 @@ class EB_imkl(IntelBase):
             if self.cfg['m32']:
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
+                if LooseVersion(self.version) >= LooseVersion('2021'):
+                    compiler_subdir = os.path.join('compiler', self.version, 'linux', 'compiler', 'lib', 'intel64_lin')
+                    mkl_subdir = os.path.join('mkl', self.version)
+                    pkg_config_path = [os.path.join(mkl_subdir, 'tools', 'pkgconfig')]
+                else:
+                    compiler_subdir = os.path.join('lib', 'intel64')
+                    mkl_subdir = 'mkl'
+                    pkg_config_path = [os.path.join(mkl_subdir, 'bin', 'pkgconfig')]
+                    guesses['MANPATH'] = ['man', 'man/en_US']
+                    if LooseVersion(self.version) >= LooseVersion('11.0'):
+                        if LooseVersion(self.version) >= LooseVersion('11.3'):
+                            guesses['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
+                        elif LooseVersion(self.version) >= LooseVersion('11.1'):
+                            guesses['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
+                        else:
+                            guesses['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
+                library_path = [compiler_subdir, os.path.join(mkl_subdir, 'lib', 'intel64')]
+                cpath = [os.path.join(mkl_subdir, 'include'), os.path.join(mkl_subdir, 'include', 'fftw')]
                 guesses.update({
                     'PATH': [],
-                    'LD_LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
-                    'LIBRARY_PATH': ['lib/intel64', 'mkl/lib/intel64'],
-                    'MANPATH': ['man', 'man/en_US'],
-                    'CPATH': ['mkl/include', 'mkl/include/fftw'],
-                    'PKG_CONFIG_PATH': ['mkl/bin/pkgconfig'],
+                    'LD_LIBRARY_PATH': library_path,
+                    'LIBRARY_PATH': library_path,
+                    'CPATH': cpath,
+                    'PKG_CONFIG_PATH': pkg_config_path,
                 })
-                if LooseVersion(self.version) >= LooseVersion('11.0'):
-                    if LooseVersion(self.version) >= LooseVersion('11.3'):
-                        guesses['MIC_LD_LIBRARY_PATH'] = ['lib/intel64_lin_mic', 'mkl/lib/mic']
-                    elif LooseVersion(self.version) >= LooseVersion('11.1'):
-                        guesses['MIC_LD_LIBRARY_PATH'] = ['lib/mic', 'mkl/lib/mic']
-                    else:
-                        guesses['MIC_LD_LIBRARY_PATH'] = ['compiler/lib/mic', 'mkl/lib/mic']
         else:
             if self.cfg['m32']:
                 guesses.update({
