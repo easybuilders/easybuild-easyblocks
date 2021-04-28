@@ -43,7 +43,7 @@ from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option
+from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
@@ -845,7 +845,7 @@ class EB_TensorFlow(PythonPackage):
         # determine number of cores/GPUs to use for tests
         max_num_test_jobs = int(self.cfg['test_max_parallel'] or self.cfg['parallel'])
         if self._with_cuda:
-            if not which('nvidia-smi', log_error=False):
+            if not which('nvidia-smi', on_error=IGNORE):
                 print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
                 num_gpus_to_use = 0
             elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':

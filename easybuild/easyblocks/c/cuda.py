@@ -42,6 +42,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
@@ -194,7 +195,7 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
-        ldconfig = which('ldconfig', log_ok=False, log_error=False)
+        ldconfig = which('ldconfig', log_ok=False, on_error=IGNORE)
         sbin_dirs = ['/sbin', '/usr/sbin']
         if not ldconfig:
             # ldconfig is usually in /sbin or /usr/sbin
