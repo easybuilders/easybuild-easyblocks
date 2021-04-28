@@ -128,6 +128,18 @@ class EB_Python(ConfigureMake):
             easybuild_subdir = log_path()
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
+        ext_defaults = {
+            'download_dep_fail': True,
+            # The only installed packages at this point are default installed ones, e.g. pip&setuptools
+            # And we want to upgrade them cleanly, i.e. uninstall them
+            'pip_ignore_installed': False,
+            # Python installations must be clean
+            'sanity_pip_check': True,
+        }
+        for key, value in ext_defaults.items():
+            if key not in self.cfg['exts_default_options']:
+                self.cfg['exts_default_options'][key] = value
+
     def patch_step(self, *args, **kwargs):
         """
         Custom patch step for Python:
@@ -199,18 +211,6 @@ class EB_Python(ConfigureMake):
         # build and install additional packages with PythonPackage easyblock
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
-
-        ext_defaults = {
-            'download_dep_fail': True,
-            # The only installed packages at this point are default installed ones, e.g. pip&setuptools
-            # And we want to upgrade them cleanly, i.e. uninstall them
-            'pip_ignore_installed': False,
-            # Python installations must be clean
-            'sanity_pip_check': True,
-        }
-        for key, value in ext_defaults.items():
-            if key not in self.cfg['exts_default_options']:
-                self.cfg['exts_default_options'][key] = value
 
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
