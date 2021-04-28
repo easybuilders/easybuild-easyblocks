@@ -207,7 +207,7 @@ EULA=accept
             mpi_mods.extend(['mpi_base.mod', 'mpi_constants.mod', 'mpi_sizeofs.mod'])
 
         if impi_ver >= LooseVersion('2021'):
-            mpi_subdir = os.path.join('mpi', 'latest')
+            mpi_subdir = os.path.join('mpi', self.version)
             bin_dir = os.path.join(mpi_subdir, 'bin')
             include_dir = os.path.join(mpi_subdir, 'include')
             lib_dir = os.path.join(mpi_subdir, 'lib', 'release')
@@ -237,7 +237,7 @@ EULA=accept
         if impi_ver >= LooseVersion('2017'):
             # Add minimal test program to sanity checks
             if impi_ver >= LooseVersion('2021'):
-                impi_testsrc = os.path.join(self.installdir, 'mpi', 'latest', 'test', 'test.c')
+                impi_testsrc = os.path.join(self.installdir, 'mpi', self.version, 'test', 'test.c')
             else:
                 impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
 
@@ -281,7 +281,7 @@ EULA=accept
 
             impi_ver = LooseVersion(self.version)
             if impi_ver >= LooseVersion('2021'):
-                mpi_subdir = os.path.join('mpi', 'latest')
+                mpi_subdir = os.path.join('mpi', self.version)
                 lib_dirs = [
                     os.path.join(mpi_subdir, 'lib'),
                     os.path.join(mpi_subdir, 'lib', 'release'),
@@ -295,7 +295,7 @@ EULA=accept
                 manpath = os.path.join(mpi_subdir, 'man')
 
                 if self.cfg['ofi_internal']:
-                    libfabric_dir = os.path.join('mpi', 'latest', 'libfabric')
+                    libfabric_dir = os.path.join('mpi', self.version, 'libfabric')
                     lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
                     path_dirs.append(os.path.join(libfabric_dir, 'bin'))
                     guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
