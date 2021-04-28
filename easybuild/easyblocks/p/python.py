@@ -43,7 +43,6 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.framework.easyconfig.easyconfig import disable_templating
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -137,12 +136,11 @@ class EB_Python(ConfigureMake):
             # Python installations must be clean
             'sanity_pip_check': True,
         }
-        # Disable templating to update the underlying values
-        with disable_templating(self.cfg):
-            for key, value in ext_defaults.items():
-                if key not in self.cfg['exts_default_options']:
-                    self.cfg['exts_default_options'][key] = value
-        self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
+        exts_default_options = self.cfg.get_ref('exts_default_options')
+        for key in ext_defaults:
+            if key not in exts_default_options:
+                exts_default_options[key] = ext_defaults[key]
+        self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
 
     def patch_step(self, *args, **kwargs):
         """
@@ -398,7 +396,7 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
-        # Create non-versioned symlinks for python and pip
+        # Create non-versioned, relative symlinks for python and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
             symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
