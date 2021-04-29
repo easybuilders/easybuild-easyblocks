@@ -492,14 +492,15 @@ class EB_GROMACS(CMakeMake):
             if not self.lib_subdir:
                 raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
-            # Reset installopts etc for the benefit of the gmxapi extension
-            self.cfg['installopts'] = self.orig_installopts
-
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
         if self.iter_idx < self.variants_to_build - 1:
             self.log.info("skipping extension step %s", self.iter_idx)
         else:
+            # Reset installopts etc for the benefit of the gmxapi extension
+            self.cfg['install_cmd'] = self.orig_install_cmd
+            self.cfg['build_cmd'] = self.orig_build_cmd
+            self.cfg['installopts'] = self.orig_installopts
             # Set runtest to None so that the gmxapi extension doesn't try to
             # run "check" as a command
             orig_runtest = self.cfg['runtest']
