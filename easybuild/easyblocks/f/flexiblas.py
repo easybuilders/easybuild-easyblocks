@@ -31,8 +31,8 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_FlexiBLAS(CMakeMake):
