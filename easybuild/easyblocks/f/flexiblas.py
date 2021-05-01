@@ -44,8 +44,8 @@ class EB_FlexiBLAS(CMakeMake):
         extra_vars.update({
             'blas_auto_detect': [False, "Let FlexiBLAS autodetect the BLAS libraries during configuration", CUSTOM],
             'enable_lapack': [True, "Enable LAPACK support, also includes the wrappers around LAPACK", CUSTOM],
-            'flexiblas_default': [None, "Default BLAS lib to set at compile time. " +
-                                  "By default, the first BLAS lib in the list of dependencies is set as default", CUSTOM],
+            'flexiblas_default': [None, "Default BLAS lib to set at compile time. If not defined, " +
+                                  "the first BLAS lib in the list of dependencies is set as default", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
