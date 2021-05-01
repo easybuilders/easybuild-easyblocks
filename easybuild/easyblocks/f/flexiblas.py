@@ -75,12 +75,13 @@ class EB_FlexiBLAS(CMakeMake):
 
         supported_blas_libs = ['OpenBLAS', 'BLIS', 'NETLIB']
         flexiblas_default = self.cfg['flexiblas_default']
-        if flexiblas_default is not None:
-            if flexiblas_default not in supported_blas_libs:
-                raise EasyBuildError("%s not in list of supported BLAS libs %s", flexiblas_default, supported_blas_libs)
-            configopts.update({'FLEXIBLAS_DEFAULT': flexiblas_default})
-        else:
-            configopts.update({'FLEXIBLAS_DEFAULT': self.blas_libs[0]})
+        if flexiblas_default is None:
+            flexiblas_default = self.blas_libs[0]
+
+        if flexiblas_default not in supported_blas_libs:
+            raise EasyBuildError("%s not in list of supported BLAS libs %s", flexiblas_default, supported_blas_libs)
+
+        configopts.update({'FLEXIBLAS_DEFAULT': flexiblas_default})
 
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
