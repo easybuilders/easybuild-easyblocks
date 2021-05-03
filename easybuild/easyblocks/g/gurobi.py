@@ -61,7 +61,8 @@ class EB_Gurobi(Tarball):
             'dirs': [],
         }
 
-        custom_commands = []
+        custom_commands = ["gurobi_cl --help"]
+
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
 
