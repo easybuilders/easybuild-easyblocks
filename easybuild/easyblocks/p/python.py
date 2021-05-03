@@ -232,6 +232,19 @@ class EB_Python(ConfigureMake):
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
 
+        if self.install_pip:
+            # When using ensurepip, then pip must be used to upgrade pip and setuptools
+            # Otherwise it will only copy new files leading to a combination of of files from the old and new version
+            use_pip_default = self.cfg['exts_default_options'].get('use_pip')
+            # self.exts is populated in fetch_step
+            for ext in self.exts:
+                if ext['name'] in ('pip', 'setuptools'):
+                    if not ext.get('options', {}).get('use_pip', use_pip_default):
+                        raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
+                                             "you must set 'use_pip=True' for pip&setuptools. "
+                                             "Found 'use_pip=False' (maybe by default) for %s.",
+                                             ext['name'])
+
     def extensions_step(self, *args, **kwargs):
         """Install extensions (PythonPackages)"""
         # don't add user site directory to sys.path (equivalent to python -s)
@@ -258,20 +271,6 @@ class EB_Python(ConfigureMake):
 
     def configure_step(self):
         """Set extra configure options."""
-
-        if self.install_pip:
-            # When using ensurepip, then pip must be used to upgrade pip and setuptools
-            # Otherwise it will only copy new files leading to a combination of of files from the old and new version
-            use_pip_default = self.cfg['exts_default_options'].get('use_pip')
-            # self.exts is populated in fetch_step
-            for ext in self.exts:
-                if ext['name'] in ('pip', 'setuptools'):
-                    if not ext.get('options', {}).get('use_pip', use_pip_default):
-                        raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
-                                             "you must set 'use_pip=True' for pip&setuptools. "
-                                             "Found 'use_pip=False' (maybe by default) for %s.",
-                                             ext['name'])
-
         # Check for and report distutils user configs which may make the installation fail
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
         for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
