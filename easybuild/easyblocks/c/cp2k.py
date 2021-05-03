@@ -569,7 +569,14 @@ class EB_CP2K(EasyBlock):
 
     def configure_BLAS_lib(self, options):
         """Configure for BLAS library."""
-        options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBBLAS', ''))
+
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            self.log.debug('Using FlexiBLAS as BLAS lib')
+            options['LIBS'] += ' %s %s' % (self.libsmm, '-lflexiblas -lgfortran')
+            print('LIBS:', options['LIBS'])
+        else:
+            options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBBLAS', ''))
         return options
 
     def configure_MKL(self, options):
