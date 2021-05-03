@@ -248,7 +248,7 @@ class EB_Python(ConfigureMake):
     def extensions_step(self, *args, **kwargs):
         """Install extensions (PythonPackages)"""
         # don't add user site directory to sys.path (equivalent to python -s)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PYTHONNOUSERSITE', '1')
         super(EB_Python, self).extensions_step(*args, **kwargs)
 
     def auto_detect_lto_support(self):
@@ -363,7 +363,7 @@ class EB_Python(ConfigureMake):
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PYTHONNOUSERSITE', '1')
 
         super(EB_Python, self).configure_step()
 
