@@ -224,6 +224,9 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
+        # don't add user site directory to sys.path (equivalent to python -s)
+        env.setvar('PYTHONNOUSERSITE', '1')
+
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
         msg = "Unsetting '%s' easyconfig parameter before building/installing extensions: %s"
@@ -244,12 +247,6 @@ class EB_Python(ConfigureMake):
                                              "you must set 'use_pip=True' for pip&setuptools. "
                                              "Found 'use_pip=False' (maybe by default) for %s.",
                                              ext['name'])
-
-    def extensions_step(self, *args, **kwargs):
-        """Install extensions (PythonPackages)"""
-        # don't add user site directory to sys.path (equivalent to python -s)
-        env.setvar('PYTHONNOUSERSITE', '1')
-        super(EB_Python, self).extensions_step(*args, **kwargs)
 
     def auto_detect_lto_support(self):
         """Return True, if LTO should be enabled for current toolchain"""
