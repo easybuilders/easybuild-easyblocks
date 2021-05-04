@@ -223,6 +223,8 @@ class EB_PyTorch(PythonPackage):
         """Run unit tests"""
         # Make PyTorch tests not use the user home
         env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        # Pretend to be on FB CI which disables some tests, especially those which download stuff
+        env.setvar('SANDCASTLE', '1')
         # Parse excluded_tests and flatten into space separated string
         excluded_tests = []
         for arch, tests in self.cfg['excluded_tests'].items():
