@@ -137,8 +137,8 @@ class EB_Python(ConfigureMake):
             # The only installed packages at this point are default installed ones, e.g. pip&setuptools
             # And we want to upgrade them cleanly, i.e. uninstall them
             'pip_ignore_installed': False,
-            # Python installations must be clean
-            'sanity_pip_check': True,
+            # Python installations must be clean. Requires pip >= 9
+            'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0') >= LooseVersion('9'),
         }
         exts_default_options = self.cfg.get_ref('exts_default_options')
         for key in ext_defaults:
@@ -151,6 +151,14 @@ class EB_Python(ConfigureMake):
             if not self._has_ensure_pip():
                 raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
                                      "is not available in Python %s", self.version)
+
+    def _get_pip_ext_version(self):
+        """Return the pip version from exts_list or None"""
+        for ext in self.cfg.get_ref('exts_list'):
+            # Must be (at least) a name-version tuple
+            if isinstance(ext, tuple) and len(ext) >= 2 and ext[0] == 'pip':
+                return ext[1]
+        return None
 
     def patch_step(self, *args, **kwargs):
         """
