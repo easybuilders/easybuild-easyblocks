@@ -237,7 +237,7 @@ class EB_Python(ConfigureMake):
 
         if self.install_pip:
             # When using ensurepip, then pip must be used to upgrade pip and setuptools
-            # Otherwise it will only copy new files leading to a combination of of files from the old and new version
+            # Otherwise it will only copy new files leading to a combination of files from the old and new version
             use_pip_default = self.cfg['exts_default_options'].get('use_pip')
             # self.exts is populated in fetch_step
             for ext in self.exts:
