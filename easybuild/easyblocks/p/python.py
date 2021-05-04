@@ -133,13 +133,18 @@ class EB_Python(ConfigureMake):
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
         ext_defaults = {
-            'download_dep_fail': True,
             # The only installed packages at this point are default installed ones, e.g. pip&setuptools
             # And we want to upgrade them cleanly, i.e. uninstall them
             'pip_ignore_installed': False,
             # Python installations must be clean. Requires pip >= 9
             'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0') >= LooseVersion('9'),
         }
+        # Some older ECs break if we enable download_dep_fail due to missing packages
+        # Since Python 2.7.14 (and all Python 3 versions) we usually enable download_dep_fail in the ECs
+        # already so this should not lead to failures
+        if LooseVersion(self.version) >= LooseVersion('2.7.14'):
+            ext_defaults['download_dep_fail'] = True
+
         exts_default_options = self.cfg.get_ref('exts_default_options')
         for key in ext_defaults:
             if key not in exts_default_options:
