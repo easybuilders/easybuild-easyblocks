@@ -61,27 +61,17 @@ class EB_FlexiBLAS(CMakeMake):
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
 
-        configopts = {}
-
-        if self.cfg['blas_auto_detect'] is True:
-            configopts.update({'BLAS_AUTO_DETECT': 'ON'})
-        else:
-            configopts.update({'BLAS_AUTO_DETECT': 'OFF'})
-
-        if self.cfg['enable_lapack'] is True:
-            configopts.update({'LAPACK': 'ON'})
-        else:
-            configopts.update({'LAPACK': 'OFF'})
+        configopts = {
+            'BLAS_AUTO_DETECT': ('OFF', 'ON')[bool(self.cfg['blas_auto_detect'])],
+            'LAPACK': ('OFF', 'ON')[bool(self.cfg['enable_lapack'])],
+            'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
+        }
 
         supported_blas_libs = ['OpenBLAS', 'BLIS', 'NETLIB']
-        flexiblas_default = self.cfg['flexiblas_default']
-        if flexiblas_default is None:
-            flexiblas_default = self.blas_libs[0]
 
+        flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
         if flexiblas_default not in supported_blas_libs:
             raise EasyBuildError("%s not in list of supported BLAS libs %s", flexiblas_default, supported_blas_libs)
-
-        configopts.update({'FLEXIBLAS_DEFAULT': flexiblas_default})
 
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
