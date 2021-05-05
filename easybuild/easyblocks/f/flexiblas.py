@@ -32,6 +32,7 @@ import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -67,11 +68,17 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['OpenBLAS', 'BLIS', 'NETLIB']
+        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS']
 
+        # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
         if flexiblas_default not in supported_blas_libs:
             raise EasyBuildError("%s not in list of supported BLAS libs %s", flexiblas_default, supported_blas_libs)
+
+        # make sure that all backends are supported libraries
+        unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
+        if unsupported_libs:
+            raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
 
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
@@ -80,10 +87,7 @@ class EB_FlexiBLAS(CMakeMake):
         # see https://github.com/mpimd-csc/flexiblas#setup-with-custom-blas-and-lapack-implementations
         for blas_lib in self.blas_libs:
             key = '%s_LIBRARY' % blas_lib
-            if blas_lib == 'imkl':
-                configopts[key] = ';'.join(['mkl_intel_lp64', 'mkl_gnu_thread', 'mkl_core', 'gomp'])
-            else:
-                configopts[key] = blas_lib.lower()
+            configopts[key] = blas_lib.lower()
 
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
         # to allow easyconfig to override specifies settings
@@ -93,6 +97,15 @@ class EB_FlexiBLAS(CMakeMake):
                 self.cfg.update('configopts', opt + "'%s'" % value)
 
         super(EB_FlexiBLAS, self).configure_step()
+
+    def test_step(self):
+        """Run tests using each of the backends."""
+
+        # run tests with default backend (NETLIB)
+        run_cmd("make test")
+
+        for blas_lib in self.blas_libs:
+            run_cmd("FLEXIBLAS_DEFAULT='%s' make test" % blas_lib)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
