@@ -102,10 +102,21 @@ class EB_FlexiBLAS(CMakeMake):
         """Run tests using each of the backends."""
 
         # run tests with default backend (NETLIB)
-        run_cmd("make test")
+        test_cmd = ' '.join([
+            self.cfg['pretestopts'],
+            "make test",
+            self.cfg['testopts'],
+        ])
+        run_cmd(test_cmd)
 
         for blas_lib in self.blas_libs:
-            run_cmd("FLEXIBLAS_DEFAULT='%s' make test" % blas_lib)
+            test_cmd = ' '.join([
+                self.cfg['pretestopts'],
+                "FLEXIBLAS_DEFAULT='%s'" % blas_lib,
+                "make test",
+                self.cfg['testopts'],
+            ])
+            run_cmd(test_cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
