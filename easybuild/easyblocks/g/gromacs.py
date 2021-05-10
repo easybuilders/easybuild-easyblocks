@@ -76,6 +76,13 @@ class EB_GROMACS(CMakeMake):
         self.lib_subdir = ''
         self.pre_env = ''
         self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
+        if LooseVersion(self.version) >= LooseVersion('2019'):
+            # Building the gmxapi interface requires shared libraries
+            self.cfg['build_shared_libs'] = True
+        if self.cfg['build_shared_libs']:
+            self.libext = get_shared_lib_ext()
+        else:
+            self.libext = 'a'
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -463,34 +470,7 @@ class EB_GROMACS(CMakeMake):
         else:
             # run 'make install' in parallel since it involves more compilation
             self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
-
             super(EB_GROMACS, self).install_step()
-
-            # the GROMACS libraries get installed in different locations (deeper subdirectory),
-            # depending on the platform;
-            # this is determined by the GNUInstallDirs CMake module;
-            # rather than trying to replicate the logic, we just figure out where the library was placed
-
-            if self.cfg['build_shared_libs']:
-                self.libext = get_shared_lib_ext()
-            else:
-                self.libext = 'a'
-
-            if LooseVersion(self.version) < LooseVersion('5.0'):
-                libname = 'libgmx*.%s' % self.libext
-            else:
-                libname = 'libgromacs*.%s' % self.libext
-
-            for libdir in ['lib', 'lib64']:
-                if os.path.exists(os.path.join(self.installdir, libdir)):
-                    for subdir in [libdir, os.path.join(libdir, '*')]:
-                        libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
-                        if libpaths:
-                            self.lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
-                            self.log.info("Found lib subdirectory that contains %s: %s", libname, self.lib_subdir)
-                            break
-            if not self.lib_subdir:
-                raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
@@ -508,9 +488,35 @@ class EB_GROMACS(CMakeMake):
             super(EB_GROMACS, self).extensions_step(fetch)
             self.cfg['runtest'] = orig_runtest
 
+    def get_lib_subdir(self):
+        # the GROMACS libraries get installed in different locations (deeper subdirectory),
+        # depending on the platform;
+        # this is determined by the GNUInstallDirs CMake module;
+        # rather than trying to replicate the logic, we just figure out where the library was placed
+
+        if LooseVersion(self.version) < LooseVersion('5.0'):
+            libname = 'libgmx*.%s' % self.libext
+        else:
+            libname = 'libgromacs*.%s' % self.libext
+        lib_subdir = None
+        for libdir in ['lib', 'lib64']:
+            if os.path.exists(os.path.join(self.installdir, libdir)):
+                for subdir in [libdir, os.path.join(libdir, '*')]:
+                    libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
+                    if libpaths:
+                        lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
+                        self.log.info("Found lib subdirectory that contains %s: %s", libname, lib_subdir)
+                        break
+        if not lib_subdir:
+            raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
+
+        return lib_subdir
+
     def make_module_req_guess(self):
         """Custom library subdirectories for GROMACS."""
         guesses = super(EB_GROMACS, self).make_module_req_guess()
+        if not self.lib_subdir:
+            self.lib_subdir = self.get_lib_subdir()
         guesses.update({
             'LD_LIBRARY_PATH': [self.lib_subdir],
             'LIBRARY_PATH': [self.lib_subdir],
@@ -591,6 +597,9 @@ class EB_GROMACS(CMakeMake):
             'lib%s%s.%s' % (x, suff, self.libext) for x in libnames + mpi_libnames for suff in suffixes
         ])
         bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
+
+        if not self.lib_subdir:
+            self.lib_subdir = self.get_lib_subdir()
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
