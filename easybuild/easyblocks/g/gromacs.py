@@ -520,7 +520,8 @@ class EB_GROMACS(CMakeMake):
                 self.lib_subdir = self.get_lib_subdir()
             except EasyBuildError as error:
                 if self.cfg['force'] and self.cfg['module_only']:
-                    self.log.warning("No lib subdirectory directory found in installation: %s", error)
+                    self.log.info("No lib subdirectory directory found in installation: %s", error)
+                    self.log.info("You are forcing module creation for a non-existent installation!")
                 else:
                     raise error
         guesses.update({
