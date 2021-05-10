@@ -276,6 +276,8 @@ class EB_GROMACS(CMakeMake):
                               mpi_numprocs)
 
             if LooseVersion(self.version) >= LooseVersion('2019'):
+                # Building the gmxapi interface requires shared libraries,
+                # this is handled in the class initialisation so --module-only works
                 self.cfg.update('configopts', "-DGMXAPI=ON")
 
                 if LooseVersion(self.version) >= LooseVersion('2020'):
