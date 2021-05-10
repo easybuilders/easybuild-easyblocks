@@ -44,6 +44,7 @@ from easybuild.tools.filetools import copy, move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_Tkinter(EB_Python):
     """Support for building/installing the Python Tkinter module
     based on the normal Python module. We build a normal python
