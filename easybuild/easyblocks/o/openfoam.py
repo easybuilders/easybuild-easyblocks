@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import stat
+import tempfile
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -489,9 +490,10 @@ class EB_OpenFOAM(EasyBlock):
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
             motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
             if os.path.exists(motorbike_path):
+                test_dir = tempfile.mkdtemp()
                 cmds = [
-                    "cp -a %s %s" % (motorbike_path, self.builddir),
-                    "cd %s" % os.path.join(self.builddir, os.path.basename(motorbike_path)),
+                    "cp -a %s %s" % (motorbike_path, test_dir),
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                     "source $FOAM_BASH",
                     ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
                     "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/triSurface/",
@@ -505,7 +507,7 @@ class EB_OpenFOAM(EasyBlock):
                     "runApplication reconstructParMesh -constant",
                     "runApplication reconstructPar -latestTime",
                     "cd %s" % self.builddir,
-                    "rm -r %s" % os.path.basename(motorbike_path),
+                    "rm -r %s" % test_dir,
                 ]
                 # all commands need to be run in a single shell command,
                 # because sourcing $FOAM_BASH sets up environment
