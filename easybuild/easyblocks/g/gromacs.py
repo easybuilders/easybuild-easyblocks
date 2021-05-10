@@ -516,7 +516,12 @@ class EB_GROMACS(CMakeMake):
         """Custom library subdirectories for GROMACS."""
         guesses = super(EB_GROMACS, self).make_module_req_guess()
         if not self.lib_subdir:
-            self.lib_subdir = self.get_lib_subdir()
+            try:
+                self.lib_subdir = self.get_lib_subdir()
+            except EasyBuildError as error:
+                self.log.info("No lib subdirectory directory found in installation: %s", error)
+                self.log.info("Our sanity check catches this so we assume a module only build on a non-existent"
+                              "installation is being forced and ignoring this.")
         guesses.update({
             'LD_LIBRARY_PATH': [self.lib_subdir],
             'LIBRARY_PATH': [self.lib_subdir],
