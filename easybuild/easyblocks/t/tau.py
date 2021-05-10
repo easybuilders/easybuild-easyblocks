@@ -251,7 +251,7 @@ class EB_TAU(ConfigureMake):
         custom_paths = {
             'files':
                 [os.path.join('bin', 'pprof'), os.path.join('include', 'TAU.h'),
-                 os.path.join('lib', 'libTAU.%s' % get_shared_lib_ext())] +
+                 os.path.join('lib', 'shared-disable', 'libTAU.%s' % get_shared_lib_ext())] +
                 [os.path.join('lib', 'lib%s.a' % x) for x in self.variant_labels] +
                 [os.path.join('lib', 'Makefile.' + x) for x in self.variant_labels],
             'dirs': [],
