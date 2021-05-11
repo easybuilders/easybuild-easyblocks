@@ -67,7 +67,7 @@ class ModuleRC(EasyBlock):
             raise EasyBuildError("Name does not match dependency name: %s vs %s", self.name, deps[0]['name'])
 
         # ensure version to alias to is a prefix of the version of the dependency
-        if not deps[0]['version'].startswith(self.version):
+        if not deps[0]['version'].startswith(self.version) and not self.version == "default":
             raise EasyBuildError("Version is not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
