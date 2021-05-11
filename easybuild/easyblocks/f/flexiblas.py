@@ -33,7 +33,6 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -60,6 +59,8 @@ class EB_FlexiBLAS(CMakeMake):
         build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         self.blas_libs = [x for x in dep_names if x not in build_dep_names]
+
+        self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
@@ -92,29 +93,29 @@ class EB_FlexiBLAS(CMakeMake):
             configopts[key] = blas_lib.lower()
 
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
-        # to allow easyconfig to override specific settings
+        # to allow easyconfig to override specifies settings
         for key, value in sorted(configopts.items()):
             opt = '-D%s=' % key
             if key not in self.cfg['configopts']:
                 self.cfg.update('configopts', opt + "'%s'" % value)
 
-        builddir = os.path.join(self.builddir, 'easybuild_obj')
-
         # specify compiler commands with absolute paths, to ensure that RPATH wrapper scripts are used
         if build_option('rpath'):
             self.cfg['abs_path_compilers'] = True
 
-            # inject RPATH link option for build location of libflexiblas.so.3,
-            # to ensure that test binaries can find the FlexiBLAS library
-            build_libdir = os.path.join(builddir, 'lib')
-            for envvar in ['CFLAGS', 'CXXFLAGS', 'FFLAGS']:
-                flags = os.getenv(envvar)
-                setvar(envvar, '-Wl,-rpath=%s %s' % (build_libdir, flags))
-
-        super(EB_FlexiBLAS, self).configure_step(builddir=builddir)
+        super(EB_FlexiBLAS, self).configure_step(builddir=self.obj_builddir)
 
     def test_step(self):
         """Run tests using each of the backends."""
+
+        if build_option('rpath'):
+            # inject RPATH link option for build location of libflexiblas.so.3 to compiler flags environment variables,
+            # to ensure that test binaries can find the FlexiBLAS library
+            for envvar in ['CFLAGS', 'CXXFLAGS', 'FFLAGS']:
+                self.cfg.update('testopts', '%(envvar)s="$%(envvar)s -Wl,-rpath=%(libdir)s"' % {
+                    'envvar': envvar,
+                    'libdir': os.path.join(self.obj_builddir, 'lib'),
+                })
 
         # run tests with default backend (NETLIB)
         test_cmd = ' '.join([
