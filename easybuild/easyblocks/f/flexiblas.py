@@ -117,7 +117,7 @@ class EB_FlexiBLAS(CMakeMake):
                 os.path.join(self.obj_builddir, 'lib64'),
                 '$LD_LIBRARY_PATH'
             ])
-            self.cfg.update('pretestopts', 'export LD_LIBRARY_PATH="%s" && ' % ld_library_path)
+            self.cfg['pretestopts'] = ('export LD_LIBRARY_PATH="%s" && ' % ld_library_path) + self.cfg['pretestopts']
 
         # run tests with default backend (NETLIB)
         test_cmd = ' '.join([
