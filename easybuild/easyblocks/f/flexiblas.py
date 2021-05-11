@@ -109,13 +109,15 @@ class EB_FlexiBLAS(CMakeMake):
         """Run tests using each of the backends."""
 
         if build_option('rpath'):
-            # inject RPATH link option for build location of libflexiblas.so.3 to compiler flags environment variables,
+            # inject build location of libflexiblas.so.3 to $LD_LIBRARY_PATH
+            # (which is used as a fallback to find libraries not found via the locations listed in the RPATH section),
             # to ensure that test binaries can find the FlexiBLAS library
-            for envvar in ['CFLAGS', 'CXXFLAGS', 'FFLAGS']:
-                self.cfg.update('testopts', '%(envvar)s="$%(envvar)s -Wl,-rpath=%(libdir)s"' % {
-                    'envvar': envvar,
-                    'libdir': os.path.join(self.obj_builddir, 'lib'),
-                })
+            ld_library_path = ':'.join([
+                os.path.join(self.obj_builddir, 'lib'),
+                os.path.join(self.obj_builddir, 'lib64'),
+                '$LD_LIBRARY_PATH'
+            ])
+            self.cfg.update('pretestopts', 'export LD_LIBRARY_PATH="%s" && ' % ld_library_path)
 
         # run tests with default backend (NETLIB)
         test_cmd = ' '.join([
