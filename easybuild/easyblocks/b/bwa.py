@@ -19,6 +19,7 @@ EasyBuild support for building and installing BWA, implemented as an easyblock
 @author: George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 """
 import os
+import glob
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -40,6 +41,8 @@ class EB_BWA(ConfigureMake):
             # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
             self.files.append('solid2fastq.pl')
+        
+        srcdir = self.cfg['start_dir']
 
     def configure_step(self):
         """
@@ -61,11 +64,28 @@ class EB_BWA(ConfigureMake):
         Install by copying files to install dir
         """
         srcdir = self.cfg['start_dir']
-        destdir = os.path.join(self.installdir, 'bin')
-        mkdir(destdir)
+        # copy binaries
+        bindir = os.path.join(self.installdir, 'bin')
+        mkdir(bindir)
         for filename in self.files:
             srcfile = os.path.join(srcdir, filename)
-            copy_file(srcfile, destdir)
+            copy_file(srcfile, bindir)
+        
+        # copy include files
+        includes = glob.glob(os.path.join(srcdir, '*.h'))
+        incdir = os.path.join(self.installdir, 'include/bwa')
+        mkdir(incdir, parents=True)
+        for filename in includes:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, incdir)
+        
+        # copy libraries
+        libs = glob.glob(os.path.join(srcdir, '*.a'))
+        libdir = os.path.join(self.installdir, 'lib')
+        mkdir(libdir)
+        for filename in libs:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, libdir)
 
         manfile = os.path.join(srcdir, 'bwa.1')
         manman1dir = os.path.join(self.installdir, 'man', 'man1')
