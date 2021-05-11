@@ -41,8 +41,6 @@ class EB_BWA(ConfigureMake):
             # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
             self.files.append('solid2fastq.pl')
-        
-        srcdir = self.cfg['start_dir']
 
     def configure_step(self):
         """
@@ -70,7 +68,7 @@ class EB_BWA(ConfigureMake):
         for filename in self.files:
             srcfile = os.path.join(srcdir, filename)
             copy_file(srcfile, bindir)
-        
+
         # copy include files
         includes = glob.glob(os.path.join(srcdir, '*.h'))
         incdir = os.path.join(self.installdir, 'include/bwa')
@@ -78,7 +76,7 @@ class EB_BWA(ConfigureMake):
         for filename in includes:
             srcfile = os.path.join(srcdir, filename)
             copy_file(srcfile, incdir)
-        
+
         # copy libraries
         libs = glob.glob(os.path.join(srcdir, '*.a'))
         libdir = os.path.join(self.installdir, 'lib')
