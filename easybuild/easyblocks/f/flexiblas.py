@@ -92,7 +92,7 @@ class EB_FlexiBLAS(CMakeMake):
             configopts[key] = blas_lib.lower()
 
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
-        # to allow easyconfig to override specifies settings
+        # to allow easyconfig to override specific settings
         for key, value in sorted(configopts.items()):
             opt = '-D%s=' % key
             if key not in self.cfg['configopts']:
