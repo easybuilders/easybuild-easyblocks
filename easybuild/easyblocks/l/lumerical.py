@@ -47,9 +47,12 @@ class EB_Lumerical(PackedBinary):
         """
         super(EB_Lumerical, self).extract_step()
 
-        rpms = glob.glob(os.path.join(self.src[0]['finalpath'], 'rpm_install_files', 'Lumerical-%s*.rpm' % self.version))
+        rpms = glob.glob(os.path.join(self.src[0]['finalpath'], 'rpm_install_files', 'Lumerical-*.rpm'))
         if len(rpms) != 1:
             raise EasyBuildError("Incorrect number of RPMs found, was expecting exactly one: %s", rpms)
+
+        self.log.info("Found RPM: {}".format(rpms[0]))
+
         cmd = "rpm2cpio %s | cpio -idm " % rpms[0]
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -67,6 +70,19 @@ class EB_Lumerical(PackedBinary):
         """Install Lumerical using copy tree."""
         mj_version = self.version.split('-')[0]
         fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', mj_version)
+
+        if not os.path.isdir(fdtd_dir):
+            dirs = os.listdir(os.path.join(self.cfg['start_dir'], 'opt', 'lumerical'))
+            if len(dirs) != 1:
+                raise EasyBuildError("Install: can't determine source directory in {}".format(dirs))
+            mj_version = dirs[0]
+            # Is this sanity check necessary?
+            if mj_version[0] != 'v':
+                raise EasyBuildError("Install: directory {} does not start with a 'v'".format(mj_version))
+
+        fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', mj_version)
+        self.log.info("Found install source directory: {}".format(fdtd_dir))
+
         copy_dir(fdtd_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_step(self):

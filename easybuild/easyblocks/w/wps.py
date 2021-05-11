@@ -204,7 +204,7 @@ class EB_WPS(EasyBlock):
         # fetch option number based on build type option and selected build type
         build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
 
-        cmd = "./configure"
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {}
         no_qa = [".*compiler is.*"]
         std_qa = {
