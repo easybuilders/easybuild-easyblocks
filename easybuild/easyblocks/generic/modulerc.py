@@ -68,7 +68,7 @@ class ModuleRC(EasyBlock):
 
         # ensure version to alias to is a prefix of the version of the dependency
         if not deps[0]['version'].startswith(self.version) and not self.version == "default":
-            raise EasyBuildError("Version is not a prefix of dependency version: %s vs %s",
+            raise EasyBuildError("Version is not 'default' and not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
         alias_modname = deps[0]['short_mod_name']
