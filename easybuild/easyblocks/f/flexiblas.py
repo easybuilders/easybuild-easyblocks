@@ -32,6 +32,8 @@ import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
+from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -96,7 +98,20 @@ class EB_FlexiBLAS(CMakeMake):
             if key not in self.cfg['configopts']:
                 self.cfg.update('configopts', opt + "'%s'" % value)
 
-        super(EB_FlexiBLAS, self).configure_step()
+        builddir = os.path.join(self.builddir, 'easybuild_obj')
+
+        # specify compiler commands with absolute paths, to ensure that RPATH wrapper scripts are used
+        if build_option('rpath'):
+            self.cfg['abs_path_compilers'] = True
+
+            # inject RPATH link option for build location of libflexiblas.so.3,
+            # to ensure that test binaries can find the FlexiBLAS library
+            build_libdir = os.path.join(builddir, 'lib')
+            for envvar in ['CFLAGS', 'CXXFLAGS', 'FFLAGS']:
+                flags = os.getenv(envvar)
+                setvar(envvar, '-Wl,-rpath=%s %s' % (build_libdir, flags))
+
+        super(EB_FlexiBLAS, self).configure_step(builddir=builddir)
 
     def test_step(self):
         """Run tests using each of the backends."""
