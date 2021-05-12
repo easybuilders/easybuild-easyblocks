@@ -133,17 +133,13 @@ class EB_Python(ConfigureMake):
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
         ext_defaults = {
-            # The only installed packages at this point are default installed ones, e.g. pip&setuptools
-            # And we want to upgrade them cleanly, i.e. uninstall them
+            # We should enable this (by default) for all extensions because the only installed packages at this point
+            # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
+            # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
+            # which is voluntarily or accidentally installed multiple times.
+            # Example: Upgrading to a higher version after installing new dependencies.
             'pip_ignore_installed': False,
-            # Python installations must be clean. Requires pip >= 9
-            'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0') >= LooseVersion('9'),
         }
-        # Some older ECs break if we enable download_dep_fail due to missing packages
-        # Since Python 2.7.14 (and all Python 3 versions) we usually enable download_dep_fail in the ECs
-        # already so this should not lead to failures
-        if LooseVersion(self.version) >= LooseVersion('2.7.14'):
-            ext_defaults['download_dep_fail'] = True
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
         for key in ext_defaults:
@@ -156,14 +152,6 @@ class EB_Python(ConfigureMake):
             if not self._has_ensure_pip():
                 raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
                                      "is not available in Python %s", self.version)
-
-    def _get_pip_ext_version(self):
-        """Return the pip version from exts_list or None"""
-        for ext in self.cfg.get_ref('exts_list'):
-            # Must be (at least) a name-version tuple
-            if isinstance(ext, tuple) and len(ext) >= 2 and ext[0] == 'pip':
-                return ext[1]
-        return None
 
     def patch_step(self, *args, **kwargs):
         """
