@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, which, remove_dir
+from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -120,13 +120,7 @@ class CMakeMake(ConfigureMake):
         setup_cmake_env(self.toolchain)
 
         if builddir is None and self.cfg.get('separate_build_dir', True):
-            builddir = os.path.join(self.builddir, 'easybuild_obj')
-            # For separate_build_dir we want a clean folder. So remove if it exists
-            # This can happen when multiple iterations are done (e.g. shared, static, ...)
-            if os.path.exists(builddir):
-                self.log.warning('Build directory %s already exists (from previous iterations?). Removing...',
-                                 builddir)
-                remove_dir(builddir)
+            builddir = create_unused_dir(self.builddir, 'easybuild_obj')
 
         if builddir:
             mkdir(builddir, parents=True)
