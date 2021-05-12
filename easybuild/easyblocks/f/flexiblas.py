@@ -33,6 +33,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -118,6 +119,9 @@ class EB_FlexiBLAS(CMakeMake):
                 '$LD_LIBRARY_PATH'
             ])
             self.cfg['pretestopts'] = ('export LD_LIBRARY_PATH="%s" && ' % ld_library_path) + self.cfg['pretestopts']
+
+        # Show verbose output if a test fails
+        setvar('CTEST_OUTPUT_ON_FAILURE', 'True')
 
         # run tests with default backend (NETLIB)
         test_cmd = ' '.join([
