@@ -73,7 +73,8 @@ class EB_BWA(ConfigureMake):
             copy_file(srcfile, bindir)
 
         # copy include files
-        self.includes = glob.glob(os.path.join(srcdir, '*.h'))
+        includes = glob.glob(os.path.join(srcdir, '*.h'))
+        self.includes = [os.path.basename(include) for include in includes]
         incdir = os.path.join(self.installdir, 'include', 'bwa')
         if not self.includes:
             raise EasyBuildError("Unable to find header files")
