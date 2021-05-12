@@ -23,6 +23,7 @@ import glob
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, mkdir
 
 
