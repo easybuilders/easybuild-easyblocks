@@ -41,6 +41,8 @@ class EB_BWA(ConfigureMake):
             # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
             self.files.append('solid2fastq.pl')
+        self.includes = []
+        self.libs = ['libbwa.a']
 
     def configure_step(self):
         """
@@ -70,18 +72,20 @@ class EB_BWA(ConfigureMake):
             copy_file(srcfile, bindir)
 
         # copy include files
-        includes = glob.glob(os.path.join(srcdir, '*.h'))
+        self.includes = glob.glob(os.path.join(srcdir, '*.h'))
         incdir = os.path.join(self.installdir, 'include', 'bwa')
+        if not self.includes:
+            raise EasyBuildError("Unable to find header files")
+
         mkdir(incdir, parents=True)
-        for filename in includes:
+        for filename in self.includes:
             srcfile = os.path.join(srcdir, filename)
             copy_file(srcfile, incdir)
 
         # copy libraries
-        libs = glob.glob(os.path.join(srcdir, '*.a'))
         libdir = os.path.join(self.installdir, 'lib')
         mkdir(libdir)
-        for filename in libs:
+        for filename in self.libs:
             srcfile = os.path.join(srcdir, filename)
             copy_file(srcfile, libdir)
 
@@ -93,8 +97,12 @@ class EB_BWA(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for BWA."""
 
+        bins = [os.path.join('bin', x) for x in self.files]
+        incs = [os.path.join('include', 'bwa', x) for x in self.includes]
+        libs = [os.path.join('lib', 'libbwa.a')]
+
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in self.files],
+            'files': bins + incs + libs,
             'dirs': []
         }
 
