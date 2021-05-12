@@ -112,7 +112,8 @@ class EB_Python(ConfigureMake):
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
             'install_pip': [False,
                             "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
-                            "of pip and setuptools into Python. You _must_ then use pip for upgrading pip&setuptools!",
+                            "of pip and setuptools into Python. You _must_ then use pip for upgrading "
+                            "pip & setuptools by installing newer versions as extensions!",
                             CUSTOM],
             'optimized': [True, "Build with expensive, stable optimizations (PGO, etc.) (version >= 3.5.4)", CUSTOM],
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
@@ -245,7 +246,7 @@ class EB_Python(ConfigureMake):
                 if ext['name'] in ('pip', 'setuptools'):
                     if not ext.get('options', {}).get('use_pip', use_pip_default):
                         raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
-                                             "you must set 'use_pip=True' for pip&setuptools. "
+                                             "you must set 'use_pip=True' for the pip & setuptools extensions. "
                                              "Found 'use_pip=False' (maybe by default) for %s.",
                                              ext['name'])
 
