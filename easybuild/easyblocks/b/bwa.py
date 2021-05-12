@@ -71,7 +71,7 @@ class EB_BWA(ConfigureMake):
 
         # copy include files
         includes = glob.glob(os.path.join(srcdir, '*.h'))
-        incdir = os.path.join(self.installdir, 'include/bwa')
+        incdir = os.path.join(self.installdir, 'include', 'bwa')
         mkdir(incdir, parents=True)
         for filename in includes:
             srcfile = os.path.join(srcdir, filename)
