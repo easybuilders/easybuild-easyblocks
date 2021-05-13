@@ -47,6 +47,7 @@ from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_s
 from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+import easybuild.tools.environment as env
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -157,6 +158,12 @@ class EB_CUDA(Binary):
         # patch install script to handle Q&A autonomously
         if install_interpreter == "perl":
             patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
+            p5lib = os.getenv('PERL5LIB', '')
+            if p5lib == '':
+                p5lib = self.builddir
+            else:
+                p5lib = os.pathsep.join(self.builddir, p5lib)
+            env.setvar('PERL5LIB', p5lib)
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
         # this is workaround for not being able to specify --nox11 to the Perl install scripts
