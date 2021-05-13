@@ -110,6 +110,11 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'install_pip': [False,
+                            "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
+                            "of pip and setuptools into Python. You _must_ then use pip for upgrading "
+                            "pip & setuptools by installing newer versions as extensions!",
+                            CUSTOM],
             'optimized': [True, "Build with expensive, stable optimizations (PGO, etc.) (version >= 3.5.4)", CUSTOM],
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
@@ -128,6 +133,27 @@ class EB_Python(ConfigureMake):
             easybuild_subdir = log_path()
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
+        ext_defaults = {
+            # We should enable this (by default) for all extensions because the only installed packages at this point
+            # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
+            # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
+            # which is voluntarily or accidentally installed multiple times.
+            # Example: Upgrading to a higher version after installing new dependencies.
+            'pip_ignore_installed': False,
+        }
+
+        exts_default_options = self.cfg.get_ref('exts_default_options')
+        for key in ext_defaults:
+            if key not in exts_default_options:
+                exts_default_options[key] = ext_defaults[key]
+        self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
+
+        self.install_pip = self.cfg['install_pip']
+        if self.install_pip:
+            if not self._has_ensure_pip():
+                raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
+                                     "is not available in Python %s", self.version)
+
     def patch_step(self, *args, **kwargs):
         """
         Custom patch step for Python:
@@ -135,6 +161,10 @@ class EB_Python(ConfigureMake):
         """
 
         super(EB_Python, self).patch_step(*args, **kwargs)
+
+        if self.install_pip:
+            # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
+            apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
 
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
@@ -196,6 +226,9 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
+        # don't add user site directory to sys.path (equivalent to python -s)
+        env.setvar('PYTHONNOUSERSITE', '1')
+
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
         msg = "Unsetting '%s' easyconfig parameter before building/installing extensions: %s"
@@ -203,6 +236,19 @@ class EB_Python(ConfigureMake):
             if self.cfg[param]:
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
+
+        if self.install_pip:
+            # When using ensurepip, then pip must be used to upgrade pip and setuptools
+            # Otherwise it will only copy new files leading to a combination of files from the old and new version
+            use_pip_default = self.cfg['exts_default_options'].get('use_pip')
+            # self.exts is populated in fetch_step
+            for ext in self.exts:
+                if ext['name'] in ('pip', 'setuptools'):
+                    if not ext.get('options', {}).get('use_pip', use_pip_default):
+                        raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
+                                             "you must set 'use_pip=True' for the pip & setuptools extensions. "
+                                             "Found 'use_pip=False' (maybe by default) for %s.",
+                                             ext['name'])
 
     def auto_detect_lto_support(self):
         """Return True, if LTO should be enabled for current toolchain"""
@@ -215,9 +261,15 @@ class EB_Python(ConfigureMake):
                 result = True
         return result
 
+    def _has_ensure_pip(self):
+        """Check if  this Python version has/should have the ensurepip package"""
+        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
+        # And in 2.7.9+: https://docs.python.org/2.7/whatsnew/2.7.html#pep-477-backport-ensurepip-pep-453-to-python-2-7
+        version = LooseVersion(self.version)
+        return version >= LooseVersion('3.4.0') or (version < LooseVersion('3') and version >= LooseVersion('2.7.9'))
+
     def configure_step(self):
         """Set extra configure options."""
-
         # Check for and report distutils user configs which may make the installation fail
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
         for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
@@ -257,9 +309,8 @@ class EB_Python(ConfigureMake):
                 if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
                     self.cfg.update('configopts', "--enable-optimizations")
 
-        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
-            # Default, but do it explicitly
+        if self.install_pip:
+            # Default in 3.4+, required in 2.7
             self.cfg.update('configopts', "--with-ensurepip=upgrade")
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
@@ -311,7 +362,7 @@ class EB_Python(ConfigureMake):
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PYTHONNOUSERSITE', '1')
 
         super(EB_Python, self).configure_step()
 
@@ -366,9 +417,14 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
+        # Create non-versioned, relative symlinks for python and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            symlink(python_binary_path + self.pyshortver, python_binary_path)
+            symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        if self.install_pip:
+            pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
+            if not os.path.isfile(pip_binary_path):
+                symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg['ebpythonprefixes']:
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
@@ -436,10 +492,11 @@ class EB_Python(ConfigureMake):
             "python -c 'import readline'",  # make sure readline support was built correctly
         ]
 
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+        if self.install_pip:
             # Check that pip and setuptools are installed
+            py_maj_version = self.version.split('.')[0]
             custom_paths['files'].extend([
-                os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
+                os.path.join('bin', pip) for pip in ('pip', 'pip' + py_maj_version, 'pip' + self.pyshortver)
             ])
             custom_commands.extend([
                 "python -c 'import pip'",
