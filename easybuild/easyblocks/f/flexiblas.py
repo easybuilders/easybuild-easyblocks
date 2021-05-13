@@ -134,7 +134,7 @@ class EB_FlexiBLAS(CMakeMake):
         for blas_lib in self.blas_libs:
             test_cmd = ' '.join([
                 self.cfg['pretestopts'],
-                "FLEXIBLAS_DEFAULT='%s'" % blas_lib,
+                "FLEXIBLAS_TEST='%s'" % blas_lib,
                 "make test",
                 self.cfg['testopts'],
             ])
