@@ -131,15 +131,6 @@ class EB_FlexiBLAS(CMakeMake):
         ])
         run_cmd(test_cmd)
 
-        for blas_lib in self.blas_libs:
-            test_cmd = ' '.join([
-                self.cfg['pretestopts'],
-                "FLEXIBLAS_TEST='%s'" % blas_lib,
-                "make test",
-                self.cfg['testopts'],
-            ])
-            run_cmd(test_cmd)
-
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
 
