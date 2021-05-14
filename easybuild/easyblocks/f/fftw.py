@@ -33,6 +33,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
+from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version
@@ -46,7 +47,7 @@ from easybuild.tools.utilities import nub
 FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE = ['avx', 'avx2', 'avx512', 'fma4', 'sse2', 'vsx']
 # Altivec (POWER), SSE (x86), NEON (ARM), FMA (x86_64)
 # asimd is CPU feature for extended NEON on AARCH64
-FFTW_CPU_FEATURE_FLAGS = FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE + ['altivec', 'asimd', 'neon', 'sse']
+FFTW_CPU_FEATURE_FLAGS = FFTW_CPU_FEATURE_FLAGS_SINGLE_DOUBLE + ['altivec', 'asimd', 'neon', 'sse', 'sve']
 FFTW_PRECISION_FLAGS = ['single', 'double', 'long-double', 'quad-precision']
 
 
@@ -187,9 +188,14 @@ class EB_FFTW(ConfigureMake):
                     if prec == 'single' and getattr(self, flag):
                         prec_configopts.append('--enable-%s' % flag)
 
-                # NEON (ARM) only for single precision and double precision (on AARCH64)
-                if (prec == 'single' and (self.asimd or self.neon)) or (prec == 'double' and self.asimd):
-                    prec_configopts.append('--enable-neon')
+                if self.sve:
+                    # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
+                    if prec == 'single' or prec == 'double':
+                        prec_configopts.append('--enable-sve --enable-armv8-cntvct-el0')
+                elif self.asimd or self.neon:
+                    # NEON (ARM) only for single precision and double precision (on AARCH64)
+                    if prec == 'single' or (prec == 'double' and self.asimd):
+                        prec_configopts.append('--enable-neon')
 
                 # For POWER with GCC 5/6/7 and FFTW/3.3.6 we need to disable some settings for tests to pass
                 # (we do it last so as not to affect previous logic)
@@ -217,7 +223,7 @@ class EB_FFTW(ConfigureMake):
     def test_step(self):
         """Custom implementation of test step for FFTW."""
 
-        if self.toolchain.mpi_family() == toolchain.OPENMPI:
+        if self.toolchain.mpi_family() == toolchain.OPENMPI and not self.toolchain.comp_family() == TC_CONSTANT_FUJITSU:
 
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
             # to avoid that some tests fail if only a handful of cores are available
