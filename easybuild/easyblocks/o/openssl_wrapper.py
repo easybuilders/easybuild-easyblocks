@@ -33,10 +33,9 @@ import os
 import re
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.filetools import expand_glob_paths, find_glob_pattern, mkdir, read_file, symlink, which
-from easybuild.tools.modules import get_software_root
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.filetools import expand_glob_paths, mkdir, read_file, symlink, which
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext
 
 def locate_solib(libobj):
@@ -67,6 +66,15 @@ class EB_OpenSSL_wrapper(Bundle):
     Create a wrapper .modulerc file for OpenSSL
     """
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to OpenSSL wrapper"""
+        extra_vars = Bundle.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
+            'wrap_system_openssl': [True, 'Detect and wrap OpenSSL installation in host system', CUSTOM],
+        })
+        return extra_vars
+
     def __init__(self, *args, **kwargs):
         """Define the names of OpenSSL shared objects"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
@@ -74,7 +82,14 @@ class EB_OpenSSL_wrapper(Bundle):
         # Libraries packaged in OpenSSL
         self.openssl_libs = ['libssl', 'libcrypto']
 
-        # Check the system library of OpenSSL
+        # Paths to system libraries and headers of OpenSSL
+        self.ssl_syslib = None
+        self.ssl_syshead = None
+
+        if not self.cfg.get('wrap_system_openssl'):
+            return
+
+        # Check the system libraries of OpenSSL
         libssl = {
             '1.0': {LINUX: 'libssl.so.10', DARWIN: 'libssl.1.0.dylib'},
             '1.1': {LINUX: 'libssl.so.1.1', DARWIN: 'libssl.1.1.dylib'},
@@ -86,7 +101,6 @@ class EB_OpenSSL_wrapper(Bundle):
             libssl_so = libssl[self.version][os_type]
             libssl_obj = ctypes.cdll.LoadLibrary(libssl_so)
         except OSError:
-            self.ssl_syslib = None
             self.log.debug("Library '%s' not found in host system", libssl_so)
         else:
             # ctypes.util.find_library only accepts unversioned library names
@@ -115,7 +129,6 @@ class EB_OpenSSL_wrapper(Bundle):
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
 
         # verify that the headers match our OpenSSL version
-        self.ssl_syshead = None
         for include in ssl_include_dirs:
             opensslv = read_file(os.path.join(include, 'opensslv.h'))
             header_majmin_version = re.search("SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", opensslv, re.M)
