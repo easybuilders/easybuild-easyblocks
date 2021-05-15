@@ -32,7 +32,7 @@ import ctypes.macholib.dyld
 import os
 import re
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.tools.filetools import expand_glob_paths, find_glob_pattern, mkdir, read_file, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -62,7 +62,7 @@ def locate_solib(libobj):
 
     return libpath
 
-class EB_OpenSSL_wrapper(EasyBlock):
+class EB_OpenSSL_wrapper(Bundle):
     """
     Create a wrapper .modulerc file for OpenSSL
     """
@@ -126,21 +126,15 @@ class EB_OpenSSL_wrapper(EasyBlock):
         if not self.ssl_syshead:
             self.log.debug("OpenSSL headers not found in host system")
 
-    def prepare_step(self, *args, **kwargs):
-        """Use OpenSSL dependency in host systems without OpenSSL"""
-        if self.ssl_syslib and self.ssl_syshead:
-            self.cfg['dependencies'] = [dep for dep in self.cfg['dependencies'] if dep['name'] != self.name]
-            self.log.debug("Host system provides OpenSSL, removing OpenSSL from list of dependencies")
+    def fetch_step(self, *args, **kwargs):
+        """Fetch sources if OpenSSL component is needed"""
+        if not all([self.ssl_syslib, self.ssl_syshead]):
+            super(EB_OpenSSL_wrapper, self).fetch_step(*args, **kwargs)
 
-        super(EB_OpenSSL_wrapper, self).prepare_step(*args, **kwargs)
-
-    def configure_step(self):
-        """Do nothing."""
-        pass
-
-    def build_step(self):
-        """Do nothing."""
-        pass
+    def extract_step(self):
+        """Extract sources if OpenSSL component is needed"""
+        if not all([self.ssl_syslib, self.ssl_syshead]):
+            super(EB_OpenSSL_wrapper, self).extract_step()
 
     def install_step(self):
         """Symlink target OpenSSL installation"""
@@ -152,38 +146,32 @@ class EB_OpenSSL_wrapper(EasyBlock):
             lib_pattern = [os.path.join(os.path.dirname(self.ssl_syslib), '%s' % ptrn) for ptrn in lib_pattern]
             include_pattern = [os.path.join(self.ssl_syshead, '*')]
             bin_path = which(self.name.lower())
+
+            # Link OpenSSL libraries
+            lib64_dir = os.path.join(self.installdir, 'lib64')
+            mkdir(lib64_dir)
+            symlink('lib64', 'lib')
+
+            lib_files = expand_glob_paths(lib_pattern)
+            for libso in lib_files:
+                symlink(libso, os.path.join(lib64_dir, os.path.basename(libso)))
+
+            # Link OpenSSL headers
+            include_dir = os.path.join(self.installdir, 'include', self.name.lower())
+            mkdir(include_dir, parents=True)
+
+            include_files = expand_glob_paths(include_pattern)
+            for header in include_files:
+                symlink(header, os.path.join(include_dir, os.path.basename(header)))
+
+            # Link OpenSSL binary
+            bin_dir = os.path.join(self.installdir, 'bin')
+            mkdir(bin_dir)
+            symlink(bin_path, os.path.join(bin_dir, os.path.basename(bin_path)))
+
         else:
-            # Use OpenSSL from EasyBuild
-            ssl_root = get_software_root(self.name)
-            lib_pattern = [os.path.join(ssl_root, 'lib', '*.%s*' % shlib_ext)]
-            include_pattern = [os.path.join(get_software_root(self.name), 'include', self.name.lower(), '*')]
-            bin_path = os.path.join(ssl_root, 'bin', self.name.lower())
-
-        # Link OpenSSL libraries
-        lib64_dir = os.path.join(self.installdir, 'lib64')
-        mkdir(lib64_dir)
-        symlink('lib64', 'lib')
-
-        lib_files = expand_glob_paths(lib_pattern)
-        for libso in lib_files:
-            symlink(libso, os.path.join(lib64_dir, os.path.basename(libso)))
-
-        # Link OpenSSL headers
-        include_dir = os.path.join(self.installdir, 'include', self.name.lower())
-        mkdir(include_dir, parents=True)
-
-        include_files = expand_glob_paths(include_pattern)
-        for header in include_files:
-            symlink(header, os.path.join(include_dir, os.path.basename(header)))
-
-        # Link OpenSSL binary
-        bin_dir = os.path.join(self.installdir, 'bin')
-        mkdir(bin_dir)
-        symlink(bin_path, os.path.join(bin_dir, os.path.basename(bin_path)))
-
-    def make_module_dep(self):
-        """Make module file without OpenSSL dependency."""
-        return ''
+            # Install OpenSSL component
+            super(EB_OpenSSL_wrapper, self).install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for OpenSSL wrapper."""
@@ -198,4 +186,4 @@ class EB_OpenSSL_wrapper(EasyBlock):
             'dirs': [ssl_include_dir]
         }
 
-        super(EB_OpenSSL_wrapper, self).sanity_check_step(custom_paths=custom_paths)
+        super(Bundle, self).sanity_check_step(custom_paths=custom_paths)
