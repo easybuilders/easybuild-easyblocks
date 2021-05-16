@@ -39,6 +39,7 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
 
+
 def locate_solib(libobj):
     """
     Return absolute path to loaded library using dlinfo
@@ -53,7 +54,7 @@ def locate_solib(libobj):
     libdl = ctypes.cdll.LoadLibrary(ctypes.util.find_library('dl'))
 
     dlinfo = libdl.dlinfo
-    dlinfo.argtypes  = ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
+    dlinfo.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
     dlinfo.restype = ctypes.c_int
 
     libpointer = ctypes.c_void_p()
@@ -61,6 +62,7 @@ def locate_solib(libobj):
     libpath = ctypes.cast(libpointer, ctypes.POINTER(LINKMAP)).contents.l_name
 
     return libpath
+
 
 class EB_OpenSSL_wrapper(Bundle):
     """
