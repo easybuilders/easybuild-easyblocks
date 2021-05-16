@@ -64,7 +64,9 @@ def locate_solib(libobj):
 
 class EB_OpenSSL_wrapper(Bundle):
     """
-    Create a wrapper .modulerc file for OpenSSL
+    Locate the installation files of OpenSSL in the host system.
+    If available, wrap the system OpenSSL by symlinking all installation files
+    Fall back to the bundled component otherwise.
     """
 
     @staticmethod
@@ -77,7 +79,7 @@ class EB_OpenSSL_wrapper(Bundle):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Define the names of OpenSSL shared objects"""
+        """Locate the installation files of OpenSSL in the host system"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
         # Libraries packaged in OpenSSL
