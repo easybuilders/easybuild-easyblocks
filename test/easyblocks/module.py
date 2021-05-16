@@ -399,6 +399,9 @@ def suite():
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif eb_fn == 'openssl_wrapper.py':
+            # easyblock to create OpenSSL wrapper expects an OpenSSL version
+            innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
         else:
             # Make up some unique name
             innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')
