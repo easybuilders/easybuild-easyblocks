@@ -33,6 +33,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import copy_file
@@ -89,8 +90,6 @@ class EB_BerkeleyGW(ConfigureMake):
 
         self.cfg.update('buildopts', 'LINK="%s"' % mpif90)
         self.cfg.update('buildopts', 'C_LINK="%s"' % mpicxx)
-
-        self.cfg.update('buildopts', 'FOPTS="%s"' % os.environ['FFLAGS'])
         self.cfg.update('buildopts', 'C_OPTS="%s"' % os.environ['CFLAGS'])
 
         self.cfg.update('buildopts', 'LAPACKLIB="%s"' % os.environ['LIBLAPACK' + var_suffix])
@@ -112,6 +111,7 @@ class EB_BerkeleyGW(ConfigureMake):
             self.cfg.update('buildopts', 'CC_COMP="%s"' % mpicxx)
             self.cfg.update('buildopts', 'BLACSDIR="%s"' % os.environ['BLACS_LIB_DIR'])
             self.cfg.update('buildopts', 'BLACS="%s"' % os.environ['LIBBLACS'])
+            self.cfg.update('buildopts', 'FOPTS="%s"' % os.environ['FFLAGS'])
         elif comp_fam == toolchain.GCC:
             c_flags = "-std=c99"
             cxx_flags = "-std=c++0x"
@@ -126,6 +126,18 @@ class EB_BerkeleyGW(ConfigureMake):
             self.cfg.update('buildopts', 'FCPP="cpp -C -nostdinc -nostdinc++"')
             self.cfg.update('buildopts', 'C_COMP="%s %s"' % (mpicc, c_flags))
             self.cfg.update('buildopts', 'CC_COMP="%s %s"' % (mpicxx, cxx_flags))
+            self.cfg.update('buildopts', 'FOPTS="%s"' % os.environ['FFLAGS'])
+        elif comp_fam == TC_CONSTANT_FUJITSU:
+            c_flags = "-std=c99"
+            cxx_flags = "-std=c++0x"
+            f90_flags = "-Free"
+            self.cfg.update('buildopts', 'COMPFLAG=')
+            self.cfg.update('buildopts', 'MOD_OPT="-module "')
+            self.cfg.update('buildopts', 'F90free="%s %s"' % (mpif90, f90_flags))
+            self.cfg.update('buildopts', 'FCPP="cpp -C -nostdinc"')
+            self.cfg.update('buildopts', 'C_COMP="%s %s"' % (mpicc, c_flags))
+            self.cfg.update('buildopts', 'CC_COMP="%s %s"' % (mpicxx, cxx_flags))
+            self.cfg.update('buildopts', 'FOPTS="%s -Knotemparraystack"' % os.environ['FFLAGS'])
         else:
             raise EasyBuildError("EasyBuild does not yet have support for building BerkeleyGW with toolchain %s"
                                  % comp_fam)
@@ -135,7 +147,8 @@ class EB_BerkeleyGW(ConfigureMake):
             self.cfg.update('buildopts', 'MKLPATH="%s"' % mkl)
 
         fftw = get_software_root('FFTW')
-        if mkl or fftw:
+        fujitsufftw = get_software_root('FFTW3-sve')
+        if mkl or fftw or fujitsufftw:
             mathflags.append('-DUSEFFTW3')
             self.cfg.update('buildopts', 'FFTWINCLUDE="%s"' % os.environ['FFTW_INC_DIR'])
 
