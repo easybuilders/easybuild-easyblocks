@@ -177,12 +177,15 @@ class EB_OpenSSL_wrapper(Bundle):
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
 
         # verify that the headers match our OpenSSL version
-        for include in ssl_include_dirs:
-            opensslv = read_file(os.path.join(include, 'opensslv.h'))
-            header_majmin_version = re.search(r"SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", opensslv, re.M)
-            if re.match("^{}".format(*header_majmin_version.groups()), self.version):
-                self.ssl_sysheader = include
-                self.log.info("Found OpenSSL headers in host system: %s", self.ssl_sysheader)
+        for include_dir in ssl_include_dirs:
+            opensslv_path = os.path.join(include_dir, 'opensslv.h')
+            if os.path.exists(opensslv_path):
+                opensslv = read_file(opensslv_path)
+                header_majmin_version = re.search(r"SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", opensslv, re.M)
+                if re.match("^{}".format(*header_majmin_version.groups()), self.version):
+                    self.ssl_sysheader = include_dir
+                    self.log.info("Found OpenSSL headers in host system: %s", self.ssl_sysheader)
+                    break
 
         if not self.ssl_sysheader:
             self.log.info("OpenSSL headers not found in host system")
