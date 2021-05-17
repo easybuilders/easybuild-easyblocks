@@ -90,7 +90,25 @@ class EB_OpenSSL_wrapper(Bundle):
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
         # Libraries packaged in OpenSSL
-        self.openssl_libs = ['libssl', 'libcrypto']
+        openssl_libs = ['libssl', 'libcrypto']
+        openssl_libext = {
+            '1.0': {
+                LINUX: 'so.10',
+                DARWIN: '1.0.dylib',
+            },
+            '1.1': {
+                LINUX: 'so.1.1',
+                DARWIN: '1.1.dylib',
+            },
+        }
+
+        os_type = get_os_type()
+        if self.version in openssl_libext and os_type in openssl_libext[self.version]:
+            self.openssl_libs = ['%s.%s' % (lib, openssl_libext[self.version][os_type]) for lib in openssl_libs]
+        else:
+            raise EasyBuildError("Don't know name of OpenSSL system library for version %s and OS type %s",
+                                 self.version, os_type)
+
         self.openssl_engines = {
             '1.0': 'engines',
             '1.1': 'engines-1.1',
@@ -105,25 +123,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return
 
         # Check the system libraries of OpenSSL
-        libssl = {
-            '1.0': {
-                DARWIN: 'libssl.1.0.dylib',
-                LINUX: 'libssl.so.10',
-            },
-            '1.1': {
-                LINUX: 'libssl.so.1.1',
-                DARWIN: 'libssl.1.1.dylib',
-            },
-        }
-
-        os_type = get_os_type()
-
-        if self.version in libssl and os_type in libssl[self.version]:
-            libssl_so = libssl[self.version][os_type]
-        else:
-            raise EasyBuildError("Don't know name of OpenSSL system library for version %s and OS type %s",
-                                 self.version, os_type)
-
+        libssl_so = self.openssl_libs[0]
         try:
             libssl_obj = ctypes.cdll.LoadLibrary(libssl_so)
             self.log.info("Absolute path to %s: %s" % (libssl_so, libssl_obj))
@@ -206,7 +206,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         if self.ssl_syslib and self.ssl_sysheader:
             # The host system already provides the necessary OpenSSL files
-            lib_pattern = ['%s*.%s*' % (lib_so, shlib_ext) for lib_so in self.openssl_libs]
+            lib_pattern = [lib_so for lib_so in self.openssl_libs]
             lib_pattern = [os.path.join(os.path.dirname(self.ssl_syslib), '%s' % ptrn) for ptrn in lib_pattern]
             lib_pattern.append(os.path.join(self.ssl_sysengines, '*'))
 
@@ -222,12 +222,19 @@ class EB_OpenSSL_wrapper(Bundle):
 
             lib_files = expand_glob_paths(lib_pattern)
 
+            # link libraries in host system
             for libso in lib_files:
                 if 'engines' in libso:
                     target_dir = lib64_engines_dir
                 else:
                     target_dir = lib64_dir
                 symlink(libso, os.path.join(target_dir, os.path.basename(libso)))
+
+            # link unversioned libraries
+            for libso in self.openssl_libs:
+                versioned_lib = os.path.join(lib64_dir, libso)
+                unversioned_lib = os.path.join(lib64_dir, '%s.%s' % (libso.split('.')[0], shlib_ext))
+                symlink(versioned_lib, unversioned_lib)
 
             # Link OpenSSL headers
             include_dir = os.path.join(self.installdir, 'include', self.name.lower())
@@ -251,7 +258,8 @@ class EB_OpenSSL_wrapper(Bundle):
         shlib_ext = get_shared_lib_ext()
 
         ssl_files = [os.path.join('bin', self.name.lower())]
-        ssl_files.extend(os.path.join('lib', '%s.%s' % (libso, shlib_ext)) for libso in self.openssl_libs)
+        ssl_files.extend(os.path.join('lib', libso) for libso in self.openssl_libs)
+        ssl_files.extend(os.path.join('lib', '%s.%s' % (libso.split('.')[0], shlib_ext)) for libso in self.openssl_libs)
 
         ssl_dirs = [
             os.path.join('include', self.name.lower()),
