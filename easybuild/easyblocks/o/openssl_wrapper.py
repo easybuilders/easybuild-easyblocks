@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2021 Ghent University
+# Copyright 2021 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
