@@ -41,32 +41,8 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext
+from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, locate_solib
 from easybuild.tools.build_log import EasyBuildError, print_warning
-
-
-def locate_solib(libobj):
-    """
-    Return absolute path to loaded library using dlinfo
-    Based on https://stackoverflow.com/a/35683698
-    """
-    class LINKMAP(ctypes.Structure):
-        _fields_ = [
-            ("l_addr", ctypes.c_void_p),
-            ("l_name", ctypes.c_char_p)
-        ]
-
-    libdl = ctypes.cdll.LoadLibrary(ctypes.util.find_library('dl'))
-
-    dlinfo = libdl.dlinfo
-    dlinfo.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
-    dlinfo.restype = ctypes.c_int
-
-    libpointer = ctypes.c_void_p()
-    dlinfo(libobj._handle, 2, ctypes.byref(libpointer))
-    libpath = ctypes.cast(libpointer, ctypes.POINTER(LINKMAP)).contents.l_name
-
-    return libpath.decode('utf-8')
 
 
 class EB_OpenSSL_wrapper(Bundle):
