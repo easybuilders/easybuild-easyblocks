@@ -473,28 +473,24 @@ class EB_imkl(IntelBase):
 
             if ver >= LooseVersion('10.3.4') and ver < LooseVersion('11.1'):
                 mkldirs += [os.path.join('compiler', 'lib', 'intel64')]
+            elif ver >= LooseVersion('2017.0.0'):
+                mkldirs += [os.path.join('lib', 'intel64_lin')]
             else:
-                if ver >= LooseVersion('2017.0.0'):
-                    mkldirs += [os.path.join('lib', 'intel64_lin')]
-                else:
-                    mkldirs += [os.path.join('lib', 'intel64')]
+                mkldirs += [os.path.join('lib', 'intel64')]
 
         else:
             if self.cfg['m32']:
-                mklfiles = [
-                    os.path.join('lib', '32', 'libmkl.%s' % shlib_ext),
-                    os.path.join('include', 'mkl.h'),
-                ]
-                mklfiles.extend([os.path.join('lib', '32', lib) for lib in libs])
-                mkldirs = [os.path.join('lib', '32'), os.path.join('include', '32'), 'interfaces']
+                lib_subdir = '32'
             else:
+                lib_subdir = 'em64t'
                 libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
-                mklfiles = [
-                    os.path.join('lib', 'em64t', 'libmkl.%s' % shlib_ext),
-                    os.path.join('include', 'mkl.h'),
-                ]
-                mklfiles.extend([os.path.join('lib', 'em64t', lib) for lib in libs])
-                mkldirs = [os.path.join('lib', 'em64t'), os.path.join('include', 'em64t'), 'interfaces']
+
+            mklfiles = [
+                os.path.join('lib', lib_subdir, 'libmkl.%s' % shlib_ext),
+                os.path.join('include', 'mkl.h'),
+            ]
+            mklfiles.extend([os.path.join('lib', lib_subdir, lib) for lib in libs])
+            mkldirs = [os.path.join('lib', lib_subdir), os.path.join('include', lib_subdir), 'interfaces']
 
         custom_paths = {
             'files': mklfiles,
