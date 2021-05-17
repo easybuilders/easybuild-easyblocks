@@ -39,7 +39,7 @@ except ImportError:
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import expand_glob_paths, mkdir, read_file, symlink, which
+from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -150,9 +150,10 @@ class EB_OpenSSL_wrapper(Bundle):
         # Directory with engine libraries
         if self.ssl_syslib:
             lib_dir = os.path.dirname(self.ssl_syslib)
+            openssl_engine = self.openssl_engines[self.version]
             lib_engines_dir = [
-                os.path.join(lib_dir, self.openssl_engines[self.version]),
-                os.path.join(lib_dir, 'openssl', self.openssl_engines[self.version]),
+                os.path.join(lib_dir, openssl_engine),
+                os.path.join(lib_dir, 'openssl', openssl_engine),
             ]
 
             for engines_path in lib_engines_dir:
@@ -177,23 +178,35 @@ class EB_OpenSSL_wrapper(Bundle):
         # headers are located in 'include/openssl' by default
         ssl_include_subdirs = [self.name.lower()]
         if self.version == '1.1':
-            # but version 1.1 can be installed in 'include/openssl11/openssl' as well
+            # but version 1.1 can be installed in 'include/openssl11/openssl' as well,
+            # for example in CentOS 7;
             # we prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
 
         ssl_include_dirs = [os.path.join(incd, subd) for incd in sys_include_dirs for subd in ssl_include_subdirs]
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
 
-        # verify that the headers match our OpenSSL version
+        # find location of header files, verify that the headers match our OpenSSL version
+        openssl_version_regex = re.compile(r"SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", re.M)
         for include_dir in ssl_include_dirs:
             opensslv_path = os.path.join(include_dir, 'opensslv.h')
+            self.log.debug("Checking OpenSSL version in %s...", opensslv_path)
             if os.path.exists(opensslv_path):
                 opensslv = read_file(opensslv_path)
-                header_majmin_version = re.search(r"SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", opensslv, re.M)
-                if re.match("^{}".format(*header_majmin_version.groups()), self.version):
-                    self.ssl_sysheader = include_dir
-                    self.log.info("Found OpenSSL headers in host system: %s", self.ssl_sysheader)
-                    break
+                header_majmin_version = openssl_version_regex.search(opensslv)
+                if header_majmin_version:
+                    header_majmin_version = header_majmin_version.group(1)
+                    if re.match('^' + header_majmin_version, self.version):
+                        self.ssl_sysheader = include_dir
+                        self.log.info("Found OpenSSL headers in host system: %s", self.ssl_sysheader)
+                        break
+                    else:
+                        self.log.debug("Header major/minor version '%s' doesn't match with %s",
+                                       header_majmin_version, self.version)
+                else:
+                    self.log.debug("Pattern '%s' not found in %s", openssl_version_regex.pattern, opensslv_path)
+            else:
+                self.log.debug("OpenSSL header file %s not found")
 
         if not self.ssl_sysheader:
             self.log.info("OpenSSL headers not found in host system")
@@ -220,41 +233,41 @@ class EB_OpenSSL_wrapper(Bundle):
         """Symlink target OpenSSL installation"""
 
         if self.ssl_syslib and self.ssl_sysheader:
-            # Link OpenSSL libraries in system
+            # note: symlink to individual files, not directories,
+            # since directory symlinks get resolved easily...
+
+            # link OpenSSL libraries in system
             lib64_dir = os.path.join(self.installdir, 'lib64')
             lib64_engines_dir = os.path.join(lib64_dir, os.path.basename(self.ssl_sysengines))
             mkdir(lib64_engines_dir, parents=True)
 
-            lib_files = [lib_so for lib_so in self.openssl_libs]
-            lib_files = [os.path.join(os.path.dirname(self.ssl_syslib), '%s' % ptrn) for ptrn in lib_files]
-
-            engine_lib_pattern = [os.path.join(self.ssl_sysengines, '*')]
-            lib_files.extend(expand_glob_paths(engine_lib_pattern))
-
             # link existing known libraries
+            ssl_syslibdir = os.path.dirname(self.ssl_syslib)
+            lib_files = [os.path.join(ssl_syslibdir, x) for x in self.openssl_libs]
             for libso in lib_files:
-                if 'engines' in libso:
-                    target_dir = lib64_engines_dir
-                else:
-                    target_dir = lib64_dir
-                symlink(libso, os.path.join(target_dir, os.path.basename(libso)))
+                symlink(libso, os.path.join(lib64_dir, os.path.basename(libso)))
 
-            # link unversioned libraries
+            # link engines library files
+            lib64_engines_dir = os.path.join(lib64_dir, os.path.basename(self.ssl_sysengines))
+            engine_lib_pattern = [os.path.join(self.ssl_sysengines, '*')]
+            for engine_lib in expand_glob_paths(engine_lib_pattern):
+                symlink(engine_lib, os.path.join(lib64_engines_dir, os.path.basename(engine_lib)))
+
+            # relatve symlink for unversioned libraries
+            cwd = change_dir(lib64_dir)
             for libso in self.openssl_libs:
-                versioned_lib = os.path.join(lib64_dir, libso)
-                unversioned_lib = os.path.join(lib64_dir, '%s.%s' % (libso.split('.')[0], get_shared_lib_ext()))
-                symlink(versioned_lib, unversioned_lib)
+                unversioned_lib = '%s.%s' % (libso.split('.')[0], get_shared_lib_ext())
+                symlink(libso, unversioned_lib, use_abspath_source=False)
+            change_dir(cwd)
 
-            # Link OpenSSL headers in system
+            # link OpenSSL headers in system
             include_dir = os.path.join(self.installdir, 'include', self.name.lower())
             mkdir(include_dir, parents=True)
-
             include_pattern = [os.path.join(self.ssl_sysheader, '*')]
-            include_files = expand_glob_paths(include_pattern)
-            for header in include_files:
-                symlink(header, os.path.join(include_dir, os.path.basename(header)))
+            for header_file in expand_glob_paths(include_pattern):
+                symlink(header_file, os.path.join(include_dir, os.path.basename(header_file)))
 
-            # Link OpenSSL binary in system
+            # link OpenSSL binary in system
             bin_dir = os.path.join(self.installdir, 'bin')
             mkdir(bin_dir)
             symlink(self.ssl_sysbin, os.path.join(bin_dir, self.name.lower()))
@@ -268,7 +281,6 @@ class EB_OpenSSL_wrapper(Bundle):
         shlib_ext = get_shared_lib_ext()
 
         ssl_files = [os.path.join('bin', self.name.lower())]
-        ssl_files.extend(os.path.join('lib', libso) for libso in self.openssl_libs)
         ssl_files.extend(os.path.join('lib', '%s.%s' % (libso.split('.')[0], shlib_ext)) for libso in self.openssl_libs)
 
         ssl_dirs = [
@@ -281,6 +293,7 @@ class EB_OpenSSL_wrapper(Bundle):
             'dirs': ssl_dirs,
         }
 
+        # make sure that version mentioned in output of 'openssl version' matches version we are using
         custom_commands = ["ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.version[:3]]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
