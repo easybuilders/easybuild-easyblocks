@@ -59,8 +59,8 @@ class EB_Modeller(PythonPackage):
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
             'qa': [
-                {'dummyquestion': 'dummyanswer'}, 
-                'Additionals questions and answers not covered by the current EasyBlock', 
+                {'dummyquestion': 'dummyanswer'},
+                'Additionals questions and answers not covered by the current EasyBlock',
                 CUSTOM]})
         return extra_vars
 
@@ -104,7 +104,7 @@ class EB_Modeller(PythonPackage):
             raise EasyBuildError("Easyconfig parameter 'key' is not defined")
         cmd = "%s/Install" % self.cfg['start_dir']
         run_cmd_qa(cmd, self.qa, log_all=True, simple=True)
-        # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the 
+        # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the
         # first time, there should only one subdirectory in lib, e.g. x86_64-intel8. Save this value for later multi_dep
         # interations, as lib will already be populated.
         if not self.arch_:
@@ -133,8 +133,8 @@ class EB_Modeller(PythonPackage):
             f for f in os.listdir(os.path.join(self.installdir, 'lib', self.arch_))
             if os.path.isfile(os.path.join(self.installdir, 'lib', self.arch_, f))
             and f != '_modeller.'+get_shared_lib_ext()]:
-               dst = os.path.join(self.installdir, 'lib', src)
-               if not os.path.exists(dst):
+                dst = os.path.join(self.installdir, 'lib', src)
+                if not os.path.exists(dst):
                   os.symlink(os.path.join(self.arch_, src), dst)
         # provide bin/mod -> bin/mod%(version)s
         if not os.path.exists(os.path.join(self.installdir, 'bin', 'mod')):
