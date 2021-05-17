@@ -44,14 +44,12 @@ from easybuild.tools.run import run_cmd_qa
 from distutils.version import LooseVersion
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.modules import get_software_version
-import easybuild.tools.environment as env
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.easyblocks.python import EBPYTHONPREFIXES
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
+
 
 class EB_Modeller(PythonPackage):
     """Support for installing Modeller."""
@@ -60,10 +58,11 @@ class EB_Modeller(PythonPackage):
     def extra_options(extra_vars=None):
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
-            'qa': [{'dummyquestion': 'dummyanswer'}, 'Additionals questions and answers not covered by the current EasyBlock', CUSTOM ],
-        })
+            'qa': [
+                {'dummyquestion': 'dummyanswer'}, 
+                'Additionals questions and answers not covered by the current EasyBlock', 
+                CUSTOM]})
         return extra_vars
-
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor; define class variables."""
@@ -87,7 +86,7 @@ class EB_Modeller(PythonPackage):
              'Press <Enter> to continue:': ''
         }
         self.qa.update(self.cfg['qa'])
-        self.arch_= None
+        self.arch_ = None
     def configure_step(self):
         """ Skip configuration step """
         pass
@@ -105,14 +104,15 @@ class EB_Modeller(PythonPackage):
             raise EasyBuildError("Easyconfig parameter 'key' is not defined")
         cmd = "%s/Install" % self.cfg['start_dir']
         run_cmd_qa(cmd, self.qa, log_all=True, simple=True)
-        # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the first time, there should only one
-        # subdirectory in lib, e.g. x86_64-intel8. Save this value for later multi_dep interations, as lib will already be populated.
+        # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the 
+        # first time, there should only one subdirectory in lib, e.g. x86_64-intel8. Save this value for later multi_dep
+        # interations, as lib will already be populated.
         if not self.arch_:
             self.arch_ = os.listdir(os.path.join(self.installdir, 'lib'))[0]
         # _modeller.so is provided for different Python versions, namely 2.5, 3.0, 3.2, and >=3.3
         # We link the _modeller.so and %(installdir)s/modlib into %(installdir)s/lib/python%(pyshortver)s/site-packages
         # in order to allow multi_deps python
-        py_api_dirname='python2.5'
+        py_api_dirname = 'python2.5'
         pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
         python_path = os.path.join(self.installdir, 'lib', 'python%s', 'site-packages') % pyshortver
         if python_looseversion >= LooseVersion('3.0'):
@@ -133,8 +133,8 @@ class EB_Modeller(PythonPackage):
             f for f in os.listdir(os.path.join(self.installdir, 'lib', self.arch_))
             if os.path.isfile(os.path.join(self.installdir, 'lib', self.arch_, f))
             and f != '_modeller.'+get_shared_lib_ext()]:
-              dst = os.path.join(self.installdir, 'lib', src)
-              if not os.path.exists(dst):
+               dst = os.path.join(self.installdir, 'lib', src)
+               if not os.path.exists(dst):
                   os.symlink(os.path.join(self.arch_, src), dst)
         # provide bin/mod -> bin/mod%(version)s
         if not os.path.exists(os.path.join(self.installdir, 'bin', 'mod')):
