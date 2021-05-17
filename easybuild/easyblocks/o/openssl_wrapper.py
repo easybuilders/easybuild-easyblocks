@@ -104,6 +104,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         os_type = get_os_type()
         if self.version in openssl_libext and os_type in openssl_libext[self.version]:
+            # generate names of versioned .so files
             self.openssl_libs = ['%s.%s' % (lib, openssl_libext[self.version][os_type]) for lib in openssl_libs]
         else:
             raise EasyBuildError("Don't know name of OpenSSL system library for version %s and OS type %s",
@@ -217,7 +218,6 @@ class EB_OpenSSL_wrapper(Bundle):
 
     def install_step(self):
         """Symlink target OpenSSL installation"""
-        shlib_ext = get_shared_lib_ext()
 
         if self.ssl_syslib and self.ssl_sysheader:
             # Link OpenSSL libraries in system
@@ -242,7 +242,7 @@ class EB_OpenSSL_wrapper(Bundle):
             # link unversioned libraries
             for libso in self.openssl_libs:
                 versioned_lib = os.path.join(lib64_dir, libso)
-                unversioned_lib = os.path.join(lib64_dir, '%s.%s' % (libso.split('.')[0], shlib_ext))
+                unversioned_lib = os.path.join(lib64_dir, '%s.%s' % (libso.split('.')[0], get_shared_lib_ext()))
                 symlink(versioned_lib, unversioned_lib)
 
             # Link OpenSSL headers in system
