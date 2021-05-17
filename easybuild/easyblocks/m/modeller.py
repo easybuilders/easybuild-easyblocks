@@ -28,7 +28,7 @@
 #  - allow python multi_deps; link into lib/python%(pyshortver)s/site-packages, but take care
 #    that mod%(version) is still working
 #  - derive from PythonPackage
-#  - provide bin/mod -> bin/mod%(version)s 
+#  - provide bin/mod -> bin/mod%(version)s
 """
 EasyBuild support for installing Modeller, implemented as an easyblock
 
@@ -55,7 +55,7 @@ from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 
 class EB_Modeller(PythonPackage):
     """Support for installing Modeller."""
-    
+
     @staticmethod
     def extra_options(extra_vars=None):
         extra_vars = PythonPackage.extra_options()
@@ -85,7 +85,7 @@ class EB_Modeller(PythonPackage):
              'https://salilab.org/modeller/registration.html:': self.cfg["key"],
              'Press <Enter> to begin the installation:': '',
              'Press <Enter> to continue:': ''
-        } 
+        }
         self.qa.update(self.cfg['qa'])
         self.arch_= None
     def configure_step(self):
@@ -99,7 +99,7 @@ class EB_Modeller(PythonPackage):
     def install_step(self):
         """Interactive install of Modeller."""
         python_looseversion = LooseVersion(get_software_version('Python'))
-        if self.loosever < LooseVersion('9.10') and python_looseversion >= LooseVersion('3'): 
+        if self.loosever < LooseVersion('9.10') and python_looseversion >= LooseVersion('3'):
             raise EasyBuildError("Modeller version < 9.10 does not support Python3")
         if self.cfg['key'] is None:
             raise EasyBuildError("Easyconfig parameter 'key' is not defined")
@@ -108,31 +108,38 @@ class EB_Modeller(PythonPackage):
         # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the first time, there should only one
         # subdirectory in lib, e.g. x86_64-intel8. Save this value for later multi_dep interations, as lib will already be populated.
         if not self.arch_:
-            self.arch_ = os.listdir(os.path.join(self.installdir,'lib'))[0]
+            self.arch_ = os.listdir(os.path.join(self.installdir, 'lib'))[0]
         # _modeller.so is provided for different Python versions, namely 2.5, 3.0, 3.2, and >=3.3
         # We link the _modeller.so and %(installdir)s/modlib into %(installdir)s/lib/python%(pyshortver)s/site-packages
         # in order to allow multi_deps python
         py_api_dirname='python2.5'
         pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        python_path = os.path.join(self.installdir,'lib','python%s','site-packages') % pyshortver
-        if python_looseversion >= LooseVersion('3.0'): py_api_dirname='python3.0'
-        if python_looseversion >= LooseVersion('3.2'): py_api_dirname='python3.2'
-        if python_looseversion >= LooseVersion('3.3'): py_api_dirname='python3.3'
+        python_path = os.path.join(self.installdir, 'lib', 'python%s', 'site-packages') % pyshortver
+        if python_looseversion >= LooseVersion('3.0'):
+            py_api_dirname = 'python3.0'
+        if python_looseversion >= LooseVersion('3.2'):
+            py_api_dirname = 'python3.2'
+        if python_looseversion >= LooseVersion('3.3'):
+            py_api_dirname = 'python3.3'
         mkdir(python_path, True)
         os.listdir(python_path)
-        for src in os.listdir(os.path.join(self.installdir,'modlib')):
-            os.symlink(os.path.join('..','..','..','modlib',src),os.path.join(python_path,src))
-        for src in os.listdir(os.path.join(self.installdir,'lib',self.arch_,py_api_dirname)):
-            os.symlink(os.path.join('..','..',self.arch_,py_api_dirname,src),os.path.join(python_path,src))
-        #link all shared libraries from the architecture specific directory (e.g. x86_64-intel8) into lib. Exclude _modeller.so, as this library is for Python <2.5.
-        for src in [f for f in os.listdir(os.path.join(self.installdir,'lib',self.arch_)) if os.path.isfile(os.path.join(self.installdir,'lib',self.arch_,f)) and f!='_modeller.'+get_shared_lib_ext()]:
-            dst = os.path.join(self.installdir,'lib',src)
-            if not os.path.exists(dst): 
-                os.symlink(os.path.join(self.arch_,src),dst) 
-        #provide bin/mod -> bin/mod%(version)s 
-        if not os.path.exists(os.path.join(self.installdir,'bin','mod')): 
-            os.symlink(os.path.join('mod' + self.version),os.path.join(self.installdir,'bin','mod')),
-        
+        for src in os.listdir(os.path.join(self.installdir, 'modlib')):
+            os.symlink(os.path.join('..', '..', '..', 'modlib', src), os.path.join(python_path, src))
+        for src in os.listdir(os.path.join(self.installdir, 'lib', self.arch_, py_api_dirname)):
+            os.symlink(os.path.join('..', '..', self.arch_, py_api_dirname, src), os.path.join(python_path, src))
+        # link all shared libraries from the architecture specific directory (e.g. x86_64-intel8) into lib. Exclude
+        # _modeller.so, as this library is for Python <2.5.
+        for src in [
+            f for f in os.listdir(os.path.join(self.installdir, 'lib', self.arch_))
+            if os.path.isfile(os.path.join(self.installdir, 'lib', self.arch_, f))
+            and f != '_modeller.'+get_shared_lib_ext()]:
+              dst = os.path.join(self.installdir, 'lib', src)
+              if not os.path.exists(dst):
+                  os.symlink(os.path.join(self.arch_, src), dst)
+        # provide bin/mod -> bin/mod%(version)s
+        if not os.path.exists(os.path.join(self.installdir, 'bin', 'mod')):
+            os.symlink(os.path.join('mod' + self.version), os.path.join(self.installdir, 'bin', 'mod')),
+
     def make_module_extra(self):
         """Set EBPYTHONPREFIXES or PYTHONPATH"""
         txt = super(EB_Modeller, self).make_module_extra()
