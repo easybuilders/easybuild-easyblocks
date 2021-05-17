@@ -172,8 +172,14 @@ class EB_OpenSSL_wrapper(Bundle):
             sys_include_dirs.extend(match.groups())
         self.log.debug("Found the following include directories in host system: %s", ', '.join(sys_include_dirs))
 
-        # headers are always in "include/openssl" subdirectories
-        ssl_include_dirs = [os.path.join(include, self.name.lower()) for include in sys_include_dirs]
+        # headers are located in 'include/openssl' by default
+        ssl_include_subdirs = [self.name.lower()]
+        if self.version == '1.1':
+            # but version 1.1 can be installed in 'include/openssl11/openssl' as well
+            # we prefer 'include/openssl' as long as the version of headers matches
+            ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
+
+        ssl_include_dirs = [os.path.join(incd, subd) for incd in sys_include_dirs for subd in ssl_include_subdirs]
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
 
         # verify that the headers match our OpenSSL version
