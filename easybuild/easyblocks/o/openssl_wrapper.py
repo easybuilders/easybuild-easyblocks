@@ -165,7 +165,7 @@ class EB_OpenSSL_wrapper(Bundle):
                               "Falling back to OpenSSL in EasyBuild")
 
         # Check system include paths for OpenSSL headers
-        cmd = "gcc -E -Wp,-v -xc /dev/null"
+        cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
         (out, ec) = run_cmd(cmd, log_all=True, simple=False, trace=False)
 
         sys_include_dirs = []
