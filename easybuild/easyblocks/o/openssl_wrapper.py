@@ -104,8 +104,8 @@ class EB_OpenSSL_wrapper(Bundle):
         for idx, libssl in enumerate(self.openssl_libs[0]):
             self.ssl_syslib = find_library_path(libssl)
             if self.ssl_syslib:
-                # reduce matrix of library names to the family of this one
-                self.openssl_libs = list(zip(*self.openssl_libs))[idx]
+                # reduce matrix of library names to the family of the one found
+                self.openssl_libs = [lib_name[idx] for lib_name in self.openssl_libs]
                 break
 
         if self.ssl_syslib:
@@ -239,8 +239,8 @@ class EB_OpenSSL_wrapper(Bundle):
             symlink(self.ssl_sysbin, os.path.join(bin_dir, self.name.lower()))
 
         else:
-            # without wrapping, reduce matrix of library names to first items
-            self.openssl_libs = [libs[0] for libs in self.openssl_libs]
+            # without wrapping, reduce matrix of library names to the first option in each family
+            self.openssl_libs = [lib_name[0] for lib_name in self.openssl_libs]
 
             # install OpenSSL component
             super(EB_OpenSSL_wrapper, self).install_step()
