@@ -101,11 +101,11 @@ class EB_OpenSSL_wrapper(Bundle):
             return
 
         # Check the system libraries of OpenSSL
-        for n, libssl in enumerate(self.openssl_libs[0]):
+        for idx, libssl in enumerate(self.openssl_libs[0]):
             self.ssl_syslib = find_library_path(libssl)
             if self.ssl_syslib:
-                # reduce matrix of library names to this one
-                self.openssl_libs = zip(*self.openssl_libs)[n]
+                # reduce matrix of library names to the family of this one
+                self.openssl_libs = list(zip(*self.openssl_libs))[idx]
                 break
 
         if self.ssl_syslib:
