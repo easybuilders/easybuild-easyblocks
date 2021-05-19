@@ -124,7 +124,6 @@ class EB_OpenSSL_wrapper(Bundle):
         # Directory with engine libraries
         if self.system_ssl['lib']:
             lib_dir = os.path.dirname(self.system_ssl['lib'])
-            openssl_engine = self.target_ssl_engine
             lib_engines_dir = [
                 os.path.join(lib_dir, 'openssl', self.target_ssl_engine),
                 os.path.join(lib_dir, self.target_ssl_engine),
