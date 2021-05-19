@@ -161,7 +161,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # Format: <TF name>: <version range>
     unused_system_libs = {
         'boringssl': '2.0.0:',
-        'com_github_googleapis_googleapis': '2.0.0:',
+        'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
         'com_googlesource_code_re2': '2.0.0:',
