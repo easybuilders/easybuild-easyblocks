@@ -30,6 +30,8 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Simon Branford (University of Birmingham)
+@author: James Carpenter (University of Birmingham)
 """
 from distutils.version import LooseVersion
 import glob
@@ -88,28 +90,50 @@ class EB_ABAQUS(Binary):
             }
             no_qa = [
                 '___',
-                r'\(\d+ MB\)',
+                r'\(\d+[KM]B\)',
             ]
-            std_qa = {
-                # disable installation of Tosca (6) and Isight (7)
-                r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
-                r"(?<!Isight)\nEnter selection \(default: Next\):": '',
-                r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
-                r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
-                r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
-                r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir, 'sim'),
-                r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
-                r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
-                r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
-                r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
-                r"License Server . \(redundant\)\s*(\n.*){3}:": '',
-                r"Please choose an action:": '1',
-                r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
-                r"location of your existing ANSA installation.*(\n.*){8}:": '',
-                r"FLUENT Path.*(\n.*){7}:": '',
-            }
-            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+            if LooseVersion(self.version) >= LooseVersion('2020'):
+                std_qa = {
+                    # disable installation of Isight (7) and enable installation of documentation (3)
+                    r"Isight\n\nEnter selection \(default: Next\):": '3\n7\n\n',
+                    # select all documentation components
+                    r"7.*\nSpace available.*\nSpace required.*\n\n\nEnter selection \(default: Next\):": '-1\n\n',
+                    # No Tosca (7 and 8), but do not trigger answering a later question that has no Tosca options
+                    r"21.*\nSpace available.*\nSpace required.*\n\n\nEnter .* \(default: Next\):": '-1\n7\n8\n\n',
+                    r"(?<!Isight)\n\nEnter selection \(default: Next\):": '',
+                    r"Default.*SIMULIA/EstProducts.*:": os.path.join(self.installdir, 'cae'),
+                    r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
+                    r"Search using EXALEAD\nEnter selection:": '1\n\n',
+                    r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
+                    r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
+                    r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
+                    r"License Server . \(redundant\)\s*(\n.*){3}:": '',
+                    r"Skip licensing configuration\nEnter selection \(default: Next\):": '',
+                    r"Please choose an action:": '1',
+                    r"Enter selection \(default: Close\):": '',
+                }
+            else:
+                std_qa = {
+                    # disable installation of Tosca (6) and Isight (7)
+                    r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
+                    r"(?<!Isight)\nEnter selection \(default: Next\):": '',
+                    r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
+                    r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
+                    r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
+                    r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
+                    r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir,
+                                                                                                 'sim'),
+                    r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
+                    r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
+                    r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
+                    r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
+                    r"License Server . \(redundant\)\s*(\n.*){3}:": '',
+                    r"Please choose an action:": '1',
+                    r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
+                    r"location of your existing ANSA installation.*(\n.*){8}:": '',
+                    r"FLUENT Path.*(\n.*){7}:": '',
+                }
+            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=500)
         else:
             change_dir(self.builddir)
             if self.cfg['install_cmd'] is None:
@@ -124,14 +148,79 @@ class EB_ABAQUS(Binary):
             hotfixes = [src for src in self.src if 'CFA' in src['name']]
             if hotfixes:
 
-                # first install Part_3DEXP_SimulationServices hotfix(es), if any
-                hotfixes_3dexp = [src for src in self.src if 'CFA' in src['name'] and '3DEXP' in src['name']]
-                if hotfixes_3dexp:
-                    hotfix_dir = os.path.join(self.builddir, 'Part_3DEXP_SimulationServices.Linux64', '1', 'Software')
+                if LooseVersion(self.version) >= LooseVersion('2020'):
+
+                    # install SIMULIA Established Products hotfix
+                    hotfixes_estprd = [src for src in self.src if 'CFA' in src['name'] and 'EstPrd' in src['name']]
+                    if hotfixes_estprd:
+                        hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_EstPrd.Linux64', '1', 'Software')
+                        change_dir(hotfix_dir)
+
+                        subdirs = glob.glob('SIMULIA_EstPrd.HF*.Linux64')
+                        if len(subdirs) == 1:
+                            subdir = subdirs[0]
+                        else:
+                            raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+
+                        cwd = change_dir(os.path.join(subdir, '1'))
+                        no_qa = [
+                            '___',
+                            '...',
+                            r'\(\d+[KM]B\)',
+                        ]
+                        std_qa = {
+                            r"Enter selection \(default: Next\):": '',
+                            r"Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
+                            r"Enter selection \(default: Install\):": '',
+                            r"The Abaqus commands directory.*:\n.*\n+Actions:\n.*\n_+\n\nPlease.*:": '1',
+                            r"Enter selection \(default: Close\):": '',
+                        }
+                        run_cmd_qa(
+                            './StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100
+                        )
+
+                else:
+
+                    # first install Part_3DEXP_SimulationServices hotfix(es), if any
+                    hotfixes_3dexp = [src for src in self.src if 'CFA' in src['name'] and '3DEXP' in src['name']]
+                    if hotfixes_3dexp:
+                        hotfix_dir = os.path.join(
+                            self.builddir,
+                            'Part_3DEXP_SimulationServices.Linux64', '1', 'Software'
+                            )
+                        change_dir(hotfix_dir)
+
+                        # SIMULIA_ComputeServices part
+                        subdirs = glob.glob('HF_SIMULIA_ComputeServices.HF*.Linux64')
+                        if len(subdirs) == 1:
+                            subdir = subdirs[0]
+                        else:
+                            raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+
+                        cwd = change_dir(os.path.join(subdir, '1'))
+                        std_qa = {
+                            r"Enter selection \(default: Next\):": '',
+                            r"Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
+                            r"Enter selection \(default: Install\):": '',
+                        }
+                        run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+
+                        # F_CAASIMULIAComputeServicesBuildTime part
+                        change_dir(cwd)
+                        subdirs = glob.glob('HF_CAASIMULIAComputeServicesBuildTime.HF*.Linux64')
+                        if len(subdirs) == 1:
+                            subdir = subdirs[0]
+                        else:
+                            raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+
+                        change_dir(os.path.join(cwd, subdir, '1'))
+                        run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+
+                    # next install Part_SIMULIA_Abaqus_CAE hotfix
+                    hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_Abaqus_CAE.Linux64', '1', 'Software')
                     change_dir(hotfix_dir)
 
-                    # SIMULIA_ComputeServices part
-                    subdirs = glob.glob('HF_SIMULIA_ComputeServices.HF*.Linux64')
+                    subdirs = glob.glob('SIMULIA_Abaqus_CAE.HF*.Linux64')
                     if len(subdirs) == 1:
                         subdir = subdirs[0]
                     else:
@@ -140,42 +229,13 @@ class EB_ABAQUS(Binary):
                     cwd = change_dir(os.path.join(subdir, '1'))
                     std_qa = {
                         r"Enter selection \(default: Next\):": '',
-                        "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
+                        r"Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
                         r"Enter selection \(default: Install\):": '',
+                        r"\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
+                        r"\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
                     }
-                    run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
-
-                    # F_CAASIMULIAComputeServicesBuildTime part
-                    change_dir(cwd)
-                    subdirs = glob.glob('HF_CAASIMULIAComputeServicesBuildTime.HF*.Linux64')
-                    if len(subdirs) == 1:
-                        subdir = subdirs[0]
-                    else:
-                        raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
-
-                    change_dir(os.path.join(cwd, subdir, '1'))
-                    run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
-
-                # next install Part_SIMULIA_Abaqus_CAE hotfix
-                hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_Abaqus_CAE.Linux64', '1', 'Software')
-                change_dir(hotfix_dir)
-
-                subdirs = glob.glob('SIMULIA_Abaqus_CAE.HF*.Linux64')
-                if len(subdirs) == 1:
-                    subdir = subdirs[0]
-                else:
-                    raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
-
-                cwd = change_dir(os.path.join(subdir, '1'))
-                std_qa = {
-                    r"Enter selection \(default: Next\):": '',
-                    "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
-                    r"Enter selection \(default: Install\):": '',
-                    r"\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
-                    r"\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
-                }
-                no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
-                run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
+                    run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
     def sanity_check_step(self):
         """Custom sanity check for ABAQUS."""
@@ -186,7 +246,9 @@ class EB_ABAQUS(Binary):
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
-            custom_paths['dirs'].extend(['cae', 'Commands', 'doc', 'sim'])
+            custom_paths['dirs'].extend(['cae', 'Commands', 'doc'])
+            if LooseVersion(self.version) < LooseVersion('2020'):
+                custom_paths['dirs'].extend(['sim'])
             # 'all' also check license server, but lmstat is usually not available
             custom_commands.append("abaqus information=system")
         else:
