@@ -49,22 +49,23 @@ class EB_AOMP(Binary):
         # Setup 'preinstallopts'
         version_major = self.version.split('.')[0]
         install_options = [
-            f'AOMP={self.installdir}',
-            f'AOMP_REPOS="{self.builddir}/aomp{version_major}"',
-            f'AOMP_CMAKE={get_software_root("CMake")}/bin/cmake',
+            'AOMP={!s}'.format(self.installdir),
+            'AOMP_REPOS="{!s}/aomp{!s}"'.format(self.builddir, version_major),
+            'AOMP_CMAKE={!s}/bin/cmake'.format(get_software_root('CMake')),
             'AOMP_CHECK_GIT_BRANCH=0',
             'AOMP_APPLY_ROCM_PATCHES=0',
             'AOMP_STANDALONE_BUILD=1',
         ]
         if self.cfg['parallel']:
-            install_options.append(f'NUM_THREADS={self.cfg["parallel"]}')
+            install_options.append(
+                'NUM_THREADS={!s}'.format(self.cfg['parallel']))
         else:
             install_options.append('NUM_THREADS=1')
         # Check if CUDA is loaded and alternatively build CUDA backend
         if get_software_root('CUDA') or get_software_root('CUDAcore'):
             cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
             install_options.append('AOMP_BUILD_CUDA=1')
-            install_options.append(f'CUDA="{cuda_root}"')
+            install_options.append('CUDA="{!s}"'.format(cuda_root))
             # Use the commandline / easybuild config option if given, else use
             # the value from the EC (as a default)
             cuda_cc = build_option('cuda_compute_capabilities')
@@ -76,7 +77,8 @@ class EB_AOMP(Binary):
                                      "was specified!")
             # Convert '7.0' to '70' format
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            install_options.append(f'NVPTXGPUS="{",".join(cuda_cc)}"')
+            cuda_str = ",".join(cuda_cc)
+            install_options.append('NVPTXGPUS="{!s}"'.format(cuda_str))
         else:
             # Explicitly disable CUDA
             install_options.append('AOMP_BUILD_CUDA=0')
