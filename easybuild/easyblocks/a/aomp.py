@@ -10,7 +10,6 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 AOMP_ALL_COMPONENTS = ['roct', 'rocr', 'project', 'libdevice', 'openmp',
                        'extras', 'pgmath', 'flang', 'flang_runtime', 'comgr',
@@ -93,6 +92,6 @@ class EB_AOMP(Binary):
             #
             # Add X86 components if correct architecture
             # if get_cpu_architecture() == X86_64:
-                # components.extend(AOMP_X86_COMPONENTS)
+            #     components.extend(AOMP_X86_COMPONENTS)
         # Only build selected components
         self.cfg['installopts'] = 'select ' + ' '.join(components)
