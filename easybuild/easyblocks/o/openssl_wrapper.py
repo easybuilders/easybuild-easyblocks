@@ -81,6 +81,7 @@ class EB_OpenSSL_wrapper(Bundle):
                 ['%s.%s' % (lib, ext) for ext in openssl_libext[self.version][os_type]]
                 for lib in openssl_libs
             ]
+            self.log.info("Matrix of version library names: %s", system_versioned_libs)
         else:
             raise EasyBuildError("Don't know name of OpenSSL system library for version %s and OS type %s",
                                  self.version, os_type)
@@ -88,6 +89,7 @@ class EB_OpenSSL_wrapper(Bundle):
         # by default target the first option of each OpenSSL library,
         # which corresponds to installation from source
         self.target_ssl_libs = [lib_name[0] for lib_name in system_versioned_libs]
+        self.log.info("Target OpenSSL libraries: %s", self.target_ssl_libs)
 
         # folders containing engines libraries
         openssl_engines = {
@@ -98,13 +100,15 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Paths to system libraries and headers of OpenSSL
         self.system_ssl = {
-            'lib': None,
-            'include': None,
-            'engines': None,
             'bin': None,
+            'engines': None,
+            'include': None,
+            'lib': None,
         }
 
+        # early return when we're not wrapping the system OpenSSL installation
         if not self.cfg.get('wrap_system_openssl'):
+            self.log.info("Not wrapping system OpenSSL installation!")
             return
 
         # Check the system libraries of OpenSSL
@@ -114,12 +118,13 @@ class EB_OpenSSL_wrapper(Bundle):
             if self.system_ssl['lib']:
                 # change target libraries to the ones found in the system
                 self.target_ssl_libs = [lib_name[idx] for lib_name in system_versioned_libs]
+                self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
                 break
 
         if self.system_ssl['lib']:
             self.log.info("Found library '%s' in: %s", openssl_libs[0], self.system_ssl['lib'])
         else:
-            self.log.info("Library '%s' not found!", openssl_libs[0])
+            self.log.info("OpenSSL library '%s' not found, falling back to OpenSSL in EasyBuild", openssl_libs[0])
 
         # Directory with engine libraries
         if self.system_ssl['lib']:
@@ -137,8 +142,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
             if not self.system_ssl['engines']:
                 self.system_ssl['lib'] = None
-                print_warning("Found OpenSSL in host system, but not its engines. "
-                              "Falling back to OpenSSL in EasyBuild")
+                self.log.info("OpenSSL engines not found in host system, falling back to OpenSSL in EasyBuild")
 
         # Check system include paths for OpenSSL headers
         cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
@@ -179,11 +183,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 else:
                     self.log.debug("Pattern '%s' not found in %s", openssl_version_regex.pattern, opensslv_path)
             else:
-                self.log.debug("OpenSSL header file %s not found")
+                self.log.info("OpenSSL header file %s not found", opensslv_path)
 
         if not self.system_ssl['include']:
-            self.log.info("OpenSSL headers not found in host system. "
-                          "Falling back to OpenSSL in EasyBuild")
+            self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
 
         # Check system OpenSSL binary
         if self.version == '1.1':
@@ -192,6 +195,11 @@ class EB_OpenSSL_wrapper(Bundle):
 
         if not self.system_ssl['bin']:
             self.system_ssl['bin'] = which(self.name.lower())
+
+        if self.system_ssl['bin']:
+            self.log.info("System OpenSSL binary found: %s", self.system_ssl['bin'])
+        else:
+            self.log.info("System OpenSSL binary not found!")
 
     def fetch_step(self, *args, **kwargs):
         """Fetch sources if OpenSSL component is needed"""
@@ -206,7 +214,7 @@ class EB_OpenSSL_wrapper(Bundle):
     def install_step(self):
         """Symlink target OpenSSL installation"""
 
-        if self.system_ssl['lib'] and self.system_ssl['include']:
+        if all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'lib')):
             # note: symlink to individual files, not directories,
             # since directory symlinks get resolved easily...
 
@@ -247,6 +255,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         else:
             # install OpenSSL component
+            print_warning("Not all OpenSSL components found, falling back to OpenSSL in EasyBuild!")
             super(EB_OpenSSL_wrapper, self).install_step()
 
     def sanity_check_step(self):
