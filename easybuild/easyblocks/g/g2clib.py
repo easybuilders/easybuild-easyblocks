@@ -60,10 +60,13 @@ class EB_g2clib(ConfigureMake):
         # beware: g2clib uses INC, while g2lib uses INCDIR !
         buildopts = ' '.join([
             r'CC="%s"' % os.getenv('CC'),
-            r'CFLAGS="%s \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS'),
             r'FC="%s"' % os.getenv('F90'),
             r'INC="-I%s"' % os.path.join(jasper, 'include'),
         ])
+        if self.cfg["toolchainopts"].get('pic',False):
+            buildopts += ' CFLAGS="%s -fPIC \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS')
+        else:
+            buildopts += ' CFLAGS="%s \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS')
         self.cfg.update('buildopts', buildopts)
 
         super(EB_g2clib, self).build_step()
