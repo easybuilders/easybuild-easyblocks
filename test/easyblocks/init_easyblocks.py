@@ -205,16 +205,20 @@ def suite():
     easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and '/test/' not in eb]
 
     for easyblock in easyblocks:
+        easyblock_fn = os.path.basename(easyblock)
         # dynamically define new inner functions that can be added as class methods to InitTest
-        if os.path.basename(easyblock) == 'systemcompiler.py':
+        if easyblock_fn == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
-        elif os.path.basename(easyblock) == 'systemmpi.py':
+        elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
-        elif os.path.basename(easyblock) == 'intel_compilers.py':
+        elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif easyblock_fn == 'openssl_wrapper.py':
+            # easyblock to create OpenSSL wrapper expects an OpenSSL version
+            innertest = make_inner_test(easyblock, version='1.1')
         else:
             innertest = make_inner_test(easyblock)
 
