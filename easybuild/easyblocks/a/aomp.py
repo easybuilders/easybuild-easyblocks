@@ -2,7 +2,7 @@
 Support for building and installing AOMP - AMD OpenMP compiler, implemented as
 an EasyBlock
 
-@author: Jørgen Nordmoen (University Center for Information Technology - UiO)
+@author: Jorgen Nordmoen (University Center for Information Technology - UiO)
 """
 
 from easybuild.easyblocks.generic.binary import Binary
