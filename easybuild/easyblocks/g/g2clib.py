@@ -63,7 +63,7 @@ class EB_g2clib(ConfigureMake):
             r'FC="%s"' % os.getenv('F90'),
             r'INC="-I%s"' % os.path.join(jasper, 'include'),
         ])
-        if self.cfg["toolchainopts"].get('pic',False):
+        if self.cfg["toolchainopts"].get('pic', False):
             buildopts += r' CFLAGS="%s -fPIC \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS')
         else:
             buildopts += r' CFLAGS="%s \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS')
