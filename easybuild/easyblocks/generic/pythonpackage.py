@@ -42,6 +42,8 @@ import easybuild.tools.environment as env
 from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
+from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
@@ -252,6 +254,14 @@ class PythonPackage(ExtensionEasyBlock):
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
         })
+        # Use PYPI_SOURCE as the default for source_urls.
+        # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
+        if 'source_urls' not in extra_vars:
+            # Create a copy so the defaults are not modified by the following line
+            src_urls = DEFAULT_CONFIG['source_urls'][:]
+            src_urls[0] = [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE']
+            extra_vars['source_urls'] = src_urls
+
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
 
     def __init__(self, *args, **kwargs):
