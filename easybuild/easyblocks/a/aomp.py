@@ -10,6 +10,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
+import os
+import os.path
 
 AOMP_ALL_COMPONENTS = ['roct', 'rocr', 'project', 'libdevice', 'openmp',
                        'extras', 'pgmath', 'flang', 'flang_runtime', 'comgr',
@@ -97,3 +99,29 @@ class EB_AOMP(Binary):
             #     components.extend(AOMP_X86_COMPONENTS)
         # Only build selected components
         self.cfg['installopts'] = 'select ' + ' '.join(components)
+
+    def post_install_step(self):
+        super(EB_AOMP, self).post_install_step()
+        # The install script will create a symbolic link as the install
+        # directory, this creates problems for EB as it won't remove the
+        # symlink. To remedy this we remove the link here and rename the actual
+        # install directory created by the AOMP install script
+        if os.path.islink(self.installdir):
+            os.unlink(self.installdir)
+        else:
+            err_str = "Expected '{!s}' to be a symbolic link" \
+                      " that needed to be removed, but it wasn't!"
+            raise EasyBuildError(err_str.format(self.installdir))
+        # Move the actual directory containing the install
+        install_name = '{!s}_{!s}'.format(os.path.basename(self.installdir),
+                                          self.version)
+        actual_install = os.path.join(os.path.dirname(self.installdir),
+                                      install_name)
+        if os.path.exists(actual_install) and os.path.isdir(actual_install):
+            os.rename(actual_install, self.installdir)
+        else:
+            err_str = "Tried to move '{!s}' to '{!s}', " \
+                      " but it either doesn't exist" \
+                      " or isn't a directory!"
+            raise EasyBuildError(err_str.format(actual_install,
+                                                self.installdir))
