@@ -191,7 +191,7 @@ class EB_FFTW(ConfigureMake):
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
-                        prec_configopts.append('--enable-sve --enable-armv8-cntvct-el0')
+                        prec_configopts.append('--enable-fma --enable-sve --enable-armv8-cntvct-el0')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):
@@ -212,6 +212,14 @@ class EB_FFTW(ConfigureMake):
                     if prec == 'double' and fftw_ver <= LooseVersion('3.3.6'):
                         self.log.info("Disabling vsx for double precision on POWER with GCC for FFTW/%s" % self.version)
                         prec_configopts.append('--disable-vsx')
+
+                # Fujitsu specific flags (from build instructions at https://github.com/fujitsu/fftw3)
+                if self.toolchain.comp_family() == TC_CONSTANT_FUJITSU:
+                    prec_configopts.append('CFLAGS="-Ofast"')
+                    prec_configopts.append('FFLAGS="-Kfast"')
+                    prec_configopts.append('ac_cv_prog_f77_v="-###"')
+                    if self.cfg['with_openmp']:
+                        prec_configopts.append('OPENMP_CFLAGS="-Kopenmp"')
 
                 # append additional configure options (may be empty string, but that's OK)
                 self.cfg.update('configopts', [' '.join(prec_configopts) + ' ' + common_config_opts])
