@@ -267,17 +267,16 @@ class EB_ScaLAPACK(CMakeMake):
                     copy_file(lib, os.path.join(dest, os.path.basename(lib)))
                     self.log.debug("Copied %s to %s", lib, dest)
 
-    @property
     def banned_linked_shared_libs(self):
         """
         List of shared libraries which are not allowed to be linked in any installed binary/library.
         """
+        res = super(EB_ScaLAPACK, self).banned_linked_shared_libs()
+
         # register FlexiBLAS backends as banned libraries,
         # ScaLAPACK should not be linking to those directly
         if get_software_root(FlexiBLAS.LAPACK_MODULE_NAME[0]):
-            res = det_flexiblas_backend_libs()
-        else:
-            res = []
+            res.extend(det_flexiblas_backend_libs())
 
         return res
 
