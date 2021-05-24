@@ -102,8 +102,6 @@ class EB_LAMMPS(CMakeMake):
         """Custom easyconfig parameters for LAMMPS"""
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            # see https://developer.nvidia.com/cuda-gpus
-            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'general_packages': [None, "List of general packages without '%s' prefix." % PKG_PREFIX, MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
