@@ -262,8 +262,6 @@ class PythonPackage(ExtensionEasyBlock):
                                            "to be the requirements file.", CUSTOM],
             'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
-            'ext_postinstallcmds': [None, "List of additional commands to execute "
-                                          "after installation as an extension", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
@@ -533,16 +531,6 @@ class PythonPackage(ExtensionEasyBlock):
                 'python': self.python_cmd,
             },
         ])
-
-        ext_postinstallcmds = self.cfg['ext_postinstallcmds']
-        if ext_postinstallcmds is not None:
-            # make sure we have a list or tuple of commands
-            if not isinstance(ext_postinstallcmds, (list, tuple)):
-                raise EasyBuildError("Invalid value for 'ext_postinstallcmds', should be list or tuple of strings.")
-            for _cmd in ext_postinstallcmds:
-                if not isinstance(_cmd, string_type):
-                    raise EasyBuildError("Invalid element in 'ext_postinstallcmds', not a string: %s", _cmd)
-            cmd.append(' && ' + ' && '.join(ext_postinstallcmds))
 
         return ' '.join(cmd)
 
