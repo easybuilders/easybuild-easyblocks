@@ -99,8 +99,8 @@ class EB_CUDA(Binary):
             install_script = "./cuda-installer"
             # samples are installed in two places with identical copies:
             # self.installdir/samples and $HOME/NVIDIA_CUDA-11.2_Samples
-            # changing the second location (the one under $HOME) to a scratch location (self.builddir) avoids the
-            # duplicate and pollution of the home directory of the installer.
+            # changing the second location (the one under $HOME) to a scratch location using --samples --samplespath=self.builddir
+            # avoids the duplicate and pollution of the home directory of the installer.
             self.cfg.update('installopts',
                             "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
                                 self.builddir, self.installdir, self.installdir))
