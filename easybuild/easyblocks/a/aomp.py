@@ -34,7 +34,6 @@ class EB_AOMP(Binary):
         extra_vars.update({
             'components': [None, "AOMP components to build. Possible components: " +
                            ', '.join(AOMP_ALL_COMPONENTS), CUSTOM],
-            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
         })
         return extra_vars
 
@@ -71,7 +70,6 @@ class EB_AOMP(Binary):
             # Use the commandline / easybuild config option if given, else use
             # the value from the EC (as a default)
             cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cuda_cc or self.cfg['cuda_compute_capabilities']
             if not cuda_cc:
                 raise EasyBuildError("CUDA module was loaded, "
                                      "indicating a build with CUDA, "
