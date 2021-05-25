@@ -168,6 +168,11 @@ class EB_Boost(EasyBlock):
                 if self.toolchain.PRGENV_MODULE_NAME_SUFFIX == 'gnu':
                     craympichdir = os.getenv('CRAY_MPICH2_DIR')
                     craygccversion = os.getenv('GCC_VERSION')
+                    # We configure the gcc toolchain below, so make sure the EC doesn't use another toolset
+                    if self.toolset != 'gcc':
+                        raise EasyBuildError("For the cray toolchain the 'gcc' toolset must be used.")
+                    # Remove the previous "using gcc" line add above (via self.toolset) if present
+                    user_config = [x for x in user_config if not x.startswith('using gcc :')]
                     user_config.extend([
                         'local CRAY_MPICH2_DIR =  %s ;' % craympichdir,
                         'using gcc ',
