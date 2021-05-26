@@ -137,7 +137,7 @@ class EB_BerkeleyGW(ConfigureMake):
             self.cfg.update('buildopts', 'FCPP="cpp -C -nostdinc"')
             self.cfg.update('buildopts', 'C_COMP="%s %s"' % (mpicc, c_flags))
             self.cfg.update('buildopts', 'CC_COMP="%s %s"' % (mpicxx, cxx_flags))
-            self.cfg.update('buildopts', 'FOPTS="%s -Knotemparraystack"' % os.environ['FFLAGS'])
+            self.cfg.update('buildopts', 'FOPTS="%s -Kfast -Knotemparraystack"' % os.environ['FFLAGS'])
         else:
             raise EasyBuildError("EasyBuild does not yet have support for building BerkeleyGW with toolchain %s"
                                  % comp_fam)
