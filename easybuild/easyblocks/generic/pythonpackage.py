@@ -428,6 +428,8 @@ class PythonPackage(ExtensionEasyBlock):
         if unpack_sources is None:
             src = self.src
             if not isinstance(src, string_type):
+                if len(src) == 0:
+                    return False
                 src = src[0]['path']
             _, ext = os.path.splitext(src)
             unpack_sources = ext.lower() != '.whl'
