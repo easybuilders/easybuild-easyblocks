@@ -424,13 +424,27 @@ class PythonPackage(ExtensionEasyBlock):
 
     def _should_unpack_source(self):
         """Determine whether we need to unpack the source(s)"""
+
         unpack_sources = self.cfg.get('unpack_sources')
+
+        # if unpack_sources is not specified, check file extension of (first) source file
         if unpack_sources is None:
             src = self.src
-            if not isinstance(src, string_type):
-                src = src[0]['path']
-            _, ext = os.path.splitext(src)
-            unpack_sources = ext.lower() != '.whl'
+            # we may have a list of sources, only consider first source file in that case
+            if isinstance(src, (list, tuple)):
+                if src:
+                    src = src[0]
+                    # source file specs (incl. path) could be specified via a dict
+                    if isinstance(src, dict) and 'path' in src:
+                        src = src['path']
+                else:
+                    unpack_sources = False
+
+            # if undecided, check the source file extension: don't try to unpack wheels (*.whl)
+            if unpack_sources is None:
+                _, ext = os.path.splitext(src)
+                unpack_sources = ext.lower() != '.whl'
+
         return unpack_sources
 
     def get_installed_python_packages(self, names_only=True, python_cmd=None):
