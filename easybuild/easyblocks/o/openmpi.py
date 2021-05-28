@@ -31,11 +31,13 @@ import os
 import re
 from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
+from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
 
 class EB_OpenMPI(ConfigureMake):
@@ -129,6 +131,14 @@ class EB_OpenMPI(ConfigureMake):
 
         super(EB_OpenMPI, self).configure_step()
 
+    def test_step(self):
+        """Test step for OpenMPI"""
+        # Default to `make check` if nothing is set. Disable with "runtest = False" in the EC
+        if self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'check'
+
+        super(EB_OpenMPI, self).test_step()
+
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
@@ -163,5 +173,27 @@ class EB_OpenMPI(ConfigureMake):
             expected['mpif90'] = 'pgfortran'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
+
+        # Add minimal test program to sanity checks
+        # Run with correct MPI launcher
+        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
+        for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
+            src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
+            if os.path.exists(src_path):
+                test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
+                self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
+
+                # Build test binary
+                build_cmd = "%s %s -o %s" % (compiler, src_path, test_exe)
+                params.update({'nr_ranks': self.cfg['parallel'], 'cmd': test_exe})
+
+                custom_commands.extend([
+                    build_cmd,  # build test program
+                    mpi_cmd_tmpl % params,  # run test program
+                ])
+                # Run with 1 process which may trigger other bugs
+                # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
+                params['nr_ranks'] = 1
+                custom_commands.append(mpi_cmd_tmpl % params)
 
         super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
