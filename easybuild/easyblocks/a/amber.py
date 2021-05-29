@@ -202,6 +202,8 @@ class EB_Amber(CMakeMake):
             # Building Amber < 19 is done in install step.
             pass
 
+        super(EB_Amber, self).build_step()
+
     def test_step(self):
         """Testing Amber build is done in install step."""
         pass
