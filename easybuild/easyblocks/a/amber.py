@@ -29,27 +29,29 @@ EasyBuild support for Amber, implemented as an easyblock
 Original author: Benjamin Roberts (The University of Auckland)
 Modified by Stephane Thiell (Stanford University) for Amber14
 Enhanced/cleaned up by Kenneth Hoste (HPC-UGent)
+CMake support (Amber 20) added by James Carpenter and Simon Branford (University of Birmingham)
 """
+from distutils.version import LooseVersion
 import os
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import remove_dir, which
 
 
-class EB_Amber(ConfigureMake):
+class EB_Amber(CMakeMake):
     """Easyblock for building and installing Amber"""
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """Extra easyconfig parameters specific to ConfigureMake."""
-        extra_vars = dict(ConfigureMake.extra_options(extra_vars))
+        """Extra easyconfig parameters specific to CMakeMake"""
+        extra_vars = dict(CMakeMake.extra_options(extra_vars))
         extra_vars.update({
             # 'Amber': [True, "Build Amber in addition to AmberTools", CUSTOM],
             'patchlevels': ["latest", "(AmberTools, Amber) updates to be applied", CUSTOM],
@@ -61,19 +63,23 @@ class EB_Amber(ConfigureMake):
             # enable testing by default
             'runtest': [True, "Run tests after each build", CUSTOM],
             'static': [True, "Build statically linked executables", CUSTOM],
+            'ambermpi': [False, "Build MPI versions for supported programs", CUSTOM],
         })
-        return ConfigureMake.extra_options(extra_vars)
+        return CMakeMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor: initialise class variables."""
         super(EB_Amber, self).__init__(*args, **kwargs)
-        self.build_in_installdir = True
+
+        if LooseVersion(self.version) < LooseVersion('19'):
+            # Build Amber <19 in install directory
+            self.build_in_installdir = True
+            env.setvar('AMBERHOME', self.installdir)
+
         self.pylibdir = None
 
         self.with_cuda = False
         self.with_mpi = False
-
-        env.setvar('AMBERHOME', self.installdir)
 
     def extract_step(self):
         """Extract sources; strip off parent directory during unpack"""
@@ -116,20 +122,92 @@ class EB_Amber(ConfigureMake):
         super(EB_Amber, self).patch_step(*args, **kwargs)
 
     def configure_step(self):
-        """Configuring Amber is done in install step."""
-        pass
+        """Apply the necessary CMake config opts."""
+
+        if LooseVersion(self.version) < LooseVersion('19'):
+            # Configuring Amber <19 is done in install step.
+            pass
+
+        # CMake will search a previous install directory for Amber-compiled libs. We will therefore
+        # manually remove the install directory prior to configuration.
+        remove_dir(self.installdir)
+
+        external_libs_list = []
+
+        mpiroot = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
+        if mpiroot and self.cfg['ambermpi']:
+            self.with_mpi = True
+            self.cfg.update('configopts', '-DMPI=TRUE')
+
+        if self.toolchain.options.get('openmp', None):
+            self.cfg.update('configopts', '-DOPENMP=TRUE')
+
+        cudaroot = get_software_root('CUDA')
+        if cudaroot:
+            self.with_cuda = True
+            self.cfg.update('configopts', '-DCUDA=TRUE')
+            if get_software_root('NCCL'):
+                self.cfg.update('configopts', '-DNCCL=TRUE')
+                external_libs_list.append('nccl')
+
+        pythonroot = get_software_root('Python')
+        if pythonroot:
+            self.cfg.update('configopts', '-DDOWNLOAD_MINICONDA=FALSE')
+            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(pythonroot, 'bin', 'python'))
+
+            self.pylibdir = det_pylibdir()
+            pythonpath = os.environ.get('PYTHONPATH', '')
+            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+
+        if get_software_root('FFTW'):
+            external_libs_list.append('fftw')
+        if get_software_root('netCDF'):
+            external_libs_list.append('netcdf')
+        if get_software_root('netCDF-Fortran'):
+            external_libs_list.append('netcdf-fortran')
+        if get_software_root('zlib'):
+            external_libs_list.append('zlib')
+        if get_software_root('Boost'):
+            external_libs_list.append('boost')
+        if get_software_root('libreadline'):
+            external_libs_list.append('readline')
+        if get_software_root('PnetCDF'):
+            external_libs_list.append('pnetcdf')
+
+        # Force libs for available deps (see cmake/3rdPartyTools.cmake in Amber source for list of 3rd party libs)
+        # This provides an extra layer of checking but should already be handled by TRUST_SYSTEM_LIBS=TRUE
+        external_libs = ";".join(external_libs_list)
+        self.cfg.update('configopts', "-DFORCE_EXTERNAL_LIBS='%s'" % external_libs)
+
+        # Set standard compile options
+        self.cfg.update('configopts', '-DCHECK_UPDATES=FALSE')
+        self.cfg.update('configopts', '-DAPPLY_UPDATES=FALSE')
+        self.cfg.update('configopts', '-DUSE_FFT=TRUE')
+        self.cfg.update('configopts', '-DTRUST_SYSTEM_LIBS=TRUE')
+        self.cfg.update('configopts', '-DCOLOR_CMAKE_MESSAGES=FALSE')
+
+        # Amber recommend running the tests from the sources, rather than putting in installation dir
+        # due to size. We handle tests under the install step
+        self.cfg.update('configopts', '-DINSTALL_TESTS=FALSE')
+
+        # Probably need to do this option more intelligently! (See commented code below.)
+        self.cfg.update('configopts', '-DCOMPILER=AUTO')
+
+        # configure using cmake
+        super(EB_Amber, self).configure_step()
 
     def build_step(self):
-        """Building Amber is done in install step."""
-        pass
+        """Build Amber"""
+        if LooseVersion(self.version) < LooseVersion('19'):
+            # Building Amber < 19 is done in install step.
+            pass
 
     def test_step(self):
         """Testing Amber build is done in install step."""
         pass
 
-    def install_step(self):
-        """Custom build, test & install procedure for Amber."""
-
+    def configuremake_install_step(self):
+        """Custom build, test & install procedure for Amber <19."""
         # unset $LIBS since it breaks the build
         env.unset_env_vars(['LIBS'])
 
@@ -227,6 +305,45 @@ class EB_Amber(ConfigureMake):
             # clean, overruling the normal 'build'
             run_cmd("make clean")
 
+    def install_step(self):
+        """Install procedure for Amber."""
+
+        if LooseVersion(self.version) < LooseVersion('19'):
+            # pass into the configuremake build, install, and test method for Amber <19
+            self.configuremake_install_step()
+            return
+
+        super(EB_Amber, self).install_step()
+
+        # Run the tests located in the build directory
+        if self.cfg['runtest']:
+            # compose list of build targets
+            test_targets = ['test']
+
+            if self.with_mpi:
+                test_targets.append('test.parallel')
+                # Amber tests require a multiple of 4 MPI threads to run and a minimum of 4
+                x4_threads_available = (self.cfg['parallel'] // 4) * 4
+                if x4_threads_available < 4:
+                    raise EasyBuildError("A minimum of 4 MPI processes is required to run the Amber parallel tests.")
+                else:
+                    env.setvar('DO_PARALLEL', 'mpirun -np %s' % x4_threads_available)
+
+            if self.with_cuda:
+                test_targets.append('test.cuda.serial')
+                if self.with_mpi:
+                    test_cuda_parallel = True
+
+            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+
+            for testrule in test_targets:
+                run_cmd("%s && make %s" % (pretestcommands, testrule), log_all=True, simple=False)
+
+            if test_cuda_parallel:
+                # Hard-code CUDA parallel tests to use 2 threads
+                env.setvar('DO_PARALLEL', 'mpirun -np 2')
+                run_cmd("%s && make %s" % (pretestcommands, 'test.cuda_parallel'), log_all=True, simple=False)
+
     def sanity_check_step(self):
         """Custom sanity check for Amber."""
         binaries = ['sander', 'tleap']
@@ -235,7 +352,10 @@ class EB_Amber(ConfigureMake):
             if self.with_cuda:
                 binaries.append('pmemd.cuda')
                 if self.with_mpi:
-                    binaries.append('pmemd.cuda.MPI')
+                    if LooseVersion(self.version) < LooseVersion('19'):
+                        binaries.append('pmemd.cuda.MPI')
+                    else:
+                        binaries.append('pmemd.cuda_DPFP.MPI')
 
         if self.with_mpi:
             binaries.extend(['sander.MPI'])
