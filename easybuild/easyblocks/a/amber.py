@@ -126,7 +126,7 @@ class EB_Amber(CMakeMake):
 
         if LooseVersion(self.version) < LooseVersion('19'):
             # Configuring Amber <19 is done in install step.
-            pass
+            return
 
         # CMake will search a previous install directory for Amber-compiled libs. We will therefore
         # manually remove the install directory prior to configuration.
@@ -200,7 +200,7 @@ class EB_Amber(CMakeMake):
         """Build Amber"""
         if LooseVersion(self.version) < LooseVersion('19'):
             # Building Amber < 19 is done in install step.
-            pass
+            return
 
         super(EB_Amber, self).build_step()
 
