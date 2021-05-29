@@ -109,14 +109,25 @@ class EB_CUDA(Binary):
         elif LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("10.1"):
             install_interpreter = "perl"
             install_script = "cuda-installer.pl"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            # note: samples are installed by default
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
         else:
             install_interpreter = ""
             install_script = "./cuda-installer"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
-            self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
-                            self.installdir, self.installdir))
+            # samples are installed in two places with identical copies:
+            # self.installdir/samples and $HOME/NVIDIA_CUDA-11.2_Samples
+            # changing the second location (the one under $HOME) to a scratch location using
+            # --samples --samplespath=self.builddir
+            # avoids the duplicate and pollution of the home directory of the installer.
+            self.cfg.update('installopts',
+                            "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
+                                self.builddir, self.installdir, self.installdir))
+            # When eb is called via sudo -u someuser -i eb ..., the installer may try to chown samples to the
+            # original user using the SUDO_USER environment variable, which fails
+            if "SUDO_USER" in os.environ:
+                self.log.info("SUDO_USER was defined as '%s', need to unset it to avoid problems..." %
+                              os.environ["SUDO_USER"])
+                del os.environ["SUDO_USER"]
 
         if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
             # Workaround for
@@ -247,6 +258,8 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
+        if LooseVersion(self.version) > LooseVersion('5'):
+            custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
         if LooseVersion(self.version) >= LooseVersion('7'):
