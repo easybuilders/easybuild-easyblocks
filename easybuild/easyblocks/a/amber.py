@@ -319,32 +319,28 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            # compose list of build targets
-            test_targets = ['test']
-
-            if self.with_mpi:
-                test_targets.append('test.parallel')
-                # Amber tests require a multiple of 4 MPI threads to run and a minimum of 4
-                x4_threads_available = (self.cfg['parallel'] // 4) * 4
-                if x4_threads_available < 4:
-                    raise EasyBuildError("A minimum of 4 MPI processes is required to run the Amber parallel tests.")
-                else:
-                    env.setvar('DO_PARALLEL', 'mpirun -np %s' % x4_threads_available)
-
-            if self.with_cuda:
-                test_targets.append('test.cuda.serial')
-                if self.with_mpi:
-                    test_cuda_parallel = True
-
             pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
 
-            for testrule in test_targets:
-                run_cmd("%s && make %s" % (pretestcommands, testrule), log_all=True, simple=False)
+            # serial tests
+            run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
+            if self.with_cuda:
+                (out, exitcode) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
+                if exitcode:
+                    self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
-            if test_cuda_parallel:
+            if self.with_mpi:
+                # Hard-code parallel tests to use 4 threads
+                env.setvar("DO_PARALLEL", "mpirun -np 4")
+                (out, exitcode) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
+                if exitcode:
+                    self.log.warning("Check the output of the Amber parallel tests for possible failures")
+
+            if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
-                env.setvar('DO_PARALLEL', 'mpirun -np 2')
-                run_cmd("%s && make %s" % (pretestcommands, 'test.cuda_parallel'), log_all=True, simple=False)
+                env.setvar("DO_PARALLEL', 'mpirun -np 2")
+                (out, exitcode) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
+                if exitcode:
+                    self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
     def sanity_check_step(self):
         """Custom sanity check for Amber."""
