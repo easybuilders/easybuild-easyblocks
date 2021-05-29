@@ -324,22 +324,22 @@ class EB_Amber(CMakeMake):
             # serial tests
             run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
             if self.with_cuda:
-                (out, exitcode) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
-                if exitcode:
+                (out, ec) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
+                if ec > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", "mpirun -np 4")
-                (out, exitcode) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
-                if exitcode:
+                (out, ec) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
+                if ec > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL', 'mpirun -np 2")
-                (out, exitcode) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
-                if exitcode:
+                (out, ec) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
+                if ec > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
     def sanity_check_step(self):
