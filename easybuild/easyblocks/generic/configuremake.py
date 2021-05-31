@@ -67,6 +67,7 @@ DEFAULT_BUILD_CMD = 'make'
 DEFAULT_INSTALL_CMD = 'make install'
 DEFAULT_BUILD_TARGETS = ''
 
+
 def check_config_guess(config_guess):
     """Check timestamp & SHA256 checksum of config.guess script.
 
