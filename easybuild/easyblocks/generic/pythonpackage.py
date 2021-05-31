@@ -816,6 +816,8 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             # 'python' is replaced by full path to active 'python' command
             # (which is required especially when installing with system Python)
+            if self.python_cmd is None:
+                self.prepare_python()
             python_cmd = self.python_cmd
             if 'exts_filter' not in kwargs:
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
