@@ -153,8 +153,14 @@ class EB_PyTorch(PythonPackage):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
         else:
-            # This is what PyTorch defaults to if no MKL is found. Make this explicit here
+            # This is what PyTorch defaults to if no MKL is found.
+            # Make this explicit here to avoid it finding MKL from the system
             options.append('BLAS=Eigen')
+            # Set the actual BLAS lib to use.
+            # Valid choices: mkl/open/goto/acml/atlas/accelerate/veclib/generic (+blis for 1.9+)
+            if not get_software_root('OpenBLAS'):
+                raise EasyBuildError("Did not find OpenBLAS in dependencies. Don't know which BLAS lib to use")
+            options.append('WITH_BLAS=open')
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
         dependency_names = set(dep['name'] for dep in self.cfg.dependencies())
