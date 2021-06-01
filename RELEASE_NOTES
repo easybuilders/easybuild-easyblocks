@@ -33,6 +33,7 @@ feature release
   - update imkl easyblock to unpack example tarballs and set $MKL_EXAMPLES (+ some code cleanup) (#2430)
   - update list of system libs for TensorFlow 2.5 (#2432)
   - allow disabling MPI tests when installing Intel MPI (impi) via --disable-mpi-tests (#2440)
+  - exclude bottleneck tests in PyTorch (#2450)
 - various bug fixes, including:
   - ensure lib subdirectory is found in stage 2 of GCC installation + fall back to lib64 (#2339)
   - fix permission on MATLAB installer config file so it can be written to (#2385)
