@@ -3,7 +3,61 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 229 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 232 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.4.0 (June 2nd 2021)
+----------------------
+
+feature release
+
+- 3 new software-specific easyblocks:
+  - FlexiBLAS (#2369)
+  - dm-reverb (#2413)
+  - easyblock to install OpenSSL wrapper for OpenSSL installed in OS, or build and install OpenSSL from source if not available in OS (#2429)
+- minor enhancements, including:
+  - also add -pthread to prebuildopts of cryptography (#2270)
+  - don't unpack whl files by default in generic PythonPackage easyblock (#2366)
+  - enable installation of samples for CUDA > 10.1 (#2374)
+  - add support for post install commands for python extensions (#2381)
+  - add option to disable pip connecting to PyPi (enable use of --no-index)  (#2390)
+  - update motioncor2 easyblock to handle new version and CUDAcore (#2394)
+  - make it possible to force disabling kernel features in Qt easyblock (#2403)
+  - update imkl easyblock to support oneAPI versions (>= 2021.x) (#2407)
+  - add "gurobi_cl --help" as default sanity check command for Gurobi (#2411)
+  - enhance BWA easyblock to copy includes and libraries (#2417)
+  - allow 'default' versions to be defined by modulerc EasyBlock (#2418)
+  - create unused build dir when separate_build_dir is set in Meson and CMake EasyBlock (#2419)
+  - enable sanity_pip_check by default for Python easyconfigs if pip >= 9.0 will be installed (#2423)
+  - enhance FFTW easyblock to support SVE CPU feature and building with Fujitsu compiler (#2425)
+  - make ScaLAPACK easyblock aware of FlexiBLAS (#2427)
+  - update imkl easyblock to unpack example tarballs and set $MKL_EXAMPLES (+ some code cleanup) (#2430)
+  - update list of system libs for TensorFlow 2.5 (#2432)
+  - allow disabling MPI tests when installing Intel MPI via --disable-mpi-tests (#2440)
+- various bug fixes, including:
+  - ensure lib subdirectory is found in stage 2 of GCC installation + fall back to lib64 (#2339)
+  - fix permission on MATLAB installer config file so it can be written to (#2385)
+  - fix problem with installing older CUDA versions that uses the Perl based installer (#2387)
+  - add to Python easyblock option to install pip with core Python, tweak defaults, create unversioned pip symlink (#2388)
+  - fix installopts before installing the extension in GROMACS easyblock (#2391)
+  - updated numpy easyblock to use read_file for patch (#2395)
+  - use explicit build toolset and compiler path in Boost easyblock (#2402)
+  - replace hardcoded '2021.1.1' with 'self.version' in impi easyblock (#2405)
+  - set $SANDCASTLE when running PyTorch tests to disable some tests as-if we are on Facebooks CI (#2412)
+  - make GROMACS easyblock work with `--module-only` (#2414)
+  - make sure OpenFOAM sanity checks don't requite builddir write permissions (#2415)
+  - make Tkinter easyblock work with `--module-only` (#2416)
+  - enable verbose output for failing tests in FlexiBLAS easyblock (#2422)
+  - use FLEXIBLAS_TEST to control BLAS backend used to run tests (#2424)
+  - only run FlexiBLAS tests with NETLIB backend to verify mapping between FlexiBLAS and backend libraries (#2426)
+  - also disable altivec with FFTW 3.3.9 on POWER (#2437)
+  - remove custom 'ext_postinstallcmds' from PythonPackage easyblock (#2439)
+  - correctly handle empty list of sources in PythonPackage._should_unpack_source (#2442)
+  - make sure that self.python_cmd is set before using it in PythonPackage.sanity_check_step (#2447)
+- other changes, including:
+  - update setup.py to indicate compatibility with Python 3.8 and 3.9 (#2384)
+  - use on_error rather than deprecated log_error named argument for which function (#2406)
+  - remove cuda_compute_capabilities from custom easyconfig parameters for Clang, LAMMPS and TensorFlow (now supported as general easyconfig paramter) (#2433)
 
 
 v4.3.4 (April 9th 2021)
