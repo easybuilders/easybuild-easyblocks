@@ -65,7 +65,7 @@ CONFIG_GUESS_SHA256 = "c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2c
 DEFAULT_CONFIGURE_CMD = './configure'
 DEFAULT_BUILD_CMD = 'make'
 DEFAULT_INSTALL_CMD = 'make install'
-DEFAULT_BUILD_TARGETS = ''
+DEFAULT_BUILD_TARGET = ''
 
 
 def check_config_guess(config_guess):
@@ -176,7 +176,7 @@ class ConfigureMake(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
-            'build_targets': [DEFAULT_BUILD_TARGETS, "Targets to build", CUSTOM],
+            'build_targets': [DEFAULT_BUILD_TARGET, "Target name (string) or list of target names to build", CUSTOM],
             'build_type': [None, "Value to provide to --build option of configure script, e.g., x86_64-pc-linux-gnu "
                                  "(determined by config.guess shipped with EasyBuild if None,"
                                  " False implies to leave it up to the configure script)", CUSTOM],
@@ -322,8 +322,8 @@ class ConfigureMake(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        targets = self.cfg['build_targets'] or DEFAULT_BUILD_TARGETS
-        # ensure it is a list
+        targets = self.cfg['build_targets'] or DEFAULT_BUILD_TARGET
+        # ensure strings are converted to list
         targets = [targets] if isinstance(targets, str) else targets
 
         for target in targets:
@@ -334,6 +334,7 @@ class ConfigureMake(EasyBlock):
                 paracmd,
                 self.cfg['buildopts'],
             ])
+            self.log.info("Building target '%s'", target)
 
             (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 
