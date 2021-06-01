@@ -185,7 +185,9 @@ class EB_OpenMPI(ConfigureMake):
 
                 # Build test binary
                 build_cmd = "%s %s -o %s" % (compiler, src_path, test_exe)
-                params.update({'nr_ranks': self.cfg['parallel'], 'cmd': test_exe})
+                # Limit number of ranks to 8 to avoid it failing due to hyperthreading
+                ranks = min(8, self.cfg['parallel'])
+                params.update({'nr_ranks': ranks, 'cmd': test_exe})
 
                 custom_commands.extend([
                     build_cmd,  # build test program
