@@ -41,6 +41,7 @@ from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 from easybuild.tools.filetools import symlink, apply_regex_substitutions
 
+
 class EB_PyTorch(PythonPackage):
     """Support for building/installing TensorFlow."""
 
