@@ -189,10 +189,9 @@ class EB_NVHPC(PackedBinary):
         prefix = self.nvhpc_install_subdir
         compiler_names = ['nvc', 'nvc++', 'nvfortran']
 
+        files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names]
         if LooseVersion(self.version) < LooseVersion('21.3'):
-            files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names + ['siterc']]
-        else:
-            files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names]
+            files.append(os.path.join(prefix, 'compilers', 'bin', 'siterc'))
 
         custom_paths = {
             'files': files,
