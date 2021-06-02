@@ -479,6 +479,17 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
+        if 'NVPTX' in self.cfg['build_targets']:
+            arch = get_cpu_architecture()
+            if arch == POWER:
+                # The 'libomptarget.rtl' on POWER systems is identified using
+                # the following arch
+                arch = 'ppc64'
+            custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
+                                          "lib/libomptarget-nvptx.a",
+                                          "lib/libomptarget.rtl.cuda.%s" % shlib_ext,
+                                          "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
+
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
