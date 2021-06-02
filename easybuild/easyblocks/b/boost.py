@@ -254,7 +254,8 @@ class EB_Boost(EasyBlock):
 
         self.log.info("Building boost libraries")
         # build with specified options
-        cmd = "%s ./%s %s %s %s" % (self.cfg['prebuildopts'], self.bjamcmd, self.bjamoptions, self.paracmd, self.cfg['buildopts'])
+        cmd = "%s ./%s %s %s %s" % (
+            self.cfg['prebuildopts'], self.bjamcmd, self.bjamoptions, self.paracmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
@@ -270,7 +271,8 @@ class EB_Boost(EasyBlock):
         self.log.info("Copying %s to installation dir %s", self.objdir, self.installdir)
         if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.iter_idx > 0:
             self.log.info("Main installation should already exist, only copying over missing Python libraries.")
-            copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'), symlinks=True)
+            copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'),
+                 symlinks=True)
         else:
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
 
@@ -285,12 +287,15 @@ class EB_Boost(EasyBlock):
                 lib_mt_suffix += '-x64'
 
         shlib_ext = get_shared_lib_ext()
-        for source_shared_lib in glob.glob(os.path.join(self.installdir, 'lib', 'lib*%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version))):
+        lib_glob = 'lib*%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version)
+        for source_shared_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
             target_shared_lib = source_shared_lib.replace('%s.%s' % (lib_mt_suffix, shlib_ext), '.%s' % shlib_ext)
-            source_static_lib = source_shared_lib.replace('%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version), '%s.a' % lib_mt_suffix)
+            source_static_lib = source_shared_lib.replace('%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version),
+                                                          '%s.a' % lib_mt_suffix)
             target_static_lib = source_static_lib.replace('%s.a' % lib_mt_suffix, '.a')
             symlink(os.path.basename(source_shared_lib), target_shared_lib, use_abspath_source=False)
-            symlink(os.path.basename(target_shared_lib), target_shared_lib.replace('.%s' % self.version, ''), use_abspath_source=False)
+            symlink(os.path.basename(target_shared_lib), target_shared_lib.replace('.%s' % self.version, ''),
+                    use_abspath_source=False)
             symlink(os.path.basename(source_static_lib), target_static_lib, use_abspath_source=False)
 
     def sanity_check_step(self):
