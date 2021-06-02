@@ -42,10 +42,12 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+import easybuild.tools.environment as env
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -107,14 +109,25 @@ class EB_CUDA(Binary):
         elif LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("10.1"):
             install_interpreter = "perl"
             install_script = "cuda-installer.pl"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
+            # note: samples are installed by default
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
         else:
             install_interpreter = ""
             install_script = "./cuda-installer"
-            # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
-            self.cfg.update('installopts', "--silent --toolkit --toolkitpath=%s --defaultroot=%s" % (
-                            self.installdir, self.installdir))
+            # samples are installed in two places with identical copies:
+            # self.installdir/samples and $HOME/NVIDIA_CUDA-11.2_Samples
+            # changing the second location (the one under $HOME) to a scratch location using
+            # --samples --samplespath=self.builddir
+            # avoids the duplicate and pollution of the home directory of the installer.
+            self.cfg.update('installopts',
+                            "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
+                                self.builddir, self.installdir, self.installdir))
+            # When eb is called via sudo -u someuser -i eb ..., the installer may try to chown samples to the
+            # original user using the SUDO_USER environment variable, which fails
+            if "SUDO_USER" in os.environ:
+                self.log.info("SUDO_USER was defined as '%s', need to unset it to avoid problems..." %
+                              os.environ["SUDO_USER"])
+                del os.environ["SUDO_USER"]
 
         if LooseVersion("10.0") < LooseVersion(self.version) < LooseVersion("10.2") and get_cpu_architecture() == POWER:
             # Workaround for
@@ -156,6 +169,12 @@ class EB_CUDA(Binary):
         # patch install script to handle Q&A autonomously
         if install_interpreter == "perl":
             patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
+            p5lib = os.getenv('PERL5LIB', '')
+            if p5lib == '':
+                p5lib = self.builddir
+            else:
+                p5lib = os.pathsep.join(self.builddir, p5lib)
+            env.setvar('PERL5LIB', p5lib)
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
         # this is workaround for not being able to specify --nox11 to the Perl install scripts
@@ -194,7 +213,7 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
-        ldconfig = which('ldconfig', log_ok=False, log_error=False)
+        ldconfig = which('ldconfig', log_ok=False, on_error=IGNORE)
         sbin_dirs = ['/sbin', '/usr/sbin']
         if not ldconfig:
             # ldconfig is usually in /sbin or /usr/sbin
@@ -239,6 +258,8 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
+        if LooseVersion(self.version) > LooseVersion('5'):
+            custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
         if LooseVersion(self.version) >= LooseVersion('7'):

@@ -39,6 +39,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy, move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -49,6 +50,11 @@ class EB_Tkinter(EB_Python):
     based on the normal Python module. We build a normal python
     but only install the Tkinter bits.
     """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize Tkinter-specific variables."""
+        super(EB_Tkinter, self).__init__(*args, **kwargs)
+        self.tkinter_so_basename = ''
 
     def configure_step(self):
         """Check for Tk before configuring"""
@@ -69,18 +75,14 @@ class EB_Tkinter(EB_Python):
 
         tmpdir = tempfile.mkdtemp(dir=self.builddir)
 
-        pylibdir = os.path.join(self.installdir, os.path.dirname(det_pylibdir()))
-        shlib_ext = get_shared_lib_ext()
-        tkinter_so = os.path.join(pylibdir, 'lib-dynload', '_tkinter*.' + shlib_ext)
-        tkinter_so_hits = glob.glob(tkinter_so)
-        if len(tkinter_so_hits) != 1:
-            raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
-        self.tkinter_so_basename = os.path.basename(tkinter_so_hits[0])
+        if not self.tkinter_so_basename:
+            self.tkinter_so_basename = self.get_tkinter_so_basename()
         if LooseVersion(self.version) >= LooseVersion('3'):
             tkparts = ["tkinter", os.path.join("lib-dynload", self.tkinter_so_basename)]
         else:
             tkparts = ["lib-tk", os.path.join("lib-dynload", self.tkinter_so_basename)]
 
+        pylibdir = os.path.join(self.installdir, os.path.dirname(det_pylibdir()))
         copy([os.path.join(pylibdir, x) for x in tkparts], tmpdir)
 
         remove_dir(self.installdir)
@@ -89,6 +91,21 @@ class EB_Tkinter(EB_Python):
         tkinter_so = os.path.basename(tkparts[1])
         move_file(os.path.join(tmpdir, tkinter_so), os.path.join(pylibdir, tkinter_so))
 
+    def get_tkinter_so_basename(self):
+        pylibdir = os.path.join(self.installdir, os.path.dirname(det_pylibdir()))
+        shlib_ext = get_shared_lib_ext()
+        if build_option('module_only'):
+            # The build has already taken place so the file will have been moved into the final pylibdir
+            tkinter_so = os.path.join(pylibdir, '_tkinter*.' + shlib_ext)
+        else:
+            tkinter_so = os.path.join(pylibdir, 'lib-dynload', '_tkinter*.' + shlib_ext)
+        tkinter_so_hits = glob.glob(tkinter_so)
+        if len(tkinter_so_hits) != 1:
+            raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
+        tkinter_so_basename = os.path.basename(tkinter_so_hits[0])
+
+        return tkinter_so_basename
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
         if LooseVersion(self.version) >= LooseVersion('3'):
@@ -96,6 +113,9 @@ class EB_Tkinter(EB_Python):
         else:
             tkinter = 'Tkinter'
         custom_commands = ["python -c 'import %s'" % tkinter]
+
+        if not self.tkinter_so_basename:
+            self.tkinter_so_basename = self.get_tkinter_so_basename()
 
         custom_paths = {
             'files': [os.path.join(os.path.dirname(det_pylibdir()), self.tkinter_so_basename)],

@@ -239,12 +239,15 @@ class PythonPackage(ExtensionEasyBlock):
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
+            'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
+                                   "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed "
                                         "and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
-            'unpack_sources': [True, "Unpack sources prior to build/install", CUSTOM],
+            'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
+                               CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
@@ -344,6 +347,10 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.cfg.update('installopts', '--egg')
 
+            pip_no_index = self.cfg.get('pip_no_index', None)
+            if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
+                self.cfg.update('installopts', '--no-index')
+
             # avoid that pip (ab)uses $HOME/.cache/pip
             # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
             env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
@@ -415,6 +422,31 @@ class PythonPackage(ExtensionEasyBlock):
             # set Python lib directories
             self.set_pylibdirs()
 
+    def _should_unpack_source(self):
+        """Determine whether we need to unpack the source(s)"""
+
+        unpack_sources = self.cfg.get('unpack_sources')
+
+        # if unpack_sources is not specified, check file extension of (first) source file
+        if unpack_sources is None:
+            src = self.src
+            # we may have a list of sources, only consider first source file in that case
+            if isinstance(src, (list, tuple)):
+                if src:
+                    src = src[0]
+                    # source file specs (incl. path) could be specified via a dict
+                    if isinstance(src, dict) and 'path' in src:
+                        src = src['path']
+                else:
+                    unpack_sources = False
+
+            # if undecided, check the source file extension: don't try to unpack wheels (*.whl)
+            if unpack_sources is None:
+                _, ext = os.path.splitext(src)
+                unpack_sources = ext.lower() != '.whl'
+
+        return unpack_sources
+
     def get_installed_python_packages(self, names_only=True, python_cmd=None):
         """Return list of Python packages that are installed
 
@@ -476,7 +508,7 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        if self.cfg.get('unpack_sources', True):
+        if self._should_unpack_source():
             # specify current directory
             loc = '.'
         else:
@@ -518,7 +550,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def extract_step(self):
         """Unpack source files, unless instructed otherwise."""
-        if self.cfg.get('unpack_sources', True):
+        if self._should_unpack_source():
             super(PythonPackage, self).extract_step()
 
     def prerun(self):
@@ -696,7 +728,7 @@ class PythonPackage(ExtensionEasyBlock):
             raise EasyBuildError("No source found for Python package %s, required for installation. (src: %s)",
                                  self.name, self.src)
         # we unpack unless explicitly told otherwise
-        kwargs.setdefault('unpack_src', self.cfg.get('unpack_sources', True))
+        kwargs.setdefault('unpack_src', self._should_unpack_source())
         super(PythonPackage, self).run(*args, **kwargs)
 
         # configure, build, test, install
@@ -784,6 +816,8 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             # 'python' is replaced by full path to active 'python' command
             # (which is required especially when installing with system Python)
+            if self.python_cmd is None:
+                self.prepare_python()
             python_cmd = self.python_cmd
             if 'exts_filter' not in kwargs:
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
