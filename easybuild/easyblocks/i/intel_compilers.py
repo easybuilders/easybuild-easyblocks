@@ -127,5 +127,8 @@ class EB_intel_minus_compilers(IntelBase):
             ],
             'LD_LIBRARY_PATH': libdirs,
             'LIBRARY_PATH': libdirs,
+            'OCL_ICD_FILENAMES': [
+                os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
+            ],
         }
         return guesses
