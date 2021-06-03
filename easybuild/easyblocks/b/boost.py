@@ -277,7 +277,6 @@ class EB_Boost(EasyBlock):
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
 
         # Link tagged multi threaded libs as the default libs
-        shlib_ext = get_shared_lib_ext()
         lib_glob = 'lib*-mt-*.*'
         mt_replace = re.compile(r'-mt[^.]*\.')
         for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
