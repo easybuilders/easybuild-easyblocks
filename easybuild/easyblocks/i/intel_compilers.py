@@ -50,6 +50,7 @@ class EB_intel_minus_compilers(IntelBase):
             raise EasyBuildError("Invalid version %s, should be >= 2021.x" % self.version)
 
         self.compilers_subdir = os.path.join('compiler', self.version, 'linux')
+        self.tbb_subdir = os.path.join('tbb', self.version)
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -120,6 +121,7 @@ class EB_intel_minus_compilers(IntelBase):
             os.path.join('compiler', 'lib', 'intel64_lin'),
         ]
         libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
+        libdirs.append(os.path.join(self.tbb_subdir, 'lib', 'intel64', 'gcc4.8'))
         guesses = {
             'PATH': [
                 os.path.join(self.compilers_subdir, 'bin'),
@@ -130,5 +132,9 @@ class EB_intel_minus_compilers(IntelBase):
             'OCL_ICD_FILENAMES': [
                 os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
             ],
+            'CPATH': [
+                os.path.join(self.tbb_subdir, 'include'),
+            ],
+            'TBBROOT': [self.tbb_subdir],
         }
         return guesses
