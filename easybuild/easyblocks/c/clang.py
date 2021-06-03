@@ -481,10 +481,16 @@ class EB_Clang(CMakeMake):
 
         if 'NVPTX' in self.cfg['build_targets']:
             arch = get_cpu_architecture()
-            if arch == POWER:
-                # The 'libomptarget.rtl' on POWER systems is identified using
-                # the following arch
+            # Check architecture explicitly since Clang uses potentially
+            # different names
+            if arch == X86_64:
+                arch = 'x86_64'
+            elif arch == POWER:
                 arch = 'ppc64'
+            elif arch == AARCH64:
+                arch = 'aarch64'
+            else:
+                print_warning("Unknown CPU architecture (%s) for OpenMP offloading!" % arch)
             custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
                                           "lib/libomptarget-nvptx.a",
                                           "lib/libomptarget.rtl.cuda.%s" % shlib_ext,
