@@ -277,26 +277,12 @@ class EB_Boost(EasyBlock):
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
 
         # Link tagged multi threaded libs as the default libs
-        lib_mt_suffix = '-mt'
-        if LooseVersion(self.version) >= LooseVersion("1.69.0"):
-            if get_cpu_architecture() == AARCH64:
-                lib_mt_suffix += '-a64'
-            elif get_cpu_architecture() == POWER:
-                lib_mt_suffix += '-p64'
-            else:
-                lib_mt_suffix += '-x64'
-
         shlib_ext = get_shared_lib_ext()
-        lib_glob = 'lib*%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version)
-        for source_shared_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
-            target_shared_lib = source_shared_lib.replace('%s.%s' % (lib_mt_suffix, shlib_ext), '.%s' % shlib_ext)
-            source_static_lib = source_shared_lib.replace('%s.%s.%s' % (lib_mt_suffix, shlib_ext, self.version),
-                                                          '%s.a' % lib_mt_suffix)
-            target_static_lib = source_static_lib.replace('%s.a' % lib_mt_suffix, '.a')
-            symlink(os.path.basename(source_shared_lib), target_shared_lib, use_abspath_source=False)
-            symlink(os.path.basename(target_shared_lib), target_shared_lib.replace('.%s' % self.version, ''),
-                    use_abspath_source=False)
-            symlink(os.path.basename(source_static_lib), target_static_lib, use_abspath_source=False)
+        lib_glob = 'lib*-mt-*.*'
+        mt_replace = re.compile(r'-mt[^.]*\.')
+        for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
+            target_lib = mt_replace.sub('.', source_lib)
+            symlink(os.path.basename(source_lib), target_lib, use_abspath_source=False)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
