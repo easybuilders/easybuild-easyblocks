@@ -48,7 +48,7 @@ import sys
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -119,6 +119,11 @@ class EB_Boost(EasyBlock):
 
     def configure_step(self):
         """Configure Boost build using custom tools"""
+
+        # boost_multi_thread is deprecated
+        if boost_multi_thread is not None:
+            self.log.deprecated("boost_multi_thread has been deprecated, "
+                                "we always build both single and multi threading libraries.")
 
         # mpi sanity check
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
