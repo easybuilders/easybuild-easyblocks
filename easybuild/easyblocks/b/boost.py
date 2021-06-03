@@ -48,7 +48,7 @@ import sys
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -121,7 +121,7 @@ class EB_Boost(EasyBlock):
         """Configure Boost build using custom tools"""
 
         # boost_multi_thread is deprecated
-        if boost_multi_thread is not None:
+        if self.cfg['boost_multi_thread'] is not None:
             self.log.deprecated("boost_multi_thread has been deprecated, "
                                 "we always build both single and multi threading libraries.")
 
@@ -282,8 +282,8 @@ class EB_Boost(EasyBlock):
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
 
         # Link tagged multi threaded libs as the default libs
-        lib_glob = 'lib*-mt*.*'
-        mt_replace = re.compile(r'-[^.]*\.')
+        lib_glob = 'lib*-mt-*.*'
+        mt_replace = re.compile(r'-mt[^.]*\.')
         for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
             target_lib = mt_replace.sub('.', source_lib)
             symlink(os.path.basename(source_lib), target_lib, use_abspath_source=False)
