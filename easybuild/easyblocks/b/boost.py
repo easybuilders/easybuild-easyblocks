@@ -79,6 +79,9 @@ class EB_Boost(EasyBlock):
         extra_vars = {
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
             'boost_multi_thread': [None, "Build boost with multi-thread option (DEPRECATED)", CUSTOM],
+            'tagged_layout': [None, "Build with tagged layout on library names, default from version 1.69.0", CUSTOM],
+            'single_threaded': [None, "Also build single threaded libraries, requires tagged_layout, "
+                                      "default from version 1.69.0", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset' for bootstrap.sh)", CUSTOM],
             'build_toolset': [None, "Toolset to use for Boost compilation "
                                     "('toolset' for b2, default calculated from toolset)", CUSTOM],
@@ -122,8 +125,10 @@ class EB_Boost(EasyBlock):
 
         # boost_multi_thread is deprecated
         if self.cfg['boost_multi_thread'] is not None:
-            self.log.deprecated("boost_multi_thread has been deprecated, "
-                                "we always build both single and multi threading libraries.")
+            self.log.deprecated("boost_multi_thread has been deprecated, it has been replaced by tagged_layout. "
+                                "We build with tagged layout and both single and multi threading libraries "
+                                "from version 1.69.0.")
+            self.cfg['tagged_layout'] = True
 
         # mpi sanity check
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
@@ -249,8 +254,27 @@ class EB_Boost(EasyBlock):
             # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
             self.bjamoptions += " --with-python"
 
-        self.log.info("Building boost with single and multi threading")
-        self.bjamoptions += " threading=single,multi --layout=tagged"
+        # Default threading since at least 1.47.0 is multi with system layout
+        threading = " threading=multi"
+        layout = " --layout=system"
+
+        if LooseVersion(self.version) >= LooseVersion("1.69.0"):
+            # As of 1.69.0 we build with layout tagged and both single and multi threading
+            # Linking default libraries to multi-threaded versions.
+            if self.cfg['tagged_layout'] is None:
+                self.cfg['tagged_layout'] = True
+            if self.cfg['single_threaded'] is None:
+                self.cfg['single_threaded'] = True
+
+        if self.cfg['tagged_layout']:
+            layout = " --layout=tagged"
+
+        if self.cfg['single_threaded']:
+            if not self.cfg['tagged_layout']:
+                raise EasyBuildError("Singled threaded build requires tagged layout.")
+            threading = " threading=single,multi"
+
+        self.bjamoptions += threading + layout
 
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
@@ -281,12 +305,14 @@ class EB_Boost(EasyBlock):
         else:
             copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
 
-        # Link tagged multi threaded libs as the default libs
-        lib_glob = 'lib*-mt*.*'
-        mt_replace = re.compile(r'-[^.]*\.')
-        for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
-            target_lib = mt_replace.sub('.', source_lib)
-            symlink(os.path.basename(source_lib), target_lib, use_abspath_source=False)
+        if self.cfg['tagged_layout']:
+            if LooseVersion(self.version) >= LooseVersion("1.69.0") or not self.cfg['single_threaded']:
+                # Link tagged multi threaded libs as the default libs
+                lib_glob = 'lib*-mt*.*'
+                mt_replace = re.compile(r'-[^.]*\.')
+                for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
+                    target_lib = mt_replace.sub('.', os.path.basename(source_lib))
+                    symlink(os.path.basename(source_lib), os.path.join(self.installdir, 'lib', target_lib), use_abspath_source=False)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
@@ -311,21 +337,23 @@ class EB_Boost(EasyBlock):
         else:
             custom_paths['files'].append(os.path.join('lib', 'libboost_system.%s' % shlib_ext))
 
-            lib_mt_suffix = '-mt'
-            # MT libraries gained an extra suffix from v1.69.0 onwards
-            if LooseVersion(self.version) >= LooseVersion("1.69.0"):
-                if get_cpu_architecture() == AARCH64:
-                    lib_mt_suffix += '-a64'
-                elif get_cpu_architecture() == POWER:
-                    lib_mt_suffix += '-p64'
-                else:
-                    lib_mt_suffix += '-x64'
+            if self.cfg['tagged_layout']:
+                lib_mt_suffix = '-mt'
+                # MT libraries gained an extra suffix from v1.69.0 onwards
+                if LooseVersion(self.version) >= LooseVersion("1.69.0"):
+                    if get_cpu_architecture() == AARCH64:
+                        lib_mt_suffix += '-a64'
+                    elif get_cpu_architecture() == POWER:
+                        lib_mt_suffix += '-p64'
+                    else:
+                        lib_mt_suffix += '-x64'
 
-            custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
+                custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
             if self.cfg['boost_mpi']:
                 custom_paths['files'].append(os.path.join('lib', 'libboost_mpi.%s' % shlib_ext))
-                custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
+                if self.cfg['tagged_layout']:
+                    custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
 
         super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
 
