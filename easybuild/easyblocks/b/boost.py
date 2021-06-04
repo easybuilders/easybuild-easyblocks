@@ -312,7 +312,8 @@ class EB_Boost(EasyBlock):
                 mt_replace = re.compile(r'-[^.]*\.')
                 for source_lib in glob.glob(os.path.join(self.installdir, 'lib', lib_glob)):
                     target_lib = mt_replace.sub('.', os.path.basename(source_lib))
-                    symlink(os.path.basename(source_lib), os.path.join(self.installdir, 'lib', target_lib), use_abspath_source=False)
+                    symlink(os.path.basename(source_lib), os.path.join(self.installdir, 'lib', target_lib),
+                            use_abspath_source=False)
 
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
