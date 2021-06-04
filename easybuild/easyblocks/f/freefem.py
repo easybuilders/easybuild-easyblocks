@@ -35,9 +35,10 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import ERROR
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import check_log_for_errors, run_cmd
 
 
 class EB_FreeFEM(ConfigureMake):
@@ -64,12 +65,25 @@ class EB_FreeFEM(ConfigureMake):
 
         blas_family = self.toolchain.blas_family()
         if blas_family == toolchain.OPENBLAS:
-            configopts.append("--with-blas=openblas")
+            openblas_root = get_software_root('OpenBLAS')
+            configopts.append('--with-blas=%s' % os.path.join(openblas_root, 'lib'))
         elif blas_family == toolchain.INTELMKL:
             mkl_root = get_software_root('imkl')
             configopts.append("--with-mkl=%s" % os.path.join(mkl_root, 'mkl', 'lib', 'intel64'))
 
-        # check depencies and add the corresponding configure options for FreeFEM
+        # specify which MPI to build with based on MPI component of toolchain
+        if self.toolchain.mpi_family() in toolchain.OPENMPI:
+            self.cfg.update('configopts', '--with-mpi=openmpi')
+        elif self.toolchain.mpi_family() in toolchain.INTELMPI:
+            self.cfg.update('configopts', '--with-mpi=mpic++')
+
+        # if usempi is enabled, configure with --with-mpi=yes
+        elif self.toolchain.options.get('usempi', None):
+            self.cfg.update('configopts', '--with-mpi=yes')
+        else:
+            self.cfg.update('configopts', '--with-mpi=no')
+
+        # check dependencies and add the corresponding configure options for FreeFEM
         hdf5_root = get_software_root('HDF5')
         if hdf5_root:
             configopts.append('--with-hdf5=%s ' % os.path.join(hdf5_root, 'bin', 'h5pcc'))
@@ -124,42 +138,32 @@ class EB_FreeFEM(ConfigureMake):
 
         # run tests unless they're disabled explicitly
         if self.cfg['runtest'] is None or self.cfg['runtest']:
+
             # avoid oversubscribing, by using both OpenMP threads and having OpenBLAS use threads as well
-            env.setvar('OPENBLAS_NUM_THREAD', '1')
+            env.setvar('OMP_NUM_THREADS', '1')
 
-            # avoid using too many OpenMP threads, which may slow tests down too much,
-            # since this could lead to failing tests (60 sec. time limit is imposed by the test run script)
-            parallel = self.cfg['parallel']
-            if parallel:
-                try:
-                    par = int(parallel)
-                except ValueError as err:
-                    raise EasyBuildError("Failed to parse 'parallel' value '%s' as integer: %s", parallel, err)
+            (out, _) = run_cmd("make check", log_all=True, simple=False, regexp=False)
 
-                # use number of threads equal to 1/4th of available cores (and ensure at least one)
-                n_thr = max(par // 4, 1)
-            else:
-                n_thr = 1
-
-            env.setvar('OMP_NUM_THREADS', '%d' % n_thr)
-
-            run_cmd("make check", log_all=True, simple=False)
+            # Raise an error if any test failed
+            check_log_for_errors(out, [('# (ERROR|FAIL): +[1-9]', ERROR)])
 
     def sanity_check_step(self):
-        # define FreeFem++ sanity_check_paths here
+        """Custom sanity check step for FreeFem++."""
+
+        binaries = [os.path.join('bin', x) for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmaster', 'ffmedit']]
+        binaries.extend(os.path.join('bin', 'ff-%s' % x) for x in ['c++', 'get-dep', 'mpirun', 'pkg-download'])
+        binaries.extend(os.path.join('bin', 'FreeFem++%s' % x) for x in ['', '-mpi', '-nw'])
 
         custom_paths = {
-            'files': ['bin/%s' % x for x in ['bamg', 'cvmsh2', 'ffglut', 'ffmedit']] +
-                ['bin/ff-%s' % x for x in ['c++', 'get-dep', 'mpirun', 'pkg-download']] +
-                ['bin/FreeFem++%s' % x for x in ['', '-mpi', '-nw']],
-            'dirs': ['share/FreeFEM/%s' % self.version] +
-                ['lib/ff++/%s/%s' % (self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']]
+            'files': binaries,
+            'dirs': [os.path.join('share', 'FreeFEM', self.version)] +
+                    [os.path.join('lib', 'ff++', self.version, x) for x in ['bin', 'etc', 'idp', 'include', 'lib']],
         }
         super(EB_FreeFEM, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         txt = super(EB_FreeFEM, self).make_module_extra()
         if self.toolchain.blas_family() == toolchain.OPENBLAS:
-            # Run only one OpenBLAS thread
-            txt += self.module_generator.set_environment('OPENBLAS_NUM_THREAD', "1")
+            # avoid oversubscribing the available cores, by only running one OpenMP thread
+            txt += self.module_generator.set_environment('OMP_NUM_THREADS', "1")
         return txt
