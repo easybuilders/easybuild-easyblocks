@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,13 +27,8 @@ EasyBuild support for building and installing freetype, implemented as an easybl
 
 @author: Kenneth Hoste (Ghent University)
 """
-import os
 
-import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -61,7 +56,7 @@ class EB_freetype(ConfigureMake):
         guesses = super(EB_freetype, self).make_module_req_guess()
 
         guesses.update({
-                        'CPATH': ['include/freetype%s' % self.maj_ver],
-                       })
+            'CPATH': ['include/freetype%s' % self.maj_ver],
+        })
 
         return guesses

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,6 +38,13 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_Armadillo(CMakeMake):
     """Support for building Armadillo."""
 
+    @staticmethod
+    def extra_options():
+        """Extra easyconfig parameters for Armadillo."""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def configure_step(self):
         """Set some extra environment variables before configuring."""
 
@@ -62,7 +69,7 @@ class EB_Armadillo(CMakeMake):
             libdir = 'lib64'
 
         custom_paths = {
-            'files': ['include/armadillo', os.path.join(libdir,'libarmadillo.%s' % get_shared_lib_ext())],
+            'files': ['include/armadillo', os.path.join(libdir, 'libarmadillo.%s' % get_shared_lib_ext())],
             'dirs': ['include/armadillo_bits'],
         }
         super(EB_Armadillo, self).sanity_check_step(custom_paths=custom_paths)

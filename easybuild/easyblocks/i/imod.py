@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,8 +32,9 @@ import shutil
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import rmtree2
+from easybuild.tools.filetools import remove_dir
 from easybuild.tools.run import run_cmd
+
 
 class EB_IMOD(Binary):
     """Support for building/installing IMOD."""
@@ -47,7 +48,7 @@ class EB_IMOD(Binary):
         script = '{0}_{1}{2}.csh'.format(self.name.lower(), self.version, self.cfg['versionsuffix'])
         cmd = "tcsh {0} -dir {1} -script {1} -skip -yes".format(script, self.installdir)
         run_cmd(cmd, log_all=True, simple=True)
-        
+
         # The assumption by the install script is that installdir will be something
         # like /usr/local. So it creates, within the specified install location, a
         # number of additional directories within which to install IMOD. We will,
@@ -61,7 +62,7 @@ class EB_IMOD(Binary):
                 shutil.move(os.path.join(dir_to_remove, entry), self.installdir)
             if os.path.realpath(link_to_remove) != os.path.realpath(dir_to_remove):
                 raise EasyBuildError("Something went wrong: %s doesn't point to %s", link_to_remove, dir_to_remove)
-            rmtree2(dir_to_remove)
+            remove_dir(dir_to_remove)
             os.remove(link_to_remove)
         except OSError as err:
             raise EasyBuildError("Failed to clean up install dir: %s", err)
@@ -78,7 +79,8 @@ class EB_IMOD(Binary):
         """Define IMOD specific variables in generated module file."""
         txt = super(EB_IMOD, self).make_module_extra()
         txt += self.module_generator.set_environment('IMOD_DIR', self.installdir)
-        txt += self.module_generator.set_environment('IMOD_PLUGIN_DIR', os.path.join(self.installdir, 'lib', 'imodplug'))
+        txt += self.module_generator.set_environment('IMOD_PLUGIN_DIR',
+                                                     os.path.join(self.installdir, 'lib', 'imodplug'))
         txt += self.module_generator.set_environment('IMOD_QTLIBDIR', os.path.join(self.installdir, 'qtlib'))
         if os.getenv('JAVA_HOME') is None:
             raise EasyBuildError("$JAVA_HOME is not defined for some reason -- check environment")

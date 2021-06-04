@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -61,7 +61,8 @@ class EB_Gurobi(Tarball):
             'dirs': [],
         }
 
-        custom_commands = []
+        custom_commands = ["gurobi_cl --help"]
+
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
 

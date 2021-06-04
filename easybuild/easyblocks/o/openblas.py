@@ -27,6 +27,7 @@ class EB_OpenBLAS(ConfigureMake):
             'FC': os.getenv('FC'),
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
+            'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:

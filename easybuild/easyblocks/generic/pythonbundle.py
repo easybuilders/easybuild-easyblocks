@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,10 +32,11 @@ import sys
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir, pick_python_cmd
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, pick_python_cmd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
+import easybuild.tools.environment as env
 
 
 class PythonBundle(Bundle):
@@ -77,6 +78,7 @@ class PythonBundle(Bundle):
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None
+        self.all_pylibdirs = []
 
         # figure out whether this bundle of Python packages is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
@@ -110,7 +112,20 @@ class PythonBundle(Bundle):
 
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
-        self.pylibdir = det_pylibdir(python_cmd=python_cmd)
+        self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
+        self.pylibdir = self.all_pylibdirs[0]
+
+        # if 'python' is not used, we need to take that into account in the extensions filter
+        # (which is also used during the sanity check)
+        if python_cmd:
+            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+            self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', python_cmd), orig_exts_filter[1])
+
+    def extensions_step(self, *args, **kwargs):
+        """Install extensions (usually PythonPackages)"""
+        # don't add user site directory to sys.path (equivalent to python -s)
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        super(PythonBundle, self).extensions_step(*args, **kwargs)
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
@@ -126,7 +141,20 @@ class PythonBundle(Bundle):
         if self.multi_python:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+
+            # the temporary module file that is generated before installing extensions
+            # must add all subdirectories to $PYTHONPATH without checking existence,
+            # otherwise paths will be missing since nothing is there initially
+            if self.current_step == 'extensions':
+                new_pylibdirs = self.all_pylibdirs
+            else:
+                new_pylibdirs = [
+                    lib_dir for lib_dir in self.all_pylibdirs
+                    if os.path.exists(os.path.join(self.installdir, lib_dir))
+                ]
+
+            for pylibdir in new_pylibdirs:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 

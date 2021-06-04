@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,7 +58,7 @@ class EB_BiSearch(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for BiSearch."""
         custom_paths = {
-            'files':['bin/%s' % x for x in ['fpcr', 'indexing_cdna', 'indexing_genome', 'makecomp']],
-            'dirs':[],
+            'files': ['bin/%s' % x for x in ['fpcr', 'indexing_cdna', 'indexing_genome', 'makecomp']],
+            'dirs': [],
         }
         super(EB_BiSearch, self).sanity_check_step(custom_paths=custom_paths)

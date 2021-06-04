@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -108,7 +108,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
             self.assertTrue(isinstance(extra_options[key], list))
             self.assertTrue(len(extra_options[key]), 3)
 
-    class_regex = re.compile("^class (.*)\(.*", re.M)
+    class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
     self.log.debug("easyblock: %s" % easyblock)
 
@@ -136,7 +136,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
     if re.search('def prepare_step', txt):
         regex = re.compile(r"def prepare_step\(self, \*args, \*\*kwargs\):")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
-    if re.search('\.prepare_step\(', txt):
+    if re.search(r'\.prepare_step\(', txt):
         regex = re.compile(r"\.prepare_step\(.*\*args,.*\*\*kwargs\.*\)")
         self.assertTrue(regex.search(txt), "Pattern '%s' found in %s" % (regex.pattern, easyblock))
 
@@ -151,11 +151,16 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
         extra_options = app_class.extra_options()
         check_extra_options_format(extra_options)
 
-        # extend easyconfig to make sure mandatory custom easyconfig paramters are defined
+        # extend easyconfig to make sure mandatory custom easyconfig parameters are defined
         extra_txt = ''
         for (key, val) in extra_options.items():
             if val[2] == MANDATORY:
-                extra_txt += '%s = "foo"\n' % key
+                # use default value if any is set, otherwise use "foo"
+                if val[0]:
+                    test_param = val[0]
+                else:
+                    test_param = 'foo'
+                extra_txt += '%s = "%s"\n' % (key, test_param)
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt)
@@ -189,6 +194,10 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
 
 def suite():
     """Return all easyblock initialisation tests."""
+    def make_inner_test(easyblock, **kwargs):
+        def innertest(self):
+            template_init_test(self, easyblock, **kwargs)
+        return innertest
 
     # dynamically generate a separate test for each of the available easyblocks
     easyblocks_path = get_paths_for("easyblocks")[0]
@@ -196,17 +205,22 @@ def suite():
     easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and '/test/' not in eb]
 
     for easyblock in easyblocks:
+        easyblock_fn = os.path.basename(easyblock)
         # dynamically define new inner functions that can be added as class methods to InitTest
-        if os.path.basename(easyblock) == 'systemcompiler.py':
+        if easyblock_fn == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
-            code = "def innertest(self): template_init_test(self, '%s', name='GCC', version='system')" % easyblock
-        elif os.path.basename(easyblock) == 'systemmpi.py':
+            innertest = make_inner_test(easyblock, name='GCC', version='system')
+        elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
-            code = "def innertest(self): template_init_test(self, '%s', name='OpenMPI', version='system')" % easyblock
+            innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif easyblock_fn == 'intel_compilers.py':
+            # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
+            innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif easyblock_fn == 'openssl_wrapper.py':
+            # easyblock to create OpenSSL wrapper expects an OpenSSL version
+            innertest = make_inner_test(easyblock, version='1.1')
         else:
-            code = "def innertest(self): template_init_test(self, '%s')" % easyblock
-
-        exec(code, globals())
+            innertest = make_inner_test(easyblock)
 
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))

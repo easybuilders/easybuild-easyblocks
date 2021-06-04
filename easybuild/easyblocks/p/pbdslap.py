@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,7 @@ EasyBuild support for building and installing pbdSLAP, implemented as an easyblo
 """
 
 from easybuild.easyblocks.generic.rpackage import RPackage
+
 
 class EB_pbdSLAP(RPackage):
     """Support for building/installing pbdSLAP."""

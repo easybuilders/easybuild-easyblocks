@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 The Cyprus Institute
+# Copyright 2009-2021 The Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,13 +28,10 @@ EasyBuild support for BamTools, implemented as an easyblock
 @author: Andreas Panteli (The Cyprus Institute)
 @author: Kenneth Hoste (Ghent University)
 """
-import os
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -45,23 +42,18 @@ class EB_BamTools(MakeCp, CMakeMake):
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters for BamTools."""
         extra_vars = MakeCp.extra_options()
+        extra_vars.update(CMakeMake.extra_options())
 
         # files_to_copy is not mandatory here, since we overwrite it in install_step
         extra_vars['files_to_copy'][2] = CUSTOM
+        # BamTools requires an out of source build
+        extra_vars['separate_build_dir'][0] = True
 
-        return CMakeMake.extra_options(extra_vars=extra_vars)
+        return extra_vars
 
     def configure_step(self):
         """Configure BamTools build."""
-        # BamTools requires an out of source build.
-        builddir = os.path.join(self.cfg['start_dir'], 'build')
-        try:
-            mkdir(builddir)
-            os.chdir(builddir)
-        except OSError as err:
-            raise EasyBuildError("Failed to move to %s: %s", builddir, err)
-
-        CMakeMake.configure_step(self, srcdir='..')
+        CMakeMake.configure_step(self)
 
     def install_step(self):
         """Custom installation procedure for BamTools."""

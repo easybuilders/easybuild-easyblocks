@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import stat
+import tempfile
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -50,7 +51,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
 
 
 class EB_OpenFOAM(EasyBlock):
@@ -70,7 +71,14 @@ class EB_OpenFOAM(EasyBlock):
 
         # version may start with 'v' for some variants of OpenFOAM
         # we need to strip this off to avoid problems when comparing LooseVersion instances in Python 3
-        self.looseversion = LooseVersion(self.version.strip('v+'))
+        clean_version = self.version.strip('v+')
+
+        # take into account versions like '4.x',
+        # assume it's equivalent to a very recent minor version (.99)
+        if '.x' in clean_version:
+            clean_version = clean_version.replace('.x', '.99')
+
+        self.looseversion = LooseVersion(clean_version)
 
         if 'extend' in self.name.lower():
             if self.looseversion >= LooseVersion('3.0'):
@@ -292,7 +300,10 @@ class EB_OpenFOAM(EasyBlock):
 
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('4.0'):
-            cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
+            if self.looseversion >= LooseVersion('2006'):
+                cleancmd = "cd $WM_PROJECT_DIR && wclean -platform -all && cd -"
+            else:
+                cleancmd = "cd $WM_PROJECT_DIR && wcleanPlatform -all && cd -"
         else:
             cleancmd = "wcleanAll"
 
@@ -327,6 +338,37 @@ class EB_OpenFOAM(EasyBlock):
                 cmd += ' -log'
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
+    def det_psubdir(self):
+        """Determine the platform-specific installation directory for OpenFOAM."""
+        # OpenFOAM >= 3.0.0 can use 64 bit integers
+        # same goes for OpenFOAM-Extend >= 4.1
+        if 'extend' in self.name.lower():
+            set_int_size = self.looseversion >= LooseVersion('4.1')
+        else:
+            set_int_size = self.looseversion >= LooseVersion('3.0')
+
+        if set_int_size:
+            if self.toolchain.options['i8']:
+                int_size = 'Int64'
+            else:
+                int_size = 'Int32'
+        else:
+            int_size = ''
+
+        archpart = '64'
+        arch = get_cpu_architecture()
+        if arch == AARCH64:
+            # Variants have different abbreviations for ARM64...
+            if self.looseversion < LooseVersion("100"):
+                archpart = 'Arm64'
+            else:
+                archpart = 'ARM64'
+        elif arch == POWER:
+            archpart = 'PPC64le'
+
+        psubdir = "linux%s%sDP%s%s" % (archpart, self.wm_compiler, int_size, self.build_type)
+        return psubdir
+
     def install_step(self):
         """Building was performed in install dir, so just fix permissions."""
 
@@ -342,20 +384,33 @@ class EB_OpenFOAM(EasyBlock):
             adjust_permissions(fullpath, stat.S_IROTH, add=True, recursive=True, ignore_errors=True)
             adjust_permissions(fullpath, stat.S_IXOTH, add=True, recursive=True, onlydirs=True, ignore_errors=True)
 
+        # create symlinks in the lib directory to all libraries in the mpi subdirectory
+        # to make sure they take precedence over the libraries in the dummy subdirectory
+        shlib_ext = get_shared_lib_ext()
+        psubdir = self.det_psubdir()
+        openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
+        if openfoam_extend_v3 or self.looseversion < LooseVersion("2"):
+            libdir = os.path.join(self.installdir, self.openfoamdir, "lib", psubdir)
+        else:
+            libdir = os.path.join(self.installdir, self.openfoamdir, "platforms", psubdir, "lib")
+
+        # OpenFOAM v2012 puts mpi into eb-mpi
+        if self.looseversion >= LooseVersion("2012"):
+            mpilibssubdir = "eb-mpi"
+        else:
+            mpilibssubdir = "mpi"
+        mpilibsdir = os.path.join(libdir, mpilibssubdir)
+
+        if os.path.exists(mpilibsdir):
+            for lib in glob.glob(os.path.join(mpilibsdir, "*.%s" % shlib_ext)):
+                libname = os.path.basename(lib)
+                dst = os.path.join(libdir, libname)
+                os.symlink(os.path.join(mpilibssubdir, libname), dst)
+
     def sanity_check_step(self):
         """Custom sanity check for OpenFOAM"""
         shlib_ext = get_shared_lib_ext()
-
-        # OpenFOAM >= 3.0.0 can use 64 bit integers
-        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion('3.0'):
-            if self.toolchain.options['i8']:
-                int_size = 'Int64'
-            else:
-                int_size = 'Int32'
-        else:
-            int_size = ''
-
-        psubdir = "linux64%sDP%s%s" % (self.wm_compiler, int_size, self.build_type)
+        psubdir = self.det_psubdir()
 
         openfoam_extend_v3 = 'extend' in self.name.lower() and self.looseversion >= LooseVersion('3.0')
         if openfoam_extend_v3 or self.looseversion < LooseVersion("2"):
@@ -376,6 +431,10 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
 
+        # test setting up the OpenFOAM environment in bash shell
+        load_openfoam_env = "source $FOAM_BASH"
+        custom_commands = [load_openfoam_env]
+
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
             bins.extend([
@@ -394,9 +453,15 @@ class EB_OpenFOAM(EasyBlock):
             else:
                 libs.extend([os.path.join(libsdir, "libparMetisDecomp.%s" % shlib_ext)])
         else:
+            # OpenFOAM v2012 puts mpi into eb-mpi
+            if self.looseversion >= LooseVersion("2012"):
+                mpilibssubdir = "eb-mpi"
+            else:
+                mpilibssubdir = "mpi"
+
             # there must be a dummy one and an mpi one for both
-            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", "mpi"]] + \
-                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", "mpi"]] +\
+            libs = [os.path.join(libsdir, x, "libPstream.%s" % shlib_ext) for x in ["dummy", mpilibssubdir]] + \
+                   [os.path.join(libsdir, x, "libptscotchDecomp.%s" % shlib_ext) for x in ["dummy", mpilibssubdir]] +\
                    [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext)] + \
                    [os.path.join(libsdir, "dummy", "libscotchDecomp.%s" % shlib_ext)]
 
@@ -405,12 +470,50 @@ class EB_OpenFOAM(EasyBlock):
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.4.0"):
+            # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
+            bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
+
+            # test foamMonitor; wrap `foamMonitor -h` to generate exit code 1 if any dependency is missing
+            # the command `foamMonitor -h` does not return correct exit codes on its own in all versions
+            test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
+            custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
         }
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths)
+        # run motorBike tutorial case to ensure the installation is functional (if it's available);
+        # only for recent (>= v6.0) versions of openfoam.org variant
+        if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
+            openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
+            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if os.path.exists(motorbike_path):
+                test_dir = tempfile.mkdtemp()
+                cmds = [
+                    "cp -a %s %s" % (motorbike_path, test_dir),
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/triSurface/",
+                    "runApplication surfaceFeatures",
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh -overwrite",
+                    "runParallel patchSummary",
+                    "runParallel potentialFoam",
+                    "runParallel simpleFoam",
+                    "runApplication reconstructParMesh -constant",
+                    "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % test_dir,
+                ]
+                # all commands need to be run in a single shell command,
+                # because sourcing $FOAM_BASH sets up environment
+                custom_commands.append(' && '.join(cmds))
+
+        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""

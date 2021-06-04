@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: George Fanourgakis (The Cyprus Institute)
+@author: Samuel Moors (Vrije Universiteit Brussel (VUB))
 """
 
 
@@ -53,7 +54,10 @@ class EB_Ferret(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("7.3"):
             change_dir('FERRET')
 
-        deps = ['HDF5', 'netCDF', 'Java']
+        if LooseVersion(self.version) >= LooseVersion("7.5"):
+            deps = ['HDF5', 'netCDF-Fortran']
+        else:
+            deps = ['HDF5', 'netCDF', 'Java']
 
         for name in deps:
             if not get_software_root(name):
@@ -75,14 +79,30 @@ class EB_Ferret(ConfigureMake):
             (r"^INSTALL_FER_DIR =.*", "INSTALL_FER_DIR = %s" % self.installdir),
         ]
 
-        for name in deps:
-            regex_subs.append((r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name)))
+        if LooseVersion(self.version) >= LooseVersion("7.5"):
+            regex_subs.append((r"^(HDF5_LIBDIR\s*)=.*", r"\1 = %s/lib" % get_software_root('HDF5')))
+            regex_subs.append((r"^(NETCDF_LIBDIR\s*)=.*", r"\1 = %s/lib" % get_software_root('netCDF-Fortran')))
+        else:
+            for name in deps:
+                regex_subs.append((r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             regex_subs.extend([
                 (r"^DIR_PREFIX =.*", "DIR_PREFIX = %s" % self.cfg['start_dir']),
                 (r"^FER_LOCAL_EXTFCNS = $(FER_DIR)", "FER_LOCAL_EXTFCNS = $(INSTALL_FER_DIR)/libs"),
             ])
+
+        if LooseVersion(self.version) >= LooseVersion("7.5"):
+            comp_vars = {
+                'CC': 'CC',
+                'FC': 'FC',
+            }
+
+            for key, value in comp_vars.items():
+                regex_subs.append((r"^(%s\s*)=.*" % key, r"\1= %s " % os.getenv(value)))
+
+            if self.toolchain.comp_family() == toolchain.INTELCOMP:
+                regex_subs.append((r"^(\s*LD\s*)=.*", r"\1 = %s -nofor-main " % os.getenv("FC")))
 
         for fn in fns:
             apply_regex_substitutions(fn, regex_subs)
@@ -114,8 +134,8 @@ class EB_Ferret(ConfigureMake):
         fn = 'xgks/CUSTOMIZE.%s' % buildtype
 
         regex_subs = [(r"^(FFLAGS\s*=').*-m64 (.*)", r"\1%s \2" % os.getenv('FFLAGS'))]
-        for x, y in comp_vars.items():
-            regex_subs.append((r"^(%s\s*)=.*" % x, r"\1='%s'" % os.getenv(y)))
+        for key, value in comp_vars.items():
+            regex_subs.append((r"^(%s\s*)=.*" % key, r"\1='%s'" % os.getenv(value)))
 
         x11_root = get_software_root('X11')
         if x11_root:
@@ -148,8 +168,8 @@ class EB_Ferret(ConfigureMake):
             ]
 
         regex_subs = []
-        for x, y in comp_vars.items():
-            regex_subs.append((r"^(\s*%s\s*)=.*" % x, r"\1 = %s" % os.getenv(y)))
+        for key, value in comp_vars.items():
+            regex_subs.append((r"^(\s*%s\s*)=.*" % key, r"\1 = %s" % os.getenv(value)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             regex_subs.extend([
@@ -179,16 +199,17 @@ class EB_Ferret(ConfigureMake):
             fn = 'gksm2ps/Makefile'
 
             regex_subs = [(r"^(\s*CFLAGS=\")-m64 (.*)", r"\1%s \2" % os.getenv('CFLAGS'))]
-            for x, y in comp_vars.items():
-                regex_subs.append((r"^(\s*%s)=.*" % x, r"\1='%s' \\" % os.getenv(y)))
+            for key, value in comp_vars.items():
+                regex_subs.append((r"^(\s*%s)=.*" % key, r"\1='%s' \\" % os.getenv(value)))
 
             apply_regex_substitutions(fn, regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check for Ferret."""
 
+        major_minor_version = '.'.join(self.version.split('.')[:2])
         custom_paths = {
-            'files': ["bin/ferret_v%s" % self.version],
+            'files': ["bin/ferret_v%s" % major_minor_version],
             'dirs': [],
         }
 

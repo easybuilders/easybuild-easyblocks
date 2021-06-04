@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ EasyBuild support for building and installing GCC, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Toon Willems (Ghent University)
 @author: Ward Poelmans (Ghent University)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
 import glob
 import os
@@ -45,12 +46,13 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type, get_platform_name
+from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.utilities import nub
 
 
 COMP_CMD_SYMLINKS = {
@@ -84,6 +86,7 @@ class EB_GCC(ConfigureMake):
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
             'withlto': [True, "Enable LTO support", CUSTOM],
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
+            'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -112,8 +115,6 @@ class EB_GCC(ConfigureMake):
         # ubuntu needs the LIBRARY_PATH env var to work apparently (#363)
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
-
-        self.platform_lib = get_platform_name(withversion=True)
 
     def create_dir(self, dirname):
         """
@@ -267,6 +268,14 @@ class EB_GCC(ConfigureMake):
         """
         Run a configure command, with some extra checking (e.g. for unrecognized options).
         """
+        # note: this also triggers the use of an updated config.guess script
+        # (unless both the 'build_type' and 'host_type' easyconfig parameters are specified)
+        build_type, host_type = self.determine_build_and_host_type()
+        if build_type:
+            cmd += ' --build=' + build_type
+        if host_type:
+            cmd += ' --host=' + host_type
+
         (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
 
         if ec != 0:
@@ -290,6 +299,31 @@ class EB_GCC(ConfigureMake):
         - set platform_lib based on config.guess output
         """
 
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # based on changes made to GCC in Gentoo Prefix
+            # https://gitweb.gentoo.org/repo/gentoo.git/tree/profiles/features/prefix/standalone/profile.bashrc
+
+            # add --with-sysroot configure option, to instruct GCC to consider
+            # value set for EasyBuild's --sysroot configuration option as the root filesystem of the operating system
+            # (see https://gcc.gnu.org/install/configure.html)
+            self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
+
+            # avoid that --sysroot is passed to linker by patching value for SYSROOT_SPEC in gcc/gcc.c
+            apply_regex_substitutions(os.path.join('gcc', 'gcc.c'), [('--sysroot=%R', '')])
+
+            # prefix dynamic linkers with sysroot
+            # this patches lines like:
+            # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
+            # for PowerPC (rs6000) we have to set DYNAMIC_LINKER_PREFIX to sysroot
+            gcc_config_headers = glob.glob(os.path.join('gcc', 'config', '*', '*linux*.h'))
+            regex_subs = [
+                ('(_DYNAMIC_LINKER.*[":])/lib', r'\1%s/lib' % sysroot),
+                ('(DYNAMIC_LINKER_PREFIX\\s+)""', r'\1"%s"' % sysroot),
+            ]
+            for gcc_config_header in gcc_config_headers:
+                apply_regex_substitutions(gcc_config_header, regex_subs)
+
         # self.configopts will be reused in a 3-staged build,
         # configopts is only used in first configure
         self.configopts = self.cfg['configopts']
@@ -303,6 +337,41 @@ class EB_GCC(ConfigureMake):
         # enable specified language support
         if self.cfg['languages']:
             self.configopts += " --enable-languages=%s" % ','.join(self.cfg['languages'])
+
+        if self.cfg['withnvptx']:
+            if self.iter_idx == 0:
+                self.configopts += " --without-cuda-driver"
+                self.configopts += " --enable-offload-targets=nvptx-none"
+            else:
+                # register installed GCC as compiler to use nvptx
+                path = "%s/bin:%s" % (self.installdir, os.getenv('PATH'))
+                env.setvar('PATH', path)
+
+                ld_lib_path = "%(dir)s/lib64:%(dir)s/lib:%(val)s" % {
+                    'dir': self.installdir,
+                    'val': os.getenv('LD_LIBRARY_PATH')
+                }
+                env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+                extra_source = {1: "nvptx-tools", 2: "newlib"}[self.iter_idx]
+                extra_source_dirs = glob.glob(os.path.join(self.builddir, '%s-*' % extra_source))
+                if len(extra_source_dirs) != 1:
+                    raise EasyBuildError("Failed to isolate %s source dir" % extra_source)
+                if self.iter_idx == 1:
+                    # compile nvptx-tools
+                    change_dir(extra_source_dirs[0])
+                else:  # self.iter_idx == 2
+                    # compile nvptx target compiler
+                    symlink(os.path.join(extra_source_dirs[0], 'newlib'), 'newlib')
+                    self.create_dir("build-nvptx-gcc")
+                    self.cfg.update('configopts', self.configopts)
+                    self.cfg.update('configopts', "--with-build-time-tools=%s/nvptx-none/bin" % self.installdir)
+                    self.cfg.update('configopts', "--target=nvptx-none")
+                    host_type = self.determine_build_and_host_type()[1]
+                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
+                    self.cfg.update('configopts', "--disable-sjlj-exceptions")
+                    self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                    self.cfg['configure_cmd_prefix'] = '../'
+                return super(EB_GCC, self).configure_step()
 
         # enable building of libiberty, if desired
         if self.cfg['withlibiberty']:
@@ -386,17 +455,15 @@ class EB_GCC(ConfigureMake):
         # IV) actual configure, but not on default path
         cmd = "../configure  %s %s" % (self.configopts, configopts)
 
-        # instead of relying on uname, we run the same command GCC uses to
-        # determine the platform
-        out, ec = run_cmd("../config.guess", simple=False)
-        if ec == 0:
-            self.platform_lib = out.rstrip()
-
         self.run_configure_cmd(cmd)
 
         self.disable_lto_mpfr_old_gcc(objdir)
 
     def build_step(self):
+
+        if self.iter_idx > 0:
+            # call standard build_step for nvptx-tools and nvptx GCC
+            return super(EB_GCC, self).build_step()
 
         if self.stagedbuild:
 
@@ -532,6 +599,14 @@ class EB_GCC(ConfigureMake):
                     if lib == "gmp":
                         # make sure correct GMP is found
                         libpath = os.path.join(stage2prefix, 'lib')
+
+                        # fall back to lib64 directory if lib was not found,
+                        # give up if neither are there
+                        if not os.path.exists(libpath):
+                            libpath += '64'
+                        if not os.path.exists(libpath):
+                            raise EasyBuildError("lib(64) subdirectory not found in %s!" % stage2prefix)
+
                         incpath = os.path.join(stage2prefix, 'include')
 
                         cppflags = os.getenv('CPPFLAGS', '')
@@ -605,6 +680,7 @@ class EB_GCC(ConfigureMake):
         """
         super(EB_GCC, self).post_install_step(*args, **kwargs)
 
+        # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
         for key in COMP_CMD_SYMLINKS:
             src = COMP_CMD_SYMLINKS[key]
@@ -617,6 +693,77 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
+        # Rename include-fixed directory which includes system header files that were processed by fixincludes,
+        # since these may cause problems when upgrading to newer OS version.
+        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
+        glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
+        paths = glob.glob(glob_pattern)
+        if paths:
+            # weed out paths that point to the same location,
+            # for example when 'lib64' is a symlink to 'lib'
+            include_fixed_paths = []
+            for path in paths:
+                if not any(os.path.samefile(path, x) for x in include_fixed_paths):
+                    include_fixed_paths.append(path)
+
+            if len(include_fixed_paths) == 1:
+                include_fixed_path = include_fixed_paths[0]
+
+                msg = "Found include-fixed subdirectory at %s, "
+                msg += "renaming it to avoid using system header files patched by fixincludes..."
+                self.log.info(msg, include_fixed_path)
+
+                # limits.h and syslimits.h need to be copied to include/ first,
+                # these are strictly required (by /usr/include/limits.h for example)
+                include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
+                retained_header_files = ['limits.h', 'syslimits.h']
+                for fn in retained_header_files:
+                    from_path = os.path.join(include_fixed_path, fn)
+                    to_path = os.path.join(include_path, fn)
+                    if os.path.exists(from_path):
+                        if os.path.exists(to_path):
+                            raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
+                        else:
+                            copy_file(from_path, to_path)
+                            self.log.info("%s copied to %s before renaming %s", from_path, to_path, include_fixed_path)
+                    else:
+                        self.log.warning("Can't copy non-existing file %s to %s, since it doesn't exist!",
+                                         from_path, to_path)
+
+                readme = os.path.join(include_fixed_path, 'README.easybuild')
+                readme_txt = '\n'.join([
+                    "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
+                    "since they may cause problems when the OS is upgraded to a new (minor) version.",
+                    '',
+                    "These files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    '',
+                    "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
+                    '',
+                ])
+                write_file(readme, readme_txt)
+
+                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
+                move_file(include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s to avoid using the header files in it",
+                              include_fixed_path, include_fixed_renamed)
+            else:
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
+                                     len(include_fixed_paths), include_fixed_paths)
+        else:
+            self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
+
+    def run_all_steps(self, *args, **kwargs):
+        """
+        If withnvptx is set, use iterated build:
+        iteration 0 builds the regular host compiler
+        iteration 1 builds nvptx-tools
+        iteration 2 builds the nvptx target compiler
+        """
+        if self.cfg['withnvptx']:
+            self.cfg['configopts'] = [self.cfg['configopts']] * 3
+            self.cfg['buildopts'] = [self.cfg['buildopts']] * 3
+        return super(EB_GCC, self).run_all_steps(*args, **kwargs)
+
     def sanity_check_step(self):
         """
         Custom sanity check for GCC
@@ -624,7 +771,26 @@ class EB_GCC(ConfigureMake):
 
         os_type = get_os_type()
         sharedlib_ext = get_shared_lib_ext()
-        common_infix = os.path.join('gcc', self.platform_lib, self.version)
+
+        # determine "configuration name" directory, see https://sourceware.org/autobook/autobook/autobook_17.html
+        # this differs across GCC versions;
+        # x86_64-unknown-linux-gnu was common for old GCC versions,
+        # x86_64-pc-linux-gnu is more likely with an updated config.guess script;
+        # since this is internal to GCC, we don't really care how it is named exactly,
+        # we only care that it's actually there
+
+        # we may get multiple hits (libexec/, lib/), which is fine,
+        # but we expect the same configuration name subdirectory in each of them
+        glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version)
+        matches = glob.glob(glob_pattern)
+        if matches:
+            cands = nub([os.path.basename(os.path.dirname(x)) for x in matches])
+            if len(cands) == 1:
+                config_name_subdir = cands[0]
+            else:
+                raise EasyBuildError("Found multiple candidates for configuration name: %s", ', '.join(cands))
+        else:
+            raise EasyBuildError("Failed to determine configuration name: no matches for '%s'", glob_pattern)
 
         bin_files = ["gcov"]
         lib_files = []
@@ -639,30 +805,33 @@ class EB_GCC(ConfigureMake):
             else:
                 lib_files.extend(["libasan.%s" % sharedlib_ext, "libasan.a"])
         libexec_files = []
-        dirs = ['lib/%s' % common_infix]
+        dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        if not self.cfg['languages']:
-            # default languages are c, c++, fortran
-            bin_files = ["c++", "cpp", "g++", "gcc", "gcov", "gfortran"]
-            lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
-            libexec_files = ['cc1', 'cc1plus', 'collect2', 'f951']
+        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
 
-        if 'c' in self.cfg['languages']:
+        if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
+            libexec_files.extend(['cc1', 'collect2'])
 
-        if 'c++' in self.cfg['languages']:
+        if 'c++' in languages:
             bin_files.extend(['c++', 'g++'])
             dirs.append('include/c++/%s' % self.version)
             lib_files.extend(["libstdc++.%s" % sharedlib_ext, "libstdc++.a"])
+            libexec_files.append('cc1plus')  # c++ requires c, so collect2 not mentioned again
 
-        if 'fortran' in self.cfg['languages']:
+        if 'fortran' in languages:
             bin_files.append('gfortran')
             lib_files.extend(['libgfortran.%s' % sharedlib_ext, 'libgfortran.a'])
+            libexec_files.append('f951')
 
         if self.cfg['withlto']:
             libexec_files.extend(['lto1', 'lto-wrapper'])
             if os_type in ['Linux']:
                 libexec_files.append('liblto_plugin.%s' % sharedlib_ext)
+
+        if self.cfg['withnvptx']:
+            bin_files.extend(['nvptx-none-as', 'nvptx-none-ld'])
+            lib_files.append('libgomp-plugin-nvptx.%s' % sharedlib_ext)
 
         bin_files = ["bin/%s" % x for x in bin_files]
         libdirs64 = ['lib64']
@@ -678,7 +847,8 @@ class EB_GCC(ConfigureMake):
             lib_files = [tuple([os.path.join(libdir, x) for libdir in libdirs]) for x in lib_files]
         # lib on SuSE, libexec otherwise
         libdirs = ['libexec', 'lib']
-        libexec_files = [tuple([os.path.join(libdir, common_infix, x) for libdir in libdirs]) for x in libexec_files]
+        common_infix = os.path.join('gcc', config_name_subdir, self.version)
+        libexec_files = [tuple([os.path.join(d, common_infix, x) for d in libdirs]) for x in libexec_files]
 
         old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
 
@@ -687,7 +857,23 @@ class EB_GCC(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        for lang, compiler in (('c', 'gcc'), ('c++', 'g++')):
+            if lang in languages:
+                # Simple test compile
+                cmd = 'echo "int main(){} " | %s -x %s -o/dev/null -'
+                compiler_path = os.path.join(self.installdir, 'bin', compiler)
+                custom_commands.append(cmd % (compiler_path, lang))
+                if self.cfg['withlto']:
+                    custom_commands.append(cmd % (compiler_path, lang + ' -flto -fuse-linker-plugin'))
+        if custom_commands:
+            # Load binutils to do the compile tests
+            extra_modules = [d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils']
+        else:
+            extra_modules = None
+
+        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                              extra_modules=extra_modules)
 
     def make_module_req_guess(self):
         """

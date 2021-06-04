@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ class CrayToolchain(Bundle):
     """
     Compiler toolchain: generate module file only, nothing to build/install
     """
+
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment (skip loaded of dependencies)."""
 
@@ -75,7 +76,9 @@ class CrayToolchain(Bundle):
         # unload statements for other PrgEnv modules
         prgenv_unloads = ['']
         for prgenv in [prgenv for prgenv in KNOWN_PRGENVS if not prgenv_mod.startswith(prgenv)]:
-            prgenv_unloads.append(self.module_generator.unload_module(prgenv).strip())
+            is_loaded_guard = self.module_generator.is_loaded(prgenv)
+            unload_stmt = self.module_generator.unload_module(prgenv).strip()
+            prgenv_unloads.append(self.module_generator.conditional_statement(is_loaded_guard, unload_stmt))
 
         # load statement for selected PrgEnv module (only when not loaded yet)
         prgenv_load = self.module_generator.load_module(prgenv_mod, recursive_unload=False)

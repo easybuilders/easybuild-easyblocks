@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,15 +46,15 @@ class EB_Rmpi(RPackage):
         mpi_types = {
             toolchain.MPI_TYPE_OPENMPI: "OPENMPI",
             toolchain.MPI_TYPE_MPICH: "MPICH",
-            #toolchain.MPI_TYPE_LAM: "LAM",  # no support for LAM yet
+            # toolchain.MPI_TYPE_LAM: "LAM",  # no support for LAM yet
         }
         # type of MPI
         # MPI_TYPE does not distinguish between MPICH and IntelMPI, which is why we also check mpi_family()
         mpi_type = self.toolchain.mpi_family()
         Rmpi_type = mpi_types[self.toolchain.MPI_TYPE]
-        # Rmpi versions 0.6-4 and up support INTELMPI (using --with-Rmpi-type=INTELMPI) 
+        # Rmpi versions 0.6-4 and up support INTELMPI (using --with-Rmpi-type=INTELMPI)
         if ((LooseVersion(self.version) >= LooseVersion('0.6-4')) and (mpi_type == toolchain.INTELMPI)):
-             Rmpi_type = 'INTELMPI'
+            Rmpi_type = 'INTELMPI'
 
         self.log.debug("Setting configure args for Rmpi")
         self.configureargs = [

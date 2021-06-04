@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -100,6 +101,11 @@ class EB_Siesta(ConfigureMake):
             (r"^(LDFLAGS\s*=).*$", r"\1 %s %s" % (os.environ['FCFLAGS'], os.environ['LDFLAGS'])),
         ]
 
+        regex_subs_gfortran = [
+            (r"^(FCFLAGS_free_f90\s*=.*)$", r"\1 -ffree-line-length-none"),
+            (r"^(FPPFLAGS_free_F90\s*=.*)$", r"\1 -ffree-line-length-none"),
+        ]
+
         netcdff_loc = get_software_root('netCDF-Fortran')
         if netcdff_loc:
             # Needed for gfortran at least
@@ -145,6 +151,9 @@ class EB_Siesta(ConfigureMake):
                 ]
                 apply_regex_substitutions('Makefile', regex_subs_Makefile)
 
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                apply_regex_substitutions(arch_make, regex_subs_gfortran)
+
         else:  # there's no configure on newer versions
 
             if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
@@ -174,12 +183,17 @@ class EB_Siesta(ConfigureMake):
             ])
             regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nWXML = libwxml.a"))
 
+            if self.toolchain.comp_family() in [toolchain.GCC]:
+                regex_subs.extend(regex_subs_gfortran)
+
             if netcdff_loc:
                 regex_subs.extend([
                     (r"^(LIBS\s*=.*)$", r"\1 $(NETCDF_LIBS)"),
-                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF $(NETCDF_INCLUDE)"),
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DCDF -DNCDF -DNCDF_4 -DNCDF_PARALLEL $(NETCDF_INCLUDE)"),
+                    (r"^(COMP_LIBS\s*=.*)$", r"\1 libncdf.a libfdict.a"),
                 ])
                 netcdf_lib_and_inc = "NETCDF_LIBS = -lnetcdff\nNETCDF_INCLUDE = -I%s/include" % netcdff_loc
+                netcdf_lib_and_inc += "\nINCFLAGS = $(NETCDF_INCLUDE)"
                 regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\n%s" % netcdf_lib_and_inc))
 
             xmlf90 = get_software_root('xmlf90')
@@ -216,6 +230,13 @@ class EB_Siesta(ConfigureMake):
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__ELSI"),
                     (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -I%s/include" % elsi),
                     (r"^(LIBS\s*=.*)$", r"\1 $(FFTW_LIBS) -L%s/lib -lelsi" % elsi),
+                ])
+
+            metis = get_software_root('METIS')
+            if metis:
+                regex_subs.extend([
+                    (r"^(FPPFLAGS\s*:?=.*)$", r"\1 -DSIESTA__METIS"),
+                    (r"^(LIBS\s*=.*)$", r"\1 -L%s/lib -lmetis" % metis),
                 ])
 
         apply_regex_substitutions(arch_make, regex_subs)
@@ -310,12 +331,16 @@ class EB_Siesta(ConfigureMake):
                 'SiestaSubroutine/FmixMD/Src/para',
                 'SiestaSubroutine/FmixMD/Src/simple',
                 'STM/ol-stm/Src/stm', 'STM/simple-stm/plstm',
-                'VCA/fractional', 'VCA/mixps',
                 'Vibra/Src/fcbuild', 'Vibra/Src/vibra',
-                'WFS/info_wfsx',
                 'WFS/readwf', 'WFS/readwfx', 'WFS/wfs2wfsx',
                 'WFS/wfsnc2wfsx', 'WFS/wfsx2wfs',
             ]
+
+            # skip broken utils in 4.1-MaX-1.0 release, hopefully will be fixed later
+            if self.version != '4.1-MaX-1.0':
+                expected_utils.extend([
+                    'VCA/fractional', 'VCA/mixps',
+                ])
 
             if loose_ver >= LooseVersion('3.2'):
                 expected_utils.extend([
@@ -323,21 +348,26 @@ class EB_Siesta(ConfigureMake):
                 ])
 
             if loose_ver >= LooseVersion('4.0'):
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'SiestaSubroutine/ProtoNEB/Src/protoNEB',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
+                        'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
+                    ])
                 expected_utils.extend([
-                    'SiestaSubroutine/ProtoNEB/Src/protoNEB',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_pipes_serial',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_parallel',
-                    'SiestaSubroutine/SimpleTest/Src/simple_sockets_serial',
                     'Sockets/f2fmaster', 'Sockets/f2fslave',
                 ])
                 if self.toolchain.options.get('usempi', None):
-                    expected_utils.extend([
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
-                        'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
-                    ])
+                    if self.version != '4.1-MaX-1.0':
+                        expected_utils.extend([
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_parallel',
+                            'SiestaSubroutine/SimpleTest/Src/simple_mpi_serial',
+                        ])
 
             if loose_ver < LooseVersion('4.1'):
+                expected_utils.append('WFS/info_wfsx')
                 if loose_ver >= LooseVersion('4.0'):
                     expected_utils.extend([
                         'COOP/dm_creator',
@@ -371,8 +401,12 @@ class EB_Siesta(ConfigureMake):
                     'Grimme/fdf2grimme',
                     'SpPivot/pvtsp',
                     'TS/TBtrans/tbtrans', 'TS/tselecs.sh',
-                    'TS/ts2ts/ts2ts', 'TS/tshs2tshs/tshs2tshs',
+                    'TS/ts2ts/ts2ts',
                 ])
+                if self.version != '4.1-MaX-1.0':
+                    expected_utils.extend([
+                        'TS/tshs2tshs/tshs2tshs',
+                    ])
 
             for util in expected_utils:
                 copy_file(os.path.join(start_dir, 'Util', util), bindir)
@@ -420,7 +454,7 @@ class EB_Siesta(ConfigureMake):
             'dirs': [],
         }
         custom_commands = []
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi', None) and build_option('mpi_tests'):
             # make sure Siesta was indeed built with support for running in parallel
             # The "cd to builddir" is required to not contaminate the install dir with cruft from running siesta
             mpi_test_cmd = "cd %s && " % self.builddir

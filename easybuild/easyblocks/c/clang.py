@@ -1,6 +1,6 @@
 ##
 # Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2021 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -42,13 +42,14 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
+from easybuild.tools.environment import setvar
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
@@ -69,7 +70,8 @@ class EB_Clang(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
@@ -83,9 +85,12 @@ class EB_Clang(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
-        }
-
-        return CMakeMake.extra_options(extra_vars)
+            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
+            'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
+        })
+        # disable regular out-of-source build, too simplistic for Clang to work
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
@@ -114,6 +119,8 @@ class EB_Clang(CMakeMake):
             openmp/       Unpack openmp-*.tar.xz here
           tools/
             clang/        Unpack clang-*.tar.gz here
+              tools/
+                extra/    Unpack clang-tools-extra-*.tar.gz here
             polly/        Unpack polly-*.tar.gz here
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
@@ -157,7 +164,10 @@ class EB_Clang(CMakeMake):
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
             find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
-        find_source_dir(['clang-*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+        find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+
+        if self.cfg["build_extra_clang_tools"]:
+            find_source_dir('clang-tools-extra-*', os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
@@ -173,8 +183,44 @@ class EB_Clang(CMakeMake):
                     src['finalpath'] = new_path
                     break
 
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_Clang, self).prepare_step(*args, **kwargs)
+
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
+            if default_targets:
+                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            else:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        # carry on with empty list from this point forward if no build targets are specified
+        if build_targets is None:
+            self.cfg['build_targets'] = build_targets = []
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
+
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
+
+        if all(dep['name'] != 'ncurses' for dep in self.cfg['dependencies']):
+            print_warning('Clang requires ncurses to run, did you forgot to add it to dependencies?')
 
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
@@ -216,7 +262,7 @@ class EB_Clang(CMakeMake):
         # If that doesn't work, try with GCC
         if gcc_prefix is None:
             gcc_prefix = get_software_root('GCC')
-        
+
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
@@ -225,7 +271,6 @@ class EB_Clang(CMakeMake):
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # Configure some default options
-        self.cfg.update('configopts', "-DCMAKE_BUILD_TYPE=Release")
         if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_REQUIRES_RTTI=ON')
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
@@ -244,30 +289,14 @@ class EB_Clang(CMakeMake):
         if self.cfg["usepolly"]:
             self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
+        # If Z3 is included as a dep, enable support in static analyzer (if enabled)
+        if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
+            z3_root = get_software_root("Z3")
+            if z3_root:
+                self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
+                self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
+
         build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
-                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
-                if get_software_root("CUDA"):
-                    default_targets += ["NVPTX"]
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            else:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
         if self.cfg["usepolly"] and "NVPTX" in build_targets:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
@@ -276,6 +305,37 @@ class EB_Clang(CMakeMake):
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
+
+        # If hwloc is included as a dep, use it in OpenMP runtime for affinity
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            self.cfg.update('configopts', '-DLIBOMP_USE_HWLOC=ON')
+            self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
+
+        # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
+        if 'NVPTX' in build_targets:
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            if not cuda_cc:
+                raise EasyBuildError("Can't build Clang with CUDA support "
+                                     "without specifying 'cuda-compute-capabilities'")
+            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
+            if not self.cfg['default_cuda_capability']:
+                print_warning("No default CUDA capability defined! "
+                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
+            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+            default_cc = default_cc.replace('.', '')
+            self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
+            self.cfg.update('configopts', '-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=%s' % ','.join(cuda_cc))
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
+        # using the environment variable which is used as-is and later checked for a falsy value when determining
+        # whether CUDA was found
+        if not get_software_root('CUDA'):
+            setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
         self.log.info("Configuring")
         super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
@@ -290,12 +350,12 @@ class EB_Clang(CMakeMake):
             for patchfile in patchfiles:
                 cmakelists = os.path.join(self.llvm_src_dir, 'projects/compiler-rt', patchfile, 'CMakeLists.txt')
                 if os.path.exists(cmakelists):
-                    regex_subs = [('.*add_subdirectory\(lit_tests\).*', '')]
+                    regex_subs = [(r'.*add_subdirectory\(lit_tests\).*', '')]
                     apply_regex_substitutions(cmakelists, regex_subs)
 
             # There is a common part seperate for the specific saniters, we disable all the common tests
             cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
-            regex_subs = [('.*add_subdirectory\(tests\).*', '')]
+            regex_subs = [(r'.*add_subdirectory\(tests\).*', '')]
             apply_regex_substitutions(cmakelists, regex_subs)
 
         else:
@@ -325,6 +385,7 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_C_COMPILER='%s' " % CC
         options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
         options += self.cfg['configopts']
+        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
@@ -410,6 +471,9 @@ class EB_Clang(CMakeMake):
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
 
+        if self.cfg['build_extra_clang_tools'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+            custom_paths['files'].extend(["bin/clang-tidy"])
+
         if self.cfg["usepolly"]:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
             custom_paths['dirs'].extend(["include/polly"])
@@ -424,7 +488,25 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
-        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths)
+        if 'NVPTX' in self.cfg['build_targets']:
+            arch = get_cpu_architecture()
+            # Check architecture explicitly since Clang uses potentially
+            # different names
+            if arch == X86_64:
+                arch = 'x86_64'
+            elif arch == POWER:
+                arch = 'ppc64'
+            elif arch == AARCH64:
+                arch = 'aarch64'
+            else:
+                print_warning("Unknown CPU architecture (%s) for OpenMP offloading!" % arch)
+            custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
+                                          "lib/libomptarget-nvptx.a",
+                                          "lib/libomptarget.rtl.cuda.%s" % shlib_ext,
+                                          "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
+
+        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
+        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -88,12 +88,12 @@ class EB_ABAQUS(Binary):
             }
             no_qa = [
                 '___',
-                '\(\d+ MB\)',
+                r'\(\d+ MB\)',
             ]
             std_qa = {
                 # disable installation of Tosca (6) and Isight (7)
-                "Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
-                "(?<!Isight)\nEnter selection \(default: Next\):": '',
+                r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
+                r"(?<!Isight)\nEnter selection \(default: Next\):": '',
                 r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
                 r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
                 r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
@@ -139,9 +139,9 @@ class EB_ABAQUS(Binary):
 
                     cwd = change_dir(os.path.join(subdir, '1'))
                     std_qa = {
-                        "Enter selection \(default: Next\):": '',
+                        r"Enter selection \(default: Next\):": '',
                         "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                        "Enter selection \(default: Install\):": '',
+                        r"Enter selection \(default: Install\):": '',
                     }
                     run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
@@ -168,11 +168,11 @@ class EB_ABAQUS(Binary):
 
                 cwd = change_dir(os.path.join(subdir, '1'))
                 std_qa = {
-                    "Enter selection \(default: Next\):": '',
+                    r"Enter selection \(default: Next\):": '',
                     "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
-                    "Enter selection \(default: Install\):": '',
-                    "\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
-                    "\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
+                    r"Enter selection \(default: Install\):": '',
+                    r"\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
+                    r"\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
                 }
                 no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
                 run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)

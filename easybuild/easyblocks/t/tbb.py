@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -162,15 +162,18 @@ class EB_tbb(IntelBase, ConfigureMake):
             self.libpath = os.path.join(self.libpath, libdir)
             self.log.debug("self.libpath: %s" % self.libpath)
             # applications go looking into tbb/lib so we move what's in there to libs
-            # and symlink the right lib from /tbb/libs/intel64/... to lib
             install_libpath = os.path.join(self.installdir, 'tbb', 'lib')
             shutil.move(install_libpath, os.path.join(self.installdir, 'tbb', 'libs'))
+            # and symlink the right lib from /tbb/libs/intel64/... to lib
             os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
         else:
             # no custom install step when building from source (building is done in install directory)
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
             if len(cand_lib_paths) == 1:
+                # applications go looking into tbb/lib so we symlink the location where they are built  to lib
                 self.libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
+                install_libpath = os.path.join(self.installdir, 'lib')
+                os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
 

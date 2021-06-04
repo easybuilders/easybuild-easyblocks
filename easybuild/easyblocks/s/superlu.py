@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University, University of Luxembourg
+# Copyright 2009-2021 Ghent University, University of Luxembourg
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,9 +32,7 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 
 
@@ -45,32 +43,23 @@ class EB_SuperLU(CMakeMake):
 
     @staticmethod
     def extra_options():
-        """
-        Define custom easyconfig parameters for SuperLU.
-        """
-        extra_vars = {
-            'build_shared_libs': [False, "Build shared library (instead of static library)", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['build_shared_libs'][0] = False
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for SuperLU easyblock."""
+
+        super(EB_SuperLU, self).__init__(*args, **kwargs)
+
+        # if self.lib_ext is not set by CMakeMake, fall back to .a (static libraries by default)
+        self.lib_ext = self.lib_ext or 'a'
 
     def configure_step(self):
         """
         Set the CMake options for SuperLU
         """
-        self.cfg['separate_build_dir'] = True
-
-        if self.cfg['build_shared_libs']:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=ON')
-            self.lib_ext = get_shared_lib_ext()
-
-        else:
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=OFF')
-            self.lib_ext = 'a'
-
-        # Add -fPIC flag if necessary
-        pic_flag = ('OFF', 'ON')[self.toolchain.options['pic']]
-        self.cfg.update('configopts', '-DCMAKE_POSITION_INDEPENDENT_CODE=%s' % pic_flag)
-
         # Make sure not to build the slow BLAS library included in the package
         self.cfg.update('configopts', '-Denable_blaslib=OFF')
 
@@ -124,16 +113,16 @@ class EB_SuperLU(CMakeMake):
         """
         super(EB_SuperLU, self).install_step()
 
-        self.libbits = 'lib'
-        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
-            self.libbits = 'lib64'
+        libbits = 'lib'
+        if not os.path.exists(os.path.join(self.installdir, libbits)):
+            libbits = 'lib64'
 
-        if not os.path.exists(os.path.join(self.installdir, self.libbits)):
+        if not os.path.exists(os.path.join(self.installdir, libbits)):
             raise EasyBuildError("No lib or lib64 subdirectory exist in %s", self.installdir)
 
-        expected_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu.%s" % self.lib_ext)
-        actual_libpath = os.path.join(self.installdir, self.libbits, "libsuperlu_%s.%s" %
-                                      (self.cfg['version'], self.lib_ext))
+        libbits_path = os.path.join(self.installdir, libbits)
+        expected_libpath = os.path.join(libbits_path, 'libsuperlu.%s' % self.lib_ext)
+        actual_libpath = os.path.join(libbits_path, 'libsuperlu_%s.%s' % (self.cfg['version'], self.lib_ext))
 
         if not os.path.exists(expected_libpath):
             try:
@@ -146,7 +135,7 @@ class EB_SuperLU(CMakeMake):
         Check for main library files for SuperLU
         """
         custom_paths = {
-            'files': ["include/supermatrix.h", os.path.join(self.libbits, "libsuperlu.%s" % self.lib_ext)],
+            'files': ["include/supermatrix.h", os.path.join('lib', 'libsuperlu.%s' % self.lib_ext)],
             'dirs': [],
         }
         super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)

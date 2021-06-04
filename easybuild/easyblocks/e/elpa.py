@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 # Copyright 2019 Micael Oliveira
 #
 # This file is part of EasyBuild,
@@ -27,15 +27,20 @@
 EasyBuild support for building and installing ELPA, implemented as an easyblock
 
 @author: Micael Oliveira (MPSD-Hamburg)
+@author: Kenneth Hoste (Ghent University)
 """
-from easybuild.tools.utilities import nub
+import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.utilities import nub
+
+
 ELPA_CPU_FEATURE_FLAGS = ['avx', 'avx2', 'avx512f', 'vsx', 'sse4_2']
 
 
@@ -127,7 +132,7 @@ class EB_ELPA(ConfigureMake):
             # sse kernels require sse4_2
             if flag == 'sse4_2':
                 if getattr(self, flag):
-                    self.cfg.update('configopts','--enable-sse')
+                    self.cfg.update('configopts', '--enable-sse')
                     self.cfg.update('configopts', '--enable-sse-assembly')
                 else:
                     self.cfg.update('configopts', '--disable-sse')
@@ -170,6 +175,15 @@ class EB_ELPA(ConfigureMake):
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+
+    def patch_step(self, *args, **kwargs):
+        """Patch manual_cpp script to avoid using hardcoded /usr/bin/python."""
+        super(EB_ELPA, self).patch_step(*args, **kwargs)
+
+        # avoid that manual_cpp script uses hardcoded /usr/bin/python
+        manual_cpp = 'manual_cpp'
+        if os.path.exists(manual_cpp):
+            apply_regex_substitutions(manual_cpp, [(r'^#!/usr/bin/python$', '#!/usr/bin/env python')])
 
     def sanity_check_step(self):
         """Custom sanity check for ELPA."""

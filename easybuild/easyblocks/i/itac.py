@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
+
 class EB_itac(IntelBase):
     """
     Class that can be used to install itac
@@ -68,8 +69,7 @@ class EB_itac(IntelBase):
             if LooseVersion(self.version) >= LooseVersion('9.0'):
                 super(EB_itac, self).move_after_install()
         else:
-            silent = \
-"""
+            silent = """
 [itac]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s

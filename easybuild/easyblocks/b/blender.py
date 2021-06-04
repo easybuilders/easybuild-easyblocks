@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,11 +27,10 @@ EasyBuild support for Blender, implemented as an easyblock
 
 @author: Samuel Moors (Vrije Universiteit Brussel)
 """
-import glob
 import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -39,22 +38,16 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_Blender(CMakeMake):
     """Support for building Blender."""
 
-    def find_glob_pattern(self, glob_pattern):
-        """Find unique file/dir matching glob_pattern (raises error if more than one match is found)"""
-        if self.dry_run:
-            return glob_pattern
-        res = glob.glob(glob_pattern)
-        if len(res) != 1:
-            raise EasyBuildError("Was expecting exactly one match for '%s', found %d: %s", glob_pattern, len(res), res)
-        return res[0]
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakeMake.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """Set CMake options for Blender"""
-        self.cfg['separate_build_dir'] = True
 
         default_config_opts = {
-            'CMAKE_CXX_FLAGS_RELEASE': '-DNDEBUG',
-            'CMAKE_C_FLAGS_RELEASE': '-DNDEBUG',
             'WITH_BUILDINFO': 'OFF',
             # disable SSE detection to give EasyBuild full control over optimization compiler flags being used
             'WITH_CPU_SSE': 'OFF',
@@ -78,12 +71,12 @@ class EB_Blender(CMakeMake):
             site_packages = os.path.join(python_root, 'lib', 'python%s' % pyshortver, 'site-packages')
 
             # We assume that numpy/requests are included with the Python installation (no longer true for 2019a)
-            numpy_root = self.find_glob_pattern(
+            numpy_root = find_glob_pattern(
                 os.path.join(site_packages, 'numpy-*-py%s-linux-x86_64.egg' % pyshortver))
-            requests_root = self.find_glob_pattern(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))
-            python_lib = self.find_glob_pattern(
+            requests_root = find_glob_pattern(os.path.join(site_packages, 'requests-*-py%s.egg' % pyshortver))
+            python_lib = find_glob_pattern(
                 os.path.join(python_root, 'lib', 'libpython%s*.%s' % (pyshortver, shlib_ext)))
-            python_include_dir = self.find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
+            python_include_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
 
             self.cfg.update('configopts', '-DPYTHON_VERSION=%s' % pyshortver)
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)

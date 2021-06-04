@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,7 @@ class EB_netCDF_minus_Fortran(ConfigureMake):
         self.cfg.update('configopts', 'FCFLAGS="%s" FC="%s"' % (os.getenv('FFLAGS'), os.getenv('F90')))
 
         # add -DgFortran to CPPFLAGS when building with GCC
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             env.setvar('CPPFLAGS', "%s -DgFortran" % os.getenv('CPPFLAGS'))
 
         super(EB_netCDF_minus_Fortran, self).configure_step()
@@ -64,7 +64,7 @@ class EB_netCDF_minus_Fortran(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': ["bin/nf-config"] + ["lib/libnetcdff.%s" % x for x in ['a', shlib_ext]] +
-                     ["include/%s" % x for x in ["netcdf.inc", "netcdf.mod", "typesizes.mod"]],
+            ["include/%s" % x for x in ["netcdf.inc", "netcdf.mod", "typesizes.mod"]],
             'dirs': [],
         }
         super(EB_netCDF_minus_Fortran, self).sanity_check_step(custom_paths=custom_paths)

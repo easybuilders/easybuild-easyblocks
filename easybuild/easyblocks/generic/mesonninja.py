@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,12 +27,11 @@ EasyBuild support for installing software with Meson & Ninja.
 
 @author: Kenneth Hoste (Ghent University)
 """
-import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.run import run_cmd
 
 
@@ -64,8 +63,7 @@ class MesonNinja(EasyBlock):
                 raise EasyBuildError("'%s' command not found", cmd)
 
         if self.cfg.get('separate_build_dir', True):
-            builddir = os.path.join(self.builddir, 'easybuild_obj')
-            mkdir(builddir)
+            builddir = create_unused_dir(self.builddir, 'easybuild_obj')
             change_dir(builddir)
 
         # Make sure libdir doesn't get set to lib/x86_64-linux-gnu or something

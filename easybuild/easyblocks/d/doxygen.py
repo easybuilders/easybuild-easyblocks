@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,6 +37,7 @@ from distutils.version import LooseVersion
 from easybuild.tools.run import run_cmd
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
+
 class EB_Doxygen(CMakeMake):
     """Support for building/installing Doxygen"""
 
@@ -45,9 +46,9 @@ class EB_Doxygen(CMakeMake):
            for versions before 1.8.10. Newer versions use cmake instead of configure"""
         if LooseVersion(self.version) < LooseVersion("1.8.10"):
 
-             cmd = "%s ./configure --prefix %s %s" % (self.cfg['preconfigopts'], self.installdir,
-                                                      self.cfg['configopts'])
-             run_cmd(cmd, log_all=True, simple=True)
+            cmd = "%s ./configure --prefix %s %s" % (self.cfg['preconfigopts'], self.installdir,
+                                                     self.cfg['configopts'])
+            run_cmd(cmd, log_all=True, simple=True)
         else:
             super(EB_Doxygen, self).configure_step()
 
@@ -59,4 +60,6 @@ class EB_Doxygen(CMakeMake):
             'dirs': []
         }
 
-        super(EB_Doxygen, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["doxygen --help"]
+
+        super(EB_Doxygen, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
