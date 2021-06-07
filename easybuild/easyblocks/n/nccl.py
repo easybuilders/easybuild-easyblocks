@@ -29,19 +29,12 @@ EasyBuild support for building NCCL, implemented as an easyblock
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 
 
 class EB_NCCL(ConfigureMake):
     """Support for building NCCL."""
-
-    @staticmethod
-    def extra_options():
-        extra_vars = ConfigureMake.extra_options()
-        extra_vars.update({
-            'ptx': [[], 'List of strings of CUDA compute architectures for which PTX code is generated.', CUSTOM],
-        })
-        return extra_vars
 
     def configure_step(self):
         """NCCL has no configure step"""
@@ -50,21 +43,24 @@ class EB_NCCL(ConfigureMake):
     def build_step(self):
         """Build NCCL"""
         # NCCL builds for all supported CUDA compute capabilities by default
-        # If cuda_compute_capabilities or ptx are specified then we override this with the selected options
+        # If cuda_compute_capabilities is specified then we override this with the selected options
 
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+        # list of CUDA compute capabilities to use can be specifed in three ways (where 3 overrules 2 overrules 1):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+        # (2) via the EasyBuild environment variable EASYBUILD_CUDA_COMPUTE_CAPABILITIES;
+        # (3) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-        if cuda_cc or self.cfg['ptx']:
-            nvcc_gencode = []
-            for cc in cuda_cc:
-                add = cc.replace('.', '')
-                nvcc_gencode.append('-gencode=arch=compute_%s,code=sm_%s' % (add, add))
-            for ptx in self.cfg['ptx']:
-                add = ptx.replace('.', '')
-                nvcc_gencode.append('-gencode=arch=compute_%s,code=compute_%s' % (add, add))
-            self.cfg.update('buildopts', 'NVCC_GENCODE="%s"' % ' '.join(nvcc_gencode))
+
+        if not cuda_cc:
+            raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                 'cuda_compute_capabilities easyconfig parameter or via '
+                                 '--cuda-compute-capabilities')
+
+        nvcc_gencode = []
+        for cc in cuda_cc:
+            add = cc.replace('.', '')
+            nvcc_gencode.append('-gencode=arch=compute_%s,code=sm_%s' % (add, add))
+        self.cfg.update('buildopts', 'NVCC_GENCODE="%s"' % ' '.join(nvcc_gencode))
 
         super(EB_NCCL, self).build_step()
 
