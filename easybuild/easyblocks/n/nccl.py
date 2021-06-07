@@ -28,7 +28,6 @@ EasyBuild support for building NCCL, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 
 
@@ -49,11 +48,6 @@ class EB_NCCL(ConfigureMake):
         # (2) via the EasyBuild environment variable EASYBUILD_CUDA_COMPUTE_CAPABILITIES;
         # (3) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-
-        if not cuda_cc:
-            raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                 'cuda_compute_capabilities easyconfig parameter or via '
-                                 '--cuda-compute-capabilities')
 
         nvcc_gencode = []
         for cc in cuda_cc:
