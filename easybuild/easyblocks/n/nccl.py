@@ -57,6 +57,9 @@ class EB_NCCL(ConfigureMake):
         if nvcc_gencode:
             self.cfg.update('buildopts', 'NVCC_GENCODE="%s"' % ' '.join(nvcc_gencode))
 
+        # Set PREFIX to correctly generate nccl.pc
+        self.cfg.update('buildopts', "PREFIX=%s" % self.installdir)
+
         super(EB_NCCL, self).build_step()
 
     def install_step(self):
