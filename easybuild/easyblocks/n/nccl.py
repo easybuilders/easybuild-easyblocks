@@ -53,7 +53,9 @@ class EB_NCCL(ConfigureMake):
         for cc in cuda_cc:
             add = cc.replace('.', '')
             nvcc_gencode.append('-gencode=arch=compute_%s,code=sm_%s' % (add, add))
-        self.cfg.update('buildopts', 'NVCC_GENCODE="%s"' % ' '.join(nvcc_gencode))
+
+        if nvcc_gencode:
+            self.cfg.update('buildopts', 'NVCC_GENCODE="%s"' % ' '.join(nvcc_gencode))
 
         super(EB_NCCL, self).build_step()
 
