@@ -28,7 +28,6 @@ EasyBuild support for building NCCL, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 
