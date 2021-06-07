@@ -786,11 +786,9 @@ class EB_TensorFlow(PythonPackage):
         # Ignore user environment for Python
         self.target_opts.append('--action_env=PYTHONNOUSERSITE=1')
 
-        # use same configuration for both host and target programs, which can speed up the build
-        # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
-        # see https://docs.bazel.build/versions/master/guide.html#configurations
-        if self.toolchain.options.get('optarch'):
-            self.target_opts.append('--distinct_host_configuration=false')
+        # Use the same configuration (i.e. environment) for compiling and using host tools
+        # This means that our action_envs are always passed
+        self.target_opts.append('--distinct_host_configuration=false')
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
