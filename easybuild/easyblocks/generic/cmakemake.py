@@ -220,8 +220,6 @@ class CMakeMake(ConfigureMake):
                     # disable search for Boost CMake package configuration files when conflicting variant configs are present (builds using the old EasyBlock)
                     options.append('-DBoost_NO_BOOST_CMAKE=ON')
 
-                # For boost builds that produce tagged single and multi threaded libs the cmake files
-                # are correct and can be used.
                 # Don't pick up on system Boost if Boost is included as dependency
                 # - specify Boost location via -DBOOST_ROOT
                 # - instruct CMake to not search for Boost headers/libraries in other places
