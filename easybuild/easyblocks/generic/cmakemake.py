@@ -214,7 +214,8 @@ class CMakeMake(ConfigureMake):
             if boost_root:
                 boost_version = get_software_version('Boost')
                 # Check for older builds of Boost
-                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system-%s' % boost_version, 'libboost_system-variant*-shared.cmake'))
+                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system-%s' % boost_version,
+                                                     'libboost_system-variant*-shared.cmake'))
                 if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
                     # disable search for Boost CMake package configuration file for older builds
                     options.extend([
