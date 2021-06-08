@@ -218,9 +218,7 @@ class CMakeMake(ConfigureMake):
                                                      'libboost_system-variant*-shared.cmake'))
                 if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
                     # disable search for Boost CMake package configuration file for older builds
-                    options.extend([
-                        '-DBoost_NO_BOOST_CMAKE=ON',
-                    ])
+                    options.append('-DBoost_NO_BOOST_CMAKE=ON')
 
                 # For boost builds that produce tagged single and multi threaded libs the cmake files
                 # are correct and can be used.
