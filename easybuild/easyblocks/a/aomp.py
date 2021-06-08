@@ -7,7 +7,7 @@ an EasyBlock
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 import os
@@ -67,9 +67,16 @@ class EB_AOMP(Binary):
             cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
             install_options.append('AOMP_BUILD_CUDA=1')
             install_options.append('CUDA="{!s}"'.format(cuda_root))
-            # Use the commandline / easybuild config option if given, else use
-            # the value from the EC (as a default)
-            cuda_cc = build_option('cuda_compute_capabilities')
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            if cfg_cuda_cc and ec_cuda_cc:
+                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s) are overruled by " % ec_cuda_cc
+                warning_msg += "--cuda-compute-capabilities configuration option (%s)" % cfg_cuda_cc
+                print_warning(warning_msg)
             if not cuda_cc:
                 raise EasyBuildError("CUDA module was loaded, "
                                      "indicating a build with CUDA, "
