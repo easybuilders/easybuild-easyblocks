@@ -217,7 +217,8 @@ class CMakeMake(ConfigureMake):
                 cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system-%s' % boost_version,
                                                      'libboost_system-variant*-shared.cmake'))
                 if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
-                    # disable search for Boost CMake package configuration files when conflicting variant configs are present (builds using the old EasyBlock)
+                    # disable search for Boost CMake package configuration files when conflicting variant configs
+                    # are present (builds using the old EasyBlock)
                     options.append('-DBoost_NO_BOOST_CMAKE=ON')
 
                 # Don't pick up on system Boost if Boost is included as dependency
