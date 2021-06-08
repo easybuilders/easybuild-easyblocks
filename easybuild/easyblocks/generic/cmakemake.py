@@ -42,7 +42,7 @@ from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
@@ -212,9 +212,8 @@ class CMakeMake(ConfigureMake):
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
             if boost_root:
-                boost_version = get_software_version('Boost')
                 # Check for older builds of Boost
-                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system-%s' % boost_version,
+                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system*',
                                                      'libboost_system-variant*-shared.cmake'))
                 if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
                     # disable search for Boost CMake package configuration files when conflicting variant configs
