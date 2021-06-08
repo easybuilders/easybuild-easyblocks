@@ -29,6 +29,7 @@ EasyBuild support for building NCCL, implemented as an easyblock
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.config import build_option
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_NCCL(ConfigureMake):
@@ -67,3 +68,13 @@ class EB_NCCL(ConfigureMake):
         self.cfg.update('installopts', "PREFIX=%s" % self.installdir)
 
         super(EB_NCCL, self).install_step()
+
+    def sanity_check_step(self):
+        """Custom sanity check paths for NCCL"""
+        custom_paths = {
+            'files': ['include/nccl.h', 'lib/libnccl.%s' % get_shared_lib_ext(), 'lib/libnccl_static.a',
+                      'lib/pkgconfig/nccl.pc'],
+            'dirs': [],
+        }
+
+        super(EB_NCCL, self).sanity_check_step(custom_paths=custom_paths)
