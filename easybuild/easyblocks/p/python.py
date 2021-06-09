@@ -82,6 +82,9 @@ if ebpythonprefixes:
     if debug:
         print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
 
+    site_packages = site.getsitepackages()
+    base_paths = [p for p in sys.path if p in site_packages]
+
     for prefix in ebpythonprefixes.split(os.pathsep):
         if debug:
             print("[%(EBPYTHONPREFIXES)s] prefix: %%s" %% prefix)
@@ -91,7 +94,6 @@ if ebpythonprefixes:
                 print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
             site.addsitedir(sitedir)
 
-    base_paths = [p for p in sys.path if p in site.getsitepackages()]
     # Move base python paths to the end of sys.path so modules can override packages from the core Python module
     sys.path = [p for p in sys.path if p not in base_paths] + base_paths
 """ % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
