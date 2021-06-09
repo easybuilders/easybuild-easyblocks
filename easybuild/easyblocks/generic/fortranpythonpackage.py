@@ -52,7 +52,9 @@ class FortranPythonPackage(PythonPackage):
             cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
 
         elif comp_fam == toolchain.FUJITSU:   # @UndefinedVariable
-            self.cfg.update('buildopts', "--fcompiler=fj")
+            self.cfg.update('buildopts', "--fcompiler=fujitsu")
+            if self.cfg['use_pip']:
+                self.cfg.update('installopts', '--global-option="--fcompiler=fujitsu"')
             cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
 
         elif comp_fam in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
@@ -75,14 +77,3 @@ class FortranPythonPackage(PythonPackage):
 
         cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
-
-    def test_step(self):
-        """Customize the test step by adding compiler-specific flags to the build command."""
-
-        comp_fam = self.toolchain.comp_family()
-
-        if comp_fam == toolchain.FUJITSU:   # @UndefinedVariable
-            self.cfg.update('testopts', "--fcompiler=fj")
-            self.cfg.update('installopts', "--install-option='--fcompiler=fj'")
-
-        super(FortranPythonPackage, self).test_step()
