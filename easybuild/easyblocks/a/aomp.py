@@ -1,19 +1,43 @@
+##
+# Copyright 2021-2021 Ghent University
+#
+# This file is part of EasyBuild,
+# originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
+# with support of Ghent University (http://ugent.be/hpc),
+# the Flemish Supercomputer Centre (VSC) (https://www.vscentrum.be),
+# Flemish Research Foundation (FWO) (http://www.fwo.be/en)
+# and the Department of Economy, Science and Innovation (EWI) (http://www.ewi-vlaanderen.be/en).
+#
+# https://github.com/easybuilders/easybuild
+#
+# EasyBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation v2.
+#
+# EasyBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
+##
 """
 Support for building and installing AOMP - AMD OpenMP compiler, implemented as
 an EasyBlock
 
 @author: Jorgen Nordmoen (University Center for Information Technology - UiO)
 """
+import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import move_file, remove_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
-import os
-import os.path
 
 AOMP_ALL_COMPONENTS = ['roct', 'rocr', 'project', 'libdevice', 'openmp',
                        'extras', 'pgmath', 'flang', 'flang_runtime', 'comgr',
@@ -114,7 +138,7 @@ class EB_AOMP(Binary):
         # symlink. To remedy this we remove the link here and rename the actual
         # install directory created by the AOMP install script
         if os.path.islink(self.installdir):
-            os.unlink(self.installdir)
+            remove_file(self.installdir)
         else:
             err_str = "Expected '{!s}' to be a symbolic link" \
                       " that needed to be removed, but it wasn't!"
@@ -125,7 +149,7 @@ class EB_AOMP(Binary):
         actual_install = os.path.join(os.path.dirname(self.installdir),
                                       install_name)
         if os.path.exists(actual_install) and os.path.isdir(actual_install):
-            os.rename(actual_install, self.installdir)
+            move_file(actual_install, self.installdir)
         else:
             err_str = "Tried to move '{!s}' to '{!s}', " \
                       " but it either doesn't exist" \
