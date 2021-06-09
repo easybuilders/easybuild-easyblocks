@@ -175,19 +175,19 @@ class EB_AOMP(Binary):
             'files': [
                 "amdgcn/bitcode/hip.bc", "amdgcn/bitcode/opencl.bc", "bin/aompcc",
                 "bin/aompversion", "bin/clang", "bin/flang", "bin/ld.lld", "bin/llvm-config",
-                "bin/mygpu" "bin/opt", "bin/rocminfo", "include/amd_comgr.h",
+                "bin/mygpu", "bin/opt", "bin/rocminfo", "include/amd_comgr.h",
                 "include/hsa/amd_hsa_common.h", "include/hsa/hsa.h", "include/omp.h",
                 "include/omp_lib.h", "lib/libclang.%s" % shlib_ext, "lib/libflang.%s" % shlib_ext,
                 "lib/libomp.%s" % shlib_ext, "lib/libomptarget.rtl.amdgpu.%s" % shlib_ext,
-                "lib/libomptarget.rt.%s.%s" % (arch, shlib_ext), "lib/libomptarget.%s" % shlib_ext,
+                "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext), "lib/libomptarget.%s" % shlib_ext,
             ],
             'dirs': ["amdgcn", "include/clang", "include/hsa", "include/llvm"],
         }
         # If we are building with CUDA support we need to check if it was built properly
         if get_software_root('CUDA') or get_software_root('CUDAcore'):
-            custom_paths['files'].append("libomptarget.rtl.cuda.%s" % shlib_ext)
+            custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
         custom_commands = [
             'aompcc --help', 'clang --help', 'clang++ --help', 'flang --help',
-            'llvm-config --cxxflags', 'rocminfo --help',
+            'llvm-config --cxxflags',
         ]
         super(EB_AOMP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
