@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2019 Ghent University
+# Copyright 2021-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,7 +25,7 @@
 """
 EasyBuild support for building and installing torchvision, implemented as an easyblock
 
-@author: Alexander Grund
+@author: Alexander Grund (TU Dresden)
 """
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
