@@ -32,9 +32,10 @@ import os
 import re
 
 from easybuild.easyblocks.generic.tarball import Tarball
+from easybuild.easyblocks.perl import get_site_suffix
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, patch_perl_script_autoflush
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
 
 
@@ -180,10 +181,9 @@ class EB_RepeatModeler(Tarball):
         """Custom guesses for path-like environment variables for RepeatModelerConfig."""
         guesses = super(EB_RepeatModeler, self).make_module_req_guess()
 
-        perlver = get_software_version('Perl')
         guesses.update({
             'PATH': [''],
-            'PERL5LIB': [os.path.join('lib', 'perl5', 'site_perl', perlver)],
+            'PERL5LIB': [get_site_suffix('sitelib')],
         })
 
         return guesses
