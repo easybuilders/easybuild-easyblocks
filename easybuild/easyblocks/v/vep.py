@@ -88,7 +88,7 @@ class EB_VEP(EasyBlock):
             self.cfg['preinstallopts'],
             'perl',
             'INSTALL.pl',
-            # disable any bundled dependencies provided by EB
+            # disable installation of bundled dependencies that are provided as dependencies in the easyconfig
             installopt_deps,
             # a: API, f: FASTA
             # not included:
