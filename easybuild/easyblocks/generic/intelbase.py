@@ -58,12 +58,14 @@ ACTIVATION_LIC_FILE = 'license_file'  # use a license file
 ACTIVATION_LIC_SERVER = 'license_server'  # use a license server
 ACTIVATION_SERIAL = 'serial_number'  # use a serial number
 ACTIVATION_TRIAL = 'trial_lic'  # use trial activation
+ACTIVATION_NO_LICENSE = 'no_license' # no license used
 ACTIVATION_TYPES = [
     ACTIVATION_EXIST_LIC,
     ACTIVATION_LIC_FILE,
     ACTIVATION_LIC_SERVER,
     ACTIVATION_SERIAL,
     ACTIVATION_TRIAL,
+    ACTIVATION_NO_LICENSE,
 ]
 
 # silent.cfg parameter name for type of license activation (cfr. options listed above)
@@ -318,7 +320,7 @@ class IntelBase(EasyBlock):
         if silent_cfg_names_map is None:
             silent_cfg_names_map = {}
 
-        if self.serial_number or self.requires_runtime_license:
+        if self.serial_number or self.requires_runtime_license or self.cfg['license_activation']:
             lic_entry = ""
             if self.serial_number:
                 lic_entry = "%(license_serial_number)s=%(serial_number)s"
