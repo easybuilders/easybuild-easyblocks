@@ -260,7 +260,7 @@ class EB_TensorFlow(PythonPackage):
 
     def python_pkg_exists(self, name):
         """Check if the given python package exists/can be imported"""
-        cmd = [self.python_cmd, '-c', 'import %s' % name]
+        cmd = self.python_cmd + " -c 'import %s'" % name
         out, ec = run_cmd(cmd, log_ok=False)
         self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
         return ec == 0
@@ -399,6 +399,8 @@ class EB_TensorFlow(PythonPackage):
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
+            print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
+                          len(ignored_system_deps))
             self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
                              'because an EB dependency was not found: \n%s\n' +
                              'EC Dependencies: %s\n' +
