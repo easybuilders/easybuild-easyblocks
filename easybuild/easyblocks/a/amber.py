@@ -63,7 +63,6 @@ class EB_Amber(CMakeMake):
             # enable testing by default
             'runtest': [True, "Run tests after each build", CUSTOM],
             'static': [True, "Build statically linked executables", CUSTOM],
-            'ambermpi': [False, "Build MPI versions for supported programs", CUSTOM],
         })
         return CMakeMake.extra_options(extra_vars)
 
@@ -71,8 +70,8 @@ class EB_Amber(CMakeMake):
         """Easyblock constructor: initialise class variables."""
         super(EB_Amber, self).__init__(*args, **kwargs)
 
-        if LooseVersion(self.version) < LooseVersion('19'):
-            # Build Amber <19 in install directory
+        if LooseVersion(self.version) < LooseVersion('20'):
+            # Build Amber <20 in install directory
             self.build_in_installdir = True
             env.setvar('AMBERHOME', self.installdir)
 
@@ -135,7 +134,7 @@ class EB_Amber(CMakeMake):
         external_libs_list = []
 
         mpiroot = get_software_root(self.toolchain.MPI_MODULE_NAME[0])
-        if mpiroot and self.cfg['ambermpi']:
+        if mpiroot and self.toolchain.options.get('usempi', None):
             self.with_mpi = True
             self.cfg.update('configopts', '-DMPI=TRUE')
 
@@ -179,10 +178,12 @@ class EB_Amber(CMakeMake):
         external_libs = ";".join(external_libs_list)
         self.cfg.update('configopts', "-DFORCE_EXTERNAL_LIBS='%s'" % external_libs)
 
+        if get_software_root('FFTW') or get_software_root('imkl'):
+            self.cfg.update('configopts', '-DUSE_FFT=TRUE')
+
         # Set standard compile options
         self.cfg.update('configopts', '-DCHECK_UPDATES=FALSE')
         self.cfg.update('configopts', '-DAPPLY_UPDATES=FALSE')
-        self.cfg.update('configopts', '-DUSE_FFT=TRUE')
         self.cfg.update('configopts', '-DTRUST_SYSTEM_LIBS=TRUE')
         self.cfg.update('configopts', '-DCOLOR_CMAKE_MESSAGES=FALSE')
 
@@ -190,7 +191,6 @@ class EB_Amber(CMakeMake):
         # due to size. We handle tests under the install step
         self.cfg.update('configopts', '-DINSTALL_TESTS=FALSE')
 
-        # Probably need to do this option more intelligently! (See commented code below.)
         self.cfg.update('configopts', '-DCOMPILER=AUTO')
 
         # configure using cmake
@@ -198,8 +198,8 @@ class EB_Amber(CMakeMake):
 
     def build_step(self):
         """Build Amber"""
-        if LooseVersion(self.version) < LooseVersion('19'):
-            # Building Amber < 19 is done in install step.
+        if LooseVersion(self.version) < LooseVersion('20'):
+            # Building Amber < 20 is done in install step.
             return
 
         super(EB_Amber, self).build_step()
@@ -209,7 +209,7 @@ class EB_Amber(CMakeMake):
         pass
 
     def configuremake_install_step(self):
-        """Custom build, test & install procedure for Amber <19."""
+        """Custom build, test & install procedure for Amber <20."""
         # unset $LIBS since it breaks the build
         env.unset_env_vars(['LIBS'])
 
@@ -278,7 +278,7 @@ class EB_Amber(CMakeMake):
         if self.with_mpi:
             build_targets.append((self.mpi_option, 'test.parallel'))
             # hardcode to 4 MPI processes, minimal required to run all tests
-            env.setvar('DO_PARALLEL', 'mpirun -np 4')
+            env.setvar('DO_PARALLEL', self.toolchain.mpi_cmd_for('', 4))
 
         cudaroot = get_software_root('CUDA')
         if cudaroot:
@@ -310,8 +310,8 @@ class EB_Amber(CMakeMake):
     def install_step(self):
         """Install procedure for Amber."""
 
-        if LooseVersion(self.version) < LooseVersion('19'):
-            # pass into the configuremake build, install, and test method for Amber <19
+        if LooseVersion(self.version) < LooseVersion('20'):
+            # pass into the configuremake build, install, and test method for Amber <20
             self.configuremake_install_step()
             return
 
@@ -330,14 +330,14 @@ class EB_Amber(CMakeMake):
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
-                env.setvar("DO_PARALLEL", "mpirun -np 4")
+                env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
                 (out, ec) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
                 if ec > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
-                env.setvar("DO_PARALLEL', 'mpirun -np 2")
+                env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
                 (out, ec) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
                 if ec > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
@@ -350,7 +350,7 @@ class EB_Amber(CMakeMake):
             if self.with_cuda:
                 binaries.append('pmemd.cuda')
                 if self.with_mpi:
-                    if LooseVersion(self.version) < LooseVersion('19'):
+                    if LooseVersion(self.version) < LooseVersion('20'):
                         binaries.append('pmemd.cuda.MPI')
                     else:
                         binaries.append('pmemd.cuda_DPFP.MPI')
