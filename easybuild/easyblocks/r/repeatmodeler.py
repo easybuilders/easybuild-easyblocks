@@ -28,14 +28,15 @@ EasyBuild support for building and installing RepeatModeler, implemented as an e
 @author: Jasper Grimm (UoY)
 """
 
-from distutils.version import LooseVersion
-import os, re
+import os
+import re
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd_qa
+
 
 def get_dep_path(dep_name, rel_path, log, optional):
     """Check for dependency. If it exists return full path, else empty string"""
@@ -128,7 +129,7 @@ class EB_RepeatModeler(Tarball):
             txt = shebang_re.sub(new_shebang, txt)
             txt = shebang_re.sub(new_shebang, txt)
         except IOError as err:
-            raise EasyBuildError("Failed to patch shebang header in %s: %s", configure_script, txt)
+            raise EasyBuildError("Failed to patch shebang header in %s: %s", configure_script, err)
 
         patch_perl_script_autoflush('configure')
 
@@ -152,9 +153,9 @@ class EB_RepeatModeler(Tarball):
             r'LTR.*\[optional](.*\n)*of analysis \[y] or n\?\:\s*': with_LTR,
         }
 
-        cmdopts = ' -trf_prgm "%s" -repeatmasker_dir "%s" -rscout_dir "%s" -recon_dir "%s" -ucsctools_dir "%s" ' \
-            '-cdhit_dir "%s"' % tuple([required_deps[x] for x in ['TRF', 'RepeatMasker', 'RepeatScout', 'RECON',
-                                                                 'Kent_tools', 'CD-HIT']])
+        cmdopts = ' -trf_prgm "%s" -repeatmasker_dir "%s" -rscout_dir "%s" -recon_dir "%s" -ucsctools_dir "%s"' \
+                  ' -cdhit_dir "%s"' % tuple([required_deps[x] for x in ['TRF', 'RepeatMasker', 'RepeatScout', 'RECON',
+                                                                         'Kent_tools', 'CD-HIT']])
 
         if with_LTR:
             cmdopts += ' -mafft_dir "%s" -genometools_dir "%s" -ltr_retriever_dir "%s" -ninja_dir "%s"' % \
