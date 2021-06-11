@@ -36,6 +36,8 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import move_file, remove_file
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
 
 AOMP_ALL_COMPONENTS = ['roct', 'rocr', 'project', 'libdevice', 'openmp',
                        'extras', 'pgmath', 'flang', 'flang_runtime', 'comgr',
@@ -154,3 +156,40 @@ class EB_AOMP(Binary):
                       " or isn't a directory!"
             raise EasyBuildError(err_str.format(actual_install,
                                                 self.installdir))
+
+    def sanity_check_step(self):
+        """Custom sanity check for AOMP"""
+        shlib_ext = get_shared_lib_ext()
+        arch = get_cpu_architecture()
+        # Check architecture explicitly since Clang uses potentially
+        # different names
+        arch_map = {
+            X86_64: 'x86_64',
+            POWER: 'ppc64',
+            AARCH64: 'aarch64',
+        }
+
+        if arch in arch_map:
+            arch = arch_map[arch]
+        else:
+            print_warning("Unknown CPU architecture (%s) for OpenMP offloading!" % arch)
+        custom_paths = {
+            'files': [
+                "amdgcn/bitcode/hip.bc", "amdgcn/bitcode/opencl.bc", "bin/aompcc",
+                "bin/aompversion", "bin/clang", "bin/flang", "bin/ld.lld", "bin/llvm-config",
+                "bin/mygpu", "bin/opt", "bin/rocminfo", "include/amd_comgr.h",
+                "include/hsa/amd_hsa_common.h", "include/hsa/hsa.h", "include/omp.h",
+                "include/omp_lib.h", "lib/libclang.%s" % shlib_ext, "lib/libflang.%s" % shlib_ext,
+                "lib/libomp.%s" % shlib_ext, "lib/libomptarget.rtl.amdgpu.%s" % shlib_ext,
+                "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext), "lib/libomptarget.%s" % shlib_ext,
+            ],
+            'dirs': ["amdgcn", "include/clang", "include/hsa", "include/llvm"],
+        }
+        # If we are building with CUDA support we need to check if it was built properly
+        if get_software_root('CUDA') or get_software_root('CUDAcore'):
+            custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
+        custom_commands = [
+            'aompcc --help', 'clang --help', 'clang++ --help', 'flang --help',
+            'llvm-config --cxxflags',
+        ]
+        super(EB_AOMP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
