@@ -163,12 +163,14 @@ class EB_AOMP(Binary):
         arch = get_cpu_architecture()
         # Check architecture explicitly since Clang uses potentially
         # different names
-        if arch == X86_64:
-            arch = 'x86_64'
-        elif arch == POWER:
-            arch = 'ppc64'
-        elif arch == AARCH64:
-            arch = 'aarch64'
+        arch_map = {
+            X86_64: 'x86_64',
+            POWER: 'ppc64',
+            AARCH64: 'aarch64',
+        }
+
+        if arch in arch_map:
+            arch = arch_map[arch]
         else:
             print_warning("Unknown CPU architecture (%s) for OpenMP offloading!" % arch)
         custom_paths = {
