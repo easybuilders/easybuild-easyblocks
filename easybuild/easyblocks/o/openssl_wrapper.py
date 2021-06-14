@@ -58,6 +58,13 @@ class EB_OpenSSL_wrapper(Bundle):
         """Locate the installation files of OpenSSL in the host system"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
+        # Version check
+        subversions = self.version.split('.')
+        try:
+            majmin_version = '%s.%s' % (subversions[0], subversions[1])
+        except IndexError:
+            raise EasyBuildError("OpenSSL version has to contain at least its minor subversion: %s", self.version)
+
         # Libraries packaged in OpenSSL
         openssl_libs = ['libssl', 'libcrypto']
         # list of relevant library extensions per system and version of OpenSSL
@@ -75,16 +82,16 @@ class EB_OpenSSL_wrapper(Bundle):
         }
 
         os_type = get_os_type()
-        if self.version in openssl_libext and os_type in openssl_libext[self.version]:
+        if majmin_version in openssl_libext and os_type in openssl_libext[majmin_version]:
             # generate matrix of versioned .so filenames
             system_versioned_libs = [
-                ['%s.%s' % (lib, ext) for ext in openssl_libext[self.version][os_type]]
+                ['%s.%s' % (lib, ext) for ext in openssl_libext[majmin_version][os_type]]
                 for lib in openssl_libs
             ]
             self.log.info("Matrix of version library names: %s", system_versioned_libs)
         else:
             raise EasyBuildError("Don't know name of OpenSSL system library for version %s and OS type %s",
-                                 self.version, os_type)
+                                 majmin_version, os_type)
 
         # by default target the first option of each OpenSSL library,
         # which corresponds to installation from source
@@ -96,7 +103,7 @@ class EB_OpenSSL_wrapper(Bundle):
             '1.0': 'engines',
             '1.1': 'engines-1.1',
         }
-        self.target_ssl_engine = openssl_engines[self.version]
+        self.target_ssl_engine = openssl_engines[majmin_version]
 
         # Paths to system libraries and headers of OpenSSL
         self.system_ssl = {
@@ -155,7 +162,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # headers are located in 'include/openssl' by default
         ssl_include_subdirs = [self.name.lower()]
-        if self.version == '1.1':
+        if majmin_version == '1.1':
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
@@ -173,13 +180,13 @@ class EB_OpenSSL_wrapper(Bundle):
                 header_majmin_version = openssl_version_regex.search(opensslv)
                 if header_majmin_version:
                     header_majmin_version = header_majmin_version.group(1)
-                    if re.match('^' + header_majmin_version, self.version):
+                    if re.match('^' + header_majmin_version, majmin_version):
                         self.system_ssl['include'] = include_dir
                         self.log.info("Found OpenSSL headers in host system: %s", self.system_ssl['include'])
                         break
                     else:
                         self.log.debug("Header major/minor version '%s' doesn't match with %s",
-                                       header_majmin_version, self.version)
+                                       header_majmin_version, majmin_version)
                 else:
                     self.log.debug("Pattern '%s' not found in %s", openssl_version_regex.pattern, opensslv_path)
             else:
@@ -189,7 +196,7 @@ class EB_OpenSSL_wrapper(Bundle):
             self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
 
         # Check system OpenSSL binary
-        if self.version == '1.1':
+        if majmin_version == '1.1':
             # prefer 'openssl11' over 'openssl' with v1.1
             self.system_ssl['bin'] = which('openssl11')
 
