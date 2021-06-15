@@ -956,7 +956,10 @@ class EB_TensorFlow(PythonPackage):
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
                     test_folder = test_name[2:].replace(':', '/')
-                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
+                    # Example file names:
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/test.log
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/shard_1_of_4/test_attempts/attempt_1.log
+                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/(/[^/]*)?test.log)' % test_folder)
                     log_match = test_log_re.match(stdouterr, match.end())
                     if log_match:
                         failed_test_logs[test_name] = log_match.group(2)
