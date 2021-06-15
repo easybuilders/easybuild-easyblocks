@@ -60,12 +60,14 @@ class EB_OpenSSL_wrapper(Bundle):
         """Locate the installation files of OpenSSL in the host system"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
-        # Version check
+        # Version checks
         subversions = self.version.split('.')
         try:
             majmin_version = '%s.%s' % (subversions[0], subversions[1])
         except IndexError:
             raise EasyBuildError("OpenSSL version has to contain at least its minor subversion: %s", self.version)
+
+        openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+.)*)', re.M)
 
         # Libraries packaged in OpenSSL
         openssl_libs = ['libssl', 'libcrypto']
@@ -126,10 +128,9 @@ class EB_OpenSSL_wrapper(Bundle):
             system_libssl = find_library_path(libssl)
             if system_libssl:
                 # check version string of system library
-                libssl_version_regex = re.compile(r'OpenSSL\s([0-9]+\.[0-9]+(\.[0-9]+.)*)', re.M)
                 libssl_strings = read_file(system_libssl, mode="rb")
                 try:
-                    libssl_version = libssl_version_regex.search(libssl_strings).group(1)
+                    libssl_version = openssl_version_regex.search(libssl_strings).group(1)
                 except AttributeError:
                     err_msg = "System OpenSSL library '%s' does not contain any recognizable version string"
                     raise EasyBuildError(err_msg, system_libssl)
@@ -191,27 +192,29 @@ class EB_OpenSSL_wrapper(Bundle):
         ssl_include_dirs = [os.path.join(incd, subd) for incd in sys_include_dirs for subd in ssl_include_subdirs]
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
 
-        # find location of header files, verify that the headers match our OpenSSL version
-        openssl_version_regex = re.compile(r"SHLIB_VERSION_NUMBER\s\"([0-9]+\.[0-9]+)", re.M)
+        # find location of header files for this version of the OpenSSL libraries
         for include_dir in ssl_include_dirs:
             opensslv_path = os.path.join(include_dir, 'opensslv.h')
             self.log.debug("Checking OpenSSL version in %s...", opensslv_path)
             if os.path.exists(opensslv_path):
+                # check version reported by opensslv.h
                 opensslv = read_file(opensslv_path)
-                header_majmin_version = openssl_version_regex.search(opensslv)
-                if header_majmin_version:
-                    header_majmin_version = header_majmin_version.group(1)
-                    if re.match('^' + header_majmin_version, majmin_version):
-                        self.system_ssl['include'] = include_dir
-                        self.log.info("Found OpenSSL headers in host system: %s", self.system_ssl['include'])
-                        break
-                    else:
-                        self.log.debug("Header major/minor version '%s' doesn't match with %s",
-                                       header_majmin_version, majmin_version)
+                try:
+                    header_version = openssl_version_regex.search(opensslv).group(1)
+                except AttributeError:
+                    err_msg = "System OpenSSL header '%s' does not contain any recognizable version string"
+                    raise EasyBuildError(err_msg, opensslv_path)
+
+                if header_version == libssl_version:
+                    self.system_ssl['include'] = include_dir
+                    info_msg = "Found OpenSSL headers v%s in host system: %s"
+                    self.log.info(info_msg, header_version, self.system_ssl['include'])
+                    break
                 else:
-                    self.log.debug("Pattern '%s' not found in %s", openssl_version_regex.pattern, opensslv_path)
+                    dbg_msg = "System OpenSSL header version '%s' doesn not match library version '%s'"
+                    self.log.debug(dbg_msg, header_version, libssl_version)
             else:
-                self.log.info("OpenSSL header file %s not found", opensslv_path)
+                self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
         if not self.system_ssl['include']:
             self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
