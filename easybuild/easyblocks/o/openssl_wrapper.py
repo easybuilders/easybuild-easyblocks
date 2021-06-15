@@ -30,6 +30,8 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 import os
 import re
 
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which
@@ -121,15 +123,34 @@ class EB_OpenSSL_wrapper(Bundle):
         # Check the system libraries of OpenSSL
         # (only needs first library in openssl_libs to find path to libraries)
         for idx, libssl in enumerate(system_versioned_libs[0]):
-            self.system_ssl['lib'] = find_library_path(libssl)
-            if self.system_ssl['lib']:
-                # change target libraries to the ones found in the system
-                self.target_ssl_libs = [lib_name[idx] for lib_name in system_versioned_libs]
-                self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
-                break
+            system_libssl = find_library_path(libssl)
+            if system_libssl:
+                # check version string of system library
+                libssl_version_regex = re.compile(r'OpenSSL\s([0-9]+\.[0-9]+(\.[0-9]+.)*)', re.M)
+                libssl_strings = read_file(system_libssl, mode="rb")
+                try:
+                    libssl_version = libssl_version_regex.search(libssl_strings).group(1)
+                except AttributeError:
+                    err_msg = "System OpenSSL library '%s' does not contain any recognizable version string"
+                    raise EasyBuildError(err_msg, system_libssl)
+
+                if LooseVersion(libssl_version) >= LooseVersion(self.version):
+                    dbg_msg = "System OpenSSL library '%s' v%s fulfills requested version '%s'"
+                    self.log.debug(dbg_msg, system_libssl, libssl_version, self.version)
+
+                    self.system_ssl['lib'] = system_libssl
+
+                    # change target libraries to the ones found in the system
+                    self.target_ssl_libs = [lib_name[idx] for lib_name in system_versioned_libs]
+                    self.log.info("Targeting system OpenSSL libraries: %s", self.target_ssl_libs)
+                    break
+                else:
+                    dbg_msg = "System OpenSSL library '%s' v%s is older than requested version: %s"
+                    self.log.debug(dbg_msg, system_libssl, libssl_version, self.version)
 
         if self.system_ssl['lib']:
-            self.log.info("Found library '%s' in: %s", openssl_libs[0], self.system_ssl['lib'])
+            info_msg = "Found OpenSSL library '%s' v%s in: %s"
+            self.log.info(info_msg, openssl_libs[0], libssl_version, self.system_ssl['lib'])
         else:
             self.log.info("OpenSSL library '%s' not found, falling back to OpenSSL in EasyBuild", openssl_libs[0])
 
