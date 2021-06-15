@@ -154,24 +154,25 @@ class EB_OpenSSL_wrapper(Bundle):
             self.log.info(info_msg, openssl_libs[0], libssl_version, self.system_ssl['lib'])
         else:
             self.log.info("OpenSSL library '%s' not found, falling back to OpenSSL in EasyBuild", openssl_libs[0])
+            return
 
         # Directory with engine libraries
-        if self.system_ssl['lib']:
-            lib_dir = os.path.dirname(self.system_ssl['lib'])
-            lib_engines_dir = [
-                os.path.join(lib_dir, 'openssl', self.target_ssl_engine),
-                os.path.join(lib_dir, self.target_ssl_engine),
-            ]
+        lib_dir = os.path.dirname(self.system_ssl['lib'])
+        lib_engines_dir = [
+            os.path.join(lib_dir, 'openssl', self.target_ssl_engine),
+            os.path.join(lib_dir, self.target_ssl_engine),
+        ]
 
-            for engines_path in lib_engines_dir:
-                if os.path.isdir(engines_path):
-                    self.system_ssl['engines'] = engines_path
-                    self.log.debug("Found OpenSSL engines in: %s", self.system_ssl['engines'])
-                    break
+        for engines_path in lib_engines_dir:
+            if os.path.isdir(engines_path):
+                self.system_ssl['engines'] = engines_path
+                self.log.debug("Found OpenSSL engines in: %s", self.system_ssl['engines'])
+                break
 
-            if not self.system_ssl['engines']:
-                self.system_ssl['lib'] = None
-                self.log.info("OpenSSL engines not found in host system, falling back to OpenSSL in EasyBuild")
+        if not self.system_ssl['engines']:
+            self.system_ssl['lib'] = None
+            self.log.info("OpenSSL engines not found in host system, falling back to OpenSSL in EasyBuild")
+            return
 
         # Check system include paths for OpenSSL headers
         cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
@@ -218,6 +219,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         if not self.system_ssl['include']:
             self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
+            return
 
         # Check system OpenSSL binary
         if majmin_version == '1.1':
