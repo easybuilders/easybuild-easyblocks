@@ -288,7 +288,7 @@ class EB_LAMMPS(CMakeMake):
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
         check_files = [
-            # The 'balanace' test fails with an MPI error on POWER9 - so we remove it
+            # The 'balance' test fails with an MPI error on POWER9 - so we remove it
             'atm', 'colloid', 'crack', 'dipole', 'friction',
             'hugoniostat', 'indent', 'melt', 'message', 'min', 'msst',
             'nemd', 'obstacle', 'pour', 'voronoi',
