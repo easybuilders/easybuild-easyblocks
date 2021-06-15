@@ -128,7 +128,7 @@ class EB_OpenSSL_wrapper(Bundle):
             system_libssl = find_library_path(libssl)
             if system_libssl:
                 # check version string of system library
-                libssl_strings = read_file(system_libssl, mode="rb")
+                libssl_strings = read_file(system_libssl, mode="rb").decode('utf-8', 'replace')
                 try:
                     libssl_version = openssl_version_regex.search(libssl_strings).group(1)
                 except AttributeError:
