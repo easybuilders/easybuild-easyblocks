@@ -42,10 +42,12 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
 from easybuild.tools.filetools import remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+import easybuild.tools.environment as env
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -114,7 +116,9 @@ class EB_CUDA(Binary):
             install_script = "./cuda-installer"
             # samples are installed in two places with identical copies:
             # self.installdir/samples and $HOME/NVIDIA_CUDA-11.2_Samples
-            # changing the second location to a scratch location (self.builddir) avoids the duplicate
+            # changing the second location (the one under $HOME) to a scratch location using
+            # --samples --samplespath=self.builddir
+            # avoids the duplicate and pollution of the home directory of the installer.
             self.cfg.update('installopts',
                             "--silent --samples --samplespath=%s --toolkit --toolkitpath=%s --defaultroot=%s" % (
                                 self.builddir, self.installdir, self.installdir))
@@ -165,6 +169,12 @@ class EB_CUDA(Binary):
         # patch install script to handle Q&A autonomously
         if install_interpreter == "perl":
             patch_perl_script_autoflush(os.path.join(self.builddir, install_script))
+            p5lib = os.getenv('PERL5LIB', '')
+            if p5lib == '':
+                p5lib = self.builddir
+            else:
+                p5lib = os.pathsep.join(self.builddir, p5lib)
+            env.setvar('PERL5LIB', p5lib)
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
         # this is workaround for not being able to specify --nox11 to the Perl install scripts
@@ -203,7 +213,7 @@ class EB_CUDA(Binary):
         for comp in (self.cfg['host_compilers'] or []):
             create_wrapper('nvcc_%s' % comp, comp)
 
-        ldconfig = which('ldconfig', log_ok=False, log_error=False)
+        ldconfig = which('ldconfig', log_ok=False, on_error=IGNORE)
         sbin_dirs = ['/sbin', '/usr/sbin']
         if not ldconfig:
             # ldconfig is usually in /sbin or /usr/sbin

@@ -49,6 +49,7 @@ class EB_Qt(ConfigureMake):
     def extra_options():
         extra_vars = {
             'check_qtwebengine': [False, "Make sure QtWebEngine components is installed", CUSTOM],
+            'disable_advanced_kernel_features': [False, "Disable features that require a kernel > 3.15", CUSTOM],
             'platform': [None, "Target platform to build for (e.g. linux-g++-64, linux-icc-64)", CUSTOM],
         }
         extra_vars = ConfigureMake.extra_options(extra_vars)
@@ -129,7 +130,9 @@ class EB_Qt(ConfigureMake):
         # * https://github.com/NixOS/nixpkgs/commit/a7b6a9199e8db54a798d011a0946cdeb72cfc46b
         # * https://gitweb.gentoo.org/proj/qt.git/commit/?id=9ff0752e1ee3c28818197eaaca45545708035152
         kernel_version = os.uname()[2]
-        if LooseVersion(self.version) >= LooseVersion('5.10') and LooseVersion(kernel_version) < LooseVersion('3.17'):
+        skip_kernel_features = self.cfg['disable_advanced_kernel_features']
+        old_kernel_version = LooseVersion(kernel_version) < LooseVersion('3.17')
+        if LooseVersion(self.version) >= LooseVersion('5.10') and (skip_kernel_features or old_kernel_version):
             self.cfg.update('configopts', '-no-feature-renameat2')
             self.cfg.update('configopts', '-no-feature-getentropy')
 

@@ -43,7 +43,7 @@ from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option
+from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
@@ -161,7 +161,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # Format: <TF name>: <version range>
     unused_system_libs = {
         'boringssl': '2.0.0:',
-        'com_github_googleapis_googleapis': '2.0.0:',
+        'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
         'com_googlesource_code_re2': '2.0.0:',
@@ -216,8 +216,6 @@ class EB_TensorFlow(PythonPackage):
         # We only want to install mkl-dnn by default on x86_64 systems
         with_mkl_dnn_default = get_cpu_architecture() == X86_64
         extra_vars = {
-            # see https://developer.nvidia.com/cuda-gpus
-            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
                                     "Unsupported starting at TensorFlow 1.12!", CUSTOM],
@@ -845,7 +843,7 @@ class EB_TensorFlow(PythonPackage):
         # determine number of cores/GPUs to use for tests
         max_num_test_jobs = int(self.cfg['test_max_parallel'] or self.cfg['parallel'])
         if self._with_cuda:
-            if not which('nvidia-smi', log_error=False):
+            if not which('nvidia-smi', on_error=IGNORE):
                 print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
                 num_gpus_to_use = 0
             elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':

@@ -87,7 +87,6 @@ class EB_Clang(CMakeMake):
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
-            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
