@@ -131,7 +131,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # early return when we're not wrapping the system OpenSSL installation
         if not self.cfg.get('wrap_system_openssl'):
-            self.log.info("Not wrapping system OpenSSL installation!")
+            self.log.info("Not wrapping system OpenSSL installation by user request")
             return
 
         # Check the system libraries of OpenSSL
@@ -304,9 +304,14 @@ class EB_OpenSSL_wrapper(Bundle):
             mkdir(bin_dir)
             symlink(self.system_ssl['bin'], os.path.join(bin_dir, self.name.lower()))
 
+        elif self.cfg.get('wrap_system_openssl'):
+            # install OpenSSL component due to lack of OpenSSL in host system
+            print_warning("Not all OpenSSL components found in host system, falling back to OpenSSL in EasyBuild!")
+            super(EB_OpenSSL_wrapper, self).install_step()
         else:
-            # install OpenSSL component
-            print_warning("Not all OpenSSL components found, falling back to OpenSSL in EasyBuild!")
+            # install OpenSSL component by user request
+            warn_msg = "Installing OpenSSL from source in EasyBuild by user request ('wrap_system_openssl=%s')"
+            print_warning(warn_msg, self.cfg.get('wrap_system_openssl'))
             super(EB_OpenSSL_wrapper, self).install_step()
 
     def sanity_check_step(self):
