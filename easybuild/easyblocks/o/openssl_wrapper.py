@@ -34,10 +34,11 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which
+from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
-from easybuild.tools.build_log import EasyBuildError, print_warning
 
 
 class EB_OpenSSL_wrapper(Bundle):
@@ -53,6 +54,7 @@ class EB_OpenSSL_wrapper(Bundle):
         extra_vars = Bundle.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'wrap_system_openssl': [True, 'Detect and wrap OpenSSL installation in host system', CUSTOM],
+            'minimum_openssl_version': [None, 'Minimum version of OpenSSL required in host system', CUSTOM],
         })
         return extra_vars
 
@@ -61,11 +63,21 @@ class EB_OpenSSL_wrapper(Bundle):
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
         # Version checks
-        subversions = self.version.split('.')
+        minimum_version = self.cfg.get('minimum_openssl_version')
+
+        if not minimum_version:
+            minimum_version = self.version
+        elif not isinstance(minimum_version, string_type):
+            minimum_version = str(minimum_version)
+
         try:
+            subversions = minimum_version.split('.')
             majmin_version = '%s.%s' % (subversions[0], subversions[1])
-        except IndexError:
-            raise EasyBuildError("OpenSSL version has to contain at least its minor subversion: %s", self.version)
+        except (AttributeError, IndexError):
+            err_msg = "Required OpenSSL version has to contain at least its minor subversion: %s"
+            raise EasyBuildError(err_msg, minimum_version)
+        else:
+            self.log.debug("Requiring minimum OpenSSL version: %s", minimum_version)
 
         openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+.)*)', re.M)
 
@@ -137,14 +149,14 @@ class EB_OpenSSL_wrapper(Bundle):
                         dbg_msg = "System OpenSSL library '%s' does not contain any recognizable version string"
                         self.log.debug(dbg_msg, system_solib)
                     else:
-                        if LooseVersion(openssl_version) >= LooseVersion(self.version):
+                        if LooseVersion(openssl_version) >= LooseVersion(minimum_version):
                             dbg_msg = "System OpenSSL library '%s' version %s fulfills requested version %s"
-                            self.log.debug(dbg_msg, system_solib, openssl_version, self.version)
+                            self.log.debug(dbg_msg, system_solib, openssl_version, minimum_version)
                             self.system_ssl['lib'] = system_solib
                             break
                         else:
                             dbg_msg = "System OpenSSL library '%s' version %s is older than requested version %s"
-                            self.log.debug(dbg_msg, system_solib, openssl_version, self.version)
+                            self.log.debug(dbg_msg, system_solib, openssl_version, minimum_version)
                 else:
                     # one of the OpenSSL libraries is missing, switch to next group of versioned libs
                     break
