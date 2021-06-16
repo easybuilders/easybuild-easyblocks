@@ -34,6 +34,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar, unset_env_vars
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
@@ -145,9 +146,13 @@ class EB_Perl(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for Perl."""
         majver = self.version.split('.')[0]
+        dirs = ['lib/perl%s/%s' % (majver, self.version)]
+        if get_software_root('groff'):
+            dirs.extend(['man'])
+
         custom_paths = {
             'files': [os.path.join('bin', x) for x in ['perl', 'perldoc']],
-            'dirs': ['lib/perl%s/%s' % (majver, self.version), 'man']
+            'dirs': dirs,
         }
         super(EB_Perl, self).sanity_check_step(custom_paths=custom_paths)
 
