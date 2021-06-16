@@ -168,8 +168,6 @@ class EB_Amber(CMakeMake):
             external_libs_list.append('zlib')
         if get_software_root('Boost'):
             external_libs_list.append('boost')
-        if get_software_root('libreadline'):
-            external_libs_list.append('readline')
         if get_software_root('PnetCDF'):
             external_libs_list.append('pnetcdf')
 
