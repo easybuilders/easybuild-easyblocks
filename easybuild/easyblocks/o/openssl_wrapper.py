@@ -178,9 +178,8 @@ class EB_OpenSSL_wrapper(Bundle):
                     break
 
             if self.system_ssl['lib']:
-                # change target libraries to the ones found in the system
-                self.target_ssl_libs = system_versioned_libs[idx]
-                self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
+                # keep the libraries found as possible targets for this installation
+                target_system_ssl_libs = system_versioned_libs[idx]
                 break
 
         if self.system_ssl['lib']:
@@ -267,6 +266,11 @@ class EB_OpenSSL_wrapper(Bundle):
             self.log.info("System OpenSSL binary found: %s", self.system_ssl['bin'])
         else:
             self.log.info("System OpenSSL binary not found!")
+            return
+
+        # system OpenSSL is fine, change target libraries to the ones found in it
+        self.target_ssl_libs = target_system_ssl_libs
+        self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
 
     def fetch_step(self, *args, **kwargs):
         """Fetch sources if OpenSSL component is needed"""
