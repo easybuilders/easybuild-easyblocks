@@ -32,6 +32,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.run import run_cmd
 
 
 class EB_intel_minus_compilers(IntelBase):
