@@ -129,3 +129,17 @@ class EB_intel_minus_compilers(IntelBase):
             'LIBRARY_PATH': libdirs,
         }
         return guesses
+
+    def make_module_extra(self):
+        """Additional custom variables for intel-compiler"""
+        txt = super(EB_intel_minus_compilers, self).make_module_extra()
+
+        # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for Intel C compiler
+        out, ec = run_cmd("gcc -print-multiarch", simple=False)
+        if ec == 0 and out:
+            multiarch_inc_dir = os.path.join('/usr', 'include', out.strip())
+            self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
+            # system location must be appended at the end, so use append_paths
+            txt += self.module_generator.append_paths('CPATH', [multiarch_inc_dir], allow_abs=True)
+
+        return txt
