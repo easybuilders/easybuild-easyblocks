@@ -78,19 +78,12 @@ class EB_OpenSSL_wrapper(Bundle):
         elif not isinstance(min_openssl_version, string_type):
             min_openssl_version = str(min_openssl_version)
 
-        try:
-            subversions = min_openssl_version.split('.')
-            req_majmin_version = '%s.%s' % (subversions[0], subversions[1])
-        except (AttributeError, IndexError):
-            err_msg = "Required minimum OpenSSL version does not have any subversion: %s"
-            raise EasyBuildError(err_msg, min_openssl_version)
-
-        # Forbid minimum_openssl_version with major minor versions beyond wrapper version
-        if req_majmin_version == self.majmin_version:
+        # Minimum OpenSSL version can only increase depth of wrapper version
+        if min_openssl_version.startswith(self.version):
             self.log.debug("Requiring minimum OpenSSL version: %s", min_openssl_version)
         else:
             err_msg = "Requested minimum OpenSSL version '%s' does not fit in wrapper easyconfig version '%s'"
-            raise EasyBuildError(err_msg, min_openssl_version, self.majmin_version)
+            raise EasyBuildError(err_msg, min_openssl_version, self.version)
 
         # Regex pattern to find version strings in OpenSSL libraries and headers
         openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+.)*)', re.M)
