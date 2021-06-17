@@ -73,8 +73,8 @@ class EB_Clang(CMakeMake):
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
-                                    ', '.join(CLANG_TARGETS), CUSTOM],
+            'build_for': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+                                ', '.join(CLANG_TARGETS), CUSTOM],
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
@@ -187,33 +187,33 @@ class EB_Clang(CMakeMake):
         """Prepare build environment."""
         super(EB_Clang, self).prepare_step(*args, **kwargs)
 
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
+        build_for = self.cfg['build_for']
+        if build_for is None:
             arch = get_cpu_architecture()
             default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
             if default_targets:
                 # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
                 if get_software_root("CUDA"):
                     default_targets += ["NVPTX"]
-                self.cfg['build_targets'] = build_targets = default_targets
+                self.cfg['build_for'] = build_for = default_targets
                 self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
             else:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
         # carry on with empty list from this point forward if no build targets are specified
-        if build_targets is None:
-            self.cfg['build_targets'] = build_targets = []
+        if build_for is None:
+            self.cfg['build_for'] = build_for = []
 
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+        unknown_targets = [target for target in build_for if target not in CLANG_TARGETS]
 
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_for:
             raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
 
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_for:
             raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def configure_step(self):
@@ -296,12 +296,12 @@ class EB_Clang(CMakeMake):
                 self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
                 self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
 
-        build_targets = self.cfg['build_targets']
+        build_for = self.cfg['build_for']
 
-        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+        if self.cfg["usepolly"] and "NVPTX" in build_for:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
 
-        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_for))
 
         if self.cfg['parallel']:
             self.make_parallel_opts = "-j %s" % self.cfg['parallel']
@@ -313,7 +313,7 @@ class EB_Clang(CMakeMake):
             self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
 
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
-        if 'NVPTX' in build_targets:
+        if 'NVPTX' in build_for:
             # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
             # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
             # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
@@ -488,7 +488,7 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
-        if 'NVPTX' in self.cfg['build_targets']:
+        if 'NVPTX' in self.cfg['build_for']:
             arch = get_cpu_architecture()
             # Check architecture explicitly since Clang uses potentially
             # different names

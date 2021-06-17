@@ -44,8 +44,8 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
-                                    ', '.join(CLANG_TARGETS), CUSTOM],
+            'build_for': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+                                ', '.join(CLANG_TARGETS), CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
         })
         return extra_vars
@@ -62,22 +62,22 @@ class EB_LLVM(CMakeMake):
         if self.cfg["enable_rtti"]:
             self.cfg.update('configopts', '-DLLVM_ENABLE_RTTI=ON')
 
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
+        build_for = self.cfg['build_for']
+        if build_for is None:
             arch = get_cpu_architecture()
             default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
             if default_targets:
-                self.cfg['build_targets'] = build_targets = default_targets
+                self.cfg['build_for'] = build_for = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             else:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+        unknown_targets = [target for target in build_for if target not in CLANG_TARGETS]
 
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
-        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
+        self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_for))
 
         super(EB_LLVM, self).configure_step()
