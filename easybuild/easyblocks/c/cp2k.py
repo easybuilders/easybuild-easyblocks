@@ -232,8 +232,19 @@ class EB_CP2K(EasyBlock):
         cuda = get_software_root('CUDA')
         if cuda:
             options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC'
-            options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt'
+            options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt -lcuda -lnvrtc'
             options['NVCC'] = ' nvcc'
+            
+            # CUDA compute capability to use can be specifed in three ways (where 3 overrules 2 overrules 1):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) via the EasyBuild environment variable EASYBUILD_CUDA_COMPUTE_CAPABILITIES;
+            # (3) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            
+            if cuda_cc:
+                # if multiple CUDA compute capabilities are specified, only the highest value is used
+                cc_highest = max(cuda_cc)
+                options['NVFLAGS'] = ' -arch sm_%s' % cc_highest.replace('.', '')
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
