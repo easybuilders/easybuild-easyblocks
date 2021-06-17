@@ -43,9 +43,18 @@ from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_l
 
 class EB_OpenSSL_wrapper(Bundle):
     """
-    Locate the installation files of OpenSSL in the host system
-    If available, wrap the system OpenSSL by symlinking all installation files
-    Fall back to the bundled component otherwise
+    Find path to installation files of OpenSSL in the host system. Checks in
+    order: library files defined in 'openssl_libs', engines libraries, header
+    files and executables. Any missing component will trigger an installation
+    from source of the fallback component.
+    Libraries are located by soname using the major and minor subversions of
+    the wrapper version. The full version of the wrapper or the option
+    'minimum_openssl_version' determine the minimum required version of OpenSSL
+    in the system. The wrapper checks for version strings in the library files
+    and the opensslv.h header.
+    If OpenSSL in host systems fulfills the version requirements, wrap it by
+    symlinking all installation files. Otherwise fall back to the bundled
+    component.
     """
 
     @staticmethod
