@@ -323,7 +323,7 @@ class ConfigureMake(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        targets = self.cfg.get('build_cmd_targets', DEFAULT_BUILD_TARGET)
+        targets = self.cfg.get('build_cmd_targets') or DEFAULT_BUILD_TARGET
         # ensure strings are converted to list
         targets = [targets] if isinstance(targets, str) else targets
 
