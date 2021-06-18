@@ -65,7 +65,7 @@ CONFIG_GUESS_SHA256 = "c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2c
 DEFAULT_CONFIGURE_CMD = './configure'
 DEFAULT_BUILD_CMD = 'make'
 DEFAULT_INSTALL_CMD = 'make install'
-DEFAULT_BUILD_TARGETS = ''
+DEFAULT_BUILD_TARGET = ''
 
 
 def check_config_guess(config_guess):
