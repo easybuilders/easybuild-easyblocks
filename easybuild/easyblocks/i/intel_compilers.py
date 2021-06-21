@@ -32,6 +32,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.run import run_cmd
 
 
 class EB_intel_minus_compilers(IntelBase):
@@ -129,3 +130,20 @@ class EB_intel_minus_compilers(IntelBase):
             'LIBRARY_PATH': libdirs,
         }
         return guesses
+
+    def make_module_extra(self):
+        """Additional custom variables for intel-compiler"""
+        txt = super(EB_intel_minus_compilers, self).make_module_extra()
+
+        # On Debian/Ubuntu, /usr/include/x86_64-linux-gnu, or whatever dir gcc uses, needs to be included
+        # in $CPATH for Intel C compiler
+        multiarch_out, ec = run_cmd("gcc -print-multiarch", simple=False)
+        if ec == 0 and multiarch_out:
+            multiarch_inc_dir, ec = run_cmd("gcc -E -Wp,-v -xc /dev/null 2>&1 | grep %s$" % multiarch_out.strip())
+            if ec == 0 and multiarch_inc_dir:
+                multiarch_inc_dir = multiarch_inc_dir.strip()
+                self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
+                # system location must be appended at the end, so use append_paths
+                txt += self.module_generator.append_paths('CPATH', [multiarch_inc_dir], allow_abs=True)
+
+        return txt
