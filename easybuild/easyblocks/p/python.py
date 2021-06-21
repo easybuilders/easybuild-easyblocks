@@ -82,8 +82,21 @@ if ebpythonprefixes:
     if debug:
         print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
 
-    site_packages = site.getsitepackages()
-    base_paths = [p for p in sys.path if p in site_packages]
+    try:
+        site_packages = site.getsitepackages()
+        base_paths = [p for p in sys.path if p in site_packages]
+    except AttributeError:
+        # Workaround for old(?) virtualenvs
+        seen = set()
+        base_paths = []
+        prefixes = site.PREFIXES + [
+            getattr(sys, attr, None) for attr in ("real_prefix", "base_prefix", "base_exec_prefix")]
+        for prefix in prefixes:
+            if not prefix or prefix in seen:
+                continue
+            seen.add(prefix)
+            prefix += os.path.sep
+            base_paths.extend(p for p in sys.path if p.startswith(prefix))
 
     for prefix in ebpythonprefixes.split(os.pathsep):
         if debug:
