@@ -261,19 +261,12 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
-    def _get_alt(self, altvar):
-        """Get the value of altvar if defined"""
-        if self.cfg[altvar]:
-            return get_software_root(self.cfg[altvar])
-        else:
-            return None
-
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
         if 'altroot' not in kwargs:
-            kwargs['altroot'] = self._get_alt('altroot')
+            kwargs['altroot'] = get_software_root(self.cfg['altroot']) if self.cfg['altroot'] else None
         if 'altversion' not in kwargs:
-            kwargs['altversion'] = self._get_alt('altversion')
+            kwargs['altversion'] = get_software_version(self.cfg['altversion']) if self.cfg['altversion'] else None
         return super(Bundle, self).make_module_extra(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
