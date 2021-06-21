@@ -86,7 +86,8 @@ if ebpythonprefixes:
         site_packages = site.getsitepackages()
         base_paths = [p for p in sys.path if p in site_packages]
     except AttributeError:
-        # Workaround for old(?) virtualenvs
+        # Workaround for old virtualenvs which have a custom site.py without getsitepackages
+        # See e.g. https://github.com/pypa/virtualenv/issues/737
         seen = set()
         base_paths = []
         prefixes = site.PREFIXES + [
