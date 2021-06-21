@@ -60,16 +60,24 @@ UNLIMITED = 'unlimited'
 
 EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
 
+# We want the following import order:
+# 1. Packages installed into VirtualEnv
+# 2. Packages installed into $EBPYTHONPREFIXES (e.g. our modules)
+# 3. Packages installed in the Python module
+# Note that this script is run after all sys.path manipulation by Python and Virtualenv are done.
+# Hence prepending $EBPYTHONPREFIXES would shadow VirtualEnv packages and
+# appending would NOT shadow the Python-module packages which makes updating packages via ECs impossible.
+# Hence we move all paths which are prefixed with the Python-module path to the back but need to make sure
+# not to move the VirtualEnv paths.
 SITECUSTOMIZE = """
 # sitecustomize.py script installed by EasyBuild,
-# to support picking up Python packages which were installed
-# for multiple Python versions in the same directory
+# to pick up Python packages installed with `--prefix` into folders listed in $%(EBPYTHONPREFIXES)s
 
 import os
 import site
 import sys
 
-# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+# print debug messages when $%(EBPYTHONPREFIXES)s_DEBUG is defined
 debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 
 # use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
@@ -82,22 +90,9 @@ if ebpythonprefixes:
     if debug:
         print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
 
-    try:
-        site_packages = site.getsitepackages()
-        base_paths = [p for p in sys.path if p in site_packages]
-    except AttributeError:
-        # Workaround for old virtualenvs which have a custom site.py without getsitepackages
-        # See e.g. https://github.com/pypa/virtualenv/issues/737
-        seen = set()
-        base_paths = []
-        prefixes = site.PREFIXES + [
-            getattr(sys, attr, None) for attr in ("real_prefix", "base_prefix", "base_exec_prefix")]
-        for prefix in prefixes:
-            if not prefix or prefix in seen:
-                continue
-            seen.add(prefix)
-            prefix += os.path.sep
-            base_paths.extend(p for p in sys.path if p.startswith(prefix))
+    potential_sys_prefixes = (getattr(sys, attr, None) for attr in ("real_prefix", "base_prefix", "prefix"))
+    sys_prefix = next(p for p in potential_sys_prefixes if p)
+    base_paths = [p for p in sys.path if p.startswith(sys_prefix)]
 
     for prefix in ebpythonprefixes.split(os.pathsep):
         if debug:
@@ -475,6 +470,32 @@ class EB_Python(ConfigureMake):
                 symlink(target_lib_dynload, lib_dynload)
                 change_dir(cwd)
 
+    def _sanity_check_ebpythonprefixes(self):
+        """Check that EBPYTHONPREFIXES works"""
+        temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
+        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        mkdir(temp_site_packages_path, parents=True)  # Must exist
+        (out, _) = run_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        out = out.strip()
+        # Output should be a list which we can evaluate directly
+        if not out.startswith('[') or not out.endswith(']'):
+            raise EasyBuildError("Unexpected output for sys.path: %s", out)
+        paths = eval(out)
+        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        try:
+            base_prefix_idx = paths.index(base_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("The Python install path was not added to sys.path (%s)", paths)
+        try:
+            eb_prefix_idx = paths.index(temp_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s to sys.path (%s)",
+                                 temp_site_packages_path, paths)
+        if eb_prefix_idx > base_prefix_idx:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s before %s to sys.path (%s)",
+                                 temp_site_packages_path, base_site_packages_path, paths)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -505,6 +526,9 @@ class EB_Python(ConfigureMake):
             raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
+
+        if self.cfg['ebpythonprefixes']:
+            self._sanity_check_ebpythonprefixes()
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
