@@ -325,9 +325,10 @@ class EB_Python(ConfigureMake):
                 if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
                     self.cfg.update('configopts', "--enable-optimizations")
 
-        if self.install_pip:
-            # Default in 3.4+, required in 2.7
-            self.cfg.update('configopts', "--with-ensurepip=upgrade")
+        # When ensurepip is available we explicitely set this.
+        # E.g. in 3.4 it is by default "upgrade", i.e. on which is unexpected when we did set it to off
+        if self._has_ensure_pip():
+            self.cfg.update('configopts', "--with-ensurepip=" + ('no', 'upgrade')[self.install_pip])
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
