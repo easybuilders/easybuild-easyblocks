@@ -181,14 +181,8 @@ class Bundle(EasyBlock):
         pass
 
     def configure_step(self):
-        """Collect altroot/altversion info."""
-        # pick up altroot/altversion, if they are defined
-        self.altroot = None
-        if self.cfg['altroot']:
-            self.altroot = get_software_root(self.cfg['altroot'])
-        self.altversion = None
-        if self.cfg['altversion']:
-            self.altversion = get_software_version(self.cfg['altversion'])
+        """Do nothing."""
+        pass
 
     def build_step(self):
         """Do nothing."""
@@ -267,12 +261,19 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
+    def _get_alt(self, altvar):
+        """Get the value of altvar if defined"""
+        if self.cfg[altvar]:
+            return get_software_root(self.cfg[altvar])
+        else:
+            return None
+
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
         if 'altroot' not in kwargs:
-            kwargs['altroot'] = self.altroot
+            kwargs['altroot'] = self._get_alt('altroot')
         if 'altversion' not in kwargs:
-            kwargs['altversion'] = self.altversion
+            kwargs['altversion'] = self._get_alt('altversion')
         return super(Bundle, self).make_module_extra(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
