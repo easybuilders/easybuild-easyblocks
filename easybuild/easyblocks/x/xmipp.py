@@ -268,7 +268,10 @@ class EB_Xmipp(SCons):
         shlib_ext = get_shared_lib_ext()
 
         bins = ['xmipp_%s' % x for x in ['angular_rotate', 'classify_kerdensom', 'mpi_ml_refine3d']]
-        libs = ['XmippCore', 'XmippJNI', 'XmippParallel', 'Xmipp', 'cuFFTAdvisor']
+        libs = ['XmippCore', 'XmippJNI', 'XmippParallel', 'Xmipp']
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            libs.append('cuFFTAdvisor')
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins] +
             [os.path.join('bindings', 'python', 'xmippViz.py')] +
