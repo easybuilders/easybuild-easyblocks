@@ -53,8 +53,7 @@ from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir, wr
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_avail_core_count
-
+from easybuild.tools.systemtools import get_avail_core_count, get_cpu_architecture
 
 class EB_CP2K(EasyBlock):
     """
@@ -168,7 +167,8 @@ class EB_CP2K(EasyBlock):
             self.modincpath = self.prepmodinc()
 
         # set typearch
-        self.typearch = "Linux-x86-64-%s" % self.toolchain.name
+        arch = get_cpu_architecture()
+        self.typearch = "Linux-%s-%s" % (arch, self.toolchain.name)
 
         # extra make instructions
         self.make_instructions = ''  # "graphcon.o: graphcon.F\n\t$(FC) -c $(FCFLAGS2) $<\n"
