@@ -55,6 +55,7 @@ from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_avail_core_count, get_cpu_architecture
 
+
 class EB_CP2K(EasyBlock):
     """
     Support for building CP2K
