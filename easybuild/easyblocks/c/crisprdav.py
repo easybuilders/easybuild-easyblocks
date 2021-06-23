@@ -39,7 +39,7 @@ class EB_crisprdav(Binary):
 
     def post_install_step(self):
         """Create config.txt files"""
-        crisprdav_installdir = self.installdir
+        crisprdav_installdir_ex = os.path.join(self.installdir, 'Examples/example1/')
         abra2_dir = os.environ['EBROOTABRA2']
         prinseq_dir = os.environ['EBROOTPRINSEQ']
         flash_dir = os.environ['EBROOTFLASH']
@@ -50,10 +50,10 @@ class EB_crisprdav(Binary):
         # writing to Example directory to run sanity checks
         example_config_file = os.path.join(self.installdir, 'Examples/example1/conf.txt')
 
-        CONFIG_FILE_TEXT_FORMATTED = CONFIG_FILE_TEXT.format(crisprdav_installdir=crisprdav_installdir,
+        CONFIG_FILE_TEXT_FORMATTED = CONFIG_FILE_TEXT.format(crisprdav_installdir_ex=crisprdav_installdir_ex,
                                                              abra2_dir=abra2_dir, prinseq_dir=prinseq_dir,
                                                              flash_dir=flash_dir)
-        FASTQ_LIST_FILE_TEXT_FORMATTED = FASTQ_LIST_FILE_TEXT.format(crisprdav_installdir=crisprdav_installdir)
+        FASTQ_LIST_FILE_TEXT_FORMATTED = FASTQ_LIST_FILE_TEXT.format(crisprdav_installdir_ex=crisprdav_installdir_ex)
         # according to docs, we have to setup conf.txt so that it contains correct paths to dependencies
         # https://github.com/pinetree1/crispr-dav/blob/master/Install-and-Run.md
         # User then has to change conf.txt to include paths to genomes
@@ -69,9 +69,9 @@ class EB_crisprdav(Binary):
 CONFIG_FILE_TEXT = """
 # change this part to contain paths to your genomes
 [genomex]
-ref_fasta = {crisprdav_installdir}/Examples/example1/genome/genomex.fa
-bwa_idx = {crisprdav_installdir}/Examples/example1/genome/genomex.fa
-refGene = {crisprdav_installdir}/Examples/example1/genome/refgenex.txt
+ref_fasta = {crisprdav_installdir_ex}/genome/genomex.fa
+bwa_idx = {crisprdav_installdir_ex}/genome/genomex.fa
+refGene = {crisprdav_installdir_ex}/genome/refgenex.txt
 
 [app]
 abra = {abra2_dir}/abra2-2.23.jar
@@ -93,8 +93,8 @@ cores_per_job = 12
 """
 
 FASTQ_LIST_FILE_TEXT = r"""
-sample1	{crisprdav_installdir}/Examples/example1/rawfastq/sample1_R1.fastq.gz	{crisprdav_installdir}/Examples/example1/rawfastq/sample1_R2.fastq.gz
-sample2	{crisprdav_installdir}/Examples/example1/rawfastq/sample2_R1.fastq.gz	{crisprdav_installdir}/Examples/example1/rawfastq/sample2_R2.fastq.gz
-sample3	{crisprdav_installdir}/Examples/example1/rawfastq/sample3_R1.fastq.gz	{crisprdav_installdir}/Examples/example1/rawfastq/sample3_R2.fastq.gz
-sample4	{crisprdav_installdir}/Examples/example1/rawfastq/sample4_R1.fastq.gz	{crisprdav_installdir}/Examples/example1/rawfastq/sample4_R2.fastq.gz
+sample1	{crisprdav_installdir_ex}/rawfastq/sample1_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample1_R2.fastq.gz
+sample2	{crisprdav_installdir_ex}/rawfastq/sample2_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample2_R2.fastq.gz
+sample3	{crisprdav_installdir_ex}/rawfastq/sample3_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample3_R2.fastq.gz
+sample4	{crisprdav_installdir_ex}/rawfastq/sample4_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample4_R2.fastq.gz
 """
