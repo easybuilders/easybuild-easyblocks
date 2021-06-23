@@ -53,7 +53,7 @@ from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir, wr
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_avail_core_count
+from easybuild.tools.systemtools import get_avail_core_count, get_cpu_architecture
 
 
 class EB_CP2K(EasyBlock):
@@ -168,7 +168,8 @@ class EB_CP2K(EasyBlock):
             self.modincpath = self.prepmodinc()
 
         # set typearch
-        self.typearch = "Linux-x86-64-%s" % self.toolchain.name
+        arch = get_cpu_architecture()
+        self.typearch = "Linux-%s-%s" % (arch, self.toolchain.name)
 
         # extra make instructions
         self.make_instructions = ''  # "graphcon.o: graphcon.F\n\t$(FC) -c $(FCFLAGS2) $<\n"
@@ -232,8 +233,19 @@ class EB_CP2K(EasyBlock):
         cuda = get_software_root('CUDA')
         if cuda:
             options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC'
-            options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt'
+            options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt -lcuda -lnvrtc'
             options['NVCC'] = ' nvcc'
+
+            # CUDA compute capability to use can be specifed in three ways (where 3 overrules 2 overrules 1):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) via the EasyBuild environment variable EASYBUILD_CUDA_COMPUTE_CAPABILITIES;
+            # (3) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+
+            if cuda_cc:
+                # if multiple CUDA compute capabilities are specified, only the highest value is used
+                cc_highest = max(cuda_cc)
+                options['NVFLAGS'] = ' -arch sm_%s' % cc_highest.replace('.', '')
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
