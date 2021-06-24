@@ -260,7 +260,7 @@ class EB_TensorFlow(PythonPackage):
 
     def python_pkg_exists(self, name):
         """Check if the given python package exists/can be imported"""
-        cmd = [self.python_cmd, '-c', 'import %s' % name]
+        cmd = self.python_cmd + " -c 'import %s'" % name
         out, ec = run_cmd(cmd, log_ok=False)
         self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
         return ec == 0
@@ -399,6 +399,8 @@ class EB_TensorFlow(PythonPackage):
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
+            print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
+                          len(ignored_system_deps))
             self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
                              'because an EB dependency was not found: \n%s\n' +
                              'EC Dependencies: %s\n' +
@@ -954,7 +956,10 @@ class EB_TensorFlow(PythonPackage):
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
                     test_folder = test_name[2:].replace(':', '/')
-                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
+                    # Example file names:
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/test.log
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/shard_1_of_4/test_attempts/attempt_1.log
+                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/(/[^/]*)?test.log)' % test_folder)
                     log_match = test_log_re.match(stdouterr, match.end())
                     if log_match:
                         failed_test_logs[test_name] = log_match.group(2)
