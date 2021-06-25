@@ -35,6 +35,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
 from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
@@ -185,6 +186,11 @@ class EB_OpenMPI(ConfigureMake):
 
                 # Build test binary
                 build_cmd = "%s %s -o %s" % (compiler, src_path, test_exe)
+
+                # Skip running the test if chosen
+                if not build_option('mpi_tests'):
+                    continue
+
                 # Limit number of ranks to 8 to avoid it failing due to hyperthreading
                 ranks = min(8, self.cfg['parallel'])
                 params.update({'nr_ranks': ranks, 'cmd': test_exe})
