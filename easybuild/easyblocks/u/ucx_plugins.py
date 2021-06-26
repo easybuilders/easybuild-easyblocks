@@ -27,7 +27,6 @@ EasyBuild support for UCX plugins (modules), implemented as an easyblock
 
 @author: Mikael Öhman (Chalmers University of Techonology)
 """
-from distutils.version import LooseVersion
 from collections import defaultdict
 import os
 
@@ -50,12 +49,10 @@ class EB_UCX_Plugins(ConfigureMake):
 
     def configure_step(self):
         """Customize configuration for building requested plugins."""
-        shlib_ext = get_shared_lib_ext()
-
         # make sure that required dependencies are loaded
         ucxroot = get_software_root('UCX')
         if not ucxroot:
-            raise EasyBuildError("%s module not loaded?", dep)
+            raise EasyBuildError("UCX is a required dependency")
 
         self.cfg['configure_cmd'] = 'contrib/configure-release'
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
@@ -85,7 +82,7 @@ class EB_UCX_Plugins(ConfigureMake):
             plugins["ucm"].append("rocm")
             plugins["uct"].append("rocm")
             plugins["ucx_perftest"].append("rocm")
-            configopts += '--with-rocm=%s ' % rocmcopyroot
+            configopts += '--with-rocm=%s ' % rocmroot
             self.makefile_dirs += ['uct/rocm', 'ucm/rocm', 'tools/perf/rocm']
 
         self.plugins = dict(plugins)
@@ -140,8 +137,8 @@ class EB_UCX_Plugins(ConfigureMake):
         custom_commands = ['ucx_info -d']
         files = []
         for framework, names in self.plugins.items():
-             for name in names:
-                 files.append('ucx/lib%s_%s.%s' % (framework, name, shlib_ext))
+            for name in names:
+                files.append('ucx/lib%s_%s.%s' % (framework, name, shlib_ext))
 
         custom_paths = {
             'files': files,
