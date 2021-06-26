@@ -34,8 +34,8 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
 from easybuild.tools.py2vs3 import subprocess_popen_text
+from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -59,35 +59,35 @@ class EB_UCX_Plugins(ConfigureMake):
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
 
         configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
-        # Skip the lib directory since we are just installing plugins
+        # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
 
         plugins = defaultdict(list)
         cudaroot = get_software_root('CUDAcore') or get_software_root('CUDA')
         if cudaroot:
             configopts += '--with-cuda=%s ' % cudaroot
-            plugins["ucm"].append("cuda")
-            plugins["uct"].append("cuda")
-            plugins["ucx_perftest"].append("cuda")
+            for key in ('ucm', 'uct', 'ucx_perftest'):
+                plugins[key].append('cuda')
 
             gdrcopyroot = get_software_root('GDRCopy')
             if gdrcopyroot:
-                plugins["uct_cuda"].append("gdrcopy")
+                plugins['uct_cuda'].append('gdrcopy')
                 configopts += '--with-gdrcopy=%s ' % gdrcopyroot
 
-            self.makefile_dirs += ['uct/cuda', 'ucm/cuda', 'tools/perf/cuda']
+            self.makefile_dirs.extend(os.path.join(x, 'cuda') for x in ('uct', 'ucm', 'tools/perf'))
 
         # To be supported in the future:
         rocmroot = get_software_root('ROCm')
         if rocmroot:
-            plugins["ucm"].append("rocm")
-            plugins["uct"].append("rocm")
-            plugins["ucx_perftest"].append("rocm")
+            for key in ('ucm', 'uct', 'ucx_perftest'):
+                plugins[key].append('rocm')
             configopts += '--with-rocm=%s ' % rocmroot
-            self.makefile_dirs += ['uct/rocm', 'ucm/rocm', 'tools/perf/rocm']
+            self.makefile_dirs.extend(os.path.join(x, 'rocm') for x in ('uct', 'ucm', 'tools/perf'))
 
         self.plugins = dict(plugins)
+
         self.cfg.update('configopts', configopts)
+
         super(EB_UCX_Plugins, self).configure_step()
 
     def build_step(self):
@@ -101,6 +101,7 @@ class EB_UCX_Plugins(ConfigureMake):
             run_cmd('make -C src/%s install' % (makefile_dir))
 
     def make_module_extra(self, *args, **kwargs):
+        """Add extra statements to generated module file specific to UCX plugins"""
         txt = super(EB_UCX_Plugins, self).make_module_extra(*args, **kwargs)
 
         base_conf = dict()
@@ -134,15 +135,17 @@ class EB_UCX_Plugins(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for UCX plugins."""
-        shlib_ext = get_shared_lib_ext()
+
         custom_commands = ['ucx_info -d']
+
+        shlib_ext = get_shared_lib_ext()
         files = []
         for framework, names in self.plugins.items():
-            for name in names:
-                files.append('ucx/lib%s_%s.%s' % (framework, name, shlib_ext))
+            files.extend(os.path.join('ucx', 'lib%s_%s.%s' % (framework, name, shlib_ext)) for name in names)
 
         custom_paths = {
             'files': files,
             'dirs': [],
         }
+
         super(EB_UCX_Plugins, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
