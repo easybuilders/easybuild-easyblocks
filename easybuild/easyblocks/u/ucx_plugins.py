@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ##
 # Copyright 2012-2021 Ghent University
 #
