@@ -59,6 +59,32 @@ from easybuild.tools.modules import get_software_root_env_var_name, get_software
 from easybuild.tools.options import set_tmpdir
 
 
+# partial output of actual 'ucx_info -b'
+FAKE_UCX_INFO = """#!/bin/bash
+echo '#define UCX_CONFIG_H'
+echo '#define HAVE_IB                   1'
+echo '#define HAVE_MEMALIGN             1'
+echo '#define PACKAGE                   "ucx"'
+echo '#define PACKAGE_VERSION           "1.10"'
+echo '#define UCX_CONFIGURE_FLAGS       "--disable-logging --disable-debug --disable-assertions --disable-params-check --prefix=/user/gent/400/vsc40023/eb_scratch/CO7/haswell-ib/software/UCX/1.10.0-GCCcore-10.3.0 --enable-optimizations --enable-cma --enable-mt --with-verbs --without-java --disable-doxygen-doc"'
+echo '#define VERSION                   "1.10"'
+echo '#define test_MODULES              ":module"'
+echo '#define ucm_MODULES               ""'
+echo '#define uct_MODULES               ":ib:rdmacm:cma"'
+echo '#define uct_cuda_MODULES          ""'
+echo '#define uct_ib_MODULES            ""'
+echo '#define uct_rocm_MODULES          ""'
+echo '#define ucx_perftest_MODULES      ""                                           E'
+echo '#define UCX_MODULE_SUBDIR         "ucx" $ ucx_info -b 2> /dev/null | grep MODULE'
+echo '#define test_MODULES              ":module"'
+echo '#define ucm_MODULES               ""'
+echo '#define uct_MODULES               ":ib:rdmacm:cma"'
+echo '#define uct_cuda_MODULES          ""'
+echo '#define uct_ib_MODULES            ""'
+echo '#define uct_rocm_MODULES          ""'
+echo '#define ucx_perftest_MODULES      ""'
+"""
+
 TMPDIR = tempfile.mkdtemp()
 
 
@@ -72,6 +98,14 @@ def cleanup():
     easyconfig._easyconfigs_cache.clear()
     easyconfig._easyconfig_files_cache.clear()
     mns_toolchain._toolchain_details_cache.clear()
+
+
+def install_fake_command(cmd, cmd_script, tmpdir):
+    """Install fake command with given name and script."""
+    cmd_path = os.path.join(tmpdir, cmd)
+    write_file(cmd_path, cmd_script)
+    adjust_permissions(cmd_path, stat.S_IXUSR)
+    os.environ['PATH'] = os.pathsep.join([tmpdir, os.getenv('PATH')])
 
 
 class ModuleOnlyTest(TestCase):
@@ -194,10 +228,11 @@ class ModuleOnlyTest(TestCase):
         self.assertTrue(pick_python_cmd(123, 456) is None)
 
 
-def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=''):
+def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt='', tmpdir=None):
     """Test whether all easyblocks are compatible with --module-only."""
 
-    tmpdir = tempfile.mkdtemp()
+    if tmpdir is None:
+        tmpdir = tempfile.mkdtemp()
 
     class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
@@ -402,6 +437,11 @@ def suite():
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
+        elif eb_fn == 'ucx_plugins.py':
+            # install fake ucx_info command (used in make_module_extra)
+            tmpdir = tempfile.mkdtemp()
+            install_fake_command('ucx_info', FAKE_UCX_INFO, tmpdir)
+            innertest = make_inner_test(easyblock, name='UCX-CUDA', tmpdir=tmpdir)
         else:
             # Make up some unique name
             innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')
