@@ -30,6 +30,7 @@ EasyBuild support for installing the Intel Trace Analyzer and Collector (ITAC), 
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Robert Mijakovic (LuxProvide)
 """
 
 import os
@@ -55,6 +56,13 @@ class EB_itac(IntelBase):
         }
         return IntelBase.extra_options(extra_vars)
 
+    def prepare_step(self, *args, **kwargs):
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            kwargs['requires_runtime_license'] = False
+            super(EB_itac, self).prepare_step(*args, **kwargs)
+        else:
+            super(EB_itac, self).prepare_step(*args, **kwargs)
+
     def install_step(self):
         """
         Actual installation
@@ -72,21 +80,20 @@ class EB_itac(IntelBase):
             silent = """
 [itac]
 INSTALLDIR=%(ins)s
-LICENSEPATH=%(lic)s
 INSTALLMODE=NONRPM
 INSTALLUSER=NONROOT
 INSTALL_ITA=YES
 INSTALL_ITC=YES
 DEFAULT_MPI=%(mpi)s
 EULA=accept
-""" % {'lic': self.license_file, 'ins': self.installdir, 'mpi': self.cfg['preferredmpi']}
+""" % {'ins': self.installdir, 'mpi': self.cfg['preferredmpi']}
 
             # already in correct directory
             silentcfg = os.path.join(os.getcwd(), "silent.cfg")
             f = open(silentcfg, 'w')
             f.write(silent)
             f.close()
-            self.log.debug("Contents of %s: %s" % (silentcfg, silent))
+            self.log.info("Contents of %s: %s" % (silentcfg, silent))
 
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
             try:
@@ -94,7 +101,8 @@ EULA=accept
             except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
-            cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
+            #cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
+            cmd = "./install.sh -a -s --eula accept --install-dir=%s" % ins
 
             run_cmd(cmd, log_all=True, simple=True)
 
