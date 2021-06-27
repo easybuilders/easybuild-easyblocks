@@ -118,7 +118,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
         for line in stdout.split('\n'):
             try:
-                variable, value = line.split(maxsplit=3)[1:]
+                variable, value = line.split(None, 3)[1:]
             except ValueError:
                 continue
             if 'MODULES' in variable:
