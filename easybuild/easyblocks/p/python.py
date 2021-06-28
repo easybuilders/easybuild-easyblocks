@@ -43,6 +43,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -140,6 +141,8 @@ class EB_Python(ConfigureMake):
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
         ext_defaults = {
+            # Use PYPI_SOURCE as the default for source_urls of extensions.
+            'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
             # We should enable this (by default) for all extensions because the only installed packages at this point
             # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
             # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
