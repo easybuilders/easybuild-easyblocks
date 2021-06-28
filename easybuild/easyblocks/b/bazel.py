@@ -78,7 +78,7 @@ class EB_Bazel(EasyBlock):
         # CROSSTOOL script is no longer there in Bazel 0.24.0
         if LooseVersion(self.version) < LooseVersion('0.24.0'):
             res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
-            if res and len(res) == 1:
+            if res and len(res) > 0:
                 gcc_lib_inc = res[0]
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
