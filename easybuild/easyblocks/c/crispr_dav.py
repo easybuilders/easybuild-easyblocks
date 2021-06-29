@@ -30,12 +30,18 @@ EasyBuild support for building and installing Metagenome-Atlas, implemented as a
 import os
 from easybuild.tools.filetools import write_file
 from easybuild.easyblocks.generic.binary import Binary
+from easybuild.tools.run import run_cmd
 
 
-class EB_crisprdav(Binary):
+class EB_CRISPR_minus_DAV(Binary):
     """
     Support for building/installing crispr-dav.
     """
+    extract_sources = True
+
+    def __init__(self, *args, **kwargs):
+        super(EB_CRISPR_minus_DAV, self).__init__(*args, **kwargs)
+        self.cfg['extract_sources'] = True
 
     def post_install_step(self):
         """Create config.txt files"""
@@ -61,6 +67,27 @@ class EB_crisprdav(Binary):
         write_file(example_config_file, CONFIG_FILE_TEXT_FORMATTED)
         # also used for sanity checking with Examples/ folder
         write_file(example_fastq_list_file, FASTQ_LIST_FILE_TEXT_FORMATTED)
+
+    def sanity_check_step(self):
+        """Custom sanity check paths for CRISPR-DAV"""
+        crisprdav_installdir = self.installdir
+        custom_paths = {
+            'files': [],
+            'dirs': ['Modules', 'Examples', 'Rscripts'],
+        }
+        CUSTOM_SANITY_CHECK_COMMAND_FRM = CUSTOM_SANITY_CHECK_COMMAND.format(
+            crisprdav_installdir=crisprdav_installdir)
+
+        custom_commands = [("crispr.pl --help 2>&1 | grep 'Usage: '", ''),
+                           (CUSTOM_SANITY_CHECK_COMMAND_FRM, '')]
+
+        super(EB_CRISPR_minus_DAV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        # super(EB_CRISPR_minus_DAV, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self):
+        txt = super(EB_CRISPR_minus_DAV, self).make_module_extra()
+        txt += self.module_generator.prepend_paths('PATH', [''])
+        return txt
 
 
 # obtained from
@@ -97,4 +124,13 @@ sample1	{crisprdav_installdir_ex}/rawfastq/sample1_R1.fastq.gz	{crisprdav_instal
 sample2	{crisprdav_installdir_ex}/rawfastq/sample2_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample2_R2.fastq.gz
 sample3	{crisprdav_installdir_ex}/rawfastq/sample3_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample3_R2.fastq.gz
 sample4	{crisprdav_installdir_ex}/rawfastq/sample4_R1.fastq.gz	{crisprdav_installdir_ex}/rawfastq/sample4_R2.fastq.gz
+"""
+
+CUSTOM_SANITY_CHECK_COMMAND = r"""
+{crisprdav_installdir}/crispr.pl --conf {crisprdav_installdir}/Examples/example1/conf.txt \
+--region {crisprdav_installdir}/Examples/example1/amplicon.bed \
+--crispr {crisprdav_installdir}/Examples/example1/site.bed \
+--sitemap {crisprdav_installdir}/Examples/example1/sample.site \
+--fastqmap {crisprdav_installdir}/Examples/example1/fastq.list \
+--genome genomex  2>&1 | grep 'Generated HTML report for GENEX_CR1'
 """
