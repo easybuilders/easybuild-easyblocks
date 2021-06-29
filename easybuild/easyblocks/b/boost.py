@@ -125,7 +125,7 @@ class EB_Boost(EasyBlock):
 
         # boost_multi_thread is deprecated
         if self.cfg['boost_multi_thread'] is not None:
-            self.log.deprecated("boost_multi_thread has been deprecated, it has been replaced by tagged_layout. "
+            self.log.deprecated("boost_multi_thread has been replaced by tagged_layout. "
                                 "We build with tagged layout and both single and multi threading libraries "
                                 "from version 1.69.0.", '5.0')
             self.cfg['tagged_layout'] = True
