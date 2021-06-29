@@ -281,20 +281,31 @@ class EB_Boost(EasyBlock):
             mpi_bjamoptions = " --with-mpi"
             self.build_boost_variant(self.bjamoptions + mpi_bjamoptions, self.paracmd)
 
-        self.log.info("Building boost libraries")
+        self.log.info("Building Boost libraries")
         # build with specified options
-        cmd = "%s ./%s %s %s %s" % (
-            self.cfg['prebuildopts'], self.bjamcmd, self.bjamoptions, self.paracmd, self.cfg['buildopts'])
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            './' + self.bjamcmd,
+            self.bjamoptions,
+            self.paracmd,
+            self.cfg['buildopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Install Boost by copying files to install dir."""
 
         # install boost libraries
-        self.log.info("Installing boost libraries")
+        self.log.info("Installing Boost libraries")
 
-        cmd = "%s ./%s %s install %s %s" % (
-            self.cfg['preinstallopts'], self.bjamcmd, self.bjamoptions, self.paracmd, self.cfg['installopts'])
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            './' + self.bjamcmd,
+            self.bjamoptions,
+            'install',
+            self.paracmd,
+            self.cfg['installopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
         self.log.info("Copying %s to installation dir %s", self.objdir, self.installdir)
