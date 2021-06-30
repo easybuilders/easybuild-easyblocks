@@ -273,8 +273,9 @@ class Bundle(EasyBlock):
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
-        # check for altroot and altversion (needed here for a module only build)
-        self.altroot, self.altversion = self.get_altroot_and_altversion()
+        if not self.altroot and not self.altversion:
+            # check for altroot and altversion (needed here for a module only build)
+            self.altroot, self.altversion = self.get_altroot_and_altversion()
         if 'altroot' not in kwargs:
             kwargs['altroot'] = self.altroot
         if 'altversion' not in kwargs:
