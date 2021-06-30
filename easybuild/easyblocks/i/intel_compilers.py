@@ -31,6 +31,7 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
 
 
@@ -50,7 +51,9 @@ class EB_intel_minus_compilers(IntelBase):
             raise EasyBuildError("Invalid version %s, should be >= 2021.x" % self.version)
 
         self.compilers_subdir = os.path.join('compiler', self.version, 'linux')
-        self.tbb_subdir = os.path.join('tbb', self.version)
+        # note that tbb may have a lower version number than the compiler, so use 'latest' symlink
+        # for example compiler 2021.1.2 has tbb 2021.1.1.
+        self.tbb_subdir = os.path.join('tbb', 'latest')
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -121,7 +124,12 @@ class EB_intel_minus_compilers(IntelBase):
             os.path.join('compiler', 'lib', 'intel64_lin'),
         ]
         libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
-        libdirs.append(os.path.join(self.tbb_subdir, 'lib', 'intel64', 'gcc4.8'))
+        # resolve 'latest' symlink for tbb
+        tbb_version = os.readlink(os.path.join(self.installdir, self.tbb_subdir))
+        tbb_subdir = os.path.join('tbb', tbb_version)
+        tbb_libsubdir = os.path.join(tbb_subdir, 'lib', 'intel64')
+        libdirs.append(os.path.join(tbb_libsubdir,
+                                    get_tbb_gccprefix(os.path.join(self.installdir, tbb_libsubdir))))
         guesses = {
             'PATH': [
                 os.path.join(self.compilers_subdir, 'bin'),
@@ -133,8 +141,8 @@ class EB_intel_minus_compilers(IntelBase):
                 os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
             ],
             'CPATH': [
-                os.path.join(self.tbb_subdir, 'include'),
+                os.path.join(tbb_subdir, 'include'),
             ],
-            'TBBROOT': [self.tbb_subdir],
+            'TBBROOT': [tbb_subdir],
         }
         return guesses
