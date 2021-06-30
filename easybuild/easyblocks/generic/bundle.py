@@ -180,9 +180,19 @@ class Bundle(EasyBlock):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
         pass
 
+    def get_altroot_and_altversion(self):
+        """Get altroot and altversion, if they are defined"""
+        altroot = None
+        if self.cfg['altroot']:
+            altroot = get_software_root(self.cfg['altroot'])
+        altversion = None
+        if self.cfg['altversion']:
+            altversion = get_software_version(self.cfg['altversion'])
+        return altroot, altversion
+
     def configure_step(self):
-        """Do nothing."""
-        pass
+        """Collect altroot/altversion info."""
+        self.altroot, self.altversion = self.get_altroot_and_altversion()
 
     def build_step(self):
         """Do nothing."""
@@ -263,10 +273,12 @@ class Bundle(EasyBlock):
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
+        # check for altroot and altversion (needed here for a module only build)
+        self.altroot, self.altversion = self.get_altroot_and_altversion()
         if 'altroot' not in kwargs:
-            kwargs['altroot'] = get_software_root(self.cfg['altroot']) if self.cfg['altroot'] else None
+            kwargs['altroot'] = self.altroot
         if 'altversion' not in kwargs:
-            kwargs['altversion'] = get_software_version(self.cfg['altversion']) if self.cfg['altversion'] else None
+            kwargs['altversion'] = self.altversion
         return super(Bundle, self).make_module_extra(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
