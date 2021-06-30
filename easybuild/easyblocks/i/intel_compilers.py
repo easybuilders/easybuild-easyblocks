@@ -124,8 +124,11 @@ class EB_intel_minus_compilers(IntelBase):
             os.path.join('compiler', 'lib', 'intel64_lin'),
         ]
         libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
-        # resolve 'latest' symlink for tbb
-        tbb_version = os.readlink(os.path.join(self.installdir, self.tbb_subdir))
+        # resolve 'latest' symlink for tbb (if module guess is run with install in place)
+        if os.path.islink(os.path.join(self.installdir, self.tbb_subdir)):
+            tbb_version = os.readlink(os.path.join(self.installdir, self.tbb_subdir))
+        else:
+            tbb_version = 'latest'
         tbb_subdir = os.path.join('tbb', tbb_version)
         tbb_libsubdir = os.path.join(tbb_subdir, 'lib', 'intel64')
         libdirs.append(os.path.join(tbb_libsubdir,
