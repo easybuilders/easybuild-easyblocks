@@ -285,7 +285,7 @@ class EB_Boost(EasyBlock):
         # build with specified options
         cmd = ' '.join([
             self.cfg['prebuildopts'],
-            './' + self.bjamcmd,
+            os.path.join('.', self.bjamcmd),
             self.bjamoptions,
             self.paracmd,
             self.cfg['buildopts'],
@@ -300,7 +300,7 @@ class EB_Boost(EasyBlock):
 
         cmd = ' '.join([
             self.cfg['preinstallopts'],
-            './' + self.bjamcmd,
+            os.path.join('.', self.bjamcmd),
             self.bjamoptions,
             'install',
             self.paracmd,
