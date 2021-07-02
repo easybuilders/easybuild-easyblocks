@@ -32,6 +32,7 @@ import re
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
@@ -116,7 +117,7 @@ class EB_OpenMPI(ConfigureMake):
                 verbs = False
             else:
                 # auto-detect based on available OS packages
-                os_packages = ('libibverbs-dev', 'libibverbs-devel', 'rdma-core-devel')
+                os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
 
             if verbs:
