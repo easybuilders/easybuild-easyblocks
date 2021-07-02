@@ -32,6 +32,7 @@ import re
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
 
@@ -99,6 +100,11 @@ class EB_OpenMPI(ConfigureMake):
                 opt_value = unused_dep_value.get(dep)
             if opt_value is not None:
                 self.cfg.update('configopts', '--with-%s=%s' % (opt_name, opt_value))
+
+        if bool(get_software_root('PMIx')) != bool(get_software_root('libevent')):
+            raise EasyBuildError('You must either use both PMIx and libevent as dependencies or none of them. '
+                                 'This is to enforce the same libevent is used for OpenMPI as for PMIx or '
+                                 'the behavior may be unpredictable.')
 
         # check whether VERBS support should be enabled
         if not config_opt_used('verbs'):
