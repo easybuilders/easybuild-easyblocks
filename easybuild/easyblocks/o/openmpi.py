@@ -75,7 +75,7 @@ class EB_OpenMPI(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('3.0'):
             # Default to disable the option with "no"
             unused_dep_value = {dep: 'no' for dep in known_dependencies}
-            # For those the default is to use an internal copy and not using any is not supported
+            # For these the default is to use an internal copy and not using any is not supported
             for dep in ('hwloc', 'libevent', 'PMIx'):
                 unused_dep_value[dep] = 'internal'
 
@@ -89,7 +89,7 @@ class EB_OpenMPI(ConfigureMake):
             # libfabric option renamed in OpenMPI 3.1.0 to ofi
             if dep == 'libfabric' and LooseVersion(self.version) >= LooseVersion('3.1'):
                 opt_name = 'ofi'
-                # Check new option name. They are synonyms
+                # Check new option name. They are synonyms since 3.1.0 for backward compatibility
                 if config_opt_used(opt_name):
                     continue
 
