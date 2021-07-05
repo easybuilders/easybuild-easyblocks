@@ -3,7 +3,45 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 232 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 237 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.4.1 (July 6th 2021)
+----------------------
+
+update/bugfix release
+
+- 5 new software-specific easyblocks:
+  - AOMP (#2435, #2462, #2464), FreeFEM (#1969), NCCL (built from source) (#2337, #2460), torchvision (#2467), UCX plugins (#2491)
+- minor enhancements, including:
+  - enhance Amber easyblock to support installing Amber via CMake (#2445)
+  - enhance ConfigureMake generic easyblock to add support for building multiple build targets (#2449, #2479, #2480)
+  - enhance sanity check for Clang to verify if CUDA offload library was produced (#2454)
+  - update custom easyblock for Boost to always build single and multi threaded versions (#2456)
+  - enhance sitecustomize.py in Python easyblock to support overriding core Python packages, and allowing overriding in virtualenv (#2458, #2483)
+  - update CMakeMake to handle old and new Boost/Boost.Python builds using custom easyblock for Boost (#2461)
+  - add file prefix option to XALT easyblock (#2463)
+  - enhance Java easyblock to define %(jdkarch)s template (#2472)
+  - adjust Perl easyblock to only check for a 'man' subdirectory if groff is a dependency (#2474)
+  - support arbitrary version strings in OpenSSL wrapper and add minimum_openssl_version option (#2475)
+  - enhance Python easyblock to explicitly disable installing core-pip when install_pip is not True (#2476)
+  - enhance intel-compiler easyblock to inlude multipath include dir in $CPATH (#2477)
+  - enhance Hypre easyblock to enable CUDA support (#2482)
+  - update Xmipp easyblock for new version (v3.20.07) (#2486)
+  - enhance FFTW easyblock to skip tests if --mpi-tests EasyBuild configuration option is disabled (#2490)
+  - use PYPI_SOURCE as the default for source_urls of extensions of Python easyconfigs (#2493)
+- various bug fixes, including:
+  - only use siterc fix for NVHPC < 21.3 (#2453)
+  - fix CPU-only runtime for dpcpp-generated executables in custom easyblock for intel-compilers (#2457)
+  - always add distinct_host_configuration=false to build command for TensorFlow (#2459)
+  - disable installation of bundled BioPerl and HTSLib if they are dependencies of VEP (#2468)
+  - don't use list value for command to detect installed Python packages in TensorFlow easyblock (#2469)
+  - change Bundle easyblock to also collect altroot and altversion in the module step so they are set when running --module-only (#2485)
+  - always strip output from "gcc -print-multiarch" in intel-compilers easyblock (#2489)
+  - don't overwrite all of exts_default_options in TensorFlow easyblock (#2494)
+  - enhance GCC easyblock to make sure that system GCC provides LTO support, and disable LTO when building MPFR if not (#2498)
+  - rework the dependency handling of OpenMPI to use explicit configure options to disable features if required
+    dependency is not provided (#2500, #2501)
 
 
 v4.4.0 (June 2nd 2021)
