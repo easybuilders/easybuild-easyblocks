@@ -35,7 +35,7 @@ from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import which, write_file
+from easybuild.tools.filetools import write_file
 from easybuild.tools.py2vs3 import string_type
 
 
@@ -120,8 +120,9 @@ H   0.7920   0.0000  -0.4973
         test_input_path = os.path.join(self.builddir, 'eb_test_hf_water.inp')
         write_file(test_input_path, test_input_content)
 
+        # Reference total energy
         test_output_energy = '-75.95934031'
-        test_output_regex = 'FINAL SINGLE POINT ENERGY[ \t]*%s' % test_output_energy.replace('.', '\.')
+        test_output_regex = 'FINAL SINGLE POINT ENERGY[ \t]*%s' % test_output_energy
 
         # ORCA has to be executed using its full path to run in parallel
         if os.path.isdir(os.path.join(self.installdir, 'bin')):
@@ -134,9 +135,8 @@ H   0.7920   0.0000  -0.4973
         custom_commands = [
             # Execute test in ORCA
             test_orca_cmd,
-            # Repeat test and check total energy (up to 8 decimal place)
+            # Repeat test and check total energy
             "%s | grep -c '%s'" % (test_orca_cmd, test_output_regex),
         ]
 
         super(EB_ORCA, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
