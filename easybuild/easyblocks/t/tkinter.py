@@ -53,6 +53,7 @@ class EB_Tkinter(EB_Python):
 
     def __init__(self, *args, **kwargs):
         """Initialize Tkinter-specific variables."""
+        self.cfg['ebpythonprefixes'] = False
         super(EB_Tkinter, self).__init__(*args, **kwargs)
         self.tkinter_so_basename = ''
 
