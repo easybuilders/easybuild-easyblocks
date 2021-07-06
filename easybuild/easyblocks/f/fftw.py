@@ -231,6 +231,10 @@ class EB_FFTW(ConfigureMake):
     def test_step(self):
         """Custom implementation of test step for FFTW."""
 
+        if self.toolchain.mpi_family() is not None and not build_option('mpi_tests'):
+            self.log.info("Skipping testing of FFTW since MPI testing is disabled")
+            return
+
         if self.toolchain.mpi_family() == toolchain.OPENMPI and not self.toolchain.comp_family() == TC_CONSTANT_FUJITSU:
 
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,

@@ -46,7 +46,8 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
+from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
@@ -152,6 +153,9 @@ class EB_GCC(ConfigureMake):
 
         # for MPFR v4.x & newer, we need a recent GCC that supports -flto
         if LooseVersion(mpfr_ver) >= LooseVersion('4.0'):
+
+            disable_mpfr_lto = False
+
             # check GCC version being used
             # GCC 4.5 is required for -flto (cfr. https://gcc.gnu.org/gcc-4.5/changes.html)
             gcc_ver = get_gcc_version()
@@ -161,14 +165,26 @@ class EB_GCC(ConfigureMake):
             elif LooseVersion(gcc_ver) < LooseVersion(min_gcc_ver_lto):
                 self.log.info("Configuring MPFR to build without LTO in stage 1 (GCC %s is too old: < %s)!",
                               gcc_ver, min_gcc_ver_lto)
+                disable_mpfr_lto = True
+            else:
+                self.log.info("GCC %s (>= %s) is OK for building MPFR in stage 1 with LTO enabled",
+                              gcc_ver, min_gcc_ver_lto)
 
+                # check whether GCC actually supports LTO (it may be configured with --disable-lto),
+                # by compiling a simple C program using -flto
+                out, ec = run_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", simple=False, log_ok=False)
+                gcc_path = which('gcc')
+                if ec:
+                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path, out)
+                    disable_mpfr_lto = True
+                else:
+                    self.log.info("GCC command %s provides LTO support, so using it when building MPFR", gcc_path)
+
+            if disable_mpfr_lto:
                 # patch GCC's Makefile to inject --disable-lto when building MPFR
                 stage1_makefile = os.path.join(objdir, 'Makefile')
                 regex_subs = [(r'(--with-gmp-lib=\$\$r/\$\(HOST_SUBDIR\)/gmp/.libs) \\', r'\1 --disable-lto \\')]
                 apply_regex_substitutions(stage1_makefile, regex_subs)
-            else:
-                self.log.info("GCC %s (>= %s) is OK for building MPFR in stage 1 with LTO enabled",
-                              gcc_ver, min_gcc_ver_lto)
 
     def prep_extra_src_dirs(self, stage, target_prefix=None):
         """
