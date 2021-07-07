@@ -144,11 +144,6 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        self.pythonpath = None
-        if self.cfg['ebpythonprefixes']:
-            easybuild_subdir = log_path()
-            self.pythonpath = os.path.join(easybuild_subdir, 'python')
-
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
             'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
@@ -181,6 +176,15 @@ class EB_Python(ConfigureMake):
             if isinstance(ext, tuple) and len(ext) >= 2 and ext[0] == 'pip':
                 return ext[1]
         return None
+
+    def prepare_step(self, *args, **kwargs):
+        super(EB_Python, self).prepare_step(*args, **kwargs)
+
+        if self.cfg['ebpythonprefixes']:
+            easybuild_subdir = log_path()
+            self.pythonpath = os.path.join(easybuild_subdir, 'python')
+        else:
+            self.pythonpath = None
 
     def patch_step(self, *args, **kwargs):
         """
@@ -583,7 +587,7 @@ class EB_Python(ConfigureMake):
         """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
 
-        if self.pythonpath:
+        if self.cfg['ebpythonprefixes']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
 
         return txt
