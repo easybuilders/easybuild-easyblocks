@@ -55,9 +55,14 @@ class EB_Tkinter(EB_Python):
         """Disable EBPYTHONPREFIXES."""
         extra_vars = EB_Python.extra_options()
         # Not used for Tkinter
-        extra_vars['ebpythonprefixes'][0] = False
+        del extra_vars['ebpythonprefixes']
 
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize Tkinter-specific variables."""
+        super(EB_Tkinter, self).__init__(*args, **kwargs)
+        self.tkinter_so_basename = None
 
     def configure_step(self):
         """Check for Tk before configuring"""
@@ -78,11 +83,11 @@ class EB_Tkinter(EB_Python):
 
         tmpdir = tempfile.mkdtemp(dir=self.builddir)
 
-        tkinter_so_basename = self.get_tkinter_so_basename(False)
+        self.tkinter_so_basename = self.get_tkinter_so_basename(False)
         if LooseVersion(self.version) >= LooseVersion('3'):
-            tkparts = ["tkinter", os.path.join("lib-dynload", tkinter_so_basename)]
+            tkparts = ["tkinter", os.path.join("lib-dynload", self.tkinter_so_basename)]
         else:
-            tkparts = ["lib-tk", os.path.join("lib-dynload", tkinter_so_basename)]
+            tkparts = ["lib-tk", os.path.join("lib-dynload", self.tkinter_so_basename)]
 
         pylibdir = os.path.join(self.installdir, det_pylibdir())
         copy([os.path.join(os.path.dirname(pylibdir), x) for x in tkparts], tmpdir)
@@ -90,7 +95,7 @@ class EB_Tkinter(EB_Python):
         remove_dir(self.installdir)
 
         move_file(os.path.join(tmpdir, tkparts[0]), os.path.join(pylibdir, tkparts[0]))
-        move_file(os.path.join(tmpdir, tkinter_so_basename), os.path.join(pylibdir, tkinter_so_basename))
+        move_file(os.path.join(tmpdir, self.tkinter_so_basename), os.path.join(pylibdir, self.tkinter_so_basename))
 
     def get_tkinter_so_basename(self, in_final_dir):
         pylibdir = os.path.join(self.installdir, det_pylibdir())
@@ -115,10 +120,11 @@ class EB_Tkinter(EB_Python):
             tkinter = 'Tkinter'
         custom_commands = ["python -c 'import %s'" % tkinter]
 
-        tkinter_so_basename = self.get_tkinter_so_basename(True)
+        if not self.tkinter_so_basename:
+            self.tkinter_so_basename = self.get_tkinter_so_basename(True)
 
         custom_paths = {
-            'files': [os.path.join(det_pylibdir(), tkinter_so_basename)],
+            'files': [os.path.join(det_pylibdir(), self.tkinter_so_basename)],
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
