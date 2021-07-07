@@ -851,11 +851,14 @@ class EB_TensorFlow(PythonPackage):
                 num_gpus_to_use = 0
             else:
                 # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
-                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_all=True, regexp=False)
+                # Note: Disable logging to also disable the error handling in run_cmd and do it explicitly below
+                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_ok=False, log_all=False, regexp=False)
                 try:
                     if ec != 0:
-                        raise RuntimeError("nvidia-smi returned exit code %s" % ec)
-                    gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
+                        raise RuntimeError("nvidia-smi returned exit code %s with output:\n%s" % (ec, out))
+                    else:
+                        self.log.info('nvidia-smi succeeded with output:\n%s' % out)
+                        gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
                 except (RuntimeError, ValueError) as err:
                     self.log.warning("Failed to get the number of GPUs on this system: %s", err)
                     gpu_ct = 0
