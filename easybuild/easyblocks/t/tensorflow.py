@@ -851,7 +851,7 @@ class EB_TensorFlow(PythonPackage):
                 num_gpus_to_use = 0
             else:
                 # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
-                # Note: Disable logging to also disable the error handling in run_cmd and do it explicitely below
+                # Note: Disable logging to also disable the error handling in run_cmd and do it explicitly below
                 (out, ec) = run_cmd("nvidia-smi --list-gpus", log_ok=False, log_all=False, regexp=False)
                 try:
                     if ec != 0:
