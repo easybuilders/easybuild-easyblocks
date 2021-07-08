@@ -204,8 +204,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         tbb_subdir = ''
         if os.path.exists(os.path.join(self.installdir, 'tbb')):
             tbb_subdir = 'tbb'
-
-        txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
+            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
         txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
 
         return txt
