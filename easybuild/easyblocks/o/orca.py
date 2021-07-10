@@ -66,7 +66,7 @@ class EB_ORCA(PackedBinary, MakeCp):
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
                 compoundmethods = (['ORCACompoundMethods'], 'bin')
                 files_to_copy.append(compoundmethods)
-            # Shared builts have additional libraries
+            # Shared builds have additional libraries
             libs_to_copy = (['liborca*'], 'lib')
             if all([glob.glob(p) for p in libs_to_copy[0]]):
                 files_to_copy.append(libs_to_copy)
@@ -80,30 +80,36 @@ class EB_ORCA(PackedBinary, MakeCp):
 
         custom_paths = {'files': [], 'dirs': []}
 
-        # Convert 'files_to_copy' to list of files in build directory
-        for spec in self.cfg['files_to_copy']:
-            if isinstance(spec, tuple):
-                file_pattern = spec[0]
-                dest_dir = spec[1]
-            elif isinstance(spec, string_type):
-                file_pattern = spec
-                dest_dir = None
-            else:
-                raise EasyBuildError("Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec))
-
-            if isinstance(file_pattern, string_type):
-                file_pattern = [file_pattern]
-
-            source_files = []
-            for pattern in file_pattern:
-                source_files.extend(glob.glob(pattern))
-
-            # Add files to custom sanity checks
-            for source in source_files:
-                if os.path.isfile(source):
-                    custom_paths['files'].append(os.path.join(dest_dir, source))
+        if self.cfg['files_to_copy']:
+            # Convert 'files_to_copy' to list of files in build directory
+            for spec in self.cfg['files_to_copy']:
+                if isinstance(spec, tuple):
+                    file_pattern = spec[0]
+                    dest_dir = spec[1]
+                elif isinstance(spec, string_type):
+                    file_pattern = spec
+                    dest_dir = ''
                 else:
-                    custom_paths['dirs'].append(os.path.join(dest_dir, source))
+                    raise EasyBuildError(
+                        "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
+                    )
+
+                if isinstance(file_pattern, string_type):
+                    file_pattern = [file_pattern]
+
+                source_files = []
+                for pattern in file_pattern:
+                    source_files.extend(glob.glob(pattern))
+
+                # Add files to custom sanity checks
+                for source in source_files:
+                    if os.path.isfile(source):
+                        custom_paths['files'].append(os.path.join(dest_dir, source))
+                    else:
+                        custom_paths['dirs'].append(os.path.join(dest_dir, source))
+        else:
+            # Minimal check of files (needed by --module-only)
+            custom_paths['files'] = ['bin/orca']
 
         # Simple test: HF energy of water molecule
         test_input_content = """
