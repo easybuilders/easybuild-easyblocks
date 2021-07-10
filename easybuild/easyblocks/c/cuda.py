@@ -94,6 +94,11 @@ class EB_CUDA(Binary):
             install_script = "cuda-installer.pl"
             # note: also including samples (via "-samplespath=%(installdir)s -samples") would require libglut
             self.cfg.update('installopts', "-verbose -silent -toolkitpath=%s -toolkit" % self.installdir)
+
+            # EL8 has a newer GCC and we have to set the override flag to say we accept installing against this
+            self.cfg.update('installopts', " --override")
+            # CUDA cannot find the perl file in the same directory as the installer
+            self.cfg.update('preinstallopts', "export PERL5LIB=. && ")
         else:
             install_interpreter = ""
             install_script = "./cuda-installer"
