@@ -37,6 +37,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
 from easybuild.tools.py2vs3 import string_type
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 
 class EB_ORCA(PackedBinary, MakeCp):
@@ -54,12 +55,22 @@ class EB_ORCA(PackedBinary, MakeCp):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Init and validate provided configuration options"""
+        """Init and validate easyconfig parameters and system architecture"""
         super(EB_ORCA, self).__init__(*args, **kwargs)
 
         # If user overwrites 'files_to_copy', custom 'sanity_check_paths' must be present
         if self.cfg['files_to_copy'] and not self.cfg['sanity_check_paths']:
             raise EasyBuildError("Found 'files_to_copy' option in easyconfig without 'sanity_check_paths'")
+
+        # Add orcaarch template for supported architectures
+        myarch = get_cpu_architecture()
+        if myarch == X86_64:
+            orcaarch = 'x86-64'
+        else:
+            raise EasyBuildError("Architecture %s is not supported by ORCA on EasyBuild", myarch)
+
+        self.cfg.template_values['orcaarch'] = orcaarch
+        self.cfg.generate_template_values()
 
     def install_step(self):
         """Install ORCA with MakeCp easyblock"""
