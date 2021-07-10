@@ -40,7 +40,7 @@ from easybuild.tools.py2vs3 import string_type
 
 
 class EB_ORCA(PackedBinary, MakeCp):
-    """Support for installing ORCA."""
+    """Support for installing ORCA"""
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -52,6 +52,14 @@ class EB_ORCA(PackedBinary, MakeCp):
         extra_vars['files_to_copy'][2] = CUSTOM
 
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Init and validate provided configuration options"""
+        super(EB_ORCA, self).__init__(*args, **kwargs)
+
+        # If user overwrites 'files_to_copy', custom 'sanity_check_paths' must be present
+        if self.cfg['files_to_copy'] and not self.cfg['sanity_check_paths']:
+            raise EasyBuildError("Found 'files_to_copy' option in easyconfig without 'sanity_check_paths'")
 
     def install_step(self):
         """Install ORCA with MakeCp easyblock"""
@@ -77,39 +85,41 @@ class EB_ORCA(PackedBinary, MakeCp):
 
     def sanity_check_step(self):
         """Custom sanity check for ORCA"""
+        custom_paths = None
 
-        custom_paths = {'files': [], 'dirs': []}
+        if not self.cfg['sanity_check_paths']:
+            custom_paths = {'files': [], 'dirs': []}
 
-        if self.cfg['files_to_copy']:
-            # Convert 'files_to_copy' to list of files in build directory
-            for spec in self.cfg['files_to_copy']:
-                if isinstance(spec, tuple):
-                    file_pattern = spec[0]
-                    dest_dir = spec[1]
-                elif isinstance(spec, string_type):
-                    file_pattern = spec
-                    dest_dir = ''
-                else:
-                    raise EasyBuildError(
-                        "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
-                    )
-
-                if isinstance(file_pattern, string_type):
-                    file_pattern = [file_pattern]
-
-                source_files = []
-                for pattern in file_pattern:
-                    source_files.extend(glob.glob(pattern))
-
-                # Add files to custom sanity checks
-                for source in source_files:
-                    if os.path.isfile(source):
-                        custom_paths['files'].append(os.path.join(dest_dir, source))
+            if self.cfg['files_to_copy']:
+                # Convert 'files_to_copy' to list of files in build directory
+                for spec in self.cfg['files_to_copy']:
+                    if isinstance(spec, tuple):
+                        file_pattern = spec[0]
+                        dest_dir = spec[1]
+                    elif isinstance(spec, string_type):
+                        file_pattern = spec
+                        dest_dir = ''
                     else:
-                        custom_paths['dirs'].append(os.path.join(dest_dir, source))
-        else:
-            # Minimal check of files (needed by --module-only)
-            custom_paths['files'] = ['bin/orca']
+                        raise EasyBuildError(
+                            "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
+                        )
+
+                    if isinstance(file_pattern, string_type):
+                        file_pattern = [file_pattern]
+
+                    source_files = []
+                    for pattern in file_pattern:
+                        source_files.extend(glob.glob(pattern))
+
+                    # Add files to custom sanity checks
+                    for source in source_files:
+                        if os.path.isfile(source):
+                            custom_paths['files'].append(os.path.join(dest_dir, source))
+                        else:
+                            custom_paths['dirs'].append(os.path.join(dest_dir, source))
+            else:
+                # Minimal check of files (needed by --module-only)
+                custom_paths['files'] = ['bin/orca']
 
         # Simple test: HF energy of water molecule
         test_input_content = """
