@@ -41,7 +41,12 @@ from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 
 class EB_ORCA(PackedBinary, MakeCp):
-    """Support for installing ORCA"""
+    """
+    ORCA installation files are extracted and placed in standard locations using 'files_to_copy' from MakeCp.
+    Sanity checks on files are automatically generated based on the contents of 'files_to_copy' by gathering
+    the target files in the build directory and checking their presence in the installation directory.
+    Sanity checks also include a quick test calculating the HF energy of a water molecule.
+    """
 
     @staticmethod
     def extra_options(extra_vars=None):
