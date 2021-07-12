@@ -70,8 +70,10 @@ class EB_LS_minus_DYNA(EasyBlock):
                 best_cpu_caps = regex
                 # Exit loop as soon as we match
                 break
+
         if not best_cpu_caps:
             raise EasyBuildError("Unable to determine best vectorisation capabilities for cpu")
+
         try:
             for src in os.listdir(self.builddir):
                 srcpath = os.path.join(self.builddir, src)
