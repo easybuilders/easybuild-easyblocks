@@ -62,7 +62,7 @@ class EB_LS_minus_DYNA(EasyBlock):
         # Find CPU info
         cmd = "cat /proc/cpuinfo"
         (cpuinfo, _) = run_cmd(cmd, log_all=True, simple=False)
-        # List capabilities to check against. N.B. order is important!
+        # List CPU capabilities to check against. N.B. order is important - list from highest to lowest!
         cpu_caps_regex = [r"avx512", r"avx2", r"sse2"]
         best_cpu_caps = None
         for regex in cpu_caps_regex:
