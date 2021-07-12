@@ -79,13 +79,10 @@ class EB_LS_minus_DYNA(EasyBlock):
                 srcpath = os.path.join(self.builddir, src)
                 if os.path.isfile(srcpath):
                     # Check if SMP first, continuing as appopriate
-                    if re.search(r"smp", srcpath):
+                    if re.search(r"smp", src):
                         self.build_sources.append(srcpath)
-                        continue
-                    elif re.search(best_cpu_caps, srcpath):
+                    elif re.search(best_cpu_caps, src):
                         self.build_sources.append(srcpath)
-                        # Don't check anymore cpu_caps as we only want the best fits
-                        continue
                 else:
                     raise EasyBuildError("Path %s is not a file", srcpath)
             if len(self.build_sources) > 0:
