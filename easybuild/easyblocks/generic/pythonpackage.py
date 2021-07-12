@@ -447,7 +447,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         return unpack_sources
 
-    def get_installed_python_packages(self, names_only=True, python_cmd=None):
+    def get_installed_python_packages(self, names_only=True, python_cmd=None, path=None):
         """Return list of Python packages that are installed
 
         When names_only is True then only the names are returned, else the full info from `pip list`.
@@ -458,6 +458,8 @@ class PythonPackage(ExtensionEasyBlock):
         # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
         cmd_list = [python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
                     '--format', 'json']
+        if path:
+            cmd_list += ['--path', path]
         full_cmd = ' '.join(cmd_list)
         self.log.info("Running command '%s'" % full_cmd)
         proc = subprocess_popen_text(cmd_list, env=os.environ)
@@ -721,23 +723,27 @@ class PythonPackage(ExtensionEasyBlock):
             if value is not None:
                 env.setvar(name, value, verbose=False)
 
+
+    def make_module_description(self):
         # get the full list of what was installed from pip freeze to generate extension list
         if self.cfg.get('use_pip_requirement', False):
-            extensions = []
-            for single_dir in abs_pylibdirs:
-                cmd = "pip freeze --path %s" % single_dir
-                (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
-                for line in out.split("\n"):
-                    parts = line.split("==")
-                    if len(parts) != 2:
-                        continue
-                    else:
-                        extensions += [(parts[0],parts[1])]
-            extensions = list(set(extensions))
+            extensions = set()
+            exts_list_save = self.cfg["exts_list"]
             if self.cfg["exts_list"]:
-                self.cfg["exts_list"] = list(set(extensions + self.cfg["exts_list"]))
-            else:
-                self.cfg["exts_list"] = list(set(extensions))
+                extensions.update(set(self.cfg["exts_list"]))
+
+            abs_pylibdirs = [os.path.join(self.installdir, pylibdir) for pylibdir in self.all_pylibdirs]
+            for single_dir in abs_pylibdirs:
+                pkgs = self.get_installed_python_packages(names_only=False, path=single_dir)
+                extensions.update(set((p["name"], p["version"]) for p in pkgs))
+
+            # we add to extensions only temporarily for the purpose of making the module
+            self.cfg["exts_list"] = list(extensions)
+            result = super(PythonPackage, self).make_module_description()
+            self.cfg["exts_list"] = exts_list_save
+            return result
+
+        return super(PythonPackage, self).make_module_extra_extensions()
 
 
     def run(self, *args, **kwargs):
