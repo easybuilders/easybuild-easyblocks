@@ -36,8 +36,8 @@ from easybuild.tools.run import run_cmd
 
 
 class EB_LS_minus_DYNA(EasyBlock):
-    """Support for installing packed binary software.
-    Just unpack the sources in the install dir
+    """Support for installing LS-DYNA.
+    Unpack the sources and execute the install command
     """
 
     def __init__(self, *args, **kwargs):
