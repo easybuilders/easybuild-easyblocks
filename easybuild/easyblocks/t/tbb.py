@@ -162,8 +162,10 @@ class EB_tbb(IntelBase, ConfigureMake):
                 libdir = get_tbb_gccprefix(libpath)
 
             libpath = os.path.join(libpath, libdir)
-            # applications go looking into tbb/lib so we move what's in there to libs
+            # applications go looking into tbb/lib so we move what's in there to tbb/libs
             shutil.move(install_tbb_lib_path, os.path.join(self.installdir, 'tbb', 'libs'))
+            # And add a symlink of the library folder to tbb/lib
+            symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
         else:
             # no custom install step when building from source (building is done in install directory)
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
@@ -173,9 +175,8 @@ class EB_tbb(IntelBase, ConfigureMake):
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
 
         self.log.debug("libpath: %s" % libpath)
-        # applications go looking into tbb/lib or lib so we symlink the location where they are built/copied to those 2
+        # applications may look into /lib, so we symlink the location to the libs
         symlink(libpath, os.path.join(self.installdir, 'lib'), use_abspath_source=False)
-        symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
