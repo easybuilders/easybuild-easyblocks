@@ -107,7 +107,6 @@ EULA=accept
             else:
                 cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
 
-
             run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
