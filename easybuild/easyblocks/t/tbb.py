@@ -162,22 +162,20 @@ class EB_tbb(IntelBase, ConfigureMake):
                 libdir = get_tbb_gccprefix(libpath)
 
             libpath = os.path.join(libpath, libdir)
-            self.log.debug("libpath: %s" % libpath)
             # applications go looking into tbb/lib so we move what's in there to libs
             shutil.move(install_tbb_lib_path, os.path.join(self.installdir, 'tbb', 'libs'))
-            # and symlink the right folder from /tbb/libs/intel64/... to lib and tbb/lib
-            symlink(libpath, os.path.join(self.installdir, 'lib'), use_abspath_source=False)
-            symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
         else:
             # no custom install step when building from source (building is done in install directory)
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
             if len(cand_lib_paths) == 1:
-                # applications go looking into tbb/lib or lib so we symlink the location where they are built to those 2
                 libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
-                symlink(libpath, os.path.join(self.installdir, 'lib'), use_abspath_source=False)
-                symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
+
+        self.log.debug("libpath: %s" % libpath)
+        # applications go looking into tbb/lib or lib so we symlink the location where they are built/copied to those 2
+        symlink(libpath, os.path.join(self.installdir, 'lib'), use_abspath_source=False)
+        symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
@@ -185,13 +183,18 @@ class EB_tbb(IntelBase, ConfigureMake):
             'files': [
                 os.path.join('lib', 'libtbb.so'),
                 os.path.join('lib', 'libtbbmalloc.so'),
-                os.path.join('tbb', 'lib', 'libtbb.so'),
-                os.path.join('tbb', 'lib', 'libtbbmalloc.so'),
             ],
-            'dirs': [os.path.join('include', 'tbb')],
+            'dirs': [],
         }
         if self.toolchain.is_system_toolchain():
-            custom_paths['dirs'].extend(os.path.join('tbb', p) for p in ('bin', 'lib', 'libs'))
+            custom_paths['dirs'].extend(os.path.join('tbb', p) for p in
+                                        ('bin', 'lib', 'libs', os.path.join('include', 'tbb')))
+            custom_paths['files'].extend([
+                os.path.join('tbb', 'lib', 'libtbb.so'),
+                os.path.join('tbb', 'lib', 'libtbbmalloc.so'),
+            ])
+        else:
+            custom_paths['dirs'].append(os.path.join('include', 'tbb'))
 
         super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -199,11 +202,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         """Add correct path to lib to LD_LIBRARY_PATH. and intel license file"""
         txt = super(EB_tbb, self).make_module_extra()
 
-        tbb_subdir = ''
-        if os.path.exists(os.path.join(self.installdir, 'tbb')):
+        if self.toolchain.is_system_toolchain():
             tbb_subdir = 'tbb'
             txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
+        else:
+            tbb_subdir = ''
+
         txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
+        # Used e.g. by FindTBB.cmake
+        txt += self.module_generator.set_environment('TBB_ROOT', os.path.join(self.installdir, tbb_subdir))
 
         return txt
 
