@@ -80,20 +80,21 @@ class EB_itac(IntelBase):
             silent = """
 [itac]
 INSTALLDIR=%(ins)s
+LICENSEPATH=%(lic)s
 INSTALLMODE=NONRPM
 INSTALLUSER=NONROOT
 INSTALL_ITA=YES
 INSTALL_ITC=YES
 DEFAULT_MPI=%(mpi)s
 EULA=accept
-""" % {'ins': self.installdir, 'mpi': self.cfg['preferredmpi']}
+""" % {'lic': self.license_file, 'ins': self.installdir, 'mpi': self.cfg['preferredmpi']}
 
             # already in correct directory
             silentcfg = os.path.join(os.getcwd(), "silent.cfg")
             f = open(silentcfg, 'w')
             f.write(silent)
             f.close()
-            self.log.info("Contents of %s: %s" % (silentcfg, silent))
+            self.log.debug("Contents of %s: %s" % (silentcfg, silent))
 
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
             try:
@@ -101,8 +102,11 @@ EULA=accept
             except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
-            #cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
-            cmd = "./install.sh -a -s --eula accept --install-dir=%s" % ins
+            if LooseVersion(self.version) >= LooseVersion('2021'):
+                cmd = "./install.sh -a -s --eula accept --install-dir=%s" % ins
+            else:
+                cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
+
 
             run_cmd(cmd, log_all=True, simple=True)
 
