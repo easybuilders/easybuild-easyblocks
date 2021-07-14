@@ -188,10 +188,12 @@ class CMakeMake(ConfigureMake):
                 print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
+        # If the cache does not exist CMake reads the environment variables
+        cache_exists = os.path.exists('CMakeCache.txt')
         env_to_options = dict()
 
         # Setting compilers is not required unless we want absolute paths
-        if self.cfg.get('abs_path_compilers', False):
+        if self.cfg.get('abs_path_compilers', False) or cache_exists:
             env_to_options.update({
                 'CC': 'CMAKE_C_COMPILER',
                 'CXX': 'CMAKE_CXX_COMPILER',
@@ -204,7 +206,7 @@ class CMakeMake(ConfigureMake):
                 setvar('FC', fc)
 
         # Flags are read from environment variables already since at least CMake 2.8.0
-        if LooseVersion(get_software_version('CMake')) < LooseVersion('2.8.0'):
+        if LooseVersion(get_software_version('CMake')) < LooseVersion('2.8.0') or cache_exists:
             env_to_options.update({
                 'CFLAGS': 'CMAKE_C_FLAGS',
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
