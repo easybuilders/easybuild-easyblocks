@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
-from easybuild.tools.filetools import apply_regex_substitutions, copy, read_file, symlink, which, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
@@ -63,8 +63,6 @@ class EB_Boost(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Initialize Boost-specific variables."""
         super(EB_Boost, self).__init__(*args, **kwargs)
-
-        self.prefixdir = None
 
         self.pyvers = []
 
@@ -134,12 +132,6 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
 
-        if self.cfg['only_python_bindings']:
-            # Use temporary directory and copy only Python files later
-            self.prefixdir = os.path.join(self.builddir, 'obj')
-        else:
-            self.prefixdir = self.installdir
-
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
         if toolset is None:
@@ -151,7 +143,7 @@ class EB_Boost(EasyBlock):
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
         cmd = "%s ./bootstrap.sh --with-toolset=%s --prefix=%s %s"
-        tup = (self.cfg['preconfigopts'], toolset, self.prefixdir, self.cfg['configopts'])
+        tup = (self.cfg['preconfigopts'], toolset, self.installdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
         # Use build_toolset if specified or the bootstrap toolset without the OS suffix
@@ -209,7 +201,7 @@ class EB_Boost(EasyBlock):
     def build_step(self):
         """Build Boost with bjam tool."""
 
-        self.bjamoptions = " --prefix=%s --user-config=user-config.jam" % self.prefixdir
+        self.bjamoptions = " --prefix=%s --user-config=user-config.jam" % self.installdir
         if 'toolset=' not in self.cfg['buildopts']:
             self.bjamoptions += " toolset=" + self.toolset
 
@@ -307,13 +299,6 @@ class EB_Boost(EasyBlock):
             self.cfg['installopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
-
-        if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.iter_idx > 0:
-            self.log.info("Main installation should already exist, only copying over missing Python libraries "
-                          "from %s to installation dir %s.", self.prefixdir, self.installdir)
-            copy(glob.glob(os.path.join(self.prefixdir, 'lib', 'libboost_python*')),
-                 os.path.join(self.installdir, 'lib'),
-                 symlinks=True)
 
         if self.cfg['tagged_layout']:
             if LooseVersion(self.version) >= LooseVersion("1.69.0") or not self.cfg['single_threaded']:
