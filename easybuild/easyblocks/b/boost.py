@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
-from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, symlink, which, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
@@ -239,6 +239,13 @@ class EB_Boost(EasyBlock):
             self.paracmd = "-j %s" % self.cfg['parallel']
         else:
             self.paracmd = ''
+
+        # Add list of default library settings from project-config (created by configure step)
+        # Required because any --with-* or --without-* overwrites this entirely
+        project_config = read_file('project-config.jam')
+        libraries = re.search(r'libraries = (.*) ;', project_config)
+        if libraries:
+            self.bjamoptions += libraries.group(1)
 
         if self.cfg['only_python_bindings']:
             # magic incantation to only install Boost Python bindings is... --with-python
