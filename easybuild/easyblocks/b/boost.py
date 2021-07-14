@@ -276,8 +276,9 @@ class EB_Boost(EasyBlock):
 
         self.bjamoptions += " threading=" + threading + " --layout=" + layout
 
-        if not self.cfg['boost_mpi']:
+        if not self.cfg['boost_mpi'] and not self.cfg['only_python_bindings']:
             # Default but avoids a warning. Building Boost.MPI is actually enabled by `using mpi` in the user-config
+            # Note: Can't use both --with-* and --without-*
             self.bjamoptions += " --without-mpi"
 
         self.log.info("Building Boost libraries")
