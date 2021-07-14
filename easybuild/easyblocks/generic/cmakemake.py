@@ -35,6 +35,7 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 """
 import glob
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -42,7 +43,7 @@ from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
@@ -187,14 +188,29 @@ class CMakeMake(ConfigureMake):
                 print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
-        env_to_options = {
-            'CC': 'CMAKE_C_COMPILER',
-            'CFLAGS': 'CMAKE_C_FLAGS',
-            'CXX': 'CMAKE_CXX_COMPILER',
-            'CXXFLAGS': 'CMAKE_CXX_FLAGS',
-            'F90': 'CMAKE_Fortran_COMPILER',
-            'FFLAGS': 'CMAKE_Fortran_FLAGS',
-        }
+        env_to_options = dict()
+
+        # Setting compilers is not required unless we want absolute paths
+        if self.cfg.get('abs_path_compilers', False):
+            env_to_options.update({
+                'CC': 'CMAKE_C_COMPILER',
+                'CXX': 'CMAKE_CXX_COMPILER',
+                'F90': 'CMAKE_Fortran_COMPILER',
+            })
+        else:
+            # Set the variable which CMake uses to init the compiler using F90 for backward compatibility
+            fc = os.getenv('F90')
+            if fc:
+                setvar('FC', fc)
+
+        # Flags are read from environment variables already since at least CMake 2.8.0
+        if LooseVersion(get_software_version('CMake')) < LooseVersion('2.8.0'):
+            env_to_options.update({
+                'CFLAGS': 'CMAKE_C_FLAGS',
+                'CXXFLAGS': 'CMAKE_CXX_FLAGS',
+                'FFLAGS': 'CMAKE_Fortran_FLAGS',
+            })
+
         for env_name, option in env_to_options.items():
             value = os.getenv(env_name)
             if value is not None:
