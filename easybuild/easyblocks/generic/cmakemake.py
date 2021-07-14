@@ -250,14 +250,17 @@ class CMakeMake(ConfigureMake):
                     '-DBoost_NO_SYSTEM_PATHS=ON',
                 ])
 
-        options_string = ' '.join(options)
+        # Deduplicate options (just for better readability)
+        configopts = self.cfg['configopts']
+        # All options are of the form '<key>=<value>'
+        options_string = ' '.join(o for o in options if o.split('=')[0] + '=' not in configopts)
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             command = ' '.join([
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
                 options_string,
-                self.cfg['configopts'],
+                configopts,
                 srcdir])
         else:
             command = ' '.join([
