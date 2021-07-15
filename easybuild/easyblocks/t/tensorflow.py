@@ -972,12 +972,9 @@ class EB_TensorFlow(PythonPackage):
                         self.log.warning('Test %s failed with output\n%s', test_name,
                                          read_file(log_path, log_error=False))
                 if failed_tests:
-                    raise EasyBuildError(
-                        'At least %s %s tests failed:\n%s',
-                        len(failed_tests), device, ', '.join(failed_tests)
-                    )
-                else:
-                    raise EasyBuildError(fail_msg)
+                    fail_msg = 'At least %s %s tests failed:\n%s' % (
+                        len(failed_tests), device, ', '.join(failed_tests))
+                self.report_test_failure(fail_msg)
             else:
                 self.log.info('Tests on %s succeeded with output:\n%s', device, stdouterr)
 
