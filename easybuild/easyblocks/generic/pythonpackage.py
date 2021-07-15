@@ -736,7 +736,7 @@ class PythonPackage(ExtensionEasyBlock):
         steps = [
             (CONFIGURE_STEP, 'configuring', [lambda x: x.configure_step], True),
             (BUILD_STEP, 'building', [lambda x: x.build_step], True),
-            (TEST_STEP, 'testing', [lambda x: x.test_step], True),
+            (TEST_STEP, 'testing', [lambda x: x._test_step], True),
             (INSTALL_STEP, "installing", [lambda x: x.install_step], True),
         ]
         self.skip = False  # --skip does not apply here
