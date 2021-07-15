@@ -735,7 +735,8 @@ class PythonPackage(ExtensionEasyBlock):
             abs_pylibdirs = [os.path.join(self.installdir, pylibdir) for pylibdir in self.all_pylibdirs]
             for single_dir in abs_pylibdirs:
                 pkgs = self.get_installed_python_packages(names_only=False, path=single_dir)
-                extensions.update(set((p["name"], p["version"]) for p in pkgs))
+                # remove "+"<local version> tags
+                extensions.update(set((p["name"], p["version"].split("+")[0]) for p in pkgs))
 
             # we add to extensions only temporarily for the purpose of making the module
             self.cfg["exts_list"] = list(extensions)
