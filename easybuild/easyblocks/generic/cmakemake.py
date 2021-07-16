@@ -117,6 +117,17 @@ class CMakeMake(ConfigureMake):
             build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
         return build_type
 
+    def prepend_config_opts(self, config_opts):
+        """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
+        cfg_configopts = self.cfg['configopts']
+        # All options are of the form '-D<key>=<value>'
+        new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
+                            if '-D%s=' % key not in cfg_configopts)
+        if new_opts:
+            if cfg_configopts:
+                new_opts += ' '
+            self.cfg['configopts'] = new_opts + ' ' + cfg_configopts
+
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
@@ -143,36 +154,38 @@ class CMakeMake(ConfigureMake):
         install_target_subdir = self.cfg.get('install_target_subdir')
         if install_target_subdir:
             install_target = os.path.join(install_target, install_target_subdir)
-        options = ['-DCMAKE_INSTALL_PREFIX=%s' % install_target]
+        options = {'CMAKE_INSTALL_PREFIX': install_target}
 
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
             localstatedir = os.path.join(self.installdir, 'var')
             runstatedir = os.path.join(localstatedir, 'run')
             sysconfdir = os.path.join(self.installdir, 'etc')
-            options.append("-DCMAKE_INSTALL_LOCALSTATEDIR=%s" % localstatedir)
-            options.append("-DCMAKE_INSTALL_RUNSTATEDIR=%s" % runstatedir)
-            options.append("-DCMAKE_INSTALL_SYSCONFDIR=%s" % sysconfdir)
+            options['CMAKE_INSTALL_LOCALSTATEDIR'] = localstatedir
+            options['CMAKE_INSTALL_RUNSTATEDIR'] = runstatedir
+            options['CMAKE_INSTALL_SYSCONFDIR'] = sysconfdir
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
                 self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
         else:
-            options.append('-DCMAKE_BUILD_TYPE=%s' % self.build_type)
+            options['CMAKE_BUILD_TYPE'] = self.build_type
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
-            options.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+            options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         if self.cfg['generator']:
-            options.append('-G "%s"' % self.cfg['generator'])
+            generator = '-G "%s"' % self.cfg['generator']
+        else:
+            generator = ''
 
         # pass --sysroot value down to CMake,
         # and enable using absolute paths to compiler commands to avoid
         # that CMake picks up compiler from sysroot rather than toolchain compiler...
         sysroot = build_option('sysroot')
         if sysroot:
-            options.append('-DCMAKE_SYSROOT=%s' % sysroot)
+            options['CMAKE_SYSROOT'] = sysroot
             self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
             self.cfg['abs_path_compilers'] = True
 
@@ -219,18 +232,18 @@ class CMakeMake(ConfigureMake):
                 if option.endswith('_COMPILER') and self.cfg.get('abs_path_compilers', False):
                     value = which(value)
                     self.log.info("Using absolute path to compiler command: %s", value)
-                options.append("-D%s='%s'" % (option, value))
+                options[option] = value
 
         if build_option('rpath'):
             # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
             # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
-            options.append('-DCMAKE_SKIP_RPATH=ON')
+            options['CMAKE_SKIP_RPATH'] = 'ON'
 
         # show what CMake is doing by default
-        options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
+        options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 
         # disable CMake user package repository
-        options.append('-DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE')
+        options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
@@ -242,27 +255,21 @@ class CMakeMake(ConfigureMake):
                 if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
                     # disable search for Boost CMake package configuration files when conflicting variant configs
                     # are present (builds using the old EasyBlock)
-                    options.append('-DBoost_NO_BOOST_CMAKE=ON')
+                    options['Boost_NO_BOOST_CMAKE'] = 'ON'
 
                 # Don't pick up on system Boost if Boost is included as dependency
                 # - specify Boost location via -DBOOST_ROOT
                 # - instruct CMake to not search for Boost headers/libraries in other places
-                options.extend([
-                    '-DBOOST_ROOT=%s' % boost_root,
-                    '-DBoost_NO_SYSTEM_PATHS=ON',
-                ])
-
-        # Deduplicate options (just for better readability)
-        configopts = self.cfg['configopts']
-        # All options are of the form '<key>=<value>'
-        options_string = ' '.join(o for o in options if o.split('=')[0] + '=' not in configopts)
+                options['BOOST_ROOT'] = boost_root
+                options['Boost_NO_SYSTEM_PATHS'] = 'ON'
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
+            self.prepend_config_opts(options)
             command = ' '.join([
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
-                options_string,
-                configopts,
+                generator,
+                self.cfg['configopts'],
                 srcdir])
         else:
             command = ' '.join([
