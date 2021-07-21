@@ -144,6 +144,9 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
+        # Used for EBPYTHONPREFIXES handler script
+        self.pythonpath = os.path.join(log_path(), 'python')
+
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
             'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
@@ -176,15 +179,6 @@ class EB_Python(ConfigureMake):
             if isinstance(ext, tuple) and len(ext) >= 2 and ext[0] == 'pip':
                 return ext[1]
         return None
-
-    def prepare_step(self, *args, **kwargs):
-        super(EB_Python, self).prepare_step(*args, **kwargs)
-
-        if self.cfg.get('ebpythonprefixes'):
-            easybuild_subdir = log_path()
-            self.pythonpath = os.path.join(easybuild_subdir, 'python')
-        else:
-            self.pythonpath = None
 
     def patch_step(self, *args, **kwargs):
         """
