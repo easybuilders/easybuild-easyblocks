@@ -56,7 +56,7 @@ class EB_numexpr(PythonPackage):
         """Custom configuration procedure for numexpr."""
         super(EB_numexpr, self).configure_step()
 
-        self.imkl_root = get_software_root('imkl')
+        self.imkl_root = os.getenv('MKLROOT')
 
         # if Intel MKL is available, set up site.cfg such that the right VML library is used;
         # this makes a *big* difference in terms of performance;
@@ -78,13 +78,12 @@ class EB_numexpr(PythonPackage):
             mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
 
             mkl_lib_dirs = [
-                os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
                 os.path.join(self.imkl_root, 'lib', 'intel64'),
             ]
 
             site_cfg_txt = '\n'.join([
                 "[mkl]",
-                "include_dirs = %s" % os.path.join(self.imkl_root, 'mkl', 'include'),
+                "include_dirs = %s" % os.path.join(self.imkl_root, 'include'),
                 "library_dirs = %s" % ':'.join(mkl_lib_dirs),
                 "mkl_libs = %s" % ', '.join(mkl_libs),
             ])
