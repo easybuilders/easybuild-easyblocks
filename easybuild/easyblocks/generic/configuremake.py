@@ -335,6 +335,7 @@ class ConfigureMake(EasyBlock):
                 paracmd,
                 self.cfg['buildopts'],
             ])
+            self.log.info("Building target '%s'", target)
 
             (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 

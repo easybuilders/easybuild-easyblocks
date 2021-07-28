@@ -34,14 +34,33 @@ import stat
 
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture
 
 
 class EB_Java(PackedBinary):
     """Support for installing Java as a packed binary file (.tar.gz)
     Use the PackedBinary easyblock and set some extra paths.
     """
+
+    def __init__(self, *args, **kwargs):
+        """ Init the Java easyblock adding a new jdkarch template var """
+        myarch = get_cpu_architecture()
+        if myarch == AARCH64:
+            jdkarch = 'aarch64'
+        elif myarch == POWER:
+            jdkarch = 'ppc64le'
+        elif myarch == X86_64:
+            jdkarch = 'x64'
+        else:
+            raise EasyBuildError("Architecture %s is not supported for Java on EasyBuild", myarch)
+
+        super(EB_Java, self).__init__(*args, **kwargs)
+
+        self.cfg.template_values['jdkarch'] = jdkarch
+        self.cfg.generate_template_values()
 
     def extract_step(self):
         """Unpack the source"""

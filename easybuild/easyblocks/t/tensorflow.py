@@ -238,13 +238,13 @@ class EB_TensorFlow(PythonPackage):
         """Initialize TensorFlow easyblock."""
         super(EB_TensorFlow, self).__init__(*args, **kwargs)
 
-        self.cfg['exts_defaultclass'] = 'PythonPackage'
+        with self.cfg.disable_templating():
+            self.cfg['exts_defaultclass'] = 'PythonPackage'
 
-        self.cfg['exts_default_options'] = {
-            'download_dep_fail': True,
-            'use_pip': True,
-        }
-        self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+            self.cfg['exts_default_options']['download_dep_fail'] = True
+            self.cfg['exts_default_options']['use_pip'] = True
+            self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+
         self.system_libs_info = None
 
         self.test_script = None
@@ -260,7 +260,7 @@ class EB_TensorFlow(PythonPackage):
 
     def python_pkg_exists(self, name):
         """Check if the given python package exists/can be imported"""
-        cmd = [self.python_cmd, '-c', 'import %s' % name]
+        cmd = self.python_cmd + " -c 'import %s'" % name
         out, ec = run_cmd(cmd, log_ok=False)
         self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
         return ec == 0
@@ -399,6 +399,8 @@ class EB_TensorFlow(PythonPackage):
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         if ignored_system_deps:
+            print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
+                          len(ignored_system_deps))
             self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
                              'because an EB dependency was not found: \n%s\n' +
                              'EC Dependencies: %s\n' +
@@ -786,11 +788,9 @@ class EB_TensorFlow(PythonPackage):
         # Ignore user environment for Python
         self.target_opts.append('--action_env=PYTHONNOUSERSITE=1')
 
-        # use same configuration for both host and target programs, which can speed up the build
-        # only done when optarch is enabled, since this implicitely assumes that host and target platform are the same
-        # see https://docs.bazel.build/versions/master/guide.html#configurations
-        if self.toolchain.options.get('optarch'):
-            self.target_opts.append('--distinct_host_configuration=false')
+        # Use the same configuration (i.e. environment) for compiling and using host tools
+        # This means that our action_envs are always passed
+        self.target_opts.append('--distinct_host_configuration=false')
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
@@ -956,7 +956,10 @@ class EB_TensorFlow(PythonPackage):
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
                     test_folder = test_name[2:].replace(':', '/')
-                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/test.log)' % test_folder)
+                    # Example file names:
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/test.log
+                    # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/shard_1_of_4/test_attempts/attempt_1.log
+                    test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/(/[^/]*)?test.log)' % test_folder)
                     log_match = test_log_re.match(stdouterr, match.end())
                     if log_match:
                         failed_test_logs[test_name] = log_match.group(2)

@@ -32,6 +32,8 @@ import re
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
 
@@ -42,14 +44,14 @@ class EB_OpenMPI(ConfigureMake):
     def configure_step(self):
         """Custom configuration step for OpenMPI."""
 
-        def config_opt_unused(key, enable_opt=False):
+        def config_opt_used(key, enable_opt=False):
             """Helper function to check whether a configure option is already specified in 'configopts'."""
             if enable_opt:
-                regex = re.compile('--(disable|enable)-%s' % key)
+                regex = '--(disable|enable)-%s' % key
             else:
-                regex = re.compile('--(with|without)-%s' % key)
+                regex = '--(with|without)-%s' % key
 
-            return not bool(regex.search(self.cfg['configopts']))
+            return bool(re.search(regex, self.cfg['configopts']))
 
         config_opt_names = [
             # suppress failure modes in relation to mpirun path
@@ -59,41 +61,71 @@ class EB_OpenMPI(ConfigureMake):
         ]
 
         for key in config_opt_names:
-            if config_opt_unused(key, enable_opt=True):
+            if not config_opt_used(key, enable_opt=True):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
+        # List of EasyBuild dependencies for which OMPI has known options
+        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX')
+        # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
+        # No entry is interpreted as no option added at all
+        # This is to make builds reproducible even when the system libraries are changed and avoids failures
+        # due to e.g. finding only PMIx but not libevent on the system
+        unused_dep_value = dict()
+        # Known options since version 3.0 (no earlier ones checked)
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            # Default to disable the option with "no"
+            unused_dep_value = {dep: 'no' for dep in known_dependencies}
+            # For these the default is to use an internal copy and not using any is not supported
+            for dep in ('hwloc', 'libevent', 'PMIx'):
+                unused_dep_value[dep] = 'internal'
+
         # handle dependencies
-        for dep in ['CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX']:
-            if config_opt_unused(dep.lower()):
-                dep_root = get_software_root(dep)
-                if dep_root:
-                    if dep == 'libfabric':
-                        opt_name = 'ofi'
-                    else:
-                        opt_name = dep.lower()
-                    self.cfg.update('configopts', '--with-%s=%s' % (opt_name, dep_root))
+        for dep in known_dependencies:
+            opt_name = dep.lower()
+            # If the option is already used, don't add it
+            if config_opt_used(opt_name):
+                continue
+
+            # libfabric option renamed in OpenMPI 3.1.0 to ofi
+            if dep == 'libfabric' and LooseVersion(self.version) >= LooseVersion('3.1'):
+                opt_name = 'ofi'
+                # Check new option name. They are synonyms since 3.1.0 for backward compatibility
+                if config_opt_used(opt_name):
+                    continue
+
+            dep_root = get_software_root(dep)
+            # If the dependency is loaded, specify its path, else use the "unused" value, if any
+            if dep_root:
+                opt_value = dep_root
+            else:
+                opt_value = unused_dep_value.get(dep)
+            if opt_value is not None:
+                self.cfg.update('configopts', '--with-%s=%s' % (opt_name, opt_value))
+
+        if bool(get_software_root('PMIx')) != bool(get_software_root('libevent')):
+            raise EasyBuildError('You must either use both PMIx and libevent as dependencies or none of them. '
+                                 'This is to enforce the same libevent is used for OpenMPI as for PMIx or '
+                                 'the behavior may be unpredictable.')
 
         # check whether VERBS support should be enabled
-        if config_opt_unused('verbs'):
+        if not config_opt_used('verbs'):
 
             # for OpenMPI v4.x, the openib BTL should be disabled when UCX is used;
             # this is required to avoid "error initializing an OpenFabrics device" warnings,
             # see also https://www.open-mpi.org/faq/?category=all#ofa-device-error
-            if LooseVersion(self.version) >= LooseVersion('4.0.0') and '--with-ucx' in self.cfg['configopts']:
-                self.cfg.update('configopts', '--without-verbs')
-
+            is_ucx_enabled = ('--with-ucx' in self.cfg['configopts'] and
+                              '--with-ucx=no' not in self.cfg['configopts'])
+            if LooseVersion(self.version) >= LooseVersion('4.0.0') and is_ucx_enabled:
+                verbs = False
             else:
                 # auto-detect based on available OS packages
-                verbs = False
-                for osdep in ['libibverbs-dev', 'libibverbs-devel', 'rdma-core-devel']:
-                    if check_os_dependency(osdep):
-                        verbs = True
-                        break
+                os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
+                verbs = any(check_os_dependency(osdep) for osdep in os_packages)
 
-                if verbs:
-                    self.cfg.update('configopts', '--with-verbs')
-                else:
-                    self.cfg.update('configopts', '--without-verbs')
+            if verbs:
+                self.cfg.update('configopts', '--with-verbs')
+            else:
+                self.cfg.update('configopts', '--without-verbs')
 
         super(EB_OpenMPI, self).configure_step()
 

@@ -43,6 +43,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -60,16 +61,24 @@ UNLIMITED = 'unlimited'
 
 EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
 
+# We want the following import order:
+# 1. Packages installed into VirtualEnv
+# 2. Packages installed into $EBPYTHONPREFIXES (e.g. our modules)
+# 3. Packages installed in the Python module
+# Note that this script is run after all sys.path manipulation by Python and Virtualenv are done.
+# Hence prepending $EBPYTHONPREFIXES would shadow VirtualEnv packages and
+# appending would NOT shadow the Python-module packages which makes updating packages via ECs impossible.
+# Hence we move all paths which are prefixed with the Python-module path to the back but need to make sure
+# not to move the VirtualEnv paths.
 SITECUSTOMIZE = """
 # sitecustomize.py script installed by EasyBuild,
-# to support picking up Python packages which were installed
-# for multiple Python versions in the same directory
+# to pick up Python packages installed with `--prefix` into folders listed in $%(EBPYTHONPREFIXES)s
 
 import os
 import site
 import sys
 
-# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+# print debug messages when $%(EBPYTHONPREFIXES)s_DEBUG is defined
 debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 
 # use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
@@ -78,9 +87,13 @@ debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 ebpythonprefixes = os.getenv('%(EBPYTHONPREFIXES)s')
 
 if ebpythonprefixes:
-    postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
+    postfix = os.path.join('lib', 'python' + '.'.join(map(str, sys.version_info[:2])), 'site-packages')
     if debug:
         print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
+
+    potential_sys_prefixes = (getattr(sys, attr, None) for attr in ("real_prefix", "base_prefix", "prefix"))
+    sys_prefix = next(p for p in potential_sys_prefixes if p)
+    base_paths = [p for p in sys.path if p.startswith(sys_prefix)]
 
     for prefix in ebpythonprefixes.split(os.pathsep):
         if debug:
@@ -90,6 +103,9 @@ if ebpythonprefixes:
             if debug:
                 print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
             site.addsitedir(sitedir)
+
+    # Move base python paths to the end of sys.path so modules can override packages from the core Python module
+    sys.path = [p for p in sys.path if p not in base_paths] + base_paths
 """ % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
 
 
@@ -134,6 +150,8 @@ class EB_Python(ConfigureMake):
             self.pythonpath = os.path.join(easybuild_subdir, 'python')
 
         ext_defaults = {
+            # Use PYPI_SOURCE as the default for source_urls of extensions.
+            'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
             # We should enable this (by default) for all extensions because the only installed packages at this point
             # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
             # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
@@ -319,9 +337,10 @@ class EB_Python(ConfigureMake):
                 if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
                     self.cfg.update('configopts', "--enable-optimizations")
 
-        if self.install_pip:
-            # Default in 3.4+, required in 2.7
-            self.cfg.update('configopts', "--with-ensurepip=upgrade")
+        # When ensurepip is available we explicitely set this.
+        # E.g. in 3.4 it is by default "upgrade", i.e. on which is unexpected when we did set it to off
+        if self._has_ensure_pip():
+            self.cfg.update('configopts', "--with-ensurepip=" + ('no', 'upgrade')[self.install_pip])
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
@@ -455,6 +474,32 @@ class EB_Python(ConfigureMake):
                 symlink(target_lib_dynload, lib_dynload)
                 change_dir(cwd)
 
+    def _sanity_check_ebpythonprefixes(self):
+        """Check that EBPYTHONPREFIXES works"""
+        temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
+        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        mkdir(temp_site_packages_path, parents=True)  # Must exist
+        (out, _) = run_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        out = out.strip()
+        # Output should be a list which we can evaluate directly
+        if not out.startswith('[') or not out.endswith(']'):
+            raise EasyBuildError("Unexpected output for sys.path: %s", out)
+        paths = eval(out)
+        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        try:
+            base_prefix_idx = paths.index(base_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("The Python install path was not added to sys.path (%s)", paths)
+        try:
+            eb_prefix_idx = paths.index(temp_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s to sys.path (%s)",
+                                 temp_site_packages_path, paths)
+        if eb_prefix_idx > base_prefix_idx:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s before %s to sys.path (%s)",
+                                 temp_site_packages_path, base_site_packages_path, paths)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -485,6 +530,9 @@ class EB_Python(ConfigureMake):
             raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
+
+        if self.cfg['ebpythonprefixes']:
+            self._sanity_check_ebpythonprefixes()
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
