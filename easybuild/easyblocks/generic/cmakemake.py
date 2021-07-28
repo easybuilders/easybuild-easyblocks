@@ -33,6 +33,7 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Ward Poelmans (Ghent University)
 @author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
+import glob
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -209,16 +210,23 @@ class CMakeMake(ConfigureMake):
         options.append('-DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE')
 
         if not self.cfg.get('allow_system_boost', False):
-            # don't pick up on system Boost if Boost is included as dependency
-            # - specify Boost location via -DBOOST_ROOT
-            # - instruct CMake to not search for Boost headers/libraries in other places
-            # - disable search for Boost CMake package configuration file
             boost_root = get_software_root('Boost')
             if boost_root:
+                # Check for older builds of Boost
+                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system*',
+                                                     'libboost_system-variant*-shared.cmake'))
+                cmake_files = [os.path.basename(x) for x in cmake_files]
+                if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
+                    # disable search for Boost CMake package configuration files when conflicting variant configs
+                    # are present (builds using the old EasyBlock)
+                    options.append('-DBoost_NO_BOOST_CMAKE=ON')
+
+                # Don't pick up on system Boost if Boost is included as dependency
+                # - specify Boost location via -DBOOST_ROOT
+                # - instruct CMake to not search for Boost headers/libraries in other places
                 options.extend([
                     '-DBOOST_ROOT=%s' % boost_root,
                     '-DBoost_NO_SYSTEM_PATHS=ON',
-                    '-DBoost_NO_BOOST_CMAKE=ON',
                 ])
 
         options_string = ' '.join(options)
