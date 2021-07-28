@@ -748,13 +748,18 @@ class EB_TensorFlow(PythonPackage):
                 '--host_jvm_args=-Xmx%sm' % jvm_max_memory
             ])
 
-        # build with optimization enabled
-        # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
-        self.target_opts.append('--compilation_mode=opt')
+        if self.toolchain.options.get('debug', None):
+            self.target_opts.append('--strip=never')
+            self.target_opts.append('--compilation_mode=dbg')
+            self.target_opts.append('--copt="-Og"')
+        else:
+            # build with optimization enabled
+            # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
+            self.target_opts.append('--compilation_mode=opt')
 
-        # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
-        # https://docs.bazel.build/versions/master/user-manual.html#flag--config
-        self.target_opts.append('--config=opt')
+            # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
+            # https://docs.bazel.build/versions/master/user-manual.html#flag--config
+            self.target_opts.append('--config=opt')
 
         # make Bazel print full command line + make it verbose on failures
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
@@ -1031,6 +1036,9 @@ class EB_TensorFlow(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
+        if self.python_cmd is None:
+            self.prepare_python()
+
         custom_paths = {
             'files': ['bin/tensorboard'],
             'dirs': [self.pylibdir],
