@@ -116,7 +116,7 @@ class EB_FSL(EasyBlock):
     def build_step(self):
         """Build FSL using supplied script."""
 
-        cmd = ". %s/etc/fslconf/fsl.sh && ./build" % self.fsldir
+        cmd = "%s . %s/etc/fslconf/fsl.sh && ./build" % (self.cfg['prebuildopts'], self.fsldir)
         run_cmd(cmd, log_all=True, simple=True)
 
         # check build.log file for success
