@@ -83,7 +83,7 @@ class EB_RepeatModeler(Tarball):
             'MAFFT': ['bin'],
             'GenomeTools': ['bin'],
             'LTR_retriever': [],
-            'NINJA': ['bin'],
+            'TWL-NINJA': ['bin'],
         }
 
         for dep, path in required_deps.items():
