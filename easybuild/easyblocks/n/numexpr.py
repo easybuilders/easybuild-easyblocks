@@ -56,12 +56,12 @@ class EB_numexpr(PythonPackage):
         """Custom configuration procedure for numexpr."""
         super(EB_numexpr, self).configure_step()
 
-        self.imkl_root = os.getenv('MKLROOT')
-
         # if Intel MKL is available, set up site.cfg such that the right VML library is used;
         # this makes a *big* difference in terms of performance;
         # see also https://github.com/pydata/numexpr/blob/master/site.cfg.example
-        if self.imkl_root:
+        if get_software_root('imkl'):
+
+            self.imkl_root = os.getenv('MKLROOT')
 
             # figure out which VML library to link to
             cpu_features = get_cpu_features()
