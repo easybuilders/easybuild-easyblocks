@@ -26,10 +26,11 @@
 EasyBuild support for building and installing numexpr, implemented as an easyblock
 """
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.filetools import write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_cpu_features
 
 
@@ -75,16 +76,25 @@ class EB_numexpr(PythonPackage):
                 # use default kernels as fallback for non-AVX systems
                 mkl_vml_lib = 'mkl_vml_def'
 
-            mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
+            mkl_ver = get_software_version('imkl')
 
-            mkl_lib_dirs = [
-                os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
-                os.path.join(self.imkl_root, 'lib', 'intel64'),
-            ]
+            if LooseVersion(mkl_ver) >= LooseVersion('2021'):
+                mkl_lib_dirs = [
+                    os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
+                ]
+                mkl_include_dirs =  os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
+                mkl_libs = ['mkl_rt', mkl_vml_lib]
+            else:
+                mkl_lib_dirs = [
+                    os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
+                    os.path.join(self.imkl_root, 'lib', 'intel64'),
+                ]
+                mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'include')
+                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
 
             site_cfg_txt = '\n'.join([
                 "[mkl]",
-                "include_dirs = %s" % os.path.join(self.imkl_root, 'mkl', 'include'),
+                "include_dirs = %s" % mkl_include_dirs,
                 "library_dirs = %s" % ':'.join(mkl_lib_dirs),
                 "mkl_libs = %s" % ', '.join(mkl_libs),
             ])
