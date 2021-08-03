@@ -82,7 +82,7 @@ class EB_numexpr(PythonPackage):
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
                 ]
-                mkl_include_dirs =  os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
+                mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
                 mkl_libs = ['mkl_rt', mkl_vml_lib]
             else:
                 mkl_lib_dirs = [
