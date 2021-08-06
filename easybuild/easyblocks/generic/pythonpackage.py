@@ -573,6 +573,10 @@ class PythonPackage(ExtensionEasyBlock):
     def configure_step(self):
         """Configure Python package build/install."""
 
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
         if self.python_cmd is None:
             self.prepare_python()
 
@@ -631,12 +635,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # creates log entries for python being used, for debugging
         run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
-        run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False, trace=False)
-
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
+        run_cmd("%s -c 'import sys; print(sys.executable, sys.path)'" % self.python_cmd, verbose=False, trace=False)
 
     def build_step(self):
         """Build Python package using setup.py"""
