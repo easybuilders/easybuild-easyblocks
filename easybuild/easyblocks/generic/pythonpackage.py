@@ -648,6 +648,8 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
+            if not build_cmd:
+                build_cmd = 'build'  # Default value for setup.py
             build_cmd = '%(python)s setup.py ' + build_cmd
 
         if build_cmd:
