@@ -236,7 +236,8 @@ class PythonPackage(ExtensionEasyBlock):
         extra_vars.update({
             'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
                                "When using setup.py this will be passed to setup.py and defaults to 'build'. "
-                               "Otherwise it will be used as-is. A value of None then skips the build step", CUSTOM],
+                               "Otherwise it will be used as-is. A value of None then skips the build step. "
+                               "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
@@ -647,9 +648,10 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-            build_cmd = '%s setup.py %s' % (self.python_cmd, build_cmd)
+            build_cmd = '%(python)s setup.py ' + build_cmd
 
         if build_cmd:
+            build_cmd = build_cmd % {'python': self.python_cmd}
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
