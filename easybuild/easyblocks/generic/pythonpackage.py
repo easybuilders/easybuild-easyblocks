@@ -237,6 +237,8 @@ class PythonPackage(ExtensionEasyBlock):
             'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
+                                  "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
@@ -508,15 +510,16 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        if self._should_unpack_source():
-            # specify current directory
-            loc = '.'
-        else:
-            # for extensions, self.src specifies the location of the source file
-            # otherwise, self.src is a list of dicts, one element per source file
-            if isinstance(self.src, string_type):
+        loc = self.cfg.get('install_src')
+        if not loc:
+            if self._should_unpack_source():
+                # specify current directory
+                loc = '.'
+            elif isinstance(self.src, string_type):
+                # for extensions, self.src specifies the location of the source file
                 loc = self.src
             else:
+                # otherwise, self.src is a list of dicts, one element per source file
                 loc = self.src[0]['path']
 
         if using_pip:
