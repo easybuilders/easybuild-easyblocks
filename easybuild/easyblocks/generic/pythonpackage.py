@@ -234,7 +234,9 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
+                               "When using setup.py this will be passed to setup.py and defaults to 'build'. "
+                               "Otherwise it will be used as-is. A value of None then skips the build step", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
@@ -636,6 +638,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def build_step(self):
         """Build Python package using setup.py"""
+        build_cmd = self.cfg['buildcmd']
         if self.use_setup_py:
 
             if get_software_root('CMake'):
@@ -644,9 +647,11 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
-                            self.cfg['buildopts']])
-            (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+            build_cmd = '%s setup.py %s' % (self.python_cmd, build_cmd)
+
+        if build_cmd:
+            cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # keep track of all output, so we can check for auto-downloaded dependencies;
             # take into account that build/install steps may be run multiple times
