@@ -61,6 +61,7 @@ class EB_AOCC(PackedBinary):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',
             '3.0.0': '12.0.0',
+            '3.1.0': '12.0.0',
         }
 
         if self.version in map_aocc_to_clang_ver:
@@ -116,6 +117,9 @@ class EB_AOCC(PackedBinary):
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
         # setting the AOCChome path
         txt += self.module_generator.set_environment('AOCChome', self.installdir)
+        # make sure clang/flang picks up GCCcore as GCC toolchain
+        txt += self.module_generator.set_alias('clang', 'clang --gcc-toolchain=$EBROOTGCCCORE')
+        txt += self.module_generator.set_alias('flang', 'flang --gcc-toolchain=$EBROOTGCCCORE')
         return txt
 
     def make_module_req_guess(self):
