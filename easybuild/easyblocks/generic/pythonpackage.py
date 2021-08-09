@@ -634,8 +634,8 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
-        run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
-        run_cmd("%s -c 'import sys; print(sys.executable, sys.path)'" % self.python_cmd, verbose=False, trace=False)
+        cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
+        run_cmd(cmd % {'python': self.python_cmd}, verbose=False, trace=False)
 
     def build_step(self):
         """Build Python package using setup.py"""
