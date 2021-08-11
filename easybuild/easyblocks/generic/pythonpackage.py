@@ -257,7 +257,7 @@ class PythonPackage(ExtensionEasyBlock):
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
                                            "to be the requirements file.", CUSTOM],
-            'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'zipped_egg': [False, "Install as a zipped eggs", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
