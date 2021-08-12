@@ -125,6 +125,7 @@ class EB_Clang(CMakeMake):
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
             lld/          Unpack lld-*.tar.gz here
+        libunwind/        Unpack libunwind-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -159,6 +160,8 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+            if LooseVersion(self.version) >= LooseVersion('12.0.1'):
+                find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
 
         if self.cfg["libcxx"]:
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
