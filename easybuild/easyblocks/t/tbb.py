@@ -42,7 +42,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTALL_MODE_2015
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
-from easybuild.tools.filetools import symlink
+from easybuild.tools.filetools import move_file, symlink
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
@@ -181,20 +181,20 @@ class EB_tbb(IntelBase, ConfigureMake):
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
 
         self.log.debug("libpath: %s" % libpath)
-        # applications may look into /lib, so we symlink the location to the libs
-        symlink(libpath, os.path.join(self.installdir, 'lib'), use_abspath_source=False)
+        # applications usually look into /lib, so we move the folder there and symlink the original one to it
+        # This is also important so that /lib and /lib64 are actually on the same level
+        root_lib_path = os.path.join(self.installdir, 'lib')
+        move_file(libpath, root_lib_path)
+        symlink(os.path.relpath(root_lib_path, os.path.join(libpath)), libpath, use_abspath_source=False)
 
         # Install CMake config files if possible
         if self._has_cmake():
             if LooseVersion(self.version) >= LooseVersion('2020.0'):
                 cmake_install_dir = os.path.join(self.installdir, libpath, 'cmake', 'TBB')
-                rel_path = os.path.relpath(self.installdir, cmake_install_dir)
                 cmd = [
                     'cmake',
                     '-DINSTALL_DIR=' + cmake_install_dir,
                     '-DSYSTEM_NAME=Linux',
-                    '-DLIB_REL_PATH=' + os.path.join(rel_path, 'lib'),
-                    '-DINC_REL_PATH=' + os.path.join(rel_path, 'include'),
                     '-P tbb_config_installer.cmake',
                 ]
                 run_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
