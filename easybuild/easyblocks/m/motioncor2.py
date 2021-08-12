@@ -56,6 +56,16 @@ class EB_MotionCor2(EasyBlock):
         if (LooseVersion(self.version) == LooseVersion("1.3.1")):
             self.motioncor2_verstring = "v%s" % self.version
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        extra = {
+            'skip_rpath_check': [False, "Skip rpath check", None],
+        }
+        if extra_vars is None:
+            extra_vars = {}
+        extra.update(extra_vars)
+        return EasyBlock.extra_options(extra)
+
     def prepare_step(self, *args, **kwargs):
         """
         Determine name of MotionCor2 binary to install based on CUDA version.
@@ -91,12 +101,16 @@ class EB_MotionCor2(EasyBlock):
         """
 
         if (LooseVersion(self.version) >= LooseVersion("1.4")):
-            matches = glob.glob(os.path.join(self.builddir, '%s*' % self.motioncor2_bin))
+            pattern1 = os.path.join(self.builddir, '%s*' % self.motioncor2_bin)
+            pattern2 = os.path.join(self.builddir,
+                                    "{}_{}".format(self.name, self.version),
+                                    '%s*' % self.motioncor2_bin)
+            matches = glob.glob(pattern1) + glob.glob(pattern2)
             if len(matches) == 1:
                 src_mc2_bin = matches[0]
             else:
                 raise EasyBuildError(
-                    "Found multiple, or no, matching MotionCor2 binary named %s*" % self.motioncor2_bin
+                    "Found multiple, or no, matching MotionCor2 binary named %s" % pattern
                 )
         else:
             src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
@@ -140,5 +154,9 @@ class EB_MotionCor2(EasyBlock):
             'files': [os.path.join('bin', x) for x in ['motioncor2', self.motioncor2_bin]],
             'dirs': []
         }
-
-        super(EB_MotionCor2, self).sanity_check_step(custom_paths)
+        for f in custom_paths['files']:
+            fp = os.path.join(self.installdir, f)
+            if not os.path.isfile(fp):
+                raise EasyBuildError("File not installed {}".format(fp))
+        if not self.cfg.get('skip_rpath_check', False):
+            super(EB_MotionCor2, self).sanity_check_step(custom_paths)
