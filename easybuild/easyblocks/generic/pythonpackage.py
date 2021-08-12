@@ -30,6 +30,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alexander Grund (TU Dresden)
 """
 import json
 import os
@@ -234,9 +235,14 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
+                               "When using setup.py this will be passed to setup.py and defaults to 'build'. "
+                               "Otherwise it will be used as-is. A value of None then skips the build step. "
+                               "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
+                                  "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
@@ -508,15 +514,16 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        if self._should_unpack_source():
-            # specify current directory
-            loc = '.'
-        else:
-            # for extensions, self.src specifies the location of the source file
-            # otherwise, self.src is a list of dicts, one element per source file
-            if isinstance(self.src, string_type):
+        loc = self.cfg.get('install_src')
+        if not loc:
+            if self._should_unpack_source():
+                # specify current directory
+                loc = '.'
+            elif isinstance(self.src, string_type):
+                # for extensions, self.src specifies the location of the source file
                 loc = self.src
             else:
+                # otherwise, self.src is a list of dicts, one element per source file
                 loc = self.src[0]['path']
 
         if using_pip:
@@ -565,6 +572,10 @@ class PythonPackage(ExtensionEasyBlock):
 
     def configure_step(self):
         """Configure Python package build/install."""
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.python_cmd is None:
             self.prepare_python()
@@ -623,16 +634,12 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
-        run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
-        run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False, trace=False)
-
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
+        cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
+        run_cmd(cmd % {'python': self.python_cmd}, verbose=False, trace=False)
 
     def build_step(self):
         """Build Python package using setup.py"""
+        build_cmd = self.cfg['buildcmd']
         if self.use_setup_py:
 
             if get_software_root('CMake'):
@@ -641,9 +648,14 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
-                            self.cfg['buildopts']])
-            (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+            if not build_cmd:
+                build_cmd = 'build'  # Default value for setup.py
+            build_cmd = '%(python)s setup.py ' + build_cmd
+
+        if build_cmd:
+            build_cmd = build_cmd % {'python': self.python_cmd}
+            cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # keep track of all output, so we can check for auto-downloaded dependencies;
             # take into account that build/install steps may be run multiple times
