@@ -190,7 +190,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         # Install CMake config files if possible
         if self._has_cmake():
             if LooseVersion(self.version) >= LooseVersion('2020.0'):
-                cmake_install_dir = os.path.join(self.installdir, libpath, 'cmake', 'TBB')
+                cmake_install_dir = os.path.join(root_lib_path, 'cmake', 'TBB')
                 cmd = [
                     'cmake',
                     '-DINSTALL_DIR=' + cmake_install_dir,
