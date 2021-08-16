@@ -34,8 +34,7 @@ from easybuild.tools.modules import get_software_version
 
 
 class EB_jaxlib(PythonPackage):
-    """Support for installing jaxlib. Extension of the existing PythonPackage easyblock 
-    """
+    """Support for installing jaxlib. Extension of the existing PythonPackage easyblock"""
     def build_step(self):
         """Custom build procedure for jaxlib."""
         # Compose command to run build.py script with all necessary options
