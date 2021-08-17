@@ -35,8 +35,20 @@ from easybuild.tools.modules import get_software_version
 
 class EB_jaxlib(PythonPackage):
     """Support for installing jaxlib. Extension of the existing PythonPackage easyblock"""
+
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameters specific to jaxlib."""
+        extra_vars = PythonPackage.extra_options()
+
+        # always enable use of pip for installing jaxlib
+        extra_vars['use_pip'][0] = True
+
+        return extra_vars
+
     def build_step(self):
         """Custom build procedure for jaxlib."""
+
         # Compose command to run build.py script with all necessary options
         cmd = [
             self.cfg['prebuildopts'],
@@ -54,26 +66,23 @@ class EB_jaxlib(PythonPackage):
 
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
-    def install_step(self):
-        """We make `use_pip = True` a rule"""
-        cmd = [
+    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+        """Compose custom installation command for jaxlib."""
+
+        if installopts is None:
+            installopts = self.cfg['installopts']
+
+        cmd = []
+
+        if extrapath:
+            cmd.append(extrapath)
+
+        cmd.extend([
+            self.cfg['preinstallopts'],
             'pip',
             'install',
-            '--prefix=%s' % self.installdir,
-            'dist/*.whl'
-        ]
-        run_cmd(' '.join(cmd), log_all=True, log_ok=True)
-
-    # can't run tests in sanity check step, because build dependencies must be available
-    # also not in test step in EC, since it doesnt exist in `Bundle` easyblocks
-    def post_install_step(self):
-        """Testing installation"""
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        cmd = [
-            "cd %%(builddir)s/jax-jaxlib-v%s && " % self.version,
-            "PYTHONPATH=%s/lib/python%s/site-packages:$PYTHONPATH " % (self.installdir, pyshortver),
-            "pytest -n auto tests",
-        ]
-        run_cmd(cmd, log_all=True, log_ok=True)
-
-        super(EB_jaxlib, self).build_step()
+            '--prefix=%s' % prefix,
+            'dist/*.whl',
+            installopts,
+        ])
+        return ' '.join(cmd)
