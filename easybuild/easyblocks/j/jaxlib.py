@@ -30,7 +30,6 @@ EasyBlock for installing jaxlib, implemented as an easyblock
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_version
 
 
 class EB_jaxlib(PythonPackage):
