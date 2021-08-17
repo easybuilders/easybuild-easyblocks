@@ -60,10 +60,8 @@ from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_TARGET = "easy_install"
-EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
-SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
 
@@ -258,7 +256,6 @@ class PythonPackage(ExtensionEasyBlock):
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
             'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
-            'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
@@ -266,8 +263,7 @@ class PythonPackage(ExtensionEasyBlock):
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
                                            "to be the requirements file.", CUSTOM],
-            'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
-            'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'zipped_egg': [False, "Install as a zipped eggs", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
@@ -322,17 +318,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # determine install command
         self.use_setup_py = False
-        if self.cfg.get('use_easy_install', False):
-            self.log.deprecated("Use 'install_target' rather than 'use_easy_install'.", '4.0')
-            self.install_cmd = EASY_INSTALL_INSTALL_CMD
-
-            # don't auto-install dependencies
-            self.cfg.update('installopts', '--no-deps')
-
-            if self.cfg.get('zipped_egg', False):
-                self.cfg.update('installopts', '--zip-ok')
-
-        elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
+        if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
             if build_option('debug'):
@@ -364,12 +350,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         else:
             self.use_setup_py = True
-
-            if self.cfg.get('use_setup_py_develop', False):
-                self.log.deprecated("Use 'install_target' rather than 'use_setup_py_develop'.", '4.0')
-                self.install_cmd = SETUP_PY_DEVELOP_CMD
-            else:
-                self.install_cmd = SETUP_PY_INSTALL_CMD
+            self.install_cmd = SETUP_PY_INSTALL_CMD
 
             if self.cfg['install_target'] == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
@@ -483,10 +464,6 @@ class PythonPackage(ExtensionEasyBlock):
 
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
-
-        # mainly for debugging
-        if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
-            run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
 
         using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
         if using_pip:
