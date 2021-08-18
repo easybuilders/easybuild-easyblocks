@@ -35,11 +35,10 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which
+from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which, write_file
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
-
 
 class EB_OpenSSL_wrapper(Bundle):
     """
@@ -142,7 +141,7 @@ class EB_OpenSSL_wrapper(Bundle):
             'bin': None,
             'engines': None,
             'include': None,
-            'lib': None,
+            'libs': [],
         }
 
         # early return when we're not wrapping the system OpenSSL installation
@@ -168,8 +167,7 @@ class EB_OpenSSL_wrapper(Bundle):
                         if LooseVersion(openssl_version) >= LooseVersion(min_openssl_version):
                             dbg_msg = "System OpenSSL library '%s' version %s fulfills requested version %s"
                             self.log.debug(dbg_msg, system_solib, openssl_version, min_openssl_version)
-                            self.system_ssl['lib'] = system_solib
-                            break
+                            self.system_ssl['libs'].append(system_solib)
                         else:
                             dbg_msg = "System OpenSSL library '%s' version %s is older than requested version %s"
                             self.log.debug(dbg_msg, system_solib, openssl_version, min_openssl_version)
@@ -177,20 +175,21 @@ class EB_OpenSSL_wrapper(Bundle):
                     # one of the OpenSSL libraries is missing, switch to next group of versioned libs
                     break
 
-            if self.system_ssl['lib']:
+            if self.system_ssl['libs']:
                 # keep the libraries found as possible targets for this installation
                 target_system_ssl_libs = system_versioned_libs[idx]
                 break
 
-        if self.system_ssl['lib']:
+        if len(self.system_ssl['libs']) == len(openssl_libs):
+            self.system_ssl['version'] = openssl_version
             info_msg = "Found OpenSSL library version %s in host system: %s"
-            self.log.info(info_msg, openssl_version, os.path.dirname(self.system_ssl['lib']))
+            self.log.info(info_msg, self.system_ssl['version'], os.path.dirname(self.system_ssl['libs'][0]))
         else:
             self.log.info("OpenSSL library not found in host system, falling back to OpenSSL in EasyBuild")
             return
 
         # Directory with engine libraries
-        lib_dir = os.path.dirname(self.system_ssl['lib'])
+        lib_dir = os.path.dirname(self.system_ssl['libs'][0])
         lib_engines_dir = [
             os.path.join(lib_dir, 'openssl', self.target_ssl_engine),
             os.path.join(lib_dir, self.target_ssl_engine),
@@ -203,7 +202,6 @@ class EB_OpenSSL_wrapper(Bundle):
                 break
 
         if not self.system_ssl['engines']:
-            self.system_ssl['lib'] = None
             self.log.info("OpenSSL engines not found in host system, falling back to OpenSSL in EasyBuild")
             return
 
@@ -239,14 +237,14 @@ class EB_OpenSSL_wrapper(Bundle):
                     err_msg = "System OpenSSL header '%s' does not contain any recognizable version string"
                     raise EasyBuildError(err_msg, opensslv_path)
 
-                if header_version == openssl_version:
+                if header_version == self.system_ssl['version']:
                     self.system_ssl['include'] = include_dir
                     info_msg = "Found OpenSSL headers v%s in host system: %s"
                     self.log.info(info_msg, header_version, self.system_ssl['include'])
                     break
                 else:
                     dbg_msg = "System OpenSSL header version '%s' doesn not match library version '%s'"
-                    self.log.debug(dbg_msg, header_version, openssl_version)
+                    self.log.debug(dbg_msg, header_version, self.system_ssl['version'])
             else:
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
@@ -274,18 +272,17 @@ class EB_OpenSSL_wrapper(Bundle):
 
     def fetch_step(self, *args, **kwargs):
         """Fetch sources if OpenSSL component is needed"""
-        if not all([self.system_ssl['lib'], self.system_ssl['include']]):
+        if not all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'libs')):
             super(EB_OpenSSL_wrapper, self).fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract sources if OpenSSL component is needed"""
-        if not all([self.system_ssl['lib'], self.system_ssl['include']]):
+        if not all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'libs')):
             super(EB_OpenSSL_wrapper, self).extract_step()
 
     def install_step(self):
         """Symlink target OpenSSL installation"""
-
-        if all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'lib')):
+        if all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'libs')):
             # note: symlink to individual files, not directories,
             # since directory symlinks get resolved easily...
 
@@ -295,9 +292,7 @@ class EB_OpenSSL_wrapper(Bundle):
             mkdir(lib64_engines_dir, parents=True)
 
             # link existing known libraries
-            ssl_syslibdir = os.path.dirname(self.system_ssl['lib'])
-            lib_files = [os.path.join(ssl_syslibdir, x) for x in self.target_ssl_libs]
-            for libso in lib_files:
+            for libso in self.system_ssl['libs']:
                 symlink(libso, os.path.join(lib64_dir, os.path.basename(libso)))
 
             # link engines library files
@@ -307,7 +302,8 @@ class EB_OpenSSL_wrapper(Bundle):
 
             # relative symlink for unversioned libraries
             cwd = change_dir(lib64_dir)
-            for libso in self.target_ssl_libs:
+            for libso in self.system_ssl['libs']:
+                libso = os.path.basename(libso)
                 unversioned_lib = '%s.%s' % (libso.split('.')[0], get_shared_lib_ext())
                 symlink(libso, unversioned_lib, use_abspath_source=False)
             change_dir(cwd)
@@ -323,6 +319,9 @@ class EB_OpenSSL_wrapper(Bundle):
             bin_dir = os.path.join(self.installdir, 'bin')
             mkdir(bin_dir)
             symlink(self.system_ssl['bin'], os.path.join(bin_dir, self.name.lower()))
+
+            # install pkg-config files
+            self.install_pc_files()
 
         elif self.cfg.get('wrap_system_openssl'):
             # install OpenSSL component due to lack of OpenSSL in host system
@@ -347,6 +346,7 @@ class EB_OpenSSL_wrapper(Bundle):
         ssl_dirs = [
             os.path.join('include', self.name.lower()),
             os.path.join('lib', self.target_ssl_engine),
+            os.path.join('lib', 'pkgconfig'),
         ]
 
         custom_paths = {
@@ -358,3 +358,91 @@ class EB_OpenSSL_wrapper(Bundle):
         custom_commands = ["ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def install_pc_files(self):
+        """Install pkg-config files for the wrapper"""
+
+        PC_TEMPLATE = """prefix=%(root)s
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib64
+includedir=${prefix}/include
+%(enginesdir)s
+
+Name: %(name)s
+Description: %(description)s
+Version: %(version)s
+%(requires)s
+%(libs)s
+%(cflags)s
+"""
+        openssl_components = {
+            'libcrypto': {
+                'name': 'OpenSSL-libcrypto',
+                'description': 'OpenSSL cryptography library',
+                'enginesdir': self.target_ssl_engine,
+            },
+            'libssl': {
+                'name': 'OpenSSL-libssl',
+                'description': 'Secure Sockets Layer and cryptography libraries',
+                'enginesdir': None,
+            },
+            'openssl': {
+                'name': 'OpenSSL',
+                'description': 'Secure Sockets Layer and cryptography libraries and tools',
+                'enginesdir': None,
+            },
+        }
+
+        pc_install_dir = os.path.join(self.installdir, 'lib64', 'pkgconfig')
+        mkdir(pc_install_dir)
+
+        for pc_comp in openssl_components:
+
+            pc_file = openssl_components[pc_comp]
+
+            # define component name in system pkg-config
+            pc_name = pc_comp
+            if self.majmin_version == '1.1':
+                # check suffixed names with v1.1
+                pc_name_suffix = pc_name + '11'
+                out, ec = run_cmd("pkg-config --exists %s" % pc_name_suffix, simple=False)
+                if ec == 0:
+                    pc_name = pc_name_suffix
+
+            pc_file['root'] = self.installdir
+            pc_file['version'] = self.system_ssl['version']
+
+            # format requires
+            pc_file['requires'] = []
+            for require_type in ['Requires', 'Requires.private']:
+                require_print = require_type.lower().replace('.', '-')
+                requires, _ = run_cmd("pkg-config --print-%s %s" % (require_print, pc_name), simple=False)
+                if requires:
+                    requires = requires.rstrip().splitlines()
+                    pc_file['requires'].append("%s: %s" % (require_type, ' '.join(requires)))
+            pc_file['requires'] = '\n'.join(pc_file['requires'])
+
+            if pc_comp.startswith('lib'):
+                # add libs and cflags for library components
+                c_lib_name = pc_comp[3:]
+                pc_file['libs'] = "Libs: -L${libdir} -l%s" % c_lib_name
+                pc_file['cflags'] = "Cflags: -I${includedir}"
+                # infer private libs through pkg-config
+                linker_libs, _ = run_cmd("pkg-config --libs %s" % pc_name, simple=False)
+                all_libs, _ = run_cmd("pkg-config --libs --static %s" % pc_name, simple=False)
+                libs_priv = " %s" % all_libs.rstrip()
+                for flag in linker_libs.rstrip().split(' '):
+                    libs_priv = libs_priv.replace(" %s" % flag, '')
+                pc_file['libs'] += "\nLibs.private:%s" % libs_priv
+            else:
+                pc_file['libs'], pc_file['cflags'] = '', ''
+
+            # format enginesdir
+            if pc_file['enginesdir']:
+                pc_file['enginesdir'] = 'enginesdir=${libdir}/%s' % pc_file['enginesdir']
+            else:
+                pc_file['enginesdir'] = ''
+
+            pc_path = os.path.join(pc_install_dir, '%s.pc' % pc_comp)
+            write_file(pc_path, PC_TEMPLATE % pc_file)
+
