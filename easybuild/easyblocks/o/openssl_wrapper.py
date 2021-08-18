@@ -40,6 +40,7 @@ from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
 
+
 class EB_OpenSSL_wrapper(Bundle):
     """
     Find path to installation files of OpenSSL in the host system. Checks in
@@ -445,4 +446,3 @@ Version: %(version)s
 
             pc_path = os.path.join(pc_install_dir, '%s.pc' % pc_comp)
             write_file(pc_path, PC_TEMPLATE % pc_file)
-
