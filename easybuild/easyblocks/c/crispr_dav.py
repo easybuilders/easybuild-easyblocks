@@ -26,59 +26,47 @@
 EasyBuild support for building and installing CRISPR-DAV, implemented as an easyblock.
 
 @author: Denis Kristak (INUITS)
+@author: Kenneth Hoste (HPC-UGent)
 """
+import glob
 import os
-from easybuild.tools.filetools import write_file
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
-
-
-# this command is improvement (no hardcoded ways) of
-# https://github.com/pinetree1/crispr-dav/blob/master/Examples/example1/run.sh
-CUSTOM_SANITY_CHECK_COMMAND = r"""
-{crisprdav_installdir}/crispr.pl --conf {crisprdav_installdir}/Examples/example1/conf.txt \
---region {crisprdav_installdir}/Examples/example1/amplicon.bed \
---crispr {crisprdav_installdir}/Examples/example1/site.bed \
---sitemap {crisprdav_installdir}/Examples/example1/sample.site \
---fastqmap {crisprdav_installdir}/Examples/example1/fastq.list \
---genome genomex  2>&1 | grep 'Generated HTML report for GENEX_CR1'
-"""
+from easybuild.tools.filetools import apply_regex_substitutions, back_up_file, write_file
+from easybuild.tools.modules import get_software_root
 
 
 class EB_CRISPR_minus_DAV(Binary):
     """
-    Support for building/installing crispr-dav.
+    Support for building/installing CRISPR-DAV.
     """
-    extract_sources = True
 
     def __init__(self, *args, **kwargs):
+        """Constructor for CRISPR-DAV easyblock."""
         super(EB_CRISPR_minus_DAV, self).__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
 
     def post_install_step(self):
-        """Update config.txt files"""
+        """Update configuration files with correct paths to dependencies and files in installation."""
+
         # getting paths of deps + files we will work with
-        crisprdav_ex = os.path.join(self.installdir, 'Examples', 'example1')
+        example_dir = os.path.join(self.installdir, 'Examples')
         config_file = os.path.join(self.installdir, 'conf.txt')
-        config_file_ex = os.path.join(crisprdav_ex, 'conf.txt')
-        abra2_dir = get_software_root('ABRA2')
-        prinseq_dir = get_software_root('PRINSEQ')
-        flash_dir = get_software_root('FLASH')
-        dep_err_msg = "Failed to find root directory for {sw_name}. Is it included as dependency?"
-        if not abra2_dir:
-            raise EasyBuildError(dep_err_msg.format(sw_name="ABRA2"))
-        if not prinseq_dir:
-            raise EasyBuildError(dep_err_msg.format(sw_name="PRINSEQ"))
-        if not flash_dir:
-            raise EasyBuildError(dep_err_msg.format(sw_name="FLASH"))
+
+        dep_roots = {}
+        for dep in ('ABRA2', 'BEDTools', 'FLASH', 'Java', 'PRINSEQ', 'pysamstats', 'R', 'SAMtools'):
+            root = get_software_root(dep)
+            if root:
+                dep_roots[dep] = root
+            else:
+                raise EasyBuildError("Failed to find root directory for %s. Is it included as dependency?", dep)
+
         # we will be changing both Examples/... conf file (for sanity checks) as well as root (for proper functioning)
-        config_files_to_change = [config_file, config_file_ex]
+        cfg_files = [config_file] + glob.glob(os.path.join(example_dir, 'example*', 'conf.txt'))
 
         # create a backup of original Examples/example1/conf.txt file + the root conf.txt file
-        run_cmd("cp {config_file_ex} {config_file_ex}_EB_BACKUP".format(config_file_ex=config_file_ex))
-        run_cmd("cp {config_file} {config_file}_EB_BACKUP".format(config_file=config_file))
+        for filename in cfg_files:
+            back_up_file(filename)
 
         # according to docs, we have to setup conf.txt so that it contains correct paths to dependencies
         # https://github.com/pinetree1/crispr-dav/blob/master/Install-and-Run.md
@@ -86,33 +74,56 @@ class EB_CRISPR_minus_DAV(Binary):
         # changing both example conf.txt as well as the main one (in root directory) to make it easier for user.
 
         # func to replace everything in both conf.txt files
-        self.modify_conf_files(crisprdav_ex, abra2_dir, prinseq_dir, flash_dir, config_files_to_change)
+        self.modify_conf_files(dep_roots, cfg_files)
 
         # generating fastq file with correct paths (used for sanity checks)
-        example_fastq_list_file = os.path.join(self.installdir, 'Examples', 'example1', 'fastq.list')
-        fastq_list_file_text_formatted = ''
-        for x in range(1, 5):
-            # we have to use \t or it wont work!
-            fastq_list_file_text = """sample{x}\t{crisprdav_ex}/rawfastq/sample{x}_R1.fastq.gz\t"""
-            fastq_list_file_text += """{crisprdav_ex}/rawfastq/sample{x}_R2.fastq.gz"""
-            if x < 4:
-                fastq_list_file_text += '\n'  # formatting is very important here - last line cant be \n
-            fastq_list_file_text_formatted += fastq_list_file_text.format(x=x, crisprdav_ex=crisprdav_ex)
-        write_file(example_fastq_list_file, fastq_list_file_text_formatted)
+        for example in ('example1', 'example2'):
+            example_dir = os.path.join(example_dir, example)
+            fastq_list_file = os.path.join(example_dir, 'fastq.list')
+            fastq_list = []
+            rawfastq_dir = os.path.join(example_dir, 'rawfastq')
+
+            for x in range(1, 5):
+                # we have to use \t or it wont work!
+                line = '\t'.join([
+                    'sample%s' % x,
+                    os.path.join(rawfastq_dir, 'sample%s_R1.fastq.gz' % x),
+                    os.path.join(rawfastq_dir, 'sample%s_R2.fastq.gz' % x),
+                ])
+                fastq_list.append(line)
+
+            # last line should not end with newline (\n)!
+            write_file(fastq_list_file, '\n'.join(fastq_list))
 
     def sanity_check_step(self):
         """Custom sanity check paths for CRISPR-DAV"""
-        crisprdav_installdir = self.installdir
         custom_paths = {
-            'files': [],
+            'files': ['crispr.pl'],
             'dirs': ['Modules', 'Examples', 'Rscripts'],
         }
 
         # example command from docs - https://github.com/pinetree1/crispr-dav/blob/master/Install-and-Run.md
-        custom_sanity_check_command_formatted = CUSTOM_SANITY_CHECK_COMMAND.format(
-            crisprdav_installdir=crisprdav_installdir)
-        custom_commands = [("crispr.pl --help 2>&1 | grep 'Usage: '", ''),
-                           (custom_sanity_check_command_formatted, '')]
+        # this command is an improvement (no hardcoded stuff) of
+        # https://github.com/pinetree1/crispr-dav/blob/master/Examples/example1/run.sh
+        example_dir = os.path.join(self.installdir, 'Examples', 'example1')
+        outfile = os.path.join(self.builddir, 'test.out')
+        example_cmd = ' '.join([
+            os.path.join(self.installdir, 'crispr.pl'),
+            "--conf %s" % os.path.join(example_dir, 'conf.txt'),
+            "--region %s" % os.path.join(example_dir, 'amplicon.bed'),
+            "--crispr %s" % os.path.join(example_dir, 'site.bed'),
+            "--sitemap %s" % os.path.join(example_dir, 'sample.site'),
+            "--fastqmap %s" % os.path.join(example_dir, 'fastq.list'),
+            "--conf %s" % os.path.join(example_dir, 'conf.txt'),
+            "--genome genomex",
+            "2>&1 | tee %s" % outfile,
+            " && grep 'Generated HTML report for GENEX_CR1' %s" % outfile,
+        ])
+
+        custom_commands = [
+            "crispr.pl --help 2>&1 | grep 'Usage: '",
+            example_cmd,
+        ]
 
         super(EB_CRISPR_minus_DAV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
@@ -121,55 +132,37 @@ class EB_CRISPR_minus_DAV(Binary):
         txt += self.module_generator.prepend_paths('PATH', [''])
         return txt
 
-    # replacing hardcoded paths in conf.txt files
-    def modify_conf_files(self, crisprdav_ex, abra2_dir, prinseq_dir, flash_dir, config_files_to_change):
-        # read input file
-        for curr_config_file in config_files_to_change:
-            fin = open(curr_config_file, "rt")
-            # read file contents to string
-            data = fin.read()
-            # creating pairs (tuples) with original and new string
-            ref_fasta_o = 'ref_fasta = genome/genomex.fa'
-            ref_fasta_r = 'ref_fasta = {crisprdav_ex}/genome/genomex.fa'.format(crisprdav_ex=crisprdav_ex)
-            bwa_idx_o = 'bwa_idx = genome/genomex.fa'
-            bwa_idx_r = 'bwa_idx = {crisprdav_ex}/genome/genomex.fa'.format(crisprdav_ex=crisprdav_ex)
-            refGene_o = 'refGene = genome/refgenex.txt'
-            refGene_r = 'refGene = {crisprdav_ex}/genome/refgenex.txt'.format(crisprdav_ex=crisprdav_ex)
-            abra_o = 'abra = /bfx/app/bin/abra-0.97-SNAPSHOT-jar-with-dependencies.jar'
-            abra_r = 'abra = {abra2_dir}/abra2-2.23.jar'.format(abra2_dir=abra2_dir)
-            prinseq_o = 'prinseq = /bfx/app/bin/prinseq-lite.pl'
-            prinseq_r = 'prinseq = {prinseq_dir}/prinseq-lite.pl'.format(prinseq_dir=prinseq_dir)
-            samtools_o = 'samtools = /bfx/app/bin/samtools'
-            samtools_r = ''
-            flash_o = 'flash = /bfx/app/bin/flash2'
-            flash_r = 'flash = {flash_dir}/bin/flash2'.format(flash_dir=flash_dir)
-            bedtools_o = 'bedtools = /bfx/app/bin/bedtools'
-            bedtools_r = ''
-            java_o = 'java = /usr/bin/java'
-            java_r = ''
-            pysamstats_o = 'pysamstats = /bfx/app/bin/pysamstats'
-            pysamstats_r = ''
-            rscript_o = 'rscript = /bfx/app/bin/Rscript'
-            rscript_r = ''
-            # saving in list of tuples for easy iteration
-            text_to_replace = [
-                (ref_fasta_o, ref_fasta_r),
-                (bwa_idx_o, bwa_idx_r),
-                (refGene_o, refGene_r),
-                (abra_o, abra_r),
-                (prinseq_o, prinseq_r),
-                (samtools_o, samtools_r),
-                (flash_o, flash_r),
-                (bedtools_o, bedtools_r),
-                (java_o, java_r),
-                (pysamstats_o, pysamstats_r),
-                (rscript_o, rscript_r)]
+    def modify_conf_files(self, dep_roots, cfg_files):
+        """Replace hardcoded paths in config files."""
 
-            # iterating through all tuples & replacing in string stored in memory
-            for searched_str, replace_str in text_to_replace:
-                data = data.replace(searched_str, replace_str)
-            fin.close()
-            # override the original conf.txt file with modified conf.txt string stored in memory
-            fin = open(curr_config_file, "wt")
-            fin.write(data)
-            fin.close()
+        abra2_jar = os.path.join(dep_roots['ABRA2'], 'abra2-%s.jar' % os.getenv('EBVERSIONABRA2'))
+        pysamstats_bin = os.path.join(dep_roots['pysamstats'], 'bin', 'pysamstats')
+
+        regex_subs = [
+            (r'^abra\s*=.*/abra.*.jar', 'abra = ' + abra2_jar),
+            (r'^bedtools\s*=.*/bin/bedtools', 'bedtools = ' + os.path.join(dep_roots['BEDTools'], 'bin', 'bedtools')),
+            (r'^flash\s*=.*/bin/flash2', 'flash = ' + os.path.join(dep_roots['FLASH'], 'bin', 'flash2')),
+            (r'^java\s*=.*/bin/java', 'java = ' + os.path.join(dep_roots['Java'], 'bin', 'java')),
+            (r'^prinseq\s*=.*/prinseq-lite.pl', 'prinseq = ' + os.path.join(dep_roots['PRINSEQ'], 'prinseq-lite.pl')),
+            (r'^pysamstats\s*=.*/bin/pysamstats', 'pysamstats = ' + pysamstats_bin),
+            (r'^rscript\s*=.*/bin/Rscript', 'rscript = ' + os.path.join(dep_roots['R'], 'bin', 'Rscript')),
+            (r'^samtools\s*=.*/bin/samtools', 'samtools = ' + os.path.join(dep_roots['SAMtools'], 'bin', 'samtools')),
+        ]
+
+        for cfg_file in cfg_files:
+            dirname = os.path.dirname(cfg_file)
+            if os.path.basename(dirname).startswith('example'):
+                example_dir = dirname
+            else:
+                example_dir = os.path.join(self.installdir, 'Examples', 'example1')
+
+            genome_dir = os.path.join(example_dir, 'genome')
+            genomex_fa = os.path.join(genome_dir, 'genomex.fa')
+
+            regex_subs.extend([
+                (r'^ref_fasta\s*=.*genome/genomex.fa', 'ref_fasta = ' + genomex_fa),
+                (r'^bwa_idx\s*=.*genome/genomex.fa', 'bwa_idx = ' + genomex_fa),
+                (r'^refGene\s*=.*genome/refgenex.txt', 'refGene = ' + os.path.join(genome_dir, 'refgenex.txt')),
+            ])
+
+            apply_regex_substitutions(cfg_file, regex_subs, on_missing_match='error')
