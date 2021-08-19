@@ -409,7 +409,7 @@ Version: %(version)s
             pc_file['root'] = self.installdir
             pc_file['version'] = self.system_ssl['version']
 
-            # define component name in system pkg-config
+            # component name in system pkg-config
             pc_name = pc_comp
             if self.majmin_version == '1.1':
                 # check suffixed names with v1.1
@@ -418,14 +418,20 @@ Version: %(version)s
                 if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False):
                     pc_name = pc_name_suffix
 
-            # format requires
+            # get requires from pkg-config
             pc_file['requires'] = []
             for require_type in ['Requires', 'Requires.private']:
                 require_print = require_type.lower().replace('.', '-')
                 requires, _ = run_cmd("pkg-config --print-%s %s" % (require_print, pc_name), simple=False)
+
                 if requires:
+                    # use unsuffixed names for components provided by this wrapper
+                    for wrap_comp in openssl_components:
+                        requires = re.sub(r'^%s[0-9]+$' % wrap_comp, wrap_comp, requires, flags=re.M)
+                    # format requires
                     requires = requires.rstrip().splitlines()
                     pc_file['requires'].append("%s: %s" % (require_type, ' '.join(requires)))
+
             pc_file['requires'] = '\n'.join(pc_file['requires'])
 
             if pc_comp.startswith('lib'):
