@@ -356,8 +356,13 @@ class EB_GROMACS(CMakeMake):
                             raise EasyBuildError("Failed to find libsci library to link with for %s", libname)
                     else:
                         # -DGMX_BLAS_USER & -DGMX_LAPACK_USER require full path to library
-                        libs = os.getenv('%s_STATIC_LIBS' % libname).split(',')
-                        libpaths = [os.path.join(libdir, lib) for lib in libs if lib != 'libgfortran.a']
+                        # prefer shared libraries when using FlexiBLAS-based toolchain
+                        if self.toolchain.blas_family() == toolchain.FLEXIBLAS:
+                            libs = os.getenv('%s_SHARED_LIBS' % libname).split(',')
+                        else:
+                            libs = os.getenv('%s_STATIC_LIBS' % libname).split(',')
+
+                        libpaths = [os.path.join(libdir, lib) for lib in libs if not lib.startswith('libgfortran')]
                         self.cfg.update('configopts', '-DGMX_%s_USER="%s"' % (libname, ';'.join(libpaths)))
                         # if libgfortran.a is listed, make sure it gets linked in too to avoiding linking issues
                         if 'libgfortran.a' in libs:
