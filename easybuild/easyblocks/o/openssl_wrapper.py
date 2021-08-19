@@ -404,20 +404,19 @@ Version: %(version)s
         mkdir(pc_install_dir)
 
         for pc_comp in openssl_components:
-
             pc_file = openssl_components[pc_comp]
+
+            pc_file['root'] = self.installdir
+            pc_file['version'] = self.system_ssl['version']
 
             # define component name in system pkg-config
             pc_name = pc_comp
             if self.majmin_version == '1.1':
                 # check suffixed names with v1.1
                 pc_name_suffix = pc_name + '11'
-                out, ec = run_cmd("pkg-config --exists %s" % pc_name_suffix, simple=False)
-                if ec == 0:
+                pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
+                if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False):
                     pc_name = pc_name_suffix
-
-            pc_file['root'] = self.installdir
-            pc_file['version'] = self.system_ssl['version']
 
             # format requires
             pc_file['requires'] = []
