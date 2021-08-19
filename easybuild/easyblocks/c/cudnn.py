@@ -50,5 +50,6 @@ class EB_cuDNN(Tarball):
 
         super(EB_cuDNN, self).__init__(*args, **kwargs)
 
+        self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
