@@ -126,8 +126,6 @@ class EB_Siesta(ConfigureMake):
         # Populate start_dir with makefiles
         run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
 
-        use_configure = False
-
         if loose_ver < LooseVersion('4.1.0.2'):
             # MPI?
             if self.toolchain.options.get('usempi', None):
