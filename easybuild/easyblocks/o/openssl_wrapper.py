@@ -442,10 +442,10 @@ Version: %(version)s
                 # infer private libs through pkg-config
                 linker_libs, _ = run_cmd("pkg-config --libs %s" % pc_name, simple=False)
                 all_libs, _ = run_cmd("pkg-config --libs --static %s" % pc_name, simple=False)
-                libs_priv = " %s" % all_libs.rstrip()
+                libs_priv = "%s " % all_libs.rstrip()
                 for flag in linker_libs.rstrip().split(' '):
-                    libs_priv = libs_priv.replace(" %s" % flag, '')
-                pc_file['libs'] += "\nLibs.private:%s" % libs_priv
+                    libs_priv = libs_priv.replace("%s " % flag, '')
+                pc_file['libs'] += "\nLibs.private: %s" % libs_priv
             else:
                 pc_file['libs'], pc_file['cflags'] = '', ''
 
