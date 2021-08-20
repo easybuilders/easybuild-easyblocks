@@ -71,7 +71,7 @@ class EB_Siesta(ConfigureMake):
         arch_make = os.path.join(obj_dir, 'arch.make')
         bindir = os.path.join(start_dir, 'bin')
 
-        version = self.version.replace('-b', '.0.2')
+        version = self.version.replace('-b', '.0.2.')
         loose_ver = LooseVersion(version)
 
         par = ''
@@ -126,7 +126,7 @@ class EB_Siesta(ConfigureMake):
         # Populate start_dir with makefiles
         run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
 
-        if loose_ver < LooseVersion('4.1.0.2'):
+        if loose_ver < LooseVersion('4.1.0.2.2'):
             # MPI?
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', '--enable-mpi')
@@ -300,7 +300,7 @@ class EB_Siesta(ConfigureMake):
             # remove clean at the end of default target
             # And yes, they are re-introducing this bug.
             is_ver40_to_401 = loose_ver >= LooseVersion('4.0') and loose_ver < LooseVersion('4.0.2')
-            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1.0.23')):
+            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1.0.2.3')):
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
                 apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
@@ -423,7 +423,7 @@ class EB_Siesta(ConfigureMake):
             change_dir(obj_dir)
 
             ts_clean_target = 'clean'
-            if loose_ver >= LooseVersion('4.1.0.24'):
+            if loose_ver >= LooseVersion('4.1.0.2.4'):
                 ts_clean_target += '-transiesta'
 
             run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)
