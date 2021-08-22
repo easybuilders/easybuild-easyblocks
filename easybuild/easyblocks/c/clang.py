@@ -58,10 +58,10 @@ CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
 
 # Mapping of EasyBuild CPU architecture names to default LLVM target names
 DEFAULT_TARGETS_MAP = {
-    AARCH32: 'ARM',
-    AARCH64: 'AArch64',
-    POWER: 'PowerPC',
-    X86_64: 'X86',
+    AARCH32: ['ARM'],
+    AARCH64: ['AArch64'],
+    POWER: ['PowerPC'],
+    X86_64: ['X86'],
 }
 
 
@@ -194,7 +194,7 @@ class EB_Clang(CMakeMake):
         if build_targets is None:
             arch = get_cpu_architecture()
             try:
-                default_targets = [DEFAULT_TARGETS_MAP[arch]]
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
                 # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
                 if get_software_root("CUDA"):
                     default_targets += ["NVPTX"]

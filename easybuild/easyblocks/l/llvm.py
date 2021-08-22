@@ -66,7 +66,7 @@ class EB_LLVM(CMakeMake):
         if build_targets is None:
             arch = get_cpu_architecture()
             try:
-                default_targets = [DEFAULT_TARGETS_MAP[arch]]
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             except KeyError:
