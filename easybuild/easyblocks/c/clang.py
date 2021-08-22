@@ -56,12 +56,12 @@ CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
                  "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "Sparc",
                  "SystemZ", "X86", "XCore"]
 
-# Mapping of EasyBuild CPU architecture names to list of default LLVM target names
+# Mapping of EasyBuild CPU architecture names to default LLVM target names
 DEFAULT_TARGETS_MAP = {
-    AARCH32: ['ARM'],
-    AARCH64: ['AArch64'],
-    POWER: ['PowerPC'],
-    X86_64: ['X86'],
+    AARCH32: 'ARM',
+    AARCH64: 'AArch64',
+    POWER: 'PowerPC',
+    X86_64: 'X86',
 }
 
 
@@ -193,14 +193,14 @@ class EB_Clang(CMakeMake):
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
+            try:
+                default_targets = [DEFAULT_TARGETS_MAP[arch]]
                 # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
                 if get_software_root("CUDA"):
                     default_targets += ["NVPTX"]
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            else:
+            except KeyError:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
         # carry on with empty list from this point forward if no build targets are specified
