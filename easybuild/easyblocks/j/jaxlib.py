@@ -101,7 +101,7 @@ class EB_jaxlib(PythonPackage):
             options.extend([
                 '--enable_cuda',
                 '--cuda_path=' + cuda_root,
-                '--cuda_compute_capabilities=' + self.cfg.template_values['cuda_compute_capabilities'],
+                '--cuda_compute_capabilities=' + self.cfg.get_cuda_cc_template_value('cuda_compute_capabilities'),
                 '--cuda_version=' + cuda_version,
                 '--cudnn_path=' + cudnn_root,
                 '--cudnn_version=' + cudnn_version,
