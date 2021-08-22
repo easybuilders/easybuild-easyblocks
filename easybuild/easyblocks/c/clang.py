@@ -56,7 +56,7 @@ CLANG_TARGETS = ["all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
                  "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "Sparc",
                  "SystemZ", "X86", "XCore"]
 
-# Mapping of EasyBuild CPU architecture names to default LLVM target names
+# Mapping of EasyBuild CPU architecture names to list of default LLVM target names
 DEFAULT_TARGETS_MAP = {
     AARCH32: ['ARM'],
     AARCH64: ['AArch64'],
