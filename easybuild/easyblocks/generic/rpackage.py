@@ -162,7 +162,8 @@ class RPackage(ExtensionEasyBlock):
     def install_R_package(self, cmd, inp=None):
         """Install R package as specified, and check for errors."""
 
-        cmdttdouterr, _ = run_cmd(cmd, log_all=True, simple=False, inp=inp, regexp=False)
+        cmd_full = "%s %s" % (self.cfg['prebuildopts'], cmd)
+        cmdttdouterr, _ = run_cmd(cmd_full, log_all=True, simple=False, inp=inp, regexp=False)
 
         cmderrors = parse_log_for_error(cmdttdouterr, regExp="^ERROR:")
         if cmderrors:
