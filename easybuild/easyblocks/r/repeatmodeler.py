@@ -162,7 +162,7 @@ class EB_RepeatModeler(Tarball):
         ]) % required_deps
 
         if with_LTR:
-            cmdopts +=  ' ' + ' '.join([
+            cmdopts += ' ' + ' '.join([
                 '-mafft_dir "%(MAFFT)s"',
                 '-genometools_dir "%(GenomeTools)s"',
                 '-ltr_retriever_dir "%(LTR_retriever)s"',
