@@ -190,10 +190,13 @@ class EB_WIEN2k(EasyBlock):
         # configure with patched configure script
         self.log.debug('%s part I (configure)' % self.cfgscript)
 
-        perlroot = get_software_root('Perl')
-        if perlroot is None:
-            raise EasyBuildError("Perl is a required dependency of WIEN2k")
-        self.perlbin = os.path.join(perlroot, 'bin', 'perl')
+        if LooseVersion(self.version) >= LooseVersion('21'):
+            perlroot = get_software_root('Perl')
+            if perlroot is None:
+                raise EasyBuildError("Perl is a required dependency of WIEN2k as of version 21")
+            self.perlbin = os.path.join(perlroot, 'bin', 'perl')
+        else:
+            self.perlbin = ''
 
         cmd = "./%s" % self.cfgscript
         qanda = {
