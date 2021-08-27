@@ -29,7 +29,6 @@ EasyBuild support for building and installing RepeatModeler, implemented as an e
 """
 
 import os
-import re
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.easyblocks.perl import get_site_suffix
@@ -40,11 +39,15 @@ from easybuild.tools.run import run_cmd_qa
 
 
 def get_dep_path(dep_name, rel_path, log, optional):
-    """Check for dependency. If it exists return full path, else empty string"""
+    """
+    Check for dependency, raise error if it's not available (unless optional=True is used).
+    Return full path to specified relative path in dependency installation directory,
+    return None if optional dependency is not found.
+    """
 
     dep_root = get_software_root(dep_name)
     if dep_root:
-        dep = os.path.join(dep_root, *rel_path)
+        dep = os.path.join(dep_root, rel_path)
         return dep
     elif optional:
         log.info("Optional dependency not found: %s" % dep_name)
@@ -62,28 +65,28 @@ class EB_RepeatModeler(Tarball):
 
         # Required dependencies, and bin path relative to software root
         required_deps = {
-            'Perl': ['bin', 'perl'],
-            'TRF': ['bin', 'trf'],
-            'RECON': ['bin'],
-            'RepeatMasker': [],
-            'RepeatScout': [],
-            'Kent_tools': ['bin'],
-            'CD-HIT': ['bin'],
+            'CD-HIT': 'bin',
+            'Kent_tools': 'bin',
+            'Perl': os.path.join('bin', 'perl'),
+            'RECON': 'bin',
+            'RepeatMasker': '',
+            'RepeatScout': '',
+            'TRF': os.path.join('bin', 'trf'),
         }
 
         # Search engines, and bin path relative to software root
         search_engines = {
-            'RMBlast': ['bin'],
-            'ABBlast': ['bin'],
-            'WUBlast': ['bin'],
+            'ABBlast': 'bin',
+            'RMBlast': 'bin',
+            'WUBlast': 'bin',
         }
 
         # Optional dependencies for LTR pipeline, and bin path relative to software root
         optional_LTR_deps = {
-            'MAFFT': ['bin'],
-            'GenomeTools': ['bin'],
-            'LTR_retriever': [],
-            'TWL-NINJA': ['bin'],
+            'GenomeTools': 'bin',
+            'LTR_retriever': '',
+            'MAFFT': 'bin',
+            'TWL-NINJA': 'bin',
         }
 
         for dep, path in required_deps.items():
@@ -111,8 +114,8 @@ class EB_RepeatModeler(Tarball):
 
         # Map search engine to configuration option
         search_engine_map = {
-            'RMBlast': '1',
             'ABBlast': '2',
+            'RMBlast': '1',
             'WUBlast': '2',
         }
 
@@ -122,15 +125,10 @@ class EB_RepeatModeler(Tarball):
         change_dir(self.installdir)
 
         # Fix perl shebang in configure script (#!/usr/local/bin/perl)
-        shebang_re = re.compile(r'^#!/.*perl')
-        new_shebang = "#!/usr/bin/env perl"
-        try:
-            configure_script = os.path.join(self.installdir, 'configure')
-            txt = open(configure_script, 'r').read()
-            txt = shebang_re.sub(new_shebang, txt)
-            txt = shebang_re.sub(new_shebang, txt)
-        except IOError as err:
-            raise EasyBuildError("Failed to patch shebang header in %s: %s", configure_script, err)
+        orig_fix_perl_shebang_for = self.cfg['fix_perl_shebang_for']
+        self.cfg['fix_perl_shebang_for'] = [os.path.join(self.installdir, 'configure')]
+        self.fix_shebang()
+        self.cfg['fix_perl_shebang_for'] = orig_fix_perl_shebang_for
 
         patch_perl_script_autoflush('configure')
 
