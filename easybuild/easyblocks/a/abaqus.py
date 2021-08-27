@@ -30,6 +30,7 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Simon Branford (University of Birmingham)
 """
 from distutils.version import LooseVersion
 import glob
@@ -41,6 +42,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import change_dir, write_file
 from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.py2vs3 import OrderedDict
 
 
 class EB_ABAQUS(Binary):
@@ -85,30 +87,66 @@ class EB_ABAQUS(Binary):
             change_dir(os.path.join(self.cfg['start_dir'], '1'))
             qa = {
                 "Enter selection (default: Install):": '',
+                "Enter selection (default: Close):": '',
             }
             no_qa = [
                 '___',
-                r'\(\d+ MB\)',
+                r"\(\d+\s*[KM]B\)",
             ]
-            std_qa = {
-                # disable installation of Tosca (6) and Isight (7)
-                r"Isight\nEnter selection \(default: Next\):": '6\n7\n\n',
-                r"(?<!Isight)\nEnter selection \(default: Next\):": '',
-                r"SIMULIA[0-9]*doc.*:": os.path.join(self.installdir, 'doc'),
-                r"SimulationServices.*:": os.path.join(self.installdir, 'sim'),
-                r"Choose the CODE installation directory.*:\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                r"SIMULIA/CAE.*:": os.path.join(self.installdir, 'cae'),
-                r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*": os.path.join(self.installdir, 'sim'),
-                r"Default.*SIMULIA/Commands\]:\s*": os.path.join(self.installdir, 'Commands'),
-                r"Default.*SIMULIA/CAE/plugins.*:\s*": os.path.join(self.installdir, 'plugins'),
-                r"Default.*SIMULIA/Isight.*:\s*": os.path.join(self.installdir, 'Isight'),
-                r"License Server [0-9]+\s*(\n.*){3}:": 'abaqusfea',  # bypass value for license server
-                r"License Server . \(redundant\)\s*(\n.*){3}:": '',
-                r"Please choose an action:": '1',
-                r"SIMULIA/Tosca.*:": os.path.join(self.installdir, 'tosca'),
-                r"location of your existing ANSA installation.*(\n.*){8}:": '',
-                r"FLUENT Path.*(\n.*){7}:": '',
-            }
+
+            # Match string for continuing on with the selected items
+            nextstr = r"Enter selection \(default: Next\):\s*"
+
+            # Allow for selection or deselection of components from lines of the form:
+            #   5 [*] Tosca Fluid
+            # This uses nextstr to make sure we only match the latest output in the Q&A process;
+            # negative lookahead (?!___) is used to exclude ___...___ lines, to avoid matching across questions
+            selectionstr = r"\s*(?P<nr>[-0-9]+) %%s %%s[ \w]*\n((?!%s)(?!___)[\S ]*\n)*%s$" % (nextstr, nextstr)
+
+            # ensure question patterns are considered in order by using an OrderedDict instance,
+            # rather than a regular dictionary (where there's no guarantee on key order in general)
+            std_qa = OrderedDict()
+
+            # Enable Extended Product Documentation
+            std_qa[selectionstr % (r"\[ \]", "Extended Product Documentation")] = "%(nr)s"
+            # Enable Abaqus CAE (docs)
+            std_qa[selectionstr % (r"\[ \]", "Abaqus CAE")] = "%(nr)s"
+            # Disable Tosca
+            std_qa[selectionstr % (r"\[\*\]", "Tosca")] = "%(nr)s"
+            # Disable Isight
+            std_qa[selectionstr % (r"\[\*\]", "Isight")] = "%(nr)s"
+            # Disable Search using EXALEAD
+            std_qa[r"\s*(?P<exalead>[0-9]+) \[X\] Search using EXALEAD\nEnter selection:"] = '%(exalead)s\n\n'
+
+            # Directories
+            cae_subdir = os.path.join(self.installdir, 'cae')
+            sim_subdir = os.path.join(self.installdir, 'sim')
+            std_qa[r"Default.*SIMULIA/EstProducts.*:"] = cae_subdir
+            std_qa[r"SIMULIA[0-9]*doc.*:"] = os.path.join(self.installdir, 'doc')
+            std_qa[r"SimulationServices.*:"] = sim_subdir
+            std_qa[r"Choose the CODE installation directory.*:\n.*\n\n.*:"] = sim_subdir
+            std_qa[r"SIMULIA/CAE.*:"] = cae_subdir
+            std_qa[r"location of your Abaqus services \(solvers\).*(\n.*){8}:\s*"] = sim_subdir
+            std_qa[r"Default.*SIMULIA/Commands\]:\s*"] = os.path.join(self.installdir, 'Commands')
+            std_qa[r"Default.*SIMULIA/CAE/plugins.*:\s*"] = os.path.join(self.installdir, 'plugins')
+            std_qa[r"Default.*SIMULIA/Isight.*:\s*"] = os.path.join(self.installdir, 'Isight')
+            std_qa[r"Default.*SIMULIA/fe-safe/.*:"] = os.path.join(self.installdir, 'fe-safe')
+            std_qa[r"Default.*SIMULIA/Tosca.*:"] = os.path.join(self.installdir, 'tosca')
+
+            std_qa[r"location of your existing ANSA installation.*(\n.*){8}:"] = ''
+            std_qa[r"FLUENT Path.*(\n.*){7}:"] = ''
+            std_qa[r"working directory to be used by Tosca Fluid\s*(\n.*)*Default \[/usr/temp\]:\s*"] = '/tmp'
+
+            # License server
+            std_qa[r"License Server [0-9]+\s*(\n.*){3}:"] = 'abaqusfea'  # bypass value for license server
+            std_qa[r"License Server . \(redundant\)\s*(\n.*){3}:"] = ''
+            std_qa[r"License Server Configuration((?!___).*\n)*" + nextstr] = ''
+
+            std_qa[r"Please choose an action:"] = '1'
+
+            # Continue
+            std_qa[nextstr] = ''
+
             run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
         else:
             change_dir(self.builddir)
@@ -138,11 +176,10 @@ class EB_ABAQUS(Binary):
                         raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
                     cwd = change_dir(os.path.join(subdir, '1'))
-                    std_qa = {
-                        r"Enter selection \(default: Next\):": '',
-                        "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'sim'),
-                        r"Enter selection \(default: Install\):": '',
-                    }
+                    std_qa = OrderedDict()
+                    std_qa[r"Enter selection \(default: Next\):"] = ''
+                    std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'sim')
+                    std_qa[r"Enter selection \(default: Install\):"] = ''
                     run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
                     # F_CAASIMULIAComputeServicesBuildTime part
@@ -167,13 +204,12 @@ class EB_ABAQUS(Binary):
                     raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
                 cwd = change_dir(os.path.join(subdir, '1'))
-                std_qa = {
-                    r"Enter selection \(default: Next\):": '',
-                    "Choose the .*installation directory.*\n.*\n\n.*:": os.path.join(self.installdir, 'cae'),
-                    r"Enter selection \(default: Install\):": '',
-                    r"\[1\] Continue\n(?:.|\n)*Please choose an action:": '1',
-                    r"\[2\] Continue\n(?:.|\n)*Please choose an action:": '2',
-                }
+                std_qa = OrderedDict()
+                std_qa[r"Enter selection \(default: Next\):"] = ''
+                std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'cae')
+                std_qa[r"Enter selection \(default: Install\):"] = ''
+                std_qa[r"\[1\] Continue\n(?:.|\n)*Please choose an action:"] = '1'
+                std_qa[r"\[2\] Continue\n(?:.|\n)*Please choose an action:"] = '2'
                 no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
                 run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
 
@@ -186,7 +222,9 @@ class EB_ABAQUS(Binary):
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
-            custom_paths['dirs'].extend(['cae', 'Commands', 'doc', 'sim'])
+            custom_paths['dirs'].extend(['cae', 'Commands', 'doc'])
+            if LooseVersion(self.version) < LooseVersion('2020'):
+                custom_paths['dirs'].extend(['sim'])
             # 'all' also check license server, but lmstat is usually not available
             custom_commands.append("abaqus information=system")
         else:
