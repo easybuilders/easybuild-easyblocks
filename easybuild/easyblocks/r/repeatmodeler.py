@@ -152,13 +152,22 @@ class EB_RepeatModeler(Tarball):
             r'LTR.*\[optional](.*\n)*of analysis \[y] or n\?\:\s*': with_LTR,
         }
 
-        cmdopts = ' -trf_prgm "%s" -repeatmasker_dir "%s" -rscout_dir "%s" -recon_dir "%s" -ucsctools_dir "%s"' \
-                  ' -cdhit_dir "%s"' % tuple([required_deps[x] for x in ['TRF', 'RepeatMasker', 'RepeatScout', 'RECON',
-                                                                         'Kent_tools', 'CD-HIT']])
+        cmdopts = ' ' + ' '.join([
+            '-trf_prgm "%(TRF)s"',
+            '-repeatmasker_dir "%(RepeatMasker)s"',
+            '-rscout_dir "%(RepeatScout)s"',
+            '-recon_dir "%(RECON)s"',
+            '-ucsctools_dir "%(Kent_tools)s"',
+            '-cdhit_dir "%(CD-HIT)s"',
+        ]) % required_deps
 
         if with_LTR:
-            cmdopts += ' -mafft_dir "%s" -genometools_dir "%s" -ltr_retriever_dir "%s" -ninja_dir "%s"' % \
-                tuple(optional_LTR_deps.values())
+            cmdopts +=  ' ' + ' '.join([
+                '-mafft_dir "%(MAFFT)s"',
+                '-genometools_dir "%(GenomeTools)s"',
+                '-ltr_retriever_dir "%(LTR_retriever)s"',
+                '-ninja_dir "%(TWL-NINJA)s"',
+            ]) % optional_LTR_deps
 
         cmd = "perl ./configure" + cmdopts
         run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=100)
