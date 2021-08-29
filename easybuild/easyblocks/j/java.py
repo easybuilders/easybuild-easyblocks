@@ -108,17 +108,20 @@ class EB_Java(PackedBinary):
 
                 # find path to ELF interpreter
                 elf_interp = None
-                res = glob.glob(os.path.join(sysroot, 'lib*', r'ld-linux-*.so.*'))
-                self.log.debug("Paths for ELF interpreter: %s", res)
-                if res:
-                    # if there are multiple hits, make sure they resolve to the same paths,
-                    # but keep using the symbolic link, not the resolved path!
-                    uniq_real_paths = nub([os.path.realpath(x) for x in res])
-                    if len(uniq_real_paths) == 1:
-                        elf_interp = res[0]
-                        self.log.info("ELF interpreter found at %s", elf_interp)
-                    else:
-                        raise EasyBuildError("Multiple different unique ELF interpreters found: %s", uniq_real_paths)
+
+                for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
+                    res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
+                    self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
+                    if res:
+                        # if there are multiple hits, make sure they resolve to the same paths,
+                        # but keep using the symbolic link, not the resolved path!
+                        real_paths = nub([os.path.realpath(x) for x in res])
+                        if len(real_paths) == 1:
+                            elf_interp = res[0]
+                            self.log.info("ELF interpreter found at %s", elf_interp)
+                            break
+                        else:
+                            raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
 
                 if elf_interp is None:
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
