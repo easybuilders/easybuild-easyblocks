@@ -178,6 +178,8 @@ class EB_OpenMPI(ConfigureMake):
         # Add minimal test program to sanity checks
         # Run with correct MPI launcher
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
+        # Limit number of ranks to 8 to avoid it failing due to hyperthreading
+        ranks = min(8, self.cfg['parallel'])
         for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
             src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
             if os.path.exists(src_path):
@@ -185,23 +187,15 @@ class EB_OpenMPI(ConfigureMake):
                 self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
 
                 # Build test binary
-                build_cmd = "%s %s -o %s" % (compiler, src_path, test_exe)
+                custom_commands.append("%s %s -o %s" % (compiler, src_path, test_exe))
 
-                # Skip running the test if chosen
-                if not build_option('mpi_tests'):
-                    continue
-
-                # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-                ranks = min(8, self.cfg['parallel'])
-                params.update({'nr_ranks': ranks, 'cmd': test_exe})
-
-                custom_commands.extend([
-                    build_cmd,  # build test program
-                    mpi_cmd_tmpl % params,  # run test program
-                ])
-                # Run with 1 process which may trigger other bugs
-                # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
-                params['nr_ranks'] = 1
-                custom_commands.append(mpi_cmd_tmpl % params)
+                # Run the test if chosen
+                if build_option('mpi_tests'):
+                    params.update({'nr_ranks': ranks, 'cmd': test_exe})
+                    custom_commands.append(mpi_cmd_tmpl % params)
+                    # Run with 1 process which may trigger other bugs
+                    # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
+                    params['nr_ranks'] = 1
+                    custom_commands.append(mpi_cmd_tmpl % params)
 
         super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
