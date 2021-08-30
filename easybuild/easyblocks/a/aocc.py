@@ -109,11 +109,17 @@ class EB_AOCC(PackedBinary):
             perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
             adjust_permissions(wrapper_f, perms)
 
-        compilers_to_wrap = ['clang','clang++','clang-%s' % LooseVersion(self.clangversion).version[0],'clang-cpp','flang']
+        compilers_to_wrap = [
+            'clang',
+            'clang++',
+            'clang-%s' % LooseVersion(self.clangversion).version[0],
+            'clang-cpp',
+            'flang'
+        ]
 
         # Rename original compilers and prepare wrappers to pick up GCCcore as GCC toolchain for the compilers
         for comp in (compilers_to_wrap or []):
-            actual_compiler = os.path.join(self.installdir,'bin',comp)
+            actual_compiler = os.path.join(self.installdir, 'bin', comp)
             if os.path.isfile(actual_compiler):
                 move_file(actual_compiler, '%s.orig' % actual_compiler)
             else:
@@ -123,8 +129,8 @@ class EB_AOCC(PackedBinary):
                                                     '%s.orig' % actual_compiler))
 
             if not os.path.exists(actual_compiler):
-              create_wrapper(comp)
-              self.log.info("Wrapper for %s successfully created", comp)
+                create_wrapper(comp)
+                self.log.info("Wrapper for %s successfully created", comp)
             else:
                 err_str = "Creating wrapper for '{!s}'" \
                           " not possible, since original" \
