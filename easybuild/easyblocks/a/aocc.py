@@ -32,11 +32,22 @@ Support for installing AOCC, implemented as an easyblock.
 """
 
 import os
+import stat
+
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.filetools import adjust_permissions
+from easybuild.tools.filetools import move_file, write_file
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+# Wrapper script definition
+WRAPPER_TEMPLATE = """#!/bin/sh
+
+%(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@"
+"""
 
 
 class EB_AOCC(PackedBinary):
@@ -87,6 +98,41 @@ class EB_AOCC(PackedBinary):
 
         super(EB_AOCC, self).install_step()
 
+    def post_install_step(self):
+        """Create wrappers for the compilers to make sure compilers picks up GCCcore as GCC toolchain"""
+        def create_wrapper(wrapper_comp):
+            """Create for a particular compiler, with a particular name"""
+            wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
+            write_file(wrapper_f, WRAPPER_TEMPLATE % {
+                'compiler_name': '%s.orig' % wrapper_comp,
+            })
+            perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
+            adjust_permissions(wrapper_f, perms)
+
+        compilers_to_wrap = ['clang','clang++','clang-%s' % LooseVersion(self.clangversion).version[0],'clang-cpp','flang']
+
+        # Rename original compilers and prepare wrappers to pick up GCCcore as GCC toolchain for the compilers
+        for comp in (compilers_to_wrap or []):
+            actual_compiler = os.path.join(self.installdir,'bin',comp)
+            if os.path.isfile(actual_compiler):
+                move_file(actual_compiler, '%s.orig' % actual_compiler)
+            else:
+                err_str = "Tried to move '{!s}' to '{!s}', " \
+                          " but it doesn't exist!"
+                raise EasyBuildError(err_str.format(actual_compiler,
+                                                    '%s.orig' % actual_compiler))
+
+            if not os.path.exists(actual_compiler):
+              create_wrapper(comp)
+              self.log.info("Wrapper for %s successfully created", comp)
+            else:
+                err_str = "Creating wrapper for '{!s}'" \
+                          " not possible, since original" \
+                          " compiler was not renamed!"
+                raise EasyBuildError(err_str.format(actual_compiler))
+
+        super(EB_AOCC, self).post_install_step()
+
     def sanity_check_step(self):
         """Custom sanity check for AOCC, based on sanity check for Clang."""
         shlib_ext = get_shared_lib_ext()
@@ -117,9 +163,6 @@ class EB_AOCC(PackedBinary):
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
         # setting the AOCChome path
         txt += self.module_generator.set_environment('AOCChome', self.installdir)
-        # make sure clang/flang picks up GCCcore as GCC toolchain
-        txt += self.module_generator.set_alias('clang', 'clang --gcc-toolchain=$EBROOTGCCCORE')
-        txt += self.module_generator.set_alias('flang', 'flang --gcc-toolchain=$EBROOTGCCCORE')
         return txt
 
     def make_module_req_guess(self):
