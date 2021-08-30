@@ -156,6 +156,6 @@ class EB_Modeller(PythonPackage):
             'files': ["bin/mod%s" % self.version, "bin/modpy.sh", 'bin/mod'],
             'dirs': ["doc", "lib", "examples"],
         }
-        if self.loosever < LooseVersion('10.0'): 
+        if self.loosever < LooseVersion('10.0'):
             custom_paths['files'].append('bin/modslave.py')
         super(EB_Modeller, self).sanity_check_step(custom_paths=custom_paths)
