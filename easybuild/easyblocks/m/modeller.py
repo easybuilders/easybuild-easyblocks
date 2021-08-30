@@ -135,7 +135,7 @@ class EB_Modeller(PythonPackage):
             and f != '_modeller.'+get_shared_lib_ext()]:
                 dst = os.path.join(self.installdir, 'lib', src)
                 if not os.path.exists(dst):
-                  os.symlink(os.path.join(self.arch_, src), dst)
+                    os.symlink(os.path.join(self.arch_, src), dst)
         # provide bin/mod -> bin/mod%(version)s
         if not os.path.exists(os.path.join(self.installdir, 'bin', 'mod')):
             os.symlink(os.path.join('mod' + self.version), os.path.join(self.installdir, 'bin', 'mod')),
@@ -156,6 +156,6 @@ class EB_Modeller(PythonPackage):
             'files': ["bin/mod%s" % self.version, "bin/modpy.sh", 'bin/mod'],
             'dirs': ["doc", "lib", "examples"],
         }
-        if self.loosever < LooseVersion('10.0'):
+        if self.loosever < LooseVersion('10.0'): 
             custom_paths['files'].append('bin/modslave.py')
         super(EB_Modeller, self).sanity_check_step(custom_paths=custom_paths)
