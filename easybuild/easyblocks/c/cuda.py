@@ -173,7 +173,7 @@ class EB_CUDA(Binary):
             if p5lib == '':
                 p5lib = self.builddir
             else:
-                p5lib = os.pathsep.join(self.builddir, p5lib)
+                p5lib = os.pathsep.join([self.builddir, p5lib])
             env.setvar('PERL5LIB', p5lib)
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
