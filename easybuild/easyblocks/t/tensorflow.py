@@ -148,7 +148,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('LMDB', '2.0.0:'): 'lmdb',
         ('NASM', '2.0.0:'): 'nasm',
         ('nsync', '2.0.0:'): 'nsync',
-        ('PCRE', '2.0.0:'): 'pcre',
+        ('PCRE', '2.0.0:2.6.0'): 'pcre',
         ('protobuf', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
         ('snappy', '2.0.0:'): 'snappy',
