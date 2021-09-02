@@ -212,28 +212,59 @@ class EB_ABAQUS(Binary):
                     else:
                         raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
-                    change_dir(os.path.join(cwd, subdir, '1'))
+                    cwd = change_dir(os.path.join(cwd, subdir, '1'))
                     run_cmd_qa('./StartTUI.sh', {}, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    change_dir(cwd)
 
-                # next install Part_SIMULIA_Abaqus_CAE hotfix
+                # next install Part_SIMULIA_Abaqus_CAE hotfix (ABAQUS versions <= 2020)
                 hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_Abaqus_CAE.Linux64', '1', 'Software')
-                change_dir(hotfix_dir)
+                if os.path.exists(hotfix_dir):
+                    change_dir(hotfix_dir)
 
-                subdirs = glob.glob('SIMULIA_Abaqus_CAE.HF*.Linux64')
-                if len(subdirs) == 1:
-                    subdir = subdirs[0]
-                else:
-                    raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+                    subdirs = glob.glob('SIMULIA_Abaqus_CAE.HF*.Linux64')
+                    if len(subdirs) == 1:
+                        subdir = subdirs[0]
+                    else:
+                        raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
-                cwd = change_dir(os.path.join(subdir, '1'))
-                std_qa = OrderedDict()
-                std_qa[r"Enter selection \(default: Next\):"] = ''
-                std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'cae')
-                std_qa[r"Enter selection \(default: Install\):"] = ''
-                std_qa[r"\[1\] Continue\n(?:.|\n)*Please choose an action:"] = '1'
-                std_qa[r"\[2\] Continue\n(?:.|\n)*Please choose an action:"] = '2'
-                no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
-                run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    cwd = change_dir(os.path.join(subdir, '1'))
+                    std_qa = OrderedDict()
+                    std_qa[r"Enter selection \(default: Next\):"] = ''
+                    std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'cae')
+                    std_qa[r"Enter selection \(default: Install\):"] = ''
+                    std_qa[r"\[1\] Continue\n(?:.|\n)*Please choose an action:"] = '1'
+                    std_qa[r"\[2\] Continue\n(?:.|\n)*Please choose an action:"] = '2'
+                    no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
+                    run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    change_dir(cwd)
+
+                # install SIMULIA Established Products hotfix (ABAQUS versions > 2020)
+                hotfixes_estprd = [src for src in self.src if 'CFA' in src['name'] and 'EstPrd' in src['name']]
+                if hotfixes_estprd:
+                    hotfix_dir = os.path.join(self.builddir, 'Part_SIMULIA_EstPrd.Linux64', '1', 'Software')
+                    change_dir(hotfix_dir)
+
+                    subdirs = glob.glob('SIMULIA_EstPrd.HF*.Linux64')
+                    if len(subdirs) == 1:
+                        subdir = subdirs[0]
+                    else:
+                        raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
+
+                    cwd = change_dir(os.path.join(subdir, '1'))
+                    no_qa = [
+                        '___',
+                        '...',
+                        r'\(\d+[KM]B\)',
+                    ]
+                    std_qa = OrderedDict()
+                    std_qa[r"Enter selection \(default: Next\):"] = ''
+                    std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'cae')
+                    std_qa[r"Enter selection \(default: Install\):"] = ''
+                    std_qa[r"The Abaqus commands directory.*:\n.*\n+Actions:\n.*\n_+\n\nPlease.*:"] = '1'
+                    std_qa[r"Enter selection \(default: Close\):"] = ''
+
+                    run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+                    change_dir(cwd)
 
     def sanity_check_step(self):
         """Custom sanity check for ABAQUS."""
