@@ -39,7 +39,7 @@ from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.filetools import symlink
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 
 
 class EB_PyTorch(PythonPackage):
@@ -152,9 +152,23 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
-        else:
-            # This is what PyTorch defaults to if no MKL is found. Make this explicit here
+        elif LooseVersion(self.version) >= LooseVersion('1.9.0') and get_software_root('BLIS'):
+            options.append('BLAS=BLIS')
+            options.append('BLIS_HOME=' + get_software_root('BLIS'))
+            options.append('USE_MKLDNN_CBLAS=ON')
+        elif get_software_root('OpenBLAS'):
+            # This is what PyTorch defaults to if no MKL is found.
+            # Make this explicit here to avoid it finding MKL from the system
             options.append('BLAS=Eigen')
+            # Still need to set a BLAS lib to use.
+            # Valid choices: mkl/open/goto/acml/atlas/accelerate/veclib/generic (+blis for 1.9+)
+            options.append('WITH_BLAS=open')
+            # Make sure this option is actually passed to CMake
+            apply_regex_substitutions(os.path.join('tools', 'setup_helpers', 'cmake.py'), [
+                ("'BLAS',", "'BLAS', 'WITH_BLAS',")
+            ])
+        else:
+            raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
         dependency_names = set(dep['name'] for dep in self.cfg.dependencies())
