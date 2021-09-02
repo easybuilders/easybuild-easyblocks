@@ -52,7 +52,7 @@ class EB_ABAQUS(Binary):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'with_tosca': [False, "Enable installation of Tosca", CUSTOM],
+            'with_tosca': [None, "Enable installation of Tosca (if None: auto-enable for ABAQUS >= 2020)", CUSTOM],
         }
         return Binary.extra_options(extra_vars)
 
@@ -60,6 +60,10 @@ class EB_ABAQUS(Binary):
         """Initialisation of custom class variables for ABAQUS."""
         super(EB_ABAQUS, self).__init__(*args, **kwargs)
         self.replayfile = None
+
+        if self.cfg['with_tosca'] is None and LooseVersion(self.version) >= LooseVersion('2020'):
+            self.log.info("Auto-enabling installation of Tosca component for ABAQUS versions >= 2020")
+            self.cfg['with_tosca'] = True
 
     def extract_step(self):
         """Use default extraction procedure instead of the one for the Binary easyblock."""
