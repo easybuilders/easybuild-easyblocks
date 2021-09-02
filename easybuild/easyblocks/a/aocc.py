@@ -38,9 +38,8 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import adjust_permissions
-from easybuild.tools.filetools import move_file, write_file
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import adjust_permissions, move_file, write_file
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 # Wrapper script definition
@@ -100,12 +99,13 @@ class EB_AOCC(PackedBinary):
 
     def post_install_step(self):
         """Create wrappers for the compilers to make sure compilers picks up GCCcore as GCC toolchain"""
+
+        orig_compiler_tmpl = '%s.orig'
+
         def create_wrapper(wrapper_comp):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
-            write_file(wrapper_f, WRAPPER_TEMPLATE % {
-                'compiler_name': '%s.orig' % wrapper_comp,
-            })
+            write_file(wrapper_f, WRAPPER_TEMPLATE % {'compiler_name': orig_compiler_tmpl % wrapper_comp})
             perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
             adjust_permissions(wrapper_f, perms)
 
@@ -114,28 +114,24 @@ class EB_AOCC(PackedBinary):
             'clang++',
             'clang-%s' % LooseVersion(self.clangversion).version[0],
             'clang-cpp',
-            'flang'
+            'flang',
         ]
 
         # Rename original compilers and prepare wrappers to pick up GCCcore as GCC toolchain for the compilers
-        for comp in (compilers_to_wrap or []):
+        for comp in compilers_to_wrap:
             actual_compiler = os.path.join(self.installdir, 'bin', comp)
             if os.path.isfile(actual_compiler):
-                move_file(actual_compiler, '%s.orig' % actual_compiler)
+                move_file(actual_compiler, orig_compiler_tmpl % actual_compiler)
             else:
-                err_str = "Tried to move '{!s}' to '{!s}', " \
-                          " but it doesn't exist!"
-                raise EasyBuildError(err_str.format(actual_compiler,
-                                                    '%s.orig' % actual_compiler))
+                err_str = "Tried to move '%s' to '%s', but it does not exist!"
+                raise EasyBuildError(err_str, actual_compiler, '%s.orig' % actual_compiler)
 
             if not os.path.exists(actual_compiler):
                 create_wrapper(comp)
                 self.log.info("Wrapper for %s successfully created", comp)
             else:
-                err_str = "Creating wrapper for '{!s}'" \
-                          " not possible, since original" \
-                          " compiler was not renamed!"
-                raise EasyBuildError(err_str.format(actual_compiler))
+                err_str = "Creating wrapper for '%s' not possible, since original compiler was not renamed!"
+                raise EasyBuildError(err_str, actual_compiler)
 
         super(EB_AOCC, self).post_install_step()
 
@@ -156,6 +152,8 @@ class EB_AOCC(PackedBinary):
         custom_commands = [
             "clang --help",
             "clang++ --help",
+            "clang-%s --help" % LooseVersion(self.clangversion).version[0],
+            "clang-cpp --help",
             "flang --help",
             "llvm-config --cxxflags",
         ]
