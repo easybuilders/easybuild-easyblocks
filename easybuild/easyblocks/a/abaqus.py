@@ -38,6 +38,7 @@ import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import change_dir, write_file
@@ -48,10 +49,21 @@ from easybuild.tools.py2vs3 import OrderedDict
 class EB_ABAQUS(Binary):
     """Support for installing ABAQUS."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = {
+            'with_tosca': [None, "Enable installation of Tosca (if None: auto-enable for ABAQUS >= 2020)", CUSTOM],
+        }
+        return Binary.extra_options(extra_vars)
+
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ABAQUS."""
         super(EB_ABAQUS, self).__init__(*args, **kwargs)
         self.replayfile = None
+
+        if self.cfg['with_tosca'] is None and LooseVersion(self.version) >= LooseVersion('2020'):
+            self.log.info("Auto-enabling installation of Tosca component for ABAQUS versions >= 2020")
+            self.cfg['with_tosca'] = True
 
     def extract_step(self):
         """Use default extraction procedure instead of the one for the Binary easyblock."""
@@ -111,8 +123,13 @@ class EB_ABAQUS(Binary):
             std_qa[selectionstr % (r"\[ \]", "Extended Product Documentation")] = "%(nr)s"
             # Enable Abaqus CAE (docs)
             std_qa[selectionstr % (r"\[ \]", "Abaqus CAE")] = "%(nr)s"
-            # Disable Tosca
-            std_qa[selectionstr % (r"\[\*\]", "Tosca")] = "%(nr)s"
+
+            # Disable/enable Tosca
+            if self.cfg['with_tosca']:
+                std_qa[selectionstr % (r"\[\ \]", "Tosca")] = "%(nr)s"
+            else:
+                std_qa[selectionstr % (r"\[\*\]", "Tosca")] = "%(nr)s"
+
             # Disable Isight
             std_qa[selectionstr % (r"\[\*\]", "Isight")] = "%(nr)s"
             # Disable Search using EXALEAD
@@ -132,6 +149,11 @@ class EB_ABAQUS(Binary):
             std_qa[r"Default.*SIMULIA/Isight.*:\s*"] = os.path.join(self.installdir, 'Isight')
             std_qa[r"Default.*SIMULIA/fe-safe/.*:"] = os.path.join(self.installdir, 'fe-safe')
             std_qa[r"Default.*SIMULIA/Tosca.*:"] = os.path.join(self.installdir, 'tosca')
+
+            # paths to STAR-CCM+, FLUENT are requested when Tosca is also installed;
+            # these do not strictly need to be specified at installation time, so we don't
+            std_qa[r"STAR-CCM.*\n((?!___)[\S ]*\n)*\nDefault \[\]:"] = ''
+            std_qa[r"FLUENT.*\n((?!___)[\S ]*\n)*\nDefault \[\]:"] = ''
 
             std_qa[r"location of your existing ANSA installation.*(\n.*){8}:"] = ''
             std_qa[r"FLUENT Path.*(\n.*){7}:"] = ''
@@ -232,13 +254,21 @@ class EB_ABAQUS(Binary):
             custom_paths['dirs'].append('%s-%s' % ('.'.join(verparts[0:2]), verparts[2]))
             custom_commands.append("abaqus information=all")
 
+        if self.cfg['with_tosca']:
+            custom_commands.append("ToscaPython.sh --help")
+
         super(EB_ABAQUS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
-        """Update PATH guesses for ABAQUS."""
-
+        """Update $PATH guesses for ABAQUS."""
         guesses = super(EB_ABAQUS, self).make_module_req_guess()
+
+        path_subdirs = ['Commands']
+        if self.cfg['with_tosca']:
+            path_subdirs.append(os.path.join('cae', 'linux_a64', 'code', 'command'))
+
         guesses.update({
-            'PATH': ['Commands'],
+            'PATH': path_subdirs,
         })
+
         return guesses
