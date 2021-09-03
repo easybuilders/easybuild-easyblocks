@@ -29,6 +29,7 @@ EasyBuild support for installing Intel VTune, implemented as an easyblock
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 from distutils.version import LooseVersion
+import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 
@@ -85,8 +86,17 @@ class EB_VTune(IntelBase):
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
         if LooseVersion(self.version) >= LooseVersion('2020'):
-            binaries = ['vtune', 'amplxe-feedback', 'vtune-gui', 'amplxe-runss']
+            binaries = ['amplxe-feedback', 'amplxe-runss', 'vtune', 'vtune-gui']
         else:
             binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
-        custom_paths = self.get_custom_paths_tools(binaries)
+
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            vtune_subdir = os.path.join('vtune', self.version)
+            custom_paths = {
+                'files': [os.path.join(vtune_subdir, 'bin64', x) for x in binaries],
+                'dirs': [os.path.join(vtune_subdir, 'include'), os.path.join(vtune_subdir, 'lib64')],
+            }
+        else:
+            custom_paths = self.get_custom_paths_tools(binaries)
+
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)
