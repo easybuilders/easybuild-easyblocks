@@ -125,6 +125,7 @@ class EB_Clang(CMakeMake):
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
             lld/          Unpack lld-*.tar.gz here
+        libunwind/        Unpack libunwind-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -159,6 +160,8 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+            if LooseVersion(self.version) >= LooseVersion('12.0.1'):
+                find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
 
         if self.cfg["libcxx"]:
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
@@ -190,14 +193,14 @@ class EB_Clang(CMakeMake):
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
                 # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
                 if get_software_root("CUDA"):
                     default_targets += ["NVPTX"]
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            else:
+            except KeyError:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
         # carry on with empty list from this point forward if no build targets are specified

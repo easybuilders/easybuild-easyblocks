@@ -208,9 +208,10 @@ class EB_numpy(FortranPythonPackage):
 
         super(EB_numpy, self).configure_step()
 
-        # check configuration (for debugging purposes)
-        cmd = "%s setup.py config" % self.python_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        if LooseVersion(self.version) < LooseVersion('1.21'):
+            # check configuration (for debugging purposes)
+            cmd = "%s setup.py config" % self.python_cmd
+            run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
         """Run available numpy unit tests, and more."""

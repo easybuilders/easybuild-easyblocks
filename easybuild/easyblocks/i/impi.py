@@ -330,8 +330,14 @@ EULA=accept
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
+
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            mpiroot = os.path.join(self.installdir, 'mpi', self.version)
+        else:
+            mpiroot = self.installdir
+
         txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
-        txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
+        txt += self.module_generator.set_environment('I_MPI_ROOT', mpiroot)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:
                 if var == 'FC':

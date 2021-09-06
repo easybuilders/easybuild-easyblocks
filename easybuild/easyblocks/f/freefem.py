@@ -68,7 +68,7 @@ class EB_FreeFEM(ConfigureMake):
             openblas_root = get_software_root('OpenBLAS')
             configopts.append('--with-blas=%s' % os.path.join(openblas_root, 'lib'))
         elif blas_family == toolchain.INTELMKL:
-            mkl_root = get_software_root('imkl')
+            mkl_root = os.getenv('MKLROOT')
             configopts.append("--with-mkl=%s" % os.path.join(mkl_root, 'mkl', 'lib', 'intel64'))
 
         # specify which MPI to build with based on MPI component of toolchain

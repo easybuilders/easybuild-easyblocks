@@ -148,7 +148,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('LMDB', '2.0.0:'): 'lmdb',
         ('NASM', '2.0.0:'): 'nasm',
         ('nsync', '2.0.0:'): 'nsync',
-        ('PCRE', '2.0.0:'): 'pcre',
+        ('PCRE', '2.0.0:2.6.0'): 'pcre',
         ('protobuf', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
         ('snappy', '2.0.0:'): 'snappy',
@@ -748,13 +748,18 @@ class EB_TensorFlow(PythonPackage):
                 '--host_jvm_args=-Xmx%sm' % jvm_max_memory
             ])
 
-        # build with optimization enabled
-        # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
-        self.target_opts.append('--compilation_mode=opt')
+        if self.toolchain.options.get('debug', None):
+            self.target_opts.append('--strip=never')
+            self.target_opts.append('--compilation_mode=dbg')
+            self.target_opts.append('--copt="-Og"')
+        else:
+            # build with optimization enabled
+            # cfr. https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode
+            self.target_opts.append('--compilation_mode=opt')
 
-        # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
-        # https://docs.bazel.build/versions/master/user-manual.html#flag--config
-        self.target_opts.append('--config=opt')
+            # select 'opt' config section (this is *not* the same as --compilation_mode=opt!)
+            # https://docs.bazel.build/versions/master/user-manual.html#flag--config
+            self.target_opts.append('--config=opt')
 
         # make Bazel print full command line + make it verbose on failures
         # https://docs.bazel.build/versions/master/user-manual.html#flag--subcommands
@@ -851,11 +856,14 @@ class EB_TensorFlow(PythonPackage):
                 num_gpus_to_use = 0
             else:
                 # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
-                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_all=True, regexp=False)
+                # Note: Disable logging to also disable the error handling in run_cmd and do it explicitly below
+                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_ok=False, log_all=False, regexp=False)
                 try:
                     if ec != 0:
-                        raise RuntimeError("nvidia-smi returned exit code %s" % ec)
-                    gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
+                        raise RuntimeError("nvidia-smi returned exit code %s with output:\n%s" % (ec, out))
+                    else:
+                        self.log.info('nvidia-smi succeeded with output:\n%s' % out)
+                        gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
                 except (RuntimeError, ValueError) as err:
                     self.log.warning("Failed to get the number of GPUs on this system: %s", err)
                     gpu_ct = 0
@@ -969,12 +977,9 @@ class EB_TensorFlow(PythonPackage):
                         self.log.warning('Test %s failed with output\n%s', test_name,
                                          read_file(log_path, log_error=False))
                 if failed_tests:
-                    raise EasyBuildError(
-                        'At least %s %s tests failed:\n%s',
-                        len(failed_tests), device, ', '.join(failed_tests)
-                    )
-                else:
-                    raise EasyBuildError(fail_msg)
+                    fail_msg = 'At least %s %s tests failed:\n%s' % (
+                        len(failed_tests), device, ', '.join(failed_tests))
+                self.report_test_failure(fail_msg)
             else:
                 self.log.info('Tests on %s succeeded with output:\n%s', device, stdouterr)
 
@@ -1031,6 +1036,9 @@ class EB_TensorFlow(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for TensorFlow."""
+        if self.python_cmd is None:
+            self.prepare_python()
+
         custom_paths = {
             'files': ['bin/tensorboard'],
             'dirs': [self.pylibdir],

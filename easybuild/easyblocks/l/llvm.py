@@ -65,11 +65,11 @@ class EB_LLVM(CMakeMake):
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            else:
+            except KeyError:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
         unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]

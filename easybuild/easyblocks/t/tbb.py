@@ -42,9 +42,11 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTALL_MODE_2015
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.tools.filetools import move_file, symlink
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
+from easybuild.tools.run import run_cmd
 
 
 def get_tbb_gccprefix(libpath):
@@ -77,7 +79,6 @@ class EB_tbb(IntelBase, ConfigureMake):
         """Initialisation of custom class variables for tbb"""
         super(EB_tbb, self).__init__(*args, **kwargs)
 
-        self.libpath = 'UNKNOWN'
         platform_name = get_platform_name()
         myarch = get_cpu_architecture()
         if platform_name.startswith('x86_64'):
@@ -118,8 +119,15 @@ class EB_tbb(IntelBase, ConfigureMake):
             self.cfg.update('buildopts', 'compiler="%s"' % os.getenv('CC'))
             ConfigureMake.build_step(self)
 
+    def _has_cmake(self):
+        """Check if CMake is included in the build deps"""
+        build_deps = self.cfg.dependencies(build_only=True)
+        return any(dep['name'] == 'CMake' for dep in build_deps)
+
     def install_step(self):
         """Custom install step, to add extra symlinks"""
+        install_tbb_lib_path = os.path.join(self.installdir, 'tbb', 'lib')
+
         if self.toolchain.is_system_toolchain():
             silent_cfg_names_map = None
             silent_cfg_extras = None
@@ -146,51 +154,75 @@ class EB_tbb(IntelBase, ConfigureMake):
 
             # determine libdir
             os.chdir(self.installdir)
-            self.libpath = os.path.join('tbb', 'libs', 'intel64')
+            libpath = os.path.join('tbb', 'libs', 'intel64')
             if LooseVersion(self.version) < LooseVersion('4.1.0'):
                 libglob = 'tbb/lib/intel64/cc*libc*_kernel*'
                 libs = sorted(glob.glob(libglob), key=LooseVersion)
-                if len(libs):
+                if libs:
                     # take the last one, should be ordered by cc version
                     # we're only interested in the last bit
-                    libdir = libs[-1].split('/')[-1]
+                    libdir = os.path.basename(libs[-1])
                 else:
                     raise EasyBuildError("No libs found using %s in %s", libglob, self.installdir)
             else:
-                libdir = get_tbb_gccprefix(self.libpath)
+                libdir = get_tbb_gccprefix(libpath)
 
-            self.libpath = os.path.join(self.libpath, libdir)
-            self.log.debug("self.libpath: %s" % self.libpath)
-            # applications go looking into tbb/lib so we move what's in there to libs
-            install_libpath = os.path.join(self.installdir, 'tbb', 'lib')
-            shutil.move(install_libpath, os.path.join(self.installdir, 'tbb', 'libs'))
-            # and symlink the right lib from /tbb/libs/intel64/... to lib
-            os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
+            libpath = os.path.join(libpath, libdir)
+            # applications go looking into tbb/lib so we move what's in there to tbb/libs
+            shutil.move(install_tbb_lib_path, os.path.join(self.installdir, 'tbb', 'libs'))
+            # And add a symlink of the library folder to tbb/lib
+            symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
         else:
             # no custom install step when building from source (building is done in install directory)
             cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
             if len(cand_lib_paths) == 1:
-                # applications go looking into tbb/lib so we symlink the location where they are built  to lib
-                self.libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
-                install_libpath = os.path.join(self.installdir, 'lib')
-                os.symlink(os.path.join(self.installdir, self.libpath), install_libpath)
+                libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
             else:
                 raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
+
+        self.log.debug("libpath: %s" % libpath)
+        # applications usually look into /lib, so we move the folder there and symlink the original one to it
+        # This is also important so that /lib and /lib64 are actually on the same level
+        root_lib_path = os.path.join(self.installdir, 'lib')
+        move_file(libpath, root_lib_path)
+        symlink(os.path.relpath(root_lib_path, os.path.join(libpath)), libpath, use_abspath_source=False)
+
+        # Install CMake config files if possible
+        if self._has_cmake():
+            if LooseVersion(self.version) >= LooseVersion('2020.0'):
+                cmake_install_dir = os.path.join(root_lib_path, 'cmake', 'TBB')
+                cmd = [
+                    'cmake',
+                    '-DINSTALL_DIR=' + cmake_install_dir,
+                    '-DSYSTEM_NAME=Linux',
+                    '-P tbb_config_installer.cmake',
+                ]
+                run_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
         custom_paths = {
-            'files': [],
+            'files': [
+                os.path.join('lib', 'libtbb.so'),
+                os.path.join('lib', 'libtbbmalloc.so'),
+            ],
             'dirs': [],
         }
         if self.toolchain.is_system_toolchain():
-            custom_paths['dirs'].extend(['tbb/bin', 'tbb/lib', 'tbb/libs'])
-        else:
+            custom_paths['dirs'].extend(os.path.join('tbb', p) for p in
+                                        ('bin', 'lib', 'libs', os.path.join('include', 'tbb')))
             custom_paths['files'].extend([
-                os.path.join(self.libpath, 'libtbb.so'),
-                os.path.join(self.libpath, 'libtbbmalloc.so'),
+                os.path.join('tbb', 'lib', 'libtbb.so'),
+                os.path.join('tbb', 'lib', 'libtbbmalloc.so'),
             ])
-            custom_paths['dirs'].append('include/tbb')
+        else:
+            custom_paths['dirs'].append(os.path.join('include', 'tbb'))
+
+        if self._has_cmake():
+            custom_paths['files'].extend([
+                os.path.join('lib', 'cmake', 'TBB', 'TBBConfig.cmake'),
+                os.path.join('lib', 'cmake', 'TBB', 'TBBConfigVersion.cmake'),
+            ])
 
         super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -198,15 +230,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         """Add correct path to lib to LD_LIBRARY_PATH. and intel license file"""
         txt = super(EB_tbb, self).make_module_extra()
 
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [self.libpath])
-        txt += self.module_generator.prepend_paths('LIBRARY_PATH', [self.libpath])
-
-        tbb_subdir = ''
-        if os.path.exists(os.path.join(self.installdir, 'tbb')):
+        if self.toolchain.is_system_toolchain():
             tbb_subdir = 'tbb'
+            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
+        else:
+            tbb_subdir = ''
 
-        txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
         txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
+        # Used e.g. by FindTBB.cmake
+        txt += self.module_generator.set_environment('TBB_ROOT', os.path.join(self.installdir, tbb_subdir))
 
         return txt
 

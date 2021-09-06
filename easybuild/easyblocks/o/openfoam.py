@@ -491,12 +491,18 @@ class EB_OpenFOAM(EasyBlock):
             motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
             if os.path.exists(motorbike_path):
                 test_dir = tempfile.mkdtemp()
+
+                if self.looseversion >= LooseVersion('9'):
+                    geom_target_dir = 'geometry'
+                else:
+                    geom_target_dir = 'triSurface'
+
                 cmds = [
                     "cp -a %s %s" % (motorbike_path, test_dir),
                     "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                     "source $FOAM_BASH",
                     ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/triSurface/",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
                     "runApplication surfaceFeatures",
                     "runApplication blockMesh",
                     "runApplication decomposePar -copyZero",
