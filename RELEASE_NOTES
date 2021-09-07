@@ -29,7 +29,7 @@ update/bugfix release
   - fix motorBike test in sanity check for OpenFOAM 9 (#2544)
   - generate and install pkg-config files for OpenSSL wrapper (#2549)
   - don't run 'setup.py config' for numpy >= 1.21, since it's no longer supported (#2554)
-  - update WIEK2k easyblock to handle new Intel versions, WIEN2k v21, Perl dependency, and tuning of dimension parameters (#2558)
+  - update WIEN2k easyblock to handle new Intel versions, WIEN2k v21, Perl dependency, and tuning of dimension parameters (#2558)
   - remove PCRE from list of system libraries for TensorFlow 2.6.0 (#2559)
   - add support for also installing Tosca component in ABAQUS (#2560)
   - update ABAQUS easyblock to support installing of version 2021 with hot fixes (#2562)
