@@ -3,7 +3,57 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 237 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 241 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.4.2 (September 7th 2021)
+---------------------------
+
+update/bugfix release
+
+- 4 new software-specific easyblocks:
+  - CRISPR-DAV (#2487), jaxlib (#2545), ORCA (#2504), RepeatModeler (#2470)
+- minor enhancements, including:
+  - update ABAQUS easyblock to support installation of v2020 (#2034)
+  - enable make check and sanity check exec for OpenMPI (#2444)
+  - fixed sanity check for later versions of Molpro (#2499)
+  - add Ampere to known GPU architectures for Kokkos in LAMMPS easyblock (#2510)
+  - update sanity check in ESMF easyblock to take into account new binary names from version 8.1.0 onwards (#2512)
+  - use report_test_failure in TensorFlow easyblock (#2519)
+  - add suport for imkl 2021.x in easyblocks for
+    - Amber (#2527), BerkeleyGW (#2528), CP2K (#2529), FreeFEM (#2530), GROMACS (#2531), numexpr (#2532)
+  - add install_src option and enhance buildcmd option in PythonPackage easyblock (#2534)
+  - make sure AOCC commands like clang/flang pick up GCCcore as GCC toolchain (#2538)
+  - create CMakeConfig files for tbb >= 2020 (#2539)
+  - find source dir for libunwind when building ldd for Clang versions >= 12.0.1 (#2540)
+  - fix motorBike test in sanity check for OpenFOAM 9 (#2544)
+  - generate and install pkg-config files for OpenSSL wrapper (#2549)
+  - don't run 'setup.py config' for numpy >= 1.21, since it's no longer supported (#2554)
+  - update WIEN2k easyblock to handle new Intel versions, WIEN2k v21, Perl dependency, and tuning of dimension parameters (#2558)
+  - remove PCRE from list of system libraries for TensorFlow 2.6.0 (#2559)
+  - add support for also installing Tosca component in ABAQUS (#2560)
+  - update ABAQUS easyblock to support installing of version 2021 with hot fixes (#2562)
+  - update sanity check in VTune easyblock for 2021.x versions (#2563)
+- various bug fixes, including:
+  - handle failure of running nvidia-smi in TensorFlow tests (#2506)
+  - remove Python 2.6 from list of supported Python versions in setup.py (#2507)
+  - clean up installation of Tkinter (#2509)
+  - remove redundant $CPATH entry of tbb modules + fix --module-only (#2511)
+  - honor --ignore-test-failure in PythonPackage (#2516)
+  - use correct GTK+ version for OpenCV based on dependencies (#2520)
+  - ensure Python prep is done in sanity check + support debug builds in TensorFlow easyblock (#2522)
+  - correct cleanup of single-letter local variable in __init__ of easybuild.easyblocks (#2524)
+  - reset runtest to None in CMakePythonPackage (#2536)
+  - set $I_MPI_ROOT correctly for 2021.x in impi easyblock (#2537)
+  - let Bundle easyblock pick up custom easyblock for components based on name if no easyblock is specified explicitly (#2543, #2547)
+  - explicitely use only OpenBLAS for PyTorch if MKL is not used (#2448)
+  - keep symlinks in cuDNN installations (#2550)
+  - use ${BLAS,LAPACK}_SHARED_LIBS in GROMACS easyblock for FlexiBLAS-based toolchains (#2552)
+  - copy the list to avoid changing the original lists in DEFAULT_TARGETS_MAP for Clang and LLVM (#2556)
+  - fix pathsep join bug that breaks installation of CUDA versions < 10.1 if $PERL5LIB is defined (#2561)
+- other changes:
+  - simplify Boost easyblock (#2513)
+  - remove deprecated options from PythonPackage (#2535)
 
 
 v4.4.1 (July 6th 2021)
