@@ -218,10 +218,9 @@ class EB_EasyBuildMeta(PythonPackage):
         # unset all $EASYBUILD_* environment variables when running sanity check commands,
         # to prevent failing sanity check for old EasyBuild versions when configuration options are defined
         # via $EASYBUILD_* environment variables
-        for key in self.initial_environ:
-            if key.startswith('EASYBUILD_'):
-                val = self.initial_environ.pop(key)
-                self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
+        for key in [k for k in self.initial_environ if k.startswith('EASYBUILD_')]:
+            val = self.initial_environ.pop(key)
+            self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
