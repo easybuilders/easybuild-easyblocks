@@ -48,7 +48,8 @@ class EB_EasyBuildMeta(PythonPackage):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
         super(EB_EasyBuildMeta, self).__init__(*args, **kwargs)
-        self.real_initial_environ = None
+
+        self.real_initial_environ = copy.deepcopy(self.initial_environ)
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
         if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
@@ -208,12 +209,18 @@ class EB_EasyBuildMeta(PythonPackage):
         ]
 
         # (temporary) cleanse copy of initial environment to avoid conflict with (potentially) loaded EasyBuild module
-        self.real_initial_environ = copy.deepcopy(self.initial_environ)
-        for env_var in ['_LMFILES_', 'LOADEDMODULES']:
+        for env_var in ['_LMFILES_', 'LOADEDMODULES', 'MODULES_LMCONFLICT', '__MODULES_LMCONFLICT']:
             if env_var in self.initial_environ:
                 self.initial_environ.pop(env_var)
                 os.environ.pop(env_var)
                 self.log.debug("Unset $%s in current env and copy of original env to make sanity check work" % env_var)
+
+        # unset all $EASYBUILD_* environment variables when running sanity check commands,
+        # to prevent failing sanity check for old EasyBuild versions when configuration options are defined
+        # via $EASYBUILD_* environment variables
+        for key in [k for k in self.initial_environ if k.startswith('EASYBUILD_')]:
+            val = self.initial_environ.pop(key)
+            self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
