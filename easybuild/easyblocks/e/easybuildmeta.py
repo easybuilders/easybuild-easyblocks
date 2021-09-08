@@ -209,7 +209,7 @@ class EB_EasyBuildMeta(PythonPackage):
         ]
 
         # (temporary) cleanse copy of initial environment to avoid conflict with (potentially) loaded EasyBuild module
-        for env_var in ['_LMFILES_', 'LOADEDMODULES']:
+        for env_var in ['_LMFILES_', 'LOADEDMODULES', 'MODULES_LMCONFLICT', '__MODULES_LMCONFLICT']:
             if env_var in self.initial_environ:
                 self.initial_environ.pop(env_var)
                 os.environ.pop(env_var)
