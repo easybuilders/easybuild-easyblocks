@@ -215,7 +215,7 @@ class EB_Amber(CMakeMake):
         mklroot = get_software_root('imkl')
         openblasroot = get_software_root('OpenBLAS')
         if mklroot:
-            env.setvar('MKL_HOME', mklroot)
+            env.setvar('MKL_HOME', os.getenv('MKLROOT'))
         elif openblasroot:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:

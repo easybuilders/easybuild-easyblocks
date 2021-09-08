@@ -265,7 +265,7 @@ class EB_CP2K(EasyBlock):
             mkdir(modincpath, parents=True)
 
             # get list of modinc source files
-            modincdir = os.path.join(imkl, self.cfg["modincprefix"], 'include')
+            modincdir = os.path.join(os.getenv('MKLROOT'), self.cfg["modincprefix"], 'include')
 
             if isinstance(self.cfg["modinc"], list):
                 modfiles = [os.path.join(modincdir, x) for x in self.cfg["modinc"]]

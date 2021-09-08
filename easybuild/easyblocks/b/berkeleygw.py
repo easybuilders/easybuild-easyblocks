@@ -132,7 +132,7 @@ class EB_BerkeleyGW(ConfigureMake):
 
         mkl = get_software_root('imkl')
         if mkl:
-            self.cfg.update('buildopts', 'MKLPATH="%s"' % mkl)
+            self.cfg.update('buildopts', 'MKLPATH="%s"' % os.getenv('MKLROOT'))
 
         fftw = get_software_root('FFTW')
         if mkl or fftw:

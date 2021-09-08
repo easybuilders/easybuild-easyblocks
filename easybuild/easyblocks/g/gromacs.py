@@ -347,7 +347,7 @@ class EB_GROMACS(CMakeMake):
             imkl_root = get_software_root('imkl')
             if imkl_root:
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
-                imkl_include = os.path.join(imkl_root, 'mkl', 'include')
+                imkl_include = os.path.join(os.getenv('MKLROOT'), 'mkl', 'include')
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' % imkl_include)
                 libs = os.getenv('LAPACK_STATIC_LIBS').split(',')
                 mkl_libs = [os.path.join(os.getenv('LAPACK_LIB_DIR'), lib) for lib in libs if lib != 'libgfortran.a']
@@ -364,8 +364,13 @@ class EB_GROMACS(CMakeMake):
                             raise EasyBuildError("Failed to find libsci library to link with for %s", libname)
                     else:
                         # -DGMX_BLAS_USER & -DGMX_LAPACK_USER require full path to library
-                        libs = os.getenv('%s_STATIC_LIBS' % libname).split(',')
-                        libpaths = [os.path.join(libdir, lib) for lib in libs if lib != 'libgfortran.a']
+                        # prefer shared libraries when using FlexiBLAS-based toolchain
+                        if self.toolchain.blas_family() == toolchain.FLEXIBLAS:
+                            libs = os.getenv('%s_SHARED_LIBS' % libname).split(',')
+                        else:
+                            libs = os.getenv('%s_STATIC_LIBS' % libname).split(',')
+
+                        libpaths = [os.path.join(libdir, lib) for lib in libs if not lib.startswith('libgfortran')]
                         self.cfg.update('configopts', '-DGMX_%s_USER="%s"' % (libname, ';'.join(libpaths)))
                         # if libgfortran.a is listed, make sure it gets linked in too to avoiding linking issues
                         if 'libgfortran.a' in libs:

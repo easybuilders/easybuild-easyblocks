@@ -93,14 +93,29 @@ class Bundle(EasyBlock):
             comp_cfg['name'] = comp_name
             comp_cfg['version'] = comp_version
 
-            easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
-            if easyblock is None:
-                raise EasyBuildError("No easyblock specified for component %s v%s", comp_cfg['name'],
-                                     comp_cfg['version'])
-            elif easyblock == 'Bundle':
+            # determine easyblock to use for this component
+            # - if an easyblock is specified explicitely, that will be used
+            # - if not, a software-specific easyblock will be considered by get_easyblock_class
+            # - if no easyblock was found, default_easyblock is considered
+            comp_easyblock = comp_specs.get('easyblock')
+            easyblock_class = get_easyblock_class(comp_easyblock, name=comp_name, error_on_missing_easyblock=False)
+            if easyblock_class is None:
+                if self.cfg['default_easyblock']:
+                    easyblock = self.cfg['default_easyblock']
+                    easyblock_class = get_easyblock_class(easyblock)
+
+                if easyblock_class is None:
+                    raise EasyBuildError("No easyblock found for component %s v%s", comp_name, comp_version)
+                else:
+                    self.log.info("Using default easyblock %s for component %s", easyblock, comp_name)
+            else:
+                easyblock = easyblock_class.__name__
+                self.log.info("Using easyblock %s for component %s", easyblock, comp_name)
+
+            if easyblock == 'Bundle':
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
-            comp_cfg.easyblock = get_easyblock_class(easyblock, name=comp_cfg['name'])
+            comp_cfg.easyblock = easyblock_class
 
             # make sure that extra easyconfig parameters are known, so they can be set
             extra_opts = comp_cfg.easyblock.extra_options()

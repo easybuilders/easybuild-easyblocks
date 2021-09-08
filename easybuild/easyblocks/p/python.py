@@ -144,10 +144,8 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        self.pythonpath = None
-        if self.cfg['ebpythonprefixes']:
-            easybuild_subdir = log_path()
-            self.pythonpath = os.path.join(easybuild_subdir, 'python')
+        # Used for EBPYTHONPREFIXES handler script
+        self.pythonpath = os.path.join(log_path(), 'python')
 
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
@@ -455,7 +453,7 @@ class EB_Python(ConfigureMake):
             if not os.path.isfile(pip_binary_path):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
-        if self.cfg['ebpythonprefixes']:
+        if self.cfg.get('ebpythonprefixes'):
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
@@ -531,7 +529,7 @@ class EB_Python(ConfigureMake):
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
 
-        if self.cfg['ebpythonprefixes']:
+        if self.cfg.get('ebpythonprefixes'):
             self._sanity_check_ebpythonprefixes()
 
         pyver = 'python' + self.pyshortver
@@ -583,7 +581,7 @@ class EB_Python(ConfigureMake):
         """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
 
-        if self.pythonpath:
+        if self.cfg.get('ebpythonprefixes'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
 
         return txt

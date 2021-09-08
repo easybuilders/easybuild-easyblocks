@@ -30,6 +30,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Alexander Grund (TU Dresden)
 """
 import json
 import os
@@ -59,10 +60,8 @@ from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_TARGET = "easy_install"
-EASY_INSTALL_INSTALL_CMD = "%(python)s setup.py " + EASY_INSTALL_TARGET + " --prefix=%(prefix)s %(installopts)s %(loc)s"
 PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
-SETUP_PY_DEVELOP_CMD = "%(python)s setup.py develop --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
 
@@ -234,9 +233,14 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'buildcmd': ['build', "Command to pass to setup.py to build the extension", CUSTOM],
+            'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
+                               "When using setup.py this will be passed to setup.py and defaults to 'build'. "
+                               "Otherwise it will be used as-is. A value of None then skips the build step. "
+                               "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
+                                  "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
@@ -252,7 +256,6 @@ class PythonPackage(ExtensionEasyBlock):
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
             'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
-            'use_easy_install': [False, "Install using '%s' (deprecated)" % EASY_INSTALL_INSTALL_CMD, CUSTOM],
             'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
@@ -260,8 +263,7 @@ class PythonPackage(ExtensionEasyBlock):
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
                                            "to be the requirements file.", CUSTOM],
-            'use_setup_py_develop': [False, "Install using '%s' (deprecated)" % SETUP_PY_DEVELOP_CMD, CUSTOM],
-            'zipped_egg': [False, "Install as a zipped eggs (requires use_easy_install)", CUSTOM],
+            'zipped_egg': [False, "Install as a zipped eggs", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
         # As PyPi ignores the casing in the path part of the URL (but not the filename) we can always use PYPI_SOURCE.
@@ -316,17 +318,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # determine install command
         self.use_setup_py = False
-        if self.cfg.get('use_easy_install', False):
-            self.log.deprecated("Use 'install_target' rather than 'use_easy_install'.", '4.0')
-            self.install_cmd = EASY_INSTALL_INSTALL_CMD
-
-            # don't auto-install dependencies
-            self.cfg.update('installopts', '--no-deps')
-
-            if self.cfg.get('zipped_egg', False):
-                self.cfg.update('installopts', '--zip-ok')
-
-        elif self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
+        if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
             if build_option('debug'):
@@ -358,12 +350,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         else:
             self.use_setup_py = True
-
-            if self.cfg.get('use_setup_py_develop', False):
-                self.log.deprecated("Use 'install_target' rather than 'use_setup_py_develop'.", '4.0')
-                self.install_cmd = SETUP_PY_DEVELOP_CMD
-            else:
-                self.install_cmd = SETUP_PY_INSTALL_CMD
+            self.install_cmd = SETUP_PY_INSTALL_CMD
 
             if self.cfg['install_target'] == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
@@ -480,10 +467,6 @@ class PythonPackage(ExtensionEasyBlock):
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
-        # mainly for debugging
-        if self.install_cmd.startswith(EASY_INSTALL_INSTALL_CMD):
-            run_cmd("%s setup.py easy_install --version" % self.python_cmd, verbose=False, trace=False)
-
         using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
         if using_pip:
 
@@ -510,15 +493,16 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        if self._should_unpack_source():
-            # specify current directory
-            loc = '.'
-        else:
-            # for extensions, self.src specifies the location of the source file
-            # otherwise, self.src is a list of dicts, one element per source file
-            if isinstance(self.src, string_type):
+        loc = self.cfg.get('install_src')
+        if not loc:
+            if self._should_unpack_source():
+                # specify current directory
+                loc = '.'
+            elif isinstance(self.src, string_type):
+                # for extensions, self.src specifies the location of the source file
                 loc = self.src
             else:
+                # otherwise, self.src is a list of dicts, one element per source file
                 loc = self.src[0]['path']
 
         if using_pip:
@@ -567,6 +551,10 @@ class PythonPackage(ExtensionEasyBlock):
 
     def configure_step(self):
         """Configure Python package build/install."""
+
+        # don't add user site directory to sys.path (equivalent to python -s)
+        # see https://www.python.org/dev/peps/pep-0370/
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.python_cmd is None:
             self.prepare_python()
@@ -625,16 +613,12 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
         # creates log entries for python being used, for debugging
-        run_cmd("%s -V" % self.python_cmd, verbose=False, trace=False)
-        run_cmd("%s -c 'import sys; print(sys.executable)'" % self.python_cmd, verbose=False, trace=False)
-
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
+        cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
+        run_cmd(cmd % {'python': self.python_cmd}, verbose=False, trace=False)
 
     def build_step(self):
         """Build Python package using setup.py"""
+        build_cmd = self.cfg['buildcmd']
         if self.use_setup_py:
 
             if get_software_root('CMake'):
@@ -643,9 +627,14 @@ class PythonPackage(ExtensionEasyBlock):
                 env.setvar("CMAKE_INCLUDE_PATH", include_paths)
                 env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
-            cmd = ' '.join([self.cfg['prebuildopts'], self.python_cmd, 'setup.py', self.cfg['buildcmd'],
-                            self.cfg['buildopts']])
-            (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+            if not build_cmd:
+                build_cmd = 'build'  # Default value for setup.py
+            build_cmd = '%(python)s setup.py ' + build_cmd
+
+        if build_cmd:
+            build_cmd = build_cmd % {'python': self.python_cmd}
+            cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             # keep track of all output, so we can check for auto-downloaded dependencies;
             # take into account that build/install steps may be run multiple times
@@ -762,7 +751,7 @@ class PythonPackage(ExtensionEasyBlock):
         steps = [
             (CONFIGURE_STEP, 'configuring', [lambda x: x.configure_step], True),
             (BUILD_STEP, 'building', [lambda x: x.build_step], True),
-            (TEST_STEP, 'testing', [lambda x: x.test_step], True),
+            (TEST_STEP, 'testing', [lambda x: x._test_step], True),
             (INSTALL_STEP, "installing", [lambda x: x.install_step], True),
         ]
         self.skip = False  # --skip does not apply here

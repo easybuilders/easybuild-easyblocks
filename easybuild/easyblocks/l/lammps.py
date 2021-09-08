@@ -87,6 +87,8 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.0': 'Volta70',  # NVIDIA Volta generation CC 7.0
     '7.2': 'Volta72',  # NVIDIA Volta generation CC 7.2
     '7.5': 'Turing75',  # NVIDIA Turing generation CC 7.5
+    '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
+    '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
 }
 
 PKG_PREFIX = 'PKG_'
@@ -299,9 +301,6 @@ class EB_LAMMPS(CMakeMake):
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
-
-        txt += self.module_generator.prepend_paths('PYTHONPATH', ["lib64"])
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', ["lib64"])
 
         return txt
 
