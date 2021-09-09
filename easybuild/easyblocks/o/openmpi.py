@@ -179,7 +179,7 @@ class EB_OpenMPI(ConfigureMake):
         # Run with correct MPI launcher
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg['parallel'])
+        ranks = min(8, self.cfg['parallel'] // 2)
         for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
             src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
             if os.path.exists(src_path):
