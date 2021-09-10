@@ -305,6 +305,8 @@ class EB_ABAQUS(Binary):
 
         if LooseVersion(self.version) >= LooseVersion('2020'):
             custom_paths['files'].append(os.path.join('cae', 'linux_a64', 'code', 'bin', 'abaqusstd'))
+            if self.cfg['with_fe_safe']:
+                custom_paths['files'].append(os.path.join('cae', 'linux_a64', 'code', 'bin', 'fe-safe'))
 
         if self.cfg['with_tosca']:
             custom_commands.append("ToscaPython.sh --help")
