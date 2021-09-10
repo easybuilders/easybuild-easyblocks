@@ -51,6 +51,7 @@ from easybuild.tools.modules import get_software_libdir, get_software_root, get_
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
+from easybuild.tools.version import VERBOSE_VERSION as EASYBUILD_VERSION
 
 
 class EB_GROMACS(CMakeMake):
@@ -207,6 +208,16 @@ class EB_GROMACS(CMakeMake):
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
             plumed_cmd = "plumed-patch -p -e %s" % engine
+
+        # Ensure that the GROMACS log files report how the code was patched
+        # during the build, so that any problems are easier to diagnose.
+        # The GMX_VERSION_STRING_OF_FORK feature is available since 2020.
+        if (LooseVersion(self.version) >= LooseVersion('2020') and
+                '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
+            gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
+            if plumed_root:
+                gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
+            self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
