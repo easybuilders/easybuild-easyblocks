@@ -212,7 +212,8 @@ class EB_GROMACS(CMakeMake):
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
         # The GMX_VERSION_STRING_OF_FORK feature is available since 2020.
-        if LooseVersion(self.version) >= LooseVersion('2020') and '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']:
+        if (LooseVersion(self.version) >= LooseVersion('2020') and 
+            '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
             gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
             if plumed_root:
                 gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
