@@ -215,7 +215,7 @@ class EB_GROMACS(CMakeMake):
             if plumed_root:
                 plumed_version = get_software_version('PLUMED')
                 if plumed_version:
-                    gromacs_version_string_suffix = '%s-%s' % (plumed-version, VERBOSE_VERSION)
+                    gromacs_version_string_suffix = '%s-%s' % (plumed_version, VERBOSE_VERSION)
                 else:
                     gromacs_version_string_suffix = 'PLUMED-%s' % VERBOSE_VERSION
             else:
