@@ -289,9 +289,7 @@ class EB_WIEN2k(EasyBlock):
                     'or accept present choice (enter):': fftw_root,
                     'Is this correct? enter Y (default) or n:': 'Y',
                     'Please specify the name of your FFTW library or accept present choice (enter):': '',
-                    'Please specify your parallel compiler options or accept the recommendations '
-                    '(Enter - default)!:': '',
-                    'Please specify your MPIRUN command or accept the recommendations (Enter - default)!:': '',
+                    'or accept the recommendations (Enter - default)!:': '',
                     # the temporary directory is hardcoded into execution scripts and must exist at runtime
                     'Please enter the full path to your temporary directory:': '/tmp',
                 })
@@ -572,11 +570,8 @@ class EB_WIEN2k(EasyBlock):
         """Custom sanity check for WIEN2k."""
 
         lapwfiles = []
-        parasuff = '_mpi'
-        if LooseVersion(self.version) >= LooseVersion('21'):
-            parasuff = 'para'
-        for suffix in ['0', '0%s' % parasuff, '1', '1%s' % parasuff, '1c', '1c%s' % parasuff, '2', '2%s' % parasuff,
-                       '2c', '2c%s' % parasuff, '3', '3c', '5', '5c', '7', '7c', 'dm', 'dmc', 'so']:
+        for suffix in ['0', '0_mpi', '1', '1_mpi', '1c', '1c_mpi', '2', '2_mpi', '2c', '2c_mpi',
+                       '3', '3c', '5', '5c', '7', '7c', 'dm', 'dmc', 'so']:
             p = os.path.join(self.installdir, "lapw%s" % suffix)
             lapwfiles.append(p)
 
