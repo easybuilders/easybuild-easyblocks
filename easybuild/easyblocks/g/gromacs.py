@@ -213,11 +213,7 @@ class EB_GROMACS(CMakeMake):
         # during the build, so that any problems are easier to diagnose.
         if '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']:
             if plumed_root:
-                plumed_version = get_software_version('PLUMED')
-                if plumed_version:
-                    gromacs_version_string_suffix = '%s-%s' % (plumed_version, VERBOSE_VERSION)
-                else:
-                    gromacs_version_string_suffix = 'PLUMED-%s' % VERBOSE_VERSION
+                gromacs_version_string_suffix = 'PLUMED-%s-%s' % (get_software_version('PLUMED'), VERBOSE_VERSION)
             else:
                 gromacs_version_string_suffix = VERBOSE_VERSION
             self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
