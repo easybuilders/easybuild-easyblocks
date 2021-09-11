@@ -52,6 +52,7 @@ class EB_ABAQUS(Binary):
     @staticmethod
     def extra_options():
         extra_vars = {
+            'with_fe_safe': [None, "Enable installation of fe-safe (if None: auto-enable for ABAQUS >= 2020)", CUSTOM],
             'with_tosca': [None, "Enable installation of Tosca (if None: auto-enable for ABAQUS >= 2020)", CUSTOM],
         }
         return Binary.extra_options(extra_vars)
@@ -62,8 +63,12 @@ class EB_ABAQUS(Binary):
         self.replayfile = None
 
         if self.cfg['with_tosca'] is None and LooseVersion(self.version) >= LooseVersion('2020'):
-            self.log.info("Auto-enabling installation of Tosca component for ABAQUS versions >= 2020")
+            self.log.info("Auto-enabling installation of Tosca components for ABAQUS versions >= 2020")
             self.cfg['with_tosca'] = True
+
+        if self.cfg['with_fe_safe'] is None and LooseVersion(self.version) >= LooseVersion('2020'):
+            self.log.info("Auto-enabling installation of fe-safe components for ABAQUS versions >= 2020")
+            self.cfg['with_fe_safe'] = True
 
     def extract_step(self):
         """Use default extraction procedure instead of the one for the Binary easyblock."""
@@ -123,6 +128,19 @@ class EB_ABAQUS(Binary):
             std_qa[selectionstr % (r"\[ \]", "Extended Product Documentation")] = "%(nr)s"
             # Enable Abaqus CAE (docs)
             std_qa[selectionstr % (r"\[ \]", "Abaqus CAE")] = "%(nr)s"
+
+            # enable all ABAQUS components
+            std_qa[selectionstr % (r"\[ \]", "Abaqus.*")] = "%(nr)s"
+            std_qa[selectionstr % (r"\[ \]", "Cosimulation Services")] = "%(nr)s"
+
+            # enable 3DSFlow Solver (used to be called "Abaqus/CFD Solver")
+            std_qa[selectionstr % (r"\[ \]", "3DSFlow Solver")] = "%(nr)s"
+
+            # disable/enable fe-safe components
+            if self.cfg['with_fe_safe']:
+                std_qa[selectionstr % (r"\[ \]", ".*fe-safe")] = "%(nr)s"
+            else:
+                std_qa[selectionstr % (r"\[*\]", ".*fe-safe")] = "%(nr)s"
 
             # Disable/enable Tosca
             if self.cfg['with_tosca']:
@@ -284,6 +302,11 @@ class EB_ABAQUS(Binary):
             verparts = self.version.split('-')[0].split('.')
             custom_paths['dirs'].append('%s-%s' % ('.'.join(verparts[0:2]), verparts[2]))
             custom_commands.append("abaqus information=all")
+
+        if LooseVersion(self.version) >= LooseVersion('2020'):
+            custom_paths['files'].append(os.path.join('cae', 'linux_a64', 'code', 'bin', 'abaqusstd'))
+            if self.cfg['with_fe_safe']:
+                custom_paths['files'].append(os.path.join('cae', 'linux_a64', 'code', 'bin', 'fe-safe'))
 
         if self.cfg['with_tosca']:
             custom_commands.append("ToscaPython.sh --help")
