@@ -246,13 +246,23 @@ class EB_TensorFlow(PythonPackage):
 
         self.system_libs_info = None
 
+        # auto-enable use of MKL-DNN when possible if with_mkl_dnn is left unspecified
         if self.cfg['with_mkl_dnn'] is None:
-            if get_cpu_architecture() == X86_64:
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
                 # Supported on x86 since forever
                 self.cfg['with_mkl_dnn'] = True
-            elif LooseVersion(self.version) >= LooseVersion('2.5.0') and get_cpu_architecture() == AARCH64:
+                self.log.info("Auto-enabled use of MKL-DNN on %s CPU architecture", cpu_arch)
+            elif cpu_arch == AARCH64:
                 # ARM support added in 2.5
-                self.cfg['with_mkl_dnn'] = True
+                min_tf_ver = '2.5.0'
+                if LooseVersion(self.version) >= LooseVersion(min_tf_ver):
+                    self.cfg['with_mkl_dnn'] = True
+                    self.log.info("Auto-enabled use of MKL-DNN for TensorFlow >= %s on %s CPU architecture", min_tf_ver, cpu_arch)
+                else:
+                    self.log.info("Not enabling use of MKL-DNN for TensorFlow < %s on %s CPU architecture", min_tf_ver, cpu_arch)
+            else:
+                self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
 
         self.test_script = None
 
