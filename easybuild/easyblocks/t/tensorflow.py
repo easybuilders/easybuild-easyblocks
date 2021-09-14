@@ -400,15 +400,18 @@ class EB_TensorFlow(PythonPackage):
 
         # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
         openssl_root = get_software_root('OpenSSL')
+        print("OSSL:", openssl_root)
         if openssl_root:
             if 'boringssl' not in system_libs:
                 system_libs.append('boringssl')
-            incpath = os.path.join(sw_root, 'include')
+            incpath = os.path.join(openssl_root, 'include')
+            print(incpath)
             if os.path.exists(incpath):
                 cpaths.append(incpath)
             libpath = get_software_libdir(dep_name)
+            print(libpath)
             if libpath:
-                libpaths.append(os.path.join(sw_root, libpath))
+                libpaths.append(os.path.join(openssl_root, libpath))
 
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
