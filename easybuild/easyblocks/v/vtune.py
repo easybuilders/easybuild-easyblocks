@@ -94,4 +94,10 @@ class EB_VTune(IntelBase):
 
         custom_paths = self.get_custom_paths_tools(binaries)
 
-        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('2020'):
+            custom_commands.append('vtune --version')
+        else:
+            custom_commands.append('amplxe-cl --version')
+
+        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
