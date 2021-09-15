@@ -325,11 +325,11 @@ class EB_GCC(ConfigureMake):
         if unknown_options:
             raise EasyBuildError("Unrecognized options found during configure: %s", unknown_options)
 
-    def prepare_step(self, start_dir=True, load_tc_deps_modules=True):
+    def prepare_step(self, *args, **kwargs):
         """
         Check that optional dependencies have been downloaded
         """
-        super(EB_GCC, self).prepare_step(start_dir, load_tc_deps_modules)
+        super(EB_GCC, self).prepare_step(*args, **kwargs)
         if self.cfg['withnvptx']:
             nvptx_dir = glob.glob(os.path.join(self.builddir, 'nvptx-tools-*'))
             if not nvptx_dir:
