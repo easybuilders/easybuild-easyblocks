@@ -258,9 +258,11 @@ class EB_TensorFlow(PythonPackage):
                 min_tf_ver = '2.5.0'
                 if LooseVersion(self.version) >= LooseVersion(min_tf_ver):
                     self.cfg['with_mkl_dnn'] = True
-                    self.log.info("Auto-enabled use of MKL-DNN for TensorFlow >= %s on %s CPU architecture", min_tf_ver, cpu_arch)
+                    self.log.info("Auto-enabled use of MKL-DNN for TensorFlow >= %s on %s CPU architecture",
+                                  min_tf_ver, cpu_arch)
                 else:
-                    self.log.info("Not enabling use of MKL-DNN for TensorFlow < %s on %s CPU architecture", min_tf_ver, cpu_arch)
+                    self.log.info("Not enabling use of MKL-DNN for TensorFlow < %s on %s CPU architecture",
+                                  min_tf_ver, cpu_arch)
             else:
                 self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
 
