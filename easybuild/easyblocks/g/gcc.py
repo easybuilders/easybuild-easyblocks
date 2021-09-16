@@ -51,7 +51,6 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir, cop
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
 from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
