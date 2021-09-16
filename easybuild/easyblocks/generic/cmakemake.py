@@ -82,6 +82,7 @@ class CMakeMake(ConfigureMake):
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
+            'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -137,7 +138,11 @@ class CMakeMake(ConfigureMake):
             else:
                 srcdir = default_srcdir
 
-        options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+        install_target = self.installdir
+        install_target_subdir = self.cfg.get('install_target_subdir')
+        if install_target_subdir:
+            install_target = os.path.join(install_target, install_target_subdir)
+        options = ['-DCMAKE_INSTALL_PREFIX=%s' % install_target]
 
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
