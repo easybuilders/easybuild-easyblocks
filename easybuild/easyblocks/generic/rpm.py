@@ -116,6 +116,22 @@ class Rpm(Binary):
         })
         return extra_vars
 
+    def extract_step(self):
+        """
+        Extract sources if requested, retain resulting list of RPMs as new list of sources.
+        """
+        super(Rpm, self).extract_step()
+
+        if self.cfg.get('extract_sources', False):
+            self.src = []
+            for src_rpm in sorted(glob.glob(os.path.join(self.builddir, '*.rpm'))):
+                self.src.append({
+                    'name': os.path.basename(src_rpm),
+                    'path': src_rpm,
+                    'finalpath': self.builddir,
+                })
+            self.log.info("New list of sources after unpacking: %s", self.src)
+
     def configure_step(self):
         """Custom configuration procedure for RPMs: rebuild RPMs for relocation if required."""
 
