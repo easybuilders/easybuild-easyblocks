@@ -198,11 +198,11 @@ class Rpm(Binary):
             preinstall = ''
 
         if self.rebuild_rpm:
-            cmd_tpl = "rpm -i --dbpath %(inst)s/rpm %(force)s --relocate /=%(inst)s " \
-                      "%(pre)s %(post)s --nodeps --ignorearch %(rpm)s"
+            cmd_tpl = "%(preinstallopts)s rpm -i --dbpath %(inst)s/rpm %(force)s --relocate /=%(inst)s " \
+                      "%(pre)s %(post)s --nodeps --ignorearch %(rpm)s %(installopts)s"
         else:
-            cmd_tpl = "rpm -i --dbpath /rpm %(force)s --root %(inst)s --relocate /=%(inst)s " \
-                      "%(pre)s %(post)s --nodeps %(rpm)s"
+            cmd_tpl = "%(preinstallopts)s rpm -i --dbpath /rpm %(force)s --root %(inst)s --relocate /=%(inst)s " \
+                      "%(pre)s %(post)s --nodeps %(rpm)s %(installopts)s"
 
         # exception for user root:
         # --relocate is not necessary -> --root will relocate more than enough
@@ -210,11 +210,13 @@ class Rpm(Binary):
 
         for rpm in self.src:
             cmd = cmd_tpl % {
+                'preinstallopts': self.cfg['preinstallopts'],
                 'inst': self.installdir,
                 'rpm': rpm['path'],
                 'force': force,
                 'pre': preinstall,
                 'post': postinstall,
+                'installopts': self.cfg['installopts'],
             }
             run_cmd(cmd, log_all=True, simple=True)
 
