@@ -103,15 +103,6 @@ class EB_MotionCor2(EasyBlock):
                 raise EasyBuildError(
                     "Found multiple, or no, matching MotionCor2 binary named %s or %s" % (pattern1, patter2)
                 )
-         else:
-
-            matches = glob.glob(os.path.join(self.builddir, '%s_%s' % (self.name, self.version), '%s*' % self.motioncor2_bin))
-            if len(matches) == 1:
-                src_mc2_bin = matches[0]
-            else:
-                raise EasyBuildError(
-                    "Found multiple, or no, matching MotionCor2 binary named %s*" % self.motioncor2_bin
-                )
         else:
             src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
         if not os.path.exists(src_mc2_bin):
