@@ -91,6 +91,20 @@ class EB_MotionCor2(EasyBlock):
         """
 
         if (LooseVersion(self.version) >= LooseVersion("1.4")):
+            pattern1 = os.path.join(self.builddir, '%s*' % self.motioncor2_bin)
+            pattern2 = os.path.join(self.builddir,
+                                    "{}_{}".format(self.name, self.version),
+                                    '%s*' % self.motioncor2_bin)
+            matches = glob.glob(pattern1) + glob.glob(pattern2)
+
+            if len(matches) == 1:
+                src_mc2_bin = matches[0]
+            else:
+                raise EasyBuildError(
+                    "Found multiple, or no, matching MotionCor2 binary named %s or %s" % (pattern1, patter2)
+                )
+         else:
+
             matches = glob.glob(os.path.join(self.builddir, '%s_%s' % (self.name, self.version), '%s*' % self.motioncor2_bin))
             if len(matches) == 1:
                 src_mc2_bin = matches[0]
@@ -142,7 +156,6 @@ class EB_MotionCor2(EasyBlock):
         }
 
         super(EB_MotionCor2, self).sanity_check_step(custom_paths)
-
 
     def sanity_check_rpath(self, *args, **kwargs):
         """Custom implementation of RPATH sanity check: allow skipping via skip_rpath_sanity_check."""
