@@ -72,11 +72,11 @@ class EB_EasyBuildMeta(PythonPackage):
         """Python-specific preparations."""
 
         self.python_cmd = sys.executable
+        # set Python lib directories
+        self.set_pylibdirs()
+        
         self.log.info("Python command being used: %s", self.python_cmd)
 
-        if self.python_cmd:
-            # set Python lib directories
-            self.set_pylibdirs()
 
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
