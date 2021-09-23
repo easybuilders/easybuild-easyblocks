@@ -74,7 +74,7 @@ class EB_EasyBuildMeta(PythonPackage):
         self.python_cmd = sys.executable
         # set Python lib directories
         self.set_pylibdirs()
-        
+
         self.log.info("Python command being used: %s", self.python_cmd)
 
 
