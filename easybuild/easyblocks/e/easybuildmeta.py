@@ -77,7 +77,6 @@ class EB_EasyBuildMeta(PythonPackage):
 
         self.log.info("Python command being used: %s", self.python_cmd)
 
-
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
         env_var_name = get_software_root_env_var_name(self.name)
