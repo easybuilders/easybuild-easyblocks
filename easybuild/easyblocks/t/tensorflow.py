@@ -213,13 +213,12 @@ class EB_TensorFlow(PythonPackage):
 
     @staticmethod
     def extra_options():
-        # We only want to install mkl-dnn by default on x86_64 systems
-        with_mkl_dnn_default = get_cpu_architecture() == X86_64
         extra_vars = {
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
                                     "Unsupported starting at TensorFlow 1.12!", CUSTOM],
-            'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN / oneDNN (enabled by default where supported)",
+                             CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
@@ -803,13 +802,25 @@ class EB_TensorFlow(PythonPackage):
                 self.target_opts.append('--config=cuda')
 
         # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
+        # Since 2.4.0 the mkl-config flag is not required as oneDNN is automatically used for x86 systems
+        # and MKL is no longer a dependency
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             self.target_opts.append('--config=mkl')
             env.setvar('TF_MKL_ROOT', mkl_root)
-        elif self.cfg['with_mkl_dnn']:
-            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
-            self.target_opts.append('--config=mkl')
+        elif LooseVersion(self.version) < LooseVersion('2.4.0'):
+            # auto-enable use of MKL-DNN when possible if with_mkl_dnn is left unspecified
+            if self.cfg['with_mkl_dnn'] is None:
+                cpu_arch = get_cpu_architecture()
+                if cpu_arch == X86_64:
+                    # Supported on x86 since forever
+                    self.cfg['with_mkl_dnn'] = True
+                    self.log.info("Auto-enabled use of MKL-DNN on %s CPU architecture", cpu_arch)
+                else:
+                    self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
+
+            if self.cfg['with_mkl_dnn']:
+                self.target_opts.append('--config=mkl')
 
         # Compose final command
         cmd = (
