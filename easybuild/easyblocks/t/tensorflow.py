@@ -28,6 +28,7 @@ EasyBuild support for building and installing TensorFlow, implemented as an easy
 @author: Kenneth Hoste (HPC-UGent)
 @author: Ake Sandgren (Umea University)
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
+@author: Alexander Grund (TU Dresden)
 """
 import glob
 import os
