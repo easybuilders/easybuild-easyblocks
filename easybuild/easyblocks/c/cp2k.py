@@ -676,7 +676,6 @@ class EB_CP2K(EasyBlock):
         if self.cfg['library']:
             run_cmd(cmd + 'libcp2k', log_all=True, simple=True, log_output=True)
 
-
     def test_step(self):
         """Run regression test."""
 
