@@ -668,9 +668,15 @@ class EB_CP2K(EasyBlock):
         run_cmd(cmd + " clean", log_all=True, simple=True, log_output=True)
 
         # build and install
+        # compile regularly first with the default make target
+        # and only then build the library
+        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+
+        # build as a library
         if self.cfg['library']:
             cmd += ' libcp2k'
-        run_cmd(cmd + " all", log_all=True, simple=True, log_output=True)
+            run_cmd(cmd, log_all=True, simple=True, log_output=True)
+
 
     def test_step(self):
         """Run regression test."""
