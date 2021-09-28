@@ -670,12 +670,11 @@ class EB_CP2K(EasyBlock):
         # build and install
         # compile regularly first with the default make target
         # and only then build the library
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_cmd(cmd + ' all', log_all=True, simple=True, log_output=True)
 
         # build as a library
         if self.cfg['library']:
-            cmd += ' libcp2k'
-            run_cmd(cmd, log_all=True, simple=True, log_output=True)
+            run_cmd(cmd + 'libcp2k', log_all=True, simple=True, log_output=True)
 
 
     def test_step(self):
