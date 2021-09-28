@@ -598,7 +598,10 @@ class EB_CP2K(EasyBlock):
         else:
             # only use Intel FFTW wrappers if FFTW is not loaded
             options['CFLAGS'] += ' -I$(INTEL_INCF)'
-            options['DFLAGS'] += ' -D__FFTMKL'
+            if LooseVersion(self.version) > LooseVersion('2.3'):
+                options['DFLAGS'] += ' -D__MKL'
+            else:
+                options['DFLAGS'] += ' -D__FFTMKL'
             options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
