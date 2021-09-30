@@ -90,8 +90,15 @@ class EB_MotionCor2(EasyBlock):
         Install binary and a wrapper that loads correct CUDA version.
         """
 
+        # for versions < 1.4.0 and at least for version 1.4.2 the binary is directly in the builddir
+        # for versions 1.4.0 and 1.4.4 the binary is in a subdirectory {self.name}_{self.version}
         if (LooseVersion(self.version) >= LooseVersion("1.4")):
-            matches = glob.glob(os.path.join(self.builddir, '%s*' % self.motioncor2_bin))
+            pattern1 = os.path.join(self.builddir, '%s*' % self.motioncor2_bin)
+            pattern2 = os.path.join(self.builddir,
+                                    '%s_%s' % (self.name, self.version),
+                                    '%s*' % self.motioncor2_bin)
+            matches = glob.glob(pattern1) + glob.glob(pattern2)
+
             if len(matches) == 1:
                 src_mc2_bin = matches[0]
             else:
@@ -142,3 +149,10 @@ class EB_MotionCor2(EasyBlock):
         }
 
         super(EB_MotionCor2, self).sanity_check_step(custom_paths)
+
+    def sanity_check_rpath(self, *args, **kwargs):
+        """Custom implementation of RPATH sanity check: allow skipping via skip_rpath_sanity_check."""
+        if self.cfg.get('skip_rpath_sanity_check', False):
+            self.log.info("Skipping RPATH sanity check, as specified via 'skip_rpath_sanity_check'...")
+        else:
+            super(EB_MotionCor2, self).sanity_check_rpath(*args, **kwargs)
