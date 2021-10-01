@@ -105,8 +105,9 @@ class EB_FlexiBLAS(CMakeMake):
                     toolchain.NVHPC: mkl_intel_libs,
                     toolchain.PGI: mkl_intel_libs,
                 }
+                comp_family = self.toolchain.comp_family()
                 try:
-                    configopts[key] = mkl_compiler_mapping[self.toolchain.comp_family()]
+                    configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
             else:
