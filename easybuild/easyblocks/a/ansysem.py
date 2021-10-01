@@ -139,6 +139,6 @@ either in the Easyconfig or as the env var EB_ANSYS_EM_LICENSE_SERVER_PORT")
                 'AnsysEM%s/Linux64/Gen3dProj' % self.internal_version,
                 'AnsysEM%s/Linux64/G3dMesher' % self.internal_version,
             ],
-            'dirs': ['AnsysEM%s/Linux64/mainwin540' % self.internal_version],
+            'dirs': ['AnsysEM%s/Linux64/mainwin560' % self.internal_version],
         }
         super(EB_ANSYSEM, self).sanity_check_step(custom_paths=custom_paths)
