@@ -61,6 +61,11 @@ class EB_ANSYSEM(PackedBinary):
                 "Override the version number that ANSYS EM uses internally, e.g. '20.1' for '2020R1'.",
                 CUSTOM
             ],
+            'update_version': [
+                None,
+                "Version number of the update to apply. Requires the update zip file in the list of sources.",
+                CUSTOM
+            ],
         }
         return PackedBinary.extra_options(extra_vars)
 
@@ -114,6 +119,17 @@ either in the Easyconfig or as the env var EB_ANSYS_EM_LICENSE_SERVER_PORT")
         """Install Ansys Electromagnetics using 'install'."""
         cmd = "./Linux/AnsysEM/disk1/setup.exe -options \"%s\" -silent" % (self.replayfile)
         run_cmd(cmd, log_all=True, simple=True)
+
+        # Run the update, if the extra variable is provided
+        if self.cfg['update_version']:
+            int_update_ver = re.sub(r'^\d{2}(\d{2})R(.+)$', r'\1.\2', self.cfg['update_version'], 0)
+            update_filepath = "%s/Electronics_%s_linx64" % (self.builddir, int_update_ver)
+            cmd = '%s/install_patch.bash --install_dir %s' % (update_filepath, self.installdir)
+            (out, _) = run_cmd(cmd, simple=False, log_all=False, log_ok=False)
+            self.log.debug("Output from update:\n\n%s" % out)
+            # Search for "Patch installed successfully" in the output text
+            if not re.search("Patch installed successfully", out) and not self.dry_run:
+                raise EasyBuildError("ANSYSEM update failed with output:\n\n%s" % out)
 
     def make_module_extra(self):
         """Extra module entries for Ansys Electromagnetics."""
