@@ -137,12 +137,12 @@ either in the Easyconfig or as the env var EB_ANSYS_EM_LICENSE_SERVER_PORT")
             )
         txt += self.module_generator.prepend_paths(
             'LD_LIBRARY_PATH', [
-                'AnsysEM%s/Linux64/mainwin540/Linux64/mw/lib-amd64_linux_optimized' % self.internal_version
+                'AnsysEM%s/Linux64/mainwin560/Linux64/mw/lib-amd64_linux_optimized' % self.internal_version
             ]
             )
         txt += self.module_generator.prepend_paths(
             'LIBRARY_PATH', [
-                'AnsysEM%s/Linux64/mainwin540/Linux64/mw/lib-amd64_linux_optimized' % self.internal_version
+                'AnsysEM%s/Linux64/mainwin560/Linux64/mw/lib-amd64_linux_optimized' % self.internal_version
             ]
             )
         return txt
