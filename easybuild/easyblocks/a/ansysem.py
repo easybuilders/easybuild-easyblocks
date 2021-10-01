@@ -45,7 +45,8 @@ class EB_ANSYSEM(PackedBinary):
         if self.cfg['internal_version']:
             self.internal_version = self.cfg['internal_version']
         else:
-            self.internal_version = None
+            # Generate internal-version from user-facing version if no override specified
+            self.internal_version = re.sub(r'\d{2}(\d{2})R(\d)', r'\1.\2', self.version, 0)
 
     @staticmethod
     def extra_options():
@@ -71,9 +72,6 @@ class EB_ANSYSEM(PackedBinary):
 
     def configure_step(self):
         """Configure Ansys Electromagnetics installation."""
-        if not self.internal_version:
-            # Generate internal-version from user-facing version if no override specified
-            self.internal_version = re.sub(r'\d{2}(\d{2})R(\d)', r'\1.\2', self.version, 0)
         licserv = self.cfg['license_server']
         if licserv is None:
             licserv = os.getenv('EB_ANSYS_EM_LICENSE_SERVER')
