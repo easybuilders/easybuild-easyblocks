@@ -105,6 +105,7 @@ class EB_FlexiBLAS(CMakeMake):
                     toolchain.INTELCOMP: mkl_intel_libs,
                     toolchain.NVHPC: mkl_intel_libs,
                     toolchain.PGI: mkl_intel_libs,
+                    toolchain.SYSTEM: mkl_gnu_libs,
                 }
                 comp_family = self.toolchain.comp_family()
                 try:
