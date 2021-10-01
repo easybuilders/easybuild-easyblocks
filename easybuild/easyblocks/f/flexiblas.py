@@ -58,7 +58,8 @@ class EB_FlexiBLAS(CMakeMake):
         """Easyblock constructor."""
         super(EB_FlexiBLAS, self).__init__(*args, **kwargs)
 
-        build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+        # CC tweak: allow builddependencies because of RPATH
+        build_dep_names = set() #dep['name'] for dep in self.cfg.dependencies(build_only=True))
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
