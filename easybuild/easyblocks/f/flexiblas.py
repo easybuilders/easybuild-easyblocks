@@ -161,7 +161,10 @@ class EB_FlexiBLAS(CMakeMake):
         libs = []
 
         # libraries in lib/
-        top_libs = ['libflexiblas%s.%s' % (x, shlib_ext) for x in ('', '_api', '_mgmt')]
+        if self.toolchain.comp_family() == toolchain.INTELCOMP:
+            top_libs = ['libflexiblas%s.%s' % (x, shlib_ext) for x in ('_intel', '_api', '_mgmt')]
+        else:
+            top_libs = ['libflexiblas%s.%s' % (x, shlib_ext) for x in ('', '_api', '_mgmt')]
         libs.extend(os.path.join('lib', lf) for lf in top_libs)
 
         # libraries in lib/flexiblas/
