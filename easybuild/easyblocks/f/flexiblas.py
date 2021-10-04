@@ -31,6 +31,7 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
@@ -72,7 +73,7 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS']
+        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -91,7 +92,26 @@ class EB_FlexiBLAS(CMakeMake):
         # see https://github.com/mpimd-csc/flexiblas#setup-with-custom-blas-and-lapack-implementations
         for blas_lib in self.blas_libs:
             key = '%s_LIBRARY' % blas_lib
-            configopts[key] = blas_lib.lower()
+            if blas_lib == 'imkl':
+                # For MKL there is gf_lp64 vs. intel_lp64 and gnu_thread vs. intel_thread (vs. sequential)
+                # For gf_lp64 vs intel_lp64 the difference is in the ABI for [sz]dot[uc], which FlexiBLAS
+                # can transparenly wrap.
+                # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
+                mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
+                mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
+                mkl_compiler_mapping = {
+                    toolchain.GCC: mkl_gnu_libs,
+                    toolchain.INTELCOMP: mkl_intel_libs,
+                    toolchain.NVHPC: mkl_intel_libs,
+                    toolchain.PGI: mkl_intel_libs,
+                }
+                comp_family = self.toolchain.comp_family()
+                try:
+                    configopts[key] = mkl_compiler_mapping[comp_family]
+                except KeyError:
+                    raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            else:
+                configopts[key] = blas_lib.lower()
 
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
         # to allow easyconfig to override specifies settings
