@@ -121,8 +121,11 @@ class EB_MATLAB(PackedBinary):
         adjust_permissions(src, stat.S_IXUSR)
 
         if LooseVersion(self.version) >= LooseVersion('2016b'):
-            jdir = os.path.join(self.cfg['start_dir'], 'sys', 'java', 'jre', 'glnxa64', 'jre', 'bin')
-            for perm_dir in [os.path.join(self.cfg['start_dir'], 'bin', 'glnxa64'), jdir]:
+            perm_dirs = [os.path.join(self.cfg['start_dir'], 'bin', 'glnxa64')]
+            if LooseVersion(self.version) < LooseVersion('2021b'):
+                jdir = os.path.join(self.cfg['start_dir'], 'sys', 'java', 'jre', 'glnxa64', 'jre', 'bin')
+                perm_dirs.append(jdir)
+            for perm_dir in perm_dirs:
                 adjust_permissions(perm_dir, stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
