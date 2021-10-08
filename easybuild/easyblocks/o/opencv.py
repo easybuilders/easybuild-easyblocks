@@ -26,6 +26,7 @@
 EasyBuild support for building and installing OpenCV, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Simon Branford (University of Birmingham)
 """
 import glob
 import os
@@ -153,6 +154,10 @@ class EB_OpenCV(CMakeMake):
         if get_software_root('GTK+'):
             if LooseVersion(get_software_version('GTK+')) < LooseVersion('3.0'):
                 self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        elif get_software_root('GTK3'):
+            pass
+        elif get_software_root('GTK2'):
+            self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
         else:
             self.cfg.update('configopts', '-DWITH_GTK=OFF')
 
