@@ -308,20 +308,31 @@ class EB_imkl(IntelBase):
             self.log.info("Changed to interfaces directory %s", interfacedir)
 
             compopt = None
-            # determine whether we're using a non-Intel GCC-based or PGI-based toolchain
+            # determine whether we're using a non-Intel GCC-based or PGI/NVHPC-based toolchain
             # can't use toolchain.comp_family, because of system toolchain used when installing imkl
             if get_software_root('icc') or get_software_root('intel-compilers'):
                 compopt = 'compiler=intel'
             else:
-                # check for PGI first, since there's a GCC underneath PGI too...
+                # check for PGI and NVHPC first, since there's a GCC underneath PGI and NVHPC too...
                 if get_software_root('PGI'):
                     compopt = 'compiler=pgi'
+                elif get_software_root('NVHPC'):
+                    compopt = 'compiler=nvhpc'
                 elif get_software_root('GCC'):
                     compopt = 'compiler=gnu'
                 else:
-                    raise EasyBuildError("Not using Intel/GCC/PGI compilers, don't know how to build wrapper libs")
+                    raise EasyBuildError("Not using Intel/GCC/PGI/NVHPC compilers, "
+                                         "don't know how to build wrapper libs")
 
-            # patch makefiles for cdft wrappers when PGI is used as compiler
+            # patch makefiles for cdft wrappers when PGI or NVHPC is used as compiler
+            if get_software_root('NVHPC'):
+                regex_subs = [
+                    # nvhpc should be considered as a valid compiler
+                    ("intel gnu", "intel gnu nvhpc"),
+                    # transform 'gnu' case to 'nvhpc' case
+                    (r"ifeq \(\$\(compiler\),gnu\)", "ifeq ($(compiler),nvhpc)"),
+                    ('=gcc', '=nvc'),
+                ]
             if get_software_root('PGI'):
                 regex_subs = [
                     # pgi should be considered as a valid compiler
@@ -329,6 +340,9 @@ class EB_imkl(IntelBase):
                     # transform 'gnu' case to 'pgi' case
                     (r"ifeq \(\$\(compiler\),gnu\)", "ifeq ($(compiler),pgi)"),
                     ('=gcc', '=pgcc'),
+                ]
+            if get_software_root('PGI') or get_software_root('NVHPC'):
+                regex_subs += [
                     # correct flag to use C99 standard
                     ('-std=c99', '-c99'),
                     # -Wall and -Werror are not valid options for pgcc, no close equivalent
@@ -337,6 +351,15 @@ class EB_imkl(IntelBase):
                 ]
                 for lib in self.cdftlibs:
                     apply_regex_substitutions(os.path.join(interfacedir, lib, 'makefile'), regex_subs)
+
+            if get_software_root('NVHPC'):
+                regex_nvc_subs = [
+                    ('pgcc', 'nvc'),
+                    ('pgf95', 'nvfortran'),
+                    ('pgi', 'nvhpc'),
+                ]
+                for liball in glob.glob(os.path.join(interfacedir, '*', 'makefile')):
+                    apply_regex_substitutions(liball, regex_nvc_subs)
 
             for lib in fftw2libs + fftw3libs + self.cdftlibs:
                 buildopts = [compopt]
@@ -416,13 +439,16 @@ class EB_imkl(IntelBase):
         if self.cfg['interfaces']:
             if get_software_root('icc') or get_software_root('intel-compilers'):
                 compsuff = '_intel'
-            # check for PGI first, since there's a GCC underneath PGI too...
+            # check for PGI and NVHPC first, since there's a GCC underneath PGI and NVHPC too...
             elif get_software_root('PGI'):
                 compsuff = '_pgi'
+            elif get_software_root('NVHPC'):
+                compsuff = '_nvhpc'
             elif get_software_root('GCC'):
                 compsuff = '_gnu'
             else:
-                raise EasyBuildError("Not using Intel/GCC/PGI, don't know compiler suffix for FFTW libraries.")
+                raise EasyBuildError("Not using Intel/GCC/PGI/NVHPC, "
+                                     "don't know compiler suffix for FFTW libraries.")
 
             precs = ['_double', '_single']
             if ver < LooseVersion('11'):
