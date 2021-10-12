@@ -312,17 +312,16 @@ class EB_imkl(IntelBase):
             # can't use toolchain.comp_family, because of system toolchain used when installing imkl
             if get_software_root('icc') or get_software_root('intel-compilers'):
                 compopt = 'compiler=intel'
+            elif get_software_root('PGI'):
+                compopt = 'compiler=pgi'
+            elif get_software_root('NVHPC'):
+                compopt = 'compiler=nvhpc'
+            # GCC should be the last as the above compilers also have an underlying GCC
+            elif get_software_root('GCC'):
+                compopt = 'compiler=gnu'
             else:
-                # check for PGI and NVHPC first, since there's a GCC underneath PGI and NVHPC too...
-                if get_software_root('PGI'):
-                    compopt = 'compiler=pgi'
-                elif get_software_root('NVHPC'):
-                    compopt = 'compiler=nvhpc'
-                elif get_software_root('GCC'):
-                    compopt = 'compiler=gnu'
-                else:
-                    raise EasyBuildError("Not using Intel/GCC/PGI/NVHPC compilers, "
-                                         "don't know how to build wrapper libs")
+                raise EasyBuildError("Not using Intel/GCC/PGI/NVHPC compilers, "
+                                     "don't know how to build wrapper libs")
 
             # patch makefiles for cdft wrappers when PGI or NVHPC is used as compiler
             if get_software_root('NVHPC'):
