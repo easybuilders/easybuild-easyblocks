@@ -95,8 +95,8 @@ class EB_OpenSSL_wrapper(Bundle):
             raise EasyBuildError(err_msg, min_openssl_version, self.version)
 
         # Regex pattern to find version strings in OpenSSL libraries and headers
-        full_version_regex = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+[a-z]')
-        openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+[a-z])*)', re.M)
+        full_version_regex = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+[a-z]?')
+        openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+[a-z]?)*)', re.M)
 
         # Libraries packaged in OpenSSL
         openssl_libs = ['libssl', 'libcrypto']
