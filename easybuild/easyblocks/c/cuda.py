@@ -270,8 +270,12 @@ class EB_CUDA(Binary):
 
     def make_module_extra(self):
         """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
-        # So %(installdir)s is not added to the PATH
+
+        # avoid adding of installation directory to $PATH (cfr. Binary easyblock) since that may cause trouble,
+        # for example when there's a clash between command name and a subdirectory in the installation directory
+        # (like compute-sanitizer)
         self.cfg['prepend_to_path'] = False
+
         txt = super(EB_CUDA, self).make_module_extra()
         txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
         txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
