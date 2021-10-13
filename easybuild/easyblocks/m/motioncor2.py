@@ -149,10 +149,3 @@ class EB_MotionCor2(EasyBlock):
         }
 
         super(EB_MotionCor2, self).sanity_check_step(custom_paths)
-
-    def sanity_check_rpath(self, *args, **kwargs):
-        """Custom implementation of RPATH sanity check: allow skipping via skip_rpath_sanity_check."""
-        if self.cfg.get('skip_rpath_sanity_check', False):
-            self.log.info("Skipping RPATH sanity check, as specified via 'skip_rpath_sanity_check'...")
-        else:
-            super(EB_MotionCor2, self).sanity_check_rpath(*args, **kwargs)
