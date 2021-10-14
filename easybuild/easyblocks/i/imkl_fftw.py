@@ -30,7 +30,7 @@ implemented as an easyblock
 """
 import os
 
-from easybuild.easyblocks.i.imkl import EB_imkl
+from easybuild.easyblocks.imkl import EB_imkl
 from easybuild.tools.filetools import mkdir
 
 
