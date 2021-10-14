@@ -26,7 +26,7 @@
 EasyBuild support for installing only the FFTW interfaces for the Intel Math Kernel Library (MKL),
 implemented as an easyblock
 
-@author: Bart Oldeman (McGill University, Calcul Québec, Compute Canada)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
 import os
 
