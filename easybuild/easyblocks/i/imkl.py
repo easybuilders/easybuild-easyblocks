@@ -278,7 +278,7 @@ class EB_imkl(IntelBase):
             else:
                 libsubdir = os.path.join('lib', 'em64t')
 
-        libdir = os.path.join(self.installdir, libdir)
+        libdir = os.path.join(self.installdir, libsubdir)
         for fil, txt in extra.items():
             dest = os.path.join(libdir, fil)
             if not os.path.exists(dest):
@@ -420,7 +420,7 @@ class EB_imkl(IntelBase):
         extralibs = ['libmkl_blacs_intelmpi_%(suff)s.' + shlib_ext, 'libmkl_scalapack_%(suff)s.' + shlib_ext]
 
         if self.cfg['interfaces']:
-            libs += get_interface_libs()
+            libs += self.get_interface_libs()
 
         if ver >= LooseVersion('10.3') and self.cfg['m32']:
             raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)

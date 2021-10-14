@@ -33,6 +33,7 @@ import os
 from easybuild.easyblocks.i.imkl import EB_imkl
 from easybuild.tools.filetools import mkdir
 
+
 class EB_imkl_minus_FFTW(EB_imkl):
     """
     Class that can be used to install mkl FFTW interfaces only
