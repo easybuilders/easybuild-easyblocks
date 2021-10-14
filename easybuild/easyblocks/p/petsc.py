@@ -306,7 +306,6 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['test_parallel'] is None and self.cfg['parallel']:
             self.cfg['test_parallel'] = self.cfg['parallel']
 
-
         # PETSc > 3.5, make does not accept -j
         # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
