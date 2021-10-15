@@ -148,6 +148,8 @@ class EB_ELSI(CMakeMake):
         """Custom sanity check for ELSI."""
 
         libs = ['elsi', 'fortjson', 'MatrixSwitch', 'OMM']
+        if self.internal_ntpoly:
+            libs.append('NTPoly')
         modules = [lib.lower() for lib in libs if lib != 'OMM']
         modules.extend(['omm_ops', 'omm_params', 'omm_rand'])
 
@@ -155,9 +157,6 @@ class EB_ELSI(CMakeMake):
             modules.append('elsi_pexsi')
             libs.extend(['pexsi', 'ptscotch', 'ptscotcherr', 'ptscotchparmetis',
                          'scotch', 'scotcherr', 'scotchmetis', 'superlu_dist'])
-
-        if self.internal_ntpoly:
-            libs.append('NTPoly')
 
         if self.enable_sips:
             modules.append('elsi_sips')
