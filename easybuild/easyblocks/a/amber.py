@@ -317,7 +317,12 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+            if self.name == 'Amber':
+                test_dir = os.path.join(self.builddir, 'test')
+            else:
+                test_dir = os.path.join(self.builddir, 'AmberTools', 'test')
+
+            pretestcommands = 'source %s && cd %s' % (os.path.join(self.installdir, 'amber.sh'), test_dir)
 
             # serial tests
             run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
