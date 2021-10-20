@@ -328,36 +328,26 @@ class EB_GCC(ConfigureMake):
         Check that optional dependencies have been downloaded (for NVPTX and/or AMD GCN offload support)
         """
         super(EB_GCC, self).prepare_step(*args, **kwargs)
-        if self.cfg['withnvptx']:
-            nvptx_tools_dir_pattern = os.path.join(self.builddir, 'nvptx-tools-*')
-            hits = glob.glob(nvptx_tools_dir_pattern)
-            if len(hits) == 1:
-                self.nvptx_tools_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withnvptx', but 'nvptx-tools' was not downloaded."
-                                     " Ensure that 'nvptx-tools' are among the sources in the EasyConfig")
-        if self.cfg['withamdgcn']:
-            lld_dir_pattern = os.path.join(self.builddir, 'lld-*')
-            hits = glob.glob(lld_dir_pattern)
-            if len(hits) == 1:
-                self.lld_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withamdgcn', but 'LLD' was not downloaded."
-                                     " Ensure that 'LLD' are among the sources in the EasyConfig")
-            llvm_dir_pattern = os.path.join(self.builddir, 'llvm-*')
-            hits = glob.glob(llvm_dir_pattern)
-            if len(hits) == 1:
-                self.llvm_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withamdgcn', but 'LLVM' was not downloaded."
-                                     " Ensure that 'LLVM' are among the sources in the EasyConfig")
-        if self.cfg['withnvptx'] or self.cfg['withamdgcn']:
-            newlib_dir_pattern = os.path.join(self.builddir, 'newlib-*')
-            hits = glob.glob(newlib_dir_pattern)
-            if len(hits) == 1:
-                self.newlib_dir = hits[0]
-            else:
-                raise EasyBuildError("Could not find 'newlib' among the downloaded sources")
+
+        source_deps = [
+            (['withnvptx'], 'nvptx-tools', 'nvptx_tools_dir'),
+            (['withamdgcn'], 'LLD', 'lld_dir'),
+            (['withamdgcn'], 'LLVM', 'llvm_dir'),
+            (['withamdgcn', 'withnvptx'], 'newlib', 'newlib_dir'),
+        ]
+
+        for (with_opts, dep_name, target_var_name) in source_deps:
+            if any(self.cfg[x] for x in with_opts):
+                hits = glob.glob(os.path.join(self.builddir, dep_name.lower() + '-*'))
+                if len(hits) == 1:
+                    setattr(self, target_var_name, hits[0])
+                    self.log.info("Found sources for %s at %s (%s)", dep_name, hits[0], target_var_name)
+                else:
+                    with_opts_or = ' or '.join("'%s'" % x for x in with_opts)
+                    error_msg = "Easyconfig enables %s, but '%s' sources were not found. " % (with_opts_or, dep_name)
+                    error_msg += "Make sure that sources for %s are listed in the easyconfig file!" % dep_name
+                    raise EasyBuildError(error_msg)
+
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
 
