@@ -49,7 +49,8 @@ class EB_FlexiBLAS(CMakeMake):
             'blas_auto_detect': [False, "Let FlexiBLAS autodetect the BLAS libraries during configuration", CUSTOM],
             'enable_lapack': [True, "Enable LAPACK support, also includes the wrappers around LAPACK", CUSTOM],
             'flexiblas_default': [None, "Default BLAS lib to set at compile time. If not defined, " +
-                                  "the first BLAS lib in blas_libs or the list of dependencies is set as default", CUSTOM],
+                                  "the first BLAS lib in blas_libs or the list of dependencies is set as default",
+                                  CUSTOM],
             'blas_libs': [None, "List of (build)dependency names to use as BLAS library backends. " +
                           "If not defined, use the list of dependencies.", CUSTOM],
         })
