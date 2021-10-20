@@ -454,6 +454,7 @@ class EB_GCC(ConfigureMake):
 
                 elif self.current_stage in (AMD_NEWLIB, NVIDIA_NEWLIB):
 
+                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
                     self.cfg.update('configopts', self.configopts)
 
                     if self.current_stage == NVIDIA_NEWLIB:
@@ -468,7 +469,6 @@ class EB_GCC(ConfigureMake):
                         self.cfg.update('configopts', "--with-newlib")
                         self.cfg.update('configopts', "--disable-libquadmath")
 
-                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
                     build_tools_dir = os.path.join(self.installdir, target, 'bin')
                     self.cfg.update('configopts', '--with-build-time-tools=' + build_tools_dir)
                     self.cfg.update('configopts', '--target=' + target)
@@ -889,7 +889,7 @@ class EB_GCC(ConfigureMake):
 
     def run_all_steps(self, *args, **kwargs):
         """
-        If 'withnvptx' and 'withamdgcn' is set, use iterated build:
+        If 'withnvptx' or 'withamdgcn' is set, use iterated build:
         iteration 0 builds the regular host compiler
         iteration 1 builds nvptx-tools
         iteration 2 builds the nvptx target compiler
