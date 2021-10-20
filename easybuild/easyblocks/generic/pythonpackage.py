@@ -733,7 +733,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.cfg["exts_list"] = exts_list_save
             return result
 
-        return super(PythonPackage, self).make_module_extra_extensions()
+        return super(PythonPackage, self).make_module_description()
 
 
     def run(self, *args, **kwargs):
