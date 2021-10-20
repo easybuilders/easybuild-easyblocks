@@ -328,36 +328,26 @@ class EB_GCC(ConfigureMake):
         Check that optional dependencies have been downloaded (for NVPTX and/or AMD GCN offload support)
         """
         super(EB_GCC, self).prepare_step(*args, **kwargs)
-        if self.cfg['withnvptx']:
-            nvptx_tools_dir_pattern = os.path.join(self.builddir, 'nvptx-tools-*')
-            hits = glob.glob(nvptx_tools_dir_pattern)
-            if len(hits) == 1:
-                self.nvptx_tools_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withnvptx', but 'nvptx-tools' was not downloaded."
-                                     " Ensure that 'nvptx-tools' are among the sources in the EasyConfig")
-        if self.cfg['withamdgcn']:
-            lld_dir_pattern = os.path.join(self.builddir, 'lld-*')
-            hits = glob.glob(lld_dir_pattern)
-            if len(hits) == 1:
-                self.lld_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withamdgcn', but 'LLD' was not downloaded."
-                                     " Ensure that 'LLD' are among the sources in the EasyConfig")
-            llvm_dir_pattern = os.path.join(self.builddir, 'llvm-*')
-            hits = glob.glob(llvm_dir_pattern)
-            if len(hits) == 1:
-                self.llvm_dir = hits[0]
-            else:
-                raise EasyBuildError("Build specified 'withamdgcn', but 'LLVM' was not downloaded."
-                                     " Ensure that 'LLVM' are among the sources in the EasyConfig")
-        if self.cfg['withnvptx'] or self.cfg['withamdgcn']:
-            newlib_dir_pattern = os.path.join(self.builddir, 'newlib-*')
-            hits = glob.glob(newlib_dir_pattern)
-            if len(hits) == 1:
-                self.newlib_dir = hits[0]
-            else:
-                raise EasyBuildError("Could not find 'newlib' among the downloaded sources")
+
+        source_deps = [
+            (['withnvptx'], 'nvptx-tools', 'nvptx_tools_dir'),
+            (['withamdgcn'], 'LLD', 'lld_dir'),
+            (['withamdgcn'], 'LLVM', 'llvm_dir'),
+            (['withamdgcn', 'withnvptx'], 'newlib', 'newlib_dir'),
+        ]
+
+        for (with_opts, dep_name, target_var_name) in source_deps:
+            if any(self.cfg[x] for x in with_opts):
+                hits = glob.glob(os.path.join(self.builddir, dep_name.lower() + '-*'))
+                if len(hits) == 1:
+                    setattr(self, target_var_name, hits[0])
+                    self.log.info("Found sources for %s at %s (%s)", dep_name, hits[0], target_var_name)
+                else:
+                    with_opts_or = ' or '.join("'%s'" % x for x in with_opts)
+                    error_msg = "Easyconfig enables %s, but '%s' sources were not found. " % (with_opts_or, dep_name)
+                    error_msg += "Make sure that sources for %s are listed in the easyconfig file!" % dep_name
+                    raise EasyBuildError(error_msg)
+
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
 
@@ -429,53 +419,66 @@ class EB_GCC(ConfigureMake):
                     'val': os.getenv('LD_LIBRARY_PATH')
                 }
                 env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+
                 if self.current_stage == NVPTX_TOOLS:
                     # Configure NVPTX tools and build
                     change_dir(self.nvptx_tools_dir)
                     return super(EB_GCC, self).configure_step()
+
                 elif self.current_stage == AMD_LLVM:
+                    # determine LLVM target to use for host CPU
+                    cpu_arch = get_cpu_architecture()
+                    try:
+                        llvm_target_cpu = LLVM_ARCH_MAP[cpu_arch][0]
+                    except KeyError:
+                        raise EasyBuildError("Failed to determine LLVM target for host CPU (%s)" % cpu_arch)
+
                     # Setup symlink from LLD source to 'builddir/lld' so that LLVM can find it
                     symlink(self.lld_dir, '%s/lld' % self.builddir)
                     # Build LLD tools from LLVM needed for AMD offloading
                     # Build LLVM in separate directory
                     self.create_dir('build_llvm_amdgcn')
-                    cpu_arch = LLVM_ARCH_MAP[get_cpu_architecture()][0]
-                    cmd = ("cmake -DLLVM_TARGETS_TO_BUILD='%s;AMDGPU' -DLLVM_ENABLE_PROJECTS=lld "
-                           "-DCMAKE_BUILD_TYPE=Release %s"
-                           % (cpu_arch, self.llvm_dir))
+                    cmd = ' '.join([
+                        'cmake',
+                        "-DLLVM_TARGETS_TO_BUILD='%s;AMDGPU'" % llvm_target_cpu,
+                        "-DLLVM_ENABLE_PROJECTS=lld",
+                        "-DCMAKE_BUILD_TYPE=Release",
+                        self.llvm_dir,
+                    ])
                     run_cmd(cmd, log_all=True, simple=True)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
                     # further down in this file to avoid installing LLVM
                     return
-                elif self.current_stage == NVIDIA_NEWLIB:
-                    # compile nvptx target compiler
-                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
-                    self.create_dir("build-nvptx-gcc")
+
+                elif self.current_stage in (AMD_NEWLIB, NVIDIA_NEWLIB):
+
                     self.cfg.update('configopts', self.configopts)
-                    self.cfg.update('configopts', "--with-build-time-tools=%s/nvptx-none/bin" % self.installdir)
-                    self.cfg.update('configopts', "--target=nvptx-none")
+
+                    if self.current_stage == NVIDIA_NEWLIB:
+                        # compile nvptx target compiler
+                        self.create_dir("build-nvptx-gcc")
+                        target = 'nvptx-none'
+                        self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                    else:
+                        # compile AMD GCN target compiler
+                        self.create_dir("build-amdgcn-gcc")
+                        target = 'amdgcn-amdhsa'
+                        self.cfg.update('configopts', "--with-newlib")
+                        self.cfg.update('configopts', "--disable-libquadmath")
+
+                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
+                    build_tools_dir = os.path.join(self.installdir, target, 'bin')
+                    self.cfg.update('configopts', '--with-build-time-tools=' + build_tools_dir)
+                    self.cfg.update('configopts', '--target=' + target)
                     host_type = self.determine_build_and_host_type()[1]
                     self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
                     self.cfg.update('configopts', "--disable-sjlj-exceptions")
-                    self.cfg.update('configopts', "--enable-newlib-io-long-long")
+
                     self.cfg['configure_cmd_prefix'] = '../'
                     return super(EB_GCC, self).configure_step()
-                elif self.current_stage == AMD_NEWLIB:
-                    # compile AMD GCN target compiler
-                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
-                    self.create_dir("build-amdgcn-gcc")
-                    self.cfg.update('configopts', self.configopts)
-                    self.cfg.update('configopts', "--with-build-time-tools=%s/amdgcn-amdhsa/bin" % self.installdir)
-                    self.cfg.update('configopts', "--target=amdgcn-amdhsa")
-                    self.cfg.update('configopts', "--with-newlib")
-                    host_type = self.determine_build_and_host_type()[1]
-                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
-                    self.cfg.update('configopts', "--disable-sjlj-exceptions")
-                    self.cfg.update('configopts', "--disable-libquadmath")
-                    self.cfg['configure_cmd_prefix'] = '../'
-                    return super(EB_GCC, self).configure_step()
+
                 else:
                     raise EasyBuildError("Unknown offload configure step: %s, available: %s"
                                          % (self.current_stage, self.build_stages))
@@ -567,6 +570,7 @@ class EB_GCC(ConfigureMake):
         self.disable_lto_mpfr_old_gcc(objdir)
 
     def build_step(self):
+        """Custom (staged) build step for GCC."""
 
         if self.iter_idx > 0:
             # call standard build_step for nvptx-tools and nvptx GCC
@@ -785,15 +789,23 @@ class EB_GCC(ConfigureMake):
         # binaries that GCC expects when building 'newlib' so that it can reuse the LLVM GCN support
         # https://gcc.gnu.org/wiki/Offloading#For_AMD_GCN:
         if self.current_stage == AMD_LLVM:
-            llvm_binaries = [('ar', 'llvm-ar'), ('ranlib', 'llvm-ar'), ('as', 'llvm-mc'), ('nm', 'llvm-nm'),
-                             ('ld', 'lld')]
-            from_path_start = glob.glob(os.path.join(self.builddir, 'gcc-*'))
-            if not from_path_start:
-                raise EasyBuildError("Could not find GCC 'build_llvm_amdgcn' build directory")
-            for gcc_tool, llvm_tool in llvm_binaries:
-                from_path = '%s/build_llvm_amdgcn/bin/%s' % (from_path_start[0], llvm_tool)
-                to_path = '%s/amdgcn-amdhsa/bin/%s' % (self.installdir, gcc_tool)
-                copy_file(from_path, to_path)
+            llvm_binaries = [
+                ('ar', 'llvm-ar'),
+                ('as', 'llvm-mc'),
+                ('ld', 'lld'),
+                ('nm', 'llvm-nm'),
+                ('ranlib', 'llvm-ar'),
+            ]
+            hits = glob.glob(os.path.join(self.builddir, 'gcc-*'))
+            if len(hits) == 1:
+                gcc_build_dir = hits[0]
+                for gcc_tool, llvm_tool in llvm_binaries:
+                    from_path = os.path.join(gcc_build_dir, 'build_llvm_amdgcn', 'bin', llvm_tool)
+                    to_path = os.path.join(self.installdir, 'amdgcn-amdhsa', 'bin', gcc_tool)
+                    copy_file(from_path, to_path)
+            else:
+                raise EasyBuildError("Failed to isolate GCC build directory in %s", self.builddir)
+
         else:
             super(EB_GCC, self).install_step(*args, **kwargs)
 
