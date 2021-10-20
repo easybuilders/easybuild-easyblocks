@@ -570,6 +570,7 @@ class EB_GCC(ConfigureMake):
         self.disable_lto_mpfr_old_gcc(objdir)
 
     def build_step(self):
+        """Custom (staged) build step for GCC."""
 
         if self.iter_idx > 0:
             # call standard build_step for nvptx-tools and nvptx GCC
@@ -788,15 +789,23 @@ class EB_GCC(ConfigureMake):
         # binaries that GCC expects when building 'newlib' so that it can reuse the LLVM GCN support
         # https://gcc.gnu.org/wiki/Offloading#For_AMD_GCN:
         if self.current_stage == AMD_LLVM:
-            llvm_binaries = [('ar', 'llvm-ar'), ('ranlib', 'llvm-ar'), ('as', 'llvm-mc'), ('nm', 'llvm-nm'),
-                             ('ld', 'lld')]
-            from_path_start = glob.glob(os.path.join(self.builddir, 'gcc-*'))
-            if not from_path_start:
-                raise EasyBuildError("Could not find GCC 'build_llvm_amdgcn' build directory")
-            for gcc_tool, llvm_tool in llvm_binaries:
-                from_path = '%s/build_llvm_amdgcn/bin/%s' % (from_path_start[0], llvm_tool)
-                to_path = '%s/amdgcn-amdhsa/bin/%s' % (self.installdir, gcc_tool)
-                copy_file(from_path, to_path)
+            llvm_binaries = [
+                ('ar', 'llvm-ar'),
+                ('as', 'llvm-mc'),
+                ('ld', 'lld'),
+                ('nm', 'llvm-nm'),
+                ('ranlib', 'llvm-ar'),
+            ]
+            hits = glob.glob(os.path.join(self.builddir, 'gcc-*'))
+            if len(hits) == 1:
+                gcc_build_dir = hits[0]
+                for gcc_tool, llvm_tool in llvm_binaries:
+                    from_path = os.path.join(gcc_build_dir, 'build_llvm_amdgcn', 'bin', llvm_tool)
+                    to_path = os.path.join(self.installdir, 'amdgcn-amdhsa', 'bin', gcc_tool)
+                    copy_file(from_path, to_path)
+            else:
+                raise EasyBuildError("Failed to isolate GCC build directory in %s", self.builddir)
+
         else:
             super(EB_GCC, self).install_step(*args, **kwargs)
 
