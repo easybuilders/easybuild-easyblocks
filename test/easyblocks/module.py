@@ -44,6 +44,7 @@ from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.gopackage import GoPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
+from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.easyblocks.imod import EB_IMOD
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
@@ -304,6 +305,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
                 else:
                     test_param = 'foo'
                 extra_txt += '%s = "%s"\n' % (key, test_param)
+
+        # test --module-only for GCC easyblock with withnvptx enabled,
+        # like we do for recent GCC versions by default in easybuilders/easybuild-easyconfigs repo
+        if app_class == EB_GCC:
+            extra_txt += 'withnvptx = True\n'
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)

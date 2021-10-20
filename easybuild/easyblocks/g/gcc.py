@@ -325,28 +325,9 @@ class EB_GCC(ConfigureMake):
 
     def prepare_step(self, *args, **kwargs):
         """
-        Check that optional dependencies have been downloaded (for NVPTX and/or AMD GCN offload support)
+        Prepare build environment, track currently active build stage
         """
         super(EB_GCC, self).prepare_step(*args, **kwargs)
-
-        source_deps = [
-            (['withnvptx'], 'nvptx-tools', 'nvptx_tools_dir'),
-            (['withamdgcn'], 'LLD', 'lld_dir'),
-            (['withamdgcn'], 'LLVM', 'llvm_dir'),
-            (['withamdgcn', 'withnvptx'], 'newlib', 'newlib_dir'),
-        ]
-
-        for (with_opts, dep_name, target_var_name) in source_deps:
-            if any(self.cfg[x] for x in with_opts):
-                hits = glob.glob(os.path.join(self.builddir, dep_name.lower() + '-*'))
-                if len(hits) == 1:
-                    setattr(self, target_var_name, hits[0])
-                    self.log.info("Found sources for %s at %s (%s)", dep_name, hits[0], target_var_name)
-                else:
-                    with_opts_or = ' or '.join("'%s'" % x for x in with_opts)
-                    error_msg = "Easyconfig enables %s, but '%s' sources were not found. " % (with_opts_or, dep_name)
-                    error_msg += "Make sure that sources for %s are listed in the easyconfig file!" % dep_name
-                    raise EasyBuildError(error_msg)
 
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
@@ -401,6 +382,28 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --enable-languages=%s" % ','.join(self.cfg['languages'])
 
         if self.cfg['withnvptx'] or self.cfg['withamdgcn']:
+
+            # Check that sources for optional dependencies for NVPTX and/or AMD GCN offload support are available
+            source_deps = [
+                (['withnvptx'], 'nvptx-tools', 'nvptx_tools_dir'),
+                (['withamdgcn'], 'LLD', 'lld_dir'),
+                (['withamdgcn'], 'LLVM', 'llvm_dir'),
+                (['withamdgcn', 'withnvptx'], 'newlib', 'newlib_dir'),
+            ]
+
+            for (with_opts, dep_name, target_var_name) in source_deps:
+                if any(self.cfg[x] for x in with_opts):
+                    hits = glob.glob(os.path.join(self.builddir, dep_name.lower() + '-*'))
+                    if len(hits) == 1:
+                        setattr(self, target_var_name, hits[0])
+                        self.log.info("Found sources for %s at %s (%s)", dep_name, hits[0], target_var_name)
+                    else:
+                        with_opts_or = ' or '.join("'%s'" % x for x in with_opts)
+                        error_msg = "Easyconfig enables %s, " % with_opts_or
+                        error_msg += "but '%s' sources were not found. " % dep_name
+                        error_msg += "Make sure that sources for %s are listed in the easyconfig file!" % dep_name
+                        raise EasyBuildError(error_msg)
+
             if self.current_stage == HOST_COMPILER:
                 self.configopts += " --without-cuda-driver"
                 offload_target = []
