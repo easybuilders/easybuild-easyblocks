@@ -452,34 +452,33 @@ class EB_GCC(ConfigureMake):
                     # further down in this file to avoid installing LLVM
                     return
 
-                elif self.current_stage == NVIDIA_NEWLIB:
-                    # compile nvptx target compiler
-                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
-                    self.create_dir("build-nvptx-gcc")
+                elif self.current_stage in (AMD_NEWLIB, NVIDIA_NEWLIB):
+
                     self.cfg.update('configopts', self.configopts)
-                    self.cfg.update('configopts', "--with-build-time-tools=%s/nvptx-none/bin" % self.installdir)
-                    self.cfg.update('configopts', "--target=nvptx-none")
+
+                    if self.current_stage == NVIDIA_NEWLIB:
+                        # compile nvptx target compiler
+                        self.create_dir("build-nvptx-gcc")
+                        target = 'nvptx-none'
+                        self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                    else:
+                        # compile AMD GCN target compiler
+                        self.create_dir("build-amdgcn-gcc")
+                        target = 'amdgcn-amdhsa'
+                        self.cfg.update('configopts', "--with-newlib")
+                        self.cfg.update('configopts', "--disable-libquadmath")
+
+                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
+                    build_tools_dir = os.path.join(self.installdir, target, 'bin')
+                    self.cfg.update('configopts', '--with-build-time-tools=' + build_tools_dir)
+                    self.cfg.update('configopts', '--target=' + target)
                     host_type = self.determine_build_and_host_type()[1]
                     self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
                     self.cfg.update('configopts', "--disable-sjlj-exceptions")
-                    self.cfg.update('configopts', "--enable-newlib-io-long-long")
+
                     self.cfg['configure_cmd_prefix'] = '../'
                     return super(EB_GCC, self).configure_step()
 
-                elif self.current_stage == AMD_NEWLIB:
-                    # compile AMD GCN target compiler
-                    symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
-                    self.create_dir("build-amdgcn-gcc")
-                    self.cfg.update('configopts', self.configopts)
-                    self.cfg.update('configopts', "--with-build-time-tools=%s/amdgcn-amdhsa/bin" % self.installdir)
-                    self.cfg.update('configopts', "--target=amdgcn-amdhsa")
-                    self.cfg.update('configopts', "--with-newlib")
-                    host_type = self.determine_build_and_host_type()[1]
-                    self.cfg.update('configopts', "--enable-as-accelerator-for=%s" % host_type)
-                    self.cfg.update('configopts', "--disable-sjlj-exceptions")
-                    self.cfg.update('configopts', "--disable-libquadmath")
-                    self.cfg['configure_cmd_prefix'] = '../'
-                    return super(EB_GCC, self).configure_step()
                 else:
                     raise EasyBuildError("Unknown offload configure step: %s, available: %s"
                                          % (self.current_stage, self.build_stages))
