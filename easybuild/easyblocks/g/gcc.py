@@ -419,26 +419,39 @@ class EB_GCC(ConfigureMake):
                     'val': os.getenv('LD_LIBRARY_PATH')
                 }
                 env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+
                 if self.current_stage == NVPTX_TOOLS:
                     # Configure NVPTX tools and build
                     change_dir(self.nvptx_tools_dir)
                     return super(EB_GCC, self).configure_step()
+
                 elif self.current_stage == AMD_LLVM:
+                    # determine LLVM target to use for host CPU
+                    cpu_arch = get_cpu_architecture()
+                    try:
+                        llvm_target_cpu = LLVM_ARCH_MAP[cpu_arch][0]
+                    except KeyError:
+                        raise EasyBuildError("Failed to determine LLVM target for host CPU (%s)" % cpu_arch)
+
                     # Setup symlink from LLD source to 'builddir/lld' so that LLVM can find it
                     symlink(self.lld_dir, '%s/lld' % self.builddir)
                     # Build LLD tools from LLVM needed for AMD offloading
                     # Build LLVM in separate directory
                     self.create_dir('build_llvm_amdgcn')
-                    cpu_arch = LLVM_ARCH_MAP[get_cpu_architecture()][0]
-                    cmd = ("cmake -DLLVM_TARGETS_TO_BUILD='%s;AMDGPU' -DLLVM_ENABLE_PROJECTS=lld "
-                           "-DCMAKE_BUILD_TYPE=Release %s"
-                           % (cpu_arch, self.llvm_dir))
+                    cmd = ' '.join([
+                        'cmake',
+                        "-DLLVM_TARGETS_TO_BUILD='%s;AMDGPU'" % llvm_target_cpu,
+                        "-DLLVM_ENABLE_PROJECTS=lld",
+                        "-DCMAKE_BUILD_TYPE=Release",
+                        self.llvm_dir,
+                    ])
                     run_cmd(cmd, log_all=True, simple=True)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
                     # further down in this file to avoid installing LLVM
                     return
+
                 elif self.current_stage == NVIDIA_NEWLIB:
                     # compile nvptx target compiler
                     symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
@@ -452,6 +465,7 @@ class EB_GCC(ConfigureMake):
                     self.cfg.update('configopts', "--enable-newlib-io-long-long")
                     self.cfg['configure_cmd_prefix'] = '../'
                     return super(EB_GCC, self).configure_step()
+
                 elif self.current_stage == AMD_NEWLIB:
                     # compile AMD GCN target compiler
                     symlink(os.path.join(self.newlib_dir, 'newlib'), 'newlib')
