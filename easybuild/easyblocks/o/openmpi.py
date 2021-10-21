@@ -140,6 +140,20 @@ class EB_OpenMPI(ConfigureMake):
 
         super(EB_OpenMPI, self).test_step()
 
+    def load_module(self, *args, **kwargs):
+        """
+        Load (temporary) module file, after resetting to initial environment.
+
+        Also put RPATH wrappers back in place if needed, to ensure that sanity check commands work as expected.
+        """
+        super(EB_OpenMPI, self).load_module(*args, **kwargs)
+
+        # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
+        if build_option('rpath'):
+            if self.toolchain.options.get('rpath', True):
+                self.toolchain.prepare_rpath_wrappers(rpath_filter_dirs=self.rpath_filter_dirs,
+                                                      rpath_include_dirs=self.rpath_include_dirs)
+
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
@@ -197,11 +211,5 @@ class EB_OpenMPI(ConfigureMake):
                     # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
                     params['nr_ranks'] = 1
                     custom_commands.append(mpi_cmd_tmpl % params)
-
-        # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
-        if build_option('rpath'):
-            if self.toolchain.options.get('rpath', True):
-                self.toolchain.prepare_rpath_wrappers(rpath_filter_dirs=self.rpath_filter_dirs,
-                                                      rpath_include_dirs=self.rpath_include_dirs)
 
         super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
