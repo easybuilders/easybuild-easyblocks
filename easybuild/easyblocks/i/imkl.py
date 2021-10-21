@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, move_file, remove_dir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, move_file, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -146,8 +146,10 @@ class EB_imkl(IntelBase):
             silent_cfg_names_map=silent_cfg_names_map,
             silent_cfg_extras=silent_cfg_extras)
 
-    def build_interfaces(self, libdir):
+    def build_mkl_fftw_interfaces(self, libdir):
         """Build the Intel MKL FFTW interfaces."""
+
+        mkdir(libdir)
 
         loosever = LooseVersion(self.version)
 
@@ -338,10 +340,10 @@ class EB_imkl(IntelBase):
                 write_file(dest, txt)
 
         if self.cfg['interfaces']:
-            self.build_interfaces(os.path.join(self.installdir, libdir))
+            self.build_mkl_fftw_interfaces(os.path.join(self.installdir, libdir))
 
-    def get_interface_libs(self):
-        """Returns list of library names produced by build_interface()"""
+    def get_mkl_fftw_interface_libs(self):
+        """Returns list of library names produced by build_mkl_fftw_interfaces()"""
 
         if get_software_root('icc') or get_software_root('intel-compilers'):
             compsuff = '_intel'
@@ -394,7 +396,7 @@ class EB_imkl(IntelBase):
         extralibs = ['libmkl_blacs_intelmpi_%(suff)s.' + shlib_ext, 'libmkl_scalapack_%(suff)s.' + shlib_ext]
 
         if self.cfg['interfaces']:
-            libs += self.get_interface_libs()
+            libs += self.get_mkl_fftw_interface_libs()
 
         if ver >= LooseVersion('10.3') and self.cfg['m32']:
             raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)
