@@ -45,6 +45,7 @@ from easybuild.easyblocks.generic.gopackage import GoPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
 from easybuild.framework.easyblock import EasyBlock
@@ -257,6 +258,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         bases = list(app_class.__bases__)
         for base in copy.copy(bases):
             bases.extend(base.__bases__)
+
+        if app_class == EB_imkl_minus_FFTW:
+            # $EBROOTIMKL must be set for imkl-FFTW, because of dependency check on imkl in prepare_step
+            os.environ['EBROOTIMKL'] = '/fake/software/imkl/2021.4.0/mkl/2021.4.0'
+
         if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
