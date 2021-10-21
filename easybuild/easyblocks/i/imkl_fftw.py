@@ -31,7 +31,8 @@ implemented as an easyblock
 import os
 
 from easybuild.easyblocks.imkl import EB_imkl
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import get_software_root
 
 
 class EB_imkl_minus_FFTW(EB_imkl):
@@ -39,30 +40,39 @@ class EB_imkl_minus_FFTW(EB_imkl):
     Class that can be used to install mkl FFTW interfaces only
     """
 
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step: make sure imkl is available as dependency."""
+        super(EB_imkl_minus_FFTW, self).prepare_step(*args, **kwargs)
+
+        imkl_root = get_software_root('imkl')
+        if not imkl_root:
+            raise EasyBuildError("Required imkl dependency is missing!")
+
     def install_step(self):
-        """Don't install imkl itself"""
-        pass
+        """Install Intel MKL FFTW interfaces"""
+        # correct mkl_basedir, since build of FFTW interfaces needs to be done from imkl install directory
+        self.mkl_basedir = os.getenv('MKLROOT')
+        self.build_mkl_fftw_interfaces(os.path.join(self.installdir, 'lib'))
 
     def make_module_req_guess(self):
-        """Bypass imkl paths, only use standard lib location"""
+        """Custom guesses for imkl-FFTW module file"""
+        # bypass custom paths for imkl, only use standard library location
         return super(EB_imkl, self).make_module_req_guess()
 
     def make_module_extra(self):
-        """Bypass extra module variables from imkl"""
+        """Custom extra variables to set in module file"""
+        # bypass extra module variables for imkl
         return super(EB_imkl, self).make_module_extra()
 
     def post_install_step(self):
-        """Install FFTW interfaces"""
-        super(EB_imkl, self).post_install_step()
-        self.mkl_basedir = os.getenv('MKLROOT')
-        libdir = os.path.join(self.installdir, 'lib')
-        mkdir(libdir)
-        self.build_interfaces(libdir)
+        """Custom post install step for imkl-FFTW"""
+        # bypass post_install_step of imkl easyblock
+        pass
 
     def sanity_check_step(self):
-        """Check if all archives are there"""
+        """Custom sanity check for imkl-FFTW: check if all libraries for FFTW interfaces are there."""
         custom_paths = {
-            'files': [os.path.join(self.installdir, 'lib', lib) for lib in self.get_interface_libs()],
-            'dirs': [os.path.join(self.installdir, 'lib')],
+            'files': [os.path.join(self.installdir, 'lib', x) for x in self.get_mkl_fftw_interface_libs()],
+            'dirs': [],
         }
         super(EB_imkl, self).sanity_check_step(custom_paths=custom_paths)
