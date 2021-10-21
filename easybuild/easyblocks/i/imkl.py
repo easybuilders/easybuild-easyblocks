@@ -32,11 +32,11 @@ EasyBuild support for installing the Intel Math Kernel Library (MKL), implemente
 @author: Jens Timmerman (Ghent University)
 @author: Ward Poelmans (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
+@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
 import glob
 import itertools
 import os
-import shutil
 import tempfile
 from distutils.version import LooseVersion
 
@@ -45,7 +45,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, remove_dir, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, move_file, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -288,7 +288,7 @@ class EB_imkl(IntelBase):
             self.build_interfaces(os.path.join(self.installdir, libdir))
 
     def build_interfaces(self, libdir):
-        """Build the mkl interfaces, if desired"""
+        """Build the Intel MKL FFTW interfaces."""
 
         loosever = LooseVersion(self.version)
 
@@ -402,12 +402,9 @@ class EB_imkl(IntelBase):
                 env.setvar('COPTS', flags)
                 env.setvar('CFLAGS', flags)
 
-                try:
-                    intdir = os.path.join(interfacedir, lib)
-                    os.chdir(intdir)
-                    self.log.info("Changed to interface %s directory %s" % (lib, intdir))
-                except OSError as err:
-                    raise EasyBuildError("Can't change to interface %s directory %s: %s", lib, intdir, err)
+                intdir = os.path.join(interfacedir, lib)
+                change_dir(intdir)
+                self.log.info("Changed to interface %s directory %s", lib, intdir)
 
                 fullcmd = "%s %s" % (cmd, ' '.join(buildopts + extraopts))
                 res = run_cmd(fullcmd, log_all=True, simple=True)
@@ -421,12 +418,9 @@ class EB_imkl(IntelBase):
                         ff = fn.split('.')
                         fn = '.'.join(ff[:-1]) + '_pic.' + ff[-1]
                     dest = os.path.join(libdir, fn)
-                    try:
-                        if os.path.isfile(src):
-                            shutil.move(src, dest)
-                            self.log.info("Moved %s to %s" % (src, dest))
-                    except OSError as err:
-                        raise EasyBuildError("Failed to move %s to %s: %s", src, dest, err)
+                    if os.path.isfile(src):
+                        move_file(src, dest)
+                        self.log.info("Moved %s to %s", src, dest)
 
                 remove_dir(tmpbuild)
 
