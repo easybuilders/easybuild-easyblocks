@@ -35,8 +35,10 @@ import tempfile
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, which
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 class EB_jaxlib(PythonPackage):
@@ -69,13 +71,18 @@ class EB_jaxlib(PythonPackage):
 
         # Collect options for the build script
         # Used only by the build script
-        options = [
-            '--target_cpu_features=default',  # Using copt for optimizations
-        ]
+
+        # C++ flags are set through copt below
+        if build_option('optarch') == OPTARCH_GENERIC:
+            options = ['--target_cpu_features=default']
+        else:
+            options = ['--target_cpu_features=native']
+
         # Passed directly to bazel
         bazel_startup_options = [
             '--output_user_root=%s' % tempfile.mkdtemp(suffix='-bazel', dir=self.builddir),
         ]
+
         # Passed to the build command of bazel
         bazel_options = [
             '--jobs=%s' % self.cfg['parallel'],
