@@ -106,10 +106,6 @@ class EB_R(ConfigureMake):
             self.log.warning(warn_msg)
             print_warning(warn_msg)
 
-    def install_extensions(self, **kwargs):
-        """Install extensions (asynchronously)."""
-        super(EB_R, self).install_extensions(parallel=True, **kwargs)
-
     def make_module_req_guess(self):
         """
         Add extra paths to modulefile
