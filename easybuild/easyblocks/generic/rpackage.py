@@ -257,8 +257,12 @@ class RPackage(ExtensionEasyBlock):
 
         return self._required_deps
 
-    def run(self, asynchronous=False):
-        """Install R package as an extension."""
+    def prepare_r_ext_install(self):
+        """
+        Prepare installation of R package as extension.
+
+        :return: Shell command to run + string to pass to stdin.
+        """
 
         # determine location
         if isinstance(self.master, EB_R):
@@ -283,10 +287,21 @@ class RPackage(ExtensionEasyBlock):
             self.log.debug("Installing most recent version of R package %s (source not found)." % self.name)
             cmd, stdin = self.make_r_cmd(prefix=lib_install_prefix)
 
-        if asynchronous:
-            self.async_cmd_start(cmd, inp=stdin)
-        else:
-            self.install_R_package(cmd, inp=stdin)
+        return cmd, stdin
+
+    def run(self):
+        """
+        Install R package as an extension.
+        """
+        cmd, stdin = self.prepare_r_ext_install()
+        self.install_R_package(cmd, inp=stdin)
+
+    def run_async(self):
+        """
+        Start installation of R package as an extension asynchronously.
+        """
+        cmd, stdin = self.prepare_r_ext_install()
+        self.async_cmd_start(cmd, inp=stdin)
 
     def async_cmd_check(self):
         """
