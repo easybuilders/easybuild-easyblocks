@@ -411,6 +411,17 @@ class EB_GROMACS(CMakeMake):
                     if not regex.search(out):
                         raise EasyBuildError("Pattern '%s' not found in GROMACS configuration output.", pattern)
 
+            # Make sure compilation of CPU detection code did not fail
+            patterns = [
+                r"Did not detect build CPU \S* - detection program did not compile.*",
+                r"CPU detection program did not compile.*",
+            ]
+            for pattern in patterns:
+                regex = re.compile(pattern, re.M)
+                if regex.search(out):
+                    raise EasyBuildError("Pattern '%s' found in GROMACS configuration output.", pattern)
+
+
     def build_step(self):
         """
         Custom build step for GROMACS; Skip if CUDA is enabled and the current
