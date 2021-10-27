@@ -49,7 +49,10 @@ class EB_FlexiBLAS(CMakeMake):
             'blas_auto_detect': [False, "Let FlexiBLAS autodetect the BLAS libraries during configuration", CUSTOM],
             'enable_lapack': [True, "Enable LAPACK support, also includes the wrappers around LAPACK", CUSTOM],
             'flexiblas_default': [None, "Default BLAS lib to set at compile time. If not defined, " +
-                                  "the first BLAS lib in the list of dependencies is set as default", CUSTOM],
+                                  "the first BLAS lib in backends or the list of dependencies is set as default",
+                                  CUSTOM],
+            'backends': [None, "List of (build)dependency names to use as BLAS library backends. " +
+                         "If not defined, use the list of dependencies.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -58,9 +61,17 @@ class EB_FlexiBLAS(CMakeMake):
         """Easyblock constructor."""
         super(EB_FlexiBLAS, self).__init__(*args, **kwargs)
 
-        build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
-        self.blas_libs = [x for x in dep_names if x not in build_dep_names]
+        if self.cfg['backends']:
+            self.blas_libs = self.cfg['backends']
+            # make sure that all listed backends are (build)dependencies
+            backends_nodep = [x for x in self.blas_libs if x not in dep_names]
+            if backends_nodep:
+                raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
+                                     ', '.join(backends_nodep))
+        else:
+            build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+            self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
