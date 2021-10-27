@@ -803,34 +803,34 @@ class EB_TensorFlow(PythonPackage):
             if self._with_cuda:
                 self.target_opts.append('--config=cuda')
 
-        # if mkl-dnn is listed as a dependency it is used
-        mkl_root = get_software_root('mkl-dnn')
-        if mkl_root:
-            self.target_opts.append('--config=mkl')
-            env.setvar('TF_MKL_ROOT', mkl_root)
-
-        # auto-enable use of MKL-DNN/oneDNN and --config=mkl when possible if with_mkl_dnn is left unspecified;
-        # only do this for TensorFlow versions older than 2.4.0, since more recent versions
-        # oneDNN is used automatically for x86_64 systems (and mkl-dnn is no longer a dependency);
-        #
         # note: using --config=mkl results in a significantly different build, with a different
         # threading model (which may lead to thread oversubscription and significant performance loss,
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/2577) and different
         # runtime behavior w.r.t. GPU vs CPU execution of functions like tf.matmul
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/14120),
         # so make sure you really know you want to use this!
-        elif LooseVersion(self.version) < LooseVersion('2.4.0'):
-            if self.cfg['with_mkl_dnn'] is None:
-                cpu_arch = get_cpu_architecture()
-                if cpu_arch == X86_64:
-                    # Supported on x86 since forever
-                    self.cfg['with_mkl_dnn'] = True
-                    self.log.info("Auto-enabled use of MKL-DNN on %s CPU architecture", cpu_arch)
-                else:
-                    self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
 
-            if self.cfg['with_mkl_dnn']:
-                self.target_opts.append('--config=mkl')
+        # auto-enable use of MKL-DNN/oneDNN and --config=mkl when possible if with_mkl_dnn is left unspecified;
+        # only do this for TensorFlow versions older than 2.4.0, since more recent versions
+        # oneDNN is used automatically for x86_64 systems (and mkl-dnn is no longer a dependency);
+        if self.cfg['with_mkl_dnn'] is None and LooseVersion(self.version) < LooseVersion('2.4.0'):
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                # Supported on x86 since forever
+                self.cfg['with_mkl_dnn'] = True
+                self.log.info("Auto-enabled use of MKL-DNN on %s CPU architecture", cpu_arch)
+            else:
+                self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
+
+        # if mkl-dnn is listed as a dependency it is used
+        mkl_root = get_software_root('mkl-dnn')
+        if mkl_root:
+            self.target_opts.append('--config=mkl')
+            env.setvar('TF_MKL_ROOT', mkl_root)
+        elif self.cfg['with_mkl_dnn']:
+            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn),
+            # and download it if needed
+            self.target_opts.append('--config=mkl')
 
         # Compose final command
         cmd = (
