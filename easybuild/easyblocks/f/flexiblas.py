@@ -163,12 +163,20 @@ class EB_FlexiBLAS(CMakeMake):
         libs.extend(os.path.join('lib', lf) for lf in top_libs)
 
         # libraries in lib/flexiblas/
-        lower_lib_names = self.blas_libs + ['fallback_lapack', 'hook_dummy', 'hook_profile']
+        lower_lib_names = self.blas_libs + ['hook_dummy', 'hook_profile']
+        if self.cfg['enable_lapack']:
+            lower_lib_names += ['fallback_lapack']
         lower_libs = ['libflexiblas_%s.%s' % (x.lower(), shlib_ext) for x in lower_lib_names]
         libs.extend(os.path.join('lib', 'flexiblas', lf) for lf in lower_libs)
 
+        # include files in include/flexiblas
+        flexiblas_includes = ['flexiblas_api.h', 'flexiblas_mgmt.h', 'cblas.h']
+        if self.cfg['enable_lapack']:
+            flexiblas_includes += ['lapack.h']
+        includes = [os.path.join('include', 'flexiblas', x) for x in flexiblas_includes]
+
         custom_paths = {
-            'files': [os.path.join('bin', 'flexiblas'), os.path.join('etc', 'flexiblasrc')] + libs,
+            'files': [os.path.join('bin', 'flexiblas'), os.path.join('etc', 'flexiblasrc')] + includes + libs,
             'dirs': [os.path.join('etc', 'flexiblasrc.d'), os.path.join('share', 'man')],
         }
 
@@ -182,3 +190,12 @@ class EB_FlexiBLAS(CMakeMake):
             custom_commands.append("flexiblas list | grep %s" % blas_lib.upper())
 
         super(EB_FlexiBLAS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_req_guess(self):
+        """Customize CPATH for FlexiBLAS."""
+
+        guesses = super(EB_FlexiBLAS, self).make_module_req_guess()
+
+        guesses.update({'CPATH': [os.path.join('include', 'flexiblas')]})
+
+        return guesses
