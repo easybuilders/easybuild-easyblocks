@@ -420,7 +420,6 @@ class EB_GROMACS(CMakeMake):
                 if regex.search(out):
                     raise EasyBuildError("Pattern '%s' found in GROMACS configuration output.", pattern)
 
-
     def build_step(self):
         """
         Custom build step for GROMACS; Skip if CUDA is enabled and the current
