@@ -61,11 +61,16 @@ class EB_FlexiBLAS(CMakeMake):
         """Easyblock constructor."""
         super(EB_FlexiBLAS, self).__init__(*args, **kwargs)
 
+        dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         if self.cfg['backends']:
             self.blas_libs = self.cfg['backends']
+            # make sure that all listed backends are (build)dependencies
+            backends_nodep = [x for x in self.blas_libs if x not in dep_names]
+            if backends_nodep:
+                raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
+                                     ', '.join(backends_nodep))
         else:
             build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
-            dep_names = [dep['name'] for dep in self.cfg.dependencies()]
             self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
