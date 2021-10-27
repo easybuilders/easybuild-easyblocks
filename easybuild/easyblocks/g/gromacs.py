@@ -413,13 +413,13 @@ class EB_GROMACS(CMakeMake):
 
             # Make sure compilation of CPU detection code did not fail
             patterns = [
-                r"Did not detect build CPU \S* - detection program did not compile.*",
-                r"CPU detection program did not compile.*",
+                r".*detection program did not compile.*",
             ]
             for pattern in patterns:
                 regex = re.compile(pattern, re.M)
                 if regex.search(out):
                     raise EasyBuildError("Pattern '%s' found in GROMACS configuration output.", pattern)
+
 
     def build_step(self):
         """
