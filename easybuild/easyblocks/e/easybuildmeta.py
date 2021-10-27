@@ -30,6 +30,7 @@ EasyBuild support for installing EasyBuild, implemented as an easyblock
 import copy
 import os
 import re
+import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -64,6 +65,17 @@ class EB_EasyBuildMeta(PythonPackage):
             self.easybuild_pkgs.extend(['vsc-base', 'vsc-install'])
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
+
+    # Override this function since we want to respect the user choice for the python installation to use
+    # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
+    def prepare_python(self):
+        """Python-specific preparations."""
+
+        self.python_cmd = sys.executable
+        # set Python lib directories
+        self.set_pylibdirs()
+
+        self.log.info("Python command being used: %s", self.python_cmd)
 
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
