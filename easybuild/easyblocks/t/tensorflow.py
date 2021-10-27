@@ -218,7 +218,8 @@ class EB_TensorFlow(PythonPackage):
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
                                     "Unsupported starting at TensorFlow 1.12!", CUSTOM],
-            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN / oneDNN (enabled by default where supported)",
+            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN / oneDNN and configure with --config=mkl "
+                                   "(enabled by default where supported for TensorFlow versions before 2.4.0)",
                              CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
@@ -802,15 +803,23 @@ class EB_TensorFlow(PythonPackage):
             if self._with_cuda:
                 self.target_opts.append('--config=cuda')
 
-        # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
-        # Since 2.4.0 the mkl-config flag is not required as oneDNN is automatically used for x86 systems
-        # and MKL is no longer a dependency
+        # if mkl-dnn is listed as a dependency it is used
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             self.target_opts.append('--config=mkl')
             env.setvar('TF_MKL_ROOT', mkl_root)
+
+        # auto-enable use of MKL-DNN/oneDNN and --config=mkl when possible if with_mkl_dnn is left unspecified;
+        # only do this for TensorFlow versions older than 2.4.0, since more recent versions
+        # oneDNN is used automatically for x86_64 systems (and mkl-dnn is no longer a dependency);
+        #
+        # note: using --config=mkl results in a significantly different build, with a different
+        # threading model (which may lead to thread oversubscription and significant performance loss,
+        # see https://github.com/easybuilders/easybuild-easyblocks/issues/2577) and different
+        # runtime behavior w.r.t. GPU vs CPU execution of functions like tf.matmul
+        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/14120),
+        # so make sure you really know you want to use this!
         elif LooseVersion(self.version) < LooseVersion('2.4.0'):
-            # auto-enable use of MKL-DNN when possible if with_mkl_dnn is left unspecified
             if self.cfg['with_mkl_dnn'] is None:
                 cpu_arch = get_cpu_architecture()
                 if cpu_arch == X86_64:
