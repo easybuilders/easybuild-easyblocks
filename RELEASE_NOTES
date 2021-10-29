@@ -3,7 +3,47 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 241 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 242 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.5.0 (October 29th 2021)
+--------------------------
+
+feature release
+
+- new software-specific easyblock for imkl-FFTW (#2599)
+- minor enhancements, including:
+  - add support for installing R extensions in parallel (#2408)
+  - update MotionCor2 easyblock to consider to locations for built binary (#2541)
+  - let GROMACS runtime logs show EasyBuild was used (#2571)
+  - adjust qa list in WIEN2k easyblock to handle new questions + fix sanity check for v21.1 (#2572)
+  - add support for specifying subdirectory for target installation directory in CMakMake (#2579)
+  - enhance COMSOL easyblock to change permission on build directory during extract step (to allow using patches) (#2584)
+  - enhance FlexiBLAS easyblock to support building with Intel MKL (imkl) as backend (#2588)
+  - update MATLAB easyblock for 2021b (jre is no longer included) (#2589)
+  - update OpenCV easyblock to detect GTK3 and GTK2 dependencies (next to GTK+) (#2591)
+  - avoid that path to CUDA install directory is added to $PATH (#2593)
+  - enhance imkl easyblock to add support for installing with NVHPC (#2595)
+  - enhance PETSc easyblock to run tests in parallel (#2601)
+  - update ELSI easyblock to support two new external dependencies (#2602)
+  - enhance GCC easyblock to add support for AMD GPU offloading (#2578)
+  - add custom custom easyconfig parameter 'backends' in FlexiBLAS easyblock to specify backends (#2605)
+  - fix support for recent imkl version in numexpr easyblock (#2606)
+  - detect problem with compiling CPU detection code in configure output in GROMACS easyblock (#2609)
+  - use correct include directory for FlexiBLAS (#2610)
+- various bug fixes, including:
+  - unset $EASYBUILD_* environment variables when running sanity check in EasyBuildMeta easyblock + also unset $MODULES_LMCONFLICT to avoid conflict when loading EasyBuild module (#2568)
+  - ensure that all ABAQUS components get installed for ABAQUS 2021.x (+ add support for enabling/disabling fe-safe) (#2569)
+  - fix subdir path in VTune easyblock for 2021.x versions + add sanity check command (#2576)
+  - make sure custom easyblock for installing EasyBuild respects requested version of Python (like $EB_PYTHON) (#2581)
+  - restore RPATH wrappers for OpenMPI sanity check (#2582)
+  - fix installation of libcp2k for recent CP2K versions (#2585)
+  - make version regex in OpenSSL wrapper easyblock less strict (version string does not always end with a letter) (#2597)
+  - redefine collect_exts_file_info instead of now deprecated fetch_extension_sources in OCaml easyblock (#2603)
+- other changes:
+  - don't use --config=mkl for TensorFlow 2.4+ (#2583)
+  - remove custom sanity_check_rpath in MotionCor2 easyblock (doesn't work as intended) (#2598)
+  - derive custom easyblock from MotionCor2 from PackedBinary instead of EasyBlock (#2607)
 
 
 v4.4.2 (September 7th 2021)
