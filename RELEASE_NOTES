@@ -12,11 +12,12 @@ v4.5.0 (October 29th 2021)
 feature release
 
 - new software-specific easyblock for imkl-FFTW (#2599)
-- minor enhancements, including:
+- minor enhancements and updates, including:
   - add support for installing R extensions in parallel (#2408)
-  - update MotionCor2 easyblock to consider to locations for built binary (#2541)
-  - let GROMACS runtime logs show EasyBuild was used (#2571)
+  - update MotionCor2 easyblock to consider to locations for built binary (#2541, #2598)
+  - let GROMACS runtime logs show EasyBuild was used by setting -DGMX_VERSION_STRING_OF_FORK configuration option (#2571)
   - adjust qa list in WIEN2k easyblock to handle new questions + fix sanity check for v21.1 (#2572)
+  - enhance GCC easyblock to add support for AMD GPU offloading (#2578)
   - add support for specifying subdirectory for target installation directory in CMakMake (#2579)
   - enhance COMSOL easyblock to change permission on build directory during extract step (to allow using patches) (#2584)
   - enhance FlexiBLAS easyblock to support building with Intel MKL (imkl) as backend (#2588)
@@ -26,9 +27,7 @@ feature release
   - enhance imkl easyblock to add support for installing with NVHPC (#2595)
   - enhance PETSc easyblock to run tests in parallel (#2601)
   - update ELSI easyblock to support two new external dependencies (#2602)
-  - enhance GCC easyblock to add support for AMD GPU offloading (#2578)
   - add custom custom easyconfig parameter 'backends' in FlexiBLAS easyblock to specify backends (#2605)
-  - fix support for recent imkl version in numexpr easyblock (#2606)
   - detect problem with compiling CPU detection code in configure output in GROMACS easyblock (#2609)
   - use correct include directory for FlexiBLAS (#2610)
 - various bug fixes, including:
@@ -42,7 +41,8 @@ feature release
   - redefine collect_exts_file_info instead of now deprecated fetch_extension_sources in OCaml easyblock (#2603)
 - other changes:
   - don't use --config=mkl for TensorFlow 2.4+ (#2583)
-  - remove custom sanity_check_rpath in MotionCor2 easyblock (doesn't work as intended) (#2598)
+    - this fixes some performance related issues for TensorFlow, see https://github.com/easybuilders/easybuild-easyblocks/issues/2577 and https://github.com/easybuilders/easybuild-easyconfigs/issues/14120
+  - fix support for recent imkl version in numexpr easyblock (#2606)
   - derive custom easyblock from MotionCor2 from PackedBinary instead of EasyBlock (#2607)
 
 
