@@ -492,7 +492,8 @@ class EB_OpenFOAM(EasyBlock):
             # check to fail.  Only attempt to run it if there are 6 (or more) cores available.
             if os.cpu_count() >= 6:
                 openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
-                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam',
+                                              'motorBike')
                 if os.path.exists(motorbike_path):
                     test_dir = tempfile.mkdtemp()
 
@@ -524,7 +525,10 @@ class EB_OpenFOAM(EasyBlock):
                     custom_commands.append(' && '.join(cmds))
                 else:
                     # Ensure we log the fact the check was skipped somewhere
-                    custom_commands.append("echo 'motorBike tutorial case was skipped due to insufficient CPU cores available (%d < 6).'" % os.cpu_count())
+                    custom_commands.append(
+                        "echo 'motorBike tutorial case was skipped due to insufficient CPU cores available (%d < 6).'" 
+                        % os.cpu_count()
+                    )
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
