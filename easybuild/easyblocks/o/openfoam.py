@@ -487,37 +487,44 @@ class EB_OpenFOAM(EasyBlock):
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
         if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
-            openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
-            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
-            if os.path.exists(motorbike_path):
-                test_dir = tempfile.mkdtemp()
+            # motorBike tutorial case is hardcoded to use 6 cores.  mpirun (called by runParallel) will fail with an
+            # 'insufficient slots available' error if there are fewer than 6 cores available, causing the sanity
+            # check to fail.  Only attempt to run it if there are 6 (or more) cores available.
+            if os.cpu_count() >= 6:
+                openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+                if os.path.exists(motorbike_path):
+                    test_dir = tempfile.mkdtemp()
 
-                if self.looseversion >= LooseVersion('9'):
-                    geom_target_dir = 'geometry'
+                    if self.looseversion >= LooseVersion('9'):
+                        geom_target_dir = 'geometry'
+                    else:
+                        geom_target_dir = 'triSurface'
+
+                    cmds = [
+                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "source $FOAM_BASH",
+                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                        "runApplication surfaceFeatures",
+                        "runApplication blockMesh",
+                        "runApplication decomposePar -copyZero",
+                        "runParallel snappyHexMesh -overwrite",
+                        "runParallel patchSummary",
+                        "runParallel potentialFoam",
+                        "runParallel simpleFoam",
+                        "runApplication reconstructParMesh -constant",
+                        "runApplication reconstructPar -latestTime",
+                        "cd %s" % self.builddir,
+                        "rm -r %s" % test_dir,
+                    ]
+                    # all commands need to be run in a single shell command,
+                    # because sourcing $FOAM_BASH sets up environment
+                    custom_commands.append(' && '.join(cmds))
                 else:
-                    geom_target_dir = 'triSurface'
-
-                cmds = [
-                    "cp -a %s %s" % (motorbike_path, test_dir),
-                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                    "source $FOAM_BASH",
-                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
-                    "runApplication surfaceFeatures",
-                    "runApplication blockMesh",
-                    "runApplication decomposePar -copyZero",
-                    "runParallel snappyHexMesh -overwrite",
-                    "runParallel patchSummary",
-                    "runParallel potentialFoam",
-                    "runParallel simpleFoam",
-                    "runApplication reconstructParMesh -constant",
-                    "runApplication reconstructPar -latestTime",
-                    "cd %s" % self.builddir,
-                    "rm -r %s" % test_dir,
-                ]
-                # all commands need to be run in a single shell command,
-                # because sourcing $FOAM_BASH sets up environment
-                custom_commands.append(' && '.join(cmds))
+                    # Ensure we log the fact the check was skipped somewhere
+                    custom_commands.append("echo 'motorBike tutorial case was skipped due to insufficient CPU cores available (%d < 6).'" % os.cpu_count())
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
