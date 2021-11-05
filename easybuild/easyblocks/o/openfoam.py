@@ -526,7 +526,7 @@ class EB_OpenFOAM(EasyBlock):
                 else:
                     # Ensure we log the fact the check was skipped somewhere
                     custom_commands.append(
-                        "echo 'motorBike tutorial case was skipped due to insufficient CPU cores available (%d < 6).'" 
+                        "echo 'motorBike tutorial case was skipped due to insufficient CPU cores available (%d < 6).'"
                         % os.cpu_count()
                     )
 
