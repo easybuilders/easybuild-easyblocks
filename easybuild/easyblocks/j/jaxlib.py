@@ -34,6 +34,7 @@ import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, which
@@ -53,6 +54,11 @@ class EB_jaxlib(PythonPackage):
         # Run custom build script and install the generated whl file
         extra_vars['buildcmd'][0] = '%(python)s build/build.py'
         extra_vars['install_src'][0] = 'dist/*.whl'
+
+        # Custom parameters
+        extra_vars.update({
+            'use_mkl_dnn': [True, "Enable support for Intel MKL-DNN", CUSTOM],
+        })
 
         return extra_vars
 
@@ -123,6 +129,11 @@ class EB_jaxlib(PythonPackage):
             config_env_vars['GCC_HOST_COMPILER_PATH'] = which(os.getenv('CC'))
         else:
             options.append('--noenable_cuda')
+
+        if self.cfg['use_mkl_dnn']:
+            options.append('--enable_mkl_dnn')
+        else:
+            options.append('--noenable_mkl_dnn')
 
         # Prepend to buildopts so users can overwrite this
         self.cfg['buildopts'] = ' '.join(
