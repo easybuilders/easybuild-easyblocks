@@ -27,6 +27,7 @@ EasyBlock for installing jaxlib, implemented as an easyblock
 
 @author: Denis Kristak (INUITS)
 @author: Alexander Grund (TU Dresden)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 import os
@@ -42,6 +43,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+
 
 class EB_jaxlib(PythonPackage):
     """Support for installing jaxlib. Extension of the existing PythonPackage easyblock"""
