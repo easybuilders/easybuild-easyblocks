@@ -128,10 +128,8 @@ class EB_OpenFOAM(EasyBlock):
         self.cfg['start_dir'] = os.path.join(self.installdir, self.openfoamdir)
         super(EB_OpenFOAM, self).patch_step(beginpath=self.cfg['start_dir'])
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for OpenFOAM install procedure."""
-        super(EB_OpenFOAM, self).prepare_step(*args, **kwargs)
-
+    def det_wm_vars(self):
+        """ Determine the wm_compiler and set wm_mplib """
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.GCC:  # @UndefinedVariable
             self.wm_compiler = 'Gcc'
@@ -144,6 +142,12 @@ class EB_OpenFOAM(EasyBlock):
         # Note: this name must contain 'MPI' so the MPI version of the
         # Pstream library is built (cf src/Pstream/Allwmake)
         self.wm_mplib = "EASYBUILDMPI"
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare for OpenFOAM install procedure."""
+        super(EB_OpenFOAM, self).prepare_step(*args, **kwargs)
+
+        self.det_wm_vars()
 
     def configure_step(self):
         """Configure OpenFOAM build by setting appropriate environment variables."""
@@ -409,6 +413,9 @@ class EB_OpenFOAM(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for OpenFOAM"""
+        if not self.wm_compiler or not self.wm_mplib:
+            self.det_wm_vars()
+
         shlib_ext = get_shared_lib_ext()
         psubdir = self.det_psubdir()
 
@@ -506,10 +513,10 @@ class EB_OpenFOAM(EasyBlock):
                     "runApplication surfaceFeatures",
                     "runApplication blockMesh",
                     "runApplication decomposePar -copyZero",
-                    "runParallel snappyHexMesh -overwrite",
-                    "runParallel patchSummary",
-                    "runParallel potentialFoam",
-                    "runParallel simpleFoam",
+                    "OMPI_MCA_rmaps_base_oversubscribe=1 runParallel snappyHexMesh -overwrite",
+                    "OMPI_MCA_rmaps_base_oversubscribe=1 runParallel patchSummary",
+                    "OMPI_MCA_rmaps_base_oversubscribe=1 runParallel potentialFoam",
+                    "OMPI_MCA_rmaps_base_oversubscribe=1 runParallel simpleFoam",
                     "runApplication reconstructParMesh -constant",
                     "runApplication reconstructPar -latestTime",
                     "cd %s" % self.builddir,
