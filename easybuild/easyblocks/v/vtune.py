@@ -46,7 +46,9 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2020'):
+        if loosever >= LooseVersion('2021'):
+            self.subdir = os.path.join('vtune', self.version)
+        elif loosever >= LooseVersion('2020'):
             self.subdir = 'vtune_profiler'
         elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
@@ -90,13 +92,12 @@ class EB_VTune(IntelBase):
         else:
             binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
 
-        if LooseVersion(self.version) >= LooseVersion('2021'):
-            vtune_subdir = os.path.join('vtune', self.version)
-            custom_paths = {
-                'files': [os.path.join(vtune_subdir, 'bin64', x) for x in binaries],
-                'dirs': [os.path.join(vtune_subdir, 'include'), os.path.join(vtune_subdir, 'lib64')],
-            }
-        else:
-            custom_paths = self.get_custom_paths_tools(binaries)
+        custom_paths = self.get_custom_paths_tools(binaries)
 
-        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('2020'):
+            custom_commands.append('vtune --version')
+        else:
+            custom_commands.append('amplxe-cl --version')
+
+        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

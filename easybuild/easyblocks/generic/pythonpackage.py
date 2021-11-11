@@ -370,7 +370,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = self.all_pylibdirs[0]
 
     def prepare_python(self):
-        """Python-specific preperations."""
+        """Python-specific preparations."""
 
         # pick 'python' command to use
         python = None

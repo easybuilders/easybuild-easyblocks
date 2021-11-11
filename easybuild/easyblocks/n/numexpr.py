@@ -83,19 +83,19 @@ class EB_numexpr(PythonPackage):
                     os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
                 ]
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
-                mkl_libs = ['mkl_rt', mkl_vml_lib]
+                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'iomp5']
             else:
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
                     os.path.join(self.imkl_root, 'lib', 'intel64'),
                 ]
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'include')
-                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
+                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'iomp5']
 
             site_cfg_txt = '\n'.join([
                 "[mkl]",
                 "include_dirs = %s" % mkl_include_dirs,
-                "library_dirs = %s" % ':'.join(mkl_lib_dirs),
+                "library_dirs = %s" % os.pathsep.join(mkl_lib_dirs + self.toolchain.get_variable('LDFLAGS', typ=list)),
                 "mkl_libs = %s" % ', '.join(mkl_libs),
             ])
             write_file('site.cfg', site_cfg_txt)
