@@ -47,6 +47,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
     'ZEN',  # AMD Zen class CPU (AVX 2)
     'ZEN2',  # AMD Zen2 class CPU (AVX 2)
+    'ZEN3',  # AMD Zen3 class CPU (AVX 2)
     'ARMV80',  # ARMv8.0 Compatible CPU
     'ARMV81',  # ARMv8.1 Compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
@@ -75,8 +76,10 @@ KOKKOS_CPU_ARCH_LIST = [
     'VOLTA72',  # NVIDIA Volta generation CC 7.2 GPU
     'TURING75',  # NVIDIA Turing generation CC 7.5 GPU
     'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
+    'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
+    'VEGA908',  # AMD GPU MI100 GFX908
     'INTEL_GEN',  # Intel GPUs Gen9+
 ]
 
