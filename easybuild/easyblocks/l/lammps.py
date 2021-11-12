@@ -111,6 +111,7 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.2': 'VOLTA72',  # NVIDIA Volta generation CC 7.2
     '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
+    '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
 }
 
 PKG_PREFIX = 'PKG_'
