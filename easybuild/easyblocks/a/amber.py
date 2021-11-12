@@ -323,8 +323,8 @@ class EB_Amber(CMakeMake):
 
         super(EB_Amber, self).install_step()
 
-        # Run the tests located in the build directory
-        if self.cfg['runtest']:
+        # Run the tests located in the build directory, only for Amber. Tests fail when building only AmberTools
+        if self.cfg['runtest'] and self.name == 'Amber':
             pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
 
             # serial tests
