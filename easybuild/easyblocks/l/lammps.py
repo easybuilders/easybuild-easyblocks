@@ -93,6 +93,7 @@ KOKKOS_CPU_MAPPING = {
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
+    'zen3': 'ZEN3',
 }
 
 
