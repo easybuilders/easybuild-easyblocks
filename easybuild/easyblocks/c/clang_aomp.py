@@ -42,6 +42,11 @@ from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
 
 
 # Default AMD GPU architectures to build for
+#
+# AMD uses 'gfx' to identify the GPU, the first number identifies the generation, according to
+# https://www.x.org/wiki/RadeonFeature/#index5h2 while the rest identifies the specific GPU.
+# In the context of EasyBuild this identifier can be thought of as equivalent to the 'sm_<xx>'
+# nomenclature of Nvidia.
 DEFAULT_GFX_ARCHS = ['gfx900', 'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx1030', 'gfx1031']
 
 
@@ -80,11 +85,10 @@ class EB_Clang_AOMP(Bundle):
         self.cuda_archs = []
         self.device_lib_path = None
 
-    def prepare_step(self, *args, **kwargs):
+    def prepare_sources(self):
         """
         Setup target architectures for LLVM
         """
-        super(EB_Clang_AOMP, self).prepare_step(*args, **kwargs)
         # Detect CPU architecture and setup build targets for LLVM
         cpu_arch = get_cpu_architecture()
         if cpu_arch not in LLVM_ARCH_MAP:
@@ -124,6 +128,7 @@ class EB_Clang_AOMP(Bundle):
         """
         super(EB_Clang_AOMP, self).configure_step()
 
+        self.prepare_sources()
         num_comps = len(self.cfg['components'])
         for idx, comp in enumerate(self.comp_cfgs):
             name = comp['name']
