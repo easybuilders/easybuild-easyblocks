@@ -8,6 +8,9 @@
 #
 # This work implements a part of the HPCBIOS project and is a component of the policy:
 # http://hpcbios.readthedocs.org/en/latest/HPCBIOS_2012-94.html
+#
+# Updated for SAMTools 1.14
+# J. Sassmannshausen (GSTT)
 ##
 """
 EasyBuild support for building SAMtools (SAM - Sequence Alignment/Map), implemented as an easyblock
@@ -43,7 +46,7 @@ class EB_SAMtools(ConfigureMake):
                           "misc/zoom2sam.pl", "misc/md5sum-lite", "misc/md5fa", "misc/maq2sam-short",
                           "misc/maq2sam-long", "misc/wgsim", "samtools"]
 
-        self.include_files = ["bam.h", "bam2bcf.h", "bam_endian.h", "sam.h", "sample.h"]
+        self.include_files = ["bam.h", "bam2bcf.h", "sample.h"]
         self.include_dirs = []
 
         if LooseVersion(self.version) == LooseVersion('0.1.18'):
@@ -76,7 +79,12 @@ class EB_SAMtools(ConfigureMake):
             self.include_files += ["sam_header.h"]
             self.bin_files += ["misc/varfilter.py"]
 
-        self.lib_files = ["libbam.a"]
+        if LooseVersion(self.version) < LooseVersion('1.14'):
+            # bam_endian.h and sam.h removed from 1.14
+            self.include_files += ["bam_endian.h", "sam.h"]
+            self.lib_files = ["libbam.a"]
+
+        self.lib_files = []
 
     def configure_step(self):
         """Ensure correct compiler command & flags are used via arguments to 'make' build command"""
