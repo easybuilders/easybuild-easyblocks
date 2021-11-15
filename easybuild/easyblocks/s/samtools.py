@@ -46,6 +46,8 @@ class EB_SAMtools(ConfigureMake):
                           "misc/zoom2sam.pl", "misc/md5sum-lite", "misc/md5fa", "misc/maq2sam-short",
                           "misc/maq2sam-long", "misc/wgsim", "samtools"]
 
+        self.lib_files = []
+
         self.include_files = ["bam.h", "bam2bcf.h", "sample.h"]
         self.include_dirs = []
 
@@ -83,8 +85,6 @@ class EB_SAMtools(ConfigureMake):
             # bam_endian.h and sam.h removed from 1.14
             self.include_files += ["bam_endian.h", "sam.h"]
             self.lib_files = ["libbam.a"]
-
-        self.lib_files = []
 
     def configure_step(self):
         """Ensure correct compiler command & flags are used via arguments to 'make' build command"""
