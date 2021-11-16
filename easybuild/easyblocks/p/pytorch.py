@@ -234,10 +234,11 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
     def build_step(self):
-        if build_option('rpath'):
-            # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
-            # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
-            env.setvar("CMAKE_SKIP_RPATH", 'ON')
+        # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
+        # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
+        # We do this unconditionally here, since PyTorch sets problematic RPATH/RUNPATHs regardless of whether --rpath is used in EasyBuild
+        # See https://github.com/easybuilders/easybuild-easyconfigs/issues/14359
+        env.setvar("CMAKE_SKIP_RPATH", 'ON')
         super(EB_PyTorch, self).build_step()
 
     def test_step(self):
