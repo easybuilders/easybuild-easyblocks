@@ -238,7 +238,7 @@ class EB_PyTorch(PythonPackage):
         # regardless of whether --rpath is used in EasyBuild
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/14359 and
         # https://github.com/pytorch/pytorch/issues/35418
-        env.setvar("CMAKE_SKIP_RPATH", 'ON')
+        env.setvar("CMAKE_INSTALL_RPATH_USE_LINK_PATH", "FALSE")
         super(EB_PyTorch, self).build_step()
 
     def test_step(self):
