@@ -48,9 +48,9 @@ class EB_Inspector(IntelBase):
         loosever = LooseVersion(self.version)
         if loosever >= LooseVersion('2013_update7') and loosever < LooseVersion('2017'):
             self.subdir = 'inspector_xe'
-        elif loosever >= LooseVersion('2017') and loosever < LooseVersion('2020'):
+        elif loosever >= LooseVersion('2017') and loosever < LooseVersion('2021'):
             self.subdir = 'inspector'
-        elif loosever >= LooseVersion('2020'):
+        elif loosever >= LooseVersion('2021'):
             self.subdir = os.path.join('inspector', 'latest')
 
     def make_installdir(self):
