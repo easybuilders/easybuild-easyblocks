@@ -39,10 +39,8 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, which
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 class EB_jaxlib(PythonPackage):
@@ -82,10 +80,7 @@ class EB_jaxlib(PythonPackage):
         # Used only by the build script
 
         # C++ flags are set through copt below
-        if build_option('optarch') == OPTARCH_GENERIC:
-            options = ['--target_cpu_features=default']
-        else:
-            options = ['--target_cpu_features=native']
+        options = ['--target_cpu_features=default']
 
         # Passed directly to bazel
         bazel_startup_options = [
