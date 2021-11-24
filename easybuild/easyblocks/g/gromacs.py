@@ -203,9 +203,8 @@ class EB_GROMACS(CMakeMake):
 
             (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
             if not re.search(engine, out):
-                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (
-                    get_software_version('PLUMED'), self.version, out
-                )
+                plumed_ver = get_software_version('PLUMED')
+                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version, out)
                 if self.cfg['ignore_plumed_version_check']:
                     self.log.warning(msg)
                 else:
