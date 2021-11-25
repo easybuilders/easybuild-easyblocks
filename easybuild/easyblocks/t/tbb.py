@@ -104,6 +104,12 @@ class EB_tbb(IntelBase, ConfigureMake):
             self.build_in_installdir = True
             self.cfg['requires_runtime_license'] = False
 
+        if self.toolchain.is_system_toolchain():
+            self.tbb_subdir = 'tbb'
+        else:
+            self.tbb_subdir = ''
+
+
     def extract_step(self):
         """Extract sources."""
         if not self.toolchain.is_system_toolchain():
@@ -123,16 +129,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         """Configure TBB build/installation."""
         if self.toolchain.is_system_toolchain():
             IntelBase.build_step(self)
-            return
-
-        # build with: make compiler={icl, icc, gcc, clang}
-        self.cfg.update('buildopts', 'compiler="%s"' % os.getenv('CC'))
-        ConfigureMake.build_step(self)
-
-        if self.cfg['with_python']:
-            # Uses the Makefile target `python`
-            self.cfg.update('buildopts', 'python')
+        else:
+            # build with: make compiler={icl, icc, gcc, clang}
+            self.cfg.update('buildopts', 'compiler="%s"' % os.getenv('CC'))
             ConfigureMake.build_step(self)
+
+            if self.cfg['with_python']:
+                # Uses the Makefile target `python`
+                self.cfg.update('buildopts', 'python')
+                ConfigureMake.build_step(self)
 
     def _has_cmake(self):
         """Check if CMake is included in the build deps"""
@@ -215,7 +220,6 @@ class EB_tbb(IntelBase, ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
-        custom_commands = []
         custom_paths = {
             'files': [
                 os.path.join('lib', 'libtbb.so'),
@@ -242,6 +246,7 @@ class EB_tbb(IntelBase, ConfigureMake):
             ])
 
         if self.cfg['with_python']:
+            custom_paths['dirs'].append(self.tbb_subdir, 'python')
             custom_commands.extend(['python -c "import tbb"'])
 
         super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
@@ -251,10 +256,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         txt = super(EB_tbb, self).make_module_extra()
 
         if self.toolchain.is_system_toolchain():
-            tbb_subdir = 'tbb'
             txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
-        else:
-            tbb_subdir = ''
 
         txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
         # Used e.g. by FindTBB.cmake
