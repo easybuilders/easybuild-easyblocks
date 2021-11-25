@@ -110,7 +110,6 @@ class EB_tbb(IntelBase, ConfigureMake):
         else:
             self.tbb_subdir = ''
 
-
     def extract_step(self):
         """Extract sources."""
         if not self.toolchain.is_system_toolchain():
