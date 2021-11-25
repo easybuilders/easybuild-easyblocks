@@ -83,7 +83,7 @@ class EB_SuiteSparse(ConfigureMake):
         cuda = get_software_root('CUDA')
         if cuda:
             cuda_cc_space_sep = self.cfg.template_values['cuda_cc_space_sep'].replace('.', '').split()
-            nvcc_gencode=' '.join(['-gencode=arch=compute_' + x + ',code=sm_' + x for x in cuda_cc_space_sep])
+            nvcc_gencode = ' '.join(['-gencode=arch=compute_' + x + ',code=sm_' + x for x in cuda_cc_space_sep])
             cfgvars.update({
                 'NVCCFLAGS': ' '.join(['-Xcompiler', '-fPIC', '-O3', nvcc_gencode]),
             })
