@@ -256,15 +256,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         txt = super(EB_tbb, self).make_module_extra()
 
         if self.toolchain.is_system_toolchain():
-            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
+            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(self.tbb_subdir, 'include')])
 
-        txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
-        # Used e.g. by FindTBB.cmake
-        txt += self.module_generator.set_environment('TBB_ROOT', os.path.join(self.installdir, tbb_subdir))
+        root_dir = os.path.join(self.installdir, self.tbb_subdir)
+        txt += self.module_generator.set_environment('TBBROOT', root_dir)
+        # TBB_ROOT used e.g. by FindTBB.cmake
+        txt += self.module_generator.set_environment('TBB_ROOT', root_dir)
 
         if self.cfg['with_python']:
-            python_subdir = os.path.join(self.installdir, tbb_subdir, 'python')
-            txt += self.module_generator.set_environment('PYTHONPATH', python_subdir)
+            txt += self.module_generator.set_environment('PYTHONPATH', os.path.join(root_dir, 'python'))
 
         return txt
 
