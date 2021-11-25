@@ -130,6 +130,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         ConfigureMake.build_step(self)
 
         if self.cfg['with_python']:
+            # Uses the Makefile target `python`
             self.cfg.update('buildopts', 'python')
             ConfigureMake.build_step(self)
 
@@ -260,7 +261,8 @@ class EB_tbb(IntelBase, ConfigureMake):
         txt += self.module_generator.set_environment('TBB_ROOT', os.path.join(self.installdir, tbb_subdir))
 
         if self.cfg['with_python']:
-            txt += self.module_generator.set_environment('PYTHONPATH', os.path.join(self.installdir, tbb_subdir, 'python'))
+            python_subdir = os.path.join(self.installdir, tbb_subdir, 'python')
+            txt += self.module_generator.set_environment('PYTHONPATH', python_subdir)
 
         return txt
 
