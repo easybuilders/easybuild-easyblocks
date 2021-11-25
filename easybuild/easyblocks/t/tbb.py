@@ -49,6 +49,7 @@ from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
 from easybuild.tools.run import run_cmd
 
+
 def get_tbb_gccprefix(libpath):
     """
     Find the correct gcc version for the lib dir of TBB
