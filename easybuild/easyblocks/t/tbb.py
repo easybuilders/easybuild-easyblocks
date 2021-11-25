@@ -264,7 +264,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         txt += self.module_generator.set_environment('TBB_ROOT', root_dir)
 
         if self.cfg['with_python']:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [os.path.join(root_dir, 'python')])
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [os.path.join(self.tbb_subdir, 'python')])
 
         return txt
 
