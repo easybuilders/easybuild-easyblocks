@@ -82,8 +82,8 @@ class EB_SuiteSparse(ConfigureMake):
         # Get CUDA and set it up appropriately
         cuda = get_software_root('CUDA')
         if cuda:
-            cuda_cc_space_sep = self.cfg.template_values['cuda_cc_space_sep'].replace('.','').split()
-            nvcc_gencode=' '.join(['-gencode=arch=compute_'+x+',code=sm_'+x for x in cuda_cc_space_sep])
+            cuda_cc_space_sep = self.cfg.template_values['cuda_cc_space_sep'].replace('.', '').split()
+            nvcc_gencode=' '.join(['-gencode=arch=compute_' + x + ',code=sm_' + x for x in cuda_cc_space_sep])
             cfgvars.update({
                 'NVCCFLAGS': ' '.join(['-Xcompiler', '-fPIC', '-O3', nvcc_gencode]),
             })
@@ -123,7 +123,7 @@ class EB_SuiteSparse(ConfigureMake):
                 for (var, val) in list(cfgvars.items()):
                     # Let's overwrite NVCCFLAGS at the end, since the line breaks and the fact that it appears multiple
                     # times makes it tricky to handle it properly
-                    if var !='NVCCFLAGS':
+                    if var != 'NVCCFLAGS':
                         orig_line = line
                         # for variables in cfgvars, substiture lines assignment
                         # in the file, whatever they are, by assignments to the
