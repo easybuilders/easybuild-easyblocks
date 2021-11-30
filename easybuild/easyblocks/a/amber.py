@@ -162,9 +162,9 @@ class EB_Amber(CMakeMake):
             external_libs_list.append('fftw')
         if get_software_root('netCDF'):
             external_libs_list.append('netcdf')
-        if get_software_root('netCDF-Fortran'):
+        netcdf_fortran_root = get_software_root('netCDF-Fortran')
+        if netcdf_fortran_root:
             external_libs_list.append('netcdf-fortran')
-            netcdf_fortran_root = get_software_root('netCDF-Fortran')
             self.cfg.update('configopts', '-DNetCDF_INCLUDES=%s/include' % netcdf_fortran_root)
         if get_software_root('zlib'):
             external_libs_list.append('zlib')
