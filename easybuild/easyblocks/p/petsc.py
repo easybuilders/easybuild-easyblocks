@@ -77,6 +77,11 @@ class EB_PETSc(ConfigureMake):
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
             'papi_lib': ['/usr/lib64/libpapi.so', "Path for PAPI library", CUSTOM],
             'runtest': ['test', "Make target to test build", BUILD],
+            'test_parallel': [
+                None,
+                "Number of parallel PETSc tests launched. If unset, 'parallel' will be used",
+                CUSTOM
+            ],
             'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
             'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
             'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
@@ -297,6 +302,10 @@ class EB_PETSc(ConfigureMake):
             cmd = "./config/configure.py %s" % self.get_cfg('configopts')
             run_cmd(cmd, log_all=True, simple=True)
 
+        # Make sure to set test_parallel before self.cfg['parallel'] is set to None
+        if self.cfg['test_parallel'] is None and self.cfg['parallel']:
+            self.cfg['test_parallel'] = self.cfg['parallel']
+
         # PETSc > 3.5, make does not accept -j
         # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
@@ -304,6 +313,25 @@ class EB_PETSc(ConfigureMake):
             self.cfg['parallel'] = None
 
     # default make should be fine
+
+    def test_step(self):
+        """
+        Test the compilation
+        """
+
+        # Each PETSc test may use multiple threads, so running "self.cfg['parallel']" of them may lead to
+        # some oversubscription every now and again. Not a big deal, but if needed a reduced parallelism
+        # can be specified with test_parallel - and it takes priority
+        paracmd = ''
+        self.log.info("In test_step: %s" % self.cfg['test_parallel'])
+        if self.cfg['test_parallel'] is not None:
+            paracmd = "-j %s" % self.cfg['test_parallel']
+
+        if self.cfg['runtest']:
+            cmd = "%s make %s %s %s" % (self.cfg['pretestopts'], paracmd, self.cfg['runtest'], self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+            return out
 
     def install_step(self):
         """

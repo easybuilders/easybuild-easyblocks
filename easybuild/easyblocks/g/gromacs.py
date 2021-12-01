@@ -67,6 +67,7 @@ class EB_GROMACS(CMakeMake):
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -202,8 +203,12 @@ class EB_GROMACS(CMakeMake):
 
             (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
             if not re.search(engine, out):
-                raise EasyBuildError("There is no support in PLUMED version %s for GROMACS %s: %s",
-                                     get_software_version('PLUMED'), self.version, out)
+                plumed_ver = get_software_version('PLUMED')
+                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version, out)
+                if self.cfg['ignore_plumed_version_check']:
+                    self.log.warning(msg)
+                else:
+                    raise EasyBuildError(msg)
 
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
@@ -410,6 +415,15 @@ class EB_GROMACS(CMakeMake):
                     regex = re.compile(pattern, re.M)
                     if not regex.search(out):
                         raise EasyBuildError("Pattern '%s' not found in GROMACS configuration output.", pattern)
+
+            # Make sure compilation of CPU detection code did not fail
+            patterns = [
+                r".*detection program did not compile.*",
+            ]
+            for pattern in patterns:
+                regex = re.compile(pattern, re.M)
+                if regex.search(out):
+                    raise EasyBuildError("Pattern '%s' found in GROMACS configuration output.", pattern)
 
     def build_step(self):
         """

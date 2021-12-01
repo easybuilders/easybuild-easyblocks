@@ -33,13 +33,13 @@ import os
 import stat
 
 from distutils.version import LooseVersion
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
 from easybuild.tools.modules import get_software_root
 
 
-class EB_MotionCor2(EasyBlock):
+class EB_MotionCor2(PackedBinary):
     """
     Support for installing MotionCor2
      - creates wrapper that loads the correct version of CUDA before
@@ -76,14 +76,6 @@ class EB_MotionCor2(EasyBlock):
                 else:
                     self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.motioncor2_verstring, cuda_short_ver)
                 break
-
-    def configure_step(self):
-        """No configuration, this is binary software"""
-        pass
-
-    def build_step(self):
-        """No compilation, this is binary software"""
-        pass
 
     def install_step(self):
         """
@@ -149,10 +141,3 @@ class EB_MotionCor2(EasyBlock):
         }
 
         super(EB_MotionCor2, self).sanity_check_step(custom_paths)
-
-    def sanity_check_rpath(self, *args, **kwargs):
-        """Custom implementation of RPATH sanity check: allow skipping via skip_rpath_sanity_check."""
-        if self.cfg.get('skip_rpath_sanity_check', False):
-            self.log.info("Skipping RPATH sanity check, as specified via 'skip_rpath_sanity_check'...")
-        else:
-            super(EB_MotionCor2, self).sanity_check_rpath(*args, **kwargs)
