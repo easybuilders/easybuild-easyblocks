@@ -105,11 +105,12 @@ class EB_Modeller(PythonPackage):
         cmd = "%s/Install" % self.cfg['start_dir']
         run_cmd_qa(cmd, self.qa, log_all=True, simple=True)
         # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the
-        # first time, there should only be one subdirectory in lib, e.g. x86_64-intel8. Save this value for later multi_dep
-        # interations, as lib will already be populated.
+        # first time, there should only be one subdirectory in lib, e.g. x86_64-intel8. Save this value for later 
+        # multi_dep interations, as lib will already be populated.
         if not self.arch_:
             self.arch_ = os.listdir(os.path.join(self.installdir, 'lib'))[0]
-        # _modeller.so is provided for different Python versions, namely 2.5, 3.0, 3.2, and >=3.3 (still the case for Mod. 10.2)
+        # _modeller.so is provided for different Python versions, namely 2.5, 3.0, 3.2, and >=3.3 
+        # (still the case for Mod. 10.2)
         # We link the _modeller.so and %(installdir)s/modlib into %(installdir)s/lib/python%(pyshortver)s/site-packages
         # in order to allow multi_deps python
         py_api_dirname = 'python2.5'
