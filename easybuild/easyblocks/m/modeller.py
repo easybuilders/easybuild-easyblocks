@@ -101,7 +101,7 @@ class EB_Modeller(PythonPackage):
         if self.loosever < LooseVersion('9.10') and python_looseversion >= LooseVersion('3'):
             raise EasyBuildError("Modeller version < 9.10 does not support Python3")
         if self.cfg['key'] is None:
-            raise EasyBuildError("Easyconfig parameter 'key' is not defined")
+            raise EasyBuildError("No license key specified (easyconfig parameter 'key')")
         cmd = "%s/Install" % self.cfg['start_dir']
         run_cmd_qa(cmd, self.qa, log_all=True, simple=True)
         # Determine lib/arch_ according to modeller's architecure naming scheme. After running the installer for the
