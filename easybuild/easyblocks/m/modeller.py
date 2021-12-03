@@ -60,7 +60,7 @@ class EB_Modeller(PythonPackage):
         extra_vars.update({
             'qa': [
                 {'dummyquestion': 'dummyanswer'},
-                'Additionals questions and answers not covered by the current EasyBlock',
+                'Additional questions and answers not covered by the current EasyBlock',
                 CUSTOM]})
         return extra_vars
 
