@@ -133,10 +133,11 @@ class EB_Modeller(PythonPackage):
         for src in [
             f for f in os.listdir(os.path.join(self.installdir, 'lib', self.arch_))
             if os.path.isfile(os.path.join(self.installdir, 'lib', self.arch_, f))
-            and f != '_modeller.'+get_shared_lib_ext()]:
-                dst = os.path.join(self.installdir, 'lib', src)
-                if not os.path.exists(dst):
-                    os.symlink(os.path.join(self.arch_, src), dst)
+                and f != '_modeller.'+get_shared_lib_ext()
+        ]:
+            dst = os.path.join(self.installdir, 'lib', src)
+            if not os.path.exists(dst):
+                os.symlink(os.path.join(self.arch_, src), dst)
         # provide bin/mod -> bin/mod%(version)s
         if not os.path.exists(os.path.join(self.installdir, 'bin', 'mod')):
             os.symlink(os.path.join('mod' + self.version), os.path.join(self.installdir, 'bin', 'mod')),
