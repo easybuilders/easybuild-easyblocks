@@ -81,7 +81,8 @@ class EB_MUMmer(ConfigureMake):
         installdir_bin = os.path.join(self.installdir, 'bin')
 
         for fil in [f for f in os.listdir(self.cfg['start_dir']) if os.path.isfile(f)]:
-            # only use apply_regex_substitutions() on non-binary files (see https://github.com/easybuilders/easybuild-easyblocks/issues/2629)
+            # only use apply_regex_substitutions() on non-binary files
+            # for more details, see https://github.com/easybuilders/easybuild-easyblocks/issues/2629)
             if not is_binary(read_file(fil, mode='rb')):
                 self.log.debug("Patching build dir out of %s, replacing by install bin dir)", fil)
                 apply_regex_substitutions(fil, [(pattern, installdir_bin)])
