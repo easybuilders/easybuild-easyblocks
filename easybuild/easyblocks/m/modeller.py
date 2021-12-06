@@ -86,6 +86,7 @@ class EB_Modeller(PythonPackage):
         }
         self.qa.update(self.cfg['qa'])
         self.arch_ = None
+
     def configure_step(self):
         """ Skip configuration step """
         pass
