@@ -34,7 +34,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.perl import get_major_perl_version
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file, mkdir, is_binary, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, is_binary, mkdir, read_file
 from easybuild.tools.run import run_cmd
 
 
