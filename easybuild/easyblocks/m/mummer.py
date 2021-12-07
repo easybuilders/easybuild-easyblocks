@@ -66,7 +66,6 @@ class EB_MUMmer(ConfigureMake):
     def build_step(self):
         """Custom build procedure for MUMmer."""
 
-        # make sure that $CXXFLAGS is being passed down
         # make sure that compiler options specified by EasyBuild are used
         self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS" CFLAGS="$CFLAGS"')
 
