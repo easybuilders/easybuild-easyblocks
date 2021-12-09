@@ -64,8 +64,6 @@ class EB_OpenFOAM(EasyBlock):
 
         self.build_in_installdir = True
 
-        self.wm_compiler = None
-        self.wm_mplib = None
         self.openfoamdir = None
         self.thrdpartydir = None
 
@@ -94,6 +92,20 @@ class EB_OpenFOAM(EasyBlock):
             self.build_type = 'Debug'
         else:
             self.build_type = 'Opt'
+
+        # determine values for wm_compiler and wm_mplib
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.GCC:  # @UndefinedVariable
+            self.wm_compiler = 'Gcc'
+        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            self.wm_compiler = 'Icc'
+        else:
+            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
+
+        # set to an MPI unknown by OpenFOAM, since we're handling the MPI settings ourselves (via mpicc, etc.)
+        # Note: this name must contain 'MPI' so the MPI version of the
+        # Pstream library is built (cf src/Pstream/Allwmake)
+        self.wm_mplib = "EASYBUILDMPI"
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
@@ -127,27 +139,6 @@ class EB_OpenFOAM(EasyBlock):
         """Adjust start directory and start path for patching to correct directory."""
         self.cfg['start_dir'] = os.path.join(self.installdir, self.openfoamdir)
         super(EB_OpenFOAM, self).patch_step(beginpath=self.cfg['start_dir'])
-
-    def det_wm_vars(self):
-        """ Determine the wm_compiler and set wm_mplib """
-        comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.GCC:  # @UndefinedVariable
-            self.wm_compiler = 'Gcc'
-        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            self.wm_compiler = 'Icc'
-        else:
-            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
-
-        # set to an MPI unknown by OpenFOAM, since we're handling the MPI settings ourselves (via mpicc, etc.)
-        # Note: this name must contain 'MPI' so the MPI version of the
-        # Pstream library is built (cf src/Pstream/Allwmake)
-        self.wm_mplib = "EASYBUILDMPI"
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for OpenFOAM install procedure."""
-        super(EB_OpenFOAM, self).prepare_step(*args, **kwargs)
-
-        self.det_wm_vars()
 
     def configure_step(self):
         """Configure OpenFOAM build by setting appropriate environment variables."""
@@ -413,9 +404,6 @@ class EB_OpenFOAM(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for OpenFOAM"""
-        if not self.wm_compiler or not self.wm_mplib:
-            self.det_wm_vars()
-
         shlib_ext = get_shared_lib_ext()
         psubdir = self.det_psubdir()
 
