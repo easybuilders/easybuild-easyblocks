@@ -65,15 +65,17 @@ class InitTest(TestCase):
     set_tmpdir()
     del eb_go
 
-    def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt=''):
+    def write_ec(self, easyblock, name='foo', version='1.3.2', toolchain=None, extratxt=''):
         """ create temporary easyconfig file """
+        if toolchain is None:
+            toolchain = 'SYSTEM'
         txt = '\n'.join([
             'easyblock = "%s"',
             'name = "%s"' % name,
             'version = "%s"' % version,
             'homepage = "http://example.com"',
             'description = "Dummy easyconfig file."',
-            'toolchain = {"name": "dummy", "version": "dummy"}',
+            'toolchain = %s' % toolchain,
             'sources = []',
             extratxt,
         ])
@@ -94,7 +96,7 @@ class InitTest(TestCase):
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
-def template_init_test(self, easyblock, name='foo', version='1.3.2'):
+def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=None):
     """Test whether all easyblocks can be initialized."""
 
     def check_extra_options_format(extra_options):
@@ -163,7 +165,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
                 extra_txt += '%s = "%s"\n' % (key, test_param)
 
         # write easyconfig file
-        self.writeEC(ebname, name=name, version=version, extratxt=extra_txt)
+        self.write_ec(ebname, name=name, version=version, toolchain=toolchain, extratxt=extra_txt)
 
         # initialize easyblock
         # if this doesn't fail, the test succeeds
@@ -216,6 +218,9 @@ def suite():
         elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif easyblock_fn == 'openfoam.py':
+            # custom easyblock for OpenFOAM requires non-system toolchain
+            innertest = make_inner_test(easyblock, toolchain={'name': 'foss', 'version': '2021a'})
         elif easyblock_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, version='1.1')
