@@ -42,6 +42,8 @@ class EB_Eigen(CMakeMake):
             # Patch to make the relative path actually work.
             regex_subs = [('CACHE PATH "The directory relative to CMAKE_PREFIX_PATH',
                            'CACHE STRING "The directory relative to CMAKE_PREFIX_PATH')]
+            regex_subs += [('CACHE PATH "The directory relative to CMAKE_INSTALL_PREFIX',
+                           'CACHE STRING "The directory relative to CMAKE_INSTALL_PREFIX')]
             apply_regex_substitutions(os.path.join(self.cfg['start_dir'], 'CMakeLists.txt'), regex_subs)
             CMakeMake.configure_step(self)
 
