@@ -95,10 +95,12 @@ class EB_Clang_minus_AOMP(Bundle):
         else:
             self.amd_gfx_archs = DEFAULT_GFX_ARCHS
 
-    def prepare_sources(self):
+    def prepare_step(self, *args, **kwargs):
         """
-        Setup target architectures for LLVM
+        Prepare build environment
         """
+        super(EB_Clang_minus_AOMP, self).prepare_step(*args, **kwargs)
+
         # Detect CPU architecture and setup build targets for LLVM
         cpu_arch = get_cpu_architecture()
         if cpu_arch in LLVM_ARCH_MAP:
@@ -106,6 +108,7 @@ class EB_Clang_minus_AOMP(Bundle):
         else:
             raise EasyBuildError('Unknown CPU architecture for LLVM: %s', cpu_arch)
 
+        # Set up target architectures for LLVM
         # If CUDA is loaded when building, build CUDA offload backend
         if get_software_root('CUDA'):
             self.target_archs.append('NVPTX')
@@ -126,6 +129,12 @@ class EB_Clang_minus_AOMP(Bundle):
         self.log.info("Building offload support for the following AMD architectures: '%s'",
                       ' '.join(self.amd_gfx_archs))
 
+    def configure_step(self):
+        """
+        Go through each component and setup configuration for the later Bundle install step
+        """
+        super(EB_Clang_minus_AOMP, self).configure_step()
+
         # Ensure necessary libraries are downloaded and can be found
         device_lib_dir_pattern = os.path.join(self.builddir, 'ROCm-Device-Libs-*')
         hits = glob.glob(device_lib_dir_pattern)
@@ -133,14 +142,6 @@ class EB_Clang_minus_AOMP(Bundle):
             self.device_lib_path = hits[0]
         else:
             raise EasyBuildError("Could not find 'ROCm-Device-Libs' source directory in %s", self.builddir)
-
-    def configure_step(self):
-        """
-        Go through each component and setup configuration for the later Bundle install step
-        """
-        super(EB_Clang_minus_AOMP, self).configure_step()
-
-        self.prepare_sources()
 
         num_comps = len(self.cfg['components'])
         for idx, comp in enumerate(self.comp_cfgs):
@@ -194,7 +195,7 @@ class EB_Clang_minus_AOMP(Bundle):
 
             for arch in self.cuda_archs:
                 sm_arch = 'sm_%s' % arch
-                custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-nvptx-%s' % (x, sm_arch)) for x in libs])
+                custom_paths['files'].append(os.path.join('lib', 'libomptarget-nvptx-%s.bc' % sm_arch))
 
         # need to bypass sanity_check_step of Bundle, because it only loads the generated module
         # unless custom paths or commands are specified in the easyconfig
