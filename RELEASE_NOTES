@@ -27,6 +27,7 @@ update/bugfix release
   - remove newline from easybuild-easyblocks package description (required to avoid installation error with setuptools>=59.0.0) (#2623)
   - avoid patching binary files + other enhancements for MUMmer easyblock (#2630)
   - enable build-in-installdir mode in constructor of PETSc and SLEPc easyblocks (#2631)
+  - skip netcdf4-python tests that require network connectivity (#2634)
 
 
 v4.5.0 (October 29th 2021)
