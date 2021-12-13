@@ -3,7 +3,7 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 242 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 243 software-specific easyblocks and 37 generic easyblocks.
 
 
 v4.5.1 (December 13th 2021)
