@@ -206,7 +206,8 @@ class EB_OpenMPI(ConfigureMake):
                 # Run the test if chosen
                 if build_option('mpi_tests'):
                     params.update({'nr_ranks': ranks, 'cmd': test_exe})
-                    custom_commands.append(mpi_cmd_tmpl % params)
+                    # Allow oversubscription for this test (in case of hyperthreading)
+                    custom_commands.append("OMPI_MCA_rmaps_base_oversubscribe=1 " + mpi_cmd_tmpl % params)
                     # Run with 1 process which may trigger other bugs
                     # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
                     params['nr_ranks'] = 1
