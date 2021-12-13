@@ -11,6 +11,7 @@ v4.5.1 (December 13th 2021)
 
 update/bugfix release
 
+- new software-specific easyblock for Clang-AOMP (#2617)
 - minor enhancements and updates, including:
   - enhance Rpm generic easyblock to support installing tarball of RPMs (by unpacking it first) + take into account (pre)installopts (#2580)
   - add option to control use of MKL-DNN in jaxlib easyblock (#2619)
