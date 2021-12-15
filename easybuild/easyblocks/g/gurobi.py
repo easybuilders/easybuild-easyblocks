@@ -50,6 +50,12 @@ class EB_Gurobi(Tarball):
         }
         return Tarball.extra_options(extra_vars=extra)
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor, define custom class variables specific to Gurobi."""
+        super(EB_Gurobi, self).__init__(*args, **kwargs)
+
+        self.license_file = 'UNKNOWN'
+
     def install_step(self):
         """Install Gurobi and license file."""
         # make sure license file is available
