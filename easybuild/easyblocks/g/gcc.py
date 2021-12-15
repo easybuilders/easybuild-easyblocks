@@ -1079,8 +1079,6 @@ class EB_GCC(ConfigureMake):
                 # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
                 # in a parent directory of our current gettempdir()-location
                 wrapperpath = glob.glob(os.path.join(tempfile.gettempdir(), "..", "tmp*", RPATH_WRAPPERS_SUBDIR))[0]
-                if os.path.exists(targetdir):
-                    remove_dir(targetdir) # workaround, since move_file doesn't work if directory exists
                 move_file(wrapperpath, targetdir)
 
             rpath_wrapperdir = os.path.join('bin', RPATH_WRAPPERS_SUBDIR)
