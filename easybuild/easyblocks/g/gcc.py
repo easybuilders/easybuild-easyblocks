@@ -1072,8 +1072,8 @@ class EB_GCC(ConfigureMake):
                     rpath_include_dirs = os.environ["RPATH_INCLUDE_DIRS"].split(separator)
 
                 tc.prepare_rpath_wrappers(
-                        rpath_filter_dirs = rpath_filter_dirs,
-                        rpath_include_dirs = rpath_include_dirs
+                        rpath_filter_dirs=rpath_filter_dirs,
+                        rpath_include_dirs=rpath_include_dirs
                         )
 
                 # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
