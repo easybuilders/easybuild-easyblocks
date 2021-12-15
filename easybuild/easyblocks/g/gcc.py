@@ -49,7 +49,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink, remove_dir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -1064,16 +1064,16 @@ class EB_GCC(ConfigureMake):
                 # ,-separated lists by default. We might want to allow different separators.
                 # E.g. ":" could be used to get a similar syntax to PATH and LD_LIBRARY_PATH
                 separator = ','
-                rpath_filter_dirs=None
+                rpath_filter_dirs = None
                 if "RPATH_FILTER_DIRS" in os.environ:
-                    rpath_filter_dirs=os.environ["RPATH_FILTER_DIRS"].split(separator)
-                rpath_include_dirs=None
+                    rpath_filter_dirs = os.environ["RPATH_FILTER_DIRS"].split(separator)
+                rpath_include_dirs = None
                 if "RPATH_INCLUDE_DIRS" in os.environ:
-                    rpath_include_dirs=os.environ["RPATH_INCLUDE_DIRS"].split(separator)
+                    rpath_include_dirs = os.environ["RPATH_INCLUDE_DIRS"].split(separator)
 
                 tc.prepare_rpath_wrappers(
-                        rpath_filter_dirs=rpath_filter_dirs,
-                        rpath_include_dirs=rpath_include_dirs
+                        rpath_filter_dirs = rpath_filter_dirs,
+                        rpath_include_dirs = rpath_include_dirs
                         )
 
                 # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
