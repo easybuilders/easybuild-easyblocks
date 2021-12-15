@@ -38,6 +38,8 @@ import glob
 import os
 import re
 import shutil
+import tempfile
+
 from copy import copy
 from distutils.version import LooseVersion
 
@@ -47,7 +49,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink, remove_dir
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -55,6 +57,9 @@ from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os
 from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
+from easybuild.tools.options import set_up_configuration
+from easybuild.tools.toolchain.toolchain import Toolchain
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 # Offloading stages to build
@@ -1048,4 +1053,44 @@ class EB_GCC(ConfigureMake):
             'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
+
+        # Install rpath wrappers, if built with RPATH enabled
+        if build_option('rpath'):
+            def create_rpath_wrappers(targetdir):
+                set_up_configuration(silent=True)
+                tc = Toolchain(name="system", version="0.1")
+
+                # Expect rpath_filter_dirs and rpath_include_dirs as environment variables of
+                # ,-separated lists by default. We might want to allow different separators.
+                # E.g. ":" could be used to get a similar syntax to PATH and LD_LIBRARY_PATH
+                separator = ','
+                rpath_filter_dirs=None
+                if "RPATH_FILTER_DIRS" in os.environ:
+                    rpath_filter_dirs=os.environ["RPATH_FILTER_DIRS"].split(separator)
+                rpath_include_dirs=None
+                if "RPATH_INCLUDE_DIRS" in os.environ:
+                    rpath_include_dirs=os.environ["RPATH_INCLUDE_DIRS"].split(separator)
+
+                tc.prepare_rpath_wrappers(
+                        rpath_filter_dirs=rpath_filter_dirs,
+                        rpath_include_dirs=rpath_include_dirs
+                        )
+
+                # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
+                # in a parent directory of our current gettempdir()-location
+                wrapperpath = glob.glob(os.path.join(tempfile.gettempdir(), "..", "tmp*", RPATH_WRAPPERS_SUBDIR))[0]
+                if os.path.exists(targetdir):
+                    remove_dir(targetdir) # workaround, since move_file doesn't work if directory exists
+                move_file(wrapperpath, targetdir)
+
+            rpath_wrapperdir = os.path.join('bin', RPATH_WRAPPERS_SUBDIR)
+            absolute_wrapperdir = os.path.join(self.installdir, rpath_wrapperdir)
+            if not os.path.exists(absolute_wrapperdir):
+                # make_module_req_guess seems to be called multiple times
+                # create and move rpath wrappers only once!
+                create_rpath_wrappers(absolute_wrapperdir)
+            for wrapper in os.listdir(absolute_wrapperdir):
+                wrapperpath = os.path.join(rpath_wrapperdir, wrapper)
+                # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
+                guesses['PATH'].append(wrapperpath)
         return guesses
