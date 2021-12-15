@@ -32,8 +32,9 @@ import os
 
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file
+from easybuild.tools.filetools import copy_file, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -41,15 +42,27 @@ from easybuild.tools.run import run_cmd
 class EB_Gurobi(Tarball):
     """Support for installing linux64 version of Gurobi."""
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Define extra options for Gurobi"""
+        extra = {
+            'symlink_license_file': [False, "Don’t copy license_file to installdir, create symlink instead", CUSTOM],
+        }
+        return Tarball.extra_options(extra_vars=extra)
+
     def install_step(self):
         """Install Gurobi and license file."""
         # make sure license file is available
-        if self.cfg['license_file'] is None or not os.path.exists(self.cfg['license_file']):
-            raise EasyBuildError("No existing license file specified: %s", self.cfg['license_file'])
+        self.license_file = self.cfg['license_file']
+        if self.license_file is None or not os.path.exists(self.license_file):
+            raise EasyBuildError("No existing license file specified: %s", self.license_file)
 
         super(EB_Gurobi, self).install_step()
 
-        copy_file(self.cfg['license_file'], os.path.join(self.installdir, 'gurobi.lic'))
+        if self.cfg['symlink_license_file']:
+            symlink(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
+        else:
+            copy_file(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
 
         if get_software_root('Python'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
