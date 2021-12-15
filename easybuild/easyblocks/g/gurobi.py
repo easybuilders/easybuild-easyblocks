@@ -34,7 +34,7 @@ from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file, symlink
+from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -46,7 +46,7 @@ class EB_Gurobi(Tarball):
     def extra_options(extra_vars=None):
         """Define extra options for Gurobi"""
         extra = {
-            'symlink_license_file': [False, "Don’t copy license_file to installdir, create symlink instead", CUSTOM],
+            'copy_license_file': [True, "Copy license_file to installdir", CUSTOM],
         }
         return Tarball.extra_options(extra_vars=extra)
 
@@ -59,10 +59,9 @@ class EB_Gurobi(Tarball):
 
         super(EB_Gurobi, self).install_step()
 
-        if self.cfg['symlink_license_file']:
-            symlink(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
-        else:
+        if self.cfg['copy_license_file']:
             copy_file(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
+            self.license_fle = os.path.join(self.installdir, 'gurobi.lic')
 
         if get_software_root('Python'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
@@ -85,7 +84,7 @@ class EB_Gurobi(Tarball):
         """Custom extra module file entries for Gurobi."""
         txt = super(EB_Gurobi, self).make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
-        txt += self.module_generator.set_environment('GRB_LICENSE_FILE', os.path.join(self.installdir, 'gurobi.lic'))
+        txt += self.module_generator.set_environment('GRB_LICENSE_FILE', self.license_file)
 
         if get_software_root('Python'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
