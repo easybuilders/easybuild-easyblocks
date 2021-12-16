@@ -56,10 +56,9 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
 from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
-from easybuild.tools.utilities import nub
-from easybuild.tools.options import set_up_configuration
-from easybuild.tools.toolchain.toolchain import Toolchain
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
+from easybuild.tools.toolchain.utilities import get_toolchain
+from easybuild.tools.utilities import nub
 
 
 # Offloading stages to build
@@ -103,6 +102,7 @@ class EB_GCC(ConfigureMake):
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
             'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
             'withamdgcn': [False, "Build GCC with AMD GCN offload support", CUSTOM],
+            'add_rpath_wrappers': [False, "Install RPATH wrappers with GCCcore and use them on module load", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -114,6 +114,7 @@ class EB_GCC(ConfigureMake):
         # offloading and/or AMD GCN offloading
         self.build_stages = [HOST_COMPILER]
         self.current_stage = HOST_COMPILER
+        self.rpath_wrapperdir = os.path.join('bin', RPATH_WRAPPERS_SUBDIR)
         # Directories for additional tools needed when doing offloading to Nvidia and AMD
         self.nvptx_tools_dir = None  # nvptx-tools necessary for Nvidia
         self.llvm_dir = None  # LLVM is necessary when offloading to AMD
@@ -841,6 +842,28 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
+        # Install rpath wrappers, if built with RPATH enabled
+        if self.cfg['add_rpath_wrappers']:
+            def create_rpath_wrappers(targetdir):
+                tc = get_toolchain({'name': 'GCCcore', 'version': self.version}, {})
+
+                tc.prepare_rpath_wrappers(
+                        rpath_filter_dirs=[],
+                        rpath_include_dirs=[]
+                        )
+
+                # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
+                # in a parent directory of our current gettempdir()-location
+                wrapperpath = glob.glob(os.path.join(tempfile.gettempdir(), "tmp*", RPATH_WRAPPERS_SUBDIR))[0]
+                os.mkdir(targetdir)
+                for wrapper in os.listdir(wrapperpath):
+                    filename = os.listdir(os.path.join(wrapperpath, wrapper))[0]
+                    filepath = os.path.join(wrapperpath, wrapper, filename)
+                    move_file(filepath, os.path.join(targetdir, filename))
+
+            absolute_wrapperdir = os.path.join(self.installdir, self.rpath_wrapperdir)
+            create_rpath_wrappers(absolute_wrapperdir)
+
         # Rename include-fixed directory which includes system header files that were processed by fixincludes,
         # since these may cause problems when upgrading to newer OS version.
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
@@ -1054,41 +1077,8 @@ class EB_GCC(ConfigureMake):
             'MANPATH': ['man', 'share/man']
         })
 
-        # Install rpath wrappers, if built with RPATH enabled
-        if build_option('rpath'):
-            def create_rpath_wrappers(targetdir):
-                set_up_configuration(silent=True)
-                tc = Toolchain(name="system", version="0.1")
+        if self.cfg['add_rpath_wrappers']:
+            # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
+            guesses['PATH'].append(self.rpath_wrapperdir)
 
-                # Expect rpath_filter_dirs and rpath_include_dirs as environment variables of
-                # ,-separated lists by default. We might want to allow different separators.
-                # E.g. ":" could be used to get a similar syntax to PATH and LD_LIBRARY_PATH
-                separator = ','
-                rpath_filter_dirs = None
-                if "RPATH_FILTER_DIRS" in os.environ:
-                    rpath_filter_dirs = os.environ["RPATH_FILTER_DIRS"].split(separator)
-                rpath_include_dirs = None
-                if "RPATH_INCLUDE_DIRS" in os.environ:
-                    rpath_include_dirs = os.environ["RPATH_INCLUDE_DIRS"].split(separator)
-
-                tc.prepare_rpath_wrappers(
-                        rpath_filter_dirs=rpath_filter_dirs,
-                        rpath_include_dirs=rpath_include_dirs
-                        )
-
-                # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
-                # in a parent directory of our current gettempdir()-location
-                wrapperpath = glob.glob(os.path.join(tempfile.gettempdir(), "..", "tmp*", RPATH_WRAPPERS_SUBDIR))[0]
-                move_file(wrapperpath, targetdir)
-
-            rpath_wrapperdir = os.path.join('bin', RPATH_WRAPPERS_SUBDIR)
-            absolute_wrapperdir = os.path.join(self.installdir, rpath_wrapperdir)
-            if not os.path.exists(absolute_wrapperdir):
-                # make_module_req_guess seems to be called multiple times
-                # create and move rpath wrappers only once!
-                create_rpath_wrappers(absolute_wrapperdir)
-            for wrapper in os.listdir(absolute_wrapperdir):
-                wrapperpath = os.path.join(rpath_wrapperdir, wrapper)
-                # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
-                guesses['PATH'].append(wrapperpath)
         return guesses
