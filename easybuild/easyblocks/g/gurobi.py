@@ -27,6 +27,7 @@
 EasyBuild support for installing Gurobi, implemented as an easyblock
 
 @author: Bob Dröge (University of Groningen)
+@author: Samuel Moors (Vrije Universiteit Brussel)
 """
 import os
 
@@ -54,20 +55,22 @@ class EB_Gurobi(Tarball):
         """Easyblock constructor, define custom class variables specific to Gurobi."""
         super(EB_Gurobi, self).__init__(*args, **kwargs)
 
-        self.license_file = 'UNKNOWN'
+        self.license_file = self.cfg['license_file']
+
+        if self.cfg['copy_license_file']:
+            self.license_file = os.path.join(self.installdir, 'gurobi.lic')
 
     def install_step(self):
         """Install Gurobi and license file."""
+
         # make sure license file is available
-        self.license_file = self.cfg['license_file']
-        if self.license_file is None or not os.path.exists(self.license_file):
-            raise EasyBuildError("No existing license file specified: %s", self.license_file)
+        if self.cfg['license_file'] is None or not os.path.exists(self.cfg['license_file']):
+            raise EasyBuildError("No existing license file specified: %s", self.cfg['license_file'])
 
         super(EB_Gurobi, self).install_step()
 
         if self.cfg['copy_license_file']:
-            copy_file(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
-            self.license_file = os.path.join(self.installdir, 'gurobi.lic')
+            copy_file(self.cfg['license_file'], self.license_file)
 
         if get_software_root('Python'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
@@ -79,7 +82,10 @@ class EB_Gurobi(Tarball):
             'dirs': [],
         }
 
-        custom_commands = ["gurobi_cl --help"]
+        custom_commands = [
+            "gurobi_cl --help",
+            'test -f $GRB_LICENSE_FILE',
+        ]
 
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
