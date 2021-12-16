@@ -67,7 +67,7 @@ class EB_Gurobi(Tarball):
 
         if self.cfg['copy_license_file']:
             copy_file(self.license_file, os.path.join(self.installdir, 'gurobi.lic'))
-            self.license_fle = os.path.join(self.installdir, 'gurobi.lic')
+            self.license_file = os.path.join(self.installdir, 'gurobi.lic')
 
         if get_software_root('Python'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
