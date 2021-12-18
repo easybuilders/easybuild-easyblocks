@@ -28,6 +28,7 @@ EasyBuild support for Perl, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
+from distutils.version import LooseVersion
 import glob
 import os
 import stat
@@ -122,8 +123,17 @@ class EB_Perl(ConfigureMake):
         """Test Perl build via 'make test'."""
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
+            parallel = self.cfg['parallel']
             if isinstance(self.cfg['runtest'], string_type):
                 cmd = "make %s" % self.cfg['runtest']
+            elif parallel and LooseVersion(self.version) >= LooseVersion('5.30.0'):
+                # run tests in parallel, see https://perldoc.perl.org/perlhack#Parallel-tests;
+                # only do this for Perl 5.30 and newer (conservative choice, actually supported in Perl >= 5.10.1)
+                cmd = ' '.join([
+                    'TEST_JOBS=%s' % parallel,
+                    'PERL_TEST_HARNESS_ASAP=1',
+                    "make -j %s test_harness" % parallel,
+                ])
             else:
                 cmd = "make test"
 
