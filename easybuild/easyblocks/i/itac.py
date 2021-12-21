@@ -30,7 +30,6 @@ EasyBuild support for installing the Intel Trace Analyzer and Collector (ITAC), 
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
-@author: Robert Mijakovic (LuxProvide)
 """
 
 import os
@@ -56,16 +55,10 @@ class EB_itac(IntelBase):
         }
         return IntelBase.extra_options(extra_vars)
 
-    def prepare_step(self, *args, **kwargs):
-        if LooseVersion(self.version) >= LooseVersion('2021'):
-            kwargs['requires_runtime_license'] = False
-            super(EB_itac, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_itac, self).prepare_step(*args, **kwargs)
-
-    def install_step(self):
+    def install_step_classic(self):
         """
-        Actual installation
+        Actual installation for versions prior to 2021.x
+
         - create silent cfg file
         - execute command
         """
@@ -102,12 +95,28 @@ EULA=accept
             except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
-            if LooseVersion(self.version) >= LooseVersion('2021'):
-                cmd = "./install.sh -a -s --eula accept --install-dir=%(ins)s"
-            else:
-                cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
+            cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
 
             run_cmd(cmd, log_all=True, simple=True)
+
+    def install_step_oneapi(self, *args, **kwargs):
+        """
+        Actual installation for versions 2021.x onwards.
+        """
+        # require that EULA is accepted
+        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
+
+        # exactly one "source" file is expected: the (offline) installation script
+        if len(self.src) == 1:
+            install_script = self.src[0]['name']
+        else:
+            src_fns = ', '.join([x['name'] for x in self.src])
+            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
+
+        cmd = "./install.sh -a -s --eula accept --install-dir=%s" % self.installdir
+
+        run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):
         """Custom sanity check paths for ITAC."""
