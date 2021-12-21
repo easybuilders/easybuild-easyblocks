@@ -107,13 +107,6 @@ EULA=accept
         intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
         self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
 
-        # exactly one "source" file is expected: the (offline) installation script
-        if len(self.src) == 1:
-            install_script = self.src[0]['name']
-        else:
-            src_fns = ', '.join([x['name'] for x in self.src])
-            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
-
         cmd = "./install.sh -a -s --eula accept --install-dir=%s" % self.installdir
 
         run_cmd(cmd, log_all=True, simple=True)
