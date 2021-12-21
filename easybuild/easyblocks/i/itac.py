@@ -103,7 +103,7 @@ EULA=accept
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
             if LooseVersion(self.version) >= LooseVersion('2021'):
-                cmd = "./install.sh -a -s --eula accept --install-dir=%s" % self.installdir
+                cmd = "./install.sh -a -s --eula accept --install-dir=%s" % ins
             else:
                 cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
 
