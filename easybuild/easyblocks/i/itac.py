@@ -55,6 +55,15 @@ class EB_itac(IntelBase):
         }
         return IntelBase.extra_options(extra_vars)
 
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step for itac: don't require runtime license for oneAPI versions (>= 2021)
+        """
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            kwargs['requires_runtime_license'] = False
+
+        super(EB_itac, self).prepare_step(*args, **kwargs)
+
     def install_step_classic(self):
         """
         Actual installation for versions prior to 2021.x
@@ -107,9 +116,25 @@ EULA=accept
         intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
         self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
 
-        cmd = "./install.sh -a -s --eula accept --install-dir=%s" % self.installdir
+        # exactly one "source" file is expected: the (offline) installation script
+        if len(self.src) == 1:
+            install_script = self.src[0]['name']
+        else:
+            src_fns = ', '.join([x['name'] for x in self.src])
+            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
+
+        cmd = ' '.join([
+            "sh %s" % install_script,
+            '-a',
+            '-s',
+            "--eula accept",
+            "--install-dir=%s" % self.installdir,
+        ])
 
         run_cmd(cmd, log_all=True, simple=True)
+
+        # itac installer create itac/<version> subdir, so stuff needs to be moved afterwards
+        super(EB_itac, self).move_after_install()
 
     def sanity_check_step(self):
         """Custom sanity check paths for ITAC."""
