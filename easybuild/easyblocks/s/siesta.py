@@ -71,7 +71,7 @@ class EB_Siesta(ConfigureMake):
         arch_make = os.path.join(obj_dir, 'arch.make')
         bindir = os.path.join(start_dir, 'bin')
 
-        version = self.version.replace('-b', '.0.2.')
+        version = self.version.replace('-b', '.0.2.').replace('-MaX-', '.')
         loose_ver = LooseVersion(version)
 
         par = ''
@@ -271,11 +271,12 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'TS', 'tshs2tshs', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_TS)
 
-                regex_subs_Gen_basis = [
-                    (r"^(INCFLAGS.*)$", r"\1 -I%s" % obj_dir),
-                ]
-                makefile = os.path.join(start_dir, 'Util', 'Gen-basis', 'Makefile')
-                apply_regex_substitutions(makefile, regex_subs_Gen_basis)
+                if self.version != '4.1-MaX-1.0':
+                    regex_subs_Gen_basis = [
+                        (r"^(INCFLAGS.*)$", r"\1 -I%s" % obj_dir),
+                    ]
+                    makefile = os.path.join(start_dir, 'Util', 'Gen-basis', 'Makefile')
+                    apply_regex_substitutions(makefile, regex_subs_Gen_basis)
 
             if loose_ver >= LooseVersion('4'):
                 # SUFFIX rules in wrong place
