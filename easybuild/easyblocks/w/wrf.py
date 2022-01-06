@@ -80,6 +80,7 @@ class EB_WRF(EasyBlock):
                                 "dmpar (MPI), dm+sm (hybrid OpenMP/MPI)).", MANDATORY],
             'rewriteopts': [True, "Replace -O3 with CFLAGS/FFLAGS", CUSTOM],
             'runtest': [True, "Build and run WRF tests", CUSTOM],
+            'withvortex': [False, "Build with Vortex support", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -187,11 +188,18 @@ class EB_WRF(EasyBlock):
 
         # run configure script
         cmd = "./configure"
-        qa = {
-            # named group in match will be used to construct answer
-            "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
-            "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
-        }
+        if self.cfg['withvortex']:
+            qa = {
+                # named group in match will be used to construct answer
+                "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "3",
+                "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "3"
+            }
+        else:
+            qa = {
+                # named group in match will be used to construct answer
+                "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
+                "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
+            }
         no_qa = [
             "testing for fseeko and fseeko64",
             r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
