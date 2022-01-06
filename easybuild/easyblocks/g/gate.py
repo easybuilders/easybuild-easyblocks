@@ -214,6 +214,6 @@ class EB_GATE(CMakeMake):
             'files': [os.path.join('bin', subdir, 'Gate')] + extra_files,
             'dirs': dirs,
         }
-        custom_commands = ["gjs -h | grep 'This executable is compiled with %s as default'" \
+        custom_commands = ["gjs -h | grep 'This executable is compiled with %s as default'"
                            % self.cfg['default_platform']]
         super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
