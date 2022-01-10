@@ -332,7 +332,7 @@ class Bundle(EasyBlock):
                           idx + 1, len(self.cfg['sanity_check_component']))
                 self.log.info("Starting sanity check step for component %s v%s", comp.cfg['name'], comp.cfg['version'])
 
-                comp.run_step('sanity_check', [lambda x: getattr(x, 'sanity_check_step')])
+                comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
 
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super(Bundle, self).sanity_check_step(*args, **kwargs)
