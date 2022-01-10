@@ -30,6 +30,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Jasper Grimm (University of York)
 """
 import copy
 import os
@@ -58,6 +59,7 @@ class Bundle(EasyBlock):
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
+            'sanity_check_component': [[], "List of components for which to run sanity checks", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
@@ -71,6 +73,10 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances for components
         self.comp_cfgs = []
 
+        # list of EasyConfig instances of components for which to run sanity checks
+        if self.cfg['sanity_check_component']:
+            self.comp_cfgs_sanity_check = []
+
         # list of sources for bundle itself *must* be empty
         if self.cfg['sources']:
             raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
@@ -82,6 +88,14 @@ class Bundle(EasyBlock):
 
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
+
+        # backup sanity checks defined in main body of easyconfig, if component-specific sanity checks are enabled -
+        # necessary to avoid duplicating or overriding these sanity checks across all components
+        if self.cfg['sanity_check_component']:
+            self.backup_sanity_paths = self.cfg['sanity_check_paths']
+            self.backup_sanity_cmds = self.cfg['sanity_check_commands']
+            self.cfg['sanity_check_paths'] = {}
+            self.cfg['sanity_check_commands'] = {}
 
         for comp in self.cfg['components']:
             comp_name, comp_version, comp_specs = comp[0], comp[1], {}
@@ -178,6 +192,11 @@ class Bundle(EasyBlock):
 
         self.cfg.enable_templating = True
 
+        # restore sanity checks if using component-specific sanity checks
+        if self.cfg['sanity_check_component']:
+            self.cfg['sanity_check_paths'] = self.backup_sanity_paths
+            self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
     def check_checksums(self):
         """
         Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
@@ -264,6 +283,10 @@ class Bundle(EasyBlock):
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
 
+            # check if sanity checks are enabled for the component
+            if comp.cfg['name'] in self.cfg['sanity_check_component']:
+                self.comp_cfgs_sanity_check += [comp]
+
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:
                 if step_name in cfg['skipsteps']:
@@ -299,8 +322,18 @@ class Bundle(EasyBlock):
 
     def sanity_check_step(self, *args, **kwargs):
         """
-        Nothing is being installed, so just being able to load the (fake) module is sufficient
+        If component sanity checks are enabled, run sanity checks for the desired components listed.
+        If nothing is being installed, just being able to load the (fake) module is sufficient
         """
+        if self.cfg['sanity_check_component']:
+            # run sanity checks for specific components
+            for idx, comp in enumerate(self.comp_cfgs_sanity_check):
+                print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.cfg['name'], comp.cfg['version'],
+                          idx + 1, len(self.cfg['sanity_check_component']))
+                self.log.info("Starting sanity check step for component %s v%s", comp.cfg['name'], comp.cfg['version'])
+
+                comp.run_step('sanity_check', [lambda x: getattr(x, 'sanity_check_step')])
+
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super(Bundle, self).sanity_check_step(*args, **kwargs)
         else:
