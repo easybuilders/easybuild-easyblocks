@@ -59,7 +59,8 @@ class Bundle(EasyBlock):
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
-            'sanity_check_component': [[], "List of components for which to run sanity checks", CUSTOM],
+            'sanity_check_components': [[], "List of components for which to run sanity checks", CUSTOM],
+            'sanity_check_all_components': [False, "Enable sanity checks for every components", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
@@ -88,11 +89,14 @@ class Bundle(EasyBlock):
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
 
+        if self.cfg['sanity_check_components'] and self.cfg['sanity_check_all_components']:
+            raise EasyBuildError("sanity_check_components and sanity_check_all_components cannot be enabled together")
+
         # backup sanity checks defined in main body of easyconfig, if component-specific sanity checks are enabled -
         # necessary to avoid duplicating or overriding these sanity checks across all components
         self.backup_sanity_paths = self.cfg['sanity_check_paths']
         self.backup_sanity_cmds = self.cfg['sanity_check_commands']
-        if self.cfg['sanity_check_component']:
+        if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = {}
             self.cfg['sanity_check_commands'] = {}
 
@@ -192,7 +196,7 @@ class Bundle(EasyBlock):
         self.cfg.enable_templating = True
 
         # restore sanity checks if using component-specific sanity checks
-        if self.cfg['sanity_check_component']:
+        if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
 
@@ -283,7 +287,7 @@ class Bundle(EasyBlock):
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
 
             # check if sanity checks are enabled for the component
-            if comp.cfg['name'] in self.cfg['sanity_check_component']:
+            if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
                 self.comp_cfgs_sanity_check.append(comp)
 
             # run relevant steps
