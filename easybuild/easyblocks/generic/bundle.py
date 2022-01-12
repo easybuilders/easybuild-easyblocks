@@ -74,8 +74,7 @@ class Bundle(EasyBlock):
         self.comp_cfgs = []
 
         # list of EasyConfig instances of components for which to run sanity checks
-        if self.cfg['sanity_check_component']:
-            self.comp_cfgs_sanity_check = []
+        self.comp_cfgs_sanity_check = []
 
         # list of sources for bundle itself *must* be empty
         if self.cfg['sources']:
@@ -91,9 +90,9 @@ class Bundle(EasyBlock):
 
         # backup sanity checks defined in main body of easyconfig, if component-specific sanity checks are enabled -
         # necessary to avoid duplicating or overriding these sanity checks across all components
+        self.backup_sanity_paths = self.cfg['sanity_check_paths']
+        self.backup_sanity_cmds = self.cfg['sanity_check_commands']
         if self.cfg['sanity_check_component']:
-            self.backup_sanity_paths = self.cfg['sanity_check_paths']
-            self.backup_sanity_cmds = self.cfg['sanity_check_commands']
             self.cfg['sanity_check_paths'] = {}
             self.cfg['sanity_check_commands'] = {}
 
@@ -285,7 +284,7 @@ class Bundle(EasyBlock):
 
             # check if sanity checks are enabled for the component
             if comp.cfg['name'] in self.cfg['sanity_check_component']:
-                self.comp_cfgs_sanity_check += [comp]
+                self.comp_cfgs_sanity_check.append(comp)
 
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:
@@ -333,11 +332,11 @@ class Bundle(EasyBlock):
             self.log.debug("Cleaning up after testing loading of module")
             self.clean_up_fake_module(fake_mod_data)
 
-        if self.cfg['sanity_check_component']:
-            # run sanity checks for specific components
-            for idx, comp in enumerate(self.comp_cfgs_sanity_check):
-                print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.cfg['name'], comp.cfg['version'],
-                          idx + 1, len(self.cfg['sanity_check_component']))
-                self.log.info("Starting sanity check step for component %s v%s", comp.cfg['name'], comp.cfg['version'])
+        # run sanity checks for specific components
+        cnt = len(self.comp_cfgs_sanity_check)
+        for idx, comp in enumerate(self.comp_cfgs_sanity_check):
+            comp_name, comp_ver = comp.cfg['name'], comp.cfg['version']
+            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp_name, comp_ver, idx + 1, cnt)
+            self.log.info("Starting sanity check step for component %s v%s", comp_name, comp_ver)
 
-                comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+            comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
