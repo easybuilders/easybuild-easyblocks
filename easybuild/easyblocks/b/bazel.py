@@ -197,4 +197,8 @@ class EB_Bazel(EasyBlock):
             'files': ['bin/bazel'],
             'dirs': [],
         }
-        super(EB_Bazel, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('1.0'):
+            custom_commands.append("bazel --help")
+
+        super(EB_Bazel, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
