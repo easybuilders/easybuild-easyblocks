@@ -478,7 +478,7 @@ class EB_CP2K(EasyBlock):
         ifortver = get_software_version('intel-compilers')
         if ifortver is None:
             # fall back to trying to determining Intel Fortran compiler version using 'ifort' as software name
-            ifortver = LooseVersion(get_software_version('ifort'))
+            ifortver = get_software_version('ifort')
 
         if ifortver:
             ifortver = LooseVersion(ifortver)
