@@ -92,11 +92,14 @@ class Bundle(EasyBlock):
         if self.cfg['sanity_check_components'] and self.cfg['sanity_check_all_components']:
             raise EasyBuildError("sanity_check_components and sanity_check_all_components cannot be enabled together")
 
-        # backup sanity checks defined in main body of easyconfig, if component-specific sanity checks are enabled -
-        # necessary to avoid duplicating or overriding these sanity checks across all components
+        # backup and reset general sanity checks from main body of ec, if component-specific sanity checks are enabled
+        # necessary to avoid:
+        # - duplicating the general sanity check across all components running sanity checks
+        # - general sanity checks taking precedence over those defined in a component's easyblock
         self.backup_sanity_paths = self.cfg['sanity_check_paths']
         self.backup_sanity_cmds = self.cfg['sanity_check_commands']
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
+            # reset general sanity checks, to be restored later
             self.cfg['sanity_check_paths'] = {}
             self.cfg['sanity_check_commands'] = {}
 
