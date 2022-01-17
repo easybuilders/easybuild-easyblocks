@@ -60,7 +60,7 @@ class Bundle(EasyBlock):
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
             'sanity_check_components': [[], "List of components for which to run sanity checks", CUSTOM],
-            'sanity_check_all_components': [False, "Enable sanity checks for every components", CUSTOM],
+            'sanity_check_all_components': [False, "Enable sanity checks for all components", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
@@ -195,7 +195,7 @@ class Bundle(EasyBlock):
 
         self.cfg.enable_templating = True
 
-        # restore sanity checks if using component-specific sanity checks
+        # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
