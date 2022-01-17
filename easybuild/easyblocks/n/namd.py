@@ -86,6 +86,20 @@ class EB_NAMD(MakeCp):
         srcdir = extract_file(self.charm_tarballs[0], os.getcwd(), change_into_dir=False)
         change_dir(srcdir)
 
+    def patch_step(self, *args, **kwargs):
+        """Patch scripts to avoid using hardcoded /bin/csh."""
+        super(EB_NAMD, self).patch_step(*args, **kwargs)
+
+        self.charm_dir = self.charm_tarballs[0][:-4]
+
+        charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
+        apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
+
+        for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
+                            os.path.join(self.charm_dir, 'src', 'QuickThreads', 'time', 'raw')]:
+            if os.path.exists(csh_script):
+                apply_regex_substitutions(csh_script, [(r'^#!\s*/bin/csh\s*$', '#!/usr/bin/env csh')])
+
     def configure_step(self):
         """Custom configure step for NAMD, we build charm++ first (if required)."""
 
