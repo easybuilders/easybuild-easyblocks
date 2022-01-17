@@ -96,7 +96,7 @@ class EB_NAMD(MakeCp):
         apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
 
         for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
-                            os.path.join(self.charm_dir, 'src', 'QuickThreads', 'time', 'raw')]:
+                           os.path.join(self.charm_dir, 'src', 'QuickThreads', 'time', 'raw')]:
             if os.path.exists(csh_script):
                 apply_regex_substitutions(csh_script, [(r'^#!\s*/bin/csh\s*$', '#!/usr/bin/env csh')])
 
