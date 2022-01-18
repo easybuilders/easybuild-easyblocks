@@ -192,8 +192,8 @@ class EB_GROMACS(CMakeMake):
                     self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
 
                 # Set CUDA capabilities based on template value.
-                cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value( "cuda_cc_semicolon_sep").replace('.', '')
-                self.cfg.update( 'configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
+                cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value("cuda_cc_semicolon_sep").replace('.', '')
+                self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS finds and uses a system-wide CUDA compiler
