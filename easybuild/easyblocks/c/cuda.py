@@ -253,10 +253,10 @@ class EB_CUDA(Binary):
         pkgconfig_dir = os.path.join(self.installdir, 'pkgconfig')
         pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
         change_dir(pkgconfig_dir)
-        for f in pc_files:
-            f = os.path.basename(f)
-            l = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', f)
-            symlink(f, l, use_abspath_source=False)
+        for pc_file in pc_files:
+            pc_file = os.path.basename(pc_file)
+            link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
+            symlink(pc_file, link, use_abspath_source=False)
 
         super(EB_CUDA, self).post_install_step()
 
