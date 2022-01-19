@@ -251,12 +251,13 @@ class EB_CUDA(Binary):
         # See e.g. https://github.com/Xpra-org/xpra/blob/master/setup.py#L206
         # Distros provide these files, so let's do it here too
         pkgconfig_dir = os.path.join(self.installdir, 'pkgconfig')
-        pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
-        change_dir(pkgconfig_dir)
-        for pc_file in pc_files:
-            pc_file = os.path.basename(pc_file)
-            link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
-            symlink(pc_file, link, use_abspath_source=False)
+        if os.path.exists(pkgconfig_dir):
+            pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
+            change_dir(pkgconfig_dir)
+            for pc_file in pc_files:
+                pc_file = os.path.basename(pc_file)
+                link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
+                symlink(pc_file, link, use_abspath_source=False)
 
         super(EB_CUDA, self).post_install_step()
 
@@ -283,8 +284,9 @@ class EB_CUDA(Binary):
 
         # Just a subset of files are checked, since the whole list is likely to change, and irrelevant in most cases
         # anyway
-        pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc', 'nvidia-ml.pc', 'nvjpeg.pc']
-        custom_paths['files'] = custom_paths['files'] + [os.path.join('pkgconfig', x) for x in pc_files]
+        if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
+            pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc', 'nvidia-ml.pc', 'nvjpeg.pc']
+            custom_paths['files'] = custom_paths['files'] + [os.path.join('pkgconfig', x) for x in pc_files]
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -328,7 +330,11 @@ class EB_CUDA(Binary):
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
             'CPATH': inc_path,
-            'PKG_CONFIG_PATH': ['pkgconfig'],
         })
+
+        if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
+            guesses.update({
+                'PKG_CONFIG_PATH': ['pkgconfig'],
+            })
 
         return guesses
