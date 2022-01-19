@@ -327,15 +327,11 @@ class EB_CUDA(Binary):
             inc_path.append(os.path.join('nvvm', 'include'))
 
         guesses.update({
-            'PATH': bin_path,
+            'CPATH': inc_path,
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
-            'CPATH': inc_path,
+            'PATH': bin_path,
+            'PKG_CONFIG_PATH': ['pkgconfig'],
         })
-
-        if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
-            guesses.update({
-                'PKG_CONFIG_PATH': ['pkgconfig'],
-            })
 
         return guesses
