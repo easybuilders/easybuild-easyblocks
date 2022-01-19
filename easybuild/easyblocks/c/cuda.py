@@ -286,7 +286,7 @@ class EB_CUDA(Binary):
         # Just a subset of files are checked, since the whole list is likely to change,
         # and irrelevant in most cases anyway
         if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
-            pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc', 'nvidia-ml.pc', 'nvjpeg.pc']
+            pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
             custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
