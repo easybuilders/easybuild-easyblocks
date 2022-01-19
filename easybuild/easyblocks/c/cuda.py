@@ -203,8 +203,8 @@ class EB_CUDA(Binary):
 
     def post_install_step(self):
         """
-        Create wrappers for the specified host compilers, generate the appropriate stub symlinks and create version
-        independent pkgconfig files
+        Create wrappers for the specified host compilers, generate the appropriate stub symlinks,
+        and create version independent pkgconfig files
         """
         def create_wrapper(wrapper_name, wrapper_comp):
             """Create for a particular compiler, with a particular name"""
@@ -252,11 +252,12 @@ class EB_CUDA(Binary):
         # Distros provide these files, so let's do it here too
         pkgconfig_dir = os.path.join(self.installdir, 'pkgconfig')
         pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
-        change_dir(pkgconfig_dir)
+        cwd = change_dir(pkgconfig_dir)
         for pc_file in pc_files:
             pc_file = os.path.basename(pc_file)
             link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
             symlink(pc_file, link, use_abspath_source=False)
+        change_dir(cwd)
 
         super(EB_CUDA, self).post_install_step()
 
@@ -281,10 +282,10 @@ class EB_CUDA(Binary):
             custom_paths['files'].append(os.path.join("extras", "CUPTI", "lib64", "libcupti.%s") % shlib_ext)
             custom_paths['dirs'].append(os.path.join("extras", "CUPTI", "include"))
 
-        # Just a subset of files are checked, since the whole list is likely to change, and irrelevant in most cases
-        # anyway
-        pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc', 'nvidia-ml.pc', 'nvjpeg.pc']
-        custom_paths['files'].append(os.path.join('pkgconfig', x) for x in pc_files)
+        # Just a subset of files are checked, since the whole list is likely to change,
+        # and irrelevant in most cases anyway
+        pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
+        custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
