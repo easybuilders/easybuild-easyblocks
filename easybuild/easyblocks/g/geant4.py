@@ -30,6 +30,7 @@ Geant4 support, implemented as an easyblock.
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Jasper Grimm (University of York)
 """
 
 import os
@@ -64,6 +65,18 @@ class EB_Geant4(CMakeMake):
             'G4EMLOWVersion': [None, "G4EMLOW version", CUSTOM],
             'PhotonEvaporationVersion': [None, "PhotonEvaporation version", CUSTOM],
             'G4RadioactiveDecayVersion': [None, "G4RadioactiveDecay version", CUSTOM],
+            'enable_freetype': [False, "Build analysis library with freetype support", CUSTOM],
+            'enable_gdml': [False, "Build GDML support for the G4persistency library", CUSTOM],
+            'enable_inventor': [False, "Build OpenInventor visualization driver", CUSTOM],
+            'enable_inventorqt': [False, "Build OpenInventor Qt visualization driver", CUSTOM],
+            'enable_opengl': [False, "Build X11 OpenGL visualization driver", CUSTOM],
+            'enable_python': [False, "Install python bindings (Geant4Py)", CUSTOM],
+            'enable_qt5': [False, "Build Qt5 user interface and visualization drivers", CUSTOM],
+            'enable_raytracer': [False, "Build RayTracer visualization driver with X11 support", CUSTOM],
+            'enable_toolssg': [False, "Build ToolsSG visualization driver (with X11, motif, or Qt5 backend)", CUSTOM],
+            'enable_xm': [False, "Build motif user interface and visualization driver", CUSTOM],
+            'install_data': [False, "Download and install Geant4 datasests", CUSTOM],
+            'install_data_dir': [False, "Custom directory for Geant4 data files", CUSTOM],
         })
         # Requires out-of-source build
         extra_vars['separate_build_dir'][0] = True
@@ -83,6 +96,49 @@ class EB_Geant4(CMakeMake):
 
         # Geant4 switched to a CMake build system in version 9.4
         if LooseVersion(self.version) >= LooseVersion("9.4"):
+            # map toolssg backends:
+            toolssg_backends = {'X11': 'X11', 'XT': 'Motif', 'QT': 'Qt5'}
+            if self.cfg['enable_toolssg']:
+                toolssg = toolssg_backends[self.cfg['enable_toolssg']]
+            else:
+                toolssg = []
+            
+            xerces_root = get_software_root('Xerces-C++')
+
+            # map software requirements and corresponding configopts to custom options
+            custom_options_map = {
+                # option: ([dep_names], configopt)
+                'enable_freetype': (['freetype'], "-DGEANT4_USE_FREETYPE=ON"),
+                'enable_gdml': (['Xerces-C++'], "-DGEANT4_USE_GDML=ON -DXERCES_ROOT_DIR=%s" % xerces_root),
+                'enable_inventor': (['Coin', 'SoXt', 'libGLU'], "-DGEANT4_USE_INVENTOR=ON"),
+                'enable_inventorqt': (['Coin', 'SoQt', 'libGLU', 'Qt5'], "-DGEANT4_USE_INVENTOR_QT=ON"),
+                'enable_opengl': (['libGLU'], "-DGEANT4_USE_OPENGL_X11=ON"),
+                'enable_python': (
+                    ['Python', 'Boost.Python'], "-DGEANT4_USE_PYTHON=ON -DGEANT4_BUILD_TLS_MODEL=global-dynamic"
+                ),
+                'enable_qt5': (['Qt5', 'libGLU'], "-DGEANT4_USE_QT=ON"),
+                'enable_raytracer': (['X11'], "-DGEANT4_USE_RAYTRACER_X11=ON"),
+                'enable_toolssg': ([toolssg], "-DGEANT4_USE_TOOLSSG=%s" % self.cfg['enable_toolssg']),
+                'enable_xm': (['Motif', 'libGLU'], "-DGEANT4_USE_XM=ON"),
+                'install_data': ([], "-DGEANT4_INSTALL_DATA=ON"),
+                'install_data_dir': ([], "-DGEANT4_INSTALL_DATADIR=%s" % self.cfg['install_data_dir']),
+            }
+                
+            # check dependencies for custom configure options if enabled
+            for opt, (deps, cfg_opt) in custom_options_map.items():
+                if self.cfg[opt]:
+                    # check that dependencies are met
+                    missing_deps = [dep for dep in deps if not get_software_root(dep)]
+                    if missing_deps:
+                        missing_deps_str = ', '.join(missing_deps)
+                        raise EasyBuildError("Missing dependencies for option %s: %s", opt, missing_deps_str)
+                    # append configopt
+                    self.cfg.update('configopts', cfg_opt)
+            
+            # cannot enable both OpenInventor and OpenInventorQt
+            if self.cfg['enable_inventor'] and self.cfg['enable_inventorqt']:
+                raise EasyBuildError("Cannot use both enable_inventor and enable_inventorqt")
+
             super(EB_Geant4, self).configure_step()
 
         else:
@@ -374,6 +430,9 @@ class EB_Geant4(CMakeMake):
 
         incdir = os.path.join(self.installdir, 'include')
         libdir = os.path.join(self.installdir, 'lib')
+        
+        default_datadir = os.path.join(self.installdir, 'share', '-'.join([self.cfg['name'], self.cfg['version']]), 'data')
+        datadir = self.cfg['install_data_dir'] or default_datadir
         if LooseVersion(self.version) >= LooseVersion("9.5"):
             txt += self.module_generator.set_environment('G4INCLUDE', os.path.join(incdir, 'Geant4'))
             txt += self.module_generator.set_environment('G4LIB', os.path.join(self.installdir, 'lib64', 'Geant4'))
@@ -404,6 +463,30 @@ class EB_Geant4(CMakeMake):
             g4neutronhpdata = os.path.join(self.datadst, 'G4NDL%s' % self.cfg['G4NDLVersion'])
             txt += self.module_generator.set_environment('G4NEUTRONHPDATA', g4neutronhpdata)
 
+        # map data env vars to data directory name
+        install_data_map = {
+            'G4NEUTRONHPDATA': 'G4NDL',
+            'G4LEDATA': 'G4EMLOW',
+            'G4LEVELGAMMADATA': 'PhotonEvaporation',
+            'G4RADIOACTIVEDATA': 'RadioactiveDecay',
+            'G4PARTICLEXSDATA': 'G4PARTICLEXS',
+            'G4PIIDATA': 'G4PII',
+            'G4REALSURFACEDATA': 'RealSurface',
+            'G4SAIDXSDATA': 'G4SAIDDATA',
+            'G4ABLADATA': 'G4ABLA',
+            'G4INCLDATA': 'G4INCL',
+            'G4ENSDFSTATEDATA': 'G4ENSDFSTATE',
+        }
+
+        if self.cfg['install_data']:
+            # determine data versions from directories
+            data_dirs = os.listdir(datadir)
+            for env_name, data_name in install_data_map.items():
+                data_version = [x.split(data_name)[1] for x in data_dirs if data_name in x][0]
+                data_path = os.path.join(datadir, data_name + data_version)
+                
+                txt += self.module_generator.set_environment(env_name, data_path)
+
         return txt
 
     def sanity_check_step(self):
@@ -421,6 +504,17 @@ class EB_Geant4(CMakeMake):
             lib_files = ["lib/libG4%s.so" % x for x in ['event', 'GMocren', 'materials', 'persistency',
                                                         'readout', 'Tree', 'VRML']]
             include_dir = 'include/geant4'
+
+        if self.cfg['enable_opengl']:
+            lib_files.extend(['lib64/libG4OpenGL.so'])
+        if self.cfg['enable_inventor'] or self.cfg['enable_inventorqt']:
+            lib_files.extend(['lib64/libG4OpenInventor.so'])
+        if self.cfg['enable_raytracer']:
+            lib_files.extend(['lib64/libG4RayTracer.so'])
+        if self.cfg['enable_toolssg']:
+            lib_files.extend(['lib64/libG4ToolsSG.so'])
+        if self.cfg['enable_qt5']:
+            lib_files.extend(['lib64/libG4visQt3D.so']) 
 
         custom_paths = {
             'files': bin_files + lib_files,
