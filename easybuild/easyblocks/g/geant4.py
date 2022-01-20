@@ -102,7 +102,7 @@ class EB_Geant4(CMakeMake):
                 toolssg = toolssg_backends[self.cfg['enable_toolssg']]
             else:
                 toolssg = []
-            
+
             xerces_root = get_software_root('Xerces-C++')
 
             # map software requirements and corresponding configopts to custom options
@@ -123,7 +123,7 @@ class EB_Geant4(CMakeMake):
                 'install_data': ([], "-DGEANT4_INSTALL_DATA=ON"),
                 'install_data_dir': ([], "-DGEANT4_INSTALL_DATADIR=%s" % self.cfg['install_data_dir']),
             }
-                
+
             # check dependencies for custom configure options if enabled
             for opt, (deps, cfg_opt) in custom_options_map.items():
                 if self.cfg[opt]:
@@ -134,7 +134,7 @@ class EB_Geant4(CMakeMake):
                         raise EasyBuildError("Missing dependencies for option %s: %s", opt, missing_deps_str)
                     # append configopt
                     self.cfg.update('configopts', cfg_opt)
-            
+
             # cannot enable both OpenInventor and OpenInventorQt
             if self.cfg['enable_inventor'] and self.cfg['enable_inventorqt']:
                 raise EasyBuildError("Cannot use both enable_inventor and enable_inventorqt")
@@ -430,8 +430,9 @@ class EB_Geant4(CMakeMake):
 
         incdir = os.path.join(self.installdir, 'include')
         libdir = os.path.join(self.installdir, 'lib')
-        
-        default_datadir = os.path.join(self.installdir, 'share', '-'.join([self.cfg['name'], self.cfg['version']]), 'data')
+
+        default_datadir = os.path.join(self.installdir, 'share', '-'.join([self.cfg['name'],
+                                       self.cfg['version']]), 'data')
         datadir = self.cfg['install_data_dir'] or default_datadir
         if LooseVersion(self.version) >= LooseVersion("9.5"):
             txt += self.module_generator.set_environment('G4INCLUDE', os.path.join(incdir, 'Geant4'))
@@ -484,7 +485,7 @@ class EB_Geant4(CMakeMake):
             for env_name, data_name in install_data_map.items():
                 data_version = [x.split(data_name)[1] for x in data_dirs if data_name in x][0]
                 data_path = os.path.join(datadir, data_name + data_version)
-                
+
                 txt += self.module_generator.set_environment(env_name, data_path)
 
         return txt
@@ -514,7 +515,7 @@ class EB_Geant4(CMakeMake):
         if self.cfg['enable_toolssg']:
             lib_files.extend(['lib64/libG4ToolsSG.so'])
         if self.cfg['enable_qt5']:
-            lib_files.extend(['lib64/libG4visQt3D.so']) 
+            lib_files.extend(['lib64/libG4visQt3D.so'])
 
         custom_paths = {
             'files': bin_files + lib_files,
