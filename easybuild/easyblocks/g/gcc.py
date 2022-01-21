@@ -57,7 +57,7 @@ from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os
 from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
-from easybuild.tools.toolchain.utilities import get_toolchain
+from easybuild.tools.toolchain.utilities import create_rpath_wrappers
 from easybuild.tools.utilities import nub
 
 
@@ -842,28 +842,6 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
-        # Install rpath wrappers, if built with RPATH enabled
-        if self.cfg['add_rpath_wrappers']:
-            def create_rpath_wrappers(targetdir):
-                tc = get_toolchain({'name': 'GCCcore', 'version': self.version}, {})
-
-                tc.prepare_rpath_wrappers(
-                        rpath_filter_dirs=[],
-                        rpath_include_dirs=[]
-                        )
-
-                # Find location of rpath wrappers. Tempfile in prepare_rpath_wrappers seems to be
-                # in a parent directory of our current gettempdir()-location
-                wrapperpath = glob.glob(os.path.join(tempfile.gettempdir(), "tmp*", RPATH_WRAPPERS_SUBDIR))[0]
-                os.mkdir(targetdir)
-                for wrapper in os.listdir(wrapperpath):
-                    filename = os.listdir(os.path.join(wrapperpath, wrapper))[0]
-                    filepath = os.path.join(wrapperpath, wrapper, filename)
-                    move_file(filepath, os.path.join(targetdir, filename))
-
-            absolute_wrapperdir = os.path.join(self.installdir, self.rpath_wrapperdir)
-            create_rpath_wrappers(absolute_wrapperdir)
-
         # Rename include-fixed directory which includes system header files that were processed by fixincludes,
         # since these may cause problems when upgrading to newer OS version.
         # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
@@ -1078,6 +1056,8 @@ class EB_GCC(ConfigureMake):
         })
 
         if self.cfg['add_rpath_wrappers']:
+            absolute_wrapperdir = os.path.join(self.installdir, self.rpath_wrapperdir)
+            create_rpath_wrappers(absolute_wrapperdir, 'GCCcore', self.version)
             # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
             guesses['PATH'].append(self.rpath_wrapperdir)
 
