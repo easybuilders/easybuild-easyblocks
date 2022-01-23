@@ -13,10 +13,9 @@ update/bugfix release
 
 - minor enhancements and updates, including:
   - remove necessity for license for oneAPI versions (>= 2021.x) in itac easyblock (#2492)
-  - convert version numbers to stricly numerical in Siesta easyblock (#2553)
   - add CUDA support in SuiteSparse easyblock (#2627)
   - use all available cores for running Perl test suite (#2637)
-  - add option to not copy the license file for Gurobi (#2639)
+  - add option to not copy the license file for Gurobi (#2639, #2641)
   - update AOCC easyblock to support version 3.2.0 (#2643)
   - don't grep for specific version in --version output of Intel compiler commands for versions 2022.x (#2644)
   - add support for enabling sanity checks for specific components in the Bundle easyblock (#2649)
@@ -27,8 +26,8 @@ update/bugfix release
   - enhance CUDA easyblock to create version independent pkgconfig files (#2656)
   - add util subdirectory to $PATH for WPS (#2658)
 - various bug fixes, including:
+  - convert version numbers to stricly numerical in Siesta easyblock (#2553)
   - fix shebang of scripts in Perl installation if installation prefix is too long (#2640)
-  - fix license file when running with --module-only for Gurobi (#2641)
   - enhance IntelBase easyblock to avoid crash when $USER is not set (#2642)
   - fix quotes in definition of default platform macro and enhance sanity check in GATE easyblock (#2645)
   - avoid excessively long shebang line in compile script for WRF (#2648)
