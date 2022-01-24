@@ -3,7 +3,35 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 242 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 243 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.5.2 (January 24th 2022)
+--------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - remove necessity for license for oneAPI versions (>= 2021.x) in itac easyblock (#2492)
+  - add CUDA support in SuiteSparse easyblock (#2627)
+  - use all available cores for running Perl test suite (#2637)
+  - add option to not copy the license file for Gurobi (#2639, #2641)
+  - update AOCC easyblock to support version 3.2.0 (#2643)
+  - don't grep for specific version in --version output of Intel compiler commands for versions 2022.x (#2644)
+  - add support for enabling sanity checks for specific components in the Bundle easyblock (#2649)
+  - update Libint easyblock for LibInt v2.7.0 which requires configuring via CMake (#2650)
+  - update Mathematica easyblock for version 13 (#2652)
+  - add sanity check command for Bazel (#2653)
+  - update NAMD easyblock to allow non-system csh (#2654)
+  - enhance CUDA easyblock to create version independent pkgconfig files (#2656)
+  - add util subdirectory to $PATH for WPS (#2658)
+- various bug fixes, including:
+  - convert version numbers to stricly numerical in Siesta easyblock (#2553)
+  - fix shebang of scripts in Perl installation if installation prefix is too long (#2640)
+  - enhance IntelBase easyblock to avoid crash when $USER is not set (#2642)
+  - fix quotes in definition of default platform macro and enhance sanity check in GATE easyblock (#2645)
+  - avoid excessively long shebang line in compile script for WRF (#2648)
+  - fix checking of Intel Fortran compiler version in CP2K easyblock for recent toolchains (#2651)
 
 
 v4.5.1 (December 13th 2021)

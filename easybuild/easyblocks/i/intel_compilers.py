@@ -110,7 +110,13 @@ class EB_intel_minus_compilers(IntelBase):
 
         all_compiler_cmds = classic_compiler_cmds + oneapi_compiler_cmds
         custom_commands = ["which %s" % c for c in all_compiler_cmds]
-        custom_commands.extend("%s --version | grep %s" % (c, self.version) for c in all_compiler_cmds)
+
+        # only for 2021.x versions do all compiler commands have the expected version;
+        # for example: for 2022.0.1, icc has version 2021.5.0, icpx has 2022.0.0
+        if LooseVersion(self.version) >= LooseVersion('2022.0'):
+            custom_commands.extend("%s --version" % c for c in all_compiler_cmds)
+        else:
+            custom_commands.extend("%s --version | grep %s" % (c, self.version) for c in all_compiler_cmds)
 
         super(EB_intel_minus_compilers, self).sanity_check_step(custom_paths=custom_paths,
                                                                 custom_commands=custom_commands)
