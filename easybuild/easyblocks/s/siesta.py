@@ -87,7 +87,8 @@ class EB_Siesta(ConfigureMake):
         lapack = os.environ['LIBLAPACK' + env_var_suff]
         blas = os.environ['LIBBLAS' + env_var_suff]
         if get_software_root('imkl') or get_software_root('FFTW'):
-            fftw = os.environ['LIBFFT' + env_var_suff]
+            # the only module that uses FFTW is STM and it explicitly wants a non-MPI version
+            fftw = os.environ['LIBFFT_MT']
         else:
             fftw = None
 
