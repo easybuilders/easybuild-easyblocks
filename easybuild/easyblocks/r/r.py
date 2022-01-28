@@ -120,6 +120,23 @@ class EB_R(ConfigureMake):
 
         return guesses
 
+    def make_module_extra(self):
+        """Add extra environment variables to modulefile"""
+
+        txt = super(EB_R, self).make_module_extra()
+
+        pythonroot = get_software_root('Python')
+        if pythonroot:
+            # make sure EB-provided Python is used, and that reticulate does not install it's own Python
+            # see: https://rstudio.github.io/reticulate/reference/use_python.html
+            # see: https://github.com/rstudio/reticulate/issues/894
+            ext_reticulate = [ext[0] for ext in self.cfg['exts_list'] if ext[0] == 'reticulate']
+            if ext_reticulate:
+                txt += self.module_generator.set_environment(
+                    'RETICULATE_PYTHON', os.path.join(pythonroot, 'bin', 'python'))
+
+        return txt
+
     def sanity_check_step(self):
         """Custom sanity check for R."""
         shlib_ext = get_shared_lib_ext()
