@@ -30,7 +30,6 @@ EasyBuild support for building and installing reticulate R package, implemented 
 import os
 
 from easybuild.easyblocks.generic.rpackage import RPackage
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
 
