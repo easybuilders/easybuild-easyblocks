@@ -275,7 +275,8 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
-        if LooseVersion(self.version) > LooseVersion('5'):
+        # Samples moved to https://github.com/nvidia/cuda-samples
+        if LooseVersion(self.version) > LooseVersion('5') and LooseVersion(self.version) < LooseVersion('11.6'):
             custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
