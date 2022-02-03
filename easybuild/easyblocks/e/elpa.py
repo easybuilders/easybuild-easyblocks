@@ -28,6 +28,7 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 
 @author: Micael Oliveira (MPSD-Hamburg)
 @author: Kenneth Hoste (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import os
 
@@ -52,6 +53,7 @@ class EB_ELPA(ConfigureMake):
         """Custom easyconfig parameters for ELPA."""
         extra_vars = {
             'auto_detect_cpu_features': [True, "Auto-detect available CPU features, and configure accordingly", CUSTOM],
+            'cuda': [True, "Enable CUDA build if CUDA is among the dependencies", CUSTOM],
             'with_shared': [True, "Enable building of shared ELPA libraries", CUSTOM],
             'with_single': [True, "Enable building of single precision ELPA functions", CUSTOM],
             'with_generic_kernel': [True, "Enable building of ELPA generic kernels", CUSTOM],
@@ -158,6 +160,19 @@ class EB_ELPA(ConfigureMake):
         else:
             self.cfg.update('configopts', '--with-mpi=no')
             self.cfg.update('configopts', 'LIBS="$LIBLAPACK"')
+
+        # Add CUDA features
+        if 'CUDA' in [i['name'] for i in self.cfg.dependencies()]:
+            self.cfg.update('configopts', '--enable-nvidia-gpu')
+            cuda_cc_space_sep = self.cfg.template_values['cuda_cc_space_sep'].replace('.', '').split()
+            # Just one is supported, so pick the highest one (but prioritize sm_80)
+            selected_cc = "0"
+            for cc in cuda_cc_space_sep:
+                if int(cc) > int(selected_cc) and int(selected_cc) != 80:
+                    selected_cc = cc
+            self.cfg.update('configopts', f'--with-NVIDIA-GPU-compute-capability=sm_{selected_cc}')
+            if selected_cc == "80":
+                self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
