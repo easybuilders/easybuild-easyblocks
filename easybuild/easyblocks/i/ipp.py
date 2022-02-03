@@ -51,11 +51,12 @@ class EB_ipp(IntelBase):
         """Since oneAPI there is no license required."""
         if LooseVersion(self.version) >= LooseVersion('2021.2.0'):
             kwargs['requires_runtime_license'] = False
-        super(EB_ipp, self).prepare_step(*args, **kwargs)
+            super(EB_ipp, self).prepare_step(*args, **kwargs)
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
-        super(EB_ipp, self).make_installdir(dontcreate=True)
+        if LooseVersion(self.version) >= LooseVersion('2021.2.0'):
+            super(EB_ipp, self).make_installdir(dontcreate=True)
 
     def install_step(self):
         """
