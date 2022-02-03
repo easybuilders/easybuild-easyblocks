@@ -53,7 +53,7 @@ class EB_ELPA(ConfigureMake):
         """Custom easyconfig parameters for ELPA."""
         extra_vars = {
             'auto_detect_cpu_features': [True, "Auto-detect available CPU features, and configure accordingly", CUSTOM],
-            'cuda': [True, "Enable CUDA build if CUDA is among the dependencies", CUSTOM],
+            'cuda': [None, "Enable CUDA build if CUDA is among the dependencies", CUSTOM],
             'with_shared': [True, "Enable building of shared ELPA libraries", CUSTOM],
             'with_single': [True, "Enable building of single precision ELPA functions", CUSTOM],
             'with_generic_kernel': [True, "Enable building of ELPA generic kernels", CUSTOM],
@@ -162,7 +162,8 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', 'LIBS="$LIBLAPACK"')
 
         # Add CUDA features
-        if 'CUDA' in [i['name'] for i in self.cfg.dependencies()]:
+        cuda_is_dep = 'CUDA' in [i['name'] for i in self.cfg.dependencies()]
+        if cuda_is_dep and (self.cfg['cuda'] is None or self.cfg['cuda']):
             self.cfg.update('configopts', '--enable-nvidia-gpu')
             cuda_cc_space_sep = self.cfg.template_values['cuda_cc_space_sep'].replace('.', '').split()
             # Just one is supported, so pick the highest one (but prioritize sm_80)
@@ -173,6 +174,10 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % selected_cc)
             if selected_cc == "80":
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
+        elif not self.cfg['cuda']:
+            self.log.warning("CUDA is disabled")
+        elif not cuda_is_dep and self.cfg['cuda']:
+            raise EasyBuildError("CUDA is not a dependency, but support for CUDA is enabled.")
 
         # make all builds verbose
         self.cfg.update('buildopts', 'V=1')
