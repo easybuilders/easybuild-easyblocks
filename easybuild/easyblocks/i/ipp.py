@@ -47,6 +47,15 @@ class EB_ipp(IntelBase):
     """
     Support for installing Intel Integrated Performance Primitives library
     """
+    def prepare_step(self, *args, **kwargs):
+        """Since oneAPI there is no license required."""
+        if LooseVersion(self.version) >= LooseVersion('2021.2.0'):
+            kwargs['requires_runtime_license'] = False
+        super(EB_ipp, self).prepare_step(*args, **kwargs)
+
+    def make_installdir(self):
+        """Do not create installation directory, install script handles that already."""
+        super(EB_ipp, self).make_installdir(dontcreate=True)
 
     def install_step(self):
         """
@@ -73,10 +82,14 @@ class EB_ipp(IntelBase):
             }
 
         # in case of IPP 9.x, we have to specify ARCH_SELECTED in silent.cfg
-        if LooseVersion(self.version) >= LooseVersion('9.0'):
+        if LooseVersion(self.version) >= LooseVersion('9.0') and LooseVersion(self.version) < LooseVersion('2021.2.0'):
             silent_cfg_extras = {
                 'ARCH_SELECTED': self.arch.upper()
             }
+
+        """If installing from OneAPI, install only Intel IPP component"""
+        if LooseVersion(self.version) >= LooseVersion('2021.2.0'):
+            self.install_components = ['intel.oneapi.lin.ipp.devel']
 
         super(EB_ipp, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
 
@@ -84,7 +97,11 @@ class EB_ipp(IntelBase):
         """Custom sanity check paths for IPP."""
         shlib_ext = get_shared_lib_ext()
 
-        dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
+        if LooseVersion(self.version) < LooseVersion('2021.2.0'):
+            dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
+        else:
+            dirs = [os.path.join('ipp/{}'.format(self.version), x) for x in ['include', os.path.join('tools', 'intel64')]]
+
         if LooseVersion(self.version) < LooseVersion('8.0'):
             dirs.extend([
                 os.path.join('compiler', 'lib', 'intel64'),
@@ -101,7 +118,7 @@ class EB_ipp(IntelBase):
 
         custom_paths = {
             'files': [
-                os.path.join('ipp', 'lib', 'intel64', 'libipp%s') % y for x in ipp_libs
+                os.path.join('ipp', self.version, 'lib', 'intel64', 'libipp%s') % y for x in ipp_libs
                 for y in ['%s.a' % x, '%s.%s' % (x, shlib_ext)]
             ],
             'dirs': dirs,
