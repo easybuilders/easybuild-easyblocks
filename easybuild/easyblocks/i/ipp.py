@@ -101,7 +101,8 @@ class EB_ipp(IntelBase):
         if LooseVersion(self.version) < LooseVersion('2021.2.0'):
             dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
         else:
-            dirs = [os.path.join('ipp/{}'.format(self.version), x) for x in ['include', os.path.join('tools', 'intel64')]]
+            dirs = [os.path.join('ipp/{}'.format(self.version), x) 
+                    for x in ['include', os.path.join('tools', 'intel64')]]
 
         if LooseVersion(self.version) < LooseVersion('8.0'):
             dirs.extend([
