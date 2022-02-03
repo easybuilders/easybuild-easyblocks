@@ -170,7 +170,7 @@ class EB_ELPA(ConfigureMake):
             for cc in cuda_cc_space_sep:
                 if int(cc) > int(selected_cc) and int(selected_cc) != 80:
                     selected_cc = cc
-            self.cfg.update('configopts', f'--with-NVIDIA-GPU-compute-capability=sm_{selected_cc}')
+            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % selected_cc)
             if selected_cc == "80":
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
