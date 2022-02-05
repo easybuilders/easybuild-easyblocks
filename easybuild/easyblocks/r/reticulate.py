@@ -25,7 +25,7 @@
 """
 EasyBuild support for building and installing reticulate R package, implemented as an easyblock
 
-@author: Samuel Moors (Vrije Universiteit Brussel
+@author: Samuel Moors (Vrije Universiteit Brussel)
 """
 import os
 
@@ -36,10 +36,12 @@ from easybuild.tools.modules import get_software_root
 class EB_reticulate(RPackage):
     """Support for installing the reticulate R package."""
 
-    def make_module_extra_ext_only(self):
+    def run(self):
         """Add extra environment variables to modulefile"""
 
-        txt = super(EB_reticulate, self).make_module_extra_ext_only()
+        txt = super(EB_reticulate, self).run()
+        if not txt:
+            txt = ""
 
         pythonroot = get_software_root('Python')
         if pythonroot:
@@ -50,5 +52,5 @@ class EB_reticulate(RPackage):
         else:
             self.log.info("Python not included as dependency, so RETICULATE_PYTHON not set")
 
-        self.log.info("make_module_extra_ext_only added %s" % txt)
+        self.log.info("adding to modulefile: %s" % txt)
         return txt
