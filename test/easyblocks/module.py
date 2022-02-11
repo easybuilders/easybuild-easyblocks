@@ -200,7 +200,7 @@ class ModuleOnlyTest(TestCase):
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
             (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]+/site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
