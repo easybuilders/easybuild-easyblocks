@@ -15,7 +15,7 @@ update/bugfix release
 - minor enhancements and updates, including:
   - set CUDA target architecture(s) for GROMACS based on cuda_cc_semicolon_sep template value (#2655)
   - add support to NAMD easyblock to opt out of building with CUDA support even if CUDA is included as dependency (#2666)
-  - update sanity check in CUDA EasyBlock: CUDA 11.6 no longer includes samples (#2669)
+  - update sanity check in CUDA easyblock: CUDA 11.6 no longer includes samples (#2669)
 - various bug fixes, including:
   - also run easyblocks test suite with Python 3.8-3.10 + consistently use actions/setup-python@v2 in CI workflows (#2664)
   - specify easybuild.io as EasyBuild homepage in setup.py (#2667)
