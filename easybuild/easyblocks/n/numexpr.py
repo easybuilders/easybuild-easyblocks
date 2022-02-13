@@ -96,8 +96,18 @@ class EB_numexpr(PythonPackage):
                 "[mkl]",
                 "include_dirs = %s" % mkl_include_dirs,
                 "library_dirs = %s" % os.pathsep.join(mkl_lib_dirs + self.toolchain.get_variable('LDFLAGS', typ=list)),
-                "mkl_libs = %s" % ', '.join(mkl_libs),
             ])
+
+            if LooseVersion(self.version) >= LooseVersion("2.8.0"):
+                site_cfg_txt = '\n'.join([
+                    site_cfg_txt,
+                    "libraries = %s" % os.pathsep.join(mkl_libs),
+                ])
+            else:
+                site_cfg_txt = '\n'.join([
+                    site_cfg_txt,
+                    "mkl_libs = %s" % ', '.join(mkl_libs),
+                ])
             write_file('site.cfg', site_cfg_txt)
 
     def sanity_check_step(self):
