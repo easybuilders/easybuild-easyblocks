@@ -704,6 +704,9 @@ class PythonPackage(ExtensionEasyBlock):
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
 
+        # fix shebangs if specified
+        self.fix_shebang()
+
         # restore env vars if it they were set
         for name in ('PYTHONPATH', 'PATH'):
             value = old_values[name]
