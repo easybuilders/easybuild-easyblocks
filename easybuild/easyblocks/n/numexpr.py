@@ -92,23 +92,18 @@ class EB_numexpr(PythonPackage):
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'include')
                 mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'iomp5']
 
-            site_cfg_txt = '\n'.join([
+            site_cfg_lines = [
                 "[mkl]",
                 "include_dirs = %s" % mkl_include_dirs,
                 "library_dirs = %s" % os.pathsep.join(mkl_lib_dirs + self.toolchain.get_variable('LDFLAGS', typ=list)),
-            ])
+            ]
 
             if LooseVersion(self.version) >= LooseVersion("2.8.0"):
-                site_cfg_txt = '\n'.join([
-                    site_cfg_txt,
-                    "libraries = %s" % os.pathsep.join(mkl_libs),
-                ])
+                site_cfg_lines.append("libraries = %s" % os.pathsep.join(mkl_libs))
             else:
-                site_cfg_txt = '\n'.join([
-                    site_cfg_txt,
-                    "mkl_libs = %s" % ', '.join(mkl_libs),
-                ])
-            write_file('site.cfg', site_cfg_txt)
+                site_cfg_lines.append("mkl_libs = %s" % ', '.join(mkl_libs))
+
+            write_file('site.cfg', '\n'.join(site_cfg_lines))
 
     def sanity_check_step(self):
         """Custom sanity check for numexpr."""
