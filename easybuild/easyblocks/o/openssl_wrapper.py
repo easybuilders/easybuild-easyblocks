@@ -256,8 +256,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
         if not self.system_ssl['include']:
-            self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
-            return
+            err_msg = ("OpenSSL v%s headers not found in host system, but libraries for v%s are present. "
+                       "Install the development package of OpenSSL for your system or force building OpenSSL from "
+                       "source in EasyBuild by setting 'wrap_system_openssl = False' in the OpenSSL easyconfig.")
+            raise EasyBuildError(err_msg, self.version, self.system_ssl['version'])
 
         # Check system OpenSSL binary
         if self.majmin_version == '1.1':
