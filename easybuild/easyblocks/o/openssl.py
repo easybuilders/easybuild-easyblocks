@@ -31,6 +31,8 @@ EasyBuild support for OpenSSL, implemented as an easyblock
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
+import re
+
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -38,6 +40,9 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import remove_dir, symlink
 from easybuild.tools.run import run_cmd
+
+GENERIC_SSL_CERTS_DIR = "/etc/ssl/certs"
+
 
 class EB_OpenSSL(ConfigureMake):
     """Support for building OpenSSL"""
@@ -55,10 +60,11 @@ class EB_OpenSSL(ConfigureMake):
         """Initialisation of custom class variables for OpenSSL"""
         super(EB_OpenSSL, self).__init__(*args, **kwargs)
 
-        # check option ssl_certificates
+        # path to SSL certificates
         ssl_certs_dir = self.cfg.get('ssl_certificates')
 
-        if ssl_certs_dir:
+        if ssl_certs_dir is not None:
+            # check option ssl_certificates
             ssl_certs_dir = os.path.normpath(ssl_certs_dir)
             if not os.path.isabs(ssl_certs_dir):
                 raise EasyBuildError("ssl_certificates is not an absolute path: %s", ssl_certs_dir)
@@ -66,8 +72,35 @@ class EB_OpenSSL(ConfigureMake):
                 raise EasyBuildError("ssl_certificates does not point to a 'certs' directory: %s", ssl_certs_dir)
             if not os.path.isdir(ssl_certs_dir):
                 raise EasyBuildError("ssl_certificates 'certs' directory does not exist: %s", ssl_certs_dir)
+        else:
+            # set ssl_certs_dir from system OPENSSLDIR
+            openssldir = ''
+            openssldir_regex = re.compile(r'^OPENSSLDIR: "(.*)"$')
+            openssldir_cmd = "openssl version -d"
+
+            try:
+                (out, _) = run_cmd(openssldir_cmd, log_all=True, simple=False, trace=False)
+                openssldir = openssldir_regex.search(out).group(1)
+            except EasyBuildError:
+                self.log.info("OPENSSLDIR not found in system (openssl command failed), "
+                              "continuing with generic OPENSSLDIR path...")
+            except AttributeError:
+                self.log.debug("OPENSSLDIR not found in system (openssl reported '%s'), "
+                               "continuing with generic OPENSSLDIR path...", out)
+            else:
+                self.log.info("OPENSSLDIR determined from system openssl: %s", openssldir)
+
+            if os.path.isdir(openssldir):
+                ssl_certs_dir = os.path.join(openssldir, 'certs')
+            elif os.path.isdir(GENERIC_SSL_CERTS_DIR):
+                # fallback to generic OPENSSLDIR
+                ssl_certs_dir = GENERIC_SSL_CERTS_DIR
+                self.log.info("Falling back to generic SSL certificates directory: %s", ssl_certs_dir)
+            else:
+                self.log.info("Generic SSL certificates directory not found: %s", GENERIC_SSL_CERTS_DIR)
 
         self.ssl_certs_dir = ssl_certs_dir
+        self.log.debug("SSL certificates directory: %s", self.ssl_certs_dir)
 
     def configure_step(self, cmd_prefix=''):
         """
