@@ -37,7 +37,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import remove_dir, symlink
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -125,9 +125,11 @@ class EB_OpenSSL(ConfigureMake):
         openssl_certs_dir = os.path.join(self.installdir, 'ssl', 'certs')
 
         if self.ssl_certs_dir:
-            # symlink the provided certificates by the user
             remove_dir(openssl_certs_dir)
             symlink(self.ssl_certs_dir, openssl_certs_dir)
+        else:
+            print_warning("OpenSSL successfully installed without system SSL certificates. "
+                          "Some packages might experience limited functionality.")
 
     def sanity_check_step(self):
         """Custom sanity check"""
