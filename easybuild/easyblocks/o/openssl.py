@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,17 +28,46 @@ EasyBuild support for OpenSSL, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Davide Vanzo (ACCRE - Vanderbilt University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import remove_dir, symlink
 from easybuild.tools.run import run_cmd
-
 
 class EB_OpenSSL(ConfigureMake):
     """Support for building OpenSSL"""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Easyconfig parameters specific to OpenSSL"""
+        extra_vars = ConfigureMake.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
+            'ssl_certificates': [None, "Absolute path to 'certs' directory with the system SSL certificates", CUSTOM],
+        })
+        return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialisation of custom class variables for OpenSSL"""
+        super(EB_OpenSSL, self).__init__(*args, **kwargs)
+
+        # check option ssl_certificates
+        ssl_certs_dir = self.cfg.get('ssl_certificates')
+
+        if ssl_certs_dir:
+            ssl_certs_dir = os.path.normpath(ssl_certs_dir)
+            if not os.path.isabs(ssl_certs_dir):
+                raise EasyBuildError("ssl_certificates is not an absolute path: %s", ssl_certs_dir)
+            if os.path.basename(ssl_certs_dir) != 'certs':
+                raise EasyBuildError("ssl_certificates does not point to a 'certs' directory: %s", ssl_certs_dir)
+            if not os.path.isdir(ssl_certs_dir):
+                raise EasyBuildError("ssl_certificates 'certs' directory does not exist: %s", ssl_certs_dir)
+
+        self.ssl_certs_dir = ssl_certs_dir
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -51,6 +80,20 @@ class EB_OpenSSL(ConfigureMake):
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
         return out
+
+    def install_step(self):
+        """Installation of OpenSSL and SSL certificates"""
+        super(EB_OpenSSL, self).install_step()
+
+        # SSL certificates
+        # OPENSSLDIR is already populated by the installation of OpenSSL
+        # try to symlink system certificates in the empty 'certs' directory
+        openssl_certs_dir = os.path.join(self.installdir, 'ssl', 'certs')
+
+        if self.ssl_certs_dir:
+            # symlink the provided certificates by the user
+            remove_dir(openssl_certs_dir)
+            symlink(self.ssl_certs_dir, openssl_certs_dir)
 
     def sanity_check_step(self):
         """Custom sanity check"""
