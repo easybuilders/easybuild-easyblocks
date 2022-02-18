@@ -153,4 +153,8 @@ class EB_OpenSSL(ConfigureMake):
 
         custom_paths['dirs'].append(os.path.join(lib_dir, engines_dir))
 
+        # add SSL certificates
+        if self.ssl_certs_dir:
+            custom_paths['dirs'].append('ssl/certs')
+
         super(EB_OpenSSL, self).sanity_check_step(custom_paths=custom_paths)
