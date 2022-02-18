@@ -40,6 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import remove_dir, symlink
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 GENERIC_SSL_CERTS_DIR = "/etc/ssl/certs"
 
@@ -131,27 +132,25 @@ class EB_OpenSSL(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check"""
 
-        libdir = None
-        for libdir_cand in ['lib', 'lib64']:
-            if os.path.exists(os.path.join(self.installdir, libdir_cand)):
-                libdir = libdir_cand
-
-        if libdir is None:
-            raise EasyBuildError("Failed to determine library directory.")
-
+        # basic paths
         custom_paths = {
-            'files': [os.path.join(libdir, x) for x in ['libcrypto.a', 'libcrypto.so', 'libssl.a', 'libssl.so']] +
-            ['bin/openssl'],
-            'dirs': [],
+            'files': ['bin/openssl'],
+            'dirs': ['include', 'ssl'],
         }
 
-        if LooseVersion(self.version) < LooseVersion("1.1"):
-            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.0.0'),
-                                          os.path.join(libdir, 'libssl.so.1.0.0')])
-            custom_paths['dirs'].append(os.path.join(libdir, 'engines'))
-        else:
-            custom_paths['files'].extend([os.path.join(libdir, 'libcrypto.so.1.1'),
-                                          os.path.join(libdir, 'libssl.so.1.1')])
-            custom_paths['dirs'].append(os.path.join(libdir, 'engines-1.1'))
+        # add libraries
+        lib_dir = 'lib'
+        lib_sonames = ['libcrypto', 'libssl']
+        shlib_ext = get_shared_lib_ext()
+        lib_files = [os.path.join(lib_dir, '%s.%s') % (x, y) for x in lib_sonames for y in ['a', shlib_ext]]
+
+        custom_paths['files'].extend(lib_files)
+
+        # add engines
+        engines_dir = 'engines'
+        if LooseVersion(self.version) >= LooseVersion("1.1"):
+            engines_dir = 'engines-1.1'
+
+        custom_paths['dirs'].append(os.path.join(lib_dir, engines_dir))
 
         super(EB_OpenSSL, self).sanity_check_step(custom_paths=custom_paths)
