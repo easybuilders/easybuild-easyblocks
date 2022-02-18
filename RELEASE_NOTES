@@ -3,7 +3,24 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 243 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 244 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.5.3 (February 11th 2022)
+---------------------------
+
+update/bugfix release
+
+- new software-specific easyblock for reticulate R package (#2668)
+- minor enhancements and updates, including:
+  - set CUDA target architecture(s) for GROMACS based on cuda_cc_semicolon_sep template value (#2655)
+  - add support to NAMD easyblock to opt out of building with CUDA support even if CUDA is included as dependency (#2666)
+  - update sanity check in CUDA easyblock: CUDA 11.6 no longer includes samples (#2669)
+- various bug fixes, including:
+  - also run easyblocks test suite with Python 3.8-3.10 + consistently use actions/setup-python@v2 in CI workflows (#2664)
+  - specify easybuild.io as EasyBuild homepage in setup.py (#2667)
+- other changes:
+  - remove vulnerable binaries from sanity check of HDF5, no longer installed by default with HDF5 1.10.8 (#2670)
 
 
 v4.5.2 (January 24th 2022)
