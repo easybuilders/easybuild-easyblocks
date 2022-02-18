@@ -222,7 +222,7 @@ class EB_OpenSSL_wrapper(Bundle):
         self.log.debug("Found the following include directories in host system: %s", ', '.join(sys_include_dirs))
 
         # headers are located in 'include/openssl' by default
-        ssl_include_subdirs = [self.name.lower()]
+        ssl_include_subdirs = ['openssl']
         if self.majmin_version == '1.1':
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
@@ -267,7 +267,7 @@ class EB_OpenSSL_wrapper(Bundle):
             self.system_ssl['bin'] = which('openssl11')
 
         if not self.system_ssl['bin']:
-            self.system_ssl['bin'] = which(self.name.lower())
+            self.system_ssl['bin'] = which('openssl')
 
         if self.system_ssl['bin']:
             self.log.info("System OpenSSL binary found: %s", self.system_ssl['bin'])
