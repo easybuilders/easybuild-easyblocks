@@ -672,9 +672,10 @@ class EB_TensorFlow(PythonPackage):
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
             # figure out location of GCC include files
-            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
+            # make sure we don't pick up the nvptx-none directory by looking for a specific include file
+            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include', 'immintrin.h'))
             if res and len(res) == 1:
-                gcc_lib_inc = res[0]
+                gcc_lib_inc = os.path.dirname(res[0])
                 inc_paths.append(gcc_lib_inc)
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
