@@ -37,14 +37,13 @@ implemented as an easyblock
 
 import os
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, remove_dir
+from easybuild.tools.filetools import copy_dir, remove_dir, extract_file
 from easybuild.tools.run import run_cmd
 
-
-class Tarball(EasyBlock):
+class Tarball(ExtensionEasyBlock):
     """
     Precompiled software supplied as a tarball:
     - will unpack binary and copy it to the install dir
@@ -53,7 +52,7 @@ class Tarball(EasyBlock):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to Tarball."""
-        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'install_type': [None, "Defaults to extract tarball into clean directory. Options: 'merge' merges tarball "
                              "to existing directory, 'subdir' extracts tarball into its own sub-directory", CUSTOM],
@@ -72,6 +71,10 @@ class Tarball(EasyBlock):
         Dummy build method: nothing to build
         """
         pass
+
+    def run(self, *args, **kwargs):
+        srcdir = extract_file(self.src, self.builddir, change_into_dir=False)
+        self.install_step(src=srcdir)
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
