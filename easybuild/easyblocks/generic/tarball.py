@@ -74,8 +74,14 @@ class Tarball(ExtensionEasyBlock):
         pass
 
     def run(self, *args, **kwargs):
+        """Install as extension: unpack sources and copy (via install step)."""
+        if self.cfg['install_type'] is None:
+        self.log.info("Automatically enabling install_type=merge because Tarball is being used to install an extension")
+        self.cfg['install_type'] = 'merge'
+        # unpack sources and call install_step to copy unpacked sources to install directory
         srcdir = extract_file(self.src, self.builddir, change_into_dir=False)
-        self.install_step(src=srcdir)
+        kwargs['src'] = srcdir
+        self.install_step(*args, **kwargs)
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
