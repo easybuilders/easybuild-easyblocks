@@ -40,8 +40,9 @@ import os
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, remove_dir, extract_file
+from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
 from easybuild.tools.run import run_cmd
+
 
 class Tarball(ExtensionEasyBlock):
     """
