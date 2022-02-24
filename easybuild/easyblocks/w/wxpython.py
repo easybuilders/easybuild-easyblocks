@@ -105,11 +105,11 @@ class EB_wxPython(PythonPackage):
 
         run_cmd(cmd, log_all=True, simple=True)
 
-        # add symbolic links for libwx_*so.0 files
+        # add symbolic links for libwx_*so.* files
         # (which are created automatically by 'build.py install', but not by 'pip install *.whl')
         wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
         cwd = change_dir(wx_lib_dir)
-        lib_so_files = glob.glob('libwx*.so.0')
+        lib_so_files = glob.glob('libwx*.so.*')
         for lib_so_file in lib_so_files:
             symlink(lib_so_file, lib_so_file[:-2])
         change_dir(cwd)
