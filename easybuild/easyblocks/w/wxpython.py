@@ -126,7 +126,10 @@ class EB_wxPython(PythonPackage):
             files.extend([os.path.join('bin', 'wxrc')])
             dirs.extend(['include', 'share'])
             py_bins.extend(['alacarte', 'alamode', 'wrap'])
-        else:
+        elif LooseVersion(self.version) >= LooseVersion("4.1"):
+            majver = '3.1'  # this is 3.1 in ver 4.1.x
+            py_bins.extend(['slices', 'slicesshell'])
+        elif LooseVersion(self.version) >= LooseVersion("4.0"):
             majver = '3.0'  # for some reason this is still 3.0 in ver 4.0.x
             py_bins.extend(['slices', 'slicesshell'])
 
