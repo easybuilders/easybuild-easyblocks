@@ -79,7 +79,7 @@ class EB_Gurobi(Tarball):
         """Custom sanity check for Gurobi."""
         custom_paths = {
             'files': ['bin/%s' % f for f in ['grbprobe', 'grbtune', 'gurobi_cl', 'gurobi.sh']],
-            'dirs': [],
+            'dirs': ['matlab'],
         }
 
         custom_commands = [
@@ -100,5 +100,7 @@ class EB_Gurobi(Tarball):
 
         if get_software_root('Python'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
+
+        txt += self.module_generator.prepend_paths('MATLABPATH', 'matlab')
 
         return txt
