@@ -90,9 +90,10 @@ class EB_wxPython(PythonPackage):
             pyver = pyver[0] + pyver[2]
 
             cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
-                   'prefix': self.installdir,
-                   'version': self.version,
-                   'pyver': pyver}
+                'prefix': self.installdir,
+                'version': self.version,
+                'pyver': pyver
+            }
         else:
             script = os.path.join('wxPython', 'build-wxpython.py')
             cmd = INSTALL_CMD % {
@@ -105,14 +106,15 @@ class EB_wxPython(PythonPackage):
 
         run_cmd(cmd, log_all=True, simple=True)
 
-        # add symbolic links for libwx_*so.0 files
+        # add symbolic links for libwx_*so.* files
         # (which are created automatically by 'build.py install', but not by 'pip install *.whl')
-        wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
-        cwd = change_dir(wx_lib_dir)
-        lib_so_files = glob.glob('libwx*.so.0')
-        for lib_so_file in lib_so_files:
-            symlink(lib_so_file, lib_so_file[:-2])
-        change_dir(cwd)
+        if LooseVersion(self.version) >= LooseVersion("4"):
+            wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
+            cwd = change_dir(wx_lib_dir)
+            lib_so_files = glob.glob('libwx*.so.*')
+            for lib_so_file in lib_so_files:
+                symlink(lib_so_file, lib_so_file[:-2])
+            change_dir(cwd)
 
     def sanity_check_step(self):
         """Custom sanity check for wxPython."""
@@ -125,7 +127,10 @@ class EB_wxPython(PythonPackage):
             files.extend([os.path.join('bin', 'wxrc')])
             dirs.extend(['include', 'share'])
             py_bins.extend(['alacarte', 'alamode', 'wrap'])
-        else:
+        elif LooseVersion(self.version) >= LooseVersion("4.1"):
+            majver = '3.1'  # this is 3.1 in ver 4.1.x
+            py_bins.extend(['slices', 'slicesshell'])
+        elif LooseVersion(self.version) >= LooseVersion("4.0"):
             majver = '3.0'  # for some reason this is still 3.0 in ver 4.0.x
             py_bins.extend(['slices', 'slicesshell'])
 
