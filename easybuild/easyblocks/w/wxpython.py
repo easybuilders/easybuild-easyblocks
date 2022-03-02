@@ -108,12 +108,13 @@ class EB_wxPython(PythonPackage):
 
         # add symbolic links for libwx_*so.* files
         # (which are created automatically by 'build.py install', but not by 'pip install *.whl')
-        wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
-        cwd = change_dir(wx_lib_dir)
-        lib_so_files = glob.glob('libwx*.so.*')
-        for lib_so_file in lib_so_files:
-            symlink(lib_so_file, lib_so_file[:-2])
-        change_dir(cwd)
+        if LooseVersion(self.version) >= LooseVersion("4"):
+            wx_lib_dir = os.path.join(self.installdir, self.pylibdir, 'wx')
+            cwd = change_dir(wx_lib_dir)
+            lib_so_files = glob.glob('libwx*.so.*')
+            for lib_so_file in lib_so_files:
+                symlink(lib_so_file, lib_so_file[:-2])
+            change_dir(cwd)
 
     def sanity_check_step(self):
         """Custom sanity check for wxPython."""
