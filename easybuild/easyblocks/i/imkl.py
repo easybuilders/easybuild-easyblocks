@@ -37,6 +37,7 @@ EasyBuild support for installing the Intel Math Kernel Library (MKL), implemente
 import glob
 import itertools
 import os
+import shutil
 import tempfile
 from distutils.version import LooseVersion
 
@@ -63,6 +64,7 @@ class EB_imkl(IntelBase):
         """Add easyconfig parameters custom to imkl (e.g. interfaces)."""
         extra_vars = {
             'interfaces': [True, "Indicates whether interfaces should be built", CUSTOM],
+            'flexiblas': [True, "Indicates whether FlexiBLAS-compatible libraries should be built", CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
@@ -285,6 +287,39 @@ class EB_imkl(IntelBase):
 
                 remove_dir(tmpbuild)
 
+    def build_mkl_flexiblas(self):
+        """
+        Build libflexiblas_imkl_gnu_thread.so, libflexiblas_imkl_intel_thread.so,
+        and libflexiblas_imkl_sequential.so. They can be used as FlexiBLAS backends
+        via FLEXIBLAS_LIBRARY_PATH.
+        """
+        builderdir = os.path.join(self.installdir, self.mkl_basedir, 'tools', 'builder')
+        change_dir(builderdir)
+        flexiblasdir = os.path.join(self.installdir, 'lib64', 'flexiblas')
+        mkdir(flexiblasdir, parents=True)
+
+        # concatenate lists of all BLAS, CBLAS and LAPACK functions
+        with tempfile.NamedTemporaryFile(dir=self.builddir, mode="wt", delete=False) as dst:
+            listfilename = dst.name
+            self.log.debug("Created temporary file %s" % listfilename)
+            for lst in 'blas', 'cblas', 'lapack':
+                with open(lst + "_example_list") as src:
+                    shutil.copyfileobj(src, dst)
+
+        compilerdir = os.path.join('..', '..', '..', '..', 'compiler', self.version,
+                                   'linux', 'compiler', 'lib', 'intel64_lin')
+        # IFACE_COMP_PART=gf gives the gfortran calling convention that FlexiBLAS expects
+        cmds = ["make libintel64 IFACE_COMP_PART=gf export=%s name=%s" % (
+            listfilename, os.path.join(flexiblasdir, 'libflexiblas_imkl_')) +
+                s for s in ['sequential threading=sequential',
+                            'gnu_thread parallel=gnu',
+                            'intel_thread parallel=intel SYSTEM_LIBS="-lm -ldl -L%s"' % compilerdir]]
+
+        for cmd in cmds:
+            res = run_cmd(cmd, log_all=True, simple=True)
+            if not res:
+                raise EasyBuildError("Building FlexiBLAS-compatible library (cmd: %s) failed", cmd)
+
     def post_install_step(self):
         """
         Install group libraries and interfaces (if desired).
@@ -341,6 +376,9 @@ class EB_imkl(IntelBase):
 
         if self.cfg['interfaces']:
             self.build_mkl_fftw_interfaces(os.path.join(self.installdir, libdir))
+
+        if self.cfg['flexiblas']:
+            self.build_mkl_flexiblas()
 
     def get_mkl_fftw_interface_libs(self):
         """Returns list of library names produced by build_mkl_fftw_interfaces()"""
@@ -498,6 +536,8 @@ class EB_imkl(IntelBase):
                     'CPATH': cpath,
                     'PKG_CONFIG_PATH': pkg_config_path,
                 })
+                if self.cfg['flexiblas']:
+                    guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join('lib64', 'flexiblas')
         else:
             if self.cfg['m32']:
                 guesses.update({
@@ -532,4 +572,5 @@ class EB_imkl(IntelBase):
             mklroot = os.path.join(self.installdir, 'mkl')
 
         txt += self.module_generator.set_environment('MKLROOT', mklroot)
+
         return txt
