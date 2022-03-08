@@ -45,6 +45,7 @@ library = libflexiblas_imkl_%(parallel)s_thread.so
 library = libflexiblas_imkl_sequential.so
 """
 
+
 class EB_FlexiBLAS(CMakeMake):
     """Support for building/installing FlexiBLAS."""
 
