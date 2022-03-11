@@ -147,6 +147,9 @@ class EB_intel_minus_compilers(IntelBase):
             ],
             'LD_LIBRARY_PATH': libdirs,
             'LIBRARY_PATH': libdirs,
+            'MANPATH': [
+                os.path.join('compiler', self.version, 'documentation', 'en', 'man', 'common'),
+            ],
             'OCL_ICD_FILENAMES': [
                 os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
             ],
