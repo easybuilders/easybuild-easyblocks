@@ -64,7 +64,7 @@ class EB_imkl(IntelBase):
         """Add easyconfig parameters custom to imkl (e.g. interfaces)."""
         extra_vars = {
             'interfaces': [True, "Indicates whether interfaces should be built", CUSTOM],
-            'flexiblas': [True, "Indicates whether FlexiBLAS-compatible libraries should be built", CUSTOM],
+            'flexiblas': [None, "Indicates whether FlexiBLAS-compatible libraries should be built (default for versions >= 2021)", CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
@@ -79,8 +79,12 @@ class EB_imkl(IntelBase):
 
         if LooseVersion(self.version) >= LooseVersion('2021'):
             self.mkl_basedir = os.path.join('mkl', self.version)
+            if self.cfg['flexiblas'] is None:
+                self.cfg['flexiblas'] = True
         else:
             self.mkl_basedir = 'mkl'
+            if self.cfg['flexiblas'] is None:
+                self.cfg['flexiblas'] = False
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
