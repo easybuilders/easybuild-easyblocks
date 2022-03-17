@@ -64,7 +64,8 @@ class EB_imkl(IntelBase):
         """Add easyconfig parameters custom to imkl (e.g. interfaces)."""
         extra_vars = {
             'interfaces': [True, "Indicates whether interfaces should be built", CUSTOM],
-            'flexiblas': [None, "Indicates whether FlexiBLAS-compatible libraries should be built (default for versions >= 2021)", CUSTOM],
+            'flexiblas': [None, "Indicates whether FlexiBLAS-compatible libraries should be built, "
+                          "default from version 2021", CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
