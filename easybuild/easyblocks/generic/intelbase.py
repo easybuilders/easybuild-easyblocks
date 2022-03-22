@@ -320,7 +320,7 @@ class IntelBase(EasyBlock):
         if silent_cfg_names_map is None:
             silent_cfg_names_map = {}
 
-        if self.serial_number or self.requires_runtime_license or self.cfg['license_activation']:
+        if self.serial_number or self.requires_runtime_license or self.cfg['license_activation'] == 'ACTIVATION_NO_LICENSE':
             lic_entry = ""
             if self.serial_number:
                 lic_entry = "%(license_serial_number)s=%(serial_number)s"
