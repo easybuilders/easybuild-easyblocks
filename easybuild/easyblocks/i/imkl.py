@@ -292,7 +292,7 @@ class EB_imkl(IntelBase):
 
                 remove_dir(tmpbuild)
 
-    def build_mkl_flexiblas(self):
+    def build_mkl_flexiblas(self, flexiblasdir):
         """
         Build libflexiblas_imkl_gnu_thread.so, libflexiblas_imkl_intel_thread.so,
         and libflexiblas_imkl_sequential.so. They can be used as FlexiBLAS backends
@@ -300,7 +300,6 @@ class EB_imkl(IntelBase):
         """
         builderdir = os.path.join(self.installdir, self.mkl_basedir, 'tools', 'builder')
         change_dir(builderdir)
-        flexiblasdir = os.path.join(self.installdir, 'lib64', 'flexiblas')
         mkdir(flexiblasdir, parents=True)
 
         # concatenate lists of all BLAS, CBLAS and LAPACK functions
@@ -383,7 +382,7 @@ class EB_imkl(IntelBase):
             self.build_mkl_fftw_interfaces(os.path.join(self.installdir, libdir))
 
         if self.cfg['flexiblas']:
-            self.build_mkl_flexiblas()
+            self.build_mkl_flexiblas(os.path.join(self.installdir, libdir, 'flexiblas'))
 
     def get_mkl_fftw_interface_libs(self):
         """Returns list of library names produced by build_mkl_fftw_interfaces()"""
@@ -440,6 +439,10 @@ class EB_imkl(IntelBase):
 
         if self.cfg['interfaces']:
             libs += self.get_mkl_fftw_interface_libs()
+
+        if self.cfg['flexiblas']:
+            libs += [os.path.join('flexiblas', 'libflexiblas_imkl_%s.so'%thread)
+                     for thread in ['gnu_thread', 'intel_thread', 'sequential']]
 
         if ver >= LooseVersion('10.3') and self.cfg['m32']:
             raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)
@@ -542,7 +545,7 @@ class EB_imkl(IntelBase):
                     'PKG_CONFIG_PATH': pkg_config_path,
                 })
                 if self.cfg['flexiblas']:
-                    guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join('lib64', 'flexiblas')
+                    guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join(library_path[1], 'flexiblas')
         else:
             if self.cfg['m32']:
                 guesses.update({
