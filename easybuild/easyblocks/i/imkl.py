@@ -441,7 +441,7 @@ class EB_imkl(IntelBase):
             libs += self.get_mkl_fftw_interface_libs()
 
         if self.cfg['flexiblas']:
-            libs += [os.path.join('flexiblas', 'libflexiblas_imkl_%s.so'%thread)
+            libs += [os.path.join('flexiblas', 'libflexiblas_imkl_%s.so' % thread)
                      for thread in ['gnu_thread', 'intel_thread', 'sequential']]
 
         if ver >= LooseVersion('10.3') and self.cfg['m32']:
