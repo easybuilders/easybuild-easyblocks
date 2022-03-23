@@ -43,7 +43,7 @@ from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
 # perldoc -lm seems to be the safest way to test if a module is available, based on exit code
-EXTS_FILTER_PERL_MODULES = ("perldoc -lm %(ext_name)s ", "")
+EXTS_FILTER_PERL_MODULES = ("perl -e 'require %(ext_name)s'", '')
 
 
 class EB_Perl(ConfigureMake):
