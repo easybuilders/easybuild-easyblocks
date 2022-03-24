@@ -462,7 +462,8 @@ class EB_imkl(IntelBase):
             else:
                 if LooseVersion(self.version) >= LooseVersion('2021'):
                     compiler_subdir = os.path.join('compiler', self.version, 'linux', 'compiler', 'lib', 'intel64_lin')
-                    pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig')]
+                    pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
+                                       os.path.join(self.mkl_basedir, 'lib', 'pkgconfig')]
                 else:
                     compiler_subdir = os.path.join('lib', 'intel64')
                     pkg_config_path = [os.path.join(self.mkl_basedir, 'bin', 'pkgconfig')]
