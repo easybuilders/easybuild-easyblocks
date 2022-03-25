@@ -315,6 +315,9 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
+            # close log for this component
+            comp.close_log()
+
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
         if not self.altroot and not self.altversion:
