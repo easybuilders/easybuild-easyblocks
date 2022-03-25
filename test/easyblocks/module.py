@@ -44,7 +44,9 @@ from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.gopackage import GoPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
+from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
 from easybuild.framework.easyblock import EasyBlock
@@ -59,6 +61,31 @@ from easybuild.tools.modules import get_software_root_env_var_name, get_software
 from easybuild.tools.options import set_tmpdir
 
 
+# partial output of actual 'ucx_info -b'
+FAKE_UCX_INFO = """#!/bin/bash
+echo '#define UCX_CONFIG_H'
+echo '#define HAVE_IB                   1'
+echo '#define HAVE_MEMALIGN             1'
+echo '#define PACKAGE                   "ucx"'
+echo '#define PACKAGE_VERSION           "1.10"'
+echo '#define VERSION                   "1.10"'
+echo '#define test_MODULES              ":module"'
+echo '#define ucm_MODULES               ""'
+echo '#define uct_MODULES               ":ib:rdmacm:cma"'
+echo '#define uct_cuda_MODULES          ""'
+echo '#define uct_ib_MODULES            ""'
+echo '#define uct_rocm_MODULES          ""'
+echo '#define ucx_perftest_MODULES      ""'
+echo '#define UCX_MODULE_SUBDIR         "ucx"'
+echo '#define test_MODULES              ":module"'
+echo '#define ucm_MODULES               ""'
+echo '#define uct_MODULES               ":ib:rdmacm:cma"'
+echo '#define uct_cuda_MODULES          ""'
+echo '#define uct_ib_MODULES            ""'
+echo '#define uct_rocm_MODULES          ""'
+echo '#define ucx_perftest_MODULES      ""'
+"""
+
 TMPDIR = tempfile.mkdtemp()
 
 
@@ -72,6 +99,14 @@ def cleanup():
     easyconfig._easyconfigs_cache.clear()
     easyconfig._easyconfig_files_cache.clear()
     mns_toolchain._toolchain_details_cache.clear()
+
+
+def install_fake_command(cmd, cmd_script, tmpdir):
+    """Install fake command with given name and script."""
+    cmd_path = os.path.join(tmpdir, cmd)
+    write_file(cmd_path, cmd_script)
+    adjust_permissions(cmd_path, stat.S_IXUSR)
+    os.environ['PATH'] = os.pathsep.join([tmpdir, os.getenv('PATH')])
 
 
 class ModuleOnlyTest(TestCase):
@@ -165,7 +200,7 @@ class ModuleOnlyTest(TestCase):
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
             (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]+/site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
@@ -194,10 +229,11 @@ class ModuleOnlyTest(TestCase):
         self.assertTrue(pick_python_cmd(123, 456) is None)
 
 
-def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=''):
+def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt='', tmpdir=None):
     """Test whether all easyblocks are compatible with --module-only."""
 
-    tmpdir = tempfile.mkdtemp()
+    if tmpdir is None:
+        tmpdir = tempfile.mkdtemp()
 
     class_regex = re.compile(r"^class (.*)\(.*", re.M)
 
@@ -223,6 +259,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         bases = list(app_class.__bases__)
         for base in copy.copy(bases):
             bases.extend(base.__bases__)
+
+        if app_class == EB_imkl_minus_FFTW:
+            # $EBROOTIMKL must be set for imkl-FFTW, because of dependency check on imkl in prepare_step
+            os.environ['EBROOTIMKL'] = '/fake/software/imkl/2021.4.0/mkl/2021.4.0'
+
         if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
@@ -270,6 +311,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
                 else:
                     test_param = 'foo'
                 extra_txt += '%s = "%s"\n' % (key, test_param)
+
+        # test --module-only for GCC easyblock with withnvptx enabled,
+        # like we do for recent GCC versions by default in easybuilders/easybuild-easyconfigs repo
+        if app_class == EB_GCC:
+            extra_txt += 'withnvptx = True\n'
 
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)
@@ -399,6 +445,14 @@ def suite():
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif eb_fn == 'openssl_wrapper.py':
+            # easyblock to create OpenSSL wrapper expects an OpenSSL version
+            innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
+        elif eb_fn == 'ucx_plugins.py':
+            # install fake ucx_info command (used in make_module_extra)
+            tmpdir = tempfile.mkdtemp()
+            install_fake_command('ucx_info', FAKE_UCX_INFO, tmpdir)
+            innertest = make_inner_test(easyblock, name='UCX-CUDA', tmpdir=tmpdir)
         else:
             # Make up some unique name
             innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')

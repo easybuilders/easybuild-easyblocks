@@ -33,13 +33,14 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Ward Poelmans (Ghent University)
 @author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
+import glob
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, which, remove_dir
+from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -81,6 +82,7 @@ class CMakeMake(ConfigureMake):
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
+            'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -120,13 +122,7 @@ class CMakeMake(ConfigureMake):
         setup_cmake_env(self.toolchain)
 
         if builddir is None and self.cfg.get('separate_build_dir', True):
-            builddir = os.path.join(self.builddir, 'easybuild_obj')
-            # For separate_build_dir we want a clean folder. So remove if it exists
-            # This can happen when multiple iterations are done (e.g. shared, static, ...)
-            if os.path.exists(builddir):
-                self.log.warning('Build directory %s already exists (from previous iterations?). Removing...',
-                                 builddir)
-                remove_dir(builddir)
+            builddir = create_unused_dir(self.builddir, 'easybuild_obj')
 
         if builddir:
             mkdir(builddir, parents=True)
@@ -142,7 +138,11 @@ class CMakeMake(ConfigureMake):
             else:
                 srcdir = default_srcdir
 
-        options = ['-DCMAKE_INSTALL_PREFIX=%s' % self.installdir]
+        install_target = self.installdir
+        install_target_subdir = self.cfg.get('install_target_subdir')
+        if install_target_subdir:
+            install_target = os.path.join(install_target, install_target_subdir)
+        options = ['-DCMAKE_INSTALL_PREFIX=%s' % install_target]
 
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
@@ -211,17 +211,27 @@ class CMakeMake(ConfigureMake):
         # show what CMake is doing by default
         options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
 
+        # disable CMake user package repository
+        options.append('-DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE')
+
         if not self.cfg.get('allow_system_boost', False):
-            # don't pick up on system Boost if Boost is included as dependency
-            # - specify Boost location via -DBOOST_ROOT
-            # - instruct CMake to not search for Boost headers/libraries in other places
-            # - disable search for Boost CMake package configuration file
             boost_root = get_software_root('Boost')
             if boost_root:
+                # Check for older builds of Boost
+                cmake_files = glob.glob(os.path.join(boost_root, 'lib', 'cmake', 'boost_system*',
+                                                     'libboost_system-variant*-shared.cmake'))
+                cmake_files = [os.path.basename(x) for x in cmake_files]
+                if len(cmake_files) > 1 and 'libboost_system-variant-shared.cmake' in cmake_files:
+                    # disable search for Boost CMake package configuration files when conflicting variant configs
+                    # are present (builds using the old EasyBlock)
+                    options.append('-DBoost_NO_BOOST_CMAKE=ON')
+
+                # Don't pick up on system Boost if Boost is included as dependency
+                # - specify Boost location via -DBOOST_ROOT
+                # - instruct CMake to not search for Boost headers/libraries in other places
                 options.extend([
                     '-DBOOST_ROOT=%s' % boost_root,
                     '-DBoost_NO_SYSTEM_PATHS=ON',
-                    '-DBoost_NO_BOOST_CMAKE=ON',
                 ])
 
         options_string = ' '.join(options)

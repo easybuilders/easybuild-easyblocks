@@ -116,6 +116,22 @@ class Rpm(Binary):
         })
         return extra_vars
 
+    def extract_step(self):
+        """
+        Extract sources if requested, retain resulting list of RPMs as new list of sources.
+        """
+        super(Rpm, self).extract_step()
+
+        if self.cfg.get('extract_sources', False):
+            self.src = []
+            for src_rpm in sorted(glob.glob(os.path.join(self.builddir, '*.rpm'))):
+                self.src.append({
+                    'name': os.path.basename(src_rpm),
+                    'path': src_rpm,
+                    'finalpath': self.builddir,
+                })
+            self.log.info("New list of sources after unpacking: %s", self.src)
+
     def configure_step(self):
         """Custom configuration procedure for RPMs: rebuild RPMs for relocation if required."""
 
@@ -182,11 +198,11 @@ class Rpm(Binary):
             preinstall = ''
 
         if self.rebuild_rpm:
-            cmd_tpl = "rpm -i --dbpath %(inst)s/rpm %(force)s --relocate /=%(inst)s " \
-                      "%(pre)s %(post)s --nodeps --ignorearch %(rpm)s"
+            cmd_tpl = "%(preinstallopts)s rpm -i --dbpath %(inst)s/rpm %(force)s --relocate /=%(inst)s " \
+                      "%(pre)s %(post)s --nodeps --ignorearch %(rpm)s %(installopts)s"
         else:
-            cmd_tpl = "rpm -i --dbpath /rpm %(force)s --root %(inst)s --relocate /=%(inst)s " \
-                      "%(pre)s %(post)s --nodeps %(rpm)s"
+            cmd_tpl = "%(preinstallopts)s rpm -i --dbpath /rpm %(force)s --root %(inst)s --relocate /=%(inst)s " \
+                      "%(pre)s %(post)s --nodeps %(rpm)s %(installopts)s"
 
         # exception for user root:
         # --relocate is not necessary -> --root will relocate more than enough
@@ -194,11 +210,13 @@ class Rpm(Binary):
 
         for rpm in self.src:
             cmd = cmd_tpl % {
+                'preinstallopts': self.cfg['preinstallopts'],
                 'inst': self.installdir,
                 'rpm': rpm['path'],
                 'force': force,
                 'pre': preinstall,
                 'post': postinstall,
+                'installopts': self.cfg['installopts'],
             }
             run_cmd(cmd, log_all=True, simple=True)
 

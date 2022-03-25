@@ -18,9 +18,9 @@ addons:
 install:
     # install easybuild-framework (and dependencies)
     # prefer clone & easy_install over easy_install directly in order to obtain information of what was installed exactly
-    # use framework 'develop' branch, except when testing 'master'
+    # use framework 'develop' branch, except when testing 'main'
     - BRANCH=develop
-    - if [ "x$TRAVIS_BRANCH" = 'xmaster' ]; then BRANCH=master; fi
+    - if [ "x$TRAVIS_BRANCH" = 'xmain' ]; then BRANCH=main; fi
     - if [ "x$TRAVIS_BRANCH" = 'x4.x' ]; then BRANCH=4.x; fi
     - echo "Using easybuild-framework branch $BRANCH (\$TRAVIS_BRANCH $TRAVIS_BRANCH)"
     - git clone -b $BRANCH --depth 10 --single-branch https://github.com/easybuilders/easybuild-framework.git

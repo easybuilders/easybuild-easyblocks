@@ -86,7 +86,6 @@ class EB_Clang(CMakeMake):
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
-            'cuda_compute_capabilities': [[], "List of CUDA compute capabilities to build with", CUSTOM],
             'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
@@ -126,6 +125,7 @@ class EB_Clang(CMakeMake):
             libcxx/       Unpack libcxx-*.tar.gz here
             libcxxabi/    Unpack libcxxabi-*.tar.gz here
             lld/          Unpack lld-*.tar.gz here
+        libunwind/        Unpack libunwind-*.tar.gz here
         """
 
         # Extract everything into separate directories.
@@ -160,6 +160,8 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+            if LooseVersion(self.version) >= LooseVersion('12.0.1'):
+                find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
 
         if self.cfg["libcxx"]:
             find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
@@ -183,6 +185,39 @@ class EB_Clang(CMakeMake):
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_Clang, self).prepare_step(*args, **kwargs)
+
+        build_targets = self.cfg['build_targets']
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
+                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            except KeyError:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        # carry on with empty list from this point forward if no build targets are specified
+        if build_targets is None:
+            self.cfg['build_targets'] = build_targets = []
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
@@ -265,29 +300,6 @@ class EB_Clang(CMakeMake):
                 self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
 
         build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
-                # If CUDA is included as a dep, add NVPTX as a target (could also support AMDGPU if we knew how)
-                if get_software_root("CUDA"):
-                    default_targets += ["NVPTX"]
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            else:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
         if self.cfg["usepolly"] and "NVPTX" in build_targets:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
@@ -478,6 +490,23 @@ class EB_Clang(CMakeMake):
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
+
+        if 'NVPTX' in self.cfg['build_targets']:
+            arch = get_cpu_architecture()
+            # Check architecture explicitly since Clang uses potentially
+            # different names
+            if arch == X86_64:
+                arch = 'x86_64'
+            elif arch == POWER:
+                arch = 'ppc64'
+            elif arch == AARCH64:
+                arch = 'aarch64'
+            else:
+                print_warning("Unknown CPU architecture (%s) for OpenMP offloading!" % arch)
+            custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
+                                          "lib/libomptarget-nvptx.a",
+                                          "lib/libomptarget.rtl.cuda.%s" % shlib_ext,
+                                          "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
 
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

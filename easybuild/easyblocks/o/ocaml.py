@@ -133,7 +133,7 @@ class EB_OCaml(ConfigureMake):
         self.cfg['exts_filter'] = EXTS_FILTER_OCAML_PACKAGES
         super(EB_OCaml, self).prepare_for_extensions()
 
-    def fetch_extension_sources(self, *args, **kwargs):
+    def collect_exts_file_info(self, *args, **kwargs):
         """Don't fetch extension sources, OPAM takes care of that (and archiving too)."""
         return [{'name': ext_name, 'version': ext_version} for ext_name, ext_version in self.cfg['exts_list']]
 

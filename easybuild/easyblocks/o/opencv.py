@@ -26,6 +26,7 @@
 EasyBuild support for building and installing OpenCV, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Simon Branford (University of Birmingham)
 """
 import glob
 import os
@@ -37,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import compute_checksum, copy
-from easybuild.tools.modules import get_software_libdir, get_software_root
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -115,9 +116,16 @@ class EB_OpenCV(CMakeMake):
             else:
                 self.cfg.update('configopts', '-DWITH_CUDA=OFF')
 
+        # disable bundled protobuf if it is a dependency
+        if 'BUILD_PROTOBUF' not in self.cfg['configopts']:
+            if get_software_root('protobuf'):
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=OFF')
+            else:
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=ON')
+
         # configure for dependency libraries
-        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'zlib']:
-            if dep in ['libpng', 'LibTIFF']:
+        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'libwebp', 'OpenEXR', 'zlib']:
+            if dep in ['libpng', 'LibTIFF', 'libwebp']:
                 # strip off 'lib'
                 opt_name = dep[3:].upper()
             elif dep == 'libjpeg-turbo':
@@ -133,9 +141,25 @@ class EB_OpenCV(CMakeMake):
 
             dep_root = get_software_root(dep)
             if dep_root:
-                self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, os.path.join(dep_root, 'include')))
-                libdir = get_software_libdir(dep, only_one=True)
-                self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, os.path.join(dep_root, libdir, lib_file)))
+                if dep == 'OpenEXR':
+                    self.cfg.update('configopts', '-D%s_ROOT=%s' % (opt_name, dep_root))
+                else:
+                    inc_path = os.path.join(dep_root, 'include')
+                    self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, inc_path))
+                    libdir = get_software_libdir(dep, only_one=True)
+                    lib_path = os.path.join(dep_root, libdir, lib_file)
+                    self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, lib_path))
+
+        # GTK+3 is used by default, use GTK+2 or none explicitely to avoid picking up a system GTK
+        if get_software_root('GTK+'):
+            if LooseVersion(get_software_version('GTK+')) < LooseVersion('3.0'):
+                self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        elif get_software_root('GTK3'):
+            pass
+        elif get_software_root('GTK2'):
+            self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        else:
+            self.cfg.update('configopts', '-DWITH_GTK=OFF')
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options

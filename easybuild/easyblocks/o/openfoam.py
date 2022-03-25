@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import stat
+import tempfile
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -63,8 +64,6 @@ class EB_OpenFOAM(EasyBlock):
 
         self.build_in_installdir = True
 
-        self.wm_compiler = None
-        self.wm_mplib = None
         self.openfoamdir = None
         self.thrdpartydir = None
 
@@ -93,6 +92,20 @@ class EB_OpenFOAM(EasyBlock):
             self.build_type = 'Debug'
         else:
             self.build_type = 'Opt'
+
+        # determine values for wm_compiler and wm_mplib
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.GCC:  # @UndefinedVariable
+            self.wm_compiler = 'Gcc'
+        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            self.wm_compiler = 'Icc'
+        else:
+            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
+
+        # set to an MPI unknown by OpenFOAM, since we're handling the MPI settings ourselves (via mpicc, etc.)
+        # Note: this name must contain 'MPI' so the MPI version of the
+        # Pstream library is built (cf src/Pstream/Allwmake)
+        self.wm_mplib = "EASYBUILDMPI"
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
@@ -126,23 +139,6 @@ class EB_OpenFOAM(EasyBlock):
         """Adjust start directory and start path for patching to correct directory."""
         self.cfg['start_dir'] = os.path.join(self.installdir, self.openfoamdir)
         super(EB_OpenFOAM, self).patch_step(beginpath=self.cfg['start_dir'])
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for OpenFOAM install procedure."""
-        super(EB_OpenFOAM, self).prepare_step(*args, **kwargs)
-
-        comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.GCC:  # @UndefinedVariable
-            self.wm_compiler = 'Gcc'
-        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            self.wm_compiler = 'Icc'
-        else:
-            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
-
-        # set to an MPI unknown by OpenFOAM, since we're handling the MPI settings ourselves (via mpicc, etc.)
-        # Note: this name must contain 'MPI' so the MPI version of the
-        # Pstream library is built (cf src/Pstream/Allwmake)
-        self.wm_mplib = "EASYBUILDMPI"
 
     def configure_step(self):
         """Configure OpenFOAM build by setting appropriate environment variables."""
@@ -201,6 +197,7 @@ class EB_OpenFOAM(EasyBlock):
         # that would change the cOPT/c++OPT values from their empty setting.
         suffixes = ['', 'Opt']
         wmake_rules_files = [os.path.join(ldir, lang + suff) for ldir in ldirs for lang in langs for suff in suffixes]
+        wmake_rules_files += [os.path.join(ldir, "general") for ldir in ldirs]
 
         mpicc = os.environ['MPICC']
         mpicxx = os.environ['MPICXX']
@@ -232,6 +229,8 @@ class EB_OpenFOAM(EasyBlock):
             regex_subs = []
             for comp_var, newval in comp_vars.items():
                 regex_subs.append((r"^(%s\s*=\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
+            # replace /lib/cpp by cpp, but keep the arguments
+            regex_subs.append((r"^(CPP\s*=\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # enable verbose build for debug purposes
@@ -430,6 +429,10 @@ class EB_OpenFOAM(EasyBlock):
                [os.path.join(toolsdir, x) for x in ['blockMesh', 'checkMesh', 'deformedGeom', 'engineSwirl',
                                                     'modifyMesh', 'refineMesh']]
 
+        # test setting up the OpenFOAM environment in bash shell
+        load_openfoam_env = "source $FOAM_BASH"
+        custom_commands = [load_openfoam_env]
+
         # only include Boussinesq and sonic since for OpenFOAM < 7, since those solvers have been deprecated
         if self.looseversion < LooseVersion('7'):
             bins.extend([
@@ -465,12 +468,56 @@ class EB_OpenFOAM(EasyBlock):
             bins.remove(os.path.join(toolsdir, "surfaceSmooth"))
             bins.append(os.path.join(toolsdir, "surfaceLambdaMuSmooth"))
 
+        if 'extend' not in self.name.lower() and self.looseversion >= LooseVersion("2.4.0"):
+            # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
+            bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
+
+            # test foamMonitor; wrap `foamMonitor -h` to generate exit code 1 if any dependency is missing
+            # the command `foamMonitor -h` does not return correct exit codes on its own in all versions
+            test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
+            custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
         }
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths)
+        # run motorBike tutorial case to ensure the installation is functional (if it's available);
+        # only for recent (>= v6.0) versions of openfoam.org variant
+        if self.looseversion >= LooseVersion('6') and self.looseversion < LooseVersion('100'):
+            openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
+            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if os.path.exists(motorbike_path):
+                test_dir = tempfile.mkdtemp()
+
+                if self.looseversion >= LooseVersion('9'):
+                    geom_target_dir = 'geometry'
+                else:
+                    geom_target_dir = 'triSurface'
+
+                cmds = [
+                    "cp -a %s %s" % (motorbike_path, test_dir),
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                    "runApplication surfaceFeatures",
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh -overwrite",
+                    "runParallel patchSummary",
+                    "runParallel potentialFoam",
+                    "runParallel simpleFoam",
+                    "runApplication reconstructParMesh -constant",
+                    "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % test_dir,
+                ]
+                # all commands need to be run in a single shell command,
+                # because sourcing $FOAM_BASH sets up environment
+                custom_commands.append(' && '.join(cmds))
+
+        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""

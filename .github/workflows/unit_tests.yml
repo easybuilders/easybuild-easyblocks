@@ -5,12 +5,12 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        python: [2.7, 3.5, 3.6, 3.7]
+        python: [2.7, 3.5, 3.6, 3.7, 3.8, 3.9, '3.10']
         modules_tool: [Lmod-6.6.3, Lmod-7.8.22, Lmod-8.1.14, modules-tcl-1.147, modules-3.2.10, modules-4.1.4]
         module_syntax: [Lua, Tcl]
         # exclude some configuration for non-Lmod modules tool:
         # - don't test with Lua module syntax (only supported in Lmod)
-        # - don't test with Python 3.5 and 3.7 (only with 2.7 and 3.6), to limit test configurations
+        # - don't test with Python 3.5 and 3.7+ (only with 2.7 and 3.6), to limit test configurations
         exclude:
           - modules_tool: modules-tcl-1.147
             module_syntax: Lua
@@ -22,20 +22,38 @@ jobs:
             python: 3.5
           - modules_tool: modules-tcl-1.147
             python: 3.7
+          - modules_tool: modules-tcl-1.147
+            python: 3.8
+          - modules_tool: modules-tcl-1.147
+            python: 3.9
+          - modules_tool: modules-tcl-1.147
+            python: '3.10'
           - modules_tool: modules-3.2.10
             python: 3.5
           - modules_tool: modules-3.2.10
             python: 3.7
+          - modules_tool: modules-3.2.10
+            python: 3.8
+          - modules_tool: modules-3.2.10
+            python: 3.9
+          - modules_tool: modules-3.2.10
+            python: '3.10'
           - modules_tool: modules-4.1.4
             python: 3.5
           - modules_tool: modules-4.1.4
             python: 3.7
+          - modules_tool: modules-4.1.4
+            python: 3.8
+          - modules_tool: modules-4.1.4
+            python: 3.9
+          - modules_tool: modules-4.1.4
+            python: '3.10'
       fail-fast: false
     steps:
     - uses: actions/checkout@v2
 
     - name: set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: ${{matrix.python}}
         architecture: x64
@@ -59,7 +77,7 @@ jobs:
       run: |
           # first determine which branch of easybuild-framework repo to install
           BRANCH=develop
-          if [ "x$GITHUB_BASE_REF" = 'xmaster' ]; then BRANCH=master; fi
+          if [ "x$GITHUB_BASE_REF" = 'xmain' ]; then BRANCH=main; fi
           if [ "x$GITHUB_BASE_REF" = 'x4.x' ]; then BRANCH=4.x; fi
           echo "Using easybuild-framework branch $BRANCH (\$GITHUB_BASE_REF $GITHUB_BASE_REF)"
           git clone -b $BRANCH --depth 10 --single-branch https://github.com/easybuilders/easybuild-framework.git

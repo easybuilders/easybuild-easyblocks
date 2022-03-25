@@ -204,7 +204,7 @@ class EB_WPS(EasyBlock):
         # fetch option number based on build type option and selected build type
         build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
 
-        cmd = "./configure"
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {}
         no_qa = [".*compiler is.*"]
         std_qa = {
@@ -381,7 +381,7 @@ class EB_WPS(EasyBlock):
     def make_module_req_guess(self):
         """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
         return {
-            'PATH': [self.wps_subdir],
+            'PATH': [self.wps_subdir, os.path.join(self.wps_subdir, 'util')],
             'LD_LIBRARY_PATH': [self.wps_subdir],
             'MANPATH': [],
         }

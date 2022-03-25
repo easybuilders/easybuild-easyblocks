@@ -63,6 +63,7 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['sourceinstall']:
             self.prefix_inc = self.petsc_subdir
             self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+            self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
             self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
@@ -77,19 +78,16 @@ class EB_PETSc(ConfigureMake):
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
             'papi_lib': ['/usr/lib64/libpapi.so', "Path for PAPI library", CUSTOM],
             'runtest': ['test', "Make target to test build", BUILD],
+            'test_parallel': [
+                None,
+                "Number of parallel PETSc tests launched. If unset, 'parallel' will be used",
+                CUSTOM
+            ],
             'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
             'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
             'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
-
-    def make_builddir(self):
-        """Decide whether or not to build in install dir before creating build dir."""
-
-        if self.cfg['sourceinstall']:
-            self.build_in_installdir = True
-
-        super(EB_PETSc, self).make_builddir()
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
@@ -187,14 +185,16 @@ class EB_PETSc(ConfigureMake):
             if LooseVersion(self.version) < LooseVersion("3.5"):
                 deps.append("BLACS")
             for dep in deps:
-                inc = os.getenv('%s_INC_DIR' % dep.upper())
                 libdir = os.getenv('%s_LIB_DIR' % dep.upper())
                 libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
-                if inc and libdir and libs:
+                if libdir and libs:
                     with_arg = "--with-%s" % dep.lower()
                     self.cfg.update('configopts', '%s=1' % with_arg)
-                    self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                     self.cfg.update('configopts', '%s-lib=[%s/%s]' % (with_arg, libdir, libs))
+
+                    inc = os.getenv('%s_INC_DIR' % dep.upper())
+                    if inc:
+                        self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                 else:
                     self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
@@ -295,12 +295,36 @@ class EB_PETSc(ConfigureMake):
             cmd = "./config/configure.py %s" % self.get_cfg('configopts')
             run_cmd(cmd, log_all=True, simple=True)
 
+        # Make sure to set test_parallel before self.cfg['parallel'] is set to None
+        if self.cfg['test_parallel'] is None and self.cfg['parallel']:
+            self.cfg['test_parallel'] = self.cfg['parallel']
+
         # PETSc > 3.5, make does not accept -j
+        # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
-            env.setvar('MAKE_NP', str(self.cfg['parallel']))
+            self.cfg.update('buildopts', "MAKE_NP=%s" % self.cfg['parallel'])
             self.cfg['parallel'] = None
 
     # default make should be fine
+
+    def test_step(self):
+        """
+        Test the compilation
+        """
+
+        # Each PETSc test may use multiple threads, so running "self.cfg['parallel']" of them may lead to
+        # some oversubscription every now and again. Not a big deal, but if needed a reduced parallelism
+        # can be specified with test_parallel - and it takes priority
+        paracmd = ''
+        self.log.info("In test_step: %s" % self.cfg['test_parallel'])
+        if self.cfg['test_parallel'] is not None:
+            paracmd = "-j %s" % self.cfg['test_parallel']
+
+        if self.cfg['runtest']:
+            cmd = "%s make %s %s %s" % (self.cfg['pretestopts'], paracmd, self.cfg['runtest'], self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+            return out
 
     def install_step(self):
         """
