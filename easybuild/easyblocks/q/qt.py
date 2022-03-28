@@ -30,11 +30,13 @@ EasyBuild support for building and installing Qt, implemented as an easyblock
 import os
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 from easybuild.tools.systemtools import AARCH64, POWER
@@ -153,6 +155,13 @@ class EB_Qt(ConfigureMake):
             'Checking for .*...',
         ]
         run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=120)
+
+        # Ninja uses all visible cores by default, which can lead to lack of sufficient memory;
+        # so $NINJAFLAGS is set to control number of parallel processes used by Ninja;
+        # note that $NINJAFLAGS is not a generic thing for Ninja, it's very specific to the Qt5 build procedure
+        if LooseVersion(self.version) >= LooseVersion('5'):
+            if get_software_root('Ninja'):
+                env.setvar('NINJAFLAGS', '-j%s' % self.cfg['parallel'])
 
     def build_step(self):
         """Set $LD_LIBRARY_PATH before calling make, to ensure that all required libraries are found during linking."""
