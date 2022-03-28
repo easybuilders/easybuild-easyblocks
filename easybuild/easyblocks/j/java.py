@@ -73,6 +73,7 @@ class EB_Java(PackedBinary):
             run_cmd(os.path.join(self.builddir, self.src[0]['name']), log_all=True, simple=True, inp='')
         else:
             PackedBinary.extract_step(self)
+            adjust_permissions(self.builddir, stat.S_IWUSR, add=True, recursive=True)
 
     def install_step(self):
         if LooseVersion(self.version) < LooseVersion('1.7'):
