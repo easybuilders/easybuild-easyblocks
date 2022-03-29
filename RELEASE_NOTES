@@ -6,6 +6,35 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 244 software-specific easyblocks and 37 generic easyblocks.
 
 
+v4.5.4 (March 28th 2022)
+---------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - update Clang-AOMP easyblock to add support for ROCm v5.0 (#2681)
+  - make sure TensorFlow doesn't see the nvptx-none dir when searching for gcc include dir (#2682)
+  - enable system SSL certificates in OpenSSL installations (#2683)
+  - enhance MRtrix easyblock: build in parallel + enable OpenMP support for MRtrix >= 3.0 (#2685)
+  - avoid dependency on 'which' command in sanity check for Python, use 'command -v' instead (#2687)
+  - enhance Tarball easyblock to support using it for installing extensions (#2688)
+  - update wxPython easyblock to support wxPython v4.1 (#2689)
+  - enhance Gurobi easyblock to also update $MATLABPATH (#2691)
+  - build single-file shared libraries for imkl so it can be used as FlexiBLAS backend via $FLEXIBLAS_LIBRARY_PATH (#2694)
+- various bug fixes, including:
+  - added regex to replace /lib/cpp with cpp in OpenFOAM's wmake rules file (#2331)
+  - set $NINJAFLAGS to make sure Ninja doesn't use all visible cores when building Qt5 (#2338)
+  - update Siesta EasyBlock to use serial FFTW (#2662)
+  - fix support for imkl for numexpr 2.8.0+ in numexpr easyblock (#2678)
+  - force use of bash for Anaconda install script (#2692)
+  - Add guess for MANPATH for intel-compilers. (#2696)
+  - Change permissions of the Java builddir to avoid permission denied error (#2698)
+  - also consider $MKLROOT/lib/pkgconfig for $PKG_CONFIG_PATH for imkl (#2701)
+  - close log after installing Bundle component (#2702)
+- other changes:
+  - minor code cleanup in numexpr easyblock (#2679)
+
+
 v4.5.3 (February 11th 2022)
 ---------------------------
 
