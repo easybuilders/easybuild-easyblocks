@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
 # Authors::   Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
