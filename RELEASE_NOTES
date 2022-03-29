@@ -6,14 +6,13 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 244 software-specific easyblocks and 37 generic easyblocks.
 
 
-v4.5.4 (March 28th 2022)
----------------------------
+v4.5.4 (March 31st 2022)
+------------------------
 
 update/bugfix release
 
 - minor enhancements and updates, including:
   - update Clang-AOMP easyblock to add support for ROCm v5.0 (#2681)
-  - make sure TensorFlow doesn't see the nvptx-none dir when searching for gcc include dir (#2682)
   - enable system SSL certificates in OpenSSL installations (#2683)
   - enhance MRtrix easyblock: build in parallel + enable OpenMP support for MRtrix >= 3.0 (#2685)
   - avoid dependency on 'which' command in sanity check for Python, use 'command -v' instead (#2687)
@@ -26,13 +25,16 @@ update/bugfix release
   - set $NINJAFLAGS to make sure Ninja doesn't use all visible cores when building Qt5 (#2338)
   - update Siesta EasyBlock to use serial FFTW (#2662)
   - fix support for imkl for numexpr 2.8.0+ in numexpr easyblock (#2678)
+  - make sure TensorFlow doesn't see the nvptx-none dir when searching for gcc include dir (#2682)
   - force use of bash for Anaconda install script (#2692)
-  - Add guess for MANPATH for intel-compilers. (#2696)
-  - Change permissions of the Java builddir to avoid permission denied error (#2698)
+  - add guess for path to add to $MANPATH for intel-compilers (#2696)
+  - change permissions of the Java build directory to avoid permission denied error (#2698)
   - also consider $MKLROOT/lib/pkgconfig for $PKG_CONFIG_PATH for imkl (#2701)
   - close log after installing Bundle component (#2702)
+  - replace hardcoded /tmp to make sure that Bazel build respects $TMPDIR (#2703)
 - other changes:
   - minor code cleanup in numexpr easyblock (#2679)
+  - update copyright lines for 2022 (#2705)
 
 
 v4.5.3 (February 11th 2022)
