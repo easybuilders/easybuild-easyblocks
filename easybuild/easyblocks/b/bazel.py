@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,15 @@ class EB_Bazel(EasyBlock):
         return EasyBlock.extra_options(extra_vars)
 
     def fixup_hardcoded_paths(self):
-        """Patch out hard coded paths to compiler and binutils tools"""
+        """Patch out hard coded paths to /tmp, compiler and binutils tools"""
+        # replace hardcoded /tmp in java build scripts
+        regex_subs = [
+            (r'`mktemp -d /tmp/tmp.XXXXXXXXXX`', '$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX)'),
+        ]
+        filepath = os.path.join('src', 'main', 'java', 'com', 'google', 'devtools', 'build', 'lib', 'BUILD')
+        if os.path.exists(filepath):
+            apply_regex_substitutions(filepath, regex_subs)
+
         binutils_root = get_software_root('binutils')
         gcc_root = get_software_root('GCCcore') or get_software_root('GCC')
         gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
@@ -123,9 +131,9 @@ class EB_Bazel(EasyBlock):
     def configure_step(self):
         """Custom configuration procedure for Bazel."""
 
-        # Last instance of hardcoded paths was removed in 0.24.0
-        if LooseVersion(self.version) < LooseVersion('0.24.0'):
-            self.fixup_hardcoded_paths()
+        # Last instance of hardcoded compiler/binutils paths was removed in 0.24.0, however
+        # hardcoded /tmp affects all versions
+        self.fixup_hardcoded_paths()
 
         # Keep temporary directory in case of error. EB will clean it up on success
         apply_regex_substitutions(os.path.join('scripts', 'bootstrap', 'buildenv.sh'), [

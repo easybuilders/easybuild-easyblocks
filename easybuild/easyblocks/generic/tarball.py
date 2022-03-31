@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,14 +37,14 @@ implemented as an easyblock
 
 import os
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, remove_dir
+from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
 from easybuild.tools.run import run_cmd
 
 
-class Tarball(EasyBlock):
+class Tarball(ExtensionEasyBlock):
     """
     Precompiled software supplied as a tarball:
     - will unpack binary and copy it to the install dir
@@ -53,7 +53,7 @@ class Tarball(EasyBlock):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to Tarball."""
-        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'install_type': [None, "Defaults to extract tarball into clean directory. Options: 'merge' merges tarball "
                              "to existing directory, 'subdir' extracts tarball into its own sub-directory", CUSTOM],
@@ -72,6 +72,16 @@ class Tarball(EasyBlock):
         Dummy build method: nothing to build
         """
         pass
+
+    def run(self, *args, **kwargs):
+        """Install as extension: unpack sources and copy (via install step)."""
+        if self.cfg['install_type'] is None:
+            self.log.info("Auto-enabled install_type=merge because Tarball is being used to install an extension")
+            self.cfg['install_type'] = 'merge'
+        # unpack sources and call install_step to copy unpacked sources to install directory
+        srcdir = extract_file(self.src, self.builddir, change_into_dir=False)
+        kwargs['src'] = srcdir
+        self.install_step(*args, **kwargs)
 
     def install_step(self, src=None):
         """Install by copying from specified source directory (or 'start_dir' if not specified)."""
