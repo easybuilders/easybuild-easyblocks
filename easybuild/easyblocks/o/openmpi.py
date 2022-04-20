@@ -158,8 +158,10 @@ class EB_OpenMPI(ConfigureMake):
 
         if self.name == 'OpenMPI-CUDA':
             ompi_root = get_software_root('OpenMPI')
-            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path', os.path.join(ompi_root, 'lib'), allow_abs=True)
-            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path', os.path.join(ompi_root, 'lib', 'openmpi'), allow_abs=True)
+            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path',
+                                                      os.path.join(ompi_root, 'lib'), allow_abs=True)
+            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path',
+                                                      os.path.join(ompi_root, 'lib', 'openmpi'), allow_abs=True)
 
         return txt
 
