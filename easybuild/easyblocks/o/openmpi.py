@@ -140,6 +140,29 @@ class EB_OpenMPI(ConfigureMake):
 
         super(EB_OpenMPI, self).test_step()
 
+    def make_module_req_guess(self):
+        """Special case for OpenMPI-CUDA"""
+        guesses = super(EB_OpenMPI, self).make_module_req_guess()
+
+        if self.name == 'OpenMPI-CUDA':
+            guesses.pop('PATH', None)
+            guesses.update({
+                'OMPI_MCA_mca_component_path': ['lib/openmpi', 'lib'],
+            })
+
+        return guesses
+
+    def make_module_extra(self):
+        """Special case for OpenMPI-CUDA"""
+        txt = super(EB_OpenMPI, self).make_module_extra()
+
+        if self.name == 'OpenMPI-CUDA':
+            ompi_root = get_software_root('OpenMPI')
+            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path', os.path.join(ompi_root, 'lib'), allow_abs=True)
+            txt += self.module_generator.append_paths('OMPI_MCA_mca_component_path', os.path.join(ompi_root, 'lib', 'openmpi'), allow_abs=True)
+
+        return txt
+
     def load_module(self, *args, **kwargs):
         """
         Load (temporary) module file, after resetting to initial environment.
