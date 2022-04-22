@@ -89,7 +89,8 @@ class EB_GCC(ConfigureMake):
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
             'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
-            'use_gold_linker': [True, "Configure GCC to use GOLD as default linker", CUSTOM],
+            'use_gold_linker': [None, "Configure GCC to use GOLD as default linker "
+                                      "(default: True for GCC < 11.3.0)", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withisl': [False, "Build GCC with ISL support", CUSTOM],
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
@@ -128,6 +129,10 @@ class EB_GCC(ConfigureMake):
             # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
             if version < LooseVersion('5.0.0') and self.cfg['withisl'] and not self.cfg['withcloog']:
                 raise EasyBuildError("Activating ISL without CLooG is pointless")
+
+            # Disable the Gold linker by default for GCC 11.3.0 and newer, as it suffers from bitrot
+            if self.cfg['use_gold_linker'] is None:
+                self.cfg['use_gold_linker'] = version < LooseVersion('11.3.0')
 
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
         self.cfg.update('unwanted_env_vars', ['CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'OBJC_INCLUDE_PATH'])
