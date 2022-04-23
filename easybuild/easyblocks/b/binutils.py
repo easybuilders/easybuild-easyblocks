@@ -108,6 +108,15 @@ class EB_binutils(ConfigureMake):
         else:
             libs = []
 
+        binutilsroot = get_software_root('binutils')
+        if binutilsroot:
+            # Remove LDFLAGS that start with '-L' + binutilsroot, since we don't
+            # want to link libraries from binutils compiled with the system toolchain
+            # into binutils binaries compiled with a compiler toolchain.
+            ldflags = os.getenv('LDFLAGS').split(' ')
+            ldflags = [p for p in ldflags if not p.startswith('-L' + binutilsroot)]
+            env.setvar('LDFLAGS', ' '.join(ldflags))
+
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
         if zlibroot:
