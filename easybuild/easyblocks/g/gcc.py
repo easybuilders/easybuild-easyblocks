@@ -38,8 +38,6 @@ import glob
 import os
 import re
 import shutil
-import tempfile
-
 from copy import copy
 from distutils.version import LooseVersion
 
@@ -1059,6 +1057,8 @@ class EB_GCC(ConfigureMake):
             absolute_wrapperdir = os.path.join(self.installdir, self.rpath_wrapperdir)
             create_rpath_wrappers(absolute_wrapperdir, 'GCCcore', self.version)
             # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
-            guesses['PATH'].append(self.rpath_wrapperdir)
+            for wrapperdir in os.listdir(absolute_wrapperdir):
+                # Append wrapper subdir for each
+                guesses['PATH'].append(os.path.join(self.rpath_wrapperdir, wrapperdir))
 
         return guesses
