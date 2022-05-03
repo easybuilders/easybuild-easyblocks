@@ -124,11 +124,11 @@ class EB_OpenMPI(ConfigureMake):
                 # auto-detect based on available OS packages
                 os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
-
-            if verbs:
-                self.cfg.update('configopts', '--with-verbs')
-            else:
-                self.cfg.update('configopts', '--without-verbs')
+            if LooseVersion(self.version) <= LooseVersion('5.0.0'):
+                if verbs:
+                    self.cfg.update('configopts', '--with-verbs')
+                else:
+                    self.cfg.update('configopts', '--without-verbs')
 
         super(EB_OpenMPI, self).configure_step()
 
@@ -157,11 +157,11 @@ class EB_OpenMPI(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
-        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper']
+        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'ompi_info', 'opal_wrapper']
         if LooseVersion(self.version) >= LooseVersion('5.0.0'):
             bin_names.append('prterun')
         else:
-            bin_names.append('orterun')
+            bin_names.extend(['mpirun', 'orterun'])
         bin_files = [os.path.join('bin', x) for x in bin_names]
 
         shlib_ext = get_shared_lib_ext()
@@ -169,7 +169,7 @@ class EB_OpenMPI(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('5.0.0'):
             lib_names.append('prrte')
         else:
-            lib_names.append(['ompitrace', 'open-rte'])
+            lib_names.extend(['ompitrace', 'open-rte'])
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
