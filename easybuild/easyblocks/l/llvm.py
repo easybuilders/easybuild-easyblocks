@@ -52,7 +52,7 @@ class EB_LLVM(CMakeMake):
 
         return extra_vars
 
-    def  __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
         super(EB_LLVM, self).__init__(*args, **kwargs)
 
