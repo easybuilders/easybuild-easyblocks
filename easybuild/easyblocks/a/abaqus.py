@@ -110,6 +110,7 @@ class EB_ABAQUS(Binary):
             no_qa = [
                 '___',
                 r"\(\d+\s*[KM]B\)",
+                r'\.\.\.$',
             ]
 
             # Match string for continuing on with the selected items
@@ -207,7 +208,7 @@ class EB_ABAQUS(Binary):
             # Continue
             std_qa[nextstr] = ''
 
-            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=1000)
         else:
             change_dir(self.builddir)
             if self.cfg['install_cmd'] is None:
