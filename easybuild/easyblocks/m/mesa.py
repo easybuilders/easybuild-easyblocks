@@ -70,7 +70,7 @@ class EB_Mesa(MesonNinja):
                 POWER: ['swrast'],
                 AARCH64: ['swrast'],
             }
-            if LooseVersion(self.version) <= LooseVersion('22'):
+            if LooseVersion(self.version) < LooseVersion('22'):
                 # swr driver support removed in Mesa 22.0
                 arch_gallium_drivers['X86_64'].append('swr')
 
