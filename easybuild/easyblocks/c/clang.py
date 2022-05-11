@@ -81,6 +81,7 @@ class EB_Clang(CMakeMake):
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for example, 'libomp')", CUSTOM],
             'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
+            'python_bindings': [False, "Install python bindings", CUSTOM],
             'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
             'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
@@ -465,6 +466,12 @@ class EB_Clang(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
+        if self.cfg['python_bindings']:
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
+            python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
+
+            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
+
     def sanity_check_step(self):
         """Custom sanity check for Clang."""
         shlib_ext = get_shared_lib_ext()
@@ -517,6 +524,10 @@ class EB_Clang(CMakeMake):
                                           "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
 
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
+        if self.cfg['python_bindings']:
+            custom_paths['files'].extend(["lib/python/clang/cindex.py"])
+            custom_commands.extend(["python -c 'import clang'"])
+
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
@@ -525,4 +536,6 @@ class EB_Clang(CMakeMake):
         # we set the symbolizer path so that asan/tsan give meanfull output by default
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
+        if self.cfg['python_bindings']:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join(self.installdir, "lib", "python") )
         return txt
