@@ -529,5 +529,5 @@ class EB_Clang(CMakeMake):
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
         if self.cfg['python_bindings']:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join(self.installdir, "lib", "python") )
+            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join(self.installdir, "lib", "python"))
         return txt
