@@ -461,6 +461,9 @@ class EB_Clang(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
+    def post_install_step(self):
+        """Install python bindings."""
+        # do it in post_install_step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
