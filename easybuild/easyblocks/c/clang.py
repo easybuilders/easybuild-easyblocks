@@ -77,23 +77,23 @@ class EB_Clang(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
+            'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
+                             ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
             'assertions': [True, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
+            'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
+            'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
+            'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
-            'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
-            'usepolly': [False, "Build Clang with polly", CUSTOM],
-            'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
             'default_openmp_runtime': [None, "Default OpenMP runtime for clang (for example, 'libomp')", CUSTOM],
             'enable_rtti': [False, "Enable Clang RTTI", CUSTOM],
             'libcxx': [False, "Build the LLVM C++ standard library", CUSTOM],
-            'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
+            'static_analyzer': [True, "Install the static analyser of Clang", CUSTOM],
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
-            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
-            'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
-            'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
-                             ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
+            'usepolly': [False, "Build Clang with polly", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -531,18 +531,21 @@ class EB_Clang(CMakeMake):
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
+            # The static 'nvptx.a' library is not built in version 14
+            if LooseVersion(self.version) < LooseVersion('14.0'):
+                custom_paths['files'].append("lib/libomptarget-nvptx.a")
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            # We need the CUDA capability in the form of '75' and not '7.5'
+            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+            custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
+                                          for cc in cuda_cc])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
             # easier to check for the bitcode files we expect
-            if LooseVersion(self.version) >= LooseVersion('13.0.1'):
-                ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-                cfg_cuda_cc = build_option('cuda_compute_capabilities')
-                cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-                # We need the CUDA capability in the form of '75' and not '7.5'
-                cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-                custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
-                                              for cc in cuda_cc])
+            if LooseVersion(self.version) >= LooseVersion('13.0'):
                 custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
                                               for cc in cuda_cc])
         # If building for AMDGPU check that OpenMP target library was created
@@ -551,11 +554,14 @@ class EB_Clang(CMakeMake):
             # OpenMP offloading support to AMDGPU was not added until version
             # 13, however, building for the AMDGPU target predates this and so
             # doesn't necessarily mean that the AMDGPU target failed
-            if LooseVersion(self.version) >= LooseVersion('13.0.0'):
+            if LooseVersion(self.version) >= LooseVersion('13.0'):
                 custom_paths['files'].append("lib/libomptarget.rtl.amdgpu.%s" % shlib_ext)
                 custom_paths['files'].extend(["lib/libomptarget-amdgcn-%s.bc" % gfx
                                               for gfx in self.cfg['amd_gfx_list']])
                 custom_paths['files'].append("bin/amdgpu-arch")
+            if LooseVersion(self.version) >= LooseVersion('14.0'):
+                custom_paths['files'].extend(["lib/libomptarget-new-amdgpu-%s.bc" % gfx
+                                              for gfx in self.cfg['amd_gfx_list']])
 
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
