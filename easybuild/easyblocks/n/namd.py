@@ -99,7 +99,7 @@ class EB_NAMD(MakeCp):
         """Patch scripts to avoid using hardcoded /bin/csh."""
         super(EB_NAMD, self).patch_step(*args, **kwargs)
 
-        self.charm_dir = self.charm_tarballs[0][:-4]
+        self.charm_dir = self.charm_subdir
 
         charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
         apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
