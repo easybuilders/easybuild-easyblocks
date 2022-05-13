@@ -166,9 +166,8 @@ class EB_LAMMPS(CMakeMake):
             self.cur_version = translate_lammps_version(self.version)
         else:
             self.cur_version = self.version
-
-
         self.ref_version = translate_lammps_version(ref_version)
+
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             self.kokkos_prefix = 'Kokkos'
         else:
