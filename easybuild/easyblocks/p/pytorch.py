@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2020 Ghent University
+# Copyright 2020-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,8 +37,9 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 
 
 class EB_PyTorch(PythonPackage):
@@ -50,7 +51,7 @@ class EB_PyTorch(PythonPackage):
         extra_vars.update({
             'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
             'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
-                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM]
+                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -117,6 +118,22 @@ class EB_PyTorch(PythonPackage):
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
                 if is_version_ok(version_range)]
 
+    def prepare_step(self, *args, **kwargs):
+        """Make sure that versioned CMake alias exists"""
+        super(EB_PyTorch, self).prepare_step(*args, **kwargs)
+        # PyTorch preferes cmake3 over cmake which usually does not exist
+        cmake_root = get_software_root('CMake')
+        cmake_version = get_software_version('CMake')
+        if cmake_root and not os.path.isfile(os.path.join(cmake_root, 'bin', 'cmake3')):
+            if cmake_version and cmake_version.split('.')[0] != '3':
+                raise EasyBuildError('PyTorch requires CMake 3 but CMake %s was found', cmake_version)
+            cmake_bin_dir = tempfile.mkdtemp(suffix='cmake-bin')
+            self.log.warning('Creating symlink `cmake3` in %s to avoid PyTorch picking up a system CMake. ' +
+                             'Reinstall the CMake module to avoid this!', cmake_bin_dir)
+            symlink(os.path.join(cmake_root, 'bin', 'cmake'), os.path.join(cmake_bin_dir, 'cmake3'))
+            path = "%s:%s" % (cmake_bin_dir, os.getenv('PATH'))
+            env.setvar('PATH', path)
+
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
         super(EB_PyTorch, self).configure_step()
@@ -134,9 +151,24 @@ class EB_PyTorch(PythonPackage):
         # BLAS Interface
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
-        else:
-            # This is what PyTorch defaults to if no MKL is found. Make this explicit here
+            options.append('INTEL_MKL_DIR=$MKLROOT')
+        elif LooseVersion(self.version) >= LooseVersion('1.9.0') and get_software_root('BLIS'):
+            options.append('BLAS=BLIS')
+            options.append('BLIS_HOME=' + get_software_root('BLIS'))
+            options.append('USE_MKLDNN_CBLAS=ON')
+        elif get_software_root('OpenBLAS'):
+            # This is what PyTorch defaults to if no MKL is found.
+            # Make this explicit here to avoid it finding MKL from the system
             options.append('BLAS=Eigen')
+            # Still need to set a BLAS lib to use.
+            # Valid choices: mkl/open/goto/acml/atlas/accelerate/veclib/generic (+blis for 1.9+)
+            options.append('WITH_BLAS=open')
+            # Make sure this option is actually passed to CMake
+            apply_regex_substitutions(os.path.join('tools', 'setup_helpers', 'cmake.py'), [
+                ("'BLAS',", "'BLAS', 'WITH_BLAS',")
+            ])
+        else:
+            raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
         dependency_names = set(dep['name'] for dep in self.cfg.dependencies())
@@ -175,8 +207,12 @@ class EB_PyTorch(PythonPackage):
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
+
             self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
-            options.append('TORCH_CUDA_ARCH_LIST="%s"' % ';'.join(cuda_cc))
+            # This variable is also used at runtime (e.g. for tests) and if it is not set PyTorch will automatically
+            # determine the compute capability of a GPU in the system and use that which may fail tests if
+            # it is to new for the used nvcc
+            env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
         else:
             # Disable CUDA
             options.append('USE_CUDA=0')
@@ -201,6 +237,10 @@ class EB_PyTorch(PythonPackage):
         """Run unit tests"""
         # Make PyTorch tests not use the user home
         env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        # Pretend to be on FB CI which disables some tests, especially those which download stuff
+        env.setvar('SANDCASTLE', '1')
+        # Skip this test(s) which is very flaky
+        env.setvar('SKIP_TEST_BOTTLENECK', '1')
         # Parse excluded_tests and flatten into space separated string
         excluded_tests = []
         for arch, tests in self.cfg['excluded_tests'].items():

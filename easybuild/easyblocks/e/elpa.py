@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2020 Ghent University
-# Copyright 2019 Micael Oliveira
+# Copyright 2009-2022 Ghent University
+# Copyright 2019-2022 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -252,8 +252,9 @@ class EB_Molpro(ConfigureMake, Binary):
         dirs_to_check = []
         if LooseVersion(self.version) >= LooseVersion('2015') or not self.cfg['precompiled_binaries']:
             files_to_check.extend(['bin/molpro.exe'])
-            dirs_to_check.extend(['doc', 'examples', 'utilities'])
-
+            dirs_to_check.extend(['utilities'])
+            if LooseVersion(self.version) <= LooseVersion('2021'):
+                dirs_to_check.extend(['doc', 'examples'])
         custom_paths = {
             'files': [os.path.join(prefix_subdir, x) for x in files_to_check],
             'dirs': [os.path.join(prefix_subdir, x) for x in dirs_to_check],

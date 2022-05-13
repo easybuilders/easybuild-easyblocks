@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,11 +28,13 @@ EasyBuild support for BerkeleyGW, implemented as an easyblock
 @author: Miguel Dias Costa (National University of Singapore)
 """
 import os
+from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
 
@@ -111,26 +113,39 @@ class EB_BerkeleyGW(ConfigureMake):
             self.cfg.update('buildopts', 'BLACSDIR="%s"' % os.environ['BLACS_LIB_DIR'])
             self.cfg.update('buildopts', 'BLACS="%s"' % os.environ['LIBBLACS'])
         elif comp_fam == toolchain.GCC:
+            c_flags = "-std=c99"
+            cxx_flags = "-std=c++0x"
+            f90_flags = "-ffree-form -ffree-line-length-none -fno-second-underscore"
+            if LooseVersion(get_software_version('GCC')) >= LooseVersion('10'):
+                c_flags += " -fcommon"
+                cxx_flags += " -fcommon"
+                f90_flags += " -fallow-argument-mismatch"
             self.cfg.update('buildopts', 'COMPFLAG="-DGNU"')
             self.cfg.update('buildopts', 'MOD_OPT="-J "')
-            self.cfg.update('buildopts', 'F90free="%s -ffree-form -ffree-line-length-none -fno-second-underscore"'
-                            % mpif90)
+            self.cfg.update('buildopts', 'F90free="%s %s"' % (mpif90, f90_flags))
             self.cfg.update('buildopts', 'FCPP="cpp -C -nostdinc -nostdinc++"')
-            self.cfg.update('buildopts', 'C_COMP="%s -std=c99"' % mpicc)
-            self.cfg.update('buildopts', 'CC_COMP="%s -std=c++0x"' % mpicxx)
+            self.cfg.update('buildopts', 'C_COMP="%s %s"' % (mpicc, c_flags))
+            self.cfg.update('buildopts', 'CC_COMP="%s %s"' % (mpicxx, cxx_flags))
         else:
             raise EasyBuildError("EasyBuild does not yet have support for building BerkeleyGW with toolchain %s"
                                  % comp_fam)
 
         mkl = get_software_root('imkl')
         if mkl:
-            self.cfg.update('buildopts', 'MKLPATH="%s"' % mkl)
+            self.cfg.update('buildopts', 'MKLPATH="%s"' % os.getenv('MKLROOT'))
 
         fftw = get_software_root('FFTW')
         if mkl or fftw:
             mathflags.append('-DUSEFFTW3')
             self.cfg.update('buildopts', 'FFTWINCLUDE="%s"' % os.environ['FFTW_INC_DIR'])
-            self.cfg.update('buildopts', 'FFTWLIB="%s"' % os.environ['LIBFFT%s' % var_suffix])
+
+            libfft_var = 'LIBFFT%s' % var_suffix
+            fft_libs = os.environ[libfft_var]
+
+            if fftw and get_software_root('fftlib'):
+                fft_libs = "%s %s" % (os.environ['FFTLIB'], fft_libs)
+
+            self.cfg.update('buildopts', 'FFTWLIB="%s"' % fft_libs)
 
         hdf5 = get_software_root('HDF5')
         if hdf5:
@@ -162,6 +177,7 @@ class EB_BerkeleyGW(ConfigureMake):
         """Custom test step for BerkeleyGW."""
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
+            setvar('OMP_NUM_THREADS', '4')
         super(EB_BerkeleyGW, self).test_step()
 
     def sanity_check_step(self):

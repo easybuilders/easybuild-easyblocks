@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import apply_regex_substitutions
-from easybuild.tools.modules import get_software_version
+from easybuild.tools.modules import get_software_version, get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -69,13 +69,27 @@ class EB_VEP(EasyBlock):
         self.log.info("Adding %s to $%s (%s)", api_mods_dir, perllib_envvar, perllib)
         env.setvar(perllib_envvar, '%s:%s' % (api_mods_dir, perllib))
 
+        # check for bundled dependencies
+        bundled_deps = [
+            # tuple format: (package name in EB, option name for INSTALL.pl)
+            ('BioPerl', 'NO_BIOPERL'),
+            ('Bio-DB-HTS', 'NO_HTSLIB'),
+        ]
+        installopt_deps = []
+
+        for (dep, opt) in bundled_deps:
+            if get_software_root(dep):
+                installopt_deps.append('--%s' % opt)
+
+        installopt_deps = ' '.join(installopt_deps)
+
         # see https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html#installer
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             'perl',
             'INSTALL.pl',
-            # don't try to install optional Bio::DB::HTS (can be provided as an extension instead)
-            '--NO_HTSLIB',
+            # disable installation of bundled dependencies that are provided as dependencies in the easyconfig
+            installopt_deps,
             # a: API, f: FASTA
             # not included:
             # c: cache, should be downloaded by user

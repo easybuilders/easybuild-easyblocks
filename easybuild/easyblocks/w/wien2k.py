@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -74,6 +74,8 @@ class EB_WIEN2k(EasyBlock):
             'mpi_remote': [False, "Whether to initiate MPI calls locally or remotely", CUSTOM],
             'wien_granularity': [True, "Granularity for parallel execution (see manual)", CUSTOM],
             'taskset': [None, "Specifies an optional command for binding a process to a specific core", CUSTOM],
+            'nmatmax': [19000, "Specifies the maximum matrix size", CUSTOM],
+            'nume': [6000, "Specifies the number of states to output.", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -103,7 +105,11 @@ class EB_WIEN2k(EasyBlock):
         # toolchain-dependent values
         comp_answer = None
         if self.toolchain.comp_family() == toolchain.INTELCOMP:  # @UndefinedVariable
-            if LooseVersion(get_software_version("icc")) >= LooseVersion("2011"):
+            if get_software_root('icc'):
+                intelver = get_software_version('icc')
+            elif get_software_root('intel-compilers'):
+                intelver = get_software_version('intel-compilers')
+            if LooseVersion(intelver) >= LooseVersion("2011"):
                 if LooseVersion(self.version) < LooseVersion("17"):
                     comp_answer = 'I'  # Linux (Intel ifort 12.0 compiler + mkl )
                 else:
@@ -184,6 +190,14 @@ class EB_WIEN2k(EasyBlock):
         # configure with patched configure script
         self.log.debug('%s part I (configure)' % self.cfgscript)
 
+        if LooseVersion(self.version) >= LooseVersion('21'):
+            perlroot = get_software_root('Perl')
+            if perlroot is None:
+                raise EasyBuildError("Perl is a required dependency of WIEN2k as of version 21")
+            self.perlbin = os.path.join(perlroot, 'bin', 'perl')
+        else:
+            self.perlbin = ''
+
         cmd = "./%s" % self.cfgscript
         qanda = {
             'Press RETURN to continue': '',
@@ -194,7 +208,7 @@ class EB_WIEN2k(EasyBlock):
             'and you need to know details about your installed  mpi ..) (y/n)': 'y',
             'Q to quit Selection:': 'Q',
             'A Compile all programs (suggested) Q Quit Selection:': 'Q',
-            ' Please enter the full path of the perl program: ': '',
+            'Please enter the full path of the perl program: ': self.perlbin,
             'continue or stop (c/s)': 'c',
             '(like taskset -c). Enter N / your_specific_command:': 'N',
         }
@@ -232,16 +246,22 @@ class EB_WIEN2k(EasyBlock):
             libxcquestion2 = 'Do you want to automatically search for LIBXC installations? (Y,n):'
             libxcquestion3 = 'Please enter the %sdirectory of your LIBXC-installation!:' % libxcstr3
             libxcquestion4 = 'Please enter the lib-directory of your LIBXC-installation (usually lib or lib64)!:'
+            libxcquestion5 = 'LIBXC (usually not needed, ONLY for experts who want to play with different DFT options. '
+            libxcquestion5 += 'It must have been installed before)? (y,N):'
 
             if libxcroot:
                 qanda.update({
                     libxcquestion1: 'y',
                     libxcquestion2: 'n',
                     libxcquestion3: libxcroot,
-                    libxcquestion4: 'lib'
+                    libxcquestion4: 'lib',
+                    libxcquestion5: 'y',
                 })
             else:
-                qanda.update({libxcquestion1: ''})
+                qanda.update({
+                    libxcquestion1: 'N',
+                    libxcquestion5: 'N',
+                })
 
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
@@ -269,9 +289,7 @@ class EB_WIEN2k(EasyBlock):
                     'or accept present choice (enter):': fftw_root,
                     'Is this correct? enter Y (default) or n:': 'Y',
                     'Please specify the name of your FFTW library or accept present choice (enter):': '',
-                    'Please specify your parallel compiler options or accept the recommendations '
-                    '(Enter - default)!:': '',
-                    'Please specify your MPIRUN command or accept the recommendations (Enter - default)!:': '',
+                    'or accept the recommendations (Enter - default)!:': '',
                     # the temporary directory is hardcoded into execution scripts and must exist at runtime
                     'Please enter the full path to your temporary directory:': '/tmp',
                 })
@@ -298,7 +316,10 @@ class EB_WIEN2k(EasyBlock):
                         'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) '
                         'or accept present path (Enter):': elparoot,
                         'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64)!:': 'lib',
+                        'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64):': 'lib',
                         'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp)!:':
+                            elpa_dict['variant'],
+                        'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp):':
                             elpa_dict['variant'],
                     })
                 else:
@@ -320,7 +341,6 @@ class EB_WIEN2k(EasyBlock):
             "%s[ \t]*.*" % os.getenv('F90'),
             "%s[ \t]*.*" % os.getenv('CC'),
             ".*SRC_.*",
-            "Please enter the full path of the perl program:",
         ]
 
         std_qa.update({
@@ -362,6 +382,15 @@ class EB_WIEN2k(EasyBlock):
 
         self.log.debug("Patched file %s: %s", parallel_options_fp, read_file(parallel_options_fp))
 
+        # Set configurable parameters for size of problems.
+        param_subs = [
+            (r'\s+PARAMETER\s+\(\s*NMATMAX\s*=\s*\d+\)', r'      PARAMETER (NMATMAX=%s)' % self.cfg['nmatmax']),
+            (r'\s+PARAMETER\s+\(\s*NUME\s*=\s*\d+\)', r'      PARAMETER (NUME=%s)' % self.cfg['nume']),
+        ]
+        self.log.debug("param_subs = %s" % param_subs)
+        apply_regex_substitutions('SRC_lapw1/param.inc', param_subs)
+        self.log.debug("Patched file %s: %s", 'SRC_lapw1/param.inc', read_file('SRC_lapw1/param.inc'))
+
     def build_step(self):
         """Build WIEN2k by running siteconfig_lapw script again."""
 
@@ -371,7 +400,7 @@ class EB_WIEN2k(EasyBlock):
 
         qanda = {
             'Press RETURN to continue': '\nQ',  # also answer on first qanda pattern with 'Q' to quit
-            ' Please enter the full path of the perl program: ': '',
+            'Please enter the full path of the perl program: ': self.perlbin,
         }
 
         if LooseVersion(self.version) < LooseVersion("17"):
@@ -394,7 +423,6 @@ class EB_WIEN2k(EasyBlock):
             ".*: warning .*",
             ".*Stop.",
             "Compile time errors (if any) were:",
-            "Please enter the full path of the perl program:",
         ]
 
         self.log.debug("no_qa for %s: %s" % (cmd, no_qa))
