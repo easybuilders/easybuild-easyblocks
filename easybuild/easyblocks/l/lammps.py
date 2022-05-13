@@ -175,7 +175,6 @@ class EB_LAMMPS(CMakeMake):
             for cc in KOKKOS_GPU_ARCH_TABLE.keys():
                 KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
 
-
     @staticmethod
     def extra_options(**kwargs):
         """Custom easyconfig parameters for LAMMPS"""
