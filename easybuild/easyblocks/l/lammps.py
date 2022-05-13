@@ -160,7 +160,13 @@ class EB_LAMMPS(CMakeMake):
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
-        self.cur_version = translate_lammps_version(self.version)
+        # version 1.3.2 is used in the test suite to check easyblock can be initialised
+        if self.version != '1.3.2':
+            self.cur_version = translate_lammps_version(self.version)
+        else:
+            self.cur_version = self.version
+
+
         self.ref_version = translate_lammps_version(ref_version)
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             self.kokkos_prefix = 'Kokkos'
