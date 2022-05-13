@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,12 +59,8 @@ class EB_SLEPc(ConfigureMake):
 
         self.slepc_subdir = ''
 
-    def make_builddir(self):
-        """Decide whether or not to build in install dir before creating build dir."""
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
-
-        super(EB_SLEPc, self).make_builddir()
 
     def configure_step(self):
         """Configure SLEPc by setting configure options and running configure script."""
@@ -78,7 +74,7 @@ class EB_SLEPc(ConfigureMake):
         self.log.debug('SLEPC_DIR: %s' % os.getenv('SLEPC_DIR'))
 
         # optional dependencies
-        dep_filter = self.cfg.builddependencies() + ['PETSc', 'Python']
+        dep_filter = [d['name'] for d in self.cfg.builddependencies()] + ['PETSc', 'Python']
         deps = [dep['name'] for dep in self.cfg.dependencies() if dep['name'] not in dep_filter]
         for dep in deps:
             deproot = get_software_root(dep)

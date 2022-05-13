@@ -1,5 +1,5 @@
 ##
-# Copyright 2020 NVIDIA
+# Copyright 2020-2022 NVIDIA
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -53,6 +53,7 @@ class EB_XALT(ConfigureMake):
             'static_cxx': [False, "Statically link libstdc++ and libgcc_s", CUSTOM],
             'syshost': [None, "System name", MANDATORY],
             'transmission': [None, "Data tranmission method", MANDATORY],
+            'file_prefix': [None, "XALT record files prefix", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -126,6 +127,14 @@ class EB_XALT(ConfigureMake):
         # available in the system libraries. Link statically as a workaround.
         if self.cfg['static_cxx'] is True:
             self.cfg.update('configopts', 'LDFLAGS="${LDFLAGS} -static-libstdc++ -static-libgcc"')
+
+        # XALT file prefix (optional). The default is $HOME/.xalt.d/ which
+        # entails that record files are stored separately for each user.
+        # If this option is specified, XALT will write to the specified
+        # location for every user. The file prefix can also be modified
+        # after the install using the XALT_FILE_PREFIX environment variable.
+        if self.cfg['file_prefix']:
+            self.cfg.update('configopts', '--with-xaltFilePrefix=%s' % self.cfg['file_prefix'])
 
         # Configure
         super(EB_XALT, self).configure_step()

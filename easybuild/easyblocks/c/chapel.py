@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
 # Authors::   Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -55,7 +55,11 @@ class EB_Chapel(ConfigureMake):
         """
         A dictionary of possible directories to look for; this is needed since bin/linux64 of chapel is non standard
         """
-        return {
+        guesses = super(EB_Chapel, self).make_module_req_guess()
+        lib_paths = ['lib', 'lib/linux64', 'lib64']
+        guesses.update({
             'PATH': ['bin', 'bin/linux64', 'bin64'],
-            'LD_LIBRARY_PATH': ['lib', 'lib/linux64', 'lib64'],
-        }
+            'LD_LIBRARY_PATH': lib_paths,
+            'LIBRARY_PATH': lib_paths,
+        })
+        return guesses

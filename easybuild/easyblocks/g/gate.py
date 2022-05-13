@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -88,7 +88,7 @@ class EB_GATE(CMakeMake):
 
         # redefine $CFLAGS/$CXXFLAGS via options to build command ('make')
         cflags = os.getenv('CFLAGS')
-        cxxflags = "%s -DGC_DEFAULT_PLATFORM=\\'%s\\'" % (os.getenv('CXXFLAGS'), self.cfg['default_platform'])
+        cxxflags = "%s -DGC_DEFAULT_PLATFORM='\\\"%s\\\"'" % (os.getenv('CXXFLAGS'), self.cfg['default_platform'])
         if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
             # make sure GNU macros are defined by Intel compiler
             cflags += " -gcc"
@@ -214,4 +214,6 @@ class EB_GATE(CMakeMake):
             'files': [os.path.join('bin', subdir, 'Gate')] + extra_files,
             'dirs': dirs,
         }
-        super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["gjs -h | grep 'This executable is compiled with %s as default'"
+                           % self.cfg['default_platform']]
+        super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

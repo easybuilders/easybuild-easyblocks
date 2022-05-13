@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,6 +43,7 @@ from distutils.version import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
@@ -60,16 +61,24 @@ UNLIMITED = 'unlimited'
 
 EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
 
+# We want the following import order:
+# 1. Packages installed into VirtualEnv
+# 2. Packages installed into $EBPYTHONPREFIXES (e.g. our modules)
+# 3. Packages installed in the Python module
+# Note that this script is run after all sys.path manipulation by Python and Virtualenv are done.
+# Hence prepending $EBPYTHONPREFIXES would shadow VirtualEnv packages and
+# appending would NOT shadow the Python-module packages which makes updating packages via ECs impossible.
+# Hence we move all paths which are prefixed with the Python-module path to the back but need to make sure
+# not to move the VirtualEnv paths.
 SITECUSTOMIZE = """
 # sitecustomize.py script installed by EasyBuild,
-# to support picking up Python packages which were installed
-# for multiple Python versions in the same directory
+# to pick up Python packages installed with `--prefix` into folders listed in $%(EBPYTHONPREFIXES)s
 
 import os
 import site
 import sys
 
-# print debug messages when $EBPYTHONPREFIXES_DEBUG is defined
+# print debug messages when $%(EBPYTHONPREFIXES)s_DEBUG is defined
 debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 
 # use prefixes from $EBPYTHONPREFIXES, so they have lower priority than
@@ -78,9 +87,13 @@ debug = os.getenv('%(EBPYTHONPREFIXES)s_DEBUG')
 ebpythonprefixes = os.getenv('%(EBPYTHONPREFIXES)s')
 
 if ebpythonprefixes:
-    postfix = os.path.join('lib', 'python'+'.'.join(map(str,sys.version_info[:2])), 'site-packages')
+    postfix = os.path.join('lib', 'python' + '.'.join(map(str, sys.version_info[:2])), 'site-packages')
     if debug:
         print("[%(EBPYTHONPREFIXES)s] postfix subdirectory to consider in installation directories: %%s" %% postfix)
+
+    potential_sys_prefixes = (getattr(sys, attr, None) for attr in ("real_prefix", "base_prefix", "prefix"))
+    sys_prefix = next(p for p in potential_sys_prefixes if p)
+    base_paths = [p for p in sys.path if p.startswith(sys_prefix)]
 
     for prefix in ebpythonprefixes.split(os.pathsep):
         if debug:
@@ -90,6 +103,9 @@ if ebpythonprefixes:
             if debug:
                 print("[%(EBPYTHONPREFIXES)s] adding site dir: %%s" %% sitedir)
             site.addsitedir(sitedir)
+
+    # Move base python paths to the end of sys.path so modules can override packages from the core Python module
+    sys.path = [p for p in sys.path if p not in base_paths] + base_paths
 """ % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
 
 
@@ -110,6 +126,11 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'install_pip': [False,
+                            "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
+                            "of pip and setuptools into Python. You _must_ then use pip for upgrading "
+                            "pip & setuptools by installing newer versions as extensions!",
+                            CUSTOM],
             'optimized': [True, "Build with expensive, stable optimizations (PGO, etc.) (version >= 3.5.4)", CUSTOM],
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
@@ -123,10 +144,41 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        self.pythonpath = None
-        if self.cfg['ebpythonprefixes']:
-            easybuild_subdir = log_path()
-            self.pythonpath = os.path.join(easybuild_subdir, 'python')
+        # Used for EBPYTHONPREFIXES handler script
+        self.pythonpath = os.path.join(log_path(), 'python')
+
+        ext_defaults = {
+            # Use PYPI_SOURCE as the default for source_urls of extensions.
+            'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
+            # We should enable this (by default) for all extensions because the only installed packages at this point
+            # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
+            # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
+            # which is voluntarily or accidentally installed multiple times.
+            # Example: Upgrading to a higher version after installing new dependencies.
+            'pip_ignore_installed': False,
+            # Python installations must be clean. Requires pip >= 9
+            'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0.0') >= LooseVersion('9.0'),
+        }
+
+        exts_default_options = self.cfg.get_ref('exts_default_options')
+        for key in ext_defaults:
+            if key not in exts_default_options:
+                exts_default_options[key] = ext_defaults[key]
+        self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
+
+        self.install_pip = self.cfg['install_pip']
+        if self.install_pip:
+            if not self._has_ensure_pip():
+                raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
+                                     "is not available in Python %s", self.version)
+
+    def _get_pip_ext_version(self):
+        """Return the pip version from exts_list or None"""
+        for ext in self.cfg.get_ref('exts_list'):
+            # Must be (at least) a name-version tuple
+            if isinstance(ext, tuple) and len(ext) >= 2 and ext[0] == 'pip':
+                return ext[1]
+        return None
 
     def patch_step(self, *args, **kwargs):
         """
@@ -135,6 +187,10 @@ class EB_Python(ConfigureMake):
         """
 
         super(EB_Python, self).patch_step(*args, **kwargs)
+
+        if self.install_pip:
+            # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
+            apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
 
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
@@ -176,6 +232,16 @@ class EB_Python(ConfigureMake):
                     (r"^[ ]+'/lib', '/usr/lib',", ''),
                 ]
 
+            # Replace remaining hardcoded paths like '/usr/include', '/usr/lib' or '/usr/local',
+            # where these paths are appearing inside single quotes (').
+            # Inject sysroot in front to avoid picking up anything outside of sysroot,
+            # We can leverage the single quotes such that we do not accidentally fiddle with other entries,
+            # like /prefix/usr/include .
+            for usr_subdir in ('usr/include', 'usr/lib', 'usr/local'):
+                sysroot_usr_subdir = os.path.join(sysroot, usr_subdir)
+                regex_subs.append((r"'/%s" % usr_subdir, r"'%s" % sysroot_usr_subdir))
+                regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
+
             apply_regex_substitutions(setup_py_fn, regex_subs)
 
     def prepare_for_extensions(self):
@@ -186,6 +252,9 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
+        # don't add user site directory to sys.path (equivalent to python -s)
+        env.setvar('PYTHONNOUSERSITE', '1')
+
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
         msg = "Unsetting '%s' easyconfig parameter before building/installing extensions: %s"
@@ -193,6 +262,19 @@ class EB_Python(ConfigureMake):
             if self.cfg[param]:
                 self.log.debug(msg, param, self.cfg[param])
             self.cfg[param] = ''
+
+        if self.install_pip:
+            # When using ensurepip, then pip must be used to upgrade pip and setuptools
+            # Otherwise it will only copy new files leading to a combination of files from the old and new version
+            use_pip_default = self.cfg['exts_default_options'].get('use_pip')
+            # self.exts is populated in fetch_step
+            for ext in self.exts:
+                if ext['name'] in ('pip', 'setuptools'):
+                    if not ext.get('options', {}).get('use_pip', use_pip_default):
+                        raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
+                                             "you must set 'use_pip=True' for the pip & setuptools extensions. "
+                                             "Found 'use_pip=False' (maybe by default) for %s.",
+                                             ext['name'])
 
     def auto_detect_lto_support(self):
         """Return True, if LTO should be enabled for current toolchain"""
@@ -205,9 +287,15 @@ class EB_Python(ConfigureMake):
                 result = True
         return result
 
+    def _has_ensure_pip(self):
+        """Check if  this Python version has/should have the ensurepip package"""
+        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
+        # And in 2.7.9+: https://docs.python.org/2.7/whatsnew/2.7.html#pep-477-backport-ensurepip-pep-453-to-python-2-7
+        version = LooseVersion(self.version)
+        return version >= LooseVersion('3.4.0') or (version < LooseVersion('3') and version >= LooseVersion('2.7.9'))
+
     def configure_step(self):
         """Set extra configure options."""
-
         # Check for and report distutils user configs which may make the installation fail
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/11009
         for cfg in [os.path.join(os.path.expanduser('~'), name) for name in ('.pydistutils.cfg', 'pydistutils.cfg')]:
@@ -241,12 +329,16 @@ class EB_Python(ConfigureMake):
         # Enable further optimizations at the cost of a longer build
         # Introduced in 3.5.3, fixed in 3.5.4: https://docs.python.org/3.5/whatsnew/changelog.html
         if self.cfg['optimized'] and LooseVersion(self.version) >= LooseVersion('3.5.4'):
-            self.cfg.update('configopts', "--enable-optimizations")
+            # only configure with --enable-optimizations when compiling Python with (recent) GCC compiler
+            if self.toolchain.comp_family() == toolchain.GCC:
+                gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
+                if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
+                    self.cfg.update('configopts', "--enable-optimizations")
 
-        # Pip is included since 3.4 via ensurepip https://docs.python.org/3.4/whatsnew/changelog.html
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
-            # Default, but do it explicitly
-            self.cfg.update('configopts', "--with-ensurepip=upgrade")
+        # When ensurepip is available we explicitely set this.
+        # E.g. in 3.4 it is by default "upgrade", i.e. on which is unexpected when we did set it to off
+        if self._has_ensure_pip():
+            self.cfg.update('configopts', "--with-ensurepip=" + ('no', 'upgrade')[self.install_pip])
 
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
@@ -297,7 +389,7 @@ class EB_Python(ConfigureMake):
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PYTHONNOUSERSITE', '1')
 
         super(EB_Python, self).configure_step()
 
@@ -352,11 +444,16 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
+        # Create non-versioned, relative symlinks for python and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
-            symlink(python_binary_path + self.pyshortver, python_binary_path)
+            symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        if self.install_pip:
+            pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
+            if not os.path.isfile(pip_binary_path):
+                symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
-        if self.cfg['ebpythonprefixes']:
+        if self.cfg.get('ebpythonprefixes'):
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
@@ -375,6 +472,32 @@ class EB_Python(ConfigureMake):
                 symlink(target_lib_dynload, lib_dynload)
                 change_dir(cwd)
 
+    def _sanity_check_ebpythonprefixes(self):
+        """Check that EBPYTHONPREFIXES works"""
+        temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
+        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        mkdir(temp_site_packages_path, parents=True)  # Must exist
+        (out, _) = run_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        out = out.strip()
+        # Output should be a list which we can evaluate directly
+        if not out.startswith('[') or not out.endswith(']'):
+            raise EasyBuildError("Unexpected output for sys.path: %s", out)
+        paths = eval(out)
+        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        try:
+            base_prefix_idx = paths.index(base_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("The Python install path was not added to sys.path (%s)", paths)
+        try:
+            eb_prefix_idx = paths.index(temp_site_packages_path)
+        except ValueError:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s to sys.path (%s)",
+                                 temp_site_packages_path, paths)
+        if eb_prefix_idx > base_prefix_idx:
+            raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s before %s to sys.path (%s)",
+                                 temp_site_packages_path, base_site_packages_path, paths)
+
     def sanity_check_step(self):
         """Custom sanity check for Python."""
 
@@ -387,7 +510,7 @@ class EB_Python(ConfigureMake):
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("which python", log_all=True, simple=False, trace=False)
+            run_cmd("command -v python", log_all=True, simple=False, trace=False)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
             (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not abiflags:
@@ -406,6 +529,9 @@ class EB_Python(ConfigureMake):
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
 
+        if self.cfg.get('ebpythonprefixes'):
+            self._sanity_check_ebpythonprefixes()
+
         pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
@@ -422,10 +548,11 @@ class EB_Python(ConfigureMake):
             "python -c 'import readline'",  # make sure readline support was built correctly
         ]
 
-        if LooseVersion(self.version) >= LooseVersion('3.4.0'):
+        if self.install_pip:
             # Check that pip and setuptools are installed
+            py_maj_version = self.version.split('.')[0]
             custom_paths['files'].extend([
-                os.path.join('bin', pip) for pip in ('pip', 'pip3', 'pip' + self.pyshortver)
+                os.path.join('bin', pip) for pip in ('pip', 'pip' + py_maj_version, 'pip' + self.pyshortver)
             ])
             custom_commands.extend([
                 "python -c 'import pip'",
@@ -454,7 +581,7 @@ class EB_Python(ConfigureMake):
         """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
 
-        if self.pythonpath:
+        if self.cfg.get('ebpythonprefixes'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
 
         return txt

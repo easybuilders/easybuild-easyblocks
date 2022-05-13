@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,6 +60,9 @@ class EB_ESMF(ConfigureMake):
             compiler = comp_family.lower()
         env.setvar('ESMF_COMPILER', compiler)
 
+        env.setvar('ESMF_F90COMPILEOPTS', os.getenv('F90FLAGS'))
+        env.setvar('ESMF_CXXCOMPILEOPTS', os.getenv('CXXFLAGS'))
+
         # specify MPI communications library
         comm = None
         mpi_family = self.toolchain.mpi_family()
@@ -114,7 +117,13 @@ class EB_ESMF(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ESMF."""
 
-        binaries = ['ESMF_Info', 'ESMF_InfoC', 'ESMF_RegridWeightGen', 'ESMF_WebServController']
+        if LooseVersion(self.version) < LooseVersion('8.1.0'):
+            binaries = ['ESMF_Info', 'ESMF_InfoC', 'ESMF_Regrid', 'ESMF_RegridWeightGen',
+                        'ESMF_Scrip2Unstruct', 'ESMF_WebServController']
+        else:
+            binaries = ['ESMF_PrintInfo', 'ESMF_PrintInfoC', 'ESMF_Regrid', 'ESMF_RegridWeightGen',
+                        'ESMF_Scrip2Unstruct', 'ESMF_WebServController']
+
         libs = ['libesmf.a', 'libesmf.%s' % get_shared_lib_ext()]
         custom_paths = {
             'files': [os.path.join('bin', x) for x in binaries] + [os.path.join('lib', x) for x in libs],

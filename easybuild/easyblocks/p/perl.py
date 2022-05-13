@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,12 +28,17 @@ EasyBuild support for Perl, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
+from distutils.version import LooseVersion
+import glob
 import os
+import stat
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.config import build_option
-from easybuild.tools.environment import unset_env_vars
+from easybuild.tools.filetools import adjust_permissions
+from easybuild.tools.environment import setvar, unset_env_vars
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
@@ -90,6 +95,18 @@ class EB_Perl(ConfigureMake):
         if sysroot:
             configopts.append('-Dsysroot=%s' % sysroot)
 
+            configopts.append('-Dlocincpth="%s"' % os.path.join(sysroot, 'usr', 'include'))
+
+            # also specify 'lib*' subdirectories to consider in specified sysroot, via glibpth configure option;
+            # we can list both lib64 and lib here, the Configure script will eliminate non-existing paths...
+            sysroot_lib_paths = [
+                os.path.join(sysroot, 'lib64'),
+                os.path.join(sysroot, 'lib'),
+                os.path.join(sysroot, 'usr', 'lib64'),
+                os.path.join(sysroot, 'usr', 'lib'),
+            ]
+            configopts.append('-Dglibpth="%s"' % ' '.join(sysroot_lib_paths))
+
         configopts = (' '.join(configopts)) % {'installdir': self.installdir}
 
         # if $COLUMNS is set to 0, 'ls' produces a warning like:
@@ -106,8 +123,17 @@ class EB_Perl(ConfigureMake):
         """Test Perl build via 'make test'."""
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
+            parallel = self.cfg['parallel']
             if isinstance(self.cfg['runtest'], string_type):
                 cmd = "make %s" % self.cfg['runtest']
+            elif parallel and LooseVersion(self.version) >= LooseVersion('5.30.0'):
+                # run tests in parallel, see https://perldoc.perl.org/perlhack#Parallel-tests;
+                # only do this for Perl 5.30 and newer (conservative choice, actually supported in Perl >= 5.10.1)
+                cmd = ' '.join([
+                    'TEST_JOBS=%s' % parallel,
+                    'PERL_TEST_HARNESS_ASAP=1',
+                    "make -j %s test_harness" % parallel,
+                ])
             else:
                 cmd = "make test"
 
@@ -124,12 +150,46 @@ class EB_Perl(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PerlModule"
         self.cfg['exts_filter'] = EXTS_FILTER_PERL_MODULES
 
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # define $OPENSSL_PREFIX to ensure that Net-SSLeay extension picks up OpenSSL
+            # from specified sysroot rather than from host OS
+            setvar('OPENSSL_PREFIX', sysroot)
+
+    def post_install_step(self, *args, **kwargs):
+        """
+        Custom post-installation step for Perl: avoid excessive long shebang lines in Perl scripts.
+        """
+
+        # if path to install directory is too long, we need to patch the shebang line in all Perl scripts;
+        # there is a strict limit on the allowed shebang length (~128 characters)
+        bin_path = os.path.join(self.installdir, 'bin')
+        bin_perl = os.path.join(bin_path, 'perl')
+        bin_perl_len = len(bin_perl)
+        if bin_perl_len > 110:
+            self.log.info("Path to 'perl' (%s) is too long (%d), we need to patch the shebang line in bin/*...",
+                          bin_perl, bin_perl_len)
+
+            # first make sure that files in bin/ are writable for current user
+            bin_paths = glob.glob(os.path.join(bin_path, '*'))
+            for bin_path in bin_paths:
+                adjust_permissions(bin_path, stat.S_IWUSR, add=True, relative=True)
+
+            # specify pattern for paths (relative to install dir) of files for which shebang should be patched
+            self.cfg['fix_perl_shebang_for'] = 'bin/*'
+
+        super(EB_Perl, self).post_install_step(*args, **kwargs)
+
     def sanity_check_step(self):
         """Custom sanity check for Perl."""
         majver = self.version.split('.')[0]
+        dirs = ['lib/perl%s/%s' % (majver, self.version)]
+        if get_software_root('groff'):
+            dirs.extend(['man'])
+
         custom_paths = {
             'files': [os.path.join('bin', x) for x in ['perl', 'perldoc']],
-            'dirs': ['lib/perl%s/%s' % (majver, self.version), 'man']
+            'dirs': dirs,
         }
         super(EB_Perl, self).sanity_check_step(custom_paths=custom_paths)
 

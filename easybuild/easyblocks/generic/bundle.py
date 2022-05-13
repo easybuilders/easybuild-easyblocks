@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Jasper Grimm (University of York)
 """
 import copy
 import os
@@ -58,6 +59,8 @@ class Bundle(EasyBlock):
             'altversion': [None, "Software name of dependency to use to define $EBVERSION for this bundle", CUSTOM],
             'default_component_specs': [{}, "Default specs to use for every component", CUSTOM],
             'components': [(), "List of components to install: tuples w/ name, version and easyblock to use", CUSTOM],
+            'sanity_check_components': [[], "List of components for which to run sanity checks", CUSTOM],
+            'sanity_check_all_components': [False, "Enable sanity checks for all components", CUSTOM],
             'default_easyblock': [None, "Default easyblock to use for components", CUSTOM],
         })
         return EasyBlock.extra_options(extra_vars)
@@ -71,6 +74,9 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances for components
         self.comp_cfgs = []
 
+        # list of EasyConfig instances of components for which to run sanity checks
+        self.comp_cfgs_sanity_check = []
+
         # list of sources for bundle itself *must* be empty
         if self.cfg['sources']:
             raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
@@ -83,6 +89,20 @@ class Bundle(EasyBlock):
         # list of checksums for patches (must be included after checksums for sources)
         checksums_patches = []
 
+        if self.cfg['sanity_check_components'] and self.cfg['sanity_check_all_components']:
+            raise EasyBuildError("sanity_check_components and sanity_check_all_components cannot be enabled together")
+
+        # backup and reset general sanity checks from main body of ec, if component-specific sanity checks are enabled
+        # necessary to avoid:
+        # - duplicating the general sanity check across all components running sanity checks
+        # - general sanity checks taking precedence over those defined in a component's easyblock
+        self.backup_sanity_paths = self.cfg['sanity_check_paths']
+        self.backup_sanity_cmds = self.cfg['sanity_check_commands']
+        if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
+            # reset general sanity checks, to be restored later
+            self.cfg['sanity_check_paths'] = {}
+            self.cfg['sanity_check_commands'] = {}
+
         for comp in self.cfg['components']:
             comp_name, comp_version, comp_specs = comp[0], comp[1], {}
             if len(comp) == 3:
@@ -90,21 +110,37 @@ class Bundle(EasyBlock):
 
             comp_cfg = self.cfg.copy()
 
-            easyblock = comp_specs.get('easyblock') or self.cfg['default_easyblock']
-            if easyblock is None:
-                raise EasyBuildError("No easyblock specified for component %s v%s", comp_cfg['name'],
-                                     comp_cfg['version'])
-            elif easyblock == 'Bundle':
+            comp_cfg['name'] = comp_name
+            comp_cfg['version'] = comp_version
+
+            # determine easyblock to use for this component
+            # - if an easyblock is specified explicitely, that will be used
+            # - if not, a software-specific easyblock will be considered by get_easyblock_class
+            # - if no easyblock was found, default_easyblock is considered
+            comp_easyblock = comp_specs.get('easyblock')
+            easyblock_class = get_easyblock_class(comp_easyblock, name=comp_name, error_on_missing_easyblock=False)
+            if easyblock_class is None:
+                if self.cfg['default_easyblock']:
+                    easyblock = self.cfg['default_easyblock']
+                    easyblock_class = get_easyblock_class(easyblock)
+
+                if easyblock_class is None:
+                    raise EasyBuildError("No easyblock found for component %s v%s", comp_name, comp_version)
+                else:
+                    self.log.info("Using default easyblock %s for component %s", easyblock, comp_name)
+            else:
+                easyblock = easyblock_class.__name__
+                self.log.info("Using easyblock %s for component %s", easyblock, comp_name)
+
+            if easyblock == 'Bundle':
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
-            comp_cfg.easyblock = get_easyblock_class(easyblock, name=comp_cfg['name'])
+            comp_cfg.easyblock = easyblock_class
 
             # make sure that extra easyconfig parameters are known, so they can be set
             extra_opts = comp_cfg.easyblock.extra_options()
             comp_cfg.extend_params(copy.deepcopy(extra_opts))
 
-            comp_cfg['name'] = comp_name
-            comp_cfg['version'] = comp_version
             comp_cfg.generate_template_values()
 
             # do not inherit easyblock to use from parent (since that would result in an infinite loop in install_step)
@@ -162,6 +198,11 @@ class Bundle(EasyBlock):
 
         self.cfg.enable_templating = True
 
+        # restore general sanity checks if using component-specific sanity checks
+        if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
+            self.cfg['sanity_check_paths'] = self.backup_sanity_paths
+            self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
     def check_checksums(self):
         """
         Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
@@ -179,15 +220,19 @@ class Bundle(EasyBlock):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
         pass
 
+    def get_altroot_and_altversion(self):
+        """Get altroot and altversion, if they are defined"""
+        altroot = None
+        if self.cfg['altroot']:
+            altroot = get_software_root(self.cfg['altroot'])
+        altversion = None
+        if self.cfg['altversion']:
+            altversion = get_software_version(self.cfg['altversion'])
+        return altroot, altversion
+
     def configure_step(self):
         """Collect altroot/altversion info."""
-        # pick up altroot/altversion, if they are defined
-        self.altroot = None
-        if self.cfg['altroot']:
-            self.altroot = get_software_root(self.cfg['altroot'])
-        self.altversion = None
-        if self.cfg['altversion']:
-            self.altversion = get_software_version(self.cfg['altversion'])
+        self.altroot, self.altversion = self.get_altroot_and_altversion()
 
     def build_step(self):
         """Do nothing."""
@@ -244,6 +289,10 @@ class Bundle(EasyBlock):
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
 
+            # check if sanity checks are enabled for the component
+            if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
+                self.comp_cfgs_sanity_check.append(comp)
+
             # run relevant steps
             for step_name in ['patch', 'configure', 'build', 'install']:
                 if step_name in cfg['skipsteps']:
@@ -266,8 +315,14 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
+            # close log for this component
+            comp.close_log()
+
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
+        if not self.altroot and not self.altversion:
+            # check for altroot and altversion (needed here for a module only build)
+            self.altroot, self.altversion = self.get_altroot_and_altversion()
         if 'altroot' not in kwargs:
             kwargs['altroot'] = self.altroot
         if 'altversion' not in kwargs:
@@ -276,7 +331,8 @@ class Bundle(EasyBlock):
 
     def sanity_check_step(self, *args, **kwargs):
         """
-        Nothing is being installed, so just being able to load the (fake) module is sufficient
+        If component sanity checks are enabled, run sanity checks for the desired components listed.
+        If nothing is being installed, just being able to load the (fake) module is sufficient
         """
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super(Bundle, self).sanity_check_step(*args, **kwargs)
@@ -285,3 +341,12 @@ class Bundle(EasyBlock):
             fake_mod_data = self.load_fake_module(purge=True)
             self.log.debug("Cleaning up after testing loading of module")
             self.clean_up_fake_module(fake_mod_data)
+
+        # run sanity checks for specific components
+        cnt = len(self.comp_cfgs_sanity_check)
+        for idx, comp in enumerate(self.comp_cfgs_sanity_check):
+            comp_name, comp_ver = comp.cfg['name'], comp.cfg['version']
+            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp_name, comp_ver, idx + 1, cnt)
+            self.log.info("Starting sanity check step for component %s v%s", comp_name, comp_ver)
+
+            comp.run_step('sanity_check', [lambda x: x.sanity_check_step])

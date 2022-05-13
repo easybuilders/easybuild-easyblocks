@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -172,15 +172,18 @@ class EB_QuantumESPRESSO(ConfigureMake):
             repls.append(('CPP', cpp, False))
             env.setvar('CPP', cpp)
 
-            # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
-            env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
+        # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
+        env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
             repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
             repls.append(('FFLAGS', '-assume byterecl', True))
         elif comp_fam == toolchain.GCC:
-            repls.append(('F90FLAGS', '-cpp', True))
+            f90_flags = ['-cpp']
+            if LooseVersion(get_software_version('GCC')) >= LooseVersion('10'):
+                f90_flags.append('-fallow-argument-mismatch')
+            repls.append(('F90FLAGS', ' '.join(f90_flags), True))
 
         super(EB_QuantumESPRESSO, self).configure_step()
 
@@ -404,8 +407,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # extract build targets as list
         targets = self.cfg['buildopts'].split()
 
-        # build list of expected binaries based on make targets
-        bins = ["iotk", "iotk.x", "iotk_print_kinds.x"]
+        bins = []
+        if LooseVersion(self.version) < LooseVersion("6.7"):
+            # build list of expected binaries based on make targets
+            bins.extend(["iotk", "iotk.x", "iotk_print_kinds.x"])
 
         if 'cp' in targets or 'all' in targets:
             bins.extend(["cp.x", "wfdd.x"])

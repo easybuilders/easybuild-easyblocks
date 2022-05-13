@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for SuiteSparse, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 import fileinput
 import re
@@ -78,6 +79,15 @@ class EB_SuiteSparse(ConfigureMake):
         self.cfg.update('buildopts', 'BLAS="%s"' % os.getenv('LIBBLAS_MT'))
         self.cfg.update('buildopts', 'LAPACK="%s"' % os.getenv('LIBLAPACK_MT'))
 
+        # Get CUDA and set it up appropriately
+        cuda = get_software_root('CUDA')
+        if cuda:
+            cuda_cc_space_sep = self.cfg.get_cuda_cc_template_value('cuda_cc_space_sep').replace('.', '').split()
+            nvcc_gencode = ' '.join(['-gencode=arch=compute_' + x + ',code=sm_' + x for x in cuda_cc_space_sep])
+            cfgvars.update({
+                'NVCCFLAGS': ' '.join(['-Xcompiler', '-fPIC', '-O3', nvcc_gencode]),
+            })
+
         # Get METIS or ParMETIS settings
         metis = get_software_root('METIS')
         parmetis = get_software_root('ParMETIS')
@@ -111,15 +121,18 @@ class EB_SuiteSparse(ConfigureMake):
         try:
             for line in fileinput.input(fp, inplace=1, backup='.orig'):
                 for (var, val) in list(cfgvars.items()):
-                    orig_line = line
-                    # for variables in cfgvars, substiture lines assignment
-                    # in the file, whatever they are, by assignments to the
-                    # values in cfgvars
-                    line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
-                                  r"\1 %s # patched by EasyBuild\n" % val,
-                                  line)
-                    if line != orig_line:
-                        cfgvars.pop(var)
+                    # Let's overwrite NVCCFLAGS at the end, since the line breaks and the fact that it appears multiple
+                    # times makes it tricky to handle it properly
+                    if var != 'NVCCFLAGS':
+                        orig_line = line
+                        # for variables in cfgvars, substiture lines assignment
+                        # in the file, whatever they are, by assignments to the
+                        # values in cfgvars
+                        line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
+                                      r"\1 %s # patched by EasyBuild\n" % val,
+                                      line)
+                        if line != orig_line:
+                            cfgvars.pop(var)
                 sys.stdout.write(line)
         except IOError as err:
             raise EasyBuildError("Failed to patch %s in: %s", fp, err)
