@@ -27,10 +27,13 @@
 @author: Pavel Grochal (INUITS)
 @author: Kenneth Hoste (Ghent University)
 @author: Alan O'Cais (Juelich Supercomputing Centre)
+@author: Arkadiy Davydov (University of Warwick)
 """
 
 import os
+import re
 import tempfile
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -90,6 +93,7 @@ KOKKOS_CPU_MAPPING = {
     'broadwell': 'BDW',
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
+    'icelake': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
@@ -117,6 +121,31 @@ KOKKOS_GPU_ARCH_TABLE = {
 PKG_PREFIX = 'PKG_'
 PKG_USER_PREFIX = PKG_PREFIX + 'USER-'
 
+# lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
+ref_version = '29Sep2021'
+
+
+def translate_lammps_version(version):
+    """Translate the LAMMPS version into something that can be used in a comparison"""
+    items = [x for x in re.split('(\d+)', version) if x]
+    if len(items) != 3:
+        raise ValueError("Version %s does not have 3 elements" % version)
+    month_map = {
+       "JAN": '01',
+       "FEB": '02',
+       "MAR": '03',
+       "APR": '04',
+       "MAY": '05',
+       "JUN": '06',
+       "JUL": '07',
+       "AUG": '08',
+       "SEP": '09',
+       "OCT": '10',
+       "NOV": '11',
+       "DEC": '12'
+    }
+    return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+
 
 class EB_LAMMPS(CMakeMake):
     """
@@ -130,6 +159,16 @@ class EB_LAMMPS(CMakeMake):
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
+
+        self.cur_version = translate_lammps_version(self.version)
+        self.ref_version = translate_lammps_version(ref_version)
+        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+           self.kokkos_prefix = 'Kokkos'
+        else:
+           self.kokkos_prefix = 'KOKKOS'
+           for cc in KOKKOS_GPU_ARCH_TABLE.keys():
+               KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
+
 
     @staticmethod
     def extra_options(**kwargs):
@@ -256,16 +295,24 @@ class EB_LAMMPS(CMakeMake):
             processor_arch, gpu_arch = get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
 
             if self.toolchain.options.get('openmp', None):
-                self.cfg.update('configopts', '-DKokkos_ENABLE_OPENMP=yes')
-                self.cfg.update('configopts', '-DKokkos_ARCH_%s=yes' % processor_arch)
+                self.cfg.update('configopts', '-D%s_ENABLE_OPENMP=yes' % self.kokkos_prefix)
 
             # if KOKKOS and CUDA
             if self.cuda:
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
-                self.cfg.update('configopts', '-DKokkos_ENABLE_CUDA=yes')
-                self.cfg.update('configopts', '-DKokkos_ARCH_%s=yes' % gpu_arch)
+                self.cfg.update('configopts', '-D%s_ENABLE_CUDA=yes' % self.kokkos_prefix)
                 self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                 self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
+                if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+                    self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
+                    self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, gpu_arch))
+                else:
+                    self.cfg.update('configopts', '-D%s_ARCH="%s;%s"' % (self.kokkos_prefix, processor_arch, gpu_arch))
+            else:
+                if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+                    self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
+                else:
+                    self.cfg.update('configopts', '-D%s_ARCH="%s"' % (self.kokkos_prefix, processor_arch))
 
         # CUDA only
         elif self.cuda:
