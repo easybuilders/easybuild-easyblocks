@@ -163,11 +163,11 @@ class EB_LAMMPS(CMakeMake):
         self.cur_version = translate_lammps_version(self.version)
         self.ref_version = translate_lammps_version(ref_version)
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
-           self.kokkos_prefix = 'Kokkos'
+            self.kokkos_prefix = 'Kokkos'
         else:
-           self.kokkos_prefix = 'KOKKOS'
-           for cc in KOKKOS_GPU_ARCH_TABLE.keys():
-               KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
+            self.kokkos_prefix = 'KOKKOS'
+            for cc in KOKKOS_GPU_ARCH_TABLE.keys():
+                KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
 
 
     @staticmethod
