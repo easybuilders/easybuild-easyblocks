@@ -26,6 +26,7 @@
 EasyBuild support for OpenMPI, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Robert Mijakovic (LuxProvide)
 """
 import os
 import re
@@ -124,6 +125,8 @@ class EB_OpenMPI(ConfigureMake):
                 # auto-detect based on available OS packages
                 os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
+            # for OpenMPI v5.x, the verbs support is removed, only UCX is available
+            # see https://github.com/open-mpi/ompi/pull/6270
             if LooseVersion(self.version) <= LooseVersion('5.0.0'):
                 if verbs:
                     self.cfg.update('configopts', '--with-verbs')
