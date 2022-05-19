@@ -96,7 +96,8 @@ class EB_SuperLU(CMakeMake):
         elif toolchain_blas == 'FlexiBLAS':
             # Unfortunately, FlexiBLAS is not recognized by FindBLAS from CMake,
             # we have to specify the FlexiBLAS library manually
-            openblas_lib = os.path.join(get_software_root('FlexiBLAS'), get_software_libdir('FlexiBLAS'), "libflexiblas.so")
+            openblas_lib = os.path.join(get_software_root('FlexiBLAS'), get_software_libdir('FlexiBLAS'), 
+                "libflexiblas.so")
             self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
 
         else:
