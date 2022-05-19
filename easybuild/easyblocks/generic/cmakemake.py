@@ -123,10 +123,7 @@ class CMakeMake(ConfigureMake):
         # All options are of the form '-D<key>=<value>'
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
-        if new_opts:
-            if cfg_configopts:
-                new_opts += ' '
-            self.cfg['configopts'] = new_opts + ' ' + cfg_configopts
+        self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
