@@ -26,6 +26,9 @@
 EasyBuild support for building and installing the SuperLU library, implemented as an easyblock
 
 @author: Xavier Besseron (University of Luxembourg)
+
+Updated to use FlexiBlas, updated for version 5.3.0, come cleanup
+Author: J. Sassmannshausen (ICL/UK)
 """
 
 import os
@@ -44,7 +47,7 @@ class EB_SuperLU(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
-        extra_vars['build_shared_libs'][0] = False
+        extra_vars['build_shared_libs'][0] = False 
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
@@ -62,6 +65,8 @@ class EB_SuperLU(CMakeMake):
         """
         # Make sure not to build the slow BLAS library included in the package
         self.cfg.update('configopts', '-Denable_blaslib=OFF')
+        # At least for version 5.3.0 the name has changed:
+        self.cfg.update('configopts', '-Denable_internal_blaslib=OFF')
 
         # Set the BLAS library to use
         # For this, use the BLA_VENDOR option from the FindBLAS module of CMake
@@ -84,21 +89,8 @@ class EB_SuperLU(CMakeMake):
                 # 'Intel' -> For older versions of mkl 32 and 64 bit
                 self.cfg.update('configopts', '-DBLA_VENDOR="Intel"')
 
-        elif toolchain_blas in ['ACML', 'ATLAS']:
+        elif toolchain_blas in ['ACML', 'ATLAS', 'OpenBLAS', 'FlexiBLAS']:
             self.cfg.update('configopts', '-DBLA_VENDOR="%s"' % toolchain_blas)
-
-        elif toolchain_blas == 'OpenBLAS':
-            # Unfortunately, OpenBLAS is not recognized by FindBLAS from CMake,
-            # we have to specify the OpenBLAS library manually
-            openblas_lib = os.path.join(get_software_root('OpenBLAS'), get_software_libdir('OpenBLAS'), "libopenblas.a")
-            self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
-
-        elif toolchain_blas == 'FlexiBLAS':
-            # Unfortunately, FlexiBLAS is not recognized by FindBLAS from CMake,
-            # we have to specify the FlexiBLAS library manually
-            openblas_lib = os.path.join(get_software_root('FlexiBLAS'), get_software_libdir('FlexiBLAS'), 
-                "libflexiblas.so")
-            self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;-pthread"' % openblas_lib)
 
         else:
             # This BLAS library is not supported yet
