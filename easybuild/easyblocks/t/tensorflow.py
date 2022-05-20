@@ -191,7 +191,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('typing_extensions', '2.4.0:'): 'typing_extensions_archive',
         ('wrapt', '2.0.0:'): 'wrapt',
     }
-    
+
     dependency_mapping = dict((dep_name, tf_name)
                               for (dep_name, version_range), tf_name in available_system_libs.items()
                               if is_version_ok(version_range))
