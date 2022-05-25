@@ -520,7 +520,7 @@ class EB_Clang(CMakeMake):
 
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         if self.cfg['python_bindings']:
-            custom_paths['files'].extend(["lib/python/clang/cindex.py"])
+            custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
             custom_commands.extend(["python -c 'import clang'"])
 
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
