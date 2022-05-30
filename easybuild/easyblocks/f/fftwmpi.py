@@ -32,6 +32,7 @@ import os
 import glob
 
 from easybuild.easyblocks.fftw import EB_FFTW
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.filetools import remove
 
