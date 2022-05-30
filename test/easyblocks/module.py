@@ -46,6 +46,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
 from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
