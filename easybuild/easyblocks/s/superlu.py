@@ -113,6 +113,7 @@ class EB_SuperLU(CMakeMake):
                 flexiblas_lib = os.path.join(get_software_root('FlexiBLAS'), get_software_libdir('FlexiBLAS'),
                                              "libflexiblas.so")
                 self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s;pthread"' % flexiblas_lib)
+
         else:
             # This BLAS library is not supported yet
             raise EasyBuildError("BLAS library '%s' is not supported yet", toolchain_blas)
