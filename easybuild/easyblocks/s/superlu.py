@@ -47,7 +47,7 @@ class EB_SuperLU(CMakeMake):
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
-        extra_vars['build_shared_libs'][0] = True
+        extra_vars['build_shared_libs'][0] = False
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
