@@ -486,7 +486,9 @@ class EB_Clang(CMakeMake):
 
     def post_install_step(self):
         """Install python bindings."""
-        # do it in post_install_step so that it is not done more than once in multi_deps context
+        super(EB_Clang, self).post_install_step()
+
+        # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
