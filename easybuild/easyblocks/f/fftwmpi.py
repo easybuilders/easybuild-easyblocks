@@ -34,7 +34,7 @@ import glob
 from easybuild.easyblocks.fftw import EB_FFTW
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.filetools import remove
-from easybuild.tools.utilities import nub
+
 
 class EB_FFTW_period_MPI(EB_FFTW):
     """Support for building/installing FFTW.MPI"""
