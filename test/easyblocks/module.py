@@ -260,6 +260,10 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         for base in copy.copy(bases):
             bases.extend(base.__bases__)
 
+        if app_class == EB_FFTW_period_MPI:
+            # $EBROOTFFTW must be set for FFTW.MPI, because of dependency check on FFTW in prepare_step
+            os.environ['EBROOTFFTW'] = '/fake/software/FFTW/3.3.10'
+
         if app_class == EB_imkl_minus_FFTW:
             # $EBROOTIMKL must be set for imkl-FFTW, because of dependency check on imkl in prepare_step
             os.environ['EBROOTIMKL'] = '/fake/software/imkl/2021.4.0/mkl/2021.4.0'
