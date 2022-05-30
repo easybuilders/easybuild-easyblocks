@@ -26,9 +26,7 @@
 EasyBuild support for building and installing the SuperLU library, implemented as an easyblock
 
 @author: Xavier Besseron (University of Luxembourg)
-
-Updated to use FlexiBlas, updated for version 5.3.0, come cleanup
-Author: J. Sassmannshausen (ICL/UK)
+@author: J. Sassmannshausen (ICL/UK)
 """
 
 import os
