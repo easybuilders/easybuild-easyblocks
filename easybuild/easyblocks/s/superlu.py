@@ -97,6 +97,7 @@ class EB_SuperLU(CMakeMake):
         elif toolchain_blas in ['ACML', 'ATLAS']:
             self.cfg.update('configopts', '-DBLA_VENDOR="%s"' % toolchain_blas)
 
+        elif toolchain_blas == 'OpenBLAS':
             if LooseVersion(cmake_version) >= LooseVersion('3.6'):
                 self.cfg.update('configopts', '-DBLA_VENDOR="%s"' % toolchain_blas)
             else:
