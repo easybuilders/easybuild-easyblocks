@@ -66,7 +66,6 @@ class EB_SuperLU(CMakeMake):
         superlu_version = self.version
         if LooseVersion(superlu_version) >= LooseVersion('5.3'):
             self.cfg.update('configopts', '-Denable_internal_blaslib=OFF')
-
         else:
             self.cfg.update('configopts', '-Denable_blaslib=OFF')
 
