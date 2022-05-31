@@ -32,6 +32,7 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 @author: Jens Timmerman (Ghent University)
 @author: Andy Georges (Ghent University)
 @author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
+@author: Jasper Grimm (University of York)
 """
 
 import os
@@ -106,4 +107,6 @@ class EB_MrBayes(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["mb <<< %s" % x for x in ["about", "help"]]
+
+        super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
