@@ -28,6 +28,8 @@ EasyBuild support for cuDNN, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 @author: Robert Mijakovic (LuxProvide)
 """
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture
@@ -38,17 +40,33 @@ class EB_cuDNN(Tarball):
 
     def __init__(self, *args, **kwargs):
         """ Init the cuDNN easyblock adding a new cudnnarch template var """
-        myarch = get_cpu_architecture()
-        if myarch == AARCH64:
-            cudnnarch = 'aarch64sbsa'
-        elif myarch == POWER:
-            cudnnarch = 'ppc64le'
-        elif myarch == X86_64:
-            cudnnarch = 'x64'
-        else:
-            raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
 
+        # Need to call super's init first, so we can use self.version
         super(EB_cuDNN, self).__init__(*args, **kwargs)
+
+        # Generated cudnnarch template value for this system
+        myarch = get_cpu_architecture()
+        # Strings needed for tarballs downloaded from https://developer.download.nvidia.com/compute/redist/cudnn/
+        if LooseVersion(self.version) < LooseVersion('8.3.3'):
+            if myarch == AARCH64:
+                cudnnarch = 'aarch64sbsa'
+            elif myarch == POWER:
+                cudnnarch = 'ppc64le'
+            elif myarch == X86_64:
+                cudnnarch = 'x64'
+            else:
+                raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
+        # Strings needed for manually downloaded tarballs, as sources are no longer present at
+        # https://developer.download.nvidia.com/compute/redist/cudnn/ from 8.3.3 onwards
+        else:
+            if myarch == AARCH64:
+                cudnnarch = 'sbsa'
+            elif myarch == POWER:
+                cudnnarch = 'ppc64le'
+            elif myarch == X86_64:
+                cudnnarch = 'x86_64'
+            else:
+                raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
 
         self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
