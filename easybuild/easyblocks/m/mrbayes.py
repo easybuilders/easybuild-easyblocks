@@ -48,6 +48,14 @@ from easybuild.tools.run import run_cmd
 class EB_MrBayes(ConfigureMake):
     """Support for building/installing MrBayes."""
 
+    def __init__(self, *args, **kwargs):
+        super(EB_MrBayes, self).__init__(*args, **kwargs)
+        # For later MrBayes versions, no longer need to use this easyblock
+        last_supported_version = '3.2.6'
+        if LooseVersion(self.version) > LooseVersion(last_supported_version):
+            raise EasyBuildError("Please use the ConfigureMake easyblock for %s versions > %s", self.name,
+                                 last_supported_version)
+
     def configure_step(self):
         """Configure build: <single-line description how this deviates from standard configure>"""
 
