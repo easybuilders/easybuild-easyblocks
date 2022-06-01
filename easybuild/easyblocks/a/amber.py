@@ -176,7 +176,7 @@ class EB_Amber(CMakeMake):
         if get_software_root('netCDF-Fortran'):
             external_libs_list.append('netcdf-fortran')
             netcdf_fortran_root = get_software_root('netCDF-Fortran')
-            self.cfg.update('configopts', '-DNetCDF_INCLUDES=%s/include' % netcdf_fortran_root)
+            #self.cfg.update('configopts', '-DNetCDF_INCLUDES=%s/include' % netcdf_fortran_root)
         if get_software_root('zlib'):
             external_libs_list.append('zlib')
         if get_software_root('Boost'):
@@ -185,8 +185,8 @@ class EB_Amber(CMakeMake):
             external_libs_list.append('pnetcdf')
 
         # Force to use BLAS and LAPACK from environment variables
-        self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s"' % os.getenv('LIBBLAS'))
-        self.cfg.update('configopts', '-DLAPACK_LIBRARIES="%s"' % os.getenv('LIBLAPACK'))
+        # self.cfg.update('configopts', '-DBLAS_LIBRARIES="%s"' % os.getenv('LIBBLAS'))
+        # self.cfg.update('configopts', '-DLAPACK_LIBRARIES="%s"' % os.getenv('LIBLAPACK'))
 
         # Force libs for available deps (see cmake/3rdPartyTools.cmake in Amber source for list of 3rd party libs)
         # This provides an extra layer of checking but should already be handled by TRUST_SYSTEM_LIBS=TRUE
