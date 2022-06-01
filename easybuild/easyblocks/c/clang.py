@@ -553,11 +553,11 @@ class EB_Clang(CMakeMake):
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
                                           for cc in cuda_cc])
-            # From version 12, and hopefully onwards, the naming of the CUDA
+            # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
             # easier to check for the bitcode files we expect
-            if LooseVersion(self.version) >= LooseVersion('12.0'):
+            if LooseVersion(self.version) >= LooseVersion('13.0'):
                 custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
                                               for cc in cuda_cc])
         # If building for AMDGPU check that OpenMP target library was created
