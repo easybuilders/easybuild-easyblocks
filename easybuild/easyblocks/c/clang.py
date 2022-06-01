@@ -72,6 +72,7 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 # List of all supported CUDA toolkit versions supported by LLVM
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
+
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
 
