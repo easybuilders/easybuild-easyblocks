@@ -543,8 +543,8 @@ class EB_Clang(CMakeMake):
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
-            # The static 'nvptx.a' library is not built in version 14
-            if LooseVersion(self.version) < LooseVersion('14.0'):
+            # The static 'nvptx.a' library is not built from version 12 onwards
+            if LooseVersion(self.version) < LooseVersion('12.0'):
                 custom_paths['files'].append("lib/libomptarget-nvptx.a")
             ec_cuda_cc = self.cfg['cuda_compute_capabilities']
             cfg_cuda_cc = build_option('cuda_compute_capabilities')
@@ -553,11 +553,11 @@ class EB_Clang(CMakeMake):
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
                                           for cc in cuda_cc])
-            # From version 13, and hopefully onwards, the naming of the CUDA
+            # From version 12, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
             # easier to check for the bitcode files we expect
-            if LooseVersion(self.version) >= LooseVersion('13.0'):
+            if LooseVersion(self.version) >= LooseVersion('12.0'):
                 custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
                                               for cc in cuda_cc])
         # If building for AMDGPU check that OpenMP target library was created
