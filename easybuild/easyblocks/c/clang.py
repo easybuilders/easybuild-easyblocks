@@ -69,6 +69,8 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
                       'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx90c',
                       'gfx1010', 'gfx1030', 'gfx1031']
 
+# List of all supported CUDA toolkit versions supported by LLVM
+CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
@@ -551,7 +553,11 @@ class EB_Clang(CMakeMake):
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             # We need the CUDA capability in the form of '75' and not '7.5'
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
+            if LooseVersion(self.version) >= LooseVersion('11.0') and LooseVersion(self.version) <= LooseVersion('13.0'):
+                custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
+                                          for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
+            else:
+                custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
                                           for cc in cuda_cc])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
