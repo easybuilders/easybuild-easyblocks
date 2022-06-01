@@ -555,10 +555,10 @@ class EB_Clang(CMakeMake):
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             if LooseVersion('11.0') < LooseVersion(self.version) < LooseVersion('13.0'):
                 custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
-                                          for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
+                                             for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
             else:
                 custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
-                                          for cc in cuda_cc])
+                                             for cc in cuda_cc])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
