@@ -67,7 +67,8 @@ class EB_libQGLViewer(ConfigureMake):
                     addition = '-' + addition
             custom_paths = {
                 'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
-                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, 'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
+                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, 'lib64/libQGLViewer'+addition+'.%s' \
+                                  % shlib_ext)],
                 'dirs': ['include/QGLViewer'],
             }
 
