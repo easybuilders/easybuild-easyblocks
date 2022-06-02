@@ -31,7 +31,6 @@ EasyBuild support for building and installing libQGLViewer, implemented as an ea
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.modules import get_software_root, get_software_version
 from distutils.version import LooseVersion
 
 
@@ -55,20 +54,21 @@ class EB_libQGLViewer(ConfigureMake):
         From version 2.8.0 onwards qt version also gets added to the lib file names.
         """
         if LooseVersion(self.version) < LooseVersion("2.8.0"):
-        	custom_paths = {
-            	'files': [('lib/libQGLViewer.prl', 'lib64/libQGLViewer.prl'),
-            	          ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
-            	'dirs': ['include/QGLViewer'],
-        	}
+            custom_paths = {
+                'files': [('lib/libQGLViewer.prl', 'lib64/libQGLViewer.prl'),
+                          ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
+                'dirs': ['include/QGLViewer'],
+            }
         else:
-                for dep in self.cfg.dependencies():
-                       if (dep['name'][0] == 'Q' and dep['name'][1] == 't'):
-                            addition = dep['name'].lower()
-                addition = '-' + addition
-                custom_paths = {
-            	'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
-            	          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, 'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
-            	'dirs': ['include/QGLViewer'],
-        	}
+            addition = ''
+            for dep in self.cfg.dependencies():
+                if (dep['name'][0] == 'Q' and dep['name'][1] == 't'):
+                    addition = dep['name'].lower()
+                    addition = '-' + addition
+            custom_paths = {
+                'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
+                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, 'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
+                'dirs': ['include/QGLViewer'],
+            }
 
         super(EB_libQGLViewer, self).sanity_check_step(custom_paths=custom_paths)
