@@ -69,6 +69,9 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
                       'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx90c',
                       'gfx1010', 'gfx1030', 'gfx1031']
 
+# List of all supported CUDA toolkit versions supported by LLVM
+CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
+
 
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
@@ -543,16 +546,20 @@ class EB_Clang(CMakeMake):
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
-            # The static 'nvptx.a' library is not built in version 14
-            if LooseVersion(self.version) < LooseVersion('14.0'):
+            # The static 'nvptx.a' library is not built from version 12 onwards
+            if LooseVersion(self.version) < LooseVersion('12.0'):
                 custom_paths['files'].append("lib/libomptarget-nvptx.a")
             ec_cuda_cc = self.cfg['cuda_compute_capabilities']
             cfg_cuda_cc = build_option('cuda_compute_capabilities')
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             # We need the CUDA capability in the form of '75' and not '7.5'
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
-                                          for cc in cuda_cc])
+            if LooseVersion('11.0') < LooseVersion(self.version) < LooseVersion('13.0'):
+                custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
+                                             for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
+            else:
+                custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
+                                             for cc in cuda_cc])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
