@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,6 +67,11 @@ class EB_NEURON(CMakeMake):
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
+
+            # make sure we're using the correct configure command
+            # (required because custom easyconfig parameters from CMakeMake are picked up)
+            self.cfg['configure_cmd'] = "./configure"
+
             # enable support for distributed simulations if desired
             if self.cfg['paranrn']:
                 self.cfg.update('configopts', '--with-paranrn')
