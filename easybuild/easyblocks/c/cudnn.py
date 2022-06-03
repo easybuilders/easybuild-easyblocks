@@ -44,9 +44,10 @@ class EB_cuDNN(Tarball):
         # Need to call super's init first, so we can use self.version
         super(EB_cuDNN, self).__init__(*args, **kwargs)
 
-        # Generated cudnnarch template value for this system
+        # Generate cudnnarch template value for this system
+        cudnnarch = False    
         myarch = get_cpu_architecture()
-        # Strings needed for tarballs downloaded from https://developer.download.nvidia.com/compute/redist/cudnn/
+
         if LooseVersion(self.version) < LooseVersion('8.3.3'):
             if myarch == AARCH64:
                 cudnnarch = 'aarch64sbsa'
@@ -54,10 +55,6 @@ class EB_cuDNN(Tarball):
                 cudnnarch = 'ppc64le'
             elif myarch == X86_64:
                 cudnnarch = 'x64'
-            else:
-                raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
-        # Strings needed for manually downloaded tarballs, as sources are no longer present at
-        # https://developer.download.nvidia.com/compute/redist/cudnn/ from 8.3.3 onwards
         else:
             if myarch == AARCH64:
                 cudnnarch = 'sbsa'
@@ -65,9 +62,9 @@ class EB_cuDNN(Tarball):
                 cudnnarch = 'ppc64le'
             elif myarch == X86_64:
                 cudnnarch = 'x86_64'
-            else:
-                raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
 
+        if not cudnnarch:
+            raise EasyBuildError("The cuDNN easyblock does not currently support architecture %s", myarch)
         self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
