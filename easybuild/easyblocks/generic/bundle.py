@@ -153,11 +153,10 @@ class Bundle(EasyBlock):
             # reset list of sources/source_urls/checksums
             comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
 
-
             for key in self.cfg['default_component_specs']:
-                if key is 'easyblock':
-                    raise EasyBuildError("You cannot use 'easyblock' in 'default_component_specs', you must use "
-                                         "the `default_easyblock` easyconfig parameter (which will still prefer "
+                if key == 'easyblock':
+                    raise EasyBuildError("You cannot use 'easyblock' within 'default_component_specs', you must use "
+                                         "the 'default_easyblock' easyconfig parameter (which will still prefer "
                                          "a custom easyblock for a component when one exists) or explicitly specify "
                                          "the easyblock to be used for the component")
                 comp_cfg[key] = self.cfg['default_component_specs'][key]
