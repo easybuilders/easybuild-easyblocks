@@ -114,7 +114,7 @@ class Bundle(EasyBlock):
             comp_cfg['version'] = comp_version
 
             # determine easyblock to use for this component
-            # - if an easyblock is specified explicitely, that will be used
+            # - if an easyblock is specified explicitly, that will be used
             # - if not, a software-specific easyblock will be considered by get_easyblock_class
             # - if no easyblock was found, default_easyblock is considered
             comp_easyblock = comp_specs.get('easyblock')
@@ -134,6 +134,10 @@ class Bundle(EasyBlock):
 
             if easyblock == 'Bundle':
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
+
+            if easyblock_class.run_all_steps.__code__ is not EasyBlock.run_all_steps.__code__:
+                raise EasyBuildError("Easyblock %s overrides the run_all_steps() method and can not be used to install "
+                                     "a component in a bundle", easyblock)
 
             comp_cfg.easyblock = easyblock_class
 
