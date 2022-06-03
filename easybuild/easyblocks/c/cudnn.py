@@ -45,7 +45,7 @@ class EB_cuDNN(Tarball):
         super(EB_cuDNN, self).__init__(*args, **kwargs)
 
         # Generate cudnnarch template value for this system
-        cudnnarch = False    
+        cudnnarch = False
         myarch = get_cpu_architecture()
 
         if LooseVersion(self.version) < LooseVersion('8.3.3'):
