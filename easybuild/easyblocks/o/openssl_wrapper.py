@@ -424,7 +424,7 @@ Version: %(version)s
             pc_file['requires'] = []
             for require_type in ['Requires', 'Requires.private']:
                 require_print = require_type.lower().replace('.', '-')
-                requires, _ = run_cmd("pkg-config --print-%s %s" % (require_print, pc_name), simple=False)
+                requires, _ = run_cmd("pkg-config --print-%s %s" % (require_print, pc_name), simple=False, log_ok=False)
 
                 if requires:
                     # use unsuffixed names for components provided by this wrapper
@@ -442,8 +442,8 @@ Version: %(version)s
                 pc_file['libs'] = "Libs: -L${libdir} -l%s" % c_lib_name
                 pc_file['cflags'] = "Cflags: -I${includedir}"
                 # infer private libs through pkg-config
-                linker_libs, _ = run_cmd("pkg-config --libs %s" % pc_name, simple=False)
-                all_libs, _ = run_cmd("pkg-config --libs --static %s" % pc_name, simple=False)
+                linker_libs, _ = run_cmd("pkg-config --libs %s" % pc_name, simple=False, log_ok=False)
+                all_libs, _ = run_cmd("pkg-config --libs --static %s" % pc_name, simple=False, log_ok=False)
                 libs_priv = "%s " % all_libs.rstrip()
                 for flag in linker_libs.rstrip().split(' '):
                     libs_priv = libs_priv.replace("%s " % flag, '')
