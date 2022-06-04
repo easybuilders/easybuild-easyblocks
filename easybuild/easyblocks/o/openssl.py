@@ -122,11 +122,18 @@ class EB_OpenSSL(ConfigureMake):
         # SSL certificates
         # OPENSSLDIR is already populated by the installation of OpenSSL
         # try to symlink system certificates in the empty 'certs' directory
-        openssl_certs_dir = os.path.join(self.installdir, 'ssl', 'certs')
+        ssl_dir = os.path.join(self.installdir, 'ssl')
+        openssl_certs_dir = os.path.join(ssl_dir, 'certs')
 
         if self.ssl_certs_dir:
             remove_dir(openssl_certs_dir)
             symlink(self.ssl_certs_dir, openssl_certs_dir)
+
+            # also symlink cert.pem file, if it exists
+            # (required on CentOS 7, see https://github.com/easybuilders/easybuild-easyconfigs/issues/14058)
+            cert_pem_path = os.path.join(os.path.dirname(self.ssl_certs_dir), 'cert.pem')
+            if os.path.isfile(cert_pem_path):
+                symlink(cert_pem_path, os.path.join(ssl_dir, os.path.basename(cert_pem_path)))
         else:
             print_warning("OpenSSL successfully installed without system SSL certificates. "
                           "Some packages might experience limited functionality.")
