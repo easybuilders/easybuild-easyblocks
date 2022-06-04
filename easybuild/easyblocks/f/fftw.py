@@ -246,13 +246,16 @@ class EB_FFTW(ConfigureMake):
 
         super(EB_FFTW, self).test_step()
 
-    def sanity_check_step(self):
-        """Custom sanity check for FFTW."""
+    def sanity_check_step(self, mpionly=False):
+        """Custom sanity check for FFTW. mpionly=True only for FFTW.MPI"""
 
         custom_paths = {
-            'files': ['bin/fftw-wisdom-to-conf', 'include/fftw3.f', 'include/fftw3.h'],
-            'dirs': ['lib/pkgconfig'],
+            'files': ['include/fftw3.f', 'include/fftw3.h'],
+            'dirs': [],
         }
+        if not mpionly:
+            custom_paths['files'].insert(0, 'bin/fftw-wisdom-to-conf')
+            custom_paths['dirs'].insert(0, 'lib/pkgconfig')
 
         shlib_ext = get_shared_lib_ext()
 
@@ -261,7 +264,8 @@ class EB_FFTW(ConfigureMake):
             if self.cfg['with_%s_prec' % prec]:
 
                 # precision-specific binaries
-                extra_files.append('bin/fftw%s-wisdom' % letter)
+                if not mpionly:
+                    extra_files.append('bin/fftw%s-wisdom' % letter)
 
                 # precision-specific .f03 header files
                 inc_f03 = 'include/fftw3%s.f03' % letter
@@ -271,7 +275,11 @@ class EB_FFTW(ConfigureMake):
                 extra_files.append(inc_f03)
 
                 # libraries, one for each precision and variant (if enabled)
-                for variant in ['', 'mpi', 'openmp', 'threads']:
+                if mpionly:
+                    variantlist = ['mpi']
+                else:
+                    variantlist = ['', 'mpi', 'openmp', 'threads']
+                for variant in variantlist:
                     if variant == 'openmp':
                         suff = '_omp'
                     elif variant == '':
