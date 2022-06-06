@@ -136,7 +136,7 @@ class Bundle(EasyBlock):
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
             if easyblock_class.run_all_steps.__code__ is not EasyBlock.run_all_steps.__code__:
-                raise EasyBuildError("Easyblock %s overrides the run_all_steps() method and can not be used to install "
+                raise EasyBuildError("Easyblock %s overrides the run_all_steps() method, and cannot be used to install "
                                      "a component in a bundle", easyblock)
 
             comp_cfg.easyblock = easyblock_class
