@@ -349,7 +349,7 @@ class ConfigureMake(EasyBlock):
         - default: None
         """
 
-        if self.cfg['runtest']:
+        if self.cfg['runtest'] or self.cfg.get('test_cmd') != DEFAULT_TEST_CMD:
             cmd = ' '.join([
                 self.cfg['pretestopts'],
                 self.cfg.get('test_cmd') or DEFAULT_TEST_CMD,
