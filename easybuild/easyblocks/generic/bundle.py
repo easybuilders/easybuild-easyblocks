@@ -318,6 +318,25 @@ class Bundle(EasyBlock):
             # close log for this component
             comp.close_log()
 
+    def make_module_step(self, fake=False):
+        """
+        Custom module step for Bundle: if altroot is a builddependency, use that as the root
+        for everything.
+        """
+        orig_installdir = self.installdir
+        if self.cfg['altroot'] in [d['name'] for d in self.cfg.builddependencies()]:
+            if not self.altroot and not self.altversion:
+                # check for altroot and altversion (needed here for a module only build)
+                self.altroot, self.altversion = self.get_altroot_and_altversion()
+            self.installdir = self.altroot
+            print("setting installdir to %s"%self.installdir)
+
+        # Generate module
+        res = super(Bundle, self).make_module_step(fake=fake)
+
+        self.installdir = orig_installdir
+        return res
+
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
         if not self.altroot and not self.altversion:
