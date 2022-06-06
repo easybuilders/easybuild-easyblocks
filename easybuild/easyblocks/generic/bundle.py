@@ -156,9 +156,9 @@ class Bundle(EasyBlock):
             for key in self.cfg['default_component_specs']:
                 if key == 'easyblock':
                     raise EasyBuildError("You cannot use 'easyblock' within 'default_component_specs'. Instead, use "
-                                         "the 'default_easyblock' easyconfig parameter (a custom easyblock for a component  "
-                                         "will still be preferred if it exists), or explicitly specify the easyblock to be used for"
-                                         "each component")
+                                         "the 'default_easyblock' easyconfig parameter (a custom easyblock for a "
+                                         "component will still be preferred if it exists), or explicitly specify the "
+                                         "easyblock to be used for each component")
                 comp_cfg[key] = self.cfg['default_component_specs'][key]
 
             for key in comp_specs:
