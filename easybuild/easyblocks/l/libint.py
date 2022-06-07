@@ -119,6 +119,9 @@ class EB_Libint(CMakeMake):
             if self.cfg['with_fortran']:
                 self.cfg.update('configopts', '-DENABLE_FORTRAN=ON')
 
+            # also build shared libraries (not enabled by default)
+            self.cfg.update('configopts', "-DLIBINT2_BUILD_SHARED_AND_STATIC_LIBS=ON")
+
             # specify current directory as source directory (that contains CMakeLists.txt),
             # since that's the path to the unpacked source tarball for Libint library (created by 'make export')
             super(EB_Libint, self).configure_step(srcdir=os.getcwd())
