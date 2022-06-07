@@ -67,6 +67,7 @@ class EB_FreeSurfer(Tarball):
             'FS_OVERRIDE': '0',
             'FSF_OUTPUT_FORMAT': 'nii.gz',
             'FSFAST_HOME': os.path.join(self.installdir, 'fsfast'),
+            'FREESURFER': self.installdir,
             'FREESURFER_HOME': self.installdir,
             'FUNCTIONALS_DIR': os.path.join(self.installdir, 'sessions'),
             'MNI_DIR': os.path.join(self.installdir, 'mni'),

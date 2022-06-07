@@ -126,10 +126,12 @@ class EB_R(ConfigureMake):
 
         libfiles = [os.path.join('include', x) for x in ['Rconfig.h', 'Rdefines.h', 'Rembedded.h',
                                                          'R.h', 'Rinterface.h', 'Rinternals.h',
-                                                         'Rmath.h', 'Rversion.h', 'S.h']]
+                                                         'Rmath.h', 'Rversion.h']]
         modfiles = ['internet.%s' % shlib_ext, 'lapack.%s' % shlib_ext]
         if LooseVersion(self.version) < LooseVersion('3.2'):
             modfiles.append('vfonts.%s' % shlib_ext)
+        if LooseVersion(self.version) < LooseVersion('4.2'):
+            libfiles += [os.path.join('include', 'S.h')]
         libfiles += [os.path.join('modules', x) for x in modfiles]
         libfiles += ['lib/libR.%s' % shlib_ext]
 
