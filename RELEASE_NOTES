@@ -6,35 +6,34 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 245 software-specific easyblocks and 37 generic easyblocks.
 
 
-v4.5.5 (June 7th 2022)
+v4.5.5 (June 8th 2022)
 ----------------------
 
 update/bugfix release
 
-- new software-specific easyblock for FFTW.MPI + modify FFTW's sanity check step to allow checking only for MPI parts of FFTW installation (#2724)
+- new software-specific easyblock for FFTW.MPI (#2724)
 - minor enhancements and updates, including:
   - update NEURON easyblock to use CMakeMake for recent versions (#2304)
-  - enhance Clang easyblock to add support for building with AMDGPU offload (#2684)
+  - enhance Clang easyblock to add support for building with AMDGPU offload (#2684, #2729)
   - update sanity check in OpenMPI easyblock to support OpenMPI v5.0.0 (#2709)
   - don't use gold linker by default for GCC >= 11.3 (#2711)
   - update sanity check in R easyblock for versions >= 4.2.0, since S.h is not included anymore (#2713)
   - update ABAQUS easyblock for ABAQUS 2022 (#2716)
   - update LLVM easyblock for LLVM v14.0.x (#2718)
-  - Update Mesa to remove swr driver configopts for versions 22+ (#2719)
-  - enhance Clang easyblock to support also installing Python bindings (#2721)
+  - update Mesa easyblock to remove swr driver configopts for versions 22+ (#2719)
+  - enhance Clang easyblock to support also installing Python bindings (#2721, #2725)
   - enhance SuperLU easyblock to support building on top of FlexiBLAS and be compatible with SuperLU v5.3 (#2722)
   - update TensorFlow easyblock for version 2.8.0 (#2723)
-  - add support to ConfigureMake for tweaking (first part of) test command via 'test_cmd' (#2726)
+  - modify FFTW's sanity check step to allow checking only for MPI parts of FFTW installation (#2724)
+  - add support to ConfigureMake for tweaking (first part of) test command via 'test_cmd' (#2726, #2737)
   - enhance MrBayes easyblock with custom sanity check command (#2727)
-  - Change in cudnnarch string templates used to compose source tarball names from cuDNN 8.3.3 onwards (#2728)
+  - update cudnnarch string templates used to compose source tarball names from cuDNN 8.3.3 onwards (#2728)
+  - add sanity check command to OpenSSL wrapper easyblock to verify that system certificates are available to OpenSSL (#2735)
   - ignore exit code of pkg-config command in OpenSSL wrapper easyblock, since with pkgconf they exit with a non-zero exit code if the OS package is not installed (#2736)
-  - also run tests if a custom test_cmd has been supplied (#2737)
 - various bug fixes, including:
   - remove system-compiled binutils dirs from $LDFLAGS in binutils easyblock (#2712)
   - fix for FreeSurfer easyblock: define $FREESURFER needed by recon_all (#2717)
-  - don't hard override post_install_step in Clang easyblock, but extend it by calling out to parent easyblock first (#2725)
-  - fix sanity checks for Clang 12+13 when built with NVPTX support (#2729)
-  - also symlink cert.pem in from-source OpenSSL installation (if it exists) + add sanity check command to OpenSSL wrapper easyblock to verify that system certificates are available to OpenSSL (#2735)
+  - also symlink cert.pem in from-source OpenSSL installation (if it exists) (#2735)
 
 
 v4.5.4 (March 31st 2022)
