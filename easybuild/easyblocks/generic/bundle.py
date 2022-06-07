@@ -329,7 +329,6 @@ class Bundle(EasyBlock):
                 # check for altroot and altversion (needed here for a module only build)
                 self.altroot, self.altversion = self.get_altroot_and_altversion()
             self.installdir = self.altroot
-            print("setting installdir to %s"%self.installdir)
 
         # Generate module
         res = super(Bundle, self).make_module_step(fake=fake)
