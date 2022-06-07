@@ -120,11 +120,10 @@ class EB_FlexiBLAS(CMakeMake):
                 # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
                 mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
                 mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
-                mkl_nvhpc_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;nvomp;pthread;m;dl"
                 mkl_compiler_mapping = {
                     toolchain.GCC: mkl_gnu_libs,
                     toolchain.INTELCOMP: mkl_intel_libs,
-                    toolchain.NVHPC: mkl_nvhpc_libs,
+                    toolchain.NVHPC: mkl_intel_libs,
                     toolchain.PGI: mkl_intel_libs,
                     toolchain.SYSTEM: mkl_gnu_libs,
                 }
