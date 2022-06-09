@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -130,29 +130,29 @@ class EB_ATLAS(ConfigureMake):
             objdir = "obj"
             os.makedirs(objdir)
             os.chdir(objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to create obj directory to build in: %s", err)
 
         # specify compilers
         self.cfg.update('configopts', '-C ic %(cc)s -C if %(f77)s' % {
-                                                                     'cc':os.getenv('CC'),
-                                                                     'f77':os.getenv('F77')
-                                                                    })
+            'cc': os.getenv('CC'),
+            'f77': os.getenv('F77')
+        })
 
         # call configure in parent dir
         cmd = "%s %s/configure --prefix=%s %s" % (self.cfg['preconfigopts'], self.cfg['start_dir'],
-                                                 self.installdir, self.cfg['configopts'])
+                                                  self.installdir, self.cfg['configopts'])
         (out, exitcode) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
 
         if exitcode != 0:
             throttling_regexp = re.compile("cpu throttling [a-zA-Z]* enabled", re.IGNORECASE)
             if throttling_regexp.search(out):
-                errormsg = ' '.join([
-                    "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. ",
-                    "You can either disable CPU throttling, or set 'ignorethrottling' to True in the ATLAS .eb spec file.",
-                    "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle .",
-                    "Configure output: %s",
-                ]) % out
+                errormsg = (
+                    "Configure failed, possible because CPU throttling is enabled; ATLAS doesn't like that. "
+                    "You can either disable CPU throttling, or set 'ignorethrottling' to True in the ATLAS .eb file. "
+                    "Also see http://math-atlas.sourceforge.net/errata.html#cputhrottle . "
+                    "Configure output: %s"
+                ) % out
             else:
                 errormsg = "configure output: %s\nConfigure failed, not sure why (see output above)." % out
             raise EasyBuildError(errormsg)
@@ -170,7 +170,7 @@ class EB_ATLAS(ConfigureMake):
         if self.cfg['sharedlibs']:
             try:
                 os.chdir('lib')
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to change to 'lib' directory for building the shared libs.", err)
 
             self.log.debug("Building shared libraries")
@@ -179,7 +179,7 @@ class EB_ATLAS(ConfigureMake):
 
             try:
                 os.chdir('..')
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to get back to previous dir after building shared libs: %s ", err)
 
     def install_step(self):
@@ -198,12 +198,11 @@ class EB_ATLAS(ConfigureMake):
                 else:
                     self.log.warning("Tried to remove %s, but file didn't exist")
 
-
     def test_step(self):
 
         # always run tests
         if self.cfg['runtest']:
-            self.log.warning("ATLAS testing is done using 'make check' and 'make ptcheck',"\
+            self.log.warning("ATLAS testing is done using 'make check' and 'make ptcheck',"
                              " so no need to set 'runtest' in the .eb spec file.")
 
         # sanity tests
@@ -237,9 +236,9 @@ class EB_ATLAS(ConfigureMake):
             shared_libs = []
 
         custom_paths = {
-                        'files': ["include/%s" % x for x in ["cblas.h", "clapack.h"]] +
-                                 static_libs + shared_libs,
-                        'dirs': ["include/atlas"]
-                       }
+            'files': ["include/%s" % x for x in ["cblas.h", "clapack.h"]] +
+            static_libs + shared_libs,
+            'dirs': ["include/atlas"]
+        }
 
         super(EB_ATLAS, self).sanity_check_step(custom_paths=custom_paths)

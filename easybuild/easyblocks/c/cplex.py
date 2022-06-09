@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,16 +31,19 @@ EasyBuild support for CPLEX, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
+from distutils.version import LooseVersion
 import glob
 import os
-import shutil
 import stat
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import CUSTOM
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
+from easybuild.easyblocks.python import EBPYTHONPREFIXES
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir
+from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_cmd, run_cmd_qa
 
 
 class EB_CPLEX(Binary):
@@ -52,19 +55,26 @@ class EB_CPLEX(Binary):
     def __init__(self, *args, **kwargs):
         """Initialize CPLEX-specific variables."""
         super(EB_CPLEX, self).__init__(*args, **kwargs)
-        self.bindir = 'UNKNOWN'
+
+        self.bindir = None
+        self.with_python = False
+        self.multi_python = 'Python' in self.cfg['multi_deps']
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_CPLEX, self).prepare_step(*args, **kwargs)
+
+        if get_software_root('Python'):
+            self.with_python = True
 
     def install_step(self):
         """CPLEX has an interactive installer, so use Q&A"""
 
         tmpdir = os.path.join(self.builddir, 'tmp')
         stagedir = os.path.join(self.builddir, 'staged')
-        try:
-            os.chdir(self.builddir)
-            os.makedirs(tmpdir)
-            os.makedirs(stagedir)
-        except OSError, err:
-            raise EasyBuildError("Failed to prepare for installation: %s", err)
+        change_dir(self.builddir)
+        mkdir(tmpdir)
+        mkdir(stagedir)
 
         env.setvar('IATEMPDIR', tmpdir)
         dst = os.path.join(self.builddir, self.src[0]['name'])
@@ -73,8 +83,8 @@ class EB_CPLEX(Binary):
 
         qanda = {
             "PRESS <ENTER> TO CONTINUE:": '',
-            'Press Enter to continue viewing the license agreement, or enter' \
-            ' "1" to accept the agreement, "2" to decline it, "3" to print it,' \
+            'Press Enter to continue viewing the license agreement, or enter'
+            ' "1" to accept the agreement, "2" to decline it, "3" to print it,'
             ' or "99" to go back to the previous screen.:': '1',
             'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
             'IS THIS CORRECT? (Y/N):': 'y',
@@ -82,59 +92,88 @@ class EB_CPLEX(Binary):
             "PRESS <ENTER> TO EXIT THE INSTALLER:": '',
             "CHOOSE LOCALE BY NUMBER:": '',
             "Choose Instance Management Option:": '',
+            "No model content or proprietary data will be sent.\n1- Yes\n2- No\n"
+            "ENTER THE NUMBER OF THE DESIRED CHOICE:": '2',
         }
         noqanda = [r'Installing\.\.\..*\n.*------.*\n\n.*============.*\n.*$']
 
         run_cmd_qa(cmd, qanda, no_qa=noqanda, log_all=True, simple=True)
 
-        try:
-            os.chmod(self.installdir, stat.S_IRWXU | stat.S_IXOTH | stat.S_IXGRP | stat.S_IROTH | stat.S_IRGRP)
-        except OSError, err:
-            raise EasyBuildError("Can't set permissions on %s: %s", self.installdir, err)
+        # fix permissions on install dir
+        perms = stat.S_IRWXU | stat.S_IXOTH | stat.S_IXGRP | stat.S_IROTH | stat.S_IRGRP
+        adjust_permissions(self.installdir, perms, recursive=False, relative=False)
 
-    def post_install_step(self):
-        """Determine bin directory for this CPLEX installation."""
-        # handle staged install via Binary parent class
-        super(EB_CPLEX, self).post_install_step()
+        # also install Python bindings if Python is included as a dependency
+        if self.with_python:
+            cwd = change_dir(os.path.join(self.installdir, 'python'))
+            run_cmd("python setup.py install --prefix=%s" % self.installdir)
+            change_dir(cwd)
 
-        # determine bin dir
-        os.chdir(self.installdir)
-        binglob = 'cplex/bin/x86-64*'
-        bins = glob.glob(binglob)
+    def det_bindir(self):
+        """Determine CPLEX bin subdirectory."""
 
-        if len(bins) == 1:
-            self.bindir = bins[0]
-        elif len(bins) > 1:
-            raise EasyBuildError("More than one possible path for bin found: %s", bins)
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(self.installdir) and os.listdir(self.installdir):
+            bin_glob = 'cplex/bin/x86-64*'
+            change_dir(self.installdir)
+            bins = glob.glob(bin_glob)
+
+            if len(bins) == 1:
+                self.bindir = bins[0]
+            elif len(bins) > 1:
+                raise EasyBuildError("More than one possible path for bin found: %s", bins)
+            else:
+                raise EasyBuildError("No bins found using %s in %s", bin_glob, self.installdir)
         else:
-            raise EasyBuildError("No bins found using %s in %s", binglob, self.installdir)
+            self.bindir = 'UNKNOWN'
 
     def make_module_extra(self):
         """Add bin dirs and lib dirs and set CPLEX_HOME and CPLEXDIR"""
         txt = super(EB_CPLEX, self).make_module_extra()
 
-        try:
-            cwd = os.getcwd()
-            os.chdir(self.installdir)
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(self.installdir):
+            cwd = change_dir(self.installdir)
             bins = glob.glob(os.path.join('*', 'bin', 'x86-64*'))
             libs = glob.glob(os.path.join('*', 'lib', 'x86-64*', '*pic'))
-            os.chdir(cwd)
-        except OSError as err:
-            raise EasyBuildError("Failed to determine bin/lib subdirs: %s", err)
+            change_dir(cwd)
+        else:
+            bins = []
+            libs = []
 
         txt += self.module_generator.prepend_paths('PATH', [path for path in bins])
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins+libs])
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins + libs])
 
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
+
+        if self.with_python:
+            if self.multi_python:
+                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+            else:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
 
         self.log.debug("make_module_extra added %s" % txt)
         return txt
 
     def sanity_check_step(self):
         """Custom sanity check for CPLEX"""
+
+        if self.bindir is None:
+            self.det_bindir()
+
+        binaries = ['cplex', 'cplexamp']
+        if LooseVersion(self.version) < LooseVersion('12.8'):
+            binaries.append('convert')
+
         custom_paths = {
-            'files':["%s/%s" % (self.bindir, x) for x in ["convert", "cplex", "cplexamp"]],
-            'dirs':[],
+            'files': [os.path.join(self.bindir, x) for x in binaries],
+            'dirs': [],
         }
-        super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+
+        if self.with_python:
+            custom_commands.append("python -c 'import cplex'")
+            custom_commands.append("python -c 'import docplex'")
+
+        super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

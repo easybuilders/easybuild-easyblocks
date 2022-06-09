@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -110,7 +110,7 @@ class EB_NWChem(ConfigureMake):
                                              self.home_nwchemrc, self.local_nwchemrc, self.home_nwchemrc)
                 # ok to remove, we'll recreate it anyway
                 remove_file(self.local_nwchemrc)
-        except (IOError, OSError), err:
+        except (IOError, OSError) as err:
             raise EasyBuildError("Failed to validate %s symlink: %s", self.home_nwchemrc, err)
 
         # building NWChem in a long path name is an issue, so let's try to make sure we have a short one
@@ -125,7 +125,7 @@ class EB_NWChem(ConfigureMake):
             symlink(self.cfg['start_dir'], start_dir)
             change_dir(start_dir)
             self.cfg['start_dir'] = start_dir
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink build dir to a shorter path name: %s", err)
 
         # change to actual build dir
@@ -142,12 +142,17 @@ class EB_NWChem(ConfigureMake):
             self.setvar_env_makeopt('NWCHEM_LONG_PATHS', 'Y')
 
         env.setvar('NWCHEM_TARGET', self.cfg['target'])
-        env.setvar('MSG_COMMS', self.cfg['msg_comms'])
-        env.setvar('ARMCI_NETWORK', self.cfg['armci_network'])
-        if self.cfg['armci_network'] in ["OPENIB"]:
-            env.setvar('IB_INCLUDE', "/usr/include")
-            env.setvar('IB_LIB', "/usr/lib64")
-            env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
+
+        garoot = get_software_root('GlobalArrays')
+        if garoot:
+            self.setvar_env_makeopt('EXTERNAL_GA_PATH', garoot)
+        else:
+            env.setvar('MSG_COMMS', self.cfg['msg_comms'])
+            env.setvar('ARMCI_NETWORK', self.cfg['armci_network'])
+            if self.cfg['armci_network'] in ["OPENIB"]:
+                env.setvar('IB_INCLUDE', "/usr/include")
+                env.setvar('IB_LIB', "/usr/lib64")
+                env.setvar('IB_LIB_NAME', "-libumad -libverbs -lpthread")
 
         if 'python' in self.cfg['modules']:
             python_root = get_software_root('Python')
@@ -174,16 +179,16 @@ class EB_NWChem(ConfigureMake):
 
         env.setvar('LARGE_FILES', 'TRUE')
         env.setvar('USE_NOFSCHECK', 'TRUE')
-        env.setvar('CCSDTLR', 'y')  # enable CCSDTLR 
-        env.setvar('CCSDTQ', 'y') # enable CCSDTQ (compilation is long, executable is big)
+        env.setvar('CCSDTLR', 'y')  # enable CCSDTLR
+        env.setvar('CCSDTQ', 'y')  # enable CCSDTQ (compilation is long, executable is big)
 
         if LooseVersion(self.version) >= LooseVersion("6.2"):
-            env.setvar('MRCC_METHODS','y') # enable multireference coupled cluster capability
+            env.setvar('MRCC_METHODS', 'y')  # enable multireference coupled cluster capability
 
         if LooseVersion(self.version) >= LooseVersion("6.5"):
-            env.setvar('EACCSD','y') # enable EOM electron-attachemnt coupled cluster capability
-            env.setvar('IPCCSD','y') # enable EOM ionization-potential coupled cluster capability
-            env.setvar('USE_NOIO', 'TRUE') # avoid doing I/O for the ddscf, mp2 and ccsd modules
+            env.setvar('EACCSD', 'y')  # enable EOM electron-attachemnt coupled cluster capability
+            env.setvar('IPCCSD', 'y')  # enable EOM ionization-potential coupled cluster capability
+            env.setvar('USE_NOIO', 'TRUE')  # avoid doing I/O for the ddscf, mp2 and ccsd modules
 
         for var in ['USE_MPI', 'USE_MPIF', 'USE_MPIF4']:
             env.setvar(var, 'y')
@@ -222,16 +227,21 @@ class EB_NWChem(ConfigureMake):
                 raise EasyBuildError("Don't know how to set LIBMPI for %s", mpi_family)
             env.setvar('LIBMPI', libmpi)
 
-        if self.cfg['armci_network'] in ["OPENIB"]:
-            libmpi += " -libumad -libverbs -lpthread"
+        if not garoot:
+            if self.cfg['armci_network'] in ["OPENIB"]:
+                libmpi += " -libumad -libverbs -lpthread"
 
         # compiler optimization flags: set environment variables _and_ add them to list of make options
         self.setvar_env_makeopt('COPTIMIZE', os.getenv('CFLAGS'))
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
-        self.setvar_env_makeopt('BLASOPT', '%s -L%s %s %s' % (os.getenv('LDFLAGS'), os.getenv('MPI_LIB_DIR'),
-                                                              os.getenv('LIBSCALAPACK_MT'), libmpi))
+        mpi_lib_dirs = ' '.join('-L' + d for d in os.getenv('MPI_LIB_DIR').split())
+        self.setvar_env_makeopt('BLASOPT', ' '.join([os.getenv('LDFLAGS'), mpi_lib_dirs,
+                                                     os.getenv('LIBSCALAPACK_MT'), libmpi]))
+
+        # Setting LAPACK_LIB is required from 7.0.0 onwards.
+        self.setvar_env_makeopt('LAPACK_LIB', os.getenv('LIBLAPACK'))
 
         self.setvar_env_makeopt('SCALAPACK', '%s %s' % (os.getenv('LDFLAGS'), os.getenv('LIBSCALAPACK_MT')))
         if self.toolchain.options['i8']:
@@ -297,13 +307,13 @@ class EB_NWChem(ConfigureMake):
 
             change_dir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to build version info: %s", err)
 
         # run getmem.nwchem script to assess memory availability and make an educated guess
         # this is an alternative to specifying -DDFLT_TOT_MEM via LIB_DEFINES
         # this recompiles the appropriate files and relinks
-        if not 'DDFLT_TOT_MEM' in self.cfg['lib_defines']:
+        if 'DDFLT_TOT_MEM' not in self.cfg['lib_defines']:
             change_dir(os.path.join(self.cfg['start_dir'], 'contrib'))
             run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
             change_dir(self.cfg['start_dir'])
@@ -326,7 +336,7 @@ class EB_NWChem(ConfigureMake):
             shutil.copytree(os.path.join(self.cfg['start_dir'], 'src', 'nwpw', 'libraryps'),
                             os.path.join(self.installdir, 'data', 'libraryps'))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install NWChem: %s", err)
 
         # create NWChem settings file
@@ -390,7 +400,7 @@ class EB_NWChem(ConfigureMake):
 
             self.log.info("Copied %s to %s." % (exs_dir, self.examples_dir))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy examples: %s", err)
 
         super(EB_NWChem, self).cleanup_step()
@@ -402,21 +412,31 @@ class EB_NWChem(ConfigureMake):
         # order and grouping is important for some of these tests (e.g., [o]h3tr*
         # Some of the examples are deleted
         # missing md parameter files: dna.nw, mache.nw, 18c6NaK.nw, membrane.nw, sdm.nw
-        # method not implemented (unknown thory) or keyword not found: triplet.nw, C2H6.nw, pspw_MgO.nw, ccsdt_polar_small.nw, CG.nw
+        # method not implemented (unknown thory) or keyword not found: triplet.nw, C2H6.nw, pspw_MgO.nw
+        #                                                              ccsdt_polar_small.nw, CG.nw
         # no convergence: diamond.nw
         # Too much memory required: ccsd_polar_big.nw
-        if type(self.cfg['tests']) is bool:
-            examples = [('qmd', ['3carbo_dft.nw', '3carbo.nw', 'h2o_scf.nw']),
-                        ('pspw', ['C2.nw', 'C6.nw', 'Carbene.nw', 'Na16.nw', 'NaCl.nw']),
-                        ('tcepolar', ['ccsd_polar_small.nw']),
-                        ('dirdyvtst/h3', ['h3tr1.nw', 'h3tr2.nw']),
-                        ('dirdyvtst/h3', ['h3tr3.nw']), ('dirdyvtst/h3', ['h3tr4.nw']), ('dirdyvtst/h3', ['h3tr5.nw']),
-                        ('dirdyvtst/oh3', ['oh3tr1.nw', 'oh3tr2.nw']),
-                        ('dirdyvtst/oh3', ['oh3tr3.nw']), ('dirdyvtst/oh3', ['oh3tr4.nw']), ('dirdyvtst/oh3', ['oh3tr5.nw']),
-                        ('pspw/session1', ['band.nw', 'si4.linear.nw', 'si4.rhombus.nw', 'S2-drift.nw', 
-                                           'silicon.nw', 'S2.nw', 'si4.rectangle.nw']),
-                        ('md/myo', ['myo.nw']), ('md/nak', ['NaK.nw']), ('md/crown', ['crown.nw']), ('md/hrc', ['hrc.nw']),
-                        ('md/benzene', ['benzene.nw'])]
+        if isinstance(self.cfg['tests'], bool):
+            examples = [
+                ('qmd', ['3carbo_dft.nw', '3carbo.nw', 'h2o_scf.nw']),
+                ('pspw', ['C2.nw', 'C6.nw', 'Carbene.nw', 'Na16.nw', 'NaCl.nw']),
+                ('tcepolar', ['ccsd_polar_small.nw']),
+                ('dirdyvtst/h3', ['h3tr1.nw', 'h3tr2.nw']),
+                ('dirdyvtst/h3', ['h3tr3.nw']),
+                ('dirdyvtst/h3', ['h3tr4.nw']),
+                ('dirdyvtst/h3', ['h3tr5.nw']),
+                ('dirdyvtst/oh3', ['oh3tr1.nw', 'oh3tr2.nw']),
+                ('dirdyvtst/oh3', ['oh3tr3.nw']),
+                ('dirdyvtst/oh3', ['oh3tr4.nw']),
+                ('dirdyvtst/oh3', ['oh3tr5.nw']),
+                ('pspw/session1', ['band.nw', 'si4.linear.nw', 'si4.rhombus.nw', 'S2-drift.nw',
+                                   'silicon.nw', 'S2.nw', 'si4.rectangle.nw']),
+                ('md/myo', ['myo.nw']),
+                ('md/nak', ['NaK.nw']),
+                ('md/crown', ['crown.nw']),
+                ('md/hrc', ['hrc.nw']),
+                ('md/benzene', ['benzene.nw'])
+            ]
 
             self.cfg['tests'] = [(os.path.join(self.examples_dir, d), l) for (d, l) in examples]
             self.log.info("List of examples to be run as test cases: %s" % self.cfg['tests'])
@@ -438,7 +458,7 @@ class EB_NWChem(ConfigureMake):
                 # we've verified earlier that the symlink is what we expect it to be if it's there
                 if not os.path.islink(self.home_nwchemrc):
                     symlink(self.local_nwchemrc, self.home_nwchemrc)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_nwchemrc, self.local_nwchemrc, err)
 
             # run tests, keep track of fail ratio
@@ -447,7 +467,7 @@ class EB_NWChem(ConfigureMake):
             fail = 0.0
             tot = 0.0
 
-            success_regexp = re.compile("Total times\s*cpu:.*wall:.*")
+            success_regexp = re.compile(r"Total times\s*cpu:.*wall:.*")
 
             test_cases_logfn = os.path.join(self.installdir, config.log_path(), 'test_cases.log')
             test_cases_log = open(test_cases_logfn, "w")
@@ -516,11 +536,11 @@ class EB_NWChem(ConfigureMake):
             try:
                 shutil.rmtree(self.examples_dir)
                 shutil.rmtree(local_nwchemrc_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Cleanup failed: %s", err)
 
             # set post msg w.r.t. cleaning up $HOME/.nwchemrc symlink
             self.postmsg += "\nRemember to clean up %s after all NWChem builds are finished." % self.home_nwchemrc
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to run test cases: %s", err)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2018 Ghent University
+# Copyright 2012-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -56,7 +56,7 @@ class EB_UFC(CMakePythonPackage):
             if not deproot:
                 raise EasyBuildError("%s module not loaded?", dep)
             else:
-                depsdict.update({dep:deproot})
+                depsdict.update({dep: deproot})
 
         # SWIG version more recent than 2.0.4 have a regression
         # which causes problems with e.g. DOLFIN if UFC was built with it

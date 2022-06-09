@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2018 Ghent University
+# Copyright 2018-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,9 +26,11 @@
 EasyBuild support for building and installing OpenCV, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Simon Branford (University of Birmingham)
 """
 import glob
 import os
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
@@ -36,8 +38,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import compute_checksum, copy
-from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
@@ -47,10 +49,12 @@ class EB_OpenCV(CMakeMake):
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters specific to OpenCV."""
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OpenCV."""
@@ -59,41 +63,49 @@ class EB_OpenCV(CMakeMake):
         # can't be set before prepare_step is run
         self.pylibdir = None
 
-        self.cfg['separate_build_dir'] = True
-
     def prepare_step(self, *args, **kwargs):
         """Prepare environment for installing OpenCV."""
         super(EB_OpenCV, self).prepare_step(*args, **kwargs)
 
         self.pylibdir = det_pylibdir()
 
-        ippicv_tgz = glob.glob(os.path.join(self.builddir, 'ippicv*.tgz'))
-        if ippicv_tgz:
-            if len(ippicv_tgz) == 1:
-                # copy ippicv tarball in the right place
-                # expected location is 3rdparty/ippicv/downloads/linux-<md5sum>/
-                ippicv_tgz = ippicv_tgz[0]
-                ippicv_tgz_md5 = compute_checksum(ippicv_tgz, checksum_type='md5')
-                target_subdir = os.path.join('3rdparty', 'ippicv', 'downloads', 'linux-%s' % ippicv_tgz_md5)
-                copy([ippicv_tgz], os.path.join(self.cfg['start_dir'], target_subdir))
+        if get_cpu_architecture() == X86_64:
+            # IPP are Intel's Integrated Performance Primitives - so only make sense on X86_64
+            ippicv_tgz = glob.glob(os.path.join(self.builddir, 'ippicv*.tgz'))
+            if ippicv_tgz:
+                if len(ippicv_tgz) == 1:
+                    # copy ippicv tarball in the right place
+                    # expected location is 3rdparty/ippicv/downloads/linux-<md5sum>/
+                    ippicv_tgz = ippicv_tgz[0]
+                    ippicv_tgz_md5 = compute_checksum(ippicv_tgz, checksum_type='md5')
+                    target_subdir = os.path.join('3rdparty', 'ippicv', 'downloads', 'linux-%s' % ippicv_tgz_md5)
+                    copy([ippicv_tgz], os.path.join(self.cfg['start_dir'], target_subdir))
 
-                self.cfg.update('configopts', '-DWITH_IPP=ON')
+                    self.cfg.update('configopts', '-DWITH_IPP=ON')
 
-            else:
-                raise EasyBuildError("Found multiple ippicv*.tgz source tarballs in %s: %s", self.builddir, ippicv_tgz)
+                    # for recent OpenCV 3.x versions (and newer), we must also specify the download location
+                    # to prevent that the ippicv tarball is re-downloaded
+                    if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                        self.cfg.update('configopts', '-DOPENCV_DOWNLOAD_PATH=%s' % self.builddir)
+                else:
+                    raise EasyBuildError("Found multiple ippicv*.tgz source tarballs in %s: %s",
+                                         self.builddir, ippicv_tgz)
 
     def configure_step(self):
         """Custom configuration procedure for OpenCV."""
-
-        if 'CMAKE_BUILD_TYPE' not in self.cfg['configopts']:
-            self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=Release')
 
         # enable Python support if unspecified and Python is a dependency
         if 'BUILD_PYTHON_SUPPORT' not in self.cfg['configopts']:
             if get_software_root('Python'):
                 self.cfg.update('configopts', "-DBUILD_PYTHON_SUPPORT=ON -DBUILD_NEW_PYTHON_SUPPORT=ON")
+
+                # recent OpenCV 3.x versions (and newer) use an alternative configure option to specify the location
+                # where the OpenCV Python bindings should be installed
                 py_pkgs_path = os.path.join(self.installdir, self.pylibdir)
-                self.cfg.update('configopts', '-DPYTHON_PACKAGES_PATH=%s' % py_pkgs_path)
+                if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                    self.cfg.update('configopts', '-DOPENCV_PYTHON_INSTALL_PATH=%s' % py_pkgs_path)
+                else:
+                    self.cfg.update('configopts', '-DPYTHON_PACKAGES_PATH=%s' % py_pkgs_path)
             else:
                 self.cfg.update('configopts', "-DBUILD_PYTHON_SUPPORT=OFF -DBUILD_NEW_PYTHON_SUPPORT=OFF")
 
@@ -104,9 +116,16 @@ class EB_OpenCV(CMakeMake):
             else:
                 self.cfg.update('configopts', '-DWITH_CUDA=OFF')
 
+        # disable bundled protobuf if it is a dependency
+        if 'BUILD_PROTOBUF' not in self.cfg['configopts']:
+            if get_software_root('protobuf'):
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=OFF')
+            else:
+                self.cfg.update('configopts', '-DBUILD_PROTOBUF=ON')
+
         # configure for dependency libraries
-        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'zlib']:
-            if dep in ['libpng', 'LibTIFF']:
+        for dep in ['JasPer', 'libjpeg-turbo', 'libpng', 'LibTIFF', 'libwebp', 'OpenEXR', 'zlib']:
+            if dep in ['libpng', 'LibTIFF', 'libwebp']:
                 # strip off 'lib'
                 opt_name = dep[3:].upper()
             elif dep == 'libjpeg-turbo':
@@ -122,9 +141,25 @@ class EB_OpenCV(CMakeMake):
 
             dep_root = get_software_root(dep)
             if dep_root:
-                self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, os.path.join(dep_root, 'include')))
-                libdir = get_software_libdir(dep, only_one=True)
-                self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, os.path.join(dep_root, libdir, lib_file)))
+                if dep == 'OpenEXR':
+                    self.cfg.update('configopts', '-D%s_ROOT=%s' % (opt_name, dep_root))
+                else:
+                    inc_path = os.path.join(dep_root, 'include')
+                    self.cfg.update('configopts', '-D%s_INCLUDE_DIR=%s' % (opt_name, inc_path))
+                    libdir = get_software_libdir(dep, only_one=True)
+                    lib_path = os.path.join(dep_root, libdir, lib_file)
+                    self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, lib_path))
+
+        # GTK+3 is used by default, use GTK+2 or none explicitely to avoid picking up a system GTK
+        if get_software_root('GTK+'):
+            if LooseVersion(get_software_version('GTK+')) < LooseVersion('3.0'):
+                self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        elif get_software_root('GTK3'):
+            pass
+        elif get_software_root('GTK2'):
+            self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        else:
+            self.cfg.update('configopts', '-DWITH_GTK=OFF')
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
@@ -159,17 +194,26 @@ class EB_OpenCV(CMakeMake):
         super(EB_OpenCV, self).install_step()
 
         if 'WITH_IPP=ON' in self.cfg['configopts']:
-            ipp_libs = glob.glob(os.path.join('3rdparty', 'ippicv', 'ippicv_lnx', 'lib', 'intel64', 'libippicv.*'))
+            common_dir = os.path.join('3rdparty', 'ippicv', 'ippicv_lnx')
+
+            # for some recent OpenCV 3.x versions, libippicv.a is now in a subdirectory named 'icv'
+            if LooseVersion(self.version) >= LooseVersion('3.4.4'):
+                ipp_libs = glob.glob(os.path.join(common_dir, 'icv', 'lib', 'intel64', 'libippicv.*'))
+            else:
+                ipp_libs = glob.glob(os.path.join(common_dir, 'lib', 'intel64', 'libippicv.*'))
+
             copy(ipp_libs, os.path.join(self.installdir, 'lib'))
 
     def sanity_check_step(self):
         """Custom sanity check for OpenCV."""
-        opencv_bins = ['annotation', 'createsamples', 'traincascade', 'interactive-calibration', 'version',
-                       'visualisation']
+        opencv_bins = ['annotation', 'interactive-calibration', 'version', 'visualisation']
+        if LooseVersion(self.version) < LooseVersion('4.0'):
+            opencv_bins.extend(['createsamples', 'traincascade'])
+
         libfile = 'libopencv_core.%s' % get_shared_lib_ext()
         custom_paths = {
             'files': [os.path.join('bin', 'opencv_%s' % x) for x in opencv_bins] + [os.path.join('lib64', libfile)],
-            'dirs': ['include', self.pylibdir],
+            'dirs': ['include'],
         }
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             custom_paths['files'].append(os.path.join('lib', 'libippicv.a'))
@@ -178,13 +222,15 @@ class EB_OpenCV(CMakeMake):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import cv2'")
 
-        super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom extra module file entries for OpenCV."""
         txt = super(EB_OpenCV, self).make_module_extra()
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
-        txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
+
+        if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
+            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

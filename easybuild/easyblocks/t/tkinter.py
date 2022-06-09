@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,17 +28,18 @@ module to use Tcl/Tk.
 
 @author: Adam Huffman (The Francis Crick Institute)
 @author: Ward Poelmans (Free University of Brussels)
+@author: Kenneth Hoste (HPC-UGent)
 """
-import os
-import shutil
 import glob
+import os
 import tempfile
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy, mkdir, rmtree2
+from easybuild.tools.filetools import copy, move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -49,11 +50,30 @@ class EB_Tkinter(EB_Python):
     but only install the Tkinter bits.
     """
 
+    @staticmethod
+    def extra_options():
+        """Disable EBPYTHONPREFIXES."""
+        extra_vars = EB_Python.extra_options()
+        # Not used for Tkinter
+        del extra_vars['ebpythonprefixes']
+
+        return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize Tkinter-specific variables."""
+        super(EB_Tkinter, self).__init__(*args, **kwargs)
+        self.tkinter_so_basename = None
+
     def configure_step(self):
         """Check for Tk before configuring"""
         tk = get_software_root('Tk')
         if not tk:
             raise EasyBuildError("Tk is mandatory to build Tkinter")
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         super(EB_Tkinter, self).configure_step()
 
@@ -63,28 +83,34 @@ class EB_Tkinter(EB_Python):
 
         tmpdir = tempfile.mkdtemp(dir=self.builddir)
 
-        pylibdir = os.path.join(self.installdir, os.path.dirname(det_pylibdir()))
-        shlib_ext = get_shared_lib_ext()
-        tkinter_so = os.path.join(pylibdir, 'lib-dynload', '_tkinter*.' + shlib_ext)
-        tkinter_so_hits = glob.glob(tkinter_so)
-        if len(tkinter_so_hits) != 1:
-            raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
-        self.tkinter_so_basename = os.path.basename(tkinter_so_hits[0])
+        self.tkinter_so_basename = self.get_tkinter_so_basename(False)
         if LooseVersion(self.version) >= LooseVersion('3'):
             tkparts = ["tkinter", os.path.join("lib-dynload", self.tkinter_so_basename)]
         else:
             tkparts = ["lib-tk", os.path.join("lib-dynload", self.tkinter_so_basename)]
 
-        copy([os.path.join(pylibdir, x) for x in tkparts], tmpdir)
+        pylibdir = os.path.join(self.installdir, det_pylibdir())
+        copy([os.path.join(os.path.dirname(pylibdir), x) for x in tkparts], tmpdir)
 
-        rmtree2(self.installdir)
+        remove_dir(self.installdir)
 
-        mkdir(pylibdir, parents=True)
-        try:
-            shutil.move(os.path.join(tmpdir, tkparts[0]), pylibdir)
-            shutil.move(os.path.join(tmpdir, os.path.basename(tkparts[1])), pylibdir)
-        except (IOError, OSError) as err:
-            raise EasyBuildError("Failed to move Tkinter back to the install directory: %s", err)
+        move_file(os.path.join(tmpdir, tkparts[0]), os.path.join(pylibdir, tkparts[0]))
+        move_file(os.path.join(tmpdir, self.tkinter_so_basename), os.path.join(pylibdir, self.tkinter_so_basename))
+
+    def get_tkinter_so_basename(self, in_final_dir):
+        pylibdir = os.path.join(self.installdir, det_pylibdir())
+        shlib_ext = get_shared_lib_ext()
+        if in_final_dir:
+            # The build has already taken place so the file will have been moved into the final pylibdir
+            tkinter_so = os.path.join(pylibdir, '_tkinter*.' + shlib_ext)
+        else:
+            tkinter_so = os.path.join(os.path.dirname(pylibdir), 'lib-dynload', '_tkinter*.' + shlib_ext)
+        tkinter_so_hits = glob.glob(tkinter_so)
+        if len(tkinter_so_hits) != 1:
+            raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
+        tkinter_so_basename = os.path.basename(tkinter_so_hits[0])
+
+        return tkinter_so_basename
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
@@ -94,11 +120,11 @@ class EB_Tkinter(EB_Python):
             tkinter = 'Tkinter'
         custom_commands = ["python -c 'import %s'" % tkinter]
 
-        shlib_ext = get_shared_lib_ext()
-        pylibdir = os.path.dirname(det_pylibdir())
+        if not self.tkinter_so_basename:
+            self.tkinter_so_basename = self.get_tkinter_so_basename(True)
 
         custom_paths = {
-            'files': ['%s/%s' % (pylibdir, self.tkinter_so_basename)],
+            'files': [os.path.join(det_pylibdir(), self.tkinter_so_basename)],
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
@@ -106,7 +132,6 @@ class EB_Tkinter(EB_Python):
     def make_module_extra(self):
         """Set PYTHONPATH"""
         txt = super(EB_Tkinter, self).make_module_extra()
-        pylibdir = os.path.dirname(det_pylibdir())
-        txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
 
         return txt

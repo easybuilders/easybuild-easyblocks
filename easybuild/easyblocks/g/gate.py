@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,6 @@ import os
 import shutil
 from distutils.version import LooseVersion
 
-import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -50,10 +49,13 @@ class EB_GATE(CMakeMake):
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'default_platform': ['openPBS', "Default cluster platform to set", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Out of source build doesn't work due to sub tools beeing 'make'd
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialise class variables."""
@@ -86,7 +88,7 @@ class EB_GATE(CMakeMake):
 
         # redefine $CFLAGS/$CXXFLAGS via options to build command ('make')
         cflags = os.getenv('CFLAGS')
-        cxxflags = "%s -DGC_DEFAULT_PLATFORM=\\'%s\\'" % (os.getenv('CXXFLAGS'), self.cfg['default_platform'])
+        cxxflags = "%s -DGC_DEFAULT_PLATFORM='\\\"%s\\\"'" % (os.getenv('CXXFLAGS'), self.cfg['default_platform'])
         if self.toolchain.comp_family() in [toolchain.INTELCOMP]:
             # make sure GNU macros are defined by Intel compiler
             cflags += " -gcc"
@@ -107,14 +109,14 @@ class EB_GATE(CMakeMake):
         for subdir in self.gate_subdirs:
             try:
                 os.chdir(os.path.join(os.path.join(self.cfg['start_dir'], subdir)))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
             super(EB_GATE, self).build_step()
 
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to return to start dir %s: %s", self.cfg['start_dir'], err)
 
     def install_step(self):
@@ -127,7 +129,7 @@ class EB_GATE(CMakeMake):
             for subdir in self.gate_subdirs:
                 try:
                     os.chdir(os.path.join(os.path.join(self.cfg['start_dir'], subdir)))
-                except OSError, err:
+                except OSError as err:
                     raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
                 super(EB_GATE, self).install_step()
@@ -138,7 +140,7 @@ class EB_GATE(CMakeMake):
             try:
                 shutil.rmtree(self.installdir)
                 shutil.copytree(self.cfg['start_dir'], self.installdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
 
             cmd = "source %s &> /dev/null && echo $G4SYSTEM" % os.path.join(self.cfg['start_dir'], 'env_gate.sh')
@@ -159,14 +161,14 @@ class EB_GATE(CMakeMake):
                     if fil.endswith('.%s' % shlib_ext):
                         shutil.copy2(os.path.join(srclibdir, fil), os.path.join(libdir, fil))
                         self.log.debug("Copied library %s to 'lib' install subdirectory" % fil)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy GATE library/ies to lib directory: %s", err)
 
             # add link from tmp/<OS>-<comp>/gjs to lib
             js_dir = os.path.join(self.installdir, 'cluster_tools', 'jobsplitter')
             try:
                 os.symlink(os.path.join(js_dir, 'tmp', self.g4system, 'gjs'), os.path.join(js_dir, 'lib'))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to symlink tmp js dir to lib in %s: %s", js_dir, err)
 
     def make_module_extra(self):
@@ -195,7 +197,7 @@ class EB_GATE(CMakeMake):
             dirs = []
             if LooseVersion(self.version) < '7.0':
                 extra_files += ["Utilities/itkzlib/%s" % x for x in ['itk_zlib_mangle.h', 'zconf.h',
-                                                                    'zlibDllConfig.h', 'zlib.h']]
+                                                                     'zlibDllConfig.h', 'zlib.h']]
                 extra_files += ["Utilities/MetaIO/%s" % x for x in ['localMetaConfiguration.h', 'metaDTITube.h',
                                                                     'metaImage.h', 'metaMesh.h', 'metaTubeGraph.h',
                                                                     'metaUtils.h']]
@@ -210,6 +212,8 @@ class EB_GATE(CMakeMake):
 
         custom_paths = {
             'files': [os.path.join('bin', subdir, 'Gate')] + extra_files,
-            'dirs' : dirs,
+            'dirs': dirs,
         }
-        super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["gjs -h | grep 'This executable is compiled with %s as default'"
+                           % self.cfg['default_platform']]
+        super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

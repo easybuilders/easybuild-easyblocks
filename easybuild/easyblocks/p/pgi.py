@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2018 Bart Oldeman
-# Copyright 2016-2018 Forschungszentrum Juelich
+# Copyright 2015-2022 Bart Oldeman
+# Copyright 2016-2022 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -82,7 +82,7 @@ class EB_PGI(PackedBinary):
     def extra_options():
         extra_vars = {
             'install_amd': [True, "Install AMD software components", CUSTOM],
-            'install_java': [True, "Install Java JRE for graphical debugger",  CUSTOM],
+            'install_java': [True, "Install Java JRE for graphical debugger", CUSTOM],
             'install_managed': [True, "Install OpenACC Unified Memory Evaluation package", CUSTOM],
             'install_nvidia': [True, "Install CUDA Toolkit Components", CUSTOM],
         }
@@ -133,7 +133,7 @@ class EB_PGI(PackedBinary):
             'PGI_INSTALL_MANAGED': str(self.cfg['install_managed']).lower(),
             'PGI_INSTALL_NVIDIA': str(self.cfg['install_nvidia']).lower(),
             'PGI_SILENT': 'true',
-            }
+        }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(pgi_env_vars.items())])
         run_cmd(cmd, log_all=True, simple=True)
 
@@ -173,7 +173,7 @@ class EB_PGI(PackedBinary):
         """Custom sanity check for PGI"""
         prefix = self.pgi_install_subdir
         custom_paths = {
-            'files': [os.path.join(prefix, 'bin', x) for x in ['pgcc', 'pgc++', 'pgf77', 'pgfortran', 'siterc']],
+            'files': [os.path.join(prefix, 'bin', x) for x in ['pgcc', 'pgc++', 'pgfortran', 'siterc']],
             'dirs': [os.path.join(prefix, 'bin'), os.path.join(prefix, 'lib'),
                      os.path.join(prefix, 'include'), os.path.join(prefix, 'man')]
         }

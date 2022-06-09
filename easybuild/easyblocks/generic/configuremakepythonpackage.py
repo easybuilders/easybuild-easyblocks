@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,7 +23,8 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for Python packages that are configured with 'python configure/make/make install', implemented as an easyblock
+EasyBuild support for Python packages that are configured with 'python configure/make/make install',
+implemented as an easyblock
 
 @author: Bart Verleye (Centre for eResearch, Auckland)
 @author: Kenneth Hoste (Ghent University)

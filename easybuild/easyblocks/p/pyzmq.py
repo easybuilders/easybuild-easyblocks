@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,9 +44,8 @@ class EB_PyZMQ(PythonPackage):
             self.sitecfg = """[build_ext]
 library_dirs = %(zmq)s/lib
 include_dirs = %(zmq)s/include
-""" % { 'zmq': root_zmq }
+""" % {'zmq': root_zmq}
         else:
             self.log.info("External ZeroMQ not found, PyZMQ will (try to) use shipped ZeroMQ.")
 
         super(EB_PyZMQ, self).configure_step()
-

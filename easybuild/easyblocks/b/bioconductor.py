@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,6 +40,7 @@ class EB_Bioconductor(RPackage):
     The Bioconductor package extends RPackage to use a different source
     And using the biocLite package to do the installation.
     """
+
     def make_cmdline_cmd(self):
         """Create a command line to install an R library."""
         raise EasyBuildError("Don't know how to install a specific version of a Bioconductor package.")

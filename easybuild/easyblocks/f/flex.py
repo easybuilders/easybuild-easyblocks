@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,15 +48,15 @@ class EB_flex(ConfigureMake):
                 if not os.path.exists(binpath):
                     os.symlink(os.path.join(self.installdir, "bin", "flex"), binpath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink binaries: %s", err)
 
     def sanity_check_step(self):
         """Custom sanity check for flex"""
-        custom_paths =  {
+        custom_paths = {
             'files': [os.path.join('bin', x) for x in ['flex', 'lex', 'lex++']] + ['include/FlexLexer.h'] +
-                     [('lib/libfl.a', 'lib64/libfl.a')],
-            'dirs':[]
+            [('lib/libfl.a', 'lib64/libfl.a')],
+            'dirs': []
         }
         if LooseVersion(self.version) < LooseVersion('2.6.3'):
             custom_paths['files'].append(('lib/libfl_pic.a', 'lib64/libfl_pic.a'))

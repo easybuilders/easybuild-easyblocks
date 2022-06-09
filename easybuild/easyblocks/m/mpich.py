@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2022 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -160,8 +160,8 @@ class EB_MPICH(ConfigureMake):
 
         bins = [os.path.join('bin', x) for x in binaries]
         headers = [os.path.join('include', x) for x in ['mpi.h', 'mpicxx.h', 'mpif.h']]
-        libs_fn = ['lib%s.%s' % (l, e) for l in libnames for e in ['a', shlib_ext]]
-        libs = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+        libs_fn = ['lib%s.%s' % (libname, e) for libname in libnames for e in ['a', shlib_ext]]
+        libs = [(os.path.join('lib', lib), os.path.join('lib64', lib)) for lib in libs_fn]
 
         custom_paths.setdefault('dirs', []).extend(['bin', 'include', ('lib', 'lib64')])
         custom_paths.setdefault('files', []).extend(bins + headers + libs)

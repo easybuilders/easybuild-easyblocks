@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -62,16 +62,16 @@ class EB_WPS(EasyBlock):
         self.build_in_installdir = True
         self.comp_fam = None
         self.compile_script = None
-        testdata_urls = ["http://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
+        testdata_urls = ["https://www2.mmm.ucar.edu/wrf/src/data/avn_data.tar.gz"]
         if LooseVersion(self.version) < LooseVersion('3.8'):
             # 697MB download, 16GB unpacked!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog.tar.gz")
         elif LooseVersion(self.version) < LooseVersion('4.0'):
             # 2.3GB download!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.bz2")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz")
         else:
             # 2.6GB download, 29GB unpacked!!
-            testdata_urls.append("http://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
+            testdata_urls.append("https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz")
         if self.cfg.get('testdata') is None:
             self.cfg['testdata'] = testdata_urls
 
@@ -107,10 +107,16 @@ class EB_WPS(EasyBlock):
         else:
             raise EasyBuildError("WRF module not loaded?")
 
-        # patch compile script so that WRF is found
-        self.compile_script = "compile"
-        regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
-        apply_regex_substitutions(self.compile_script, regex_subs)
+        self.compile_script = 'compile'
+
+        if LooseVersion(self.version) >= LooseVersion('4.0.3'):
+            # specify install location of WRF via $WRF_DIR (supported since WPS 4.0.3)
+            # see https://github.com/wrf-model/WPS/pull/102
+            env.setvar('WRF_DIR', wrfdir)
+        else:
+            # patch compile script so that WRF is found
+            regex_subs = [(r"^(\s*set\s*WRF_DIR_PRE\s*=\s*)\${DEV_TOP}(.*)$", r"\1%s\2" % wrfdir)]
+            apply_regex_substitutions(self.compile_script, regex_subs)
 
         # libpng dependency check
         libpng = get_software_root('libpng')
@@ -164,7 +170,10 @@ class EB_WPS(EasyBlock):
                 build_type_option = " Linux x86_64, Intel compiler"
 
             elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
-                build_type_option = "Linux x86_64 g95 compiler"
+                if LooseVersion(self.version) >= LooseVersion("3.6"):
+                    build_type_option = "Linux x86_64, gfortran"
+                else:
+                    build_type_option = "Linux x86_64 g95"
 
             else:
                 raise EasyBuildError("Don't know how to figure out build type to select.")
@@ -193,9 +202,9 @@ class EB_WPS(EasyBlock):
             raise EasyBuildError("Unknown build type: '%s'. Supported build types: %s", bt, knownbuildtypes.keys())
 
         # fetch option number based on build type option and selected build type
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
 
-        cmd = "./configure"
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {}
         no_qa = [".*compiler is.*"]
         std_qa = {
@@ -214,6 +223,9 @@ class EB_WPS(EasyBlock):
             'FC': os.getenv('MPIF90'),
             'CC': os.getenv('MPICC'),
         }
+        if self.toolchain.options.get('openmp', None):
+            comps.update({'LDFLAGS': '%s %s' % (self.toolchain.get_flag('openmp'), os.environ['LDFLAGS'])})
+
         regex_subs = [(r"^(%s\s*=\s*).*$" % key, r"\1 %s" % val) for (key, val) in comps.items()]
         apply_regex_substitutions('configure.wps', regex_subs)
 
@@ -267,7 +279,8 @@ class EB_WPS(EasyBlock):
 
                 # unpack data
                 for path in testdata_paths:
-                    extract_file(path, tmpdir)
+                    srcdir = extract_file(path, tmpdir, change_into_dir=False)
+                    change_dir(srcdir)
 
                 namelist_file = os.path.join(tmpdir, 'namelist.wps')
 
@@ -368,8 +381,8 @@ class EB_WPS(EasyBlock):
     def make_module_req_guess(self):
         """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
         return {
-            'PATH': [self.name],
-            'LD_LIBRARY_PATH': [self.name],
+            'PATH': [self.wps_subdir, os.path.join(self.wps_subdir, 'util')],
+            'LD_LIBRARY_PATH': [self.wps_subdir],
             'MANPATH': [],
         }
 

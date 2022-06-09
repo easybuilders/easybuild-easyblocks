@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,6 +34,19 @@ from easybuild.tools.run import run_cmd_qa
 class EB_SAS(EasyBlock):
     """Support for building/installing SAS."""
 
+    def __init__(self, *args, **kwargs):
+        """Custom constructor for SAS easyblock, initialize custom class variables."""
+
+        super(EB_SAS, self).__init__(*args, **kwargs)
+
+        # Use default SAS Installation Data File path
+        self.license_file = ''
+
+        # Set custom SAS Installation Data File path if defined and existing
+        if self.cfg['license_file'] and os.path.isfile(self.cfg['license_file']):
+            self.license_file = self.cfg['license_file']
+            self.log.info("Custom SAS Installation Data File found: %s", self.license_file)
+
     def configure_step(self):
         """No custom configurationprocedure for SAS."""
         pass
@@ -48,7 +61,7 @@ class EB_SAS(EasyBlock):
             "SAS Home:": self.installdir,
             "Install SAS Software (default: Yes):": '',
             "Configure SAS Software (default: Yes):": '',
-            "SAS Installation Data File:": '',
+            "SAS Installation Data File:": self.license_file,
             "Press Enter to continue:": '',
             "Configure as a Unicode server (default: No):": 'N',
             "SAS/ACCESS Interface to MySQL (default: Yes):": 'N',
@@ -59,21 +72,24 @@ class EB_SAS(EasyBlock):
             "Port Number:": '',
             "Configure SAS Studio Basic (default: Yes):": 'N',
             "Press Enter to finish:": '',
+            "Global Standards Library:": os.path.join(self.installdir, 'cstGlobalLibrary'),
+            "Sample Library:": os.path.join(self.installdir, 'cstSampleLibrary'),
         }
         std_qa = {
-            "Incomplete Deployment\s*(.*[^:])+Selection:": '2',  # 2: Ignore previous deployment and start again
-            "Select a language(.*[^:]\s*\n)+Selection:": '',
-            "Select Deployment Task\s*(.*[^:]\s*\n)+Selection:": '',
-            "Specify SAS Home\s*(.*[^:]\s*\n)+Selection:": '2',  # Create a new SAS Home
-            "Select Deployment Type\s*(.*[^:]\n)+Selection:": '2',  # 2: Install SAS Foundation
-            "Select Products to Install\s*(.*[^:]\n)+Selection:": '1',  # SAS Foundation
-            "Product\s*(.*[^:]\n)+Selections:": '',
-            "Select Language Support\s*(.*[^:]\n)+Selections:": '',
-            "Select Regional Settings\s*(.*[^:]\n)+Selection:": '',
-            "Select Support Option\s*(.*[^:]\n)+Selection:": '2',  # 2: Do Not Send
+            r"Incomplete Deployment\s*(.*[^:])+Selection:": '2',  # 2: Ignore previous deployment and start again
+            r"Select a language(.*[^:]\s*\n)+Selection:": '',
+            r"Select Deployment Task\s*(.*[^:]\s*\n)+Selection:": '',
+            r"Specify SAS Home\s*(.*[^:]\s*\n)+Selection:": '2',  # Create a new SAS Home
+            r"Select Deployment Type\s*(.*[^:]\n)+Selection:": '2',  # 2: Install SAS Foundation
+            r"Select Products to Install\s*(.*[^:]\n)+Selection:": '1',  # SAS Foundation
+            r"Product\s*(.*[^:]\n)+Selections:": '',
+            r"Select Language Support\s*(.*[^:]\n)+Selections:": '',
+            r"Select Regional Settings\s*(.*[^:]\n)+Selection:": '',
+            r"Select Support Option\s*(.*[^:]\n)+Selection:": '2',  # 2: Do Not Send
+            r"Select SAS Foundation Products(.*[^:]\s*\n)+Selection:": '',
         }
         no_qa = [
-            "\.\.\.$",
+            r"\.\.\.$",
         ]
         run_cmd_qa("./setup.sh -console", qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
 

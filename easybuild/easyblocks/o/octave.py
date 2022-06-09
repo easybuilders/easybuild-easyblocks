@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,12 +30,10 @@ EasyBuild support for building and installing Octave, implemented as an easybloc
 """
 import os
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
 
 
 EXTS_FILTER_OCTAVE_PACKAGES = ("octave --eval 'pkg list' | grep packages/%(ext_name)s-%(ext_version)s", '')

@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2018 Ghent University
+# Copyright 2012-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,70 +33,54 @@ or
 """
 
 import os
-import re
 import sys
 from distutils import log
+from distutils.core import setup
 
 sys.path.append('easybuild')
-from easyblocks import VERSION
+from easyblocks import VERSION  # noqa
 
-API_VERSION = str(VERSION).split('.')[0]
-suff = ''
+FRAMEWORK_MAJVER = str(VERSION).split('.')[0]
 
-rc_regexp = re.compile("^.*(rc[0-9]*)$")
-res = rc_regexp.search(str(VERSION))
-if res:
-    suff = res.group(1)
-
-dev_regexp = re.compile("^.*[0-9](.?dev[0-9])$")
-res = dev_regexp.search(str(VERSION))
-if res:
-    suff = res.group(1)
-
-API_VERSION += suff
-
-# log levels: 0 = WARN (default), 1 = INFO, 2 = DEBUG
+# log levels: 0=WARN (default), 1=INFO, 2=DEBUG
 log.set_verbosity(1)
 
-try:
-    from setuptools import setup
-    log.info("Installing with setuptools.setup...")
-except ImportError, err:
-    log.info("Failed to import setuptools.setup, so falling back to distutils.setup")
-    from distutils.core import setup
 
 # Utility function to read README file
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-log.info("Installing version %s (required versions: API >= %s)" % (VERSION, API_VERSION))
+
+log.info("Installing version %s (required versions: API >= %s)" % (VERSION, FRAMEWORK_MAJVER))
 
 setup(
-    name = "easybuild-easyblocks",
-    version = str(VERSION),
-    author = "EasyBuild community",
-    author_email = "easybuild@lists.ugent.be",
-    description = """Python modules which implement support for installing particular (groups of) software packages with EasyBuild.""",
-    license = "GPLv2",
-    keywords = "software build building installation installing compilation HPC scientific",
-    url = "https://easybuilders.github.io/easybuild",
-    packages = ["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
-    package_dir = {"easybuild.easyblocks": "easybuild/easyblocks"},
-    package_data = {'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
-    long_description = read("README.rst"),
-    classifiers = [
+    name="easybuild-easyblocks",
+    version=str(VERSION),
+    author="EasyBuild community",
+    author_email="easybuild@lists.ugent.be",
+    description="""Python modules which implement support for installing particular \
+ (groups of) software packages with EasyBuild.""",
+    license="GPLv2",
+    keywords="software build building installation installing compilation HPC scientific",
+    url="https://easybuild.io",
+    packages=["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
+    package_dir={"easybuild.easyblocks": "easybuild/easyblocks"},
+    package_data={'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
+    long_description=read("README.rst"),
+    classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Intended Audience :: System Administrators",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 2.4",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Topic :: Software Development :: Build Tools",
     ],
-    platforms = "Linux",
-    install_requires = [
-        'setuptools >= 0.6',
-        "easybuild-framework >= %s" % API_VERSION,
-    ],
-    zip_safe = False,
+    platforms="Linux",
+    requires=["easybuild_framework(>=%s.0)" % FRAMEWORK_MAJVER],
 )

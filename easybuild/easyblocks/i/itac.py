@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 
+
 class EB_itac(IntelBase):
     """
     Class that can be used to install itac
@@ -54,22 +55,31 @@ class EB_itac(IntelBase):
         }
         return IntelBase.extra_options(extra_vars)
 
-    def install_step(self):
+    def prepare_step(self, *args, **kwargs):
         """
-        Actual installation
+        Custom prepare step for itac: don't require runtime license for oneAPI versions (>= 2021)
+        """
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            kwargs['requires_runtime_license'] = False
+
+        super(EB_itac, self).prepare_step(*args, **kwargs)
+
+    def install_step_classic(self):
+        """
+        Actual installation for versions prior to 2021.x
+
         - create silent cfg file
         - execute command
         """
 
         if LooseVersion(self.version) >= LooseVersion('8.1'):
-            super(EB_itac, self).install_step(silent_cfg_names_map=None)
+            super(EB_itac, self).install_step_classic(silent_cfg_names_map=None)
 
             # itac v9.0.1 installer create itac/<version> subdir, so stuff needs to be moved afterwards
             if LooseVersion(self.version) >= LooseVersion('9.0'):
                 super(EB_itac, self).move_after_install()
         else:
-            silent = \
-"""
+            silent = """
 [itac]
 INSTALLDIR=%(ins)s
 LICENSEPATH=%(lic)s
@@ -91,12 +101,40 @@ EULA=accept
             tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
             try:
                 os.makedirs(tmpdir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
 
             run_cmd(cmd, log_all=True, simple=True)
+
+    def install_step_oneapi(self, *args, **kwargs):
+        """
+        Actual installation for versions 2021.x onwards.
+        """
+        # require that EULA is accepted
+        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
+
+        # exactly one "source" file is expected: the (offline) installation script
+        if len(self.src) == 1:
+            install_script = self.src[0]['name']
+        else:
+            src_fns = ', '.join([x['name'] for x in self.src])
+            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
+
+        cmd = ' '.join([
+            "sh %s" % install_script,
+            '-a',
+            '-s',
+            "--eula accept",
+            "--install-dir=%s" % self.installdir,
+        ])
+
+        run_cmd(cmd, log_all=True, simple=True)
+
+        # itac installer create itac/<version> subdir, so stuff needs to be moved afterwards
+        super(EB_itac, self).move_after_install()
 
     def sanity_check_step(self):
         """Custom sanity check paths for ITAC."""

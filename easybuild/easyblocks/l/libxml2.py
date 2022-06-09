@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,6 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 
 
 class EB_libxml2(ConfigureMake, PythonPackage):
@@ -58,6 +57,7 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         """
         PythonPackage.__init__(self, *args, **kwargs)
         self.with_python_bindings = False
+        self.require_python = False
 
     def configure_step(self):
         """
@@ -67,8 +67,9 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         python = get_software_root('Python')
         if python:
             self.with_python_bindings = True
+            self.require_python = True
 
-        if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
+        if not self.toolchain.is_system_toolchain():
             self.cfg.update('configopts', "CC='%s' CXX='%s'" % (os.getenv('CC'), os.getenv('CXX')))
 
         if self.toolchain.options.get('pic', False):
@@ -78,12 +79,16 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         if zlib:
             self.cfg.update('configopts', '--with-zlib=%s' % zlib)
 
+        xz_root = get_software_root('XZ')
+        if xz_root:
+            self.cfg.update('configopts', '--with-lzma=%s' % xz_root)
+
         # enable building of Python bindings if Python is a dependency (or build them ourselves for old versions)
         # disable building of Python bindings if Python is not a dependency
         if self.with_python_bindings and LooseVersion(self.version) >= LooseVersion('2.9.2'):
-                libxml2_pylibdir = os.path.join(self.installdir, self.pylibdir)
-                self.cfg.update('configopts', "--with-python=%s" % os.path.join(python, 'bin', 'python'))
-                self.cfg.update('configopts', "--with-python-install-dir=%s" % libxml2_pylibdir)
+            libxml2_pylibdir = os.path.join(self.installdir, self.pylibdir)
+            self.cfg.update('configopts', "--with-python=%s" % os.path.join(python, 'bin', 'python'))
+            self.cfg.update('configopts', "--with-python-install-dir=%s" % libxml2_pylibdir)
         else:
             self.cfg.update('configopts', '--without-python')
 

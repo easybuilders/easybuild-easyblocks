@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.modules import get_software_version, get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -68,13 +69,27 @@ class EB_VEP(EasyBlock):
         self.log.info("Adding %s to $%s (%s)", api_mods_dir, perllib_envvar, perllib)
         env.setvar(perllib_envvar, '%s:%s' % (api_mods_dir, perllib))
 
+        # check for bundled dependencies
+        bundled_deps = [
+            # tuple format: (package name in EB, option name for INSTALL.pl)
+            ('BioPerl', 'NO_BIOPERL'),
+            ('Bio-DB-HTS', 'NO_HTSLIB'),
+        ]
+        installopt_deps = []
+
+        for (dep, opt) in bundled_deps:
+            if get_software_root(dep):
+                installopt_deps.append('--%s' % opt)
+
+        installopt_deps = ' '.join(installopt_deps)
+
         # see https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html#installer
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             'perl',
             'INSTALL.pl',
-            # don't try to install optional Bio::DB::HTS (can be provided as an extension instead)
-            '--NO_HTSLIB',
+            # disable installation of bundled dependencies that are provided as dependencies in the easyconfig
+            installopt_deps,
             # a: API, f: FASTA
             # not included:
             # c: cache, should be downloaded by user
@@ -93,10 +108,19 @@ class EB_VEP(EasyBlock):
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""
+
         custom_paths = {
             'files': ['vep'],
             'dirs': ['modules/Bio/EnsEMBL/VEP'],
         }
+
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_majver = get_major_perl_version()
+            perl_ver = get_software_version('Perl')
+            perl_libpath = os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)
+            bio_ensembl_xs_ext = os.path.join(perl_libpath, 'x86_64-linux-thread-multi', 'Bio', 'EnsEMBL', 'XS.pm')
+            custom_paths['files'].extend([bio_ensembl_xs_ext])
+
         custom_commands = ['vep --help']
 
         super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
@@ -105,9 +129,14 @@ class EB_VEP(EasyBlock):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
+        perl_libpath = [self.api_mods_subdir]
+        if 'Bio::EnsEMBL::XS' in [ext[0] for ext in self.cfg['exts_list']]:
+            perl_ver = get_software_version('Perl')
+            perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
+
         guesses = super(EB_VEP, self).make_module_req_guess()
         guesses = {
             'PATH': '',
-            'PERL%sLIB' % perl_majver: self.api_mods_subdir,
+            'PERL%sLIB' % perl_majver: perl_libpath,
         }
         return guesses

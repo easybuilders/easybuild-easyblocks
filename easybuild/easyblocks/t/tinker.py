@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,18 +27,16 @@ EasyBuild support for building and installing TINKER, implemented as an easybloc
 
 @author: Kenneth Hoste (Ghent University)
 """
-import fileinput
 import glob
 import os
-import re
-import shutil
-import sys
 import tempfile
+
+from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type
@@ -83,17 +81,21 @@ class EB_TINKER(EasyBlock):
 
         # patch 'link.make' script to use FFTW provided via EasyBuild
         link_make_fp = os.path.join(self.cfg['start_dir'], self.build_subdir, 'link.make')
-        for line in fileinput.input(link_make_fp, inplace=1, backup='.orig'):
-            line = re.sub(r"libfftw3_threads.a libfftw3.a", r"-L$EBROOTFFTW/lib -lfftw3_threads -lfftw3", line)
-            sys.stdout.write(line)
+        regex_subs = [(r"libfftw3_threads.a libfftw3.a", r"-L$EBROOTFFTW/lib -lfftw3_omp -lfftw3")]
+        apply_regex_substitutions(link_make_fp, regex_subs)
+
+        # patch *.make files to get rid of hardcoded -openmp flag,
+        # which doesn't work anymore with recent Intel compilers
+        if comp_fam == toolchain.INTELCOMP:
+            make_fps = glob.glob(os.path.join(self.cfg['start_dir'], self.build_subdir, '*.make'))
+            regex_subs = [(r'-openmp', r'-fopenmp')]
+            for make_fp in make_fps:
+                apply_regex_substitutions(make_fps, regex_subs)
 
     def build_step(self):
         """Custom build procedure for TINKER."""
-        source_dir = os.path.join(self.cfg['start_dir'], 'source')
-        try:
-            os.chdir(source_dir)
-        except OSError, err:
-            raise EasyBuildError("Failed to move to %s: %s", source_dir, err)
+
+        change_dir(os.path.join(self.cfg['start_dir'], 'source'))
 
         run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'compile.make'))
         run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'library.make'))
@@ -108,33 +110,34 @@ class EB_TINKER(EasyBlock):
 
             mkdir(os.path.join(tmpdir, 'bin'))
             binaries = glob.glob(os.path.join(self.cfg['start_dir'], 'source', '*.x'))
-            try:
-                for binary in binaries:
-                    shutil.copy2(binary, os.path.join(tmpdir, 'bin', os.path.basename(binary)[:-2]))
-                shutil.copytree(os.path.join(self.cfg['start_dir'], 'test'), testdir)
-                shutil.copytree(os.path.join(self.cfg['start_dir'], 'params'), os.path.join(tmpdir, 'params'))
-            except OSError, err:
-                raise EasyBuildError("Failed to copy binaries and tests to %s: %s", tmpdir, err)
+            for binary in binaries:
+                copy_file(binary, os.path.join(tmpdir, 'bin', os.path.basename(binary)[:-2]))
+            copy_dir(os.path.join(self.cfg['start_dir'], 'test'), testdir)
+            copy_dir(os.path.join(self.cfg['start_dir'], 'params'), os.path.join(tmpdir, 'params'))
 
-            try:
-                os.chdir(testdir)
-            except OSError, err:
-                raise EasyBuildError("Failed to move to %s to run tests: %s", testdir, err)
+            change_dir(testdir)
 
             # run all tests via the provided 'run' scripts
             tests = glob.glob(os.path.join(testdir, '*.run'))
-            # gpcr takes too logn (~1h), ifabp fails due to input issues (?)
-            tests = [t for t in tests if not (t.endswith('gpcr.run') or t.endswith('ifabp.run'))]
+
+            # gpcr takes too long (~1h)
+            skip_tests = ['gpcr']
+            if (LooseVersion(self.version) < LooseVersion('8.7.2')):
+                # ifabp fails due to input issues (?)
+                skip_tests.append('ifabp')
+            if (LooseVersion(self.version) >= LooseVersion('8.7.2')):
+                # salt and dialinine takes too long
+                skip_tests.extend(['salt', 'dialanine'])
+
+            tests = [t for t in tests if not any([t.endswith('%s.run' % x) for x in skip_tests])]
+
             for test in tests:
                 run_cmd(test)
 
     def install_step(self):
         """Custom install procedure for TINKER."""
-        source_dir = os.path.join(self.cfg['start_dir'], 'source')
-        try:
-            os.chdir(source_dir)
-        except OSError, err:
-            raise EasyBuildError("Failed to move to %s: %s", source_dir, err)
+
+        change_dir(os.path.join(self.cfg['start_dir'], 'source'))
 
         mkdir(os.path.join(self.cfg['start_dir'], 'bin'))
         run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'rename.make'))

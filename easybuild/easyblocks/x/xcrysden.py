@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ import sys
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import read_file, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 
 
@@ -52,8 +53,7 @@ class EB_XCrySDen(ConfigureMake):
         and set make target and installation prefix.
         """
 
-        # check dependencies
-        deps = ["Mesa", "Tcl", "Tk"]
+        deps = ['Tcl', 'Tk']
         for dep in deps:
             if not get_software_root(dep):
                 raise EasyBuildError("Module for dependency %s not loaded.", dep)
@@ -63,7 +63,7 @@ class EB_XCrySDen(ConfigureMake):
         makesys_file = "Make.sys"
         try:
             shutil.copy2(makesys_tpl_file, makesys_file)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy %s: %s", makesys_tpl_file, err)
 
         self.tclroot = get_software_root("Tcl")
@@ -73,7 +73,9 @@ class EB_XCrySDen(ConfigureMake):
 
         # patch Make.sys
         settings = {
-                    'CFLAGS': os.getenv('CFLAGS'),
+                    # USE_INTERP_RESULT re-enables a API in the Tcl headers that was dropped in Tcl >= 8.6.
+                    # https://www.tcl.tk/man/tcl8.6/TclLib/Interp.htm
+                    'CFLAGS': os.getenv('CFLAGS') + ' -DUSE_INTERP_RESULT ',
                     'CC': os.getenv('CC'),
                     'FFLAGS': os.getenv('F90FLAGS'),
                     'FC': os.getenv('F90'),
@@ -81,9 +83,6 @@ class EB_XCrySDen(ConfigureMake):
                     'TCL_INCDIR': "-I%s/include" % self.tclroot,
                     'TK_LIB': "-L%s/lib -ltk%s" % (self.tkroot, self.tkver),
                     'TK_INCDIR': "-I%s/include" % self.tkroot,
-                    'GLU_LIB': "-L%s/lib -lGLU" % get_software_root("Mesa"),
-                    'GL_LIB': "-L%s/lib -lGL" % get_software_root("Mesa"),
-                    'GL_INCDIR': "-I%s/include" % get_software_root("Mesa"),
                     'FFTW3_LIB': "-L%s %s -L%s %s" % (os.getenv('FFTW_LIB_DIR'), os.getenv('LIBFFT'),
                                                       os.getenv('LAPACK_LIB_DIR'), os.getenv('LIBLAPACK_MT')),
                     'FFTW3_INCDIR': "-I%s" % os.getenv('FFTW_INC_DIR'),
@@ -93,23 +92,33 @@ class EB_XCrySDen(ConfigureMake):
                     'COMPILE_MESCHACH': 'no'
                    }
 
+        mesa_root = get_software_root('Mesa')
+        if mesa_root:
+            settings['GLU_LIB'] = "-L%s/lib -lGLU" % mesa_root
+            settings['GL_LIB'] = "-L%s/lib -lGL" % mesa_root
+            settings['GL_INCDIR'] = "-I%s/include" % mesa_root
+
+        togl_root = get_software_root("Togl")
+        if togl_root:
+            togl = {'root': togl_root, 'ver': get_software_version("Togl")}
+            settings['TOGL_LIB'] = "-L%(root)s/lib/Togl%(ver)s -lTogl%(ver)s" % togl
+            settings['TOGL_INCDIR'] = "-I%(root)s/include" % togl
+
         for line in fileinput.input(makesys_file, inplace=1, backup='.orig'):
             # set config parameters
-            for (k, v) in settings.items():
-                regexp = re.compile('^%s(\s+=).*'% k)
+            for (key, value) in list(settings.items()):
+                regexp = re.compile(r'^%s(\s+=).*' % key)
                 if regexp.search(line):
-                    line = regexp.sub('%s\\1 %s' % (k, v), line)
+                    line = regexp.sub('%s\\1 %s' % (key, value), line)
                     # remove replaced key/value pairs
-                    settings.pop(k)
+                    settings.pop(key)
             sys.stdout.write(line)
 
-        f = open(makesys_file, "a")
         # append remaining key/value pairs
-        for (k, v) in settings.items():
-            f.write("%s = %s\n" % (k, v))
-        f.close()
+        makesys_file_txt = '\n'.join("%s = %s" % s for s in sorted(settings.items()))
+        write_file(makesys_file, makesys_file_txt, append=True)
 
-        self.log.debug("Patched Make.sys: %s" % open(makesys_file, "r").read())
+        self.log.debug("Patched Make.sys: %s" % read_file(makesys_file))
 
         # set make target to 'xcrysden', such that dependencies are not downloaded/built
         self.cfg.update('buildopts', 'xcrysden')
@@ -122,15 +131,16 @@ class EB_XCrySDen(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for XCrySDen."""
 
-        custom_paths = {'files': ["bin/%s" % x for x in ["ptable", "pwi2xsf", "pwo2xsf", "unitconv", "xcrysden"]] +
-                                 ["lib/%s-%s/%s" % (self.name.lower(), self.version, x)
-                                  for x in ["atomlab", "calplane", "cube2xsf", "fhi_coord2xcr", "fhi_inpini2ftn34",
-                                            "fracCoor", "fsReadBXSF", "ftnunit", "gengeom", "kPath", "multislab",
-                                            "nn", "pwi2xsf", "pwi2xsf_old", "pwKPath", "recvec", "savestruct",
-                                            "str2xcr", "wn_readbakgen", "wn_readbands", "xcrys", "xctclsh",
-                                            "xsf2xsf"]],
-                        'dirs':[]
-                       }
+        binfiles = [os.path.join('bin', x) for x in ['ptable', 'pwi2xsf', 'pwo2xsf', 'unitconv', 'xcrysden']]
+        libfiles = ['atomlab', 'calplane', 'cube2xsf', 'fhi_coord2xcr', 'fhi_inpini2ftn34',
+                    'fracCoor', 'fsReadBXSF', 'ftnunit', 'gengeom', 'kPath', 'multislab',
+                    'nn', 'pwi2xsf', 'pwi2xsf_old', 'pwKPath', 'recvec', 'savestruct',
+                    'str2xcr', 'wn_readbakgen', 'wn_readbands', 'xcrys', 'xctclsh', 'xsf2xsf']
+
+        custom_paths = {
+            'files': binfiles + [os.path.join('lib', self.name.lower() + '-' + self.version, x) for x in libfiles],
+            'dirs': [],
+        }
 
         super(EB_XCrySDen, self).sanity_check_step(custom_paths=custom_paths)
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,10 +31,10 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 import easybuild.tools.toolchain as toolchain
 
 
@@ -60,9 +60,12 @@ class EB_scipy(FortranPythonPackage):
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for scipy."""
+
+        # can't use self.pylibdir here, need to determine path on the fly using currently active 'python' command;
+        # this is important for numpy installations for multiple Python version (via multi_deps)
         custom_paths = {
             'files': [],
-            'dirs': [self.pylibdir],
+            'dirs': [det_pylibdir()],
         }
-        custom_commands = [(self.python_cmd, '-c "import scipy"')]
-        return super(EB_scipy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+        return super(EB_scipy, self).sanity_check_step(custom_paths=custom_paths)

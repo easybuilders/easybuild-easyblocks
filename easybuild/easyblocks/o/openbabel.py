@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,23 +28,28 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 @author: Ward Poelmans (Ghent University)
 @author: Oliver Stueker (Compute Canada/ACENET)
 """
+import glob
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_shared_lib_ext
 from distutils.version import LooseVersion
+
 
 class EB_OpenBabel(CMakeMake):
     """Support for installing the OpenBabel package."""
 
     @staticmethod
     def extra_options():
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'with_python_bindings': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize OpenBabel-specific variables."""
@@ -52,23 +57,34 @@ class EB_OpenBabel(CMakeMake):
         self.with_python = False
 
     def configure_step(self):
-
-        # Use separate build directory
-        self.cfg['separate_build_dir'] = True
+        """Custom configure procedure for OpenBabel."""
 
         self.cfg['configopts'] += "-DENABLE_TESTS=ON "
         # Needs wxWidgets
         self.cfg['configopts'] += "-DBUILD_GUI=OFF "
 
-        root_python = get_software_root('Python')
-        if root_python and self.cfg['with_python_bindings']:
+        python_root = get_software_root('Python')
+        if python_root and self.cfg['with_python_bindings']:
             self.log.info("Enabling Python bindings")
             self.with_python = True
-            shortpyver = '.'.join(get_software_version('Python').split('.')[:2])
-            self.cfg['configopts'] += "-DPYTHON_BINDINGS=ON "
+            self.cfg.update('configopts', '-DPYTHON_BINDINGS=ON')
+            if LooseVersion(self.version) >= LooseVersion('3.0.0'):
+                self.log.info("Enabling SWIG")
+                self.cfg.update('configopts', '-DRUN_SWIG=ON')
+
+            # determine Python include subdir + libpython*.so path
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            inc_dirs = glob.glob(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
             shlib_ext = get_shared_lib_ext()
-            self.cfg['configopts'] += "-DPYTHON_LIBRARY=%s/lib/libpython%s.%s " % (root_python, shortpyver, shlib_ext)
-            self.cfg['configopts'] += "-DPYTHON_INCLUDE_DIR=%s/include/python%s " % (root_python, shortpyver)
+            libpython_paths = glob.glob(os.path.join(python_root, 'lib', 'libpython%s*.%s' % (pyshortver, shlib_ext)))
+
+            if len(inc_dirs) == 1 and len(libpython_paths) == 1:
+                self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % inc_dirs[0])
+                self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % libpython_paths[0])
+            else:
+                raise EasyBuildError("Failed to isolate Python include subdir and/or libpython*.so path: %s, %s",
+                                     inc_dirs, libpython_paths)
+
         else:
             self.log.info("Not enabling Python bindings")
 
@@ -84,7 +100,7 @@ class EB_OpenBabel(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenBabel."""
         custom_paths = {
-            'files': ['bin/babel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
+            'files': ['bin/obabel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
             'dirs': ['share/openbabel'],
         }
         super(EB_OpenBabel, self).sanity_check_step(custom_paths=custom_paths)
@@ -94,7 +110,7 @@ class EB_OpenBabel(CMakeMake):
         txt = super(EB_OpenBabel, self).make_module_extra()
         if self.with_python:
             if LooseVersion(self.version) >= LooseVersion('2.4'):
-                # since OpenBabel 2.4.0 the Python bindings under 
+                # since OpenBabel 2.4.0 the Python bindings under
                 # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
                 ob_pythonpath = det_pylibdir()
             else:

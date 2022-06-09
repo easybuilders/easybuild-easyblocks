@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,7 @@ EasyBuild support for building and installing netcdf4-python, implemented as an 
 @author: Kenneth Hoste (Ghent University)
 """
 import easybuild.tools.environment as env
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.modules import get_software_root
 
@@ -56,12 +57,31 @@ class EB_netcdf4_minus_python(PythonPackage):
         if netcdf:
             env.setvar('NETCDF4_DIR', netcdf)
 
+        libjpeg = get_software_root('libjpeg-turbo')
+        if libjpeg:
+            env.setvar('JPEG_DIR', libjpeg)
+
+        curl = get_software_root('cURL')
+        if curl:
+            env.setvar('CURL_DIR', curl)
+
         super(EB_netcdf4_minus_python, self).configure_step()
 
     def test_step(self):
         """Run netcdf4-python tests."""
         self.testinstall = True
-        self.testcmd = "cd test && %s run_all.py" % self.python_cmd
+        if self.toolchain.options.get('usempi', False):
+            self.testcmd = "cd test && %s run_all.py" % self.toolchain.mpi_cmd_for(self.python_cmd, 1)
+            self.cfg['exts_filter'] = (
+                self.toolchain.mpi_cmd_for(EXTS_FILTER_PYTHON_PACKAGES[0], 1),
+                EXTS_FILTER_PYTHON_PACKAGES[1]
+            )
+        else:
+            self.testcmd = "cd test && %s run_all.py" % self.python_cmd
+
+        # don't run tests that require network connectivity
+        env.setvar('NO_NET', '1')
+
         super(EB_netcdf4_minus_python, self).test_step()
 
     def sanity_check_step(self):
@@ -70,4 +90,15 @@ class EB_netcdf4_minus_python(PythonPackage):
             'files': ['bin/nc3tonc4', 'bin/nc4tonc3', 'bin/ncinfo'],
             'dirs': [self.pylibdir],
         }
-        return super(EB_netcdf4_minus_python, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = [
+            "nc4tonc3 --help",
+            "nc3tonc4 --help",
+            "ncinfo --help",
+        ]
+
+        # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
+        if self.toolchain.options.get('usempi', None):
+            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+
+        return super(EB_netcdf4_minus_python, self).sanity_check_step(custom_paths=custom_paths,
+                                                                      custom_commands=custom_commands)

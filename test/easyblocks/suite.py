@@ -1,6 +1,6 @@
 #!/usr/bin/python
 ##
-# Copyright 2012-2018 Ghent University
+# Copyright 2012-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,7 +25,7 @@
 ##
 """
 This script is a collection of all the testcases for easybuild-easyblocks.
-Usage: "python -m easybuild.easyblocks.test.suite.py" or "./easybuild/easyblocks/test/suite.py"
+Usage: "python -m test.easyblocks.suite" or "python test/easyblocks/suite.py"
 
 @author: Toon Willems (Ghent University)
 @author: Kenneth Hoste (Ghent University)
@@ -36,11 +36,12 @@ import shutil
 import sys
 import tempfile
 import unittest
-from vsc.utils import fancylogger
 
+from easybuild.base import fancylogger
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.options import set_tmpdir
 
+import test.easyblocks.easyblock_specific as e
 import test.easyblocks.general as g
 import test.easyblocks.init_easyblocks as i
 import test.easyblocks.module as m
@@ -55,25 +56,15 @@ log.setLevelName('DEBUG')
 
 try:
     tmpdir = set_tmpdir(raise_error=True)
-except EasyBuildError, err:
+except EasyBuildError as err:
     sys.stderr.write("No execution rights on temporary files, specify another location via $TMPDIR: %s\n" % err)
     sys.exit(1)
 
 os.environ['EASYBUILD_TMP_LOGDIR'] = tempfile.mkdtemp(prefix='easyblocks_test_')
 
 # call suite() for each module and then run them all
-SUITE = unittest.TestSuite([x.suite() for x in [g, i, m]])
-
-# uses XMLTestRunner if possible, so we can output an XML file that can be supplied to Jenkins
-xml_msg = ""
-try:
-    import xmlrunner  # requires unittest-xml-reporting package
-    xml_dir = 'test-reports'
-    res = xmlrunner.XMLTestRunner(output=xml_dir, verbosity=1).run(SUITE)
-    xml_msg = ", XML output of tests available in %s directory" % xml_dir
-except ImportError, err:
-    sys.stderr.write("WARNING: xmlrunner module not available, falling back to using unittest...\n\n")
-    res = unittest.TextTestRunner().run(SUITE)
+SUITE = unittest.TestSuite([x.suite() for x in [g, i, m, e]])
+res = unittest.TextTestRunner().run(SUITE)
 
 fancylogger.logToFile(log_fn, enable=False)
 shutil.rmtree(os.environ['EASYBUILD_TMP_LOGDIR'])
@@ -81,7 +72,7 @@ del os.environ['EASYBUILD_TMP_LOGDIR']
 
 if not res.wasSuccessful():
     sys.stderr.write("ERROR: Not all tests were successful.\n")
-    print "Log available at %s" % log_fn, xml_msg
+    print("Log available at %s" % log_fn)
     sys.exit(2)
 else:
     for f in glob.glob('%s*' % log_fn):

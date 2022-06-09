@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,6 @@ EasyBuild support for building and installing Allinea tools, implemented as an e
 import os
 import shutil
 import stat
-from os.path import expanduser
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -78,7 +77,7 @@ class EB_Allinea(Binary):
         lic_path = os.path.join(self.installdir, 'licences')
         try:
             shutil.copy2(self.cfg['license_file'], lic_path)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy license file to %s: %s", lic_path, err)
 
         # copy templates
@@ -93,7 +92,7 @@ class EB_Allinea(Binary):
             try:
                 # use shutil.copy (not copy2) so that permissions of copied file match with rest of installation
                 shutil.copy(path, templ_path)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to copy template %s to %s: %s", templ, templ_path, err)
 
         # copy system.config if requested
@@ -103,10 +102,11 @@ class EB_Allinea(Binary):
             if path:
                 self.log.debug('system.config file %s found' % path)
             else:
-                raise EasyBuildError('No system.config file named %s found', sysconfig)
+                raise EasyBuildError('No system.config file named %s found', sysconf_path)
 
             copy_file(path, sysconf_path)
-            adjust_permissions(sysconf_path, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH, recursive=False, relative=False)
+            adjust_permissions(sysconf_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH,
+                               recursive=False, relative=False)
 
     def sanity_check_step(self):
         """Custom sanity check for Allinea."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,7 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_libdir
-from easybuild.tools.ordereddict import OrderedDict
+from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
 
@@ -117,7 +117,7 @@ class EB_ALADIN(EasyBlock):
 
             os.chdir(cwd)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to build ALADIN: %s", err)
 
         # build gmkpack, update PATH and set GMKROOT
@@ -127,8 +127,8 @@ class EB_ALADIN(EasyBlock):
             os.chdir(os.path.join(self.builddir, gmkpack_dir))
 
             qa = {
-                  'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n',
-                 }
+                'Do you want to run the configuration file maker assistant now (y) or later [n] ?': 'n',
+            }
 
             run_cmd_qa("./build_gmkpack", qa)
 
@@ -140,7 +140,7 @@ class EB_ALADIN(EasyBlock):
 
             env.setvar('GMKROOT', os.path.join(self.builddir, gmkpack_dir))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to build gmkpack: %s", err)
 
         # generate gmkpack configuration file
@@ -156,7 +156,7 @@ class EB_ALADIN(EasyBlock):
             if not os.path.exists(archdir):
                 mkdir(archdir, parents=True)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to remove existing file %s: %s", self.conf_filepath, err)
 
         mpich = 'n'
@@ -284,14 +284,15 @@ class EB_ALADIN(EasyBlock):
         try:
             mkdir(os.getenv('ROOTPACK'), parents=True)
             mkdir(os.getenv('HOMEPACK'), parents=True)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to create rootpack dir in %s: %s", err)
 
         # create rootpack
         [v1, v2] = self.version.split('_')
-        (out, _) = run_cmd("source $GMKROOT/util/berootpack && gmkpack -p master -a -r %s -b %s" % (v1, v2), simple=False)
+        (out, _) = run_cmd("source $GMKROOT/util/berootpack && gmkpack -p master -a -r %s -b %s" % (v1, v2),
+                           simple=False)
 
-        packdir_regexp = re.compile("Creating main pack (.*) \.\.\.")
+        packdir_regexp = re.compile(r"Creating main pack (.*) \.\.\.")
         res = packdir_regexp.search(out)
         if res:
             self.rootpack_dir = os.path.join('rootpack', res.group(1))
@@ -306,7 +307,7 @@ class EB_ALADIN(EasyBlock):
             for srcdir in src_dirs:
                 shutil.copytree(os.path.join(self.builddir, srcdir), os.path.join(target, srcdir))
                 self.log.info("Copied %s" % srcdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy ALADIN sources: %s", err)
 
         if self.cfg['parallel']:
@@ -325,11 +326,11 @@ class EB_ALADIN(EasyBlock):
         libdir = os.path.join(self.rootpack_dir, 'lib')
         custom_paths = {
             'files': [os.path.join(bindir, x) for x in ['MASTER']] +
-                     [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
-                                                                          'bla', 'mpa', 'mse', 'obt',
-                                                                          'odb', 'sat', 'scr', 'sct',
-                                                                          'sur', 'surfex', 'tal', 'tfl',
-                                                                          'uti', 'xla', 'xrd']],
+            [os.path.join(libdir, 'lib%s.local.a' % x) for x in ['aeo', 'ald', 'arp', 'bip',
+                                                                 'bla', 'mpa', 'mse', 'obt',
+                                                                 'odb', 'sat', 'scr', 'sct',
+                                                                 'sur', 'surfex', 'tal', 'tfl',
+                                                                 'uti', 'xla', 'xrd']],
             'dirs': [],
         }
         super(EB_ALADIN, self).sanity_check_step(custom_paths=custom_paths)

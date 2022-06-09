@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2018 Ghent University
+# Copyright 2016-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ from easybuild.tools.filetools import write_file
 from easybuild.tools.run import run_cmd
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.easyblocks.ocaml import mk_opam_init_cmd
 
 
 # see http://matsen.github.io/pplacer/compiling.html#opam
@@ -55,7 +56,9 @@ class EB_pplacer(ConfigureMake):
 
         # configure OPAM to install pplacer dependencies
         env.setvar('OPAMROOT', self.installdir)
-        run_cmd("opam init")
+
+        opam_init_cmd = mk_opam_init_cmd()
+        run_cmd(opam_init_cmd)
 
         run_cmd("opam repo add pplacer-deps %s/pplacer-opam-repository*/" % self.builddir)
         run_cmd("opam update pplacer-deps")

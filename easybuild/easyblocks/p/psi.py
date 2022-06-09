@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2018 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,12 +60,14 @@ class EB_PSI(CMakeMake):
     @staticmethod
     def extra_options():
         """Extra easyconfig parameters specific to PSI."""
-
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             # always include running PSI unit tests (takes about 2h or less)
             'runtest': ["tests TESTFLAGS='-u -q'", "Run tests included with PSI, without interruption.", BUILD],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        # Doesn't work with out-of-source build
+        extra_vars['separate_build_dir'][0] = False
+        return extra_vars
 
     def configure_step(self):
         """
@@ -75,7 +77,7 @@ class EB_PSI(CMakeMake):
             objdir = os.path.join(self.builddir, 'obj')
             os.makedirs(objdir)
             os.chdir(objdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to prepare for configuration of PSI build: %s", err)
 
         env.setvar('F77FLAGS', os.getenv('F90FLAGS'))
@@ -139,13 +141,11 @@ class EB_PSI(CMakeMake):
             ConfigureMake.configure_step(self, cmd_prefix=self.cfg['start_dir'])
         else:
             self.log.info("Using CMake based build")
-            self.cfg.update('configopts', ' -DPYTHON_INTERPRETER=%s' % os.path.join(pythonroot, 'bin', 'python'))
+            self.cfg.update('configopts', ' -DPYTHON_EXECUTABLE=%s' % os.path.join(pythonroot, 'bin', 'python'))
             if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
                 self.log.info("Remove the CMAKE_BUILD_TYPE test in PSI4 source and the downloaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
-                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=EasyBuildRelease')
-            else:
-                self.cfg.update('configopts', ' -DCMAKE_BUILD_TYPE=Release')
+                self.cfg['build_type'] = 'EasyBuildRelease'
 
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', " -DENABLE_MPI=ON")
@@ -156,7 +156,11 @@ class EB_PSI(CMakeMake):
             if self.name == 'PSI4':
                 pcmsolverroot = get_software_root('PCMSolver')
                 if pcmsolverroot:
-                    self.cfg.update('configopts', " -DENABLE_PCMSOLVER=ON")
+                    if LooseVersion(self.version) >= LooseVersion("1.1"):
+                        pcmsolver = 'PCMSolver'
+                    else:
+                        pcmsolver = 'PCMSOLVER'
+                    self.cfg.update('configopts', " -DENABLE_%s=ON" % pcmsolver)
                     if LooseVersion(self.version) < LooseVersion("1.2"):
                         self.cfg.update('configopts', " -DPCMSOLVER_ROOT=%s" % pcmsolverroot)
                     else:
@@ -165,7 +169,11 @@ class EB_PSI(CMakeMake):
 
                 chempsroot = get_software_root('CheMPS2')
                 if chempsroot:
-                    self.cfg.update('configopts', " -DENABLE_CHEMPS2=ON")
+                    if LooseVersion(self.version) >= LooseVersion("1.1"):
+                        chemps2 = 'CheMPS2'
+                    else:
+                        chemps2 = 'CHEMPS2'
+                    self.cfg.update('configopts', " -DENABLE_%s=ON" % chemps2)
                     if LooseVersion(self.version) < LooseVersion("1.2"):
                         self.cfg.update('configopts', " -DCHEMPS2_ROOT=%s" % chempsroot)
                     else:
@@ -197,7 +205,7 @@ class EB_PSI(CMakeMake):
                 # copy symlinks as symlinks to work around broken symlinks
                 shutil.copytree(os.path.join(self.builddir, subdir), os.path.join(self.installdir, subdir),
                                 symlinks=True)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy obj and unpacked sources to install dir: %s", err)
 
     def test_step(self):
@@ -222,7 +230,7 @@ class EB_PSI(CMakeMake):
 
         try:
             shutil.rmtree(testdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to remove test directory %s: %s", testdir, err)
 
     def sanity_check_step(self):

@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2018 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -39,13 +39,17 @@ class EB_Velvet(ConfigureMake):
         srcdir = self.cfg['start_dir']
         destdir = os.path.join(self.installdir, 'bin')
         srcfile = None
-        # Get executable files: for i in $(find . -maxdepth 1 -type f -perm +111 -print | sed -e 's/\.\///g' | awk '{print "\""$0"\""}' | grep -vE "\.sh|\.html"); do echo -ne "$i, "; done && echo
+        # Get executable files:
+        # for i in $(find . -maxdepth 1 -type f -perm +111 -print | sed -e 's/\.\///g' | awk '{print "\""$0"\""}' \
+        #             | grep -vE "\.sh|\.html"); do
+        #    echo -ne "$i, "
+        # done && echo
         try:
             os.makedirs(destdir)
             for filename in ["velveth", "velvetg"]:
                 srcfile = os.path.join(srcdir, filename)
                 shutil.copy2(srcfile, destdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
     def sanity_check_step(self):

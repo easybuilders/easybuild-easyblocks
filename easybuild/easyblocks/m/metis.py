@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -99,7 +99,7 @@ class EB_METIS(ConfigureMake):
                 src = os.path.join(self.cfg['start_dir'], 'libmetis.a')
                 dst = os.path.join(libdir, 'libmetis.a')
                 shutil.copy2(src, dst)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Copying file libmetis.a to lib dir failed: %s", err)
 
             # copy include files
@@ -108,8 +108,8 @@ class EB_METIS(ConfigureMake):
                     src = os.path.join(self.cfg['start_dir'], 'Lib', f)
                     dst = os.path.join(includedir, f)
                     shutil.copy2(src, dst)
-                    os.chmod(dst, 0755)
-            except OSError, err:
+                    os.chmod(dst, 0o755)
+            except OSError as err:
                 raise EasyBuildError("Copying file metis.h to include dir failed: %s", err)
 
             # other applications depending on ParMETIS (SuiteSparse for one) look for both ParMETIS libraries
@@ -119,7 +119,7 @@ class EB_METIS(ConfigureMake):
                 os.symlink(libdir, Libdir)
                 for f in ['defs.h', 'macros.h', 'metis.h', 'proto.h', 'rename.h', 'struct.h']:
                     os.symlink(os.path.join(includedir, f), os.path.join(libdir, f))
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Something went wrong during symlink creation: %s", err)
 
         else:
@@ -142,7 +142,7 @@ class EB_METIS(ConfigureMake):
 
         custom_paths = {
             'files': ['bin/%s' % x for x in binfiles] + ['include/%s' % x for x in incfiles] +
-                     ['lib/libmetis.%s' % x for x in self.lib_exts],
-            'dirs' : dirs,
+            ['lib/libmetis.%s' % x for x in self.lib_exts],
+            'dirs': dirs,
         }
         super(EB_METIS, self).sanity_check_step(custom_paths=custom_paths)

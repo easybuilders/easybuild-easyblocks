@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,8 +33,12 @@ import os
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+
 
 class EB_ROOT(CMakeMake):
 
@@ -43,13 +47,27 @@ class EB_ROOT(CMakeMake):
         """
         Define extra options needed by Geant4
         """
-        extra_vars = {
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
             'arch': [None, "Target architecture", CUSTOM],
-        }
-        return CMakeMake.extra_options(extra_vars)
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
 
     def configure_step(self):
         """Custom configuration for ROOT, add configure options."""
+
+        # ROOT includes an (old) copy of LLVM;
+        # if LLVM is loaded as an indirect dep, we need to make sure
+        # the location to its header files is not included in $CPATH
+        llvm_root = get_software_root('LLVM')
+        if llvm_root:
+            llvm_inc = os.path.join(llvm_root, 'include')
+            cpath = os.getenv('CPATH')
+            if cpath:
+                new_cpath = [p for p in cpath.split(os.pathsep) if p != llvm_inc]
+                self.log.info("Filtered %s from $CPATH to avoid using LLVM loaded as indirect dependency", llvm_inc)
+                setvar('CPATH', os.pathsep.join(new_cpath))
 
         # using ./configure is deprecated/broken in recent versions, need to use CMake instead
         if LooseVersion(self.version.lstrip('v')) >= LooseVersion('6.10'):
@@ -77,15 +95,15 @@ class EB_ROOT(CMakeMake):
             if python_root:
                 pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
                 self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(python_root, 'bin', 'python'))
-                python_inc_dir = os.path.join(python_root, 'include', 'python%s' % pyshortver)
+                python_inc_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
                 self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_inc_dir)
-                python_lib = os.path.join(python_root, 'lib', 'libpython%s.so' % pyshortver)
+                python_lib = find_glob_pattern(
+                    os.path.join(python_root, 'lib', 'libpython%s*.so' % pyshortver))
                 self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
 
             if get_software_root('X11'):
                 self.cfg.update('configopts', '-Dx11=ON')
 
-            self.cfg['separate_build_dir'] = True
             CMakeMake.configure_step(self)
         else:
             if self.cfg['arch'] is None:

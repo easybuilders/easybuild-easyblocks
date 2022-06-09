@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,12 +23,11 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for creating a module that loads the build 
-environment flags for the current toolchain 
+EasyBuild support for creating a module that loads the build
+environment flags for the current toolchain
 
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
-from easybuild.tools.toolchain import DUMMY_TOOLCHAIN_NAME
 from easybuild.easyblocks.generic.bundle import Bundle
 
 
@@ -36,12 +35,13 @@ class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
     """
+
     def make_module_extra(self):
         """Add all the build environment variables."""
         txt = super(BuildEnv, self).make_module_extra()
 
-        # include environment variables defined for (non-dummy) toolchain
-        if self.toolchain.name != DUMMY_TOOLCHAIN_NAME:
+        # include environment variables defined for (non-system) toolchain
+        if not self.toolchain.is_system_toolchain():
             for key, val in sorted(self.toolchain.vars.items()):
                 txt += self.module_generator.set_environment(key, val)
 

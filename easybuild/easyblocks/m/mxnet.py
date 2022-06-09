@@ -1,5 +1,5 @@
 ##
-# Copyright 2018 Free University of Brussels (VUB)
+# Copyright 2018-2022 Free University of Brussels (VUB)
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.easyblocks.generic.rpackage import RPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, mkdir, rmtree2, symlink, write_file
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -57,6 +57,7 @@ magrittr,
 stringr
 )
 """
+
 
 class EB_MXNet(MakeCp):
     """Easyblock to build and install MXNet"""
@@ -99,16 +100,16 @@ class EB_MXNet(MakeCp):
             newdir = os.path.join(self.mxnet_src_dir, submodule)
             olddir = os.path.join(self.builddir, srcdir)
             # first remove empty existing directory
-            rmtree2(newdir)
+            remove_dir(newdir)
             try:
                 shutil.move(olddir, newdir)
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Failed to move %s to %s: %s", olddir, newdir, err)
 
         # the nnvm submodules has dmlc-core as a submodule too. Let's put a symlink in place.
         newdir = os.path.join(self.mxnet_src_dir, "nnvm", "dmlc-core")
         olddir = os.path.join(self.mxnet_src_dir, "dmlc-core")
-        rmtree2(newdir)
+        remove_dir(newdir)
         symlink(olddir, newdir)
 
     def prepare_step(self, *args, **kwargs):
@@ -191,7 +192,7 @@ class EB_MXNet(MakeCp):
         # for the extension we are doing the loading of the fake module ourself
         try:
             fake_mod_data = self.load_fake_module()
-        except EasyBuildError, err:
+        except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
         if not self.py_ext.sanity_check_step():

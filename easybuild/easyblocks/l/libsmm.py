@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,14 +33,14 @@ EasyBuild support for building and installing the libsmm library, implemented as
 """
 
 import os
-import shutil
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.filetools import copy_dir
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 
 
@@ -54,7 +54,7 @@ class EB_libsmm(EasyBlock):
     @staticmethod
     def extra_options():
         # default dimensions
-        dd = [1,4,5,6,9,13,16,17,22]
+        dd = [1, 4, 5, 6, 9, 13, 16, 17, 22]
         extra_vars = {
             'transpose_flavour': [1, "Transpose flavour of routines", CUSTOM],
             'max_tiny_dim': [12, "Maximum tiny dimension", CUSTOM],
@@ -68,7 +68,7 @@ class EB_libsmm(EasyBlock):
             dst = 'tools/build_libsmm'
             os.chdir(dst)
             self.log.debug('Change to directory %s' % dst)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to directory %s: %s", dst, err)
 
     def build_step(self):
@@ -103,7 +103,8 @@ transpose_flavor=%(transposeflavour)s
 data_type=%(datatype)s
 
 # target compiler... this are the options used for building the library.
-# They should be aggessive enough to e.g. perform vectorization for the specific CPU (e.g. -ftree-vectorize -march=native),
+# They should be aggessive enough to e.g. perform vectorization for the specific CPU
+# (e.g. -ftree-vectorize -march=native),
 # and allow some flexibility in reordering floating point expressions (-ffast-math).
 # Higher level optimisation (in particular loop nest optimization) should not be used.
 #
@@ -146,7 +147,7 @@ tasks=%(tasks)s
         """
 
         # only GCC is supported for now
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             hostcompile = os.getenv('F90')
 
             # optimizations
@@ -166,15 +167,15 @@ tasks=%(tasks)s
             raise EasyBuildError("No BLAS library specifications found (LIBBLAS not set)!")
 
         cfgdict = {
-                   'datatype': None,
-                   'transposeflavour': self.cfg['transpose_flavour'],
-                   'targetcompile': targetcompile,
-                   'hostcompile': hostcompile,
-                   'dims': ' '.join([str(d) for d in self.cfg['dims']]),
-                   'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim']+1)]),
-                   'tasks': self.cfg['parallel'],
-                   'LIBBLAS': "%s %s" % (os.getenv('LDFLAGS'), os.getenv('LIBBLAS'))
-                  }
+            'datatype': None,
+            'transposeflavour': self.cfg['transpose_flavour'],
+            'targetcompile': targetcompile,
+            'hostcompile': hostcompile,
+            'dims': ' '.join([str(d) for d in self.cfg['dims']]),
+            'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim'] + 1)]),
+            'tasks': self.cfg['parallel'],
+            'LIBBLAS': "%s %s" % (os.getenv('LDFLAGS'), os.getenv('LIBBLAS'))
+        }
 
         # configure for various iterations
         datatypes = [(1, 'double precision real'), (3, 'double precision complex')]
@@ -187,7 +188,7 @@ tasks=%(tasks)s
                 f.write(txt)
                 f.close()
                 self.log.debug("config file %s for datatype %s ('%s'): %s" % (fn, dt, descr, txt))
-            except IOError, err:
+            except IOError as err:
                 raise EasyBuildError("Failed to write %s: %s", fn, err)
 
             self.log.info("Building for datatype %s ('%s')..." % (dt, descr))
@@ -198,17 +199,14 @@ tasks=%(tasks)s
         """Install CP2K: clean, and copy lib directory to install dir"""
 
         run_cmd("./do_clean")
-        try:
-            shutil.copytree('lib', os.path.join(self.installdir, 'lib'))
-        except Exception, err:
-            raise EasyBuildError("Something went wrong during dir lib copying to installdir: %s", err)
+        copy_dir('lib', os.path.join(self.installdir, 'lib'))
 
     def sanity_check_step(self):
         """Custom sanity check for libsmm"""
 
         custom_paths = {
-                        'files': ["lib/libsmm_%s.a" % x for x in ["dnn", "znn"]],
-                        'dirs': []
-                       }
+            'files': ["lib/libsmm_%s.a" % x for x in ["dnn", "znn"]],
+            'dirs': [],
+        }
 
         super(EB_libsmm, self).sanity_check_step(custom_paths=custom_paths)

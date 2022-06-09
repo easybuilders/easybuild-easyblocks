@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,9 +39,10 @@ import tempfile
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
+from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, mkdir, rmtree2
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from distutils.version import LooseVersion
@@ -55,6 +56,7 @@ class EB_numpy(FortranPythonPackage):
         """Easyconfig parameters specific to numpy."""
         extra_vars = ({
             'blas_test_time_limit': [500, "Time limit (in ms) for 1000x1000 matrix dot product BLAS test", CUSTOM],
+            'ignore_test_result': [False, "Run numpy test suite, but ignore test result (only log)", CUSTOM],
         })
         return FortranPythonPackage.extra_options(extra_vars=extra_vars)
 
@@ -65,7 +67,6 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
-        self.testcmd = "cd .. && %(python)s -c 'import numpy; numpy.test(verbose=2)'"
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
@@ -141,7 +142,7 @@ class EB_numpy(FortranPythonPackage):
                 # patches are either strings (extension) or dicts (easyblock)
                 if isinstance(patch, dict):
                     patch = patch['path']
-                if patch_wl_regex.search(open(patch, 'r').read()):
+                if patch_wl_regex.search(read_file(patch)):
                     patch_found = True
                     break
             if not patch_found:
@@ -167,7 +168,7 @@ class EB_numpy(FortranPythonPackage):
                 lapack = ', '.join([lapack, "cblas"])
                 cblaslib = os.path.join(cblasroot, 'lib')
                 # with numpy as extension, CBLAS might not be included in LDFLAGS because it's not part of a toolchain
-                if not cblaslib in libs:
+                if cblaslib not in libs:
                     libs = ':'.join([libs, cblaslib])
             else:
                 raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
@@ -207,12 +208,33 @@ class EB_numpy(FortranPythonPackage):
 
         super(EB_numpy, self).configure_step()
 
-        # check configuration (for debugging purposes)
-        cmd = "%s setup.py config" % self.python_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        if LooseVersion(self.version) < LooseVersion('1.21'):
+            # check configuration (for debugging purposes)
+            cmd = "%s setup.py config" % self.python_cmd
+            run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
+
+        # determine command to use to run numpy test suite,
+        # and whether test results should be ignored or not
+        if self.cfg['ignore_test_result']:
+            test_code = 'numpy.test(verbose=2)'
+        else:
+            if LooseVersion(self.version) >= LooseVersion('1.15'):
+                # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
+                test_code = 'sys.exit(not numpy.test(verbose=2))'
+            else:
+                # Return value is a TextTestResult. Check the errors member for any error
+                test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
+
+        # Prepend imports
+        test_code = "import sys; import numpy; " + test_code
+
+        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+        # see http://projects.scipy.org/numpy/ticket/182
+        self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
+
         super(EB_numpy, self).test_step()
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
@@ -227,7 +249,7 @@ class EB_numpy(FortranPythonPackage):
         try:
             pwd = os.getcwd()
             os.chdir(tmpdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
@@ -243,12 +265,12 @@ class EB_numpy(FortranPythonPackage):
 
         # fetch result
         time_msec = None
-        msec_re = re.compile("\d+ loops, best of \d+: (?P<time>[0-9.]+) msec per loop")
+        msec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) msec per loop")
         res = msec_re.search(out)
         if res:
             time_msec = float(res.group('time'))
         else:
-            sec_re = re.compile("\d+ loops, best of \d+: (?P<time>[0-9.]+) sec per loop")
+            sec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) sec per loop")
             res = sec_re.search(out)
             if res:
                 time_msec = 1000 * float(res.group('time'))
@@ -269,8 +291,8 @@ class EB_numpy(FortranPythonPackage):
                                  size, size, time_msec, self.cfg['blas_test_time_limit'])
         try:
             os.chdir(pwd)
-            rmtree2(tmpdir)
-        except OSError, err:
+            remove_dir(tmpdir)
+        except OSError as err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
     def install_step(self):
@@ -281,7 +303,7 @@ class EB_numpy(FortranPythonPackage):
         try:
             if os.path.isdir(builddir):
                 os.chdir(self.builddir)
-                rmtree2(builddir)
+                remove_dir(builddir)
             else:
                 self.log.debug("build dir %s already clean" % builddir)
 
@@ -297,13 +319,15 @@ class EB_numpy(FortranPythonPackage):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for numpy."""
 
+        # can't use self.pylibdir here, need to determine path on the fly using currently active 'python' command;
+        # this is important for numpy installations for multiple Python version (via multi_deps)
         custom_paths = {
             'files': [],
-            'dirs': [self.pylibdir],
+            'dirs': [det_pylibdir()],
         }
-        custom_commands = [
-            ('python', '-c "import numpy"'),
-        ]
+
+        custom_commands = []
+
         if LooseVersion(self.version) >= LooseVersion("1.10"):
             # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
             # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
@@ -313,14 +337,10 @@ class EB_numpy(FortranPythonPackage):
                 "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
                 "sys.exit((1, 0)[blas_ok])",
             ])
-            custom_commands.append(('python', '-c "%s"' % blas_check_pytxt))
+            custom_commands.append('python -c "%s"' % blas_check_pytxt)
         else:
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
-            custom_commands.append (('python', '-c "import numpy.core._dotblas"'))
-
-        # make sure the installation path is in $PYTHONPATH so the sanity check commands can work
-        pythonpath = os.environ.get('PYTHONPATH', '')
-        os.environ['PYTHONPATH'] = ':'.join([self.pylibdir, pythonpath])
+            custom_commands.append("python -c 'import numpy.core._dotblas'")
 
         return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,9 +36,13 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.py2vs3 import string_type
+
+NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
 
 class EB_PETSc(ConfigureMake):
@@ -54,13 +58,15 @@ class EB_PETSc(ConfigureMake):
         self.prefix_lib = ''
         self.prefix_bin = ''
 
+        self.with_python = False
+
         if self.cfg['sourceinstall']:
             self.prefix_inc = self.petsc_subdir
             self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+            self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
             self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
-
 
     @staticmethod
     def extra_options():
@@ -72,19 +78,27 @@ class EB_PETSc(ConfigureMake):
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
             'papi_lib': ['/usr/lib64/libpapi.so', "Path for PAPI library", CUSTOM],
             'runtest': ['test', "Make target to test build", BUILD],
+            'test_parallel': [
+                None,
+                "Number of parallel PETSc tests launched. If unset, 'parallel' will be used",
+                CUSTOM
+            ],
             'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
             'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
             'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
-    def make_builddir(self):
-        """Decide whether or not to build in install dir before creating build dir."""
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
 
-        if self.cfg['sourceinstall']:
-            self.build_in_installdir = True
+        super(EB_PETSc, self).prepare_step(*args, **kwargs)
 
-        super(EB_PETSc, self).make_builddir()
+        # build with Python support if Python is loaded as a non-build (runtime) dependency
+        build_deps = self.cfg.dependencies(build_only=True)
+        if get_software_root('Python') and not any(x['name'] == 'Python' for x in build_deps):
+            self.with_python = True
+            self.log.info("Python included as runtime dependency, so enabling Python support")
 
     def configure_step(self):
         """
@@ -112,16 +126,19 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('configopts', '--with-fc="%s"' % os.getenv('F90'))
 
             # compiler flags
+            # Don't build with MPI c++ bindings as this leads to a hard dependency
+            # on libmpi and libmpi_cxx even for C code and non-MPI code
+            cxxflags = os.getenv('CXXFLAGS') + ' ' + NO_MPI_CXX_EXT_FLAGS
             if LooseVersion(self.version) >= LooseVersion("3.5"):
                 self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--CXXFLAGS="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
                 self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
             else:
                 self.cfg.update('configopts', '--with-cflags="%s"' % os.getenv('CFLAGS'))
-                self.cfg.update('configopts', '--with-cxxflags="%s"' % os.getenv('CXXFLAGS'))
+                self.cfg.update('configopts', '--with-cxxflags="%s"' % cxxflags)
                 self.cfg.update('configopts', '--with-fcflags="%s"' % os.getenv('F90FLAGS'))
 
-            if not self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', '--with-gnu-compilers=0')
 
             # MPI
@@ -149,24 +166,35 @@ class EB_PETSc(ConfigureMake):
                                          papi_inc_file, papi_lib)
 
             # Python extensions_step
-            if get_software_root('Python'):
-                self.cfg.update('configopts', '--with-numpy=1')
-                if self.cfg['shared_libs']:
-                    self.cfg.update('configopts', '--with-mpi4py=1')
+            if self.with_python:
+
+                # enable numpy support, but only if numpy is available
+                (_, ec) = run_cmd("python -c 'import numpy'", log_all=True, simple=False)
+                if ec == 0:
+                    self.cfg.update('configopts', '--with-numpy=1')
+
+                # enable mpi4py support, but only if mpi4py is available
+                (_, ec) = run_cmd("python -c 'import mpi4py'", log_all=True, simple=False)
+                if ec == 0:
+                    with_mpi4py_opt = '--with-mpi4py'
+                    if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
+                        self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
             # FFTW, ScaLAPACK (and BLACS for older PETSc versions)
             deps = ["FFTW", "ScaLAPACK"]
             if LooseVersion(self.version) < LooseVersion("3.5"):
                 deps.append("BLACS")
             for dep in deps:
-                inc = os.getenv('%s_INC_DIR' % dep.upper())
                 libdir = os.getenv('%s_LIB_DIR' % dep.upper())
                 libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
-                if inc and libdir and libs:
+                if libdir and libs:
                     with_arg = "--with-%s" % dep.lower()
                     self.cfg.update('configopts', '%s=1' % with_arg)
-                    self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                     self.cfg.update('configopts', '%s-lib=[%s/%s]' % (with_arg, libdir, libs))
+
+                    inc = os.getenv('%s_INC_DIR' % dep.upper())
+                    if inc:
+                        self.cfg.update('configopts', '%s-include=%s' % (with_arg, inc))
                 else:
                     self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
@@ -180,12 +208,13 @@ class EB_PETSc(ConfigureMake):
 
             # additional dependencies
             # filter out deps handled seperately
-            depfilter = self.cfg.builddependencies() + ["BLACS", "BLAS", "CMake", "FFTW", "LAPACK", "numpy",
-                                                        "mpi4py", "papi", "ScaLAPACK", "SuiteSparse"]
+            sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
+                        'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
+            depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
-                if type(dep) == str:
+                if isinstance(dep, string_type):
                     dep = (dep, dep)
                 deproot = get_software_root(dep[0])
                 if deproot:
@@ -203,13 +232,13 @@ class EB_PETSc(ConfigureMake):
                     # specified order of libs matters!
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, l, "Include")
-                                    for l in ss_libs]
+                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
+                                       for x in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ss_libs]
+                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                        for x in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
@@ -217,8 +246,8 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-umfpack"
                     inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, l, "Lib", "lib%s.a" % l.lower())
-                                    for l in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
+                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                                    for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
@@ -241,7 +270,7 @@ class EB_PETSc(ConfigureMake):
 
             if self.cfg['sourceinstall']:
                 # figure out PETSC_ARCH setting
-                petsc_arch_regex = re.compile("^\s*PETSC_ARCH:\s*(\S+)$", re.M)
+                petsc_arch_regex = re.compile(r"^\s*PETSC_ARCH:\s*(\S+)$", re.M)
                 res = petsc_arch_regex.search(out)
                 if res:
                     self.petsc_arch = res.group(1)
@@ -266,30 +295,61 @@ class EB_PETSc(ConfigureMake):
             cmd = "./config/configure.py %s" % self.get_cfg('configopts')
             run_cmd(cmd, log_all=True, simple=True)
 
+        # Make sure to set test_parallel before self.cfg['parallel'] is set to None
+        if self.cfg['test_parallel'] is None and self.cfg['parallel']:
+            self.cfg['test_parallel'] = self.cfg['parallel']
+
         # PETSc > 3.5, make does not accept -j
+        # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
         if LooseVersion(self.version) >= LooseVersion("3.5"):
+            self.cfg.update('buildopts', "MAKE_NP=%s" % self.cfg['parallel'])
             self.cfg['parallel'] = None
 
     # default make should be fine
-    
+
+    def test_step(self):
+        """
+        Test the compilation
+        """
+
+        # Each PETSc test may use multiple threads, so running "self.cfg['parallel']" of them may lead to
+        # some oversubscription every now and again. Not a big deal, but if needed a reduced parallelism
+        # can be specified with test_parallel - and it takes priority
+        paracmd = ''
+        self.log.info("In test_step: %s" % self.cfg['test_parallel'])
+        if self.cfg['test_parallel'] is not None:
+            paracmd = "-j %s" % self.cfg['test_parallel']
+
+        if self.cfg['runtest']:
+            cmd = "%s make %s %s %s" % (self.cfg['pretestopts'], paracmd, self.cfg['runtest'], self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+            return out
+
     def install_step(self):
         """
-        Install using make install (for non-source installations), 
+        Install using make install (for non-source installations),
         or by symlinking files (old versions, < 3).
         """
         if LooseVersion(self.version) >= LooseVersion("3"):
             if not self.cfg['sourceinstall']:
                 super(EB_PETSc, self).install_step()
+                petsc_root = self.installdir
+            else:
+                petsc_root = os.path.join(self.installdir, self.petsc_subdir)
+            # Remove MPI-CXX flags added during configure to prevent them from being passed to consumers of PETsc
+            petsc_variables_path = os.path.join(petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
+            if os.path.isfile(petsc_variables_path):
+                fix = (r'^(CXX_FLAGS|CXX_LINKER_FLAGS|CONFIGURE_OPTIONS)( = .*)%s(.*)$' % NO_MPI_CXX_EXT_FLAGS,
+                       r'\1\2\3')
+                apply_regex_substitutions(petsc_variables_path, [fix])
 
         else:  # old versions (< 3.x)
 
-            try:
-                for f in ['petscconf.h', 'petscconfiginfo.h', 'petscfix.h', 'petscmachineinfo.h']:
-                    includedir = os.path.join(self.installdir, 'include')
-                    bmakedir = os.path.join(self.installdir, 'bmake', 'linux-gnu-c-opt')
-                    os.symlink(os.path.join(bmakedir, f), os.path.join(includedir, f))
-            except Exception, err:
-                raise EasyBuildError("Something went wrong during symlink creation of file %s: %s", f, err)
+            for fn in ['petscconf.h', 'petscconfiginfo.h', 'petscfix.h', 'petscmachineinfo.h']:
+                includedir = os.path.join(self.installdir, 'include')
+                bmakedir = os.path.join(self.installdir, 'bmake', 'linux-gnu-c-opt')
+                symlink(os.path.join(bmakedir, fn), os.path.join(includedir, fn))
 
     def make_module_req_guess(self):
         """Specify PETSc custom values for PATH, CPATH and LD_LIBRARY_PATH."""
@@ -300,6 +360,8 @@ class EB_PETSc(ConfigureMake):
             'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
             'LD_LIBRARY_PATH': [os.path.join(self.prefix_lib, 'lib')],
             'PATH': [os.path.join(self.prefix_bin, 'bin')],
+            # see https://www.mcs.anl.gov/petsc/documentation/faq.html#sparse-matrix-ascii-format
+            'PYTHONPATH': [os.path.join('lib', 'petsc', 'bin')],
         })
 
         return guesses
@@ -334,4 +396,8 @@ class EB_PETSc(ConfigureMake):
         else:
             custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
-        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if self.with_python:
+            custom_commands.append("python -m PetscBinaryIO --help")
+
+        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

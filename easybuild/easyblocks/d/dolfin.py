@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,23 +47,23 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_DOLFIN(CMakePythonPackage):
     """Support for building and installing DOLFIN."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = CMakePythonPackage.extra_options()
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
     def __init__(self, *args, **kwargs):
         """Initialize class variables."""
         super(EB_DOLFIN, self).__init__(*args, **kwargs)
 
         self.boost_dir = None
         self.saved_configopts = None
-        self.cfg['separate_build_dir'] = True
 
     def configure_step(self):
         """Set DOLFIN-specific configure options and configure with CMake."""
 
         shlib_ext = get_shared_lib_ext()
-
-        # compilers
-        self.cfg.update('configopts', "-DCMAKE_C_COMPILER='%s' " % os.getenv('CC'))
-        self.cfg.update('configopts', "-DCMAKE_CXX_COMPILER='%s' " % os.getenv('CXX'))
-        self.cfg.update('configopts', "-DCMAKE_Fortran_COMPILER='%s' " % os.getenv('F90'))
 
         # compiler flags
         cflags = os.getenv('CFLAGS')
@@ -80,9 +80,6 @@ class EB_DOLFIN(CMakePythonPackage):
         self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="%s"' % cxxflags)
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % fflags)
 
-        # run cmake in debug mode
-        self.cfg.update('configopts', '-DCMAKE_BUILD_TYPE=Debug')
-
         # set correct compilers to be used at runtime
         self.cfg.update('configopts', '-DMPI_C_COMPILER="$MPICC"')
         self.cfg.update('configopts', '-DMPI_CXX_COMPILER="$MPICXX"')
@@ -90,7 +87,7 @@ class EB_DOLFIN(CMakePythonPackage):
         # specify MPI library
         self.cfg.update('configopts', '-DMPI_COMPILER="%s"' % os.getenv('MPICC'))
 
-        if  os.getenv('MPI_LIB_SHARED') and os.getenv('MPI_INC_DIR'):
+        if os.getenv('MPI_LIB_SHARED') and os.getenv('MPI_INC_DIR'):
             self.cfg.update('configopts', '-DMPI_LIBRARY="%s"' % os.getenv('MPI_LIB_SHARED'))
             self.cfg.update('configopts', '-DMPI_INCLUDE_PATH="%s"' % os.getenv('MPI_INC_DIR'))
         else:
@@ -126,7 +123,7 @@ class EB_DOLFIN(CMakePythonPackage):
             if not deproot:
                 raise EasyBuildError("Dependency %s not available.", dep)
             else:
-                depsdict.update({dep:deproot})
+                depsdict.update({dep: deproot})
 
         # zlib
         self.cfg.update('configopts', '-DZLIB_INCLUDE_DIR=%s' % os.path.join(depsdict['zlib'], "include"))
@@ -173,7 +170,7 @@ class EB_DOLFIN(CMakePythonPackage):
             '-DCOLAMD_LIBRARY:PATH="%(sp)s/COLAMD/lib/libcolamd.a"'
         ]
 
-        self.cfg.update('configopts', ' '.join(umfpack_params) % {'sp':suitesparse})
+        self.cfg.update('configopts', ' '.join(umfpack_params) % {'sp': suitesparse})
 
         # ParMETIS and SCOTCH
         self.cfg.update('configopts', '-DPARMETIS_DIR="%s"' % depsdict['ParMETIS'])
@@ -224,7 +221,7 @@ class EB_DOLFIN(CMakePythonPackage):
             try:
                 os.makedirs(instant_cache_dir)
                 os.makedirs(instant_error_dir)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to create Instant cache/error dirs: %s", err)
 
             env_vars = [
@@ -232,14 +229,6 @@ class EB_DOLFIN(CMakePythonPackage):
                 ('INSTANT_ERROR_DIR', instant_error_dir),
             ]
             env_var_cmds = ' && '.join(['export %s="%s"' % (var, val) for (var, val) in env_vars])
-
-            # test command templates
-            cmd_template_python = " && ".join([
-                env_var_cmds,
-                "cd %(dir)s",
-                "python demo_%(name)s.py",
-                "cd -",
-            ])
 
             cpp_cmds = [
                 env_var_cmds,
@@ -272,13 +261,21 @@ class EB_DOLFIN(CMakePythonPackage):
             # exclude Python tests for now, because they 'hang' sometimes (unclear why)
             # they can be reinstated once run_cmd (or its equivalent) has support for timeouts
             # see https://github.com/easybuilders/easybuild-framework/issues/581
-            #for (tmpl, subdir) in [(cmd_template_python, 'python'), (cmd_template_cpp, 'cpp')]]
+            # test command templates
+            # cmd_template_python = " && ".join([
+            #     env_var_cmds,
+            #     "cd %(dir)s",
+            #     "python demo_%(name)s.py",
+            #     "cd -",
+            # ])
+
+            # for (tmpl, subdir) in [(cmd_template_python, 'python'), (cmd_template_cpp, 'cpp')]
 
             # subdomains-poisson has no C++ get_version, only Python
             # Python tests excluded, see above
-            #name = 'subdomains-poisson'
-            #path = os.path.join('demo', 'pde', name, 'python')
-            #cmds += [cmd_template_python % {'dir': path, 'name': name}]
+            # name = 'subdomains-poisson'
+            # path = os.path.join('demo', 'pde', name, 'python')
+            # cmds += [cmd_template_python % {'dir': path, 'name': name}]
 
             # supply empty argument to each command
             for cmd in cmds:
@@ -290,6 +287,11 @@ class EB_DOLFIN(CMakePythonPackage):
     def install_step(self):
         """Custom install procedure for DOLFIN: also install Python bindings."""
         super(EB_DOLFIN, self).install_step()
+
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         if LooseVersion(self.version) >= LooseVersion('2018.1'):
             # see https://bitbucket.org/fenics-project/dolfin/issues/897/switch-from-swig-to-pybind11-for-python
@@ -351,7 +353,7 @@ class EB_DOLFIN(CMakePythonPackage):
         # custom sanity check paths
         custom_paths = {
             'files': ['bin/dolfin-%s' % x for x in ['version', 'convert', 'order', 'plot']] + ['include/dolfin.h'],
-            'dirs':['%s/dolfin' % self.pylibdir],
+            'dirs': ['%s/dolfin' % self.pylibdir],
         }
 
         super(EB_DOLFIN, self).sanity_check_step(custom_paths=custom_paths)

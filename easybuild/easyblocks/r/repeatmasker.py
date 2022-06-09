@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,6 +25,7 @@
 """
 EasyBuild support for building and installing RepeatMasker, implemented as an easyblock
 """
+from distutils.version import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
@@ -73,29 +74,47 @@ class EB_RepeatMasker(Tarball):
 
         patch_perl_script_autoflush('configure')
 
-        search_engine_map = {
-            'CrossMatch': '1',
-            'RMBlast': '2',
-            'WUBlast': '3',
-            'HMMER': '4',
-        }
         search_engine_bindir = os.path.join(get_software_root(search_engine), 'bin')
 
+        if LooseVersion(self.version) >= LooseVersion('4.0.9'):
+            search_engine_map = {
+                'CrossMatch': '1',
+                'RMBlast': '2',
+                'HMMER': '3',
+                'WUBlast': '4',
+            }
+            qa = {}
+            std_qa = {
+                r'\*\*TRF PROGRAM\*\*\n\n.*\n.*\n+Enter path.*': trf,
+                r'.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n'
+                r'.*\[ Un\-configured \]\n\n.*\n\n\nEnter Selection:\s*': search_engine_map[search_engine],
+                r'\*\*.* INSTALLATION PATH\*\*\n\n.*\n.*\n+Enter path.*': search_engine_bindir,
+                r'search engine for Repeatmasker.*': 'Y',
+                r'.*\[ Configured, Default \](.*\n)*\n\nEnter Selection:\s*': '5',  # 'Done'
+            }
+        else:
+            search_engine_map = {
+                'CrossMatch': '1',
+                'RMBlast': '2',
+                'WUBlast': '3',
+                'HMMER': '4',
+            }
+            qa = {
+                '<PRESS ENTER TO CONTINUE>': '',
+                # select search engine
+                'Enter Selection:': search_engine_map[search_engine],
+            }
+            std_qa = {
+                r'\*\*PERL PROGRAM\*\*\n([^*]*\n)+Enter path.*': perl,
+                r'\*\*REPEATMASKER INSTALLATION DIRECTORY\*\*\n([^*]*\n)+Enter path.*': self.installdir,
+                r'\*\*TRF PROGRAM\*\*\n([^*]*\n)+Enter path.*': trf,
+                # search engine installation path (location of /bin subdirectory)
+                # also enter 'Y' to confirm + '5' ("Done") to complete selection process for search engine
+                r'\*\*.* INSTALLATION PATH\*\*\n([^*]*\n)+Enter path.*': search_engine_bindir + '\nY\n5',
+            }
+
         cmd = "perl ./configure"
-        qa = {
-            '<PRESS ENTER TO CONTINUE>': '',
-            # select search engine
-            'Enter Selection:': search_engine_map[search_engine],
-        }
-        std_qa = {
-            r'\*\*PERL PROGRAM\*\*\n([^*]*\n)+Enter path.*': perl,
-            r'\*\*REPEATMASKER INSTALLATION DIRECTORY\*\*\n([^*]*\n)+Enter path.*': self.installdir,
-            r'\*\*TRF PROGRAM\*\*\n([^*]*\n)+Enter path.*': trf,
-            # search engine installation path (location of /bin subdirectory)
-            # also enter 'Y' to confirm + '5' ("Done") to complete selection process for search engine
-            r'\*\*.* INSTALLATION PATH\*\*\n([^*]*\n)+Enter path.*': search_engine_bindir + '\nY\n5',
-        }
-        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True)
+        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=300)
 
     def sanity_check_step(self):
         """Custom sanity check for RepeatMasker."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2014 Ghent University
+# Copyright 2014-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,7 +57,7 @@ class CmdCp(MakeCp):
         """Build by running the command with the inputfiles"""
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move (back) to %s: %s", self.cfg['start_dir'], err)
 
         for src in self.src:
@@ -67,8 +67,13 @@ class CmdCp(MakeCp):
             # determine command to use
             # find (first) regex match, then complete matching command template
             cmd = None
-            for regex, regex_cmd in self.cfg['cmds_map']:
-                if re.match(regex, os.path.basename(src)):
+            for pattern, regex_cmd in self.cfg['cmds_map']:
+                try:
+                    regex = re.compile(pattern)
+                except re.error as err:
+                    raise EasyBuildError("Failed to compile regular expression '%s': %s", pattern, err)
+
+                if regex.match(os.path.basename(src)):
                     cmd = regex_cmd % {'source': src, 'target': target}
                     break
             if cmd is None:

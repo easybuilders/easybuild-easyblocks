@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,6 +44,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, read_file, write_file
+from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
 
@@ -104,7 +105,7 @@ class EB_MCR(PackedBinary):
         if 'DISPLAY' in os.environ:
             os.environ.pop('DISPLAY')
 
-        if not '_JAVA_OPTIONS' in self.cfg['preinstallopts']:
+        if '_JAVA_OPTIONS' not in self.cfg['preinstallopts']:
             java_options = 'export _JAVA_OPTIONS="%s" && ' % self.cfg['java_options']
             self.cfg['preinstallopts'] = java_options + self.cfg['preinstallopts']
 
@@ -112,11 +113,10 @@ class EB_MCR(PackedBinary):
         cmd = "%s ./install -v -inputFile %s %s" % (self.cfg['preinstallopts'], configfile, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
-
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
         self.set_subdir()
-        if not isinstance(self.subdir, basestring):
+        if not isinstance(self.subdir, string_type):
             raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
 
         custom_paths = {
@@ -140,7 +140,7 @@ class EB_MCR(PackedBinary):
         self.set_subdir()
         # if no subdir was selected, set it to NOTFOUND
         # this is done to enable the use of --module-only without having an actual MCR installation
-        if not isinstance(self.subdir, basestring):
+        if not isinstance(self.subdir, string_type):
             self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')

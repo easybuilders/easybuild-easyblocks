@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,10 +29,11 @@ General unit tests for the easybuild-easyblocks repo.
 """
 import os
 import shutil
+import sys
 import tempfile
-from unittest import TestLoader, main
-from vsc.utils.testing import EnhancedTestCase
+from unittest import TestLoader, TextTestRunner
 
+from easybuild.base.testing import TestCase
 from easybuild.easyblocks import VERSION
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
@@ -57,7 +58,7 @@ VERSION = LooseVersion('%s')
 
 def det_path_for_import(module, pythonpath=None):
     """Determine filepath obtained when importing specified module."""
-    cmd_tmpl = "python -c 'import %(mod)s; print %(mod)s.__file__'"
+    cmd_tmpl = "python -c 'import %(mod)s; print(%(mod)s.__file__)'"
 
     if pythonpath:
         cmd_tmpl = "PYTHONPATH=%s:$PYTHONPATH %s" % (pythonpath, cmd_tmpl)
@@ -79,7 +80,7 @@ def up(path, level):
     return path
 
 
-class GeneralEasyblockTest(EnhancedTestCase):
+class GeneralEasyblockTest(TestCase):
     """General easybuild-easyblocks tests."""
 
     def setUp(self):
@@ -98,17 +99,16 @@ class GeneralEasyblockTest(EnhancedTestCase):
         """Test whether using a custom easyblocks repo works as expected."""
         easyblocks_path = up(os.path.abspath(__file__), 3)
 
-        # determine path to where easybuild.framework/vsc is imported from, so we can hard set $PYTHONPATH
+        # determine path to where easybuild.framework is imported from, so we can hard set $PYTHONPATH
         # this is required to dance around issues with easy-install.pth files determining the actual Python search path
-        # see also http://blog.olgabotvinnik.com/blog/2014/03/03/2014-03-03-pythonpath-is-a-liar-site-py-and-easy-install-pth-tell/
+        # see also
+        # http://blog.olgabotvinnik.com/blog/2014/03/03/2014-03-03-pythonpath-is-a-liar-site-py-and-easy-install-pth-tell/
         import easybuild.framework
         framework_path = up(easybuild.framework.__file__, 3)
-        import vsc.utils.generaloption
-        vsc_path = up(vsc.utils.generaloption.__file__, 3)
 
         # prepend path to easybuild-easyblocks repo to $PYTHONPATH, so we're in full(?) control
-        pythonpaths = os.environ.get('PYTHONPATH', '').split(os.pathsep)
-        os.environ['PYTHONPATH'] = os.pathsep.join([easyblocks_path, framework_path, vsc_path])
+        pythonpath = os.environ.get('PYTHONPATH', '')
+        os.environ['PYTHONPATH'] = os.pathsep.join([easyblocks_path, framework_path, pythonpath])
 
         # set up custom easyblocks repo
         custom_easyblocks_repo_path = os.path.join(self.tmpdir, 'myeasyblocks')
@@ -180,9 +180,12 @@ class GeneralEasyblockTest(EnhancedTestCase):
         # importing EB_R class from easybuild.easyblocks.r still works fine
         run_cmd("python -c 'from easybuild.easyblocks.r import EB_R'")
 
+
 def suite():
     """Return all general easybuild-easyblocks tests."""
     return TestLoader().loadTestsFromTestCase(GeneralEasyblockTest)
 
+
 if __name__ == '__main__':
-    main()
+    res = TextTestRunner(verbosity=1).run(suite())
+    sys.exit(len(res.failures))

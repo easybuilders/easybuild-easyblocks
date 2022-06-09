@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,6 @@ import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-import easybuild.tools.environment as env
 from easybuild.tools.run import run_cmd
 
 
@@ -57,11 +56,6 @@ class Conda(Binary):
         if self.src:
             super(Conda, self).extract_step()
 
-    def set_conda_env(self):
-        """Set up environment for using 'conda'."""
-        env.setvar('CONDA_ENV', self.installdir)
-        env.setvar('CONDA_DEFAULT_ENV', self.installdir)
-
     def install_step(self):
         """Install software using 'conda env create' or 'conda create' & 'conda install'."""
 
@@ -77,32 +71,28 @@ class Conda(Binary):
             else:
                 env_spec = self.cfg['remote_environment']
 
-            self.set_conda_env()
-
             # use --force to ignore existing installation directory
             cmd = "%s conda env create --force %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
-            cmd = "%s conda create --force -y -p %s" % (self.cfg['preinstallopts'], self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
 
             if self.cfg['requirements']:
-                self.set_conda_env()
 
                 install_args = "-y %s " % self.cfg['requirements']
                 if self.cfg['channels']:
                     install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
 
-                cmd = "conda install %s" % (install_args)
-                run_cmd(cmd, log_all=True, simple=True)
-
                 self.log.info("Installed conda requirements")
+
+            cmd = "%s conda create --force -y -p %s %s" % (self.cfg['preinstallopts'], self.installdir, install_args)
+            run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
         txt = super(Conda, self).make_module_extra()
         txt += self.module_generator.set_environment('CONDA_ENV', self.installdir)
+        txt += self.module_generator.set_environment('CONDA_PREFIX', self.installdir)
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt

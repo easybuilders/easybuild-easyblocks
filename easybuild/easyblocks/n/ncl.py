@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,11 +36,10 @@ import fileinput
 import os
 import re
 import sys
-from distutils.version import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -58,7 +57,7 @@ class EB_NCL(EasyBlock):
 
         try:
             os.chdir('config')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the 'config' dir: %s", err)
 
         cmd = "make -f Makefile.ini"
@@ -68,7 +67,7 @@ class EB_NCL(EasyBlock):
         run_cmd(cmd, log_all=True, simple=True)
 
         # figure out name of config file
-        cfg_regexp = re.compile('^\s*SYSTEM_INCLUDE\s*=\s*"(.*)"\s*$', re.M)
+        cfg_regexp = re.compile(r'^\s*SYSTEM_INCLUDE\s*=\s*"(.*)"\s*$', re.M)
         f = open("Makefile", "r")
         txt = f.read()
         f.close()
@@ -78,27 +77,32 @@ class EB_NCL(EasyBlock):
         ctof_libs = ''
         ifort = get_software_root('ifort')
         if ifort:
-            if LooseVersion(get_software_version('ifort')) < LooseVersion('2011.4'):
-                ctof_libs = '-lm -L%s/lib/intel64 -lifcore -lifport' % ifort
+            if os.path.exists('%s/lib/intel64/' % ifort) and os.access('%s/lib/intel64/' % ifort, os.R_OK):
+                ctof_libs += '-lm -L%s/lib/intel64/ -lifcore -lifport' % ifort
             else:
-                ctof_libs = '-lm -L%s/compiler/lib/intel64 -lifcore -lifport' % ifort
+                self.log.warning(
+                    "Can't find a libdir for ifortran libraries -lifcore -lifport: "
+                    "%s/lib/intel64 doesn't exist or is not accessible." % ifort
+                )
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
+
         macrodict = {
-                     'CCompiler': os.getenv('CC'),
-                     'FCompiler': os.getenv('F90'),
-                     'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
-                     'FcOptions': os.getenv('FFLAGS'),
-                     'COptimizeFlag': os.getenv('CFLAGS'),
-                     'FOptimizeFlag': os.getenv('FFLAGS'),
-                     'ExtraSysLibraries': os.getenv('LDFLAGS'),
-                     'CtoFLibraries': ctof_libs
-                    }
+            'CCompiler': os.getenv('CC'),
+            'CxxCompiler': os.getenv('CXX'),
+            'FCompiler': os.getenv('F90'),
+            'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
+            'FcOptions': os.getenv('FFLAGS'),
+            'COptimizeFlag': os.getenv('CFLAGS'),
+            'FOptimizeFlag': os.getenv('FFLAGS'),
+            'ExtraSysLibraries': os.getenv('LDFLAGS'),
+            'CtoFLibraries': ctof_libs,
+        }
 
         # replace config entries that are already there
         for line in fileinput.input(cfg_filename, inplace=1, backup='%s.orig' % cfg_filename):
-            for (key, val) in macrodict.items():
-                regexp = re.compile("(#define %s\s*).*" % key)
+            for (key, val) in list(macrodict.items()):
+                regexp = re.compile(r"(#define %s\s*).*" % key)
                 match = regexp.search(line)
                 if match:
                     line = "#define %s %s\n" % (key, val)
@@ -118,7 +122,7 @@ class EB_NCL(EasyBlock):
         # configure
         try:
             os.chdir(self.cfg['start_dir'])
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to change to the build dir %s: %s", self.cfg['start_dir'], err)
 
         # instead of running the Configure script that asks a zillion questions,
@@ -134,21 +138,47 @@ class EB_NCL(EasyBlock):
             root = get_software_root(dep)
             if not root:
                 raise EasyBuildError("%s not available", dep)
-            libs += ' -L%s/lib ' % root
-            includes += ' -I%s/include ' % root
+
+            # try %s/lib, if it doesn't exist, try %s/lib64
+            if os.path.exists('%s/lib' % root) and os.access('%s/lib' % root, os.R_OK):
+                libs += ' -L%s/lib ' % root
+            elif os.path.exists('%s/lib64' % root) and os.access('%s/lib64' % root, os.R_OK):
+                libs += ' -L%s/lib64 ' % root
+            else:
+                self.log.warning(
+                    "Can't find a libdir for dependency %s: %s/lib and %s/lib64 don't exist." % (dep, root, root)
+                )
+
+            if os.path.exists('%s/include' % root) and os.access('%s/include' % root, os.R_OK):
+                includes += ' -I%s/include ' % root
+            else:
+                self.log.warning("Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root))
 
         opt_deps = ["netCDF-Fortran", "GDAL"]
         libs_map = {
-                    'netCDF-Fortran': '-lnetcdff -lnetcdf',
-                    'GDAL': '-lgdal',
-                   }
+            'netCDF-Fortran': '-lnetcdff -lnetcdf',
+            'GDAL': '-lgdal',
+        }
         for dep in opt_deps:
             root = get_software_root(dep)
             if root:
-                libs += ' -L%s/lib %s ' % (root, libs_map[dep])
-                includes += ' -I%s/include ' % root
+                # try %s/lib, if it doesn't exist, try %s/lib64
+                if os.path.exists('%s/lib' % root) and os.access('%s/lib' % root, os.R_OK):
+                    libs += ' -L%s/lib %s ' % (root, libs_map[dep])
+                elif os.path.exists('%s/lib64' % root) and os.access('%s/lib64' % root, os.R_OK):
+                    libs += ' -L%s/lib64 %s ' % (root, libs_map[dep])
+                else:
+                    self.log.warning(
+                        "Can't find a libdir for dependency %s: %s/lib and %s/lib64 don't exist." % (dep, root, root)
+                    )
 
-        cfgtxt="""#ifdef FirstSite
+                if os.path.exists('%s/include' % root) and os.access('%s/include' % root, os.R_OK):
+                    includes += ' -I%s/include ' % root
+                    self.log.warning(
+                        "Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root)
+                    )
+
+        cfgtxt = """#ifdef FirstSite
 #endif /* FirstSite */
 
 #ifdef SecondSite
@@ -174,10 +204,10 @@ class EB_NCL(EasyBlock):
 
 #endif /* SecondSite */
 """ % {
-       'installdir': self.installdir,
-       'libs': libs,
-       'includes': includes
-      }
+            'installdir': self.installdir,
+            'libs': libs,
+            'includes': includes
+        }
 
         f = open("config/Site.local", "w")
         f.write(cfgtxt)
@@ -194,7 +224,7 @@ class EB_NCL(EasyBlock):
     def install_step(self):
         """Build in install dir using build_step."""
 
-        cmd = "make Everything"
+        cmd = "%s make Everything %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def sanity_check_step(self):

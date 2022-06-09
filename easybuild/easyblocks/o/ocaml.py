@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,15 +28,51 @@ EasyBuild support for building and installing OCaml + opam (+ extensions), imple
 @author: Kenneth Hoste (Ghent University)
 """
 import os
+import re
+from distutils.version import LooseVersion
 
-import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir
 from easybuild.tools.run import run_cmd
 
 
 EXTS_FILTER_OCAML_PACKAGES = ("eval `opam config env` && opam list --installed %(ext_name)s.%(ext_version)s", '')
 OPAM_SUBDIR = 'opam'
+
+
+def det_opam_version():
+    """Determine OPAM version (using 'opam --version')."""
+
+    opam_ver = None
+
+    opam_version_cmd = 'opam --version'
+    (out, ec) = run_cmd(opam_version_cmd)
+    if ec == 0:
+        res = re.search('^[0-9.]+$', out.strip())
+        if res:
+            opam_ver = res.group(0)
+
+    if opam_ver is None:
+        raise EasyBuildError("Failed to determine OPAM version using '%s'!", opam_version_cmd)
+
+    return opam_ver
+
+
+def mk_opam_init_cmd(root=None):
+    """Construct 'opam init' command."""
+
+    opam_init_cmd = ['opam', 'init']
+
+    if LooseVersion(det_opam_version()) >= LooseVersion('2.0.0'):
+        # disable sandboxing, required bubblewrap (which requires setuid)
+        # see http://opam.ocaml.org/doc/FAQ.html#Why-does-opam-require-bwrap
+        opam_init_cmd.append('--disable-sandboxing')
+
+    if root:
+        opam_init_cmd.extend(['--root', root])
+
+    return ' '.join(opam_init_cmd)
 
 
 class EB_OCaml(ConfigureMake):
@@ -52,7 +88,7 @@ class EB_OCaml(ConfigureMake):
         self.cfg['prefix_opt'] = '-prefix '
         self.cfg.update('configopts', '-cc "%s %s"' % (os.environ['CC'], os.environ['CFLAGS']))
 
-        if not 'world.opt' in self.cfg['buildopts']:
+        if 'world.opt' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'world.opt')
 
         super(EB_OCaml, self).configure_step()
@@ -68,7 +104,7 @@ class EB_OCaml(ConfigureMake):
 
         try:
             all_dirs = os.listdir(self.builddir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to check contents of %s: %s", self.builddir, err)
 
         opam_dirs = [d for d in all_dirs if d.startswith('opam')]
@@ -76,16 +112,15 @@ class EB_OCaml(ConfigureMake):
             opam_dir = os.path.join(self.builddir, opam_dirs[0])
             self.log.info("Found unpacked OPAM sources at %s, so installing it.", opam_dir)
             self.with_opam = True
-            try:
-                os.chdir(opam_dir)
-            except OSError, err:
-                raise EasyBuildError("Failed to move to %s: %s", opam_dir, err)
+            change_dir(opam_dir)
 
             run_cmd("./configure --prefix=%s" % self.installdir)
             run_cmd("make lib-ext")  # locally build/install required dependencies
             run_cmd("make")
             run_cmd("make install")
-            run_cmd("opam init --root %s" % os.path.join(self.installdir, OPAM_SUBDIR))
+
+            opam_init_cmd = mk_opam_init_cmd(root=os.path.join(self.installdir, OPAM_SUBDIR))
+            run_cmd(opam_init_cmd)
         else:
             self.log.warning("OPAM sources not found in %s: %s", self.builddir, all_dirs)
 
@@ -98,7 +133,7 @@ class EB_OCaml(ConfigureMake):
         self.cfg['exts_filter'] = EXTS_FILTER_OCAML_PACKAGES
         super(EB_OCaml, self).prepare_for_extensions()
 
-    def fetch_extension_sources(self, *args, **kwargs):
+    def collect_exts_file_info(self, *args, **kwargs):
         """Don't fetch extension sources, OPAM takes care of that (and archiving too)."""
         return [{'name': ext_name, 'version': ext_version} for ext_name, ext_version in self.cfg['exts_list']]
 

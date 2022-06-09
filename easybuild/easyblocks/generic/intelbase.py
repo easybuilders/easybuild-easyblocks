@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,8 +38,8 @@ Generic EasyBuild support for installing Intel tools, implemented as an easybloc
 import os
 import re
 import shutil
+import stat
 import tempfile
-import glob
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -47,11 +47,9 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import find_flexlm_license, read_file, remove_file
+from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
+from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
 from easybuild.tools.run import run_cmd
-
-from vsc.utils import fancylogger
-_log = fancylogger.getLogger('generic.intelbase')
 
 
 # different supported activation types (cfr. Intel documentation)
@@ -109,7 +107,7 @@ class IntelBase(EasyBlock):
 
         self.home_subdir = os.path.join(os.getenv('HOME'), 'intel')
         common_tmp_dir = os.path.dirname(tempfile.gettempdir())  # common tmp directory, same across nodes
-        self.home_subdir_local = os.path.join(common_tmp_dir, os.getenv('USER'), 'easybuild_intel')
+        self.home_subdir_local = os.path.join(common_tmp_dir, os.environ.get('USER', 'nouser'), 'easybuild_intel')
 
         self.install_components = None
 
@@ -197,18 +195,18 @@ class IntelBase(EasyBlock):
 
     def clean_home_subdir(self):
         """Remove contents of (local) 'intel' directory home subdir, where stuff is cached."""
-
-        self.log.debug("Cleaning up %s..." % self.home_subdir_local)
-        try:
-            for tree in os.listdir(self.home_subdir_local):
-                self.log.debug("... removing %s subtree" % tree)
-                path = os.path.join(self.home_subdir_local, tree)
-                if os.path.isfile(path) or os.path.islink(path):
-                    remove_file(path)
-                else:
-                    shutil.rmtree(path)
-        except OSError, err:
-            raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
+        if os.path.exists(self.home_subdir_local):
+            self.log.debug("Cleaning up %s..." % self.home_subdir_local)
+            try:
+                for tree in os.listdir(self.home_subdir_local):
+                    self.log.debug("... removing %s subtree" % tree)
+                    path = os.path.join(self.home_subdir_local, tree)
+                    if os.path.isfile(path) or os.path.islink(path):
+                        remove_file(path)
+                    else:
+                        shutil.rmtree(path)
+            except OSError as err:
+                raise EasyBuildError("Cleaning up intel dir %s failed: %s", self.home_subdir_local, err)
 
     def setup_local_home_subdir(self):
         """
@@ -244,7 +242,7 @@ class IntelBase(EasyBlock):
                 os.symlink(self.home_subdir_local, self.home_subdir)
                 self.log.debug("Created symlink (2) %s to %s" % (self.home_subdir, self.home_subdir_local))
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to symlink %s to %s: %s", self.home_subdir_local, self.home_subdir, err)
 
     def prepare_step(self, *args, **kwargs):
@@ -305,8 +303,8 @@ class IntelBase(EasyBlock):
         """Binary installation files, so no building."""
         pass
 
-    def install_step(self, silent_cfg_names_map=None, silent_cfg_extras=None):
-        """Actual installation
+    def install_step_classic(self, silent_cfg_names_map=None, silent_cfg_extras=None):
+        """Actual installation for versions prior to 2021.x
 
         - create silent cfg file
         - set environment parameters
@@ -323,7 +321,7 @@ class IntelBase(EasyBlock):
             else:
                 # license file entry is only applicable with license file or server type of activation
                 # also check whether specified activation type makes sense
-                lic_file_server_activations = [ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
+                lic_file_server_activations = [ACTIVATION_EXIST_LIC, ACTIVATION_LIC_FILE, ACTIVATION_LIC_SERVER]
                 other_activations = [act for act in ACTIVATION_TYPES if act not in lic_file_server_activations]
                 if self.cfg['license_activation'] in lic_file_server_activations:
                     lic_entry = "%(license_file_name)s=%(license_file)s"
@@ -376,26 +374,19 @@ class IntelBase(EasyBlock):
 
         if silent_cfg_extras is not None:
             if isinstance(silent_cfg_extras, dict):
-                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.iteritems())
+                silent += '\n'.join("%s=%s" % (key, value) for (key, value) in silent_cfg_extras.items())
             else:
                 raise EasyBuildError("silent_cfg_extras needs to be a dict")
 
         # we should be already in the correct directory
-        silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-        try:
-            f = open(silentcfg, 'w')
-            f.write(silent)
-            f.close()
-        except:
-            raise EasyBuildError("Writing silent cfg, failed", silent)
-        self.log.debug("Contents of %s:\n%s" % (silentcfg, silent))
+        silentcfg = os.path.join(os.getcwd(), 'silent.cfg')
+        write_file(silentcfg, silent)
+        self.log.debug("Contents of %s:\n%s", silentcfg, silent)
 
         # workaround for mktmp: create tmp dir and use it
         tmpdir = os.path.join(self.cfg['start_dir'], 'mytmpdir')
-        try:
-            os.makedirs(tmpdir)
-        except:
-            raise EasyBuildError("Directory %s can't be created", tmpdir)
+        mkdir(tmpdir, parents=True)
+
         tmppathopt = ''
         if self.cfg['usetmppath']:
             env.setvar('TMP_PATH', tmpdir)
@@ -418,6 +409,55 @@ class IntelBase(EasyBlock):
 
         return run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
+    def install_step_oneapi(self, *args, **kwargs):
+        """
+        Actual installation for versions 2021.x onwards.
+        """
+        # require that EULA is accepted
+        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
+
+        # exactly one "source" file is expected: the (offline) installation script
+        if len(self.src) == 1:
+            install_script = self.src[0]['name']
+        else:
+            src_fns = ', '.join([x['name'] for x in self.src])
+            raise EasyBuildError("Expected to find exactly one 'source' file (installation script): %s", src_fns)
+
+        adjust_permissions(install_script, stat.S_IXUSR)
+
+        # see https://software.intel.com/content/www/us/en/develop/documentation/...
+        # .../installation-guide-for-intel-oneapi-toolkits-linux/top/...
+        # .../local-installer-full-package/install-with-command-line.html
+        cmd = [
+            self.cfg['preinstallopts'],
+            './' + install_script,
+            '-a',  # required to specify that following are options for installer
+            '--action install',
+            '--silent',
+            '--eula accept',
+            '--install-dir ' + self.installdir,
+        ]
+
+        if self.install_components:
+            cmd.extend([
+                '--components',
+                ':'.join(self.install_components),
+            ])
+
+        cmd.append(self.cfg['installopts'])
+
+        return run_cmd(' '.join(cmd), log_all=True, simple=True, log_output=True)
+
+    def install_step(self, *args, **kwargs):
+        """
+        Install Intel software
+        """
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            return self.install_step_oneapi(*args, **kwargs)
+        else:
+            return self.install_step_classic(*args, **kwargs)
+
     def move_after_install(self):
         """Move installed files to correct location after installation."""
         subdir = os.path.join(self.installdir, self.name, self.version)
@@ -436,7 +476,7 @@ class IntelBase(EasyBlock):
                 self.log.debug("Moving %s to %s" % (source, target))
                 shutil.move(source, target)
             shutil.rmtree(os.path.join(self.installdir, self.name))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move contents of %s to %s: %s", subdir, self.installdir, err)
 
     def sanity_check_rpath(self):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,21 +32,24 @@ import os
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.rpackage import RPackage
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 
 
 class EB_XML(RPackage):
     """Support for installing the XML R package."""
 
-    def install_R_package(self, cmd, inp=None):
+    def install_R_package(self, *args, **kwargs):
         """Customized install procedure for XML R package, add zlib lib path to LIBS."""
 
         libs = os.getenv('LIBS', '')
         zlib = get_software_root('zlib')
 
-        if not zlib:
+        if zlib:
+            env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
+        elif 'zlib' in build_option('filter_deps'):
+            self.log.info("zlib included in list of filtered dependencies, so no need to tweak $LIBS")
+        else:
             raise EasyBuildError("zlib module not loaded (required)")
 
-        env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
-
-        super(EB_XML, self).install_R_package(cmd, inp)
+        return super(EB_XML, self).install_R_package(*args, **kwargs)

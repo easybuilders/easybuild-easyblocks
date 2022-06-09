@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -80,18 +80,19 @@ class EB_HPCG(ConfigureMake):
             # find log file, check for success
             success_regex = re.compile(r"Scaled Residual \[[0-9.e-]+\]")
             try:
-                hpcg_logs = glob.glob('hpcg_log*txt')
+                hpcg_logs = glob.glob('hpcg*txt')
                 if len(hpcg_logs) == 1:
                     txt = open(hpcg_logs[0], 'r').read()
                     self.log.debug("Contents of HPCG log file %s: %s" % (hpcg_logs[0], txt))
                     if success_regex.search(txt):
-                        self.log.info("Found pattern '%s' in HPCG log file %s, OK!", success_regex.pattern, hpcg_logs[0])
+                        self.log.info("Found pattern '%s' in HPCG log file %s, OK!",
+                                      success_regex.pattern, hpcg_logs[0])
                     else:
                         raise EasyBuildError("Failed to find pattern '%s' in HPCG log file %s",
                                              success_regex.pattern, hpcg_logs[0])
                 else:
                     raise EasyBuildError("Failed to find exactly one HPCG log file: %s", hpcg_logs)
-            except OSError, err:
+            except OSError as err:
                 raise EasyBuildError("Failed to check for success in HPCG log file: %s", err)
 
     def install_step(self):
@@ -100,7 +101,7 @@ class EB_HPCG(ConfigureMake):
         bindir = os.path.join(self.installdir, 'bin')
         try:
             shutil.copytree(objbindir, bindir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy HPCG files to %s: %s", bindir, err)
 
     def sanity_check_step(self):

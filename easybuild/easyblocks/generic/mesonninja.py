@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2018 Ghent University
+# Copyright 2018-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,12 +27,11 @@ EasyBuild support for installing software with Meson & Ninja.
 
 @author: Kenneth Hoste (Ghent University)
 """
-import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.run import run_cmd
 
 
@@ -64,9 +63,15 @@ class MesonNinja(EasyBlock):
                 raise EasyBuildError("'%s' command not found", cmd)
 
         if self.cfg.get('separate_build_dir', True):
-            builddir = os.path.join(self.builddir, 'easybuild_obj')
-            mkdir(builddir)
+            builddir = create_unused_dir(self.builddir, 'easybuild_obj')
             change_dir(builddir)
+
+        # Make sure libdir doesn't get set to lib/x86_64-linux-gnu or something
+        # on Debian/Ubuntu multiarch systems and others.
+        no_Dlibdir = '-Dlibdir' not in self.cfg['configopts']
+        no_libdir = '--libdir' not in self.cfg['configopts']
+        if no_Dlibdir and no_libdir:
+            self.cfg.update('configopts', '-Dlibdir=lib')
 
         cmd = "%(preconfigopts)s meson --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
             'configopts': self.cfg['configopts'],
@@ -98,7 +103,8 @@ class MesonNinja(EasyBlock):
         Run tests using Ninja.
         """
         if self.cfg['runtest']:
-            (out, _) = run_cmd(self.cfg['runtest'], log_all=True, simple=False)
+            cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
             return out
 
     def install_step(self):

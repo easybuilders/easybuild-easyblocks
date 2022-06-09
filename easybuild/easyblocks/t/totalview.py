@@ -1,8 +1,8 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2018 Uni.Lu/LCSB, NTUA
-# Copyright:: Copyright 2016-2018 Forschungszentrum Juelich
+# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2016-2022 Forschungszentrum Juelich
 # Authors::   Fotis Georgatos <fotis@cern.ch>
 # Authors::   Damian Alvarez  <d.alvarez@fz-juelich.de>
 # License::   MIT/GPL
@@ -23,7 +23,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import find_flexlm_license
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
 
@@ -57,7 +56,7 @@ class EB_TotalView(PackedBinary):
             env.setvar(self.license_env_var, self.license_file)
 
         else:
-            raise EasyBuildError("No viable license specifications found; specify 'license_file' or "+
+            raise EasyBuildError("No viable license specifications found; specify 'license_file' or " +
                                  "define $LM_LICENSE_FILE")
 
     def install_step(self):
@@ -93,5 +92,6 @@ class EB_TotalView(PackedBinary):
     def make_module_extra(self):
         """Add extra environment variables for license file and anything else."""
         txt = super(EB_TotalView, self).make_module_extra()
-        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file], allow_abs=True, expand_relpaths=False)
+        txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
+                                                   allow_abs=True, expand_relpaths=False)
         return txt

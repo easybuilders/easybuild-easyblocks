@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing LAPACK, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-
+from distutils.version import LooseVersion
 import glob
 import os
 
@@ -85,9 +85,9 @@ class EB_LAPACK(ConfigureMake):
         """
 
         # copy build_step.inc file from examples
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             makeinc = 'gfortran'
-        elif self.toolchain.comp_family() == toolchain.INTELCOMP:  #@UndefinedVariable
+        elif self.toolchain.comp_family() == toolchain.INTELCOMP:  # @UndefinedVariable
             makeinc = 'ifort'
         else:
             raise EasyBuildError("Don't know which build_step.inc file to pick, unknown compiler being used...")
@@ -100,11 +100,32 @@ class EB_LAPACK(ConfigureMake):
         else:
             copy_file(src, dest)
 
+        # control compiler commands being used
+        self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
+        # older versions use FORTRAN, newer versions use FC for Fortran compiler command
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            fc_var = 'FC'
+        else:
+            fc_var = 'FORTRAN'
+        self.cfg.update('buildopts', '%s="%s"' % (fc_var, os.getenv('FC')))
+
         # set optimization flags
+
+        self.cfg.update('buildopts', 'CFLAGS="%s"' % os.getenv('CFLAGS'))
+
+        # Fortran compiler flags are controlled via OPTS in older version, via FFLAGS in newer versions
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            fflags_var = 'FFLAGS'
+            noopt_var = 'FFLAGS_NOOPT'
+        else:
+            fflags_var = 'OPTS'
+            noopt_var = 'NOOPT'
+        self.cfg.update('buildopts', '%s="%s"' % (fflags_var, os.getenv('FFLAGS')))
+
         fpic = ''
         if self.toolchain.options['pic']:
             fpic = '-fPIC'
-        self.cfg.update('buildopts', 'OPTS="$FFLAGS -m64" NOOPT="%s -m64 -O0"' % fpic)
+        self.cfg.update('buildopts', '%s="%s -O0"' % (noopt_var, fpic))
 
         # prematurely exit configure when we're only testing
         if self.cfg['test_only']:
@@ -169,13 +190,13 @@ class EB_LAPACK(ConfigureMake):
                     self.log.debug("Symlinking %s to %s" % (fromfile, tofile))
                     os.symlink(frompath, topath)
 
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcdir, destdir, err)
 
-    def load_module(self, mod_paths=None, purge=True):
+    def load_module(self, *args, **kwargs):
         """Don't try to load (non-existing) LAPACK module when performing a test build."""
         if not self.cfg['test_only']:
-            super(EB_LAPACK, self).load_module(mod_paths=mod_paths, purge=purge)
+            super(EB_LAPACK, self).load_module(*args, **kwargs)
 
     def test_step(self):
         """
@@ -214,8 +235,8 @@ class EB_LAPACK(ConfigureMake):
         """
         if not self.cfg['test_only']:
             custom_paths = {
-                            'files': ["lib/%s" % x for x in ["liblapack.a", "libtmglib.a"]],
-                            'dirs': []
-                           }
+                'files': ["lib/%s" % x for x in ["liblapack.a", "libtmglib.a"]],
+                'dirs': []
+            }
 
             super(EB_LAPACK, self).sanity_check_step(custom_paths=custom_paths)

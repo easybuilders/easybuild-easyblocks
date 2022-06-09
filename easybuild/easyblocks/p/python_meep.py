@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ import tempfile
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import extract_file, rmtree2
+from easybuild.tools.filetools import change_dir, extract_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -99,32 +99,34 @@ class EB_python_minus_meep(PythonPackage):
 
         # unpack tarball to temporary directory
         tmpdir = tempfile.mkdtemp()
-        srcdir = extract_file(tarball, tmpdir)
-        if not srcdir:
+        srcdir = extract_file(tarball, tmpdir, change_into_dir=False)
+        if srcdir:
+            change_dir(srcdir)
+        else:
             raise EasyBuildError("Unpacking tarball %s failed?", tarball)
 
         # locate site-packages dir to copy by diving into unpacked tarball
         src = srcdir
         while len(os.listdir(src)) == 1:
             src = os.path.join(src, os.listdir(src)[0])
-        if not os.path.basename(src) =='site-packages':
+        if not os.path.basename(src) == 'site-packages':
             raise EasyBuildError("Expected to find a site-packages path, but found something else: %s", src)
 
         # copy contents of site-packages dir
         dest = os.path.join(self.installdir, 'site-packages')
         try:
             shutil.copytree(src, dest)
-            rmtree2(tmpdir)
+            remove_dir(tmpdir)
             os.chdir(self.installdir)
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to copy directory %s to %s: %s", src, dest, err)
 
     def sanity_check_step(self):
 
         custom_paths = {
-                        'files':["site-packages/meep_mpi.py"],
-                        'dirs':[]
-                       }
+            'files': [os.path.join('site-packages', 'meep_mpi.py')],
+            'dirs': [],
+        }
 
         self.options['modulename'] = 'meep_mpi'
 

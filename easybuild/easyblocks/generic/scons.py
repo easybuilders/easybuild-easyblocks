@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2018 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -75,7 +75,7 @@ class SCons(EasyBlock):
         Test with SCons
         """
         if self.cfg['runtest']:
-            cmd = "scons %s" % (self.cfg['runtest'])
+            cmd = "%s scons %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
             run_cmd(cmd, log_all=True)
 
     def install_step(self):

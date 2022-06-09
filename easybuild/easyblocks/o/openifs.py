@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,7 @@ class EB_OpenIFS(EasyBlock):
         env.setvar('OIFS_BUILD', 'opt')
         if self.toolchain.comp_family() == toolchain.GCC:
             env.setvar('OIFS_COMP', 'gnu')
-        elif self.toolchain.comp_family() == toolchain.INTELCOMP: 
+        elif self.toolchain.comp_family() == toolchain.INTELCOMP:
             env.setvar('OIFS_COMP', 'intel')
         else:
             raise EasyBuildError("Unknown compiler used, don't know how to set $OIFS_COMP.")
@@ -76,7 +76,7 @@ class EB_OpenIFS(EasyBlock):
         """Custom build procedure for OpenIFS."""
         try:
             os.chdir('make')
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to move to 'make' dir: %s", err)
 
         # enable parallel build
@@ -92,7 +92,7 @@ class EB_OpenIFS(EasyBlock):
             os.makedirs(bindir)
             shutil.copy2(os.path.join(srcdir, 'bin', 'master.exe'), bindir)
             shutil.copytree(os.path.join(srcdir, 'include'), os.path.join(self.installdir, 'include'))
-        except OSError, err:
+        except OSError as err:
             raise EasyBuildError("Failed to install OpenIFS: %s", err)
 
     def sanity_check_step(self):
@@ -103,4 +103,3 @@ class EB_OpenIFS(EasyBlock):
         }
 
         super(EB_OpenIFS, self).sanity_check_step(custom_paths=custom_paths)
-

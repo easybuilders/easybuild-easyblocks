@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2018 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,6 +47,7 @@ class EB_ipp(IntelBase):
     """
     Support for installing Intel Integrated Performance Primitives library
     """
+
     def install_step(self):
         """
         Actual installation
