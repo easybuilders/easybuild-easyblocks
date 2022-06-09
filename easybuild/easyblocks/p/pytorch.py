@@ -31,15 +31,16 @@ EasyBuild support for building and installing PyTorch, implemented as an easyblo
 import os
 import re
 import tempfile
+import easybuild.tools.environment as env
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-import easybuild.tools.environment as env
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.filetools import symlink, apply_regex_substitutions
+from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
@@ -49,9 +50,10 @@ class EB_PyTorch(PythonPackage):
     def extra_options():
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
-            'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
-            'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
-                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
+            'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
+                                "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
+            'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
+            'max_failed_tests': [10, "Maximum number of failing tests", CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -253,7 +255,30 @@ class EB_PyTorch(PythonPackage):
             'python': self.python_cmd,
             'excluded_tests': ' '.join(excluded_tests)
         })
-        super(EB_PyTorch, self).test_step()
+
+        (out, ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        if ec:
+            print_warning("Test command had non-zero exit code (%s)!" % ec)
+
+        ran_tests_regex = re.compile(r"^Ran (?P<test_cnt>[0-9]+) tests in", re.M)
+        ran_tests_hits = ran_tests_regex.findall(out)
+        test_cnt = 0
+        for hit in ran_tests_hits:
+            test_cnt += int(hit)
+
+        failed_test_regex = re.compile(r"^(?P<failed_test_name>.*) failed!\s*$", re.M)
+        failed_tests = nub(failed_test_regex.findall(out))
+        failed_test_cnt = len(failed_tests)
+
+        if failed_test_cnt:
+            test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
+            msg = "%d %s (out of %d tests) failed: %s"
+            print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, ', '.join(failed_tests))
+
+            max_failed_tests = self.cfg['max_failed_tests']
+            if failed_test_cnt > max_failed_tests:
+                raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
+                                     failed_test_cnt, max_failed_tests)
 
     def test_cases_step(self):
         # Make PyTorch tests not use the user home
