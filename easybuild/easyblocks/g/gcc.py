@@ -51,8 +51,8 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir, cop
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
-from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
+from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
 
@@ -90,7 +90,7 @@ class EB_GCC(ConfigureMake):
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
             'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
             'use_gold_linker': [None, "Configure GCC to use GOLD as default linker "
-                                      "(default: True for GCC < 11.3.0)", CUSTOM],
+                                      "(default: enable automatically for GCC < 11.3.0, except on RISC-V)", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withisl': [False, "Build GCC with ISL support", CUSTOM],
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
@@ -526,9 +526,16 @@ class EB_GCC(ConfigureMake):
         # enable plugin support
         self.configopts += " --enable-plugins "
 
-        # use GOLD as default linker
-        if self.cfg['use_gold_linker']:
+        # use GOLD as default linker, except on RISC-V (since it's not supported there)
+        cpu_family = get_cpu_family()
+        use_gold_linker = self.cfg['use_gold_linker']
+        if use_gold_linker is None:
+            use_gold_linker = cpu_family != RISCV
+
+        if use_gold_linker:
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
+        elif cpu_family == RISCV:
+            self.configopts += " --disable-gold --enable-ld=default"
         else:
             self.configopts += " --enable-gold --enable-ld=default"
 
