@@ -31,6 +31,7 @@ EasyBuild support for building and installing libQGLViewer, implemented as an ea
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.modules import get_software_root
 from distutils.version import LooseVersion
 
 
@@ -61,10 +62,13 @@ class EB_libQGLViewer(ConfigureMake):
             }
         else:
             addition = ''
-            for dep in self.cfg.dependencies():
-                if (dep['name'][0] == 'Q' and dep['name'][1] == 't'):
-                    addition = dep['name'].lower()
+            for dep in ['Qt5', 'Qt6']:
+                if get_software_root(dep):
+                    addition = dep.lower()
                     addition = '-' + addition
+                    break
+            else:
+                raise EasyBuildError("Missing Qt5 or Qt6 dependency")
             custom_paths = {
                 'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
                           ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, \
