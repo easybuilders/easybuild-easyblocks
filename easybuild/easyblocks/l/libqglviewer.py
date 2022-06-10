@@ -32,6 +32,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.build_log import EasyBuildError
 from distutils.version import LooseVersion
 
 
@@ -71,8 +72,8 @@ class EB_libQGLViewer(ConfigureMake):
                 raise EasyBuildError("Missing Qt5 or Qt6 dependency")
             custom_paths = {
                 'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
-                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext, \
-                               'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
+                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext,
+                              'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
                 'dirs': ['include/QGLViewer'],
             }
 
