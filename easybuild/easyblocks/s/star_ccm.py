@@ -59,7 +59,9 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         if len(cands) == 1:
             install_script = cands[0]
 
-            env.setvar('CHECK_DISK_SPACE', 'OFF')
+            # depending of the target filesystem the check for available disk space may fail, so disable it;
+            # note that this makes the installer exit with non-zero exit code...
+            # env.setvar('CHECK_DISK_SPACE', 'OFF')
             env.setvar('IATEMPDIR', tempfile.mkdtemp())
 
             cmd = ' '.join([
