@@ -32,6 +32,7 @@ import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, find_glob_pattern
 from easybuild.tools.run import run_cmd
 
@@ -85,10 +86,18 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         if self.dry_run:
             self.starccm_subdir = starccm_subdir_pattern
         else:
-            cwd = change_dir(self.installdir)
-            self.starccm_subdir = find_glob_pattern(starccm_subdir_pattern)
-            self.log.info("Found STAR-CCM+ subdirectory: %s", self.starccm_subdir)
-            change_dir(cwd)
+            # take into account that install directory may not exist or be totally empty,
+            # for example when --module-only --force is used
+            try:
+                cwd = change_dir(self.installdir)
+                self.starccm_subdir = find_glob_pattern(starccm_subdir_pattern)
+                self.log.info("Found STAR-CCM+ subdirectory: %s", self.starccm_subdir)
+                change_dir(cwd)
+            except Exception:
+                if build_option('module_only') and build_option('force'):
+                    self.starccm_subdir = starccm_subdir_pattern
+                else:
+                    raise
 
         self.starview_subdir = os.path.join(os.path.dirname(self.starccm_subdir), 'STAR-View+%s' % self.version)
 
