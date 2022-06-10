@@ -24,15 +24,15 @@
 ##
 """
 EasyBuild support for building and installing STAR-CCM+, implemented as an easyblock
+
+@author: Kenneth Hoste (Ghent University)
 """
-import glob
 import os
 import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir
+from easybuild.tools.filetools import change_dir, find_glob_pattern
 from easybuild.tools.run import run_cmd
 
 
@@ -55,38 +55,42 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
     def install_step(self):
         """Custom install procedure for STAR-CCM+."""
-        cands = glob.glob("./STAR-CCM+%s_*.sh" % self.version)
-        if len(cands) == 1:
-            install_script = cands[0]
 
-            # depending of the target filesystem the check for available disk space may fail, so disable it;
-            # note that this makes the installer exit with non-zero exit code...
-            # env.setvar('CHECK_DISK_SPACE', 'OFF')
-            env.setvar('IATEMPDIR', tempfile.mkdtemp())
-
-            cmd = ' '.join([
-                install_script,
-                "-i silent",
-                "-DINSTALLDIR=%s" % self.installdir,
-                "-DINSTALLFLEX=false",
-                "-DADDSYSTEMPATH=false",
-            ])
-            run_cmd(cmd, log_all=True, simple=True)
+        install_script_pattern = "./STAR-CCM+%s_*.sh" % self.version
+        if self.dry_run:
+            install_script = install_script_pattern
         else:
-            raise EasyBuildError("Found no or multiple possible matches for STAR-CCM+ installation script: %s", cands)
+            install_script = find_glob_pattern(install_script_pattern)
+
+        # depending of the target filesystem the check for available disk space may fail, so disable it;
+        # note that this makes the installer exit with non-zero exit code...
+        # env.setvar('CHECK_DISK_SPACE', 'OFF')
+        env.setvar('IATEMPDIR', tempfile.mkdtemp())
+
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            install_script,
+            "-i silent",
+            "-DINSTALLDIR=%s" % self.installdir,
+            "-DINSTALLFLEX=false",
+            "-DADDSYSTEMPATH=false",
+            self.cfg['installopts'],
+        ])
+        run_cmd(cmd, log_all=True, simple=True)
 
     def find_starccm_subdirs(self):
         """Determine subdirectory of install directory in which STAR-CCM+ was installed."""
-        cwd = change_dir(self.installdir)
-        cands = glob.glob(os.path.join(self.version + '*', 'STAR-CCM+%s*' % self.version))
-        if len(cands) == 1:
-            self.starccm_subdir = cands[0]
-            self.log.info("Found STAR-CCM+ subdirectory: %s", self.starccm_subdir)
-            self.starview_subdir = os.path.join(os.path.dirname(self.starccm_subdir), 'STAR-View+%s' % self.version)
-        else:
-            raise EasyBuildError("Failed to determine the STAR-CCM+ subdirectory in %s: %s", self.installdir, cands)
+        starccm_subdir_pattern = os.path.join(self.version + '*', 'STAR-CCM+%s*' % self.version)
 
-        change_dir(cwd)
+        if self.dry_run:
+            self.starccm_subdir = starccm_subdir_pattern
+        else:
+            cwd = change_dir(self.installdir)
+            self.starccm_subdir = find_glob_pattern(starccm_subdir_pattern)
+            self.log.info("Found STAR-CCM+ subdirectory: %s", self.starccm_subdir)
+            change_dir(cwd)
+
+        self.starview_subdir = os.path.join(os.path.dirname(self.starccm_subdir), 'STAR-View+%s' % self.version)
 
     def sanity_check_step(self):
         """Custom sanity check for STAR-CCM+."""
