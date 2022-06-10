@@ -272,8 +272,9 @@ class EB_PyTorch(PythonPackage):
 
         if failed_test_cnt:
             test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
+            failed_tests_txt = '\n'.join('* %s' % t for t in sorted(failed_tests))
             msg = "%d %s (out of %d) failed:\n%s"
-            print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, '\n'.join('* %s' % t for t in failed_tests))
+            print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
 
             max_failed_tests = self.cfg['max_failed_tests']
             if failed_test_cnt > max_failed_tests:
