@@ -91,13 +91,18 @@ class EB_pybind11(CMakePythonPackage):
         # don't add user site directory to sys.path (equivalent to python -s)
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
         # Get python includes
-        fake_mod_data = self.load_fake_module(purge=True)
+        if not self.is_extension:
+            # for stand-alone Python package installations (not part of a bundle of extensions),
+            # we need to load the fake module file, otherwise the Python package being installed
+            # is not "in view", and we will overlook missing dependencies...
+            fake_mod_data = self.load_fake_module(purge=True)
         cmd = "%s -c 'import pybind11; print(pybind11.get_include())'" % self.python_cmd
         out, ec = run_cmd(cmd, simple=False)
         if ec:
             raise EasyBuildError("Failed to get pybind11 includes!")
         python_include = out.strip()
-        self.clean_up_fake_module(fake_mod_data)
+        if not self.is_extension:
+            self.clean_up_fake_module(fake_mod_data)
 
         # Check for CMake config and includes
         custom_paths = {
