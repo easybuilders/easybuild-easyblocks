@@ -92,9 +92,8 @@ class EB_pybind11(CMakePythonPackage):
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
         # Get python includes
         if not self.is_extension:
-            # for stand-alone Python package installations (not part of a bundle of extensions),
-            # we need to load the fake module file, otherwise the Python package being installed
-            # is not "in view", and we will overlook missing dependencies...
+            # only load fake module for stand-alone installations (not for extensions),
+            # since for extension the necessary modules should already be loaded at this point
             fake_mod_data = self.load_fake_module(purge=True)
         cmd = "%s -c 'import pybind11; print(pybind11.get_include())'" % self.python_cmd
         out, ec = run_cmd(cmd, simple=False)
