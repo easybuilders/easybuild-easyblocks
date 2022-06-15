@@ -204,16 +204,17 @@ class EB_GROMACS(CMakeMake):
 
         # check whether PLUMED is loaded as a dependency
         plumed_root = get_software_root('PLUMED')
-        if  str(self.cfg['with_plumed']).upper() == 'TRUE' :
+        if str(self.cfg['with_plumed']).upper() == 'AUTO':
+            if plumed_root:
+                self.log.info('PLUMED has been auto-detected.')
+        elif self.cfg['with_plumed']:
             if not plumed_root:
                 msg = "Compilation with PLUMED was expicitly selected, but PLUMED was not found."
                 raise EasyBuildError(msg)
-        elif str(self.cfg['with_plumed']).upper() == 'FALSE' :
+        else:
             if plumed_root:
                 self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
-        elif str(self.cfg['with_plumed']).upper() == 'AUTO':
-            pass
 
         if plumed_root:
             # Need to check if PLUMED has an engine for this version
