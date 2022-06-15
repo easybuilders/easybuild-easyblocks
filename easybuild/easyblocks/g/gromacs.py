@@ -68,6 +68,7 @@ class EB_GROMACS(CMakeMake):
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
+            'with_plumed': ['auto', "Try to apply PLUMED patches ('auto', True or False)", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -203,6 +204,17 @@ class EB_GROMACS(CMakeMake):
 
         # check whether PLUMED is loaded as a dependency
         plumed_root = get_software_root('PLUMED')
+        if  str(self.cfg['with_plumed']).upper() == 'TRUE' :
+            if not plumed_root:
+                msg = "Compilation with PLUMED was expicitly selected, but PLUMED was not found."
+                raise EasyBuildError(msg)
+        elif str(self.cfg['with_plumed']).upper() == 'FALSE' :
+            if plumed_root:
+                self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
+            plumed_root = None
+        elif str(self.cfg['with_plumed']).upper() == 'AUTO':
+            pass
+
         if plumed_root:
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
