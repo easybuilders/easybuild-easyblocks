@@ -92,6 +92,7 @@ class CMakeMake(ConfigureMake):
         """Constructor for CMakeMake easyblock"""
         super(CMakeMake, self).__init__(*args, **kwargs)
         self._lib_ext = None
+        self.separate_build_dir = None
 
     @property
     def lib_ext(self):
@@ -122,7 +123,8 @@ class CMakeMake(ConfigureMake):
         setup_cmake_env(self.toolchain)
 
         if builddir is None and self.cfg.get('separate_build_dir', True):
-            builddir = create_unused_dir(self.builddir, 'easybuild_obj')
+            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
+            builddir = self.separate_build_dir
 
         if builddir:
             mkdir(builddir, parents=True)
