@@ -56,25 +56,21 @@ class EB_libQGLViewer(ConfigureMake):
         From version 2.8.0 onwards qt version also gets added to the lib file names.
         """
         if LooseVersion(self.version) < LooseVersion("2.8.0"):
-            custom_paths = {
-                'files': [('lib/libQGLViewer.prl', 'lib64/libQGLViewer.prl'),
-                          ('lib/libQGLViewer.%s' % shlib_ext, 'lib64/libQGLViewer.%s' % shlib_ext)],
-                'dirs': ['include/QGLViewer'],
-            }
+            suffix = ''
         else:
-            addition = ''
+            suffix = ''
             for dep in ['Qt5', 'Qt6']:
                 if get_software_root(dep):
-                    addition = dep.lower()
-                    addition = '-' + addition
+                    suffix = dep.lower()
+                    suffix = '-' + suffix
                     break
             else:
                 raise EasyBuildError("Missing Qt5 or Qt6 dependency")
-            custom_paths = {
-                'files': [('lib/libQGLViewer'+addition+'.prl', 'lib64/libQGLViewer'+addition+'.prl'),
-                          ('lib/libQGLViewer'+addition+'.%s' % shlib_ext,
-                              'lib64/libQGLViewer'+addition+'.%s' % shlib_ext)],
-                'dirs': ['include/QGLViewer'],
-            }
+        custom_paths = {
+            'files': [('lib/libQGLViewer'+suffix+'.prl', 'lib64/libQGLViewer'+suffix+'.prl'),
+                      ('lib/libQGLViewer'+suffix+'.%s' % shlib_ext,
+                       'lib64/libQGLViewer'+suffix+'.%s' % shlib_ext)],
+            'dirs': ['include/QGLViewer'],
+        }
 
         super(EB_libQGLViewer, self).sanity_check_step(custom_paths=custom_paths)
