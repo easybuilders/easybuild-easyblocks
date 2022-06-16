@@ -553,6 +553,12 @@ class EB_GROMACS(CMakeMake):
                         lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
                         self.log.info("Found lib subdirectory that contains %s: %s", libname, lib_subdir)
                         break
+                if not self.cfg['build_shared_libs']:
+                    msg = "Found lib subdirectory: %s but it doesn't contain: %s.\n"
+                    msg += "As building shared libs was disabled, this is probably okay."
+                    lib_subdir = libdir
+                    self.log.info(msg, lib_subdir, libname)
+
         if not lib_subdir:
             raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
 
@@ -651,18 +657,22 @@ class EB_GROMACS(CMakeMake):
         ])
         bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
 
-        if not self.lib_subdir:
-            self.lib_subdir = self.get_lib_subdir()
-
-        # pkgconfig dir not available for earlier versions, exact version to use here is unclear
-        if LooseVersion(self.version) >= LooseVersion('4.6'):
-            dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
-
         custom_paths = {
-            'files': [os.path.join('bin', b) for b in bin_files] +
-            [os.path.join(self.lib_subdir, lib) for lib in lib_files],
-            'dirs': dirs,
+            'files': [os.path.join('bin', b) for b in bin_files],
+            'dirs': dirs
         }
+
+        if self.cfg['build_shared_libs'] or LooseVersion(self.version) <= LooseVersion('2022'):
+            # only if any libs are actually built
+            if not self.lib_subdir:
+                self.lib_subdir = self.get_lib_subdir()
+
+            # pkgconfig dir not available for earlier versions, exact version to use here is unclear
+            if LooseVersion(self.version) >= LooseVersion('4.6'):
+                custom_paths['dirs'].append(os.path.join(self.lib_subdir, 'pkgconfig'))
+
+            custom_paths['files'] = custom_paths['files'] + [os.path.join(self.lib_subdir, lib) for lib in lib_files]
+
         super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
 
     def run_all_steps(self, *args, **kwargs):
