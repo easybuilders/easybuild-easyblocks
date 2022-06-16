@@ -58,11 +58,9 @@ class EB_libQGLViewer(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("2.8.0"):
             suffix = ''
         else:
-            suffix = ''
             for dep in ['Qt5', 'Qt6']:
                 if get_software_root(dep):
-                    suffix = dep.lower()
-                    suffix = '-' + suffix
+                    suffix = '-' + dep.lower()
                     break
             else:
                 raise EasyBuildError("Missing Qt5 or Qt6 dependency")
