@@ -109,15 +109,15 @@ class EB_GROMACS(CMakeMake):
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
         elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
-            if ( LooseVersion(self.version) >= LooseVersion('2019') and 
+            if (LooseVersion(self.version) >= LooseVersion('2019') and
                     comp_fam == toolchain.GCC and get_software_root('imkl') and
-                    re.search(r'GMX_DOUBLE=(1|ON|YES|TRUE)\b', self.cfg['configopts'].upper()) ):
-               # Workaround to DOUBLE precision builds being broken for AVX512 in GROMACS 2019.x 
-               # and 2020.x  when using toolchains with GCC and MKL.
-               res = 'AVX2_256'
-               self.log.info("Falling back to AVX2_256 for GROMACS >= 2019 with GMX_DOUBLE=ON.")
+                    re.search(r'GMX_DOUBLE=(1|ON|YES|TRUE)\b', self.cfg['configopts'].upper())):
+                # Workaround to DOUBLE precision builds being broken for AVX512 in GROMACS 2019.x
+                # and 2020.x  when using toolchains with GCC and MKL.
+                res = 'AVX2_256'
+                self.log.info("Falling back to AVX2_256 for GROMACS >= 2019 with GMX_DOUBLE=ON.")
             else:
-               res = 'AVX_512'
+                res = 'AVX_512'
         elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
         elif 'AVX' in optarch:
