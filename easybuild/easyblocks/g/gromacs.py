@@ -68,7 +68,8 @@ class EB_GROMACS(CMakeMake):
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
-            'with_plumed': ['auto', "Try to apply PLUMED patches ('auto', True or False)", CUSTOM],
+            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
+                       "True or False forces behaviour.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -202,21 +203,20 @@ class EB_GROMACS(CMakeMake):
                 # to avoid that GROMACS finds and uses a system-wide CUDA compiler
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
-        # check whether PLUMED is loaded as a dependency
+        # PLUMED detection
         plumed_root = get_software_root('PLUMED')
-        if str(self.cfg['with_plumed']).upper() == 'AUTO':
-            if plumed_root:
-                self.log.info('PLUMED has been auto-detected.')
-        elif self.cfg['with_plumed']:
-            if not plumed_root:
-                msg = "Compilation with PLUMED was expicitly selected, but PLUMED was not found."
-                raise EasyBuildError(msg)
-        else:
-            if plumed_root:
-                self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
+        if self.cfg['plumed'] and not plumed_root:
+            msg = "The PLUMED module needs to be loaded to build GROMACS with PLUMED support."
+            raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is False:
+            self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
 
-        if plumed_root:
+        # enable PLUMED support if PLUMED is listed as a dependency
+        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
+        if plumed_root and (self.cfg['plumed'] or self.cfg['plumed'] is None):
+            self.log.info('PLUMED support has been enabled.')
+
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 
