@@ -69,6 +69,8 @@ class EB_GROMACS(CMakeMake):
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
             'cp2k': [None, "Build with CP2K QM/MM. None is auto-detect. True or False forces behaviour.", CUSTOM],
+            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
+                       "True or False forces behaviour.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -255,9 +257,20 @@ class EB_GROMACS(CMakeMake):
                 cp2k_linker_flags.append('-lint2')
             self.cfg.update('configopts', '-DCP2K_LINKER_FLAGS="%s"' % " ".join(cp2k_linker_flags))
 
-        # check whether PLUMED is loaded as a dependency
+        # PLUMED detection
+        # enable PLUMED support if PLUMED is listed as a dependency
+        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
         plumed_root = get_software_root('PLUMED')
+        if self.cfg['plumed'] and not plumed_root:
+            msg = "The PLUMED module needs to be loaded to build GROMACS with PLUMED support."
+            raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is False:
+            self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
+            plumed_root = None
+
         if plumed_root:
+            self.log.info('PLUMED support has been enabled.')
+
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 
