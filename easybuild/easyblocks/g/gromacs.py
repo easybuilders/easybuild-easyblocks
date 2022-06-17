@@ -203,6 +203,8 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
         # CP2K detection
+        # enable CP2K support if CP2K is listed as a dependency
+        # and CP2K support is either explicitly enabled (cp2k = True) or unspecified ('cp2k' not defined)
         cp2k_root = get_software_root('CP2K')
         if self.cfg['cp2k'] and not cp2k_root:
             msg = "The CP2K module needs to be loaded to build GROMACS with CP2K support."
@@ -211,13 +213,11 @@ class EB_GROMACS(CMakeMake):
             self.log.info('CP2K was found, but compilation without CP2K has been requested.')
             cp2k_root = None
 
-        # enable CP2K support if CP2K is listed as a dependency
-        # and CP2K support is either explicitly enabled (cp2k = True) or unspecified ('cp2k' not defined)
-        if cp2k_root and (self.cfg['cp2k'] or self.cfg['cp2k'] is None):
+        if cp2k_root:
             if LooseVersion(self.version) < LooseVersion('2022'):
                 msg = 'CP2K support is only available for GROMACS 2022 and newer.'
                 raise EasyBuildError(msg)
-            elif cp2k_root and LooseVersion(get_software_version('CP2K')) < LooseVersion('8.1'):
+            elif LooseVersion(get_software_version('CP2K')) < LooseVersion('8.1'):
                 msg = 'CP2K support in GROMACS requires CP2K version 8.1 or higher.'
                 raise EasyBuildError(msg)
 
