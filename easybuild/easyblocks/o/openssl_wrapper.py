@@ -112,6 +112,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 LINUX: ('so.1.1', ),
                 DARWIN: ('1.1.dylib', ),
             },
+            '3.0': {
+                LINUX: ('so.3', ),
+                DARWIN: ('3.dylib', ),
+            },
         }
 
         os_type = get_os_type()
@@ -135,6 +139,7 @@ class EB_OpenSSL_wrapper(Bundle):
         openssl_engines = {
             '1.0': 'engines',
             '1.1': 'engines-1.1',
+            '3.0': 'engines-3',
         }
         self.target_ssl_engine = openssl_engines[self.majmin_version]
 
