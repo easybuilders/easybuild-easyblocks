@@ -212,6 +212,8 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
         # PLUMED detection
+        # enable PLUMED support if PLUMED is listed as a dependency
+        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
         plumed_root = get_software_root('PLUMED')
         if self.cfg['plumed'] and not plumed_root:
             msg = "The PLUMED module needs to be loaded to build GROMACS with PLUMED support."
@@ -220,9 +222,7 @@ class EB_GROMACS(CMakeMake):
             self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
 
-        # enable PLUMED support if PLUMED is listed as a dependency
-        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
-        if plumed_root and (self.cfg['plumed'] or self.cfg['plumed'] is None):
+        if plumed_root:
             self.log.info('PLUMED support has been enabled.')
 
             # Need to check if PLUMED has an engine for this version
