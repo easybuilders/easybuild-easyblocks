@@ -68,6 +68,11 @@ class EB_NEURON(CMakeMake):
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
         if LooseVersion(self.version) < LooseVersion('7.8.1'):
+
+            # make sure we're using the correct configure command
+            # (required because custom easyconfig parameters from CMakeMake are picked up)
+            self.cfg['configure_cmd'] = "./configure"
+
             # enable support for distributed simulations if desired
             if self.cfg['paranrn']:
                 self.cfg.update('configopts', '--with-paranrn')
@@ -107,7 +112,7 @@ class EB_NEURON(CMakeMake):
             # specify path to InterViews if it is available as a dependency
             interviews_root = get_software_root('InterViews')
             if interviews_root:
-                self.cfg.update('configopts', "-DIV_DIR=%s" % interviews_root)
+                self.cfg.update('configopts', "-DIV_DIR=%s -DNRN_ENABLE_INTERVIEWS=ON" % interviews_root)
             else:
                 self.cfg.update('configopts', "-DNRN_ENABLE_INTERVIEWS=OFF")
 
@@ -121,6 +126,8 @@ class EB_NEURON(CMakeMake):
                 self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=ON -DPYTHON_EXECUTABLE=%s/bin/python" % python_root)
                 self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON "
                                 "-DNRN_MODULE_INSTALL_OPTIONS='--prefix=%s'" % self.installdir)
+            else:
+                self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=OFF")
 
             # determine Python lib dir
             self.pylibdir = det_pylibdir()

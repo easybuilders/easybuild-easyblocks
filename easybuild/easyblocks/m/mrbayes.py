@@ -33,6 +33,7 @@ EasyBuild support for building and installing MrBayes, implemented as an easyblo
 @author: Andy Georges (Ghent University)
 @author: Maxime Boissonneault (Compute Canada, Calcul Quebec, Universite Laval)
 @author: Ali Kerrache (Compute Canada, WestGrid, University of Manitoba)
+@author: Jasper Grimm (University of York)
 """
 
 import os
@@ -47,6 +48,14 @@ from easybuild.tools.run import run_cmd
 
 class EB_MrBayes(ConfigureMake):
     """Support for building/installing MrBayes."""
+
+    def __init__(self, *args, **kwargs):
+        super(EB_MrBayes, self).__init__(*args, **kwargs)
+        # For later MrBayes versions, no longer need to use this easyblock
+        last_supported_version = '3.2.6'
+        if LooseVersion(self.version) > LooseVersion(last_supported_version):
+            raise EasyBuildError("Please use the ConfigureMake easyblock for %s versions > %s", self.name,
+                                 last_supported_version)
 
     def configure_step(self):
         """Configure build: <single-line description how this deviates from standard configure>"""
@@ -115,4 +124,6 @@ class EB_MrBayes(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["mb <<< %s" % x for x in ["about", "help"]]
+
+        super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
