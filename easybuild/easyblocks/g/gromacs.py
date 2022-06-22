@@ -66,6 +66,7 @@ class EB_GROMACS(CMakeMake):
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
+            'mpi_only': [False, "Only build for MPI and skip nompi.", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
             'cp2k': [None, "Build with CP2K QM/MM. None is auto-detect. True or False forces behaviour.", CUSTOM],
@@ -207,7 +208,7 @@ class EB_GROMACS(CMakeMake):
         # and CP2K support is either explicitly enabled (cp2k = True) or unspecified ('cp2k' not defined)
         cp2k_root = get_software_root('CP2K')
         if self.cfg['cp2k'] and not cp2k_root:
-            msg = "The CP2K module needs to be loaded to build GROMACS with CP2K support."
+            msg = "CP2K support has been requested but CP2K is not listed as a dependency."
             raise EasyBuildError(msg)
         elif cp2k_root and self.cfg['cp2k'] is False:
             self.log.info('CP2K was found, but compilation without CP2K has been requested.')
@@ -219,6 +220,10 @@ class EB_GROMACS(CMakeMake):
                 raise EasyBuildError(msg)
             elif LooseVersion(get_software_version('CP2K')) < LooseVersion('8.1'):
                 msg = 'CP2K support in GROMACS requires CP2K version 8.1 or higher.'
+                raise EasyBuildError(msg)
+
+            if not self.cfg['mpi_only']:
+                msg = "GROMACS with CP2K support needs to be built with 'mpi_only = True'"
                 raise EasyBuildError(msg)
 
             self.log.info('CP2K support has been enabled.')
@@ -237,7 +242,7 @@ class EB_GROMACS(CMakeMake):
             cp2k_linker_flags = [
                 # Need MPI linker flags b/c libcp2k.a is compiled with mpifort.
                 # These are for OpenMPI (mpifort --showme).
-                "-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi",
+                "-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh",
                 "-L%s/lib/exts/dbcsr" % cp2k_root,
                 # get depenencies for libcp2k.a:
                 "$(pkg-config --libs-only-l libcp2k)"
@@ -665,8 +670,12 @@ class EB_GROMACS(CMakeMake):
             else:
                 mpisuff = '_mpi'
 
-            mpi_bins.extend([binary + mpisuff for binary in mpi_bins])
-            mpi_libnames.extend([libname + mpisuff for libname in mpi_libnames])
+            if self.cfg['mpi_only']:
+                mpi_bins = [binary + mpisuff for binary in mpi_bins]
+                mpi_libnames = [libname + mpisuff for libname in mpi_libnames]
+            else:
+                mpi_bins.extend([binary + mpisuff for binary in mpi_bins])
+                mpi_libnames.extend([libname + mpisuff for libname in mpi_libnames])
 
         suffixes = ['']
 
@@ -783,9 +792,12 @@ class EB_GROMACS(CMakeMake):
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
 
-        mpitypes = ['nompi']
-        if self.toolchain.options.get('usempi', None):
-            mpitypes.append('mpi')
+        if self.cfg['mpi_only']:
+            mpitypes = ['mpi']
+        else:
+            mpitypes = ['nompi']
+            if self.toolchain.options.get('usempi', None):
+                mpitypes.append('mpi')
 
         # We need to count the number of variations to build.
         versions_built = []
