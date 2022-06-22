@@ -208,7 +208,7 @@ class EB_GROMACS(CMakeMake):
         # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
         plumed_root = get_software_root('PLUMED')
         if self.cfg['plumed'] and not plumed_root:
-            msg = "The PLUMED module needs to be loaded to build GROMACS with PLUMED support."
+            msg = "PLUMED support has been requested but PLUMED is not listed as a dependency."
             raise EasyBuildError(msg)
         elif plumed_root and self.cfg['plumed'] is False:
             self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
