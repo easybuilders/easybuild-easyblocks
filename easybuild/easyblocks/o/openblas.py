@@ -7,6 +7,7 @@ EasyBuild support for building and installing OpenBLAS, implemented as an easybl
 import os
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import ERROR
@@ -18,9 +19,29 @@ TARGET = 'TARGET'
 class EB_OpenBLAS(ConfigureMake):
     """Support for building/installing OpenBLAS."""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = ConfigureMake.extra_options()
+        extra_vars.update({
+            'build_ilp64': [True, "Also build OpenBLAS with 64-bit integer support", CUSTOM],
+            'ilp64_suffix': ['_ilp64', "Symbol (and library name) suffix to use when building with 64-bit integers", CUSTOM],
+        })
+        return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """ Ensure iterative build if also building with 64-bit integer support """
+        super(EB_OpenBLAS, self).__init__(*args, **kwargs)
+
+        if self.cfg['build_ilp64']:
+            if not type(self.cfg['buildopts']) is list:
+                # ensure iterative build
+                self.cfg['buildopts'] = [self.cfg['buildopts'], self.cfg['buildopts']]
+            else:
+                print_warning("buildopts cannot be a list when 'build_ilp64' is enabled; ignoring 'build_ilp64'")
+                self.cfg['build_ilp64'] = False
+
     def configure_step(self):
         """ set up some options - but no configure command to run"""
-
         default_opts = {
             'BINARY': '64',
             'CC': os.getenv('CC'),
@@ -28,6 +49,11 @@ class EB_OpenBLAS(ConfigureMake):
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
             'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
+        }
+
+        ilp64_opts = {
+            'INTERFACE64': '1',
+            'SYMBOLSUFFIX': self.cfg['ilp64_suffix'],
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:
@@ -41,10 +67,14 @@ class EB_OpenBLAS(ConfigureMake):
             print_warning("OpenBLAS 0.3.5 and lower have known issues on POWER systems")
             default_opts[TARGET] = 'POWER8'
 
-        for key in sorted(default_opts.keys()):
+        all_opts = default_opts.copy()
+        if self.iter_idx == 1 and self.cfg['build_ilp64']:
+            all_opts.update(ilp64_opts)
+
+        for key in sorted(all_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
                 if '%s=' % key not in self.cfg[opts_key]:
-                    self.cfg.update(opts_key, "%s='%s'" % (key, default_opts[key]))
+                    self.cfg.update(opts_key, "%s='%s'" % (key, all_opts[key]))
 
         self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
@@ -94,4 +124,8 @@ class EB_OpenBLAS(ConfigureMake):
                       'lib/libopenblas.a', 'lib/libopenblas.%s' % get_shared_lib_ext()],
             'dirs': [],
         }
+        if self.cfg['build_ilp64']:
+            custom_paths['files'].extend('lib/libopenblas_%s.%s' % (self.cfg['ilp64_suffix'], x)
+                                         for x in ['a', get_shared_lib_ext()])
+
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
