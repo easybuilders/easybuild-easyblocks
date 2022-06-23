@@ -25,8 +25,7 @@ class EB_OpenBLAS(ConfigureMake):
         extra_vars = ConfigureMake.extra_options()
         extra_vars.update({
             'build_ilp64': [True, "Also build OpenBLAS with 64-bit integer support", CUSTOM],
-            'ilp64_suffix': ['_ilp64', "Symbol (and library name) suffix to use when building with 64-bit integers",
-                             CUSTOM],
+            'ilp64_suffix': ['ilp64', "Library name suffix to use when building with 64-bit integers", CUSTOM],
         })
         return extra_vars
 
@@ -55,7 +54,7 @@ class EB_OpenBLAS(ConfigureMake):
 
         ilp64_opts = {
             'INTERFACE64': '1',
-            'SYMBOLSUFFIX': self.cfg['ilp64_suffix'],
+            'LIBNAMESUFFIX': self.cfg['ilp64_suffix'],
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:
