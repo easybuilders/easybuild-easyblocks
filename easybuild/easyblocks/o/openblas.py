@@ -43,6 +43,12 @@ class EB_OpenBLAS(ConfigureMake):
                 print_warning("buildopts cannot be a list when 'build_ilp64' is enabled; ignoring 'build_ilp64'")
                 self.cfg['build_ilp64'] = False
 
+        self.baseopts = {
+            'buildopts': '',
+            'testopts': '',
+            'installopts': '',
+        }
+
     def configure_step(self):
         """ set up some options - but no configure command to run"""
         default_opts = {
@@ -62,6 +68,17 @@ class EB_OpenBLAS(ConfigureMake):
             'INTERFACE64': '1',
             'SYMBOLSUFFIX': self.cfg['ilp64_symbol_suffix'],
         }
+
+        # ensure build/test/install options don't persist between iterations
+        if self.cfg['build_ilp64']:
+            if self.iter_idx > 0:
+                # reset to original options
+                for k in self.baseopts.keys():
+                    self.cfg[k] = self.baseopts[k]
+            else:
+                # store original options
+                for k in self.baseopts.keys():
+                    self.baseopts[k] = self.cfg[k]
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
