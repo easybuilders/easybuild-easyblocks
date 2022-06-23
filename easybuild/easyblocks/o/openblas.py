@@ -25,7 +25,8 @@ class EB_OpenBLAS(ConfigureMake):
         extra_vars = ConfigureMake.extra_options()
         extra_vars.update({
             'build_ilp64': [True, "Also build OpenBLAS with 64-bit integer support", CUSTOM],
-            'ilp64_suffix': ['ilp64', "Library name suffix to use when building with 64-bit integers", CUSTOM],
+            'ilp64_lib_suffix': ['ilp64', "Library name suffix to use when building with 64-bit integers", CUSTOM],
+            'ilp64_symbol_suffix': ['64_', "Symbol suffix to use when building with 64-bit integers", CUSTOM],
         })
         return extra_vars
 
@@ -35,8 +36,9 @@ class EB_OpenBLAS(ConfigureMake):
 
         if self.cfg['build_ilp64']:
             if not type(self.cfg['buildopts']) is list:
+                niter = 1 + sum([bool(self.cfg[x]) for x in ['ilp64_lib_suffix', 'ilp64_symbol_suffix']])
                 # ensure iterative build
-                self.cfg['buildopts'] = [self.cfg['buildopts'], self.cfg['buildopts']]
+                self.cfg['buildopts'] = [self.cfg['buildopts']] * niter
             else:
                 print_warning("buildopts cannot be a list when 'build_ilp64' is enabled; ignoring 'build_ilp64'")
                 self.cfg['build_ilp64'] = False
@@ -52,9 +54,13 @@ class EB_OpenBLAS(ConfigureMake):
             'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
         }
 
-        ilp64_opts = {
+        ilp64_lib_opts = {
             'INTERFACE64': '1',
-            'LIBNAMESUFFIX': self.cfg['ilp64_suffix'],
+            'LIBNAMESUFFIX': self.cfg['ilp64_lib_suffix'],
+        }
+        ilp64_symbol_opts = {
+            'INTERFACE64': '1',
+            'SYMBOLSUFFIX': self.cfg['ilp64_symbol_suffix'],
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:
@@ -69,8 +75,16 @@ class EB_OpenBLAS(ConfigureMake):
             default_opts[TARGET] = 'POWER8'
 
         all_opts = default_opts.copy()
-        if self.iter_idx == 1 and self.cfg['build_ilp64']:
-            all_opts.update(ilp64_opts)
+        if self.iter_idx > 0 and self.cfg['build_ilp64']:
+            if self.cfg['ilp64_lib_suffix'] and self.cfg['ilp64_symbol_suffix']:
+                if self.iter_idx == 1:
+                    all_opts.update(ilp64_lib_opts)
+                else:
+                    all_opts.update(ilp64_symbol_opts)
+            elif self.cfg['ilp64_lib_suffix']:
+                all_opts.update(ilp64_lib_opts)
+            elif self.cfg['ilp64_symbol_suffix']:
+                all_opts.update(ilp64_symbol_opts)
 
         for key in sorted(all_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
@@ -126,7 +140,11 @@ class EB_OpenBLAS(ConfigureMake):
             'dirs': [],
         }
         if self.cfg['build_ilp64']:
-            custom_paths['files'].extend('lib/libopenblas_%s.%s' % (self.cfg['ilp64_suffix'], x)
-                                         for x in ['a', get_shared_lib_ext()])
+            if self.cfg['ilp64_lib_suffix']:
+                custom_paths['files'].extend('lib/libopenblas_%s.%s' % (self.cfg['ilp64_lib_suffix'], x)
+                                             for x in ['a', get_shared_lib_ext()])
+            if self.cfg['ilp64_symbol_suffix']:
+                custom_paths['files'].extend('lib/libopenblas%s.%s' % (self.cfg['ilp64_symbol_suffix'], x)
+                                             for x in ['a', get_shared_lib_ext()])
 
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
