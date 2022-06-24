@@ -110,7 +110,7 @@ class EB_Siesta(ConfigureMake):
 
         gfortran_flags = ''
         gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
-        if LooseVersion(gcc_version) >= LooseVersion('10.0'):
+        if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('4.1.5'):
             # -fallow-argument-mismatch is required when compiling with GCC 10.x & more recent
             gfortran_flags = '-fallow-argument-mismatch'
 
