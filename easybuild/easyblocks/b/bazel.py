@@ -122,7 +122,13 @@ class EB_Bazel(EasyBlock):
         self._make_output_user_root()
 
     def _make_output_user_root(self):
-        self._output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
+        if not os.path.isdir(self.builddir):
+            # Can happen on module-only or sanity-check-only runs
+            self.log.info("Using temporary folder for user_root as builddir doesn't exist")
+            dir = None  # Will use the EB created temp dir
+        else:
+            dir = self.builddir
+        self._output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=dir)
 
     @property
     def output_user_root(self):
