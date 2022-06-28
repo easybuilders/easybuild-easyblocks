@@ -119,7 +119,18 @@ class EB_Bazel(EasyBlock):
         """Setup bazel output root"""
         super(EB_Bazel, self).prepare_step(*args, **kwargs)
         self.bazel_tmp_dir = tempfile.mkdtemp(suffix='-bazel-tmp', dir=self.builddir)
-        self.output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
+        self._make_output_user_root()
+
+    def _make_output_user_root(self):
+        self._output_user_root = tempfile.mkdtemp(suffix='-bazel-root', dir=self.builddir)
+
+    @property
+    def output_user_root(self):
+        try:
+            return self._output_user_root
+        except AttributeError:
+            self._make_output_user_root()
+            return self._output_user_root
 
     def extract_step(self):
         """Extract Bazel sources."""
@@ -207,6 +218,7 @@ class EB_Bazel(EasyBlock):
         }
         custom_commands = []
         if LooseVersion(self.version) >= LooseVersion('1.0'):
-            custom_commands.append("bazel --help")
+            # Avoid writes to $HOME
+            custom_commands.append("bazel --output_user_root=%s --help" % self.output_user_root)
 
         super(EB_Bazel, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
