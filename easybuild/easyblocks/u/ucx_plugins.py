@@ -93,12 +93,14 @@ class EB_UCX_Plugins(ConfigureMake):
     def build_step(self):
         """Build plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s V=1' % makefile_dir)
+            run_cmd('%s make -C src/%s V=1 %s' % (self.cfg['prebuildopts'], makefile_dir,
+                                                  self.cfg['buildopts'])
 
     def install_step(self):
         """Install plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s install' % (makefile_dir))
+            run_cmd('%s make -C src/%s install %s' % (self.cfg['preinstallopts'], makefile_dir,
+                                                      self.cfg['installopts'])
 
     def make_module_extra(self, *args, **kwargs):
         """Add extra statements to generated module file specific to UCX plugins"""
