@@ -53,7 +53,7 @@ class EB_PyTorch(PythonPackage):
             'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
                                 "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
-            'max_failed_tests': [10, "Maximum number of failing tests", CUSTOM],
+            'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -256,30 +256,33 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        (out, ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
-        if ec:
-            print_warning("Test command had non-zero exit code (%s)!" % ec)
+        (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
-        ran_tests_regex = re.compile(r"^Ran (?P<test_cnt>[0-9]+) tests in", re.M)
-        ran_tests_hits = ran_tests_regex.findall(out)
+        ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
         test_cnt = 0
         for hit in ran_tests_hits:
             test_cnt += int(hit)
 
-        failed_test_regex = re.compile(r"^(?P<failed_test_name>.*) failed!\s*$", re.M)
-        failed_tests = nub(failed_test_regex.findall(out))
+        failed_tests = nub(re.findall(r"^(?P<failed_test_name>.*) failed!\s*$", tests_out, re.M))
         failed_test_cnt = len(failed_tests)
 
         if failed_test_cnt:
+            max_failed_tests = self.cfg['max_failed_tests']
+
             test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
             failed_tests_txt = '\n'.join('* %s' % t for t in sorted(failed_tests))
             msg = "%d %s (out of %d) failed:\n%s"
-            print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
 
-            max_failed_tests = self.cfg['max_failed_tests']
-            if failed_test_cnt > max_failed_tests:
-                raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
-                                     failed_test_cnt, max_failed_tests)
+            if max_failed_tests == 0:
+                raise EasyBuildError(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
+            else:
+                print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
+
+                if failed_test_cnt > max_failed_tests:
+                    raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
+                                         failed_test_cnt, max_failed_tests)
+        elif tests_ec:
+            raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
         # Make PyTorch tests not use the user home
