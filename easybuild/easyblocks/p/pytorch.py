@@ -276,6 +276,14 @@ class EB_PyTorch(PythonPackage):
             if max_failed_tests == 0:
                 raise EasyBuildError(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
             else:
+                msg += '\n\n' + ' '.join([
+                    "The PyTorch test suite is known to include some flaky tests,",
+                    "which may fail depending on the specifics of the system or the context in which they are run.",
+                    "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
+                    "We recommend to double check that the failing tests listed above ",
+                    "are known to be flaky, or do not affect your intended usage of PyTorch.",
+                    "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
+                ])
                 print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
 
                 if failed_test_cnt > max_failed_tests:
