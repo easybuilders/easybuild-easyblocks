@@ -270,11 +270,11 @@ class EB_PyTorch(PythonPackage):
             max_failed_tests = self.cfg['max_failed_tests']
 
             test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
-            failed_tests_txt = '\n'.join('* %s' % t for t in sorted(failed_tests))
-            msg = "%d %s (out of %d) failed:\n%s"
+            msg = "%d %s (out of %d) failed:\n" % (failed_test_cnt, test_or_tests, test_cnt)
+            msg += '\n'.join('* %s' % t for t in sorted(failed_tests))
 
             if max_failed_tests == 0:
-                raise EasyBuildError(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
+                raise EasyBuildError(msg)
             else:
                 msg += '\n\n' + ' '.join([
                     "The PyTorch test suite is known to include some flaky tests,",
@@ -284,7 +284,7 @@ class EB_PyTorch(PythonPackage):
                     "are known to be flaky, or do not affect your intended usage of PyTorch.",
                     "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
                 ])
-                print_warning(msg, failed_test_cnt, test_or_tests, test_cnt, failed_tests_txt)
+                print_warning(msg)
 
                 if failed_test_cnt > max_failed_tests:
                     raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
