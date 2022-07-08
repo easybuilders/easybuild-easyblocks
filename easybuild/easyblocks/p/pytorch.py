@@ -222,6 +222,9 @@ class EB_PyTorch(PythonPackage):
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
+            # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
+            if LooseVersion(self.version) >= LooseVersion('1.10.0') and LooseVersion(self.version) < LooseVersion('1.12.0'):
+                options.append('USE_BREAKPAD=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
