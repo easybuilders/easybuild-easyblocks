@@ -3,7 +3,30 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 245 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 246 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.6.0 (July 8th 2022)
+----------------------
+
+feature release
+
+- new software-specific easyblock for STAR-CCM+ (#1613)
+- minor enhancements and updates, including:
+  - update Siesta EasyBlock to support GCC 10+ by adding -fallow-argument-mismatch Fortran compiler option (#2690)
+  - enable building of shared library for Libint 2.7+ (#2738)
+  - allow some PyTorch tests to fail + print warning if one or more tests fail (#2742)
+  - also support OpenSSL 3.0 in OpenSSL wrapper easyblock (#2746)
+  - add more logging to install_pc_files method of OpenSSL wrapper easyblock (#2752)
+  - make WPS easyblock aware of (pre)buildopts (#2754)
+  - add Abseil system dependency for TensorFlow 2.9+ (#2757)
+  - disable altivec when building FFTW versions < 3.4 with single-precision with GCC on POWER (#2758)
+- various bug fixes, including:
+  - make VEP easyblock compatible with --sanity-check-only (#2743)
+  - update Rosetta easyblock to take into account that $LD_LIBRARY_PATH, $CPATH, $PATH may not be defined (#2744)
+  - only load temporary module file during sanity check for pybind11 for stand-alone installations, so it can be installed as extension (#2747)
+  - make sure that CMakeMakeCp uses correct build dir (#2748)
+  - enhance Bazel easyblock to avoid writing to $HOME in sanity check (#2756)
 
 
 v4.5.5 (June 8th 2022)

@@ -215,8 +215,9 @@ class EB_FFTW(ConfigureMake):
                 comp_fam = self.toolchain.comp_family()
                 fftw_ver = LooseVersion(self.version)
                 if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
-                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5.x - 10.x
-                    if prec == 'single' and fftw_ver <= LooseVersion('3.3.9'):
+                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5 and above
+                    # Upper bound of 3.4 (as of yet unreleased) in hope there will eventually be a fix.
+                    if prec == 'single' and fftw_ver < LooseVersion('3.4'):
                         self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
                                       % self.version)
                         prec_configopts.append('--disable-altivec')
