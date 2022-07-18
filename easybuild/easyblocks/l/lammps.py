@@ -40,11 +40,22 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import change_dir, copy_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+
+INTEL_PACKAGE_ARCH_LIST = [
+    'WSM',  # Intel Westmere CPU (SSE 4.2)
+    'SNB',  # Intel Sandy/Ivy Bridge CPU (AVX 1)
+    'HSW',  # Intel Haswell CPU (AVX 2)
+    'BDW',  # Intel Broadwell Xeon E-class CPU (AVX 2 + transactional mem)
+    'SKX',  # Intel Sky Lake Xeon E-class HPC CPU (AVX512 + transactional mem)
+    'KNC',  # Intel Knights Corner Xeon Phi
+    'KNL',  # Intel Knights Landing Xeon Phi
+]
 
 KOKKOS_CPU_ARCH_LIST = [
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
@@ -55,13 +66,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'ARMV81',  # ARMv8.1 Compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
-    'WSM',  # Intel Westmere CPU (SSE 4.2)
-    'SNB',  # Intel Sandy/Ivy Bridge CPU (AVX 1)
-    'HSW',  # Intel Haswell CPU (AVX 2)
-    'BDW',  # Intel Broadwell Xeon E-class CPU (AVX 2 + transactional mem)
-    'SKX',  # Intel Sky Lake Xeon E-class HPC CPU (AVX512 + transactional mem)
-    'KNC',  # Intel Knights Corner Xeon Phi
-    'KNL',  # Intel Knights Landing Xeon Phi
+    'A64FX',  # ARMv8.2 with SVE Support
     'BGQ',  # IBM Blue Gene/Q CPU
     'POWER7',  # IBM POWER7 CPU
     'POWER8',  # IBM POWER8 CPU
@@ -84,7 +89,19 @@ KOKKOS_CPU_ARCH_LIST = [
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
     'INTEL_GEN',  # Intel GPUs Gen9+
-]
+    'INTEL_GEN9',  # Intel GPU Gen9
+    'INTEL_GEN11',  # Intel GPU Gen11
+    'INTEL_GEN12LP',  # Intel GPU Gen12LP
+    'INTEL_XEHP',  # Intel GPUs Xe-HP
+] + INTEL_PACKAGE_ARCH_LIST
+
+KOKKOS_LEGACY_ARCH_MAPPING = {
+    'ZEN': 'EPYC',
+    'ZEN2': 'EPYC',
+    'ZEN3': 'EPYC',
+    'POWER8': 'Power8',
+    'POWER9': 'Power9',
+}
 
 KOKKOS_CPU_MAPPING = {
     'sandybridge': 'SNB',
@@ -118,9 +135,6 @@ KOKKOS_GPU_ARCH_TABLE = {
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
 }
-
-PKG_PREFIX = 'PKG_'
-PKG_USER_PREFIX = PKG_PREFIX + 'USER-'
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
 ref_version = '29Sep2021'
@@ -168,6 +182,12 @@ class EB_LAMMPS(CMakeMake):
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
 
+        self.pkg_prefix = 'PKG_'      
+        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+            self.pkg_user_prefix = self.pkg_prefix
+        else:
+            self.pkg_user_prefix = self.pkg_prefix + 'USER-'        
+        
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             self.kokkos_prefix = 'Kokkos'
         else:
@@ -180,10 +200,10 @@ class EB_LAMMPS(CMakeMake):
         """Custom easyconfig parameters for LAMMPS"""
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'general_packages': [None, "List of general packages without '%s' prefix." % PKG_PREFIX, MANDATORY],
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages without '%s' prefix." % PKG_USER_PREFIX, MANDATORY],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -198,14 +218,17 @@ class EB_LAMMPS(CMakeMake):
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
+        
         if not get_software_root('VTK'):
-            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
+            if self.cfg['user_packages']:
+                self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
+            # In "recent versions" of LAMMPS there is no distinction
+            self.cfg['general_packages'] = [x for x in self.cfg['general_packages'] if x != 'VTK']
         if not get_software_root('ScaFaCoS'):
-            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'SCAFACOS']
-        if not get_software_root('yaff'):
-            self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'YAFF']
-            self.cfg['sanity_check_commands'] = [x for x in self.cfg['sanity_check_commands']
-                                                 if 'yaff' not in x]
+            if self.cfg['user_packages']:
+                self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'SCAFACOS']
+            # In "recent versions" of LAMMPS there is no distinction
+            self.cfg['general_packages'] = [x for x in self.cfg['general_packages'] if x != 'SCAFACOS']
 
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
@@ -221,10 +244,19 @@ class EB_LAMMPS(CMakeMake):
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
 
         # Enable following packages, if not configured in easyconfig
-        default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
+        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+            default_options = ['BUILD_TOOLS']
+        else:
+            default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
+        
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)
+                
+        # For "recent" versions, don't build docs by default (as they use a venv and pull in deps) 
+        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+            if "-DBUILD_DOC=" not in self.cfg['configopts']:
+                self.cfg.update('configopts', '-DBUILD_DOC=off')
 
         # enable building of shared libraries, if not specified already via configopts
         if self.cfg['build_shared_libs'] is None and '-DBUILD_SHARED_LIBS=' not in self.cfg['configopts']:
@@ -262,20 +294,29 @@ class EB_LAMMPS(CMakeMake):
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
-                self.cfg.update('configopts', '-D%s%s=on' % (PKG_PREFIX, package))
+                self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
 
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
-                self.cfg.update('configopts', '-D%s%s=on' % (PKG_USER_PREFIX, package))
+                self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
 
         # Optimization settings
-        pkg_opt = '-D%sOPT=' % PKG_PREFIX
+        pkg_opt = '-D%sOPT=' % self.pkg_prefix
         if pkg_opt not in self.cfg['configopts']:
             self.cfg.update('configopts', pkg_opt + 'on')
+        
+        # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
+        processor_arch, gpu_arch = get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
+        # arch names changed between some releases :(
+        if LooseVersion(self.cur_version) < LooseVersion(self.ref_version):
+            if processor_arch in KOKKOS_LEGACY_ARCH_MAPPING.keys():
+                processor_arch = KOKKOS_LEGACY_ARCH_MAPPING[processor_arch]
+            if gpu_arch in KOKKOS_GPU_ARCH_TABLE.values():
+                gpu_arch = gpu_arch.capitalize()
 
-        if get_cpu_architecture() == X86_64:
+        if processor_arch in INTEL_PACKAGE_ARCH_LIST:
             # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-            pkg_user_intel = '-D%sINTEL=' % PKG_USER_PREFIX
+            pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
             if pkg_user_intel not in self.cfg['configopts']:
                 if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
                     self.cfg.update('configopts', pkg_user_intel + 'on')
@@ -285,7 +326,10 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DBUILD_MPI=yes')
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '-DBUILD_OMP=yes')
-            self.cfg.update('configopts', '-D%sOMP=on' % PKG_USER_PREFIX)
+            if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+                self.cfg.update('configopts', '-D%sOPENMP=on' % self.pkg_user_prefix)
+            else:
+                self.cfg.update('configopts', '-D%sOMP=on' % self.pkg_user_prefix)
 
         # FFTW
         if get_software_root("imkl") or get_software_root("FFTW"):
@@ -302,9 +346,8 @@ class EB_LAMMPS(CMakeMake):
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
         if self.cfg['kokkos']:
-            self.cfg.update('configopts', '-D%sKOKKOS=on' % PKG_PREFIX)
-
-            processor_arch, gpu_arch = get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
+            print_msg("Using Kokkos arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
+            self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
 
             if self.toolchain.options.get('openmp', None):
                 self.cfg.update('configopts', '-D%s_ENABLE_OPENMP=yes' % self.kokkos_prefix)
@@ -313,12 +356,13 @@ class EB_LAMMPS(CMakeMake):
             if self.cuda:
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
                 self.cfg.update('configopts', '-D%s_ENABLE_CUDA=yes' % self.kokkos_prefix)
-                self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
-                self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
                 if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, gpu_arch))
                 else:
+                    # Older versions of Kokkos required us to tweak the C++ compiler
+                    self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
+                    self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
                     self.cfg.update('configopts', '-D%s_ARCH="%s;%s"' % (self.kokkos_prefix, processor_arch, gpu_arch))
             else:
                 if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
@@ -328,22 +372,49 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif self.cuda:
-            self.cfg.update('configopts', '-D%sGPU=on' % PKG_PREFIX)
+            self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
 
+        # Make sure that all libraries end up in the same folder (python libs seem to default to lib, everything else
+        # to lib64)
+        self.cfg.update('configopts', '-DCMAKE_INSTALL_LIBDIR=lib')
+            
         # avoid that pip (ab)uses $HOME/.cache/pip
         # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+        
+        # Make sure it uses the Python we want
+        python_dir = get_software_root('Python')
+        if python_dir:
+            cmake_version = get_software_version('CMake')
+            if LooseVersion(cmake_version) >= LooseVersion('3.12')
+                self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
+            else:
+                self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
 
         return super(EB_LAMMPS, self).configure_step()
 
+    def install_step(self):
+        """Install LAMMPS and examples/potentials."""
+        super(EB_LAMMPS, self).install_step()
+        # Copy over the examples so we can repeat the sanity check
+        # (some symlinks may be broken)
+        examples_dir = os.path.join(self.start_dir, 'examples')
+        copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
+        potentials_dir = os.path.join(self.start_dir, 'potentials')
+        copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
+    
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
+        
+        # Output files need to go somewhere (and has to work for --module-only as well)
+        execution_dir=tempfile.mkdtemp()
+        
         check_files = [
             'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-            'hugoniostat', 'indent', 'melt', 'message', 'min', 'msst',
+            'hugoniostat', 'indent', 'melt', 'min', 'msst',
             'nemd', 'obstacle', 'pour', 'voronoi',
         ]
 
@@ -351,7 +422,7 @@ class EB_LAMMPS(CMakeMake):
             # LAMMPS test - you need to call specific test file on path
             """python -c 'from lammps import lammps; l=lammps(); l.file("%s")'""" %
             # The path is joined by "build_dir" (start_dir)/examples/filename/in.filename
-            os.path.join(self.start_dir, "examples", "%s" % check_file, "in.%s" % check_file)
+            os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
             for check_file in check_files
         ]
@@ -359,13 +430,17 @@ class EB_LAMMPS(CMakeMake):
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+        
+        # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
+        # rpath and filtering out LD_LIBRARY_PATH)    
+        custom_commands = ["cd %s && LD_LIBRARY_PATH=$LIBRARY_PATH " % execution_dir + cmd for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
                 os.path.join('bin', 'lmp'),
                 os.path.join('include', 'lammps', 'library.h'),
-                os.path.join('lib64', 'liblammps.%s' % shlib_ext),
+                os.path.join('lib', 'liblammps.%s' % shlib_ext),
             ],
             'dirs': [],
         }
