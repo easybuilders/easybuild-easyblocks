@@ -43,7 +43,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
