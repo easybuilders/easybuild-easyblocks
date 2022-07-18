@@ -186,8 +186,8 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             self.pkg_user_prefix = self.pkg_prefix
         else:
-            self.pkg_user_prefix = self.pkg_prefix + 'USER-'        
-        
+            self.pkg_user_prefix = self.pkg_prefix + 'USER-'
+
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             self.kokkos_prefix = 'Kokkos'
         else:
@@ -218,7 +218,7 @@ class EB_LAMMPS(CMakeMake):
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
-        
+
         if not get_software_root('VTK'):
             if self.cfg['user_packages']:
                 self.cfg['user_packages'] = [x for x in self.cfg['user_packages'] if x != 'VTK']
@@ -248,12 +248,12 @@ class EB_LAMMPS(CMakeMake):
             default_options = ['BUILD_TOOLS']
         else:
             default_options = ['BUILD_DOC', 'BUILD_EXE', 'BUILD_LIB', 'BUILD_TOOLS']
-        
+
         for option in default_options:
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)
-                
-        # For "recent" versions, don't build docs by default (as they use a venv and pull in deps) 
+
+        # For "recent" versions, don't build docs by default (as they use a venv and pull in deps)
         if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
             if "-DBUILD_DOC=" not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DBUILD_DOC=off')
@@ -304,7 +304,7 @@ class EB_LAMMPS(CMakeMake):
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
         if pkg_opt not in self.cfg['configopts']:
             self.cfg.update('configopts', pkg_opt + 'on')
-        
+
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
         processor_arch, gpu_arch = get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
         # arch names changed between some releases :(
@@ -379,17 +379,17 @@ class EB_LAMMPS(CMakeMake):
         # Make sure that all libraries end up in the same folder (python libs seem to default to lib, everything else
         # to lib64)
         self.cfg.update('configopts', '-DCMAKE_INSTALL_LIBDIR=lib')
-            
+
         # avoid that pip (ab)uses $HOME/.cache/pip
         # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
-        
+
         # Make sure it uses the Python we want
         python_dir = get_software_root('Python')
         if python_dir:
             cmake_version = get_software_version('CMake')
-            if LooseVersion(cmake_version) >= LooseVersion('3.12')
+            if LooseVersion(cmake_version) >= LooseVersion('3.12'):
                 self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
             else:
                 self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
@@ -405,13 +405,13 @@ class EB_LAMMPS(CMakeMake):
         copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
         potentials_dir = os.path.join(self.start_dir, 'potentials')
         copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
-    
+
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
-        
+
         # Output files need to go somewhere (and has to work for --module-only as well)
-        execution_dir=tempfile.mkdtemp()
-        
+        execution_dir = tempfile.mkdtemp()
+
         check_files = [
             'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
             'hugoniostat', 'indent', 'melt', 'min', 'msst',
@@ -430,9 +430,9 @@ class EB_LAMMPS(CMakeMake):
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
-        
+
         # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
-        # rpath and filtering out LD_LIBRARY_PATH)    
+        # rpath and filtering out LD_LIBRARY_PATH)
         custom_commands = ["cd %s && LD_LIBRARY_PATH=$LIBRARY_PATH " % execution_dir + cmd for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
