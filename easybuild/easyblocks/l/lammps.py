@@ -433,7 +433,11 @@ class EB_LAMMPS(CMakeMake):
 
         # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
         # rpath and filtering out LD_LIBRARY_PATH)
-        custom_commands = ["cd %s && LD_LIBRARY_PATH=$LIBRARY_PATH " % execution_dir + cmd for cmd in custom_commands]
+        set_ld_library_path = ''
+        if 'LD_LIBRARY_PATH' not in os.environ:
+            # Use LIBRARY_PATH to set it
+            set_ld_library_path = "LD_LIBRARY_PATH=$LIBRARY_PATH "
+        custom_commands = ["cd %s && " % execution_dir + set_ld_library_path + cmd for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
