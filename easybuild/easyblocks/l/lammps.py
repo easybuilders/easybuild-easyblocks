@@ -388,11 +388,10 @@ class EB_LAMMPS(CMakeMake):
         # Make sure it uses the Python we want
         python_dir = get_software_root('Python')
         if python_dir:
-            cmake_version = get_software_version('CMake')
-            if LooseVersion(cmake_version) >= LooseVersion('3.12'):
-                self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
-            else:
-                self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
+            # Whether you need one or the other depends on the version of CMake and LAMMPS
+            # Rather than figure this out, use both (and one will be ignored)
+            self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
+            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
 
         return super(EB_LAMMPS, self).configure_step()
 
