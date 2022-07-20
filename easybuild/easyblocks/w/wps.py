@@ -204,7 +204,11 @@ class EB_WPS(EasyBlock):
         # fetch option number based on build type option and selected build type
         build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(?%s\)?\s*\n" % (build_type_option, knownbuildtypes[bt])
 
-        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            './configure',
+            self.cfg['configopts'],
+        ])
         qa = {}
         no_qa = [".*compiler is.*"]
         std_qa = {
@@ -231,8 +235,11 @@ class EB_WPS(EasyBlock):
 
     def build_step(self):
         """Build in install dir using compile script."""
-
-        cmd = "./%s" % self.compile_script
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            './' + self.compile_script,
+            self.cfg['buildopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

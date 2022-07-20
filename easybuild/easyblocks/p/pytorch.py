@@ -31,15 +31,16 @@ EasyBuild support for building and installing PyTorch, implemented as an easyblo
 import os
 import re
 import tempfile
+import easybuild.tools.environment as env
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-import easybuild.tools.environment as env
+from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.filetools import symlink, apply_regex_substitutions
+from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
@@ -49,9 +50,10 @@ class EB_PyTorch(PythonPackage):
     def extra_options():
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
-            'excluded_tests': [{}, 'Mapping of architecture strings to list of tests to be excluded', CUSTOM],
-            'custom_opts': [[], 'List of options for the build/install command. Can be used to change the defaults ' +
-                                'set by the PyTorch EasyBlock, for example ["USE_MKLDNN=0"].', CUSTOM],
+            'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
+                                "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
+            'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
+            'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
@@ -87,9 +89,9 @@ class EB_PyTorch(PythonPackage):
             """Return True if the PyTorch version to be installed matches the version_range"""
             min_version, max_version = version_range.split(':')
             result = True
-            if min_version and pytorch_version < LooseVersion(min_version):
+            if min_version and pytorch_version < min_version:
                 result = False
-            if max_version and pytorch_version >= LooseVersion(max_version):
+            if max_version and pytorch_version >= max_version:
                 result = False
             return result
 
@@ -138,6 +140,8 @@ class EB_PyTorch(PythonPackage):
         """Custom configure procedure for PyTorch."""
         super(EB_PyTorch, self).configure_step()
 
+        pytorch_version = LooseVersion(self.version)
+
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
@@ -152,7 +156,7 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
-        elif LooseVersion(self.version) >= LooseVersion('1.9.0') and get_software_root('BLIS'):
+        elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
             options.append('USE_MKLDNN_CBLAS=ON')
@@ -220,6 +224,9 @@ class EB_PyTorch(PythonPackage):
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
+            # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
+            if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
+                options.append('USE_BREAKPAD=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
@@ -253,7 +260,42 @@ class EB_PyTorch(PythonPackage):
             'python': self.python_cmd,
             'excluded_tests': ' '.join(excluded_tests)
         })
-        super(EB_PyTorch, self).test_step()
+
+        (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
+
+        ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
+        test_cnt = 0
+        for hit in ran_tests_hits:
+            test_cnt += int(hit)
+
+        failed_tests = nub(re.findall(r"^(?P<failed_test_name>.*) failed!\s*$", tests_out, re.M))
+        failed_test_cnt = len(failed_tests)
+
+        if failed_test_cnt:
+            max_failed_tests = self.cfg['max_failed_tests']
+
+            test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
+            msg = "%d %s (out of %d) failed:\n" % (failed_test_cnt, test_or_tests, test_cnt)
+            msg += '\n'.join('* %s' % t for t in sorted(failed_tests))
+
+            if max_failed_tests == 0:
+                raise EasyBuildError(msg)
+            else:
+                msg += '\n\n' + ' '.join([
+                    "The PyTorch test suite is known to include some flaky tests,",
+                    "which may fail depending on the specifics of the system or the context in which they are run.",
+                    "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
+                    "We recommend to double check that the failing tests listed above ",
+                    "are known to be flaky, or do not affect your intended usage of PyTorch.",
+                    "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
+                ])
+                print_warning(msg)
+
+                if failed_test_cnt > max_failed_tests:
+                    raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
+                                         failed_test_cnt, max_failed_tests)
+        elif tests_ec:
+            raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
         # Make PyTorch tests not use the user home
