@@ -89,9 +89,9 @@ class EB_PyTorch(PythonPackage):
             """Return True if the PyTorch version to be installed matches the version_range"""
             min_version, max_version = version_range.split(':')
             result = True
-            if min_version and pytorch_version < LooseVersion(min_version):
+            if min_version and pytorch_version < min_version:
                 result = False
-            if max_version and pytorch_version >= LooseVersion(max_version):
+            if max_version and pytorch_version >= max_version:
                 result = False
             return result
 
@@ -140,6 +140,8 @@ class EB_PyTorch(PythonPackage):
         """Custom configure procedure for PyTorch."""
         super(EB_PyTorch, self).configure_step()
 
+        pytorch_version = LooseVersion(self.version)
+
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
@@ -154,7 +156,7 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
-        elif LooseVersion(self.version) >= LooseVersion('1.9.0') and get_software_root('BLIS'):
+        elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
             options.append('USE_MKLDNN_CBLAS=ON')
@@ -222,6 +224,9 @@ class EB_PyTorch(PythonPackage):
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
+            # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
+            if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
+                options.append('USE_BREAKPAD=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
