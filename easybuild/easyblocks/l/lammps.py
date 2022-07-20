@@ -388,10 +388,15 @@ class EB_LAMMPS(CMakeMake):
         # Make sure it uses the Python we want
         python_dir = get_software_root('Python')
         if python_dir:
-            # Whether you need one or the other depends on the version of CMake and LAMMPS
+            python_short_version = '.'.join(get_software_version('Python').split('.')[:2])
+            python_lib = glob.glob("%s/lib*/libpython%s.so" % (python_dir, python_short_version))[0]
+            # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
             self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
             self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
+            # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
+            self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
+            self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
 
         return super(EB_LAMMPS, self).configure_step()
 
