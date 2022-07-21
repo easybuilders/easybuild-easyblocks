@@ -254,10 +254,9 @@ class EB_LAMMPS(CMakeMake):
             if "-D%s=" % option not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-D%s=on' % option)
 
-        # For "recent" versions, don't build docs by default (as they use a venv and pull in deps)
-        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
-            if "-DBUILD_DOC=" not in self.cfg['configopts']:
-                self.cfg.update('configopts', '-DBUILD_DOC=off')
+        # don't build docs by default (as they use a venv and pull in deps)
+        if "-DBUILD_DOC=" not in self.cfg['configopts']:
+            self.cfg.update('configopts', '-DBUILD_DOC=off')
 
         # enable building of shared libraries, if not specified already via configopts
         if self.cfg['build_shared_libs'] is None and '-DBUILD_SHARED_LIBS=' not in self.cfg['configopts']:
