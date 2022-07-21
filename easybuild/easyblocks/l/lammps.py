@@ -425,7 +425,7 @@ class EB_LAMMPS(CMakeMake):
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
             """python -c 'from lammps import lammps; l=lammps(); l.file("%s")'""" %
-            # Examples are part of the install and he path looks like (installdir)/examples/filename/in.filename
+            # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
             for check_file in check_files
