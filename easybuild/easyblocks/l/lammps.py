@@ -425,7 +425,7 @@ class EB_LAMMPS(CMakeMake):
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
             """python -c 'from lammps import lammps; l=lammps(); l.file("%s")'""" %
-            # The path is joined by "build_dir" (start_dir)/examples/filename/in.filename
+            # Examples are part of the install and he path looks like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
             for check_file in check_files
@@ -518,6 +518,10 @@ def get_kokkos_arch(cuda_cc, kokkos_arch, cuda=None):
         for cc in sorted(cuda_cc, reverse=True):
             gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
             if gpu_arch:
+                print_warning(
+                    "LAMMPS will be built _only_ for the latest CUDA compute capability known to Kokkos: "
+                    "%s" % gpu_arch
+                )
                 break
             else:
                 warning_msg = "(%s) GPU ARCH was not found in listed options." % cc
