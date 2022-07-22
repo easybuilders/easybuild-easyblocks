@@ -392,8 +392,9 @@ class EB_LAMMPS(CMakeMake):
             (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not python_lib:
                 raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
-            else:
-                python_lib = python_lib.strip()
+            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib))[0]
+            if not python_lib_path:
+                raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
 
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
@@ -401,7 +402,7 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
 
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
-            self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
+            self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib_path)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
 
         return super(EB_LAMMPS, self).configure_step()
