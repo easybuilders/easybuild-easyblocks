@@ -396,6 +396,12 @@ class EB_LAMMPS(CMakeMake):
             python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib.strip()))[0]
             if not python_lib_path:
                 raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
+            # and the path to the Python include folder
+            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
+            (python_include_dir, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
+            if not python_include_dir:
+                raise EasyBuildError("Failed to determine Python include dir: %s", python_include_dir)
+            python_include_dir = python_include_dir.strip()
 
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
@@ -404,7 +410,7 @@ class EB_LAMMPS(CMakeMake):
 
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib_path)
-            self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
+            self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_include_dir)
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
