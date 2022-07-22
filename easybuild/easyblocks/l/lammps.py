@@ -393,7 +393,7 @@ class EB_LAMMPS(CMakeMake):
             (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not python_lib:
                 raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
-            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib))[0]
+            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib.strip()))[0]
             if not python_lib_path:
                 raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
 
