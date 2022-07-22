@@ -30,6 +30,7 @@
 @author: Arkadiy Davydov (University of Warwick)
 """
 
+import glob
 import os
 import re
 import tempfile
