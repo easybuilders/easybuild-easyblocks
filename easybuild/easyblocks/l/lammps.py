@@ -30,7 +30,6 @@
 @author: Arkadiy Davydov (University of Warwick)
 """
 
-import glob
 import os
 import re
 import tempfile
@@ -395,12 +394,12 @@ class EB_LAMMPS(CMakeMake):
                 raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
             else:
                 python_lib = python_lib.strip()
-            
+
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
             self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
             self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
-            
+
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
