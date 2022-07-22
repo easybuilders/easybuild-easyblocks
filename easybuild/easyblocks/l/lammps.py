@@ -389,13 +389,25 @@ class EB_LAMMPS(CMakeMake):
         python_dir = get_software_root('Python')
         if python_dir:
             python_short_version = '.'.join(get_software_version('Python').split('.')[:2])
-            python_lib = glob.glob("%s/lib*/libpython%s.so" % (python_dir, python_short_version))[0]
+            python_lib = "%s/lib*/libpython%s.so" % (python_dir, python_short_version)
+            python_m_lib = "%s/lib*/libpython%sm.so" % (python_dir, python_short_version)
+            python_libs = glob.glob(python_lib)
+            if not python_libs:
+                # Some older Pythons have an 'm' as well
+                python_libs = glob.glob(python_m_lib)
+            
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
             self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
             self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
-            self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib)
+            if python_libs:
+                self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_libs[0])
+            else:
+                warning_msg = "Could not find Python library %s or %s. " % (python_lib, python_m_lib)
+                warning_msg += "For older LAMMPS versions (pre-2022), this may affect Python detection, "
+                warning_msg += "please check configuration output."
+                print_warning(warning_msg)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
 
         return super(EB_LAMMPS, self).configure_step()
