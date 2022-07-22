@@ -405,6 +405,8 @@ class EB_LAMMPS(CMakeMake):
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib_path)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s/include' % python_dir)
+        else:
+            raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
         return super(EB_LAMMPS, self).configure_step()
 
