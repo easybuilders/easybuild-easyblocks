@@ -477,7 +477,6 @@ class EB_OpenFOAM(EasyBlock):
                    [os.path.join(libsdir, "libscotchDecomp.%s" % shlib_ext)] + \
                    [os.path.join(libsdir, "dummy", "libscotchDecomp.%s" % shlib_ext)]
 
-
         if not self.is_extend and self.looseversion >= LooseVersion("2.4.0"):
             # also check for foamMonitor for OpenFOAM versions other than OpenFOAM-Extend
             bins.append(os.path.join(self.openfoamdir, 'bin', 'foamMonitor'))
