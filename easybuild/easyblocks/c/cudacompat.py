@@ -63,6 +63,16 @@ class EB_CUDAcompat(Binary):
         """Initialize custom class variables for Clang."""
         super(EB_CUDAcompat, self).__init__(*args, **kwargs)
 
+    def fetch_step(self, *args, **kwargs):
+        """Check for EULA acceptance prior to getting sources."""
+        # EULA for NVIDIA driver must be accepted via --accept-eula-for EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(
+            name='NVIDIA-driver',
+            more_info='https://www.nvidia.com/content/DriverDownload-March2009/licence.php?lang=us'
+        )
+        super(EB_CUDAcompat, self).fetch_step(*args, **kwargs)
+
     def extract_step(self):
         """Extract the files without running the installer."""
         execpath = self.src[0]['path']
