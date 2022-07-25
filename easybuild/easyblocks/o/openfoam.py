@@ -438,6 +438,14 @@ class EB_OpenFOAM(EasyBlock):
         if self.is_dot_org and self.looseversion >= LooseVersion('7'):
             tools.remove("buoyantBoussinesqSimpleFoam")
             tools.remove("sonicFoam")
+        # buoyantSimpleFoam replaced by buoyantFoam in versions 10+
+        if self.is_dot_org and self.looseversion >= LooseVersion("10"):
+            tools.remove("buoyantSimpleFoam")
+            tools.append("buoyantFoam")
+        # engineFoam replaced by reactingFoam in versions 10+
+        if self.is_dot_org and self.looseversion >= LooseVersion("10"):
+            tools.remove("engineFoam")
+            tools.append("reactingFoam")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]
