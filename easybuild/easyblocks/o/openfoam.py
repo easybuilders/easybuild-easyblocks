@@ -435,6 +435,10 @@ class EB_OpenFOAM(EasyBlock):
         if not self.is_extend and self.looseversion >= LooseVersion("2.3.0"):
             tools.remove("surfaceSmooth")
             tools.append("surfaceLambdaMuSmooth")
+        # version 1912 does not have surfaceFind or surfaceLambdaMuSmooth
+        if self.is_dot_com and self.looseversion == LooseVersion("1912"):
+            tools.remove("surfaceFind")
+            tools.remove("surfaceLambdaMuSmooth")
         # sonicFoam and buoyantBoussineqSimpleFoam deprecated in version 7+
         if self.is_dot_org and self.looseversion >= LooseVersion('7'):
             tools.remove("buoyantBoussinesqSimpleFoam")
