@@ -34,9 +34,10 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import MANDATORY
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_file, find_glob_pattern, mkdir, symlink
+from easybuild.framework.easyconfig import CUSTOM, MANDATORY
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.filetools import copy_file, find_glob_pattern, mkdir, symlink, which
 from easybuild.tools.run import run_cmd
 
 
@@ -50,6 +51,7 @@ class EB_CUDAcompat(Binary):
         """Add variable for driver version"""
         extra_vars = Binary.extra_options()
         extra_vars.update({
+            'compatible_driver_versions': [None, "Minimum (system) CUDA driver versions which are compatible", CUSTOM],
             'nv_version': [None, "Version of the driver package", MANDATORY],
         })
         # We don't need the extract and install step from the Binary EasyBlock
@@ -60,8 +62,52 @@ class EB_CUDAcompat(Binary):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Initialize custom class variables for Clang."""
+        """Initialize custom class variables for CUDACompat."""
         super(EB_CUDAcompat, self).__init__(*args, **kwargs)
+        self._has_nvidia_smi = None
+
+    @property
+    def has_nvidia_smi(self):
+        """Return whether the system has nvidia-smi and print a warning once if not"""
+        if self._has_nvidia_smi is None:
+            self._has_nvidia_smi = which('nvidia-smi', on_error=IGNORE) is not None
+            if not self._has_nvidia_smi:
+                print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping checks!')
+        return self._has_nvidia_smi
+
+    def _run_nvidia_smi(self, args):
+        """
+        Run nvidia-smi with the given argument(s) and return the output.
+
+        Also does sensible logging.
+        Raises RuntimeError on failure.
+        """
+        if not self.has_nvidia_smi:
+            raise RuntimeError('Could not find nvidia-smi.')
+        cmd = 'nvidia-smi ' + args
+        out, ec = run_cmd(cmd, log_ok=False, log_all=False, regexp=False)
+        if ec != 0:
+            raise RuntimeError("`%s` returned exit code %s with output:\n%s" % (cmd, ec, out))
+        else:
+            self.log.info('`%s` succeeded with output:\n%s' % (cmd, out))
+            return out.strip().split('\n')
+
+    def prepare_step(self, *args, **kwargs):
+        """Parse and check the compatible_driver_versions value of the EasyConfig"""
+        compatible_driver_versions = self.cfg.get('compatible_driver_versions')
+        if compatible_driver_versions:
+            try:
+                # Create a dictionary with the major version as the keys
+                self.compatible_driver_version_map = {
+                    int(v.split('.', 1)[0]): v
+                    for v in compatible_driver_versions
+                }
+            except ValueError:
+                raise EasyBuildError("Invalid format of compatible_driver_versions. "
+                                     "Expected numeric major versions, got '%s'", compatible_driver_versions)
+        else:
+            self.compatible_driver_version_map = None
+        super(EB_CUDAcompat, self).prepare_step(*args, **kwargs)
 
     def fetch_step(self, *args, **kwargs):
         """Check for EULA acceptance prior to getting sources."""
@@ -71,7 +117,7 @@ class EB_CUDAcompat(Binary):
             name='NVIDIA-driver',
             more_info='https://www.nvidia.com/content/DriverDownload-March2009/licence.php?lang=us'
         )
-        super(EB_CUDAcompat, self).fetch_step(*args, **kwargs)
+        return super(EB_CUDAcompat, self).fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract the files without running the installer."""
@@ -80,6 +126,44 @@ class EB_CUDAcompat(Binary):
         targetdir = os.path.join(self.builddir, 'extracted')
         run_cmd("/bin/sh " + execpath + " --extract-only --tmpdir='%s' --target '%s'" % (tmpdir, targetdir))
         self.src[0]['finalpath'] = targetdir
+
+    def test_step(self):
+        """
+        Check for a compatible driver version if the EC has that information.
+
+        This can be skipped with `--skip-test-step`.
+        """
+
+        if self.compatible_driver_version_map and self.has_nvidia_smi:
+            try:
+                out_lines = self._run_nvidia_smi('--query-gpu=driver_version --format=csv,noheader')
+                if not out_lines or not out_lines[0]:
+                    raise RuntimeError('nvidia-smi did not find any GPUs on the system')
+                driver_version = out_lines[0]
+                version_parts = driver_version.split('.')
+                if len(version_parts) < 3 or any(not v.isdigit() for v in version_parts):
+                    raise RuntimeError("Expected the version to be in format x.y.z (all numeric) "
+                                       "but got '%s'" % driver_version)
+            except RuntimeError as err:
+                self.log.warning("Failed to get the CUDA driver version: %s", err)
+                driver_version = None
+
+            if not driver_version:
+                print_warning('Failed to determine the CUDA driver version, so skipping the compatibility check!')
+            else:
+                driver_version_major = int(driver_version.split('.', 1)[0])
+                compatible_driver_versions = ', '.join(self.compatible_driver_version_map.values())
+                if driver_version_major not in self.compatible_driver_version_map:
+                    raise EasyBuildError('The installed CUDA driver %s is not a supported branch/major version for '
+                                         '%s %s. Supported drivers: %s',
+                                         driver_version, self.name, self.version, compatible_driver_versions)
+                elif LooseVersion(driver_version) < self.compatible_driver_version_map[driver_version_major]:
+                    raise EasyBuildError('The installed CUDA driver %s is to old for %s %s. Supported drivers: %s',
+                                         driver_version, self.name, self.version, compatible_driver_versions)
+                else:
+                    self.log.info('The installed CUDA driver %s appears to be supported.', driver_version)
+
+        return super(EB_CUDAcompat, self).test_step()
 
     def install_step(self):
         """Install CUDA compat libraries by copying library files and creating the symlinks."""
@@ -123,10 +207,16 @@ class EB_CUDAcompat(Binary):
             unversioned_symlink = versioned_symlink.rsplit('.', 1)[0]
             symlink(versioned_symlink, os.path.join(libdir, unversioned_symlink), use_abspath_source=False)
 
-    def make_module_extra(self):
-        """Skip the changes from the Binary EasyBlock."""
+    def make_module_req_guess(self):
+        """Don't try to guess anything."""
+        return dict()
 
-        return super(Binary, self).make_module_extra()
+    def make_module_extra(self):
+        """Skip the changes from the Binary EasyBlock and (only) set LD_LIBRARY_PATH."""
+
+        txt = super(Binary, self).make_module_extra()
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', 'lib')
+        return txt
 
     def sanity_check_step(self):
         """Check for core files (unversioned libs, symlinks)"""
@@ -141,3 +231,29 @@ class EB_CUDAcompat(Binary):
             'dirs': ['lib', 'lib64'],
         }
         super(EB_CUDAcompat, self).sanity_check_step(custom_paths=custom_paths)
+
+        if self.has_nvidia_smi:
+            fake_mod_data = None
+
+            # skip loading of fake module when using --sanity-check-only, load real module instead
+            if build_option('sanity_check_only'):
+                self.load_module()
+            elif not self.dry_run:
+                fake_mod_data = self.load_fake_module(purge=True, verbose=True)
+
+            try:
+                out_lines = self._run_nvidia_smi('--query --display=COMPUTE')
+
+                if fake_mod_data:
+                    self.clean_up_fake_module(fake_mod_data)
+
+                cuda_version = next((line.rsplit(' ', 1)[1] for line in out_lines if line.startswith('CUDA')), None)
+                if not cuda_version:
+                    raise RuntimeError('Failed to find CUDA version!')
+                self.log.info('CUDA version (as per nvidia-smi) after loading the module: ' + cuda_version)
+                if LooseVersion(cuda_version) != self.version:
+                    raise RuntimeError('Reported CUDA version %s is not %s' % (cuda_version, self.version))
+            except RuntimeError as err:
+                if fake_mod_data:
+                    self.clean_up_fake_module(fake_mod_data)
+                raise EasyBuildError('Version check via nvidia-smi after loading the module failed: %s', err)
