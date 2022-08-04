@@ -264,11 +264,9 @@ class EB_PyTorch(PythonPackage):
         (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
         ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
-        test_cnt = 0
-        for hit in ran_tests_hits:
-            test_cnt += int(hit)
+        test_cnt = sum(int(hit) for hit in ran_tests_hits)
 
-        failed_tests = nub(re.findall(r"^(?P<failed_test_name>.*) failed!\s*$", tests_out, re.M))
+        failed_tests = nub(re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M))
         failed_test_cnt = len(failed_tests)
 
         if failed_test_cnt:
