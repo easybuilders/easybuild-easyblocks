@@ -33,6 +33,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.config import build_option
 from easybuild.tools.build_log import EasyBuildError, print_warning
 
+
 class EB_RELION(CMakeMake):
     """Support for building/installing RELION."""
 
@@ -51,7 +52,7 @@ class EB_RELION(CMakeMake):
 
     def configure_step(self, *args, **kwargs):
         """Custom configure step for RELION"""
-        
+
         # configure some default options
         self.cfg.update('configopts', '-DCMAKE_SHARED_LINKER="$LIBS"')
         self.cfg.update('configopts', '-DMPI_INCLUDE_PATH="$MPI_INC_DIR"')
@@ -65,7 +66,7 @@ class EB_RELION(CMakeMake):
         # check if CUDA is present
         if get_software_root('CUDA'):
             self.cfg.update('configopts', '-DCUDA=ON')
-            
+
             # check cuda_compute_capabilities
             cuda_cc = self.cfg['cuda_compute_capabilities'] or build_option('cuda_compute_capabilities') or []
             if not cuda_cc:
@@ -85,7 +86,7 @@ class EB_RELION(CMakeMake):
 
             if not self.cfg['doubleprec_cpu']:
                 self.cfg.update('configopts', '-DDoublePrec_CPU=OFF')
-            
+
             if self.cfg['doubleprec_gpu']:
                 self.log.warning("Enabling GPU double precision is not recommnded")
                 self.cfg.update('configopts', '-DDoublePrec_ACC=ON')
@@ -95,7 +96,7 @@ class EB_RELION(CMakeMake):
         else:
             # CPU build
             self.cfg.update('configopts', '-DALTCPU=ON')
-            
+
             if self.cfg['doubleprec_cpu']:
                 self.cfg.update('configopts', '-DDoublePrec_CPU=ON')
             else:
