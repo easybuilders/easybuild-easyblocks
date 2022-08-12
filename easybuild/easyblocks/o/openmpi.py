@@ -199,6 +199,10 @@ class EB_OpenMPI(ConfigureMake):
         # for PGI, correct pattern is "pgfortran" with mpif90
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
+        # for Clang the pattern is always clang
+        for key in ['mpicxx', 'mpifort', 'mpif90']:
+            if expected[key] in ['clang++', 'flang']:
+                expected[key] = 'clang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
