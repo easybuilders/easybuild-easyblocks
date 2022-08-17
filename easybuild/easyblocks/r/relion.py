@@ -57,7 +57,10 @@ class EB_RELION(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_SHARED_LINKER="$LIBS"')
         self.cfg.update('configopts', '-DMPI_INCLUDE_PATH="$MPI_INC_DIR"')
 
-        if self.cfg['disable_gui'] or not get_software_root('FLTK'):
+        gui_deps = get_software_root('FLTK') and get_software_root('X11')
+        if self.cfg['disable_gui'] or not gui_deps:
+            if not gui_deps:
+                print_warning("Missing dependencies for the GUI (FLTK and X11 are required). Building without GUI.")
             self.cfg.update('configopts', '-DGUI=OFF')
 
         if get_software_root('MKL') and self.cfg['use_mkl']:
