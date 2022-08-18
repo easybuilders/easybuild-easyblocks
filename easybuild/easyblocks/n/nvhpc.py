@@ -302,7 +302,6 @@ class EB_NVHPC(PackedBinary):
         txt += self.module_generator.set_environment('NVHPC', self.installdir)
         if LooseVersion(self.version) >= LooseVersion('22.7'):
             # NVHPC 22.7+ requires the variable NVHPC_CUDA_HOME for external CUDA. CUDA_HOME has been deprecated.
-            cuda = get_software_root('CUDA')
-            if not self.cfg['module_add_cuda'] and cuda:
-                txt += self.module_generator.set_environment('NVHPC_CUDA_HOME', cuda)
+            if not self.cfg['module_add_cuda'] and get_software_root('CUDA'):
+                txt += self.module_generator.set_environment('NVHPC_CUDA_HOME', os.getenv('CUDA_HOME'))
         return txt
