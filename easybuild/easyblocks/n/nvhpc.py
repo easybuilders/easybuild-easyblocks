@@ -135,7 +135,7 @@ class EB_NVHPC(PackedBinary):
         if isinstance(default_compute_capability, list):
             _before_default_compute_capability = default_compute_capability
             default_compute_capability = _before_default_compute_capability[0]
-            if len(default_compute_capability) > 1:
+            if len(_before_default_compute_capability) > 1:
                 warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
                 warning_msg += "with first element of list: {}".format(default_compute_capability)
                 print_warning(warning_msg)
