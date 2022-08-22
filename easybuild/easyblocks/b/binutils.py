@@ -39,7 +39,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
+from easybuild.tools.systemtools import RISCV32, RISCV64
 from easybuild.tools.utilities import nub
 
 
@@ -53,8 +54,24 @@ class EB_binutils(ConfigureMake):
         extra_vars.update({
             'install_libiberty': [True, "Also install libiberty (implies building with -fPIC)", CUSTOM],
             'use_debuginfod': [False, "Build with debuginfod (used from system)", CUSTOM],
+            'enable_gold_linker': [None, "Configure binutils to enable gold linker with plugin support "
+                                         "(default: True for 2.24 < binutils < 2.39)", CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        super(EB_binutils, self).__init__(*args, **kwargs)
+
+        version = LooseVersion(self.version)
+
+        # Enable gold linker with plugin support for 2.34 < binutils < 2.39
+        # Disable gold linker for binutils 2.39 and newer, as it suffers from bitrot
+        if self.cfg['enable_gold_linker'] is None:
+            self.cfg['enable_gold_linker'] = LooseVersion('2.24') < version < LooseVersion('2.39')
+
+        # Disable gold linker on RISC-V
+        if get_cpu_architecture() in [RISCV32, RISCV64]:
+            self.cfg['enable_gold_linker'] = False
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
@@ -157,8 +174,10 @@ class EB_binutils(ConfigureMake):
             self.cfg.update('configopts', "--enable-shared --enable-static")
 
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
-        if LooseVersion(self.version) > LooseVersion('2.24'):
+        if self.cfg['enable_gold_linker']:
             self.cfg.update('configopts', "--enable-gold --enable-plugins --enable-ld=default")
+        else:
+            self.cfg.update('configopts', "--enable-ld=default")
 
         if LooseVersion(self.version) >= LooseVersion('2.34'):
             if self.cfg['use_debuginfod']:
@@ -221,8 +240,10 @@ class EB_binutils(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) > LooseVersion('2.24'):
-            binaries.append('ld.gold')
             lib_exts.append(shlib_ext)
+
+        if self.cfg['enable_gold_linker']:
+            binaries.append('ld.gold')
 
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]
