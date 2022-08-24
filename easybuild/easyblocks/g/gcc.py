@@ -527,7 +527,7 @@ class EB_GCC(ConfigureMake):
         self.configopts += " --enable-plugins "
 
         # use GOLD as default linker, except on RISC-V (since it's not supported there)
-        if cpu_family == RISCV:
+        if get_cpu_family() == RISCV:
             self.configopts += " --disable-gold --enable-ld=default"
         elif self.cfg['use_gold_linker']:
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
