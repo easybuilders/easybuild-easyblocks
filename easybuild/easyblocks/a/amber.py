@@ -231,7 +231,7 @@ class EB_Amber(CMakeMake):
         elif flexiblas_root or openblas_root:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:
-                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+                raise EasyBuildError("$LIBLAPACK for OpenBLAS or FlexiBLAS not defined in build environment!")
             else:
                 env.setvar('GOTO', lapack)
 
