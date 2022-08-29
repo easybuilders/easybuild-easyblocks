@@ -329,12 +329,12 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
 
             # serial tests
-            run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
+            run_cmd("%s && make test.serial" % pretestcommands, log_all=True, simple=True)
             if self.with_cuda:
-                (out, ec) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
+                (out, ec) = run_cmd("%s && make test.cuda_serial" % pretestcommands, log_all=True, simple=False)
                 if ec > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
