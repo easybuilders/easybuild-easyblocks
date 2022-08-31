@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -107,7 +107,7 @@ class IntelBase(EasyBlock):
 
         self.home_subdir = os.path.join(os.getenv('HOME'), 'intel')
         common_tmp_dir = os.path.dirname(tempfile.gettempdir())  # common tmp directory, same across nodes
-        self.home_subdir_local = os.path.join(common_tmp_dir, os.getenv('USER'), 'easybuild_intel')
+        self.home_subdir_local = os.path.join(common_tmp_dir, os.environ.get('USER', 'nouser'), 'easybuild_intel')
 
         self.install_components = None
 

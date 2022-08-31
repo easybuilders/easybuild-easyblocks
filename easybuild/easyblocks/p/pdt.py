@@ -1,7 +1,7 @@
 ##
 # This is an easyblock for EasyBuild, see https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2015 Juelich Supercomputing Centre, Germany
+# Copyright:: Copyright 2015-2022 Juelich Supercomputing Centre, Germany
 # Authors::   Bernd Mohr <b.mohr@fz-juelich.de>
 #             Markus Geimer <m.geimer@fz-juelich.de>
 # License::   3-clause BSD

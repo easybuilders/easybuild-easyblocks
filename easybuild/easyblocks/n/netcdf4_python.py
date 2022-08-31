@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,6 +78,10 @@ class EB_netcdf4_minus_python(PythonPackage):
             )
         else:
             self.testcmd = "cd test && %s run_all.py" % self.python_cmd
+
+        # don't run tests that require network connectivity
+        env.setvar('NO_NET', '1')
+
         super(EB_netcdf4_minus_python, self).test_step()
 
     def sanity_check_step(self):

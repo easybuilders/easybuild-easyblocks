@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2021 Forschungszentrum Juelich GmbH
+# Copyright 2020-2022 Forschungszentrum Juelich GmbH
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -72,6 +72,7 @@ class EB_AOCC(PackedBinary):
             '2.3.0': '11.0.0',
             '3.0.0': '12.0.0',
             '3.1.0': '12.0.0',
+            '3.2.0': '13.0.0',
         }
 
         if self.version in map_aocc_to_clang_ver:
@@ -143,8 +144,8 @@ class EB_AOCC(PackedBinary):
                 'bin/clang', 'bin/clang++', 'bin/flang', 'bin/lld', 'bin/llvm-ar', 'bin/llvm-as', 'bin/llvm-config',
                 'bin/llvm-link', 'bin/llvm-nm', 'bin/llvm-symbolizer', 'bin/opt', 'bin/scan-build', 'bin/scan-view',
                 'include/clang-c/Index.h', 'include/llvm-c/Core.h', 'lib/clang/%s/include/omp.h' % self.clangversion,
-                'lib/clang/%s/include/stddef.h' % self.clangversion, 'lib/libc++.%s' % shlib_ext,
-                'lib/libc++abi.%s' % shlib_ext, 'lib/libclang.%s' % shlib_ext, 'lib/libomp.%s' % shlib_ext,
+                'lib/clang/%s/include/stddef.h' % self.clangversion, 'lib/libclang.%s' % shlib_ext,
+                'lib/libomp.%s' % shlib_ext,
             ],
             'dirs': ['include/llvm', 'lib/clang/%s/lib' % self.clangversion, 'lib32'],
         }

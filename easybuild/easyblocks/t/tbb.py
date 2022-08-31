@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,6 +42,7 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTALL_MODE_2015
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import move_file, symlink
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
@@ -75,6 +76,15 @@ def get_tbb_gccprefix(libpath):
 class EB_tbb(IntelBase, ConfigureMake):
     """EasyBlock for tbb, threading building blocks"""
 
+    @staticmethod
+    def extra_options():
+        extra_vars = IntelBase.extra_options()
+        extra_vars.update(ConfigureMake.extra_options())
+        extra_vars.update({
+            'with_python': [False, "Should the TBB4Python bindings be built as well?", CUSTOM],
+        })
+        return extra_vars
+
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for tbb"""
         super(EB_tbb, self).__init__(*args, **kwargs)
@@ -94,6 +104,11 @@ class EB_tbb(IntelBase, ConfigureMake):
             # open-source TBB version
             self.build_in_installdir = True
             self.cfg['requires_runtime_license'] = False
+
+        if self.toolchain.is_system_toolchain():
+            self.tbb_subdir = 'tbb'
+        else:
+            self.tbb_subdir = ''
 
     def extract_step(self):
         """Extract sources."""
@@ -118,6 +133,11 @@ class EB_tbb(IntelBase, ConfigureMake):
             # build with: make compiler={icl, icc, gcc, clang}
             self.cfg.update('buildopts', 'compiler="%s"' % os.getenv('CC'))
             ConfigureMake.build_step(self)
+
+            if self.cfg['with_python']:
+                # Uses the Makefile target `python`
+                self.cfg.update('buildopts', 'python')
+                ConfigureMake.build_step(self)
 
     def _has_cmake(self):
         """Check if CMake is included in the build deps"""
@@ -188,16 +208,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         symlink(os.path.relpath(root_lib_path, os.path.join(libpath)), libpath, use_abspath_source=False)
 
         # Install CMake config files if possible
-        if self._has_cmake():
-            if LooseVersion(self.version) >= LooseVersion('2020.0'):
-                cmake_install_dir = os.path.join(root_lib_path, 'cmake', 'TBB')
-                cmd = [
-                    'cmake',
-                    '-DINSTALL_DIR=' + cmake_install_dir,
-                    '-DSYSTEM_NAME=Linux',
-                    '-P tbb_config_installer.cmake',
-                ]
-                run_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
+        if self._has_cmake() and LooseVersion(self.version) >= LooseVersion('2020.0'):
+            cmake_install_dir = os.path.join(root_lib_path, 'cmake', 'TBB')
+            cmd = [
+                'cmake',
+                '-DINSTALL_DIR=' + cmake_install_dir,
+                '-DSYSTEM_NAME=Linux',
+                '-P tbb_config_installer.cmake',
+            ]
+            run_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
@@ -208,6 +227,8 @@ class EB_tbb(IntelBase, ConfigureMake):
             ],
             'dirs': [],
         }
+        custom_commands = []
+
         if self.toolchain.is_system_toolchain():
             custom_paths['dirs'].extend(os.path.join('tbb', p) for p in
                                         ('bin', 'lib', 'libs', os.path.join('include', 'tbb')))
@@ -224,21 +245,26 @@ class EB_tbb(IntelBase, ConfigureMake):
                 os.path.join('lib', 'cmake', 'TBB', 'TBBConfigVersion.cmake'),
             ])
 
-        super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths)
+        if self.cfg['with_python']:
+            custom_paths['dirs'].append(os.path.join(self.tbb_subdir, 'python'))
+            custom_commands.extend(['python -c "import tbb"'])
+
+        super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Add correct path to lib to LD_LIBRARY_PATH. and intel license file"""
         txt = super(EB_tbb, self).make_module_extra()
 
         if self.toolchain.is_system_toolchain():
-            tbb_subdir = 'tbb'
-            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(tbb_subdir, 'include')])
-        else:
-            tbb_subdir = ''
+            txt += self.module_generator.prepend_paths('CPATH', [os.path.join(self.tbb_subdir, 'include')])
 
-        txt += self.module_generator.set_environment('TBBROOT', os.path.join(self.installdir, tbb_subdir))
-        # Used e.g. by FindTBB.cmake
-        txt += self.module_generator.set_environment('TBB_ROOT', os.path.join(self.installdir, tbb_subdir))
+        root_dir = os.path.join(self.installdir, self.tbb_subdir)
+        txt += self.module_generator.set_environment('TBBROOT', root_dir)
+        # TBB_ROOT used e.g. by FindTBB.cmake
+        txt += self.module_generator.set_environment('TBB_ROOT', root_dir)
+
+        if self.cfg['with_python']:
+            txt += self.module_generator.prepend_paths('PYTHONPATH', [os.path.join(self.tbb_subdir, 'python')])
 
         return txt
 

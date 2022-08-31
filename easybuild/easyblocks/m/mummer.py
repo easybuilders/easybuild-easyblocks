@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
@@ -34,7 +34,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.perl import get_major_perl_version
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, is_binary, mkdir, read_file
 from easybuild.tools.run import run_cmd
 
 
@@ -63,6 +63,14 @@ class EB_MUMmer(ConfigureMake):
 
         self.cfg.update('buildopts', 'all')
 
+    def build_step(self):
+        """Custom build procedure for MUMmer."""
+
+        # make sure that compiler options specified by EasyBuild are used
+        self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS" CFLAGS="$CFLAGS"')
+
+        super(EB_MUMmer, self).build_step()
+
     def install_step(self):
         """Patch files to avoid use of build dir, install by copying files to install dir."""
         # patch build dir out of files, replace by install dir
@@ -73,8 +81,11 @@ class EB_MUMmer(ConfigureMake):
         installdir_bin = os.path.join(self.installdir, 'bin')
 
         for fil in [f for f in os.listdir(self.cfg['start_dir']) if os.path.isfile(f)]:
-            self.log.debug("Patching build dir out of %s, replacing by install bin dir)", fil)
-            apply_regex_substitutions(fil, [(pattern, installdir_bin)])
+            # only use apply_regex_substitutions() on non-binary files
+            # for more details, see https://github.com/easybuilders/easybuild-easyblocks/issues/2629)
+            if not is_binary(read_file(fil, mode='rb')):
+                self.log.debug("Patching build dir out of %s, replacing by install bin dir)", fil)
+                apply_regex_substitutions(fil, [(pattern, installdir_bin)])
 
         # copy files to install dir
         file_tuples = [
@@ -96,7 +107,6 @@ class EB_MUMmer(ConfigureMake):
 
         # set $PATH and $PERLXLIB correctly
         txt = super(EB_MUMmer, self).make_module_extra()
-        txt += self.module_generator.prepend_paths("PATH", ['bin'])
         txt += self.module_generator.prepend_paths("PATH", ['bin/aux_bin'])
         txt += self.module_generator.prepend_paths("PERL%sLIB" % perlmajver, ['bin/scripts'])
         return txt
@@ -111,4 +121,7 @@ class EB_MUMmer(ConfigureMake):
                 ['bin/scripts/%s' % x for x in self.script_files],
             'dirs': []
         }
-        super(EB_MUMmer, self).sanity_check_step(custom_paths=custom_paths)
+
+        custom_commands = ["mummer -h"]
+
+        super(EB_MUMmer, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

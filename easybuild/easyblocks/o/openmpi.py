@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2021 Ghent University
+# Copyright 2019-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,6 +26,7 @@
 EasyBuild support for OpenMPI, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Robert Mijakovic (LuxProvide)
 """
 import os
 import re
@@ -124,11 +125,13 @@ class EB_OpenMPI(ConfigureMake):
                 # auto-detect based on available OS packages
                 os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
-
-            if verbs:
-                self.cfg.update('configopts', '--with-verbs')
-            else:
-                self.cfg.update('configopts', '--without-verbs')
+            # for OpenMPI v5.x, the verbs support is removed, only UCX is available
+            # see https://github.com/open-mpi/ompi/pull/6270
+            if LooseVersion(self.version) <= LooseVersion('5.0.0'):
+                if verbs:
+                    self.cfg.update('configopts', '--with-verbs')
+                else:
+                    self.cfg.update('configopts', '--without-verbs')
 
         super(EB_OpenMPI, self).configure_step()
 
@@ -157,14 +160,24 @@ class EB_OpenMPI(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
-        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper', 'orterun']
+        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            bin_names.append('prterun')
+        else:
+            bin_names.append('orterun')
         bin_files = [os.path.join('bin', x) for x in bin_names]
 
         shlib_ext = get_shared_lib_ext()
-        lib_names = ['mpi_mpifh', 'mpi', 'ompitrace', 'open-pal', 'open-rte']
+        lib_names = ['mpi_mpifh', 'mpi', 'open-pal']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            lib_names.append('prrte')
+        else:
+            lib_names.extend(['ompitrace', 'open-rte'])
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            inc_names.append('prte')
         inc_files = [os.path.join('include', x + '.h') for x in inc_names]
 
         custom_paths = {
@@ -206,7 +219,8 @@ class EB_OpenMPI(ConfigureMake):
                 # Run the test if chosen
                 if build_option('mpi_tests'):
                     params.update({'nr_ranks': ranks, 'cmd': test_exe})
-                    custom_commands.append(mpi_cmd_tmpl % params)
+                    # Allow oversubscription for this test (in case of hyperthreading)
+                    custom_commands.append("OMPI_MCA_rmaps_base_oversubscribe=1 " + mpi_cmd_tmpl % params)
                     # Run with 1 process which may trigger other bugs
                     # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
                     params['nr_ranks'] = 1

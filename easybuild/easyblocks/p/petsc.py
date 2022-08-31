@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,6 +63,7 @@ class EB_PETSc(ConfigureMake):
         if self.cfg['sourceinstall']:
             self.prefix_inc = self.petsc_subdir
             self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+            self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
             self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
@@ -87,14 +88,6 @@ class EB_PETSc(ConfigureMake):
             'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
-
-    def make_builddir(self):
-        """Decide whether or not to build in install dir before creating build dir."""
-
-        if self.cfg['sourceinstall']:
-            self.build_in_installdir = True
-
-        super(EB_PETSc, self).make_builddir()
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""

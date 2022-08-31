@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -70,7 +70,7 @@ class EB_HEALPix(ConfigureMake):
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             self.target_string = 'linux_icc'
-        elif comp_fam in [toolchain.DUMMY, toolchain.GCC]:  # @UndefinedVariable
+        elif comp_fam in [toolchain.DUMMY, toolchain.SYSTEM, toolchain.GCC]:  # @UndefinedVariable
 
             self.target_string = self.cfg['gcc_target']
 

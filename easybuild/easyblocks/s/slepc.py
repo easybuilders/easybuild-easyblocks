@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,12 +59,8 @@ class EB_SLEPc(ConfigureMake):
 
         self.slepc_subdir = ''
 
-    def make_builddir(self):
-        """Decide whether or not to build in install dir before creating build dir."""
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
-
-        super(EB_SLEPc, self).make_builddir()
 
     def configure_step(self):
         """Configure SLEPc by setting configure options and running configure script."""

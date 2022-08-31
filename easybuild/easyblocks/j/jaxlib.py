@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2021 Ghent University
+# Copyright 2012-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,13 +27,17 @@ EasyBlock for installing jaxlib, implemented as an easyblock
 
 @author: Denis Kristak (INUITS)
 @author: Alexander Grund (TU Dresden)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 import os
 import tempfile
 
+from distutils.version import LooseVersion
+
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, which
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -52,6 +56,11 @@ class EB_jaxlib(PythonPackage):
         extra_vars['buildcmd'][0] = '%(python)s build/build.py'
         extra_vars['install_src'][0] = 'dist/*.whl'
 
+        # Custom parameters
+        extra_vars.update({
+            'use_mkl_dnn': [True, "Enable support for Intel MKL-DNN", CUSTOM],
+        })
+
         return extra_vars
 
     def configure_step(self):
@@ -69,13 +78,15 @@ class EB_jaxlib(PythonPackage):
 
         # Collect options for the build script
         # Used only by the build script
-        options = [
-            '--target_cpu_features=default',  # Using copt for optimizations
-        ]
+
+        # C++ flags are set through copt below
+        options = ['--target_cpu_features=default']
+
         # Passed directly to bazel
         bazel_startup_options = [
             '--output_user_root=%s' % tempfile.mkdtemp(suffix='-bazel', dir=self.builddir),
         ]
+
         # Passed to the build command of bazel
         bazel_options = [
             '--jobs=%s' % self.cfg['parallel'],
@@ -107,15 +118,21 @@ class EB_jaxlib(PythonPackage):
                 '--cudnn_version=' + cudnn_version,
             ])
 
-            nccl_root = get_software_root('NCCL')
-            if nccl_root:
-                options.append('--enable_nccl')
-            else:
-                options.append('--noenable_nccl')
+            if LooseVersion(self.version) >= LooseVersion('0.1.70'):
+                nccl_root = get_software_root('NCCL')
+                if nccl_root:
+                    options.append('--enable_nccl')
+                else:
+                    options.append('--noenable_nccl')
 
             config_env_vars['GCC_HOST_COMPILER_PATH'] = which(os.getenv('CC'))
         else:
             options.append('--noenable_cuda')
+
+        if self.cfg['use_mkl_dnn']:
+            options.append('--enable_mkl_dnn')
+        else:
+            options.append('--noenable_mkl_dnn')
 
         # Prepend to buildopts so users can overwrite this
         self.cfg['buildopts'] = ' '.join(

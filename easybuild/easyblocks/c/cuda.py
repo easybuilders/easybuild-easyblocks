@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2021 Ghent University
+# Copyright 2012-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Robert Mijakovic (LuxProvide S.A.)
 """
 import os
+import re
 import stat
 
 from distutils.version import LooseVersion
@@ -43,8 +44,8 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
-from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
-from easybuild.tools.filetools import remove_file, symlink, which, write_file
+from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
+from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 import easybuild.tools.environment as env
@@ -201,7 +202,10 @@ class EB_CUDA(Binary):
                 run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
     def post_install_step(self):
-        """Create wrappers for the specified host compilers and generate the appropriate stub symlinks"""
+        """
+        Create wrappers for the specified host compilers, generate the appropriate stub symlinks,
+        and create version independent pkgconfig files
+        """
         def create_wrapper(wrapper_name, wrapper_comp):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_name)
@@ -243,6 +247,19 @@ class EB_CUDA(Binary):
         # Also create the lib dir as a symlink
         symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
 
+        # Packages like xpra look for version independent pc files.
+        # See e.g. https://github.com/Xpra-org/xpra/blob/master/setup.py#L206
+        # Distros provide these files, so let's do it here too
+        pkgconfig_dir = os.path.join(self.installdir, 'pkgconfig')
+        if os.path.exists(pkgconfig_dir):
+            pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
+            cwd = change_dir(pkgconfig_dir)
+            for pc_file in pc_files:
+                pc_file = os.path.basename(pc_file)
+                link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
+                symlink(pc_file, link, use_abspath_source=False)
+            change_dir(cwd)
+
         super(EB_CUDA, self).post_install_step()
 
     def sanity_check_step(self):
@@ -258,13 +275,20 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
-        if LooseVersion(self.version) > LooseVersion('5'):
+        # Samples moved to https://github.com/nvidia/cuda-samples
+        if LooseVersion(self.version) > LooseVersion('5') and LooseVersion(self.version) < LooseVersion('11.6'):
             custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
         if LooseVersion(self.version) >= LooseVersion('7'):
             custom_paths['files'].append(os.path.join("extras", "CUPTI", "lib64", "libcupti.%s") % shlib_ext)
             custom_paths['dirs'].append(os.path.join("extras", "CUPTI", "include"))
+
+        # Just a subset of files are checked, since the whole list is likely to change,
+        # and irrelevant in most cases anyway
+        if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
+            pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
+            custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
@@ -304,10 +328,11 @@ class EB_CUDA(Binary):
             inc_path.append(os.path.join('nvvm', 'include'))
 
         guesses.update({
-            'PATH': bin_path,
+            'CPATH': inc_path,
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
-            'CPATH': inc_path,
+            'PATH': bin_path,
+            'PKG_CONFIG_PATH': ['pkgconfig'],
         })
 
         return guesses

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -474,7 +474,16 @@ class EB_CP2K(EasyBlock):
         options['FCFLAGSOPT'] += ' $(INCFLAGS) -heap-arrays 64'
         options['FCFLAGSOPT2'] += ' $(INCFLAGS) -heap-arrays 64'
 
-        ifortver = LooseVersion(get_software_version('ifort'))
+        # for recent intel toolchains (>= intel/2021a), intel-compilers is the toolchain component
+        ifortver = get_software_version('intel-compilers')
+        if ifortver is None:
+            # fall back to trying to determining Intel Fortran compiler version using 'ifort' as software name
+            ifortver = get_software_version('ifort')
+
+        if ifortver:
+            ifortver = LooseVersion(ifortver)
+        else:
+            raise EasyBuildError("Failed to determine Intel Fortran compiler version!")
 
         # Required due to memory leak that occurs if high optimizations are used (from CP2K 7.1 intel-popt-makefile)
         if ifortver >= LooseVersion("2018.5"):
@@ -511,7 +520,7 @@ class EB_CP2K(EasyBlock):
                 raise EasyBuildError(failmsg, "v12", "v2011.8")
 
         elif ifortver >= LooseVersion("11"):
-            if LooseVersion(get_software_version('ifort')) >= LooseVersion("11.1.072"):
+            if ifortver >= LooseVersion("11.1.072"):
                 self.make_instructions += "qs_vxc_atom.o: qs_vxc_atom.F\n\t$(FC) -c $(FCFLAGS2) $<\n"
 
             else:
@@ -598,7 +607,10 @@ class EB_CP2K(EasyBlock):
         else:
             # only use Intel FFTW wrappers if FFTW is not loaded
             options['CFLAGS'] += ' -I$(INTEL_INCF)'
-            options['DFLAGS'] += ' -D__FFTMKL'
+            if LooseVersion(self.version) > LooseVersion('2.3'):
+                options['DFLAGS'] += ' -D__MKL'
+            else:
+                options['DFLAGS'] += ' -D__FFTMKL'
             options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
