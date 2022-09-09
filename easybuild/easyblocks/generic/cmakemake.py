@@ -60,7 +60,7 @@ def det_cmake_version():
     cmake_version = get_software_version('CMake')
     if cmake_version is None:
         # also take into account release candidate versions
-        regex = re.compile(r"^cmake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
+        regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
         (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)

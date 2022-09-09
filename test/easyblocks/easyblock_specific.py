@@ -235,21 +235,28 @@ class EasyBlockSpecificTest(TestCase):
 
         del os.environ['EBVERSIONCMAKE']
 
-        # output of 'cmake --version' as produced by CMake 2.x
+        # output of 'cmake --version' as produced by CMake 2.x < 2.4.0
         write_file(cmake_cmd, textwrap.dedent("""
         #!/bin/bash
-        echo "cmake version 4.5.6"
+        echo "CMake version 2.3.0"
         """))
-        self.assertEqual(det_cmake_version(), '4.5.6')
+        self.assertEqual(det_cmake_version(), '2.3.0')
+
+        # output of 'cmake --version' as produced by CMake 2.x >= 2.4.0
+        write_file(cmake_cmd, textwrap.dedent("""
+        #!/bin/bash
+        echo "cmake version 2.4.1"
+        """))
+        self.assertEqual(det_cmake_version(), '2.4.1')
 
         # output of 'cmake --version' as produced by CMake 3.x
         write_file(cmake_cmd, textwrap.dedent("""
         #!/bin/bash
-        echo "cmake version 7.8.9"
+        echo "cmake version 3.15.3"
         echo ""
         echo "CMake suite maintained and supported by Kitware (kitware.com/cmake)."
         """))
-        self.assertEqual(det_cmake_version(), '7.8.9')
+        self.assertEqual(det_cmake_version(), '3.15.3')
 
         # also consider release candidate versions
         write_file(cmake_cmd, textwrap.dedent("""
