@@ -42,7 +42,8 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
-# perldoc -lm seems to be the safest way to test if a module is available, based on exit code
+# check whether module is available by trying to load it in a minimal Perl program;
+# this way, we also check whether Perl modules that are required as a dependency are available
 EXTS_FILTER_PERL_MODULES = ("perl -e 'require %(ext_name)s'", '')
 
 
