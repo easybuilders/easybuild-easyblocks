@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,5 +50,9 @@ class CMakeMakeCp(CMakeMake, MakeCp):
     def install_step(self):
         """Install by copying specified files and directories."""
         if self.cfg.get('separate_build_dir', False):
-            self.cfg['start_dir'] = os.path.join(self.builddir, 'easybuild_obj')
+            if self.separate_build_dir:
+                self.cfg['start_dir'] = self.separate_build_dir
+            else:
+                self.cfg['start_dir'] = os.path.join(self.builddir, 'easybuild_obj')
+
         return MakeCp.install_step(self)

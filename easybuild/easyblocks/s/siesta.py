@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -108,6 +108,12 @@ class EB_Siesta(ConfigureMake):
             (r"^(FPPFLAGS_free_F90\s*=.*)$", r"\1 -ffree-line-length-none"),
         ]
 
+        gfortran_flags = ''
+        gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
+        if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('4.1.5'):
+            # -fallow-argument-mismatch is required when compiling with GCC 10.x & more recent
+            gfortran_flags = '-fallow-argument-mismatch'
+
         netcdff_loc = get_software_root('netCDF-Fortran')
         if netcdff_loc:
             # Needed for gfortran at least
@@ -181,7 +187,7 @@ class EB_Siesta(ConfigureMake):
             regex_subs.extend([
                 (r"^(LIBS\s*=).*$", r"\1 %s" % complibs),
                 # Needed for a couple of the utils
-                (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s" % os.environ['FCFLAGS']),
+                (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s %s" % (os.environ['FCFLAGS'], gfortran_flags)),
             ])
             regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nWXML = libwxml.a"))
 

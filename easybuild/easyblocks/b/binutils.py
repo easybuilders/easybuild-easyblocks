@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -55,6 +55,13 @@ class EB_binutils(ConfigureMake):
             'use_debuginfod': [False, "Build with debuginfod (used from system)", CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor"""
+        super(EB_binutils, self).__init__(*args, **kwargs)
+
+        # ld.gold linker is not supported on RISC-V
+        self.use_gold = get_cpu_family() != RISCV
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
@@ -108,6 +115,15 @@ class EB_binutils(ConfigureMake):
         else:
             libs = []
 
+        binutilsroot = get_software_root('binutils')
+        if binutilsroot:
+            # Remove LDFLAGS that start with '-L' + binutilsroot, since we don't
+            # want to link libraries from binutils compiled with the system toolchain
+            # into binutils binaries compiled with a compiler toolchain.
+            ldflags = os.getenv('LDFLAGS').split(' ')
+            ldflags = [p for p in ldflags if not p.startswith('-L' + binutilsroot)]
+            env.setvar('LDFLAGS', ' '.join(ldflags))
+
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
         if zlibroot:
@@ -149,7 +165,9 @@ class EB_binutils(ConfigureMake):
 
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
         if LooseVersion(self.version) > LooseVersion('2.24'):
-            self.cfg.update('configopts', "--enable-gold --enable-plugins --enable-ld=default")
+            self.cfg.update('configopts', "--enable-plugins --enable-ld=default")
+            if self.use_gold:
+                self.cfg.update('configopts', '--enable-gold')
 
         if LooseVersion(self.version) >= LooseVersion('2.34'):
             if self.cfg['use_debuginfod']:
@@ -212,8 +230,9 @@ class EB_binutils(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) > LooseVersion('2.24'):
-            binaries.append('ld.gold')
             lib_exts.append(shlib_ext)
+            if self.use_gold:
+                binaries.append('ld.gold')
 
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]

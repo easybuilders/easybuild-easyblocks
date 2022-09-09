@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -121,9 +121,12 @@ class EB_Rosetta(EasyBlock):
         self.log.debug("List of extra environment variables to pass down: %s" % str(env_vars))
 
         # create user.settings file
-        paths = os.getenv('PATH').split(':')
-        ld_library_paths = os.getenv('LD_LIBRARY_PATH').split(':')
-        cpaths = os.getenv('CPATH').split(':')
+        paths = os.getenv('PATH')
+        paths = paths.split(':') if paths else []
+        ld_library_paths = os.getenv('LD_LIBRARY_PATH')
+        ld_library_paths = ld_library_paths.split(':') if ld_library_paths else []
+        cpaths = os.getenv('CPATH')
+        cpaths = cpaths.split(':') if cpaths else []
         flags = [str(f).strip('-') for f in self.toolchain.variables['CXXFLAGS'].copy()]
 
         txt = '\n'.join([

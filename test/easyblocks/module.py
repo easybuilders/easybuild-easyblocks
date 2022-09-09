@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2021 Ghent University
+# Copyright 2015-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,6 +46,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
 from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
@@ -259,6 +260,10 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         bases = list(app_class.__bases__)
         for base in copy.copy(bases):
             bases.extend(base.__bases__)
+
+        if app_class == EB_FFTW_period_MPI:
+            # $EBROOTFFTW must be set for FFTW.MPI, because of dependency check on FFTW in prepare_step
+            os.environ['EBROOTFFTW'] = '/fake/software/FFTW/3.3.10'
 
         if app_class == EB_imkl_minus_FFTW:
             # $EBROOTIMKL must be set for imkl-FFTW, because of dependency check on imkl in prepare_step

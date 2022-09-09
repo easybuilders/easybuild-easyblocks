@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2021 Ghent University
-# Copyright 2015-2021 Stanford University
+# Copyright 2009-2022 Ghent University
+# Copyright 2015-2022 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -141,6 +141,17 @@ class EB_Amber(CMakeMake):
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '-DOPENMP=TRUE')
 
+        # note: for Amber 20, a patch is required to fix the CMake scripts so they're aware of FlexiBLAS:
+        # - cmake/patched-cmake-modules/FindBLASFixed.cmake
+        # - cmake/patched-cmake-modules/FindLAPACKFixed.cmake
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            self.cfg.update('configopts', '-DBLA_VENDOR=FlexiBLAS')
+        else:
+            openblas_root = get_software_root('OpenBLAS')
+            if openblas_root:
+                self.cfg.update('configopts', '-DBLA_VENDOR=OpenBLAS')
+
         cudaroot = get_software_root('CUDA')
         if cudaroot:
             self.with_cuda = True
@@ -213,13 +224,14 @@ class EB_Amber(CMakeMake):
 
         # define environment variables for MPI, BLAS/LAPACK & dependencies
         mklroot = get_software_root('imkl')
-        openblasroot = get_software_root('OpenBLAS')
+        flexiblas_root = get_software_root('FlexiBLAS')
+        openblas_root = get_software_root('OpenBLAS')
         if mklroot:
             env.setvar('MKL_HOME', os.getenv('MKLROOT'))
-        elif openblasroot:
+        elif flexiblas_root or openblas_root:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:
-                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+                raise EasyBuildError("$LIBLAPACK for OpenBLAS or FlexiBLAS not defined in build environment!")
             else:
                 env.setvar('GOTO', lapack)
 
@@ -317,12 +329,12 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
 
             # serial tests
-            run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
+            run_cmd("%s && make test.serial" % pretestcommands, log_all=True, simple=True)
             if self.with_cuda:
-                (out, ec) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
+                (out, ec) = run_cmd("%s && make test.cuda_serial" % pretestcommands, log_all=True, simple=False)
                 if ec > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 

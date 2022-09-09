@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -639,8 +639,12 @@ class PythonPackage(ExtensionEasyBlock):
             # We consider the build and install output together as downloads likely happen here if this is run
             self.install_cmd_output += out
 
-    def test_step(self):
-        """Test the built Python package."""
+    def test_step(self, return_output_ec=False):
+        """
+        Test the built Python package.
+
+        :param return_output: return output and exit code of test command
+        """
 
         if isinstance(self.cfg['runtest'], string_type):
             self.testcmd = self.cfg['runtest']
@@ -648,6 +652,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg['runtest'] and self.testcmd is not None:
             extrapath = ""
             testinstalldir = None
+
+            out, ec = (None, None)
 
             if self.testinstall:
                 # install in test directory and export PYTHONPATH
@@ -670,11 +676,25 @@ class PythonPackage(ExtensionEasyBlock):
 
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
-                cmd = ' '.join([extrapath, self.cfg['pretestopts'], testcmd, self.cfg['testopts']])
-                run_cmd(cmd, log_all=True, simple=True)
+                cmd = ' '.join([
+                    extrapath,
+                    self.cfg['pretestopts'],
+                    testcmd,
+                    self.cfg['testopts'],
+                ])
+
+                if return_output_ec:
+                    (out, ec) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+                    # need to log seperately, since log_all and log_ok need to be false to retreive out and ec
+                    self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
+                else:
+                    run_cmd(cmd, log_all=True, simple=True)
 
             if testinstalldir:
                 remove_dir(testinstalldir)
+
+            if return_output_ec:
+                return (out, ec)
 
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
