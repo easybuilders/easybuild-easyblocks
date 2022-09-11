@@ -6,6 +6,33 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 246 software-specific easyblocks and 37 generic easyblocks.
 
 
+v4.6.1 (September 14th 2022)
+----------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - update LAMMPS easyblock for LAMMPS/23Jun22 (#2213)
+  - reduce the number of command line options for 'cmake' command in CMakeMake generic easyblock (#2514)
+  - update libQGLViewer easyblock to take into account changes in the shared library names depending on Qt versions they are compiled with (#2730)
+  - improve PLUMED detection in GROMACS easyblock (#2749)
+  - make `$LD_LIBRARY_PATH` detection more robust for LAMMPS (#2765)
+  - enhance NVHPC easyblock to avoid superfluous warning (#2767)
+  - enhance PyTorch easyblock to also capture tests failing with signal (#2768)
+  - enhance PythonPackage easyblock to make sure all test command output makes it to the EasyBuild log, also when return_output_ec=True (#2770)
+  - set NVHPC_CUDA_HOME for NVHPC 22.7+ (#2776)
+- various bug fixes, including:
+  - make Amber easyblock aware of FlexiBLAS (#2720)
+  - update PyTorch easyblock to configure without breakpad support on POWER (#2763)
+  - use lib* in post_install step of FFTW.MPI easyblock to fix paths not being found on Linux distros favouring lib64 (like Suse/SLES) (#2771)
+  - use det_cmake_version function to determine CMake version in CMakeMake generic easyblock (#2772)
+  - don't enable building of ld.gold when installing binutils on a RISC-V system + don't configure GCC to use gold as default linker on a RISC-V system (#2780)
+  - tweak Amber(Tools) easyblock to run tests from top-level directory (#2781)
+  - fix version check for NVPTX library in sanity check of Clang easyblock (#2783)
+- other changes:
+  - update CI workflows to use Ubuntu 20.04 (since Ubuntu 18.04 is deprecated) (#2779)
+
+
 v4.6.0 (July 8th 2022)
 ----------------------
 
