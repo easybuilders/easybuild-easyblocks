@@ -6,7 +6,7 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 246 software-specific easyblocks and 37 generic easyblocks.
 
 
-v4.6.1 (September 14th 2022)
+v4.6.1 (September 12th 2022)
 ----------------------------
 
 update/bugfix release
@@ -20,7 +20,7 @@ update/bugfix release
   - enhance NVHPC easyblock to avoid superfluous warning (#2767)
   - enhance PyTorch easyblock to also capture tests failing with signal (#2768)
   - enhance PythonPackage easyblock to make sure all test command output makes it to the EasyBuild log, also when return_output_ec=True (#2770)
-  - set NVHPC_CUDA_HOME for NVHPC 22.7+ (#2776)
+  - set $NVHPC_CUDA_HOME for NVHPC 22.7+ (#2776)
 - various bug fixes, including:
   - make Amber easyblock aware of FlexiBLAS (#2720)
   - update PyTorch easyblock to configure without breakpad support on POWER (#2763)
