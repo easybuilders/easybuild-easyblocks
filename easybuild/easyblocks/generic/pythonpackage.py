@@ -685,6 +685,8 @@ class PythonPackage(ExtensionEasyBlock):
 
                 if return_output_ec:
                     (out, ec) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+                    # need to log seperately, since log_all and log_ok need to be false to retreive out and ec
+                    self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
                 else:
                     run_cmd(cmd, log_all=True, simple=True)
 
