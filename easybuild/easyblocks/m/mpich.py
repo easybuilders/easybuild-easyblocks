@@ -163,8 +163,8 @@ class EB_MPICH(ConfigureMake):
         lib_exts = [shlib_ext]
         if check_static_libs:
             lib_exts.append('a')
-        libs_fn = ['lib%s.%s' % (l, e) for l in libnames for e in lib_exts]
-        libs = [(os.path.join('lib', l), os.path.join('lib64', l)) for l in libs_fn]
+        libs_fn = ['lib%s.%s' % (lib, e) for lib in libnames for e in lib_exts]
+        libs = [(os.path.join('lib', lib), os.path.join('lib64', lib)) for lib in libs_fn]
 
         custom_paths.setdefault('dirs', []).extend(['bin', 'include', ('lib', 'lib64')])
         custom_paths.setdefault('files', []).extend(bins + headers + libs)
