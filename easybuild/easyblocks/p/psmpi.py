@@ -130,4 +130,6 @@ class EB_psmpi(EB_MPICH):
         # ParaStationMPI < 5.1.1-1 is based on MPICH < 3.1.1.
         use_new_libnames = LooseVersion(self.version) >= LooseVersion('5.1.1-1')
 
-        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames, check_launchers=False, check_static_libs=False)
+        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames,
+                                                check_launchers=False,
+                                                check_static_libs=False)
