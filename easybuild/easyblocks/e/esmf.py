@@ -114,7 +114,6 @@ class EB_ESMF(ConfigureMake):
         cmd = "make info"
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
-
     def install_step(self):
         # first, install the software
         super(EB_ESMF, self).install_step()
@@ -122,15 +121,16 @@ class EB_ESMF(ConfigureMake):
         python = get_software_version('Python')
         if python:
             # then, install the python bindings
-            py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')), 'src', 'addon', 'ESMPy')
+            py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')),
+                                     'src', 'addon', 'ESMPy')
             try:
                 os.chdir(py_subdir)
             except OSError as err:
                 raise EasyBuildError("Failed to move to: %s", err)
 
-            cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk && python setup.py install --prefix=%s" % (self.installdir, self.installdir)
+            cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
+            cmd += " && python setup.py install --prefix=%s" % self.installdir
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
-
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
