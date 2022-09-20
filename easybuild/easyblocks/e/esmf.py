@@ -27,6 +27,7 @@ EasyBuild support for building and installing ESMF, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada)
 """
 import os
 from distutils.version import LooseVersion
