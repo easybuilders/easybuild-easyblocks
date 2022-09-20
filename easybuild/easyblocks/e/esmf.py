@@ -148,7 +148,6 @@ class EB_ESMF(ConfigureMake):
 
         return txt
 
-
     def sanity_check_step(self):
         """Custom sanity check for ESMF."""
 
