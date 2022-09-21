@@ -138,11 +138,11 @@ class EB_ESMF(ConfigureMake):
 
         txt = super(EB_ESMF, self).make_module_extra()
 
-        python = get_software_version('Python')
-        if python:
-            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', [])
-            else:
+        if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', [])
+        else:
+            python = get_software_version('Python')
+            if python:
                 pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
                 pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
                 txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
