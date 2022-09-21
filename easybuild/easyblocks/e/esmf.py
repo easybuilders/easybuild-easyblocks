@@ -135,11 +135,10 @@ class EB_ESMF(ConfigureMake):
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
-
         txt = super(EB_ESMF, self).make_module_extra()
 
         if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', [])
+            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
         else:
             python = get_software_version('Python')
             if python:
