@@ -150,8 +150,8 @@ class EB_SuiteSparse(ConfigureMake):
             dst = os.path.join(self.installdir, x)
             try:
                 if os.path.isdir(src):
-                    # symlink points to CUDA folder not 
-                    # created for non GPU nodes.shutil
+                    # symlink points to CUDA folder that is
+                    # not created for non GPU nodes. shutil
                     # throws an error in this case.
                     copy_dir(src, dst, symlinks=True)
                     # symlink
