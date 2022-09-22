@@ -389,7 +389,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                     raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
 
             rungms = os.path.join(self.installdir, 'rungms')
-            test_env_vars = ['export OMP_NUM_THREADS=1; TMPDIR=%s' % self.testdir ]
+            test_env_vars = ['export OMP_NUM_THREADS=1; TMPDIR=%s' % self.testdir]
             if self.toolchain.mpi_family() == toolchain.INTELMPI:
                 test_env_vars.extend([
                     'I_MPI_FALLBACK=enable',  # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
