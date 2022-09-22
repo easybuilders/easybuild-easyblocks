@@ -27,6 +27,7 @@ EasyBuild support for building and installing ESMF, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada)
 """
 import os
 from distutils.version import LooseVersion
@@ -35,7 +36,7 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -114,6 +115,39 @@ class EB_ESMF(ConfigureMake):
         cmd = "make info"
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
+    def install_step(self):
+        # first, install the software
+        super(EB_ESMF, self).install_step()
+
+        python = get_software_version('Python')
+        if python:
+            # then, install the python bindings
+            py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')),
+                                     'src', 'addon', 'ESMPy')
+            try:
+                os.chdir(py_subdir)
+            except OSError as err:
+                raise EasyBuildError("Failed to move to: %s", err)
+
+            cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
+            cmd += " && python setup.py install --prefix=%s" % self.installdir
+            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+    def make_module_extra(self):
+        """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
+        txt = super(EB_ESMF, self).make_module_extra()
+
+        if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+        else:
+            python = get_software_version('Python')
+            if python:
+                pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+                pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
+
+        return txt
+
     def sanity_check_step(self):
         """Custom sanity check for ESMF."""
 
@@ -130,4 +164,8 @@ class EB_ESMF(ConfigureMake):
             'dirs': ['include', 'mod'],
         }
 
-        super(EB_ESMF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if get_software_root('Python'):
+            custom_commands += ["python -c 'import ESMF'"]
+
+        super(EB_ESMF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
