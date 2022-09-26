@@ -206,7 +206,7 @@ class EB_ABAQUS(Binary):
                     std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[\]:"] = java_root
                     std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[.+\]:"] = ''
                 else:
-                    raise EasyBuildError("Java is a required dependency for ABAQUS docs versions >= 2022, but it is missing")
+                    raise EasyBuildError("Java is required for ABAQUS docs versions >= 2022, but it is missing")
 
             # Continue
             std_qa[nextstr] = ''
