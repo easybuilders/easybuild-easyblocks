@@ -333,7 +333,7 @@ class EB_ABAQUS(Binary):
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
-            custom_paths['dirs'].extend(['cae', 'Commands', 'doc'])
+            custom_paths['dirs'].extend(['cae', 'Commands'])
             if LooseVersion(self.version) < LooseVersion('2020'):
                 custom_paths['dirs'].extend(['sim'])
             # 'all' also check license server, but lmstat is usually not available
