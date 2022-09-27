@@ -235,12 +235,12 @@ class EB_CUDA(Binary):
 
         stubs_dir = os.path.join(self.installdir, 'lib64', 'stubs')
 
-        # Remove stubs which are not required as the full library is in /lib64 because this duplication
+        # Remove stubs which are not required as the full library is in $EBROOTCUDA/lib64 because this duplication
         # causes issues (e.g. CMake warnings) when using this module (see $LIBRARY_PATH & $LD_LIBRARY_PATH)
         for stub_lib in expand_glob_paths([os.path.join(stubs_dir, '*.*')]):
             real_lib = os.path.join(self.installdir, 'lib64', os.path.basename(stub_lib))
             if os.path.exists(real_lib):
-                self.log.debug("Removing stub library %s", stub_lib)
+                self.log.debug("Removing unnecessary stub library %s", stub_lib)
                 remove_file(stub_lib)
             else:
                 self.log.debug("Keeping stub library %s", stub_lib)
