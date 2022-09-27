@@ -254,7 +254,7 @@ class EB_CUDA(Binary):
         # See e.g. https://github.com/easybuilders/easybuild-easyconfigs/issues/12348
         # Workaround: Create a copy that matches this pattern
         new_stubs_dir = os.path.join(self.installdir, 'stubs')
-        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'))
+        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'), symlinks=True)
         # Also create the lib dir as a symlink
         symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
 
