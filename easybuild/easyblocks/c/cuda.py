@@ -234,6 +234,7 @@ class EB_CUDA(Binary):
             raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
 
         stubs_dir = os.path.join(self.installdir, 'lib64', 'stubs')
+
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = ' '.join([ldconfig, '-N', stubs_dir])
         run_cmd(cmd)
@@ -246,6 +247,16 @@ class EB_CUDA(Binary):
         copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'))
         # Also create the lib dir as a symlink
         symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
+
+        # Remove stubs which are not required as the full library is in /lib64 because this duplication
+        # causes issues (e.g. CMake warnings) when using this module (see $LIBRARY_PATH & $LD_LIBRARY_PATH)
+        for stub_lib in expand_glob_paths([os.path.join(new_stubs_dir, 'lib64', '*.*')]):
+            real_lib = os.path.join(self.installdir, 'lib64', os.path.basename(stub_lib))
+            if os.path.exists(real_lib):
+                self.log.debug("Removing stub library %s", stub_lib)
+                remove_file(stub_lib)
+            else:
+                self.log.debug("Keeping stub library %s", stub_lib)
 
         # Packages like xpra look for version independent pc files.
         # See e.g. https://github.com/Xpra-org/xpra/blob/master/setup.py#L206
