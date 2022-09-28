@@ -80,7 +80,7 @@ class EB_ABAQUS(Binary):
         """Configure ABAQUS installation."""
         if LooseVersion(self.version) >= LooseVersion('2016'):
             # Rocky Linux isn't recognized; faking it as RHEL
-            if get_os_name() == 'Rocky Linux':
+            if get_os_name() in ['Rocky Linux', 'AlmaLinux']:
                 setvar('DISTRIB_ID', 'RedHatEnterpriseServer')
             # skip checking of Linux version
             setvar('DSY_Force_OS', 'linux_a64')
