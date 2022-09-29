@@ -271,12 +271,14 @@ class EB_PyTorch(PythonPackage):
         # Get matches to create clear summary report, greps for patterns like:
         # FAILED (errors=10, skipped=190, expected failures=6)
         # test_fx failed!
-        summary_matches=re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$", tests_out, re.M)
-        
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"
+        summary_matches = re.findall(regex, tests_out, re.M)
+ 
         # Get matches to create clear summary report, greps for patterns like:
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
-        summary_matches_pattern2=re.findall(r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$", tests_out, re.M)
-        
+        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
+        summary_matches_pattern2 = re.findall(regex, tests_out, re.M)
+
         # Count failures and errors
         def get_count_for_pattern(regex, text):
             match = re.findall(regex, text, re.M)
@@ -285,47 +287,44 @@ class EB_PyTorch(PythonPackage):
             elif len(match) == 1:
                 return int(match[0])
             elif len(match) > 1:
-                # Shouldn't happen, throw warning (we don't need to error on a failed grep, the build could very well be fine)
-                # TODO: THROW WARNING
-                print("WARNING")
-        
-        failure_cnt=0
-        error_cnt=0
+                # Shouldn't happen, but means something went wrong with the regular expressions.
+                # Throw warning, as the build might be fine, no need to error on this.
+                warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
+                warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
+                print_warning(warning_msg)
+
+        failure_cnt = 0
+        error_cnt = 0
         # Loop over first pattern to count failures/errors:
         for summary in summary_matches:
-            print("Summary: %s" % summary[1])
             failures = get_count_for_pattern(r"^.*(?<!expected )failures=(?P<failures>[0-9]+).*$", summary[1])
-            print("Failures: %s" % failures)
             failure_cnt += failures
             errs = get_count_for_pattern(r"^.*errors=(?P<errors>[0-9]+).*$", summary[1])
-            print("Errors: %s" % errs)
             error_cnt += errs
-        
+
         # Loop over the second pattern to count failures/errors
         for summary in summary_matches_pattern2:
-            print("Summary: %s" % summary[0])
             failures = get_count_for_pattern(r"^.*(?P<failures>[0-9]+) failed.*$", summary[0])
-            print("Failures: %s" % failures)
             failure_cnt += failures
             errs = get_count_for_pattern(r"^.*(?P<errors>[0-9]+) error.*$", summary[0])
-            print("Errors: %s" % errs)
             error_cnt += errs
-        
-        print("Total failures: %s" % failure_cnt)
-        print("Total errors: %s" % error_cnt)
-        
+
         # Calculate total number of unsuccesful tests
         failed_test_cnt = failure_cnt + error_cnt
-        
+
         if failed_test_cnt > 0:
-        
+
             failure_or_failures = 'failures' if failure_cnt > 1 else 'failure'
             error_or_errors = 'errors' if error_cnt > 1 else 'error'
-            msg = "%d test %s, %d test %s (out of %d):\n" % (failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt)
+            msg = "%d test %s, %d test %s (out of %d):\n" % (
+                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
+            )
             for summary in summary_matches_pattern2:
                 msg += "{test_suite} ({failure_summary})\n".format(test_suite=summary[1], failure_summary=summary[0])
             for summary in summary_matches:
-                msg += "{test_suite} ({total} total tests, {failure_summary})\n".format(test_suite=summary[2], total=summary[0], failure_summary=summary[1])
+                msg += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+                    test_suite=summary[2], total=summary[0], failure_summary=summary[1]
+                )
 
             if max_failed_tests == 0:
                 raise EasyBuildError(msg)
