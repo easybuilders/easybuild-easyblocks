@@ -291,7 +291,7 @@ class EB_PyTorch(PythonPackage):
                 # Throw warning, as the build might be fine, no need to error on this.
                 warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
                 warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
-                print_warning(warning_msg)
+                print_warning(warn_msg)
 
         failure_cnt = 0
         error_cnt = 0
