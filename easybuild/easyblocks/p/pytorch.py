@@ -271,9 +271,9 @@ class EB_PyTorch(PythonPackage):
         # Get matches to create clear summary report, greps for patterns like:
         # FAILED (errors=10, skipped=190, expected failures=6)
         # test_fx failed!
-        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"  # noqa: W503
         summary_matches = re.findall(regex, tests_out, re.M)
- 
+
         # Get matches to create clear summary report, greps for patterns like:
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
         regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
