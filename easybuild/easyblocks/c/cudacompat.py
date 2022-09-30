@@ -158,7 +158,7 @@ class EB_CUDAcompat(Binary):
                                          '%s %s. Supported drivers: %s',
                                          driver_version, self.name, self.version, compatible_driver_versions)
                 elif LooseVersion(driver_version) < self.compatible_driver_version_map[driver_version_major]:
-                    raise EasyBuildError('The installed CUDA driver %s is to old for %s %s. Supported drivers: %s',
+                    raise EasyBuildError('The installed CUDA driver %s is too old for %s %s. Supported drivers: %s',
                                          driver_version, self.name, self.version, compatible_driver_versions)
                 else:
                     self.log.info('The installed CUDA driver %s appears to be supported.', driver_version)
