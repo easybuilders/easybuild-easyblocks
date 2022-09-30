@@ -130,9 +130,9 @@ class EB_ABAQUS(Binary):
             # rather than a regular dictionary (where there's no guarantee on key order in general)
             std_qa = OrderedDict()
 
-            # Disable Extended Product Documentation (because it has a troublesome Java dependency)
+            # Disable Extended Product Documentation because it has a troublesome Java dependency
             std_qa[selectionstr % (r"\[*\]", "Extended Product Documentation")] = "%(nr)s"
-            installed_docs = False
+            installed_docs = False  # hard disabled, previous support was actually incomplete
 
             # enable all ABAQUS components
             std_qa[selectionstr % (r"\[ \]", "Abaqus.*")] = "%(nr)s"
