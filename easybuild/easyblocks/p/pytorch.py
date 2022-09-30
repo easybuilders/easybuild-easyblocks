@@ -313,6 +313,7 @@ class EB_PyTorch(PythonPackage):
         failed_test_cnt = failure_cnt + error_cnt
 
         if failed_test_cnt > 0:
+            max_failed_tests = self.cfg['max_failed_tests']
 
             failure_or_failures = 'failures' if failure_cnt > 1 else 'failure'
             error_or_errors = 'errors' if error_cnt > 1 else 'error'
