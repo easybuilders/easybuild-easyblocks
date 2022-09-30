@@ -40,7 +40,6 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
