@@ -50,7 +50,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
-from easybuild.tools.environment import setvar
+from easybuild.tools.environment import setvar, restore_env, read_environment
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "AMDGPU", "ARM", "CppBackend", "Hexagon", "Mips",
@@ -462,13 +462,16 @@ class EB_Clang(CMakeMake):
         mkdir(next_obj)
         change_dir(next_obj)
 
-        # Configure.
-        CC = os.path.join(prev_obj, 'bin', 'clang')
-        CXX = os.path.join(prev_obj, 'bin', 'clang++')
+        # Make sure the clang and clang++ compilers from previous stages are (temporarily) in PATH
+        orig_env = copy.deepcopy(os.environ)
+        prev_obj_path = os.path.join(prev_obj, 'bin')
+        current_path = read_environment({'path': 'PATH'})
+        setvar('PATH', current_path['path'] + prev_obj_path)
 
+        # Configure.
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
-        options += "-DCMAKE_C_COMPILER='%s' " % CC
-        options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
+        options += "-DCMAKE_C_COMPILER='clang' "
+        options += "-DCMAKE_CXX_COMPILER='clang++' "
         options += self.cfg['configopts']
         options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
@@ -480,6 +483,9 @@ class EB_Clang(CMakeMake):
 
         self.log.info("Building")
         run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+
+        # Restore environment (specifically: PATH)
+        restore_env(orig_env)
 
     def run_clang_tests(self, obj_dir):
         """Run Clang tests in specified directory (unless disabled)."""
