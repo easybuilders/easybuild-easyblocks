@@ -38,6 +38,7 @@ Support for building and installing Clang, implemented as an easyblock.
 import glob
 import os
 import shutil
+import copy
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
