@@ -43,7 +43,7 @@ from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 
 class EB_PyTorch(PythonPackage):
-    """Support for building/installing TensorFlow."""
+    """Support for building/installing PyTorch."""
 
     @staticmethod
     def extra_options():
