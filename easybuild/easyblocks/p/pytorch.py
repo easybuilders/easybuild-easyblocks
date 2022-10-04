@@ -337,7 +337,11 @@ class EB_PyTorch(PythonPackage):
                     "are known to be flaky, or do not affect your intended usage of PyTorch.",
                     "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
                 ])
+                # Print to console, the user should really be aware that we are accepting failing tests here...
                 print_warning(msg)
+
+                # Also log this warning in the file log
+                self.log.warning(msg)
 
                 if failed_test_cnt > max_failed_tests:
                     raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
