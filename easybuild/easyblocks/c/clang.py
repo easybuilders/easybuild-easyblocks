@@ -412,7 +412,7 @@ class EB_Clang(CMakeMake):
         orig_env = copy.deepcopy(os.environ)
         prev_obj_path = os.path.join(prev_obj, 'bin')
         current_path = read_environment({'path': 'PATH'})
-        setvar('PATH', current_path['path'] + prev_obj_path)
+        setvar('PATH', current_path['path'] + ":" + prev_obj_path)
 
         # Configure.
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
