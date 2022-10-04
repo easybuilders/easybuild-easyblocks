@@ -239,8 +239,8 @@ class EB_PETSc(ConfigureMake):
 
                     # For some reason there is a v3 suffix added to libptscotchparmetis
                     # which is the reason for this new code.
-                    req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', \
-                                       'libptscotch.a', 'libptscotcherr.a', 'libesmumps.a', \
+                    req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a',
+                                       'libptscotch.a', 'libptscotcherr.a', 'libesmumps.a',
                                        'libscotch.a', 'libscotcherr.a']
                     scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
                     lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
@@ -255,8 +255,8 @@ class EB_PETSc(ConfigureMake):
                     # More libraries added after version 3.17
                     if LooseVersion(self.version) >= LooseVersion("3.17"):
                         # specified order of libs matters!
-                        ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",\
-                                   "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",\
+                        ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
+                                   "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",
                                    "SLIP_LU", "CAMD", "AMD"]
 
                     suitesparse_inc = [os.path.join(suitesparse, x, "Include")
