@@ -210,6 +210,10 @@ class EB_PETSc(ConfigureMake):
             # filter out deps handled seperately
             sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
                         'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
+            # SCOTCH has to be treated separately since they add weird postfixes
+            # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
+            if (LooseVersion(self.version) >= LooseVersion("3.17")):
+                sep_deps += ['SCOTCH']
             depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
@@ -224,6 +228,21 @@ class EB_PETSc(ConfigureMake):
                         withdep = "--with-%s" % dep[1].lower()
                     self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
 
+            # SCOTCH has to be treated separately since they add weird postfixes
+            # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
+            if (LooseVersion(self.version) >= LooseVersion("3.17")):
+                scotch = get_software_root('SCOTCH')
+                if scotch:
+                    withdep = "--with-ptscotch"
+                    scotch_inc = [os.path.join(scotch, "include")]
+                    inc_spec = "-include=[%s]" % ','.join(scotch_inc)
+
+                    # For some reason there is a v3 suffix added to libptscotchparmetis
+                    # which is the reason for this new code.
+                    req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', 'libptscotch.a', 'libptscotcherr.a', 'libesmumps.a', 'libscotch.a', 'libscotcherr.a']
+                    scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
+                    lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
+                    self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
             # SuiteSparse options changed in PETSc 3.5,
             suitesparse = get_software_root('SuiteSparse')
             if suitesparse:
@@ -231,13 +250,18 @@ class EB_PETSc(ConfigureMake):
                     withdep = "--with-suitesparse"
                     # specified order of libs matters!
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
+                    ss_libs_remove_spl_char = ss_libs
+                    # More libraries added after version 3.17
+                    if LooseVersion(self.version) >= LooseVersion("3.17"):
+                        # specified order of libs matters!
+                        ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CSparse", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
 
                     suitesparse_inc = [os.path.join(suitesparse, x, "Include")
                                        for x in ss_libs]
                     suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.replace("_","").lower())
                                         for x in ss_libs]
                     suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
