@@ -152,14 +152,18 @@ class EB_CUDAcompat(Binary):
                 print_warning('Failed to determine the CUDA driver version, so skipping the compatibility check!')
             else:
                 driver_version_major = int(driver_version.split('.', 1)[0])
-                compatible_driver_versions = ', '.join(self.compatible_driver_version_map.values())
-                if driver_version_major not in self.compatible_driver_version_map:
+                compatible_driver_versions = ', '.join(sorted(self.compatible_driver_version_map.values()))
+                try:
+                    min_required_version = self.compatible_driver_version_map[driver_version_major]
+                except KeyError:
                     raise EasyBuildError('The installed CUDA driver %s is not a supported branch/major version for '
                                          '%s %s. Supported drivers: %s',
                                          driver_version, self.name, self.version, compatible_driver_versions)
-                elif LooseVersion(driver_version) < self.compatible_driver_version_map[driver_version_major]:
-                    raise EasyBuildError('The installed CUDA driver %s is too old for %s %s. Supported drivers: %s',
-                                         driver_version, self.name, self.version, compatible_driver_versions)
+                if LooseVersion(driver_version) < min_required_version:
+                    raise EasyBuildError('The installed CUDA driver %s is to old for %s %s, '
+                                         'need at least %s. Supported drivers: %s',
+                                         driver_version, self.name, self.version,
+                                         min_required_version, compatible_driver_versions)
                 else:
                     self.log.info('The installed CUDA driver %s appears to be supported.', driver_version)
 
