@@ -228,6 +228,16 @@ class EB_GROMACS(CMakeMake):
                 msg = "GROMACS with CP2K support needs to be built with 'mpi_only = True'"
                 raise EasyBuildError(msg)
 
+            if not os.path.exists(os.path.join(cp2k_root, 'lib', 'libcp2k.a')):
+                msg = 'CP2K needs to be compiled with "library = True".'
+                raise EasyBuildError(msg)
+            if not os.path.exists(os.path.join(cp2k_root, 'lib', 'pkgconfig', 'libcp2k.pc')):
+                msg = "pkg-config is required as a build-dependency for CP2K"
+                raise EasyBuildError(msg)
+            if not get_software_root('pkg-config'):
+                msg = "pkg-config is required as a build-dependency for building GROMACS-CP2K"
+                raise EasyBuildError(msg)
+
             self.log.info('CP2K support has been enabled.')
             # Building with CP2K requires static build w/o gmxapi.
             # https://manual.gromacs.org/documentation/2022/install-guide/index.html#building-with-cp2k-qm-mm-support
