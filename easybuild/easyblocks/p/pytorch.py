@@ -44,7 +44,7 @@ from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
-    """Support for building/installing TensorFlow."""
+    """Support for building/installing PyTorch."""
 
     @staticmethod
     def extra_options():
@@ -264,37 +264,17 @@ class EB_PyTorch(PythonPackage):
         (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
         ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
-        test_cnt = 0
-        for hit in ran_tests_hits:
-            test_cnt += int(hit)
-# This counts failed test suites, not failed tests
-#        failed_tests = nub(re.findall(r"^(?P<failed_test_name>.*) failed!\s*$", tests_out, re.M))
-#        failed_test_cnt = len(failed_tests)
+        test_cnt = sum(int(hit) for hit in ran_tests_hits)
 
-        # Get matches to create clear summary report
-        summary_matches=re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?P<failed_test_suite_name>.*) failed!$", tests_out, re.M)
+        failed_tests = nub(re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M))
+        failed_test_cnt = len(failed_tests)
 
-        # Count test failures and errors
-        # TODO: these regexps don't properly grab the output from distributions/test_constraints and test_torch. We'll need to make additional regexps for those to guarantee that they are not missed...
-        test_failures=re.findall(r"^FAILED \((?<!expected )failures=(?P<failures>[0-9]+).*\)$", tests_out, re.M)
-        test_fail_cnt=0
-        for failures in test_failures:
-            test_fail_cnt += int(failures)
-        
-        test_errors=re.findall(f"^FAILED \(*.errors=(?P<errors>[0-9]+).*\)$", tests_out, re.M)
-        test_error_cnt=0
-        for errors in test_errors:
-            test_error_cnt += int(errors)
-
-        failed_test_cnt = test_fail_cnt + test_error_cnt
-
-        if failed_test_cnt > 0:
+        if failed_test_cnt:
             max_failed_tests = self.cfg['max_failed_tests']
 
             test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
             msg = "%d %s (out of %d) failed:\n" % (failed_test_cnt, test_or_tests, test_cnt)
-            for summary in summary_matches:
-                msg += "{test_suite} ({total} total tests, {failure_summary})\n".format(test_suite=summary[2], total=summary[0], failure_summary=summary[1])
+            msg += '\n'.join('* %s' % t for t in sorted(failed_tests))
 
             if max_failed_tests == 0:
                 raise EasyBuildError(msg)

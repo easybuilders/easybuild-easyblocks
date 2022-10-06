@@ -34,12 +34,13 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 import glob
+import re
 import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import print_warning
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
@@ -50,6 +51,26 @@ from easybuild.tools.utilities import nub
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
+def det_cmake_version():
+    """
+    Determine active CMake version.
+    """
+    cmake_version = get_software_version('CMake')
+    if cmake_version is None:
+        # also take into account release candidate versions
+        regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
+
+        cmd = "cmake --version"
+        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        res = regex.search(out)
+        if res:
+            cmake_version = res.group('version')
+        else:
+            raise EasyBuildError("Failed to determine CMake version from output of '%s': %s", cmd, out)
+
+    return cmake_version
 
 
 def setup_cmake_env(tc):
@@ -217,8 +238,10 @@ class CMakeMake(ConfigureMake):
             if fc:
                 setvar('FC', fc)
 
+        cmake_version = det_cmake_version()
+
         # Flags are read from environment variables already since at least CMake 2.8.0
-        if LooseVersion(get_software_version('CMake')) < LooseVersion('2.8.0') or cache_exists:
+        if LooseVersion(cmake_version) < LooseVersion('2.8.0') or cache_exists:
             env_to_options.update({
                 'CFLAGS': 'CMAKE_C_FLAGS',
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
