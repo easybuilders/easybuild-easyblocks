@@ -475,6 +475,14 @@ class EB_Clang(CMakeMake):
         my_clang_toolchain.prepare_rpath_wrappers()
         self.log.info("Prepared clang rpath wrappers")
 
+        # CvL: Add to CXXFLAGS to avoid unused command line argument warnings
+        # Since these result into some errors during configure (due to -Werror)
+        import easybuild.tools.environment as env
+        cflags = os.getenv('CFLAGS')
+        cxxflags = os.getenv('CXXFLAGS')
+        env.setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
+        env.setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+
         # Configure.
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
         options += "-DCMAKE_C_COMPILER='clang' "
