@@ -414,18 +414,24 @@ class EB_Clang(CMakeMake):
         current_path = read_environment({'path': 'PATH'})
         setvar('PATH', current_path['path'] + ":" + prev_obj_path)
 
+        # Hacky test fix by Caspar to create RPATH wrappers for the Clang compilers
+        from easybuild.toolchains.compiler.clang import Clang
+        my_clang_toolchain = Clang(name='Clang', version='1')
+        my_clang_toolchain.prepare_rpath_wrappers()
+        self.log.info("Prepared clang rpath wrappers")
+
         # Configure.
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
         options += "-DCMAKE_C_COMPILER='clang' "
         options += "-DCMAKE_CXX_COMPILER='clang++' "
         options += self.cfg['configopts']
-        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
+        options += "-DCMAKE_BUILD_TYPE=%s " % self.build_type
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
 
         self.log.info("Building")
-        run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+        run_cmd("make %s VERBOSE=1" % self.make_parallel_opts, log_all=True)
 
         # Restore environment (specifically: PATH)
         restore_env(orig_env)
