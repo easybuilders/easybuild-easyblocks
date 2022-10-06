@@ -72,8 +72,8 @@ class MakeCp(ConfigureMake):
         files_to_copy = self.cfg.get('files_to_copy') or []
         self.log.debug("Starting install_step with files_to_copy: %s", files_to_copy)
 
-        # if buildopts is a list, this is an iterative build, and directories will be copied multiple times
-        dirs_exist_ok = isinstance(self.cfg.get('buildopts'), list)
+        # if this is an iterative build directories will be copied multiple times
+        dirs_exist_ok = True if self.iter_opts else False
 
         for fil in files_to_copy:
             if isinstance(fil, tuple):
