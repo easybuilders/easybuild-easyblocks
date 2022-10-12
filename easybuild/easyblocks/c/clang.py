@@ -168,11 +168,16 @@ class EB_Clang(CMakeMake):
             mkdir(self.llvm_src_dir)
 
             components = ['llvm', 'cmake', 'compiler-rt', 'clang', 'openmp']
-            if self.cfg["usepolly"]: components += ['polly']
-            if self.cfg["build_lld"]: components += ['lld', 'libunwind']
-            if self.cfg["build_lldb"]: components += ['lldb']
-            if self.cfg["libcxx"]: components += ['libcxx', 'libcxxabi']
-            if self.cfg["build_extra_clang_tools"]: components += ['clang-tools-extra']
+            if self.cfg["usepolly"]:
+                components += ['polly']
+            if self.cfg["build_lld"]:
+                components += ['lld', 'libunwind']
+            if self.cfg["build_lldb"]:
+                components += ['lldb']
+            if self.cfg["libcxx"]:
+                components += ['libcxx', 'libcxxabi']
+            if self.cfg["build_extra_clang_tools"]:
+                components += ['clang-tools-extra']
 
             for component in components:
                 find_source_dir("%s-[0-9]*" % component, os.path.join(self.llvm_src_dir, component))
@@ -213,7 +218,8 @@ class EB_Clang(CMakeMake):
             find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
             if self.cfg["build_extra_clang_tools"]:
-                find_source_dir('clang-tools-extra-*', os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
+                find_source_dir('clang-tools-extra-*',
+                                os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
 
             if LooseVersion(self.version) >= LooseVersion('3.8'):
                 find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
