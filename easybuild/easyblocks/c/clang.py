@@ -274,6 +274,13 @@ class EB_Clang(CMakeMake):
                 self.log.debug("Disabling the sanitizer tests")
                 self.disable_sanitizer_tests()
 
+        # Since version 15.x, clang includes common CMake files in a separate source which must be
+        # added to the CMAKE_MODULE_PATH
+        # https://github.com/llvm/llvm-project/tree/main/cmake
+        if LooseVersion(self.version) >= LooseVersion('15.0'):
+            cmake_module_path = os.path.join(self.builddir, "cmake-%s.src" % self.version, "Modules")
+            self.cfg.update('configopts', '-DCMAKE_MODULE_PATH=%s' % cmake_module_path)
+
         # Create and enter build directory.
         mkdir(self.llvm_obj_dir_stage1)
         change_dir(self.llvm_obj_dir_stage1)
