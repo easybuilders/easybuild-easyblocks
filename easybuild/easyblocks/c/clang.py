@@ -469,7 +469,10 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
         self.log.info("Configuring")
-        run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
+        if LooseVersion(self.version) >= LooseVersion("14"):
+            run_cmd("cmake %s %s" % (options, os.path.join(self.llvm_src_dir, "llvm")), log_all=True)
+        else:
+            run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
 
         self.log.info("Building")
         run_cmd("make %s" % self.make_parallel_opts, log_all=True)
