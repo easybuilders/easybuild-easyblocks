@@ -139,7 +139,6 @@ class EB_Clang(CMakeMake):
             self.cfg['libcxx'] = all([x in self.cfg['llvm_projects'] for x in ['libcxx', 'libcxxabi']])
             self.cfg['build_extra_clang_tools'] = 'clang-tools-extra' in self.cfg['llvm_projects']
 
-
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
         super(EB_Clang, self).check_readiness_step()
