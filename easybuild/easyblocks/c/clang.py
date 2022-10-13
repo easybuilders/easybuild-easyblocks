@@ -45,7 +45,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -414,19 +414,24 @@ class EB_Clang(CMakeMake):
         current_path = read_environment({'path': 'PATH'})
         setvar('PATH', current_path['path'] + ":" + prev_obj_path)
 
-        # Hacky test fix by Caspar to create RPATH wrappers for the Clang compilers
-        from easybuild.toolchains.compiler.clang import Clang
-        my_clang_toolchain = Clang(name='Clang', version='1')
-        my_clang_toolchain.prepare_rpath_wrappers()
-        self.log.info("Prepared clang rpath wrappers")
+        # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
+        if build_option('rpath'):
+            from easybuild.toolchains.compiler.clang import Clang
+            my_clang_toolchain = Clang(name='Clang', version='1')
+            my_clang_toolchain.prepare_rpath_wrappers()
+            self.log.info("Prepared clang rpath wrappers")
 
-        # CvL: Add to CXXFLAGS to avoid unused command line argument warnings
-        # Since these result into some errors during configure (due to -Werror)
-        import easybuild.tools.environment as env
-        cflags = os.getenv('CFLAGS')
-        cxxflags = os.getenv('CXXFLAGS')
-        env.setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
-        env.setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+            # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling
+            # Clang by default warns about that, and then some configure tests use -Werror which turns those warnings
+            # into errors. As a result, those configure tests fail, even though the compiler supports the requested
+            # functionality (e.g. the test that checks if -fPIC is supported would fail, and it compiles without
+            # resulting in relocation errors).
+            # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1270621100
+            # Here, we add -Wno-unused-command-line-argument to CXXFLAGS to avoid these warnings alltogether
+            cflags = os.getenv('CFLAGS')
+            cxxflags = os.getenv('CXXFLAGS')
+            setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
+            setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
 
         # Configure.
         options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
@@ -434,6 +439,14 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_CXX_COMPILER='clang++' "
         options += self.cfg['configopts']
         options += "-DCMAKE_BUILD_TYPE=%s " % self.build_type
+
+        # Cmake looks for llvm-link by default in the same directory as the compiler
+        # However, when compiling with rpath, the clang 'compiler' is not actually the compiler, but the wrapper
+        # Clearly, the wrapper directory won't llvm-link. Thus, we pass the linker to be used by full path.
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1275916186
+        if build_option('rpath'):
+            llvm_link = which('llvm-link')
+            options += "-DLIBOMPTARGET_NVPTX_BC_LINKER=%s" % llvm_link
 
         self.log.info("Configuring")
         run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
