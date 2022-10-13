@@ -100,6 +100,7 @@ class EB_Clang(CMakeMake):
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'llvm_projects': [[], "LLVM projects to install", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -114,6 +115,30 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
+
+        if not self.cfg['llvm_projects']:
+            self.cfg['llvm_projects'] = []
+
+        # keep compatibility between using llvm_projects vs using flags
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            self.cfg.update('llvm_projects', ['llvm', 'compiler-rt', 'clang', 'openmp'], allow_duplicate=False)
+            if self.cfg['usepolly']:
+                self.cfg.update('llvm_projects', 'polly', allow_duplicate=False)
+            if self.cfg['build_lld']:
+                self.cfg.update('llvm_projects', ['lld', 'libunwind'], allow_duplicate=False)
+            if self.cfg['build_lldb']:
+                self.cfg.update('llvm_projects', 'lldb', allow_duplicate=False)
+            if self.cfg['libcxx']:
+                self.cfg.update('llvm_projects', ['libcxx', 'libcxxabi'], allow_duplicate=False)
+            if self.cfg['build_extra_clang_tools']:
+                self.cfg.update('llvm_projects', 'clang-tools-extra', allow_duplicate=False)
+        else:
+            self.cfg['usepolly'] = 'polly' in self.cfg['llvm_projects']
+            self.cfg['build_lld'] = all([x in self.cfg['llvm_projects'] for x in ['lld', 'libunwind']])
+            self.cfg['build_lldb'] = 'lldb' in self.cfg['llvm_projects']
+            self.cfg['libcxx'] = all([x in self.cfg['llvm_projects'] for x in ['libcxx', 'libcxxabi']])
+            self.cfg['build_extra_clang_tools'] = 'clang-tools-extra' in self.cfg['llvm_projects']
+
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -153,36 +178,11 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        # the expected directory structure has completely changed in version 14.x of the project
         if LooseVersion(self.version) >= LooseVersion('14'):
-            # For versions 14 and later, all tarballs get extracted at the directory level
-            # in a directory named after the component name
-
-            # the first extracted tarball behaves differently, we must change its finalpath
-            for tmp in self.src:
-                if tmp['name'].startswith("llvm-"):
-                    tmp['finalpath'] = os.path.join(tmp['finalpath'], "..")
-                    break
-
-            # make the directory which will contain all extracted tarballs
-            self.llvm_src_dir = os.path.join(self.builddir, "llvm-project-%s" % self.version)
-            mkdir(self.llvm_src_dir)
-
-            components = ['llvm', 'cmake', 'compiler-rt', 'clang', 'openmp']
-            if self.cfg["usepolly"]:
-                components += ['polly']
-            if self.cfg["build_lld"]:
-                components += ['lld', 'libunwind']
-            if self.cfg["build_lldb"]:
-                components += ['lldb']
-            if self.cfg["libcxx"]:
-                components += ['libcxx', 'libcxxabi']
-            if self.cfg["build_extra_clang_tools"]:
-                components += ['clang-tools-extra']
-
-            for component in components:
-                find_source_dir("%s-[0-9]*" % component, os.path.join(self.llvm_src_dir, component))
-
+            # the expected directory structure has completely changed in version 14.x of the project, we use the
+            # complete tarball
+            find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
+            self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
         else:
             # Layout for previous versions
             #        llvm/             Unpack llvm-*.tar.gz here
@@ -406,15 +406,10 @@ class EB_Clang(CMakeMake):
                                      "without specifying 'amd_gfx_list'")
             self.cfg.update('configopts', '-DLIBOMPTARGET_AMDGCN_GFXLIST=%s' % ' '.join(ec_amdgfx))
 
-        # benchmarks are now in a third-party directory which is not found in any tarball component
-        # see https://github.com/llvm/llvm-project/issues/58320
-        if LooseVersion(self.version) >= LooseVersion("14"):
-            self.cfg.update('configopts', '-DLLVM_INCLUDE_BENCHMARKS=OFF')
-
         self.log.info("Configuring")
 
         # directory structure has changed in version 14.x, cmake must start in llvm sub directory
-        if LooseVersion(self.version) >= LooseVersion("14"):
+        if LooseVersion(self.version) >= LooseVersion('14'):
             super(EB_Clang, self).configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
         else:
             super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
@@ -440,7 +435,7 @@ class EB_Clang(CMakeMake):
         else:
             # In Clang 3.6, the sanitizer tests are grouped together in one CMakeLists
             # We patch out adding the subdirectories with the sanitizer tests
-            if LooseVersion(self.version) >= LooseVersion("14"):
+            if LooseVersion(self.version) >= LooseVersion('14'):
                 cmakelists_tests = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
             else:
                 cmakelists_tests = os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt', 'test', 'CMakeLists.txt')
@@ -470,7 +465,7 @@ class EB_Clang(CMakeMake):
         options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
 
         self.log.info("Configuring")
-        if LooseVersion(self.version) >= LooseVersion("14"):
+        if LooseVersion(self.version) >= LooseVersion('14'):
             run_cmd("cmake %s %s" % (options, os.path.join(self.llvm_src_dir, "llvm")), log_all=True)
         else:
             run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
@@ -548,7 +543,10 @@ class EB_Clang(CMakeMake):
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
-            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
+            if LooseVersion(self.version) >= LooseVersion('14'):
+                python_bindings_source_dir = os.path.join(self.llvm_src_dir, "clang", "bindings", "python")
+            else:
+                python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
 
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
