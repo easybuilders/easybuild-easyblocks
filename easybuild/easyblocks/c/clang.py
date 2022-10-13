@@ -87,6 +87,7 @@ class EB_Clang(CMakeMake):
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
@@ -573,6 +574,9 @@ class EB_Clang(CMakeMake):
 
         if self.cfg["build_lld"]:
             custom_paths['files'].extend(["bin/lld"])
+
+        if self.cfg["build_lldb"]:
+            custom_paths['files'].extend(["bin/lldb"])
 
         if self.cfg["libcxx"]:
             custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
