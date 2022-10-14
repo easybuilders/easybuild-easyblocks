@@ -303,9 +303,9 @@ class EB_PyTorch(PythonPackage):
 
         # Loop over the second pattern to count failures/errors
         for summary in summary_matches_pattern2:
-            failures = get_count_for_pattern(r"^.*(?P<failures>[0-9]+) failed.*$", summary[0])
+            failures = get_count_for_pattern(r"^.*[^0-9](?P<failures>[0-9]+) failed.*$", summary[0])
             failure_cnt += failures
-            errs = get_count_for_pattern(r"^.*(?P<errors>[0-9]+) error.*$", summary[0])
+            errs = get_count_for_pattern(r"^.*[^0-9](?P<errors>[0-9]+) error.*$", summary[0])
             error_cnt += errs
 
         # Calculate total number of unsuccesful tests
