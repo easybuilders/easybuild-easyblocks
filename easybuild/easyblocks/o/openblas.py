@@ -27,15 +27,14 @@ class EB_OpenBLAS(ConfigureMake):
         """Custom easyconfig parameters for OpenBLAS easyblock."""
         extra_vars = {
             'max_failing_lapack_tests_num_errors': [0, "Maximum number of LAPACK tests failing "
-                                                      "due to numerical errors", CUSTOM],
+                                                    "due to numerical errors", CUSTOM],
             'max_failing_lapack_tests_other_errors': [0, "Maximum number of LAPACK tests failing "
-                                                        "due to non-numerical errors", CUSTOM],
+                                                      "due to non-numerical errors", CUSTOM],
             'run_lapack_tests': [False, "Run LAPACK tests during test step, "
                                         "and check whether failing tests exceeds threshold", CUSTOM],
         }
 
         return ConfigureMake.extra_options(extra_vars)
-
 
     def configure_step(self):
         """ set up some options - but no configure command to run"""
@@ -145,7 +144,6 @@ class EB_OpenBLAS(ConfigureMake):
             # check number of failing LAPACK tests more closely
             if runtest == LAPACK_TEST_TARGET:
                 self.check_lapack_test_results(out)
-
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
