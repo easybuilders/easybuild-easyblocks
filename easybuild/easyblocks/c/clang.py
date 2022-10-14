@@ -132,12 +132,14 @@ class EB_Clang(CMakeMake):
                 self.cfg.update('llvm_projects', ['libcxx', 'libcxxabi'], allow_duplicate=False)
             if self.cfg['build_extra_clang_tools']:
                 self.cfg.update('llvm_projects', 'clang-tools-extra', allow_duplicate=False)
-        else:
-            self.cfg['usepolly'] = 'polly' in self.cfg['llvm_projects']
-            self.cfg['build_lld'] = all([x in self.cfg['llvm_projects'] for x in ['lld', 'libunwind']])
-            self.cfg['build_lldb'] = 'lldb' in self.cfg['llvm_projects']
-            self.cfg['libcxx'] = all([x in self.cfg['llvm_projects'] for x in ['libcxx', 'libcxxabi']])
-            self.cfg['build_extra_clang_tools'] = 'clang-tools-extra' in self.cfg['llvm_projects']
+
+        # ensure libunwind is there if lld is there
+        if 'lld' in self.cfg['llvm_projects']:
+            self.cfg.update('llvm_projects', 'libunwind', allow_duplicate=False)
+
+        # ensure libcxxabi is there if libcxx is there
+        if 'libcxx' in self.cfg['llvm_projects']:
+            self.cfg.update('llvm_projects', 'libcxxabi', allow_duplicate=False)
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -177,9 +179,8 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if LooseVersion(self.version) >= LooseVersion('14'):
-            # the expected directory structure has completely changed in version 14.x of the project, we use the
-            # complete tarball
+        if any([x['name'].startswith('llvm-project') for x in self.src]):
+            # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
         else:
@@ -200,24 +201,24 @@ class EB_Clang(CMakeMake):
             #        libunwind/        Unpack libunwind-*.tar.gz here
             find_source_dir('compiler-rt-*', os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt'))
 
-            if self.cfg["usepolly"]:
+            if 'polly' in self.cfg['llvm_projects']:
                 find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
-            if self.cfg["build_lld"]:
+            if 'lld' in self.cfg['llvm_projects']:
                 find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
                 if LooseVersion(self.version) >= LooseVersion('12.0.1'):
                     find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
 
-            if self.cfg["build_lldb"]:
+            if 'lldb' in self.cfg['llvm_projects']:
                 find_source_dir('lldb-*', os.path.join(self.llvm_src_dir, 'tools', 'lldb'))
 
-            if self.cfg["libcxx"]:
+            if 'libcxx' in self.cfg['llvm_projects']:
                 find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
                 find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
             find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
-            if self.cfg["build_extra_clang_tools"]:
+            if 'clang-tools-extra' in self.cfg['llvm_projects']:
                 find_source_dir('clang-tools-extra-*',
                                 os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
 
@@ -344,7 +345,7 @@ class EB_Clang(CMakeMake):
         else:
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
-        if self.cfg["usepolly"]:
+        if 'polly' in self.cfg['llvm_projects']:
             self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
         # If Z3 is included as a dep, enable support in static analyzer (if enabled)
@@ -356,7 +357,7 @@ class EB_Clang(CMakeMake):
 
         build_targets = self.cfg['build_targets']
 
-        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+        if 'polly' in self.cfg['llvm_projects'] and "NVPTX" in build_targets:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
@@ -564,20 +565,20 @@ class EB_Clang(CMakeMake):
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
 
-        if self.cfg['build_extra_clang_tools'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+        if 'clang-tools-extra' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('3.4'):
             custom_paths['files'].extend(["bin/clang-tidy"])
 
-        if self.cfg["usepolly"]:
+        if 'polly' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
             custom_paths['dirs'].extend(["include/polly"])
 
-        if self.cfg["build_lld"]:
+        if 'lld' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["bin/lld"])
 
-        if self.cfg["build_lldb"]:
+        if 'lldb' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["bin/lldb"])
 
-        if self.cfg["libcxx"]:
+        if 'libcxx' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
             custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
 
