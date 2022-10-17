@@ -318,6 +318,12 @@ class PythonPackage(ExtensionEasyBlock):
 
         # determine install command
         self.use_setup_py = False
+        self.determine_install_command()
+
+    def determine_install_command(self):
+        """
+        Determine install command to use.
+        """
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
@@ -361,7 +367,7 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
 
-        self.log.debug("Using '%s' as install command", self.install_cmd)
+        self.log.info("Using '%s' as install command", self.install_cmd)
 
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
