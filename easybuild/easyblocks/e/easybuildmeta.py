@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import read_file, which
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file, which
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
@@ -114,6 +114,21 @@ class EB_EasyBuildMeta(PythonPackage):
         """No building for EasyBuild packages."""
         pass
 
+    def fix_easyconfigs_setup_py_setuptools61(self):
+        """
+        Patch setup.py of easybuild-easyconfigs package if needed to make sure that installation works
+        for recent setuptools versions (>= 61.0).
+        """
+        # cfr. https://github.com/easybuilders/easybuild-easyconfigs/pull/15206
+        cwd = os.getcwd()
+        regex = re.compile(r'packages=\[\]')
+        setup_py_txt = read_file('setup.py')
+        if regex.search(setup_py_txt) is None:
+            self.log.info("setup.py at %s needs to be fixed to install with setuptools >= 61.0", cwd)
+            apply_regex_substitutions('setup.py', [(r'^setup\(', 'setup(packages=[],')])
+        else:
+            self.log.info("setup.py at %s does not need to be fixed to install with setuptools >= 61.0", cwd)
+
     def install_step(self):
         """Install EasyBuild packages one by one."""
         try:
@@ -130,7 +145,11 @@ class EB_EasyBuildMeta(PythonPackage):
 
                 else:
                     self.log.info("Installing package %s", pkg)
-                    os.chdir(os.path.join(self.builddir, seldirs[0]))
+                    change_dir(os.path.join(self.builddir, seldirs[0]))
+
+                    if pkg == 'easybuild-easyconfigs':
+                        self.fix_easyconfigs_setup_py_setuptools61()
+
                     super(EB_EasyBuildMeta, self).install_step()
 
         except OSError as err:
