@@ -107,6 +107,9 @@ class EB_CUDAcompat(Binary):
                                      "Expected numeric major versions, got '%s'", compatible_driver_versions)
         else:
             self.compatible_driver_version_map = None
+        if 'LD_LIBRARY_PATH' in (build_option('filter_env_vars') or []):
+            raise EasyBuildError("This module relies on setting $LD_LIBRARY_PATH, "
+                                 "so you need to remove this variable from --filter-env-vars")
         super(EB_CUDAcompat, self).prepare_step(*args, **kwargs)
 
     def fetch_step(self, *args, **kwargs):
