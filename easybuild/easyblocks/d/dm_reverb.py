@@ -121,6 +121,7 @@ class EB_dm_minus_reverb(PythonPackage):
             'installopts': self.cfg['installopts'],
             'loc': whl_path,
             'prefix': self.installdir,
+            'python': self.python_cmd,
         }
 
         return super(EB_dm_minus_reverb, self).install_step(*args, **kwargs)
