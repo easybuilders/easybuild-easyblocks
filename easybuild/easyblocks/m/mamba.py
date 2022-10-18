@@ -30,7 +30,6 @@ EasyBuild support for building and installing Mamba, implemented as an easyblock
 """
 
 import os
-import stat
 
 from easybuild.easyblocks.a.anaconda import EB_Anaconda
 
