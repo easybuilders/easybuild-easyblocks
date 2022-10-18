@@ -94,7 +94,8 @@ class EB_dm_minus_reverb(PythonPackage):
         # print full compilation commands
         bazel_build_opts += " --subcommands"
 
-        bazel_cmd = "bazel %s build %s %s" % (bazel_opts, bazel_build_opts, bazel_build_pkg)
+        bazel_cmd = "%s bazel %s build %s %s" % (self.cfg['prebuildopts'], bazel_opts, bazel_build_opts,
+                                                 bazel_build_pkg)
 
         return run_cmd(bazel_cmd, log_all=True, simple=True, log_output=True)
 
