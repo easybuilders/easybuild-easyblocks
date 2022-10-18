@@ -33,8 +33,6 @@ import os
 import stat
 
 from easybuild.easyblocks.a.anaconda import EB_Anaconda
-from easybuild.tools.filetools import adjust_permissions, remove_dir
-from easybuild.tools.run import run_cmd
 
 
 class EB_Mamba(EB_Anaconda):
