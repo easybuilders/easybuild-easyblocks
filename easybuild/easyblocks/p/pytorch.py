@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import symlink, apply_regex_substitutions
+from easybuild.tools.filetools import symlink, apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
@@ -239,10 +239,16 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
+    def _set_cache_dir(self):
+        """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
+        cache_dir = os.path.join(self.tmpdir, '.cache')
+        # The path must exist!
+        mkdir(cache_dir, parents=True)
+        env.setvar('XDG_CACHE_HOME', cache_dir)
+
     def test_step(self):
         """Run unit tests"""
-        # Make PyTorch tests not use the user home
-        env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        self._set_cache_dir()
         # Pretend to be on FB CI which disables some tests, especially those which download stuff
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
@@ -350,8 +356,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
-        # Make PyTorch tests not use the user home
-        env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        self._set_cache_dir()
         super(EB_PyTorch, self).test_cases_step()
 
     def sanity_check_step(self, *args, **kwargs):
