@@ -39,11 +39,11 @@ class EB_Mamba(EB_Anaconda):
 
     def sanity_check_step(self):
         """
-        Custom sanity check for Anaconda and Miniconda
+        Custom sanity check for Mamba
         """
         custom_paths = {
             'files': [os.path.join('bin', x) for x in ['2to3', 'conda', 'pydoc', 'python', 'mamba']],
-            'dirs': ['bin', 'etc', 'lib', 'pkgs'],
+            'dirs': ['etc', 'lib', 'pkgs'],
         }
         # Directly call EB_Anaconda's super, as this sanity_check_step should _overwrite_ Anaconda's (not call it)
         super(EB_Anaconda, self).sanity_check_step(custom_paths=custom_paths)
