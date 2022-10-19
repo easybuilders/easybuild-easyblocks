@@ -108,6 +108,7 @@ class EB_TensorRT(PythonPackage, Binary):
                     'installopts': self.cfg['installopts'],
                     'loc': whl_paths[0],
                     'prefix': self.installdir,
+                    'python': self.python_cmd,
                 }
 
                 # Use --no-deps to prevent pip from downloading & installing
