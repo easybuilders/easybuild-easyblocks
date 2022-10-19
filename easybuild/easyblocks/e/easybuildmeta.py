@@ -35,7 +35,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file, which
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
@@ -71,14 +71,13 @@ class EB_EasyBuildMeta(PythonPackage):
         # - pip is available, and recent enough (>= 21.0);
         # - use_pip is not specified;
         pyver = sys.version.split(' ')[0]
-        pip = which('pip')
-        self.log.info("Python version: %s - pip: %s", pyver, pip)
-        if sys.version_info >= (3, 6) and pip and self.cfg['use_pip'] is None:
+        self.log.info("Python version: %s", pyver)
+        if sys.version_info >= (3, 6) and self.cfg['use_pip'] is None:
             # try to determine pip version, ignore any failures that occur while doing so;
             # problems may occur due changes in environment ($PYTHONPATH, etc.)
             pip_version = None
             try:
-                pip_version = det_pip_version()
+                pip_version = det_pip_version(python_cmd=sys.executable)
                 self.log.info("Found Python v%s + pip: %s", pyver, pip_version)
             except Exception as err:
                 self.log.warning("Failed to determine pip version: %s", err)
