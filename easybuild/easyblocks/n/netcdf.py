@@ -141,7 +141,9 @@ class EB_netCDF(CMakeMake):
             'dirs': []
         }
 
-        super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["nc-config --help", "ncgen -h"]
+
+        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def set_netcdf_env_vars(log):
