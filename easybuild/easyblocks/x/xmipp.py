@@ -101,10 +101,15 @@ class EB_Xmipp(SCons):
         # Tell xmipp config that there is no Scipion.
         env.setvar('XMIPP_NOSCIPION', 'True')
         # Initialize the config file and then patch it with the correct values
+        if LooserVersion(self.version) >= LooserVersion('3.20.07'):
+            noask = 'noAsk'
+        else:
+            noask = ''
         cmd = ' '.join([
             self.cfg['preconfigopts'],
             self.xmipp_exe,
             'config',
+            noask,
             self.cfg['configopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
