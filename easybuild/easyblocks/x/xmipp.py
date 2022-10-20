@@ -101,7 +101,7 @@ class EB_Xmipp(SCons):
         # Tell xmipp config that there is no Scipion.
         env.setvar('XMIPP_NOSCIPION', 'True')
         # Initialize the config file and then patch it with the correct values
-        if LooserVersion(self.version) >= LooserVersion('3.20.07'):
+        if LooseVersion(self.version) >= LooseVersion('3.20.07'):
             noask = 'noAsk'
         else:
             noask = ''
