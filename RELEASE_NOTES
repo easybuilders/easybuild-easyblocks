@@ -22,10 +22,9 @@ update/bugfix release
 - various bug fixes, including:
   - handle problems copying symlink that points to CUDA folder that is not created for non CUDA builds of SuiteSparse (#2790)
   - don't install docs (to avoid trouble with Java) + add Rocky support for ABAQUS (#2792)
-  - Correctly count the number of failing tests (not failing test suites) in PyTorch builds (#2794)
+  - correctly count the number of failing tests (not failing test suites) in PyTorch builds (#2794, #2803)
   - fix docstring for PyTorch easyblock (#2795)
-  - handle iterative builds with MakeCP EasyBlock (#2798)
-  - correctly count errors/failures in PyTorch test summary (#2803)
+  - handle iterative builds with MakeCp easyblock (#2798)
   - accept both None and empty value for optarch to let OpenCV detect host CPU (#2804)
   - enhance EasyBuildMeta easyblock: auto-enable installing with pip + fix setup.py of easyconfigs package so installation with setuptools >= 61.0 works (#2805)
   - use `python -m pip` instead of `pip` in PythonPackage easyblock (#2807)
