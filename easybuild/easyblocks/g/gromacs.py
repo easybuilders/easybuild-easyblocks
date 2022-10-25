@@ -220,7 +220,9 @@ class EB_GROMACS(CMakeMake):
             if LooseVersion(self.version) < LooseVersion('2022'):
                 msg = 'CP2K support is only available for GROMACS 2022 and newer.'
                 raise EasyBuildError(msg)
-            elif LooseVersion(get_software_version('CP2K')) < LooseVersion('8.1'):
+
+            cp2k_version = get_software_version('CP2K')
+            if LooseVersion(cp2k_version) < LooseVersion('8.1'):
                 msg = 'CP2K support in GROMACS requires CP2K version 8.1 or higher.'
                 raise EasyBuildError(msg)
 
@@ -244,7 +246,7 @@ class EB_GROMACS(CMakeMake):
             self.log.info("Building with CP2K QM/MM.")
             self.cfg['build_shared_libs'] = False
             self.libext = 'a'
-            cp2k_version = get_software_version('CP2K')
+
             self.cfg.update('configopts', "-DGMX_INSTALL_NBLIB_API=OFF")
             self.cfg.update('configopts', "-DGMXAPI=OFF")
             self.cfg.update('configopts', "-DGMX_CP2K=ON")
@@ -256,7 +258,7 @@ class EB_GROMACS(CMakeMake):
                 # These are for OpenMPI (mpifort --showme).
                 "-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh",
                 "-L%s/lib/exts/dbcsr" % cp2k_root,
-                # get depenencies for libcp2k.a:
+                # get dependencies for libcp2k.a:
                 "$(pkg-config --libs-only-l libcp2k)"
             ]
             if get_software_root('Libint'):
