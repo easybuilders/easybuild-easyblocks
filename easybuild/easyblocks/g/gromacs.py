@@ -253,10 +253,17 @@ class EB_GROMACS(CMakeMake):
             # Ensure that the GROMACS log files report that CP2K was enabled and which version was used.
             self.cfg.update('configopts', "-DGMX_VERSION_STRING_OF_FORK=CP2K-{:}".format(cp2k_version))
             self.cfg.update('configopts', "-DCP2K_DIR=%s/lib64" % cp2k_root)
-            cp2k_linker_flags = [
-                # Need MPI linker flags b/c libcp2k.a is compiled with mpifort.
-                # These are for OpenMPI (mpifort --showme).
-                "-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh",
+
+            cp2k_linker_flags = []
+            # Need MPI linker flags b/c libcp2k.a is compiled with mpifort.
+            # Unfortunately they are not listed in CP2K's $EBROOTCP2K/lib/pkgconfig/libcp2k.pc
+            if get_software_root('OpenMPI'):
+                # for OpenMPI (mpifort --showme).
+                cp2k_linker_flags.append("-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh")
+            elif get_software_root('IntelMPI'):
+                # for Intel MPI (mpiifort -show)
+                cp2k_linker_flags.append("-lmpifort")
+            cp2k_linker_flags += [
                 "-L%s/lib/exts/dbcsr" % cp2k_root,
                 # get dependencies for libcp2k.a:
                 "$(pkg-config --libs-only-l libcp2k)"
