@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import symlink, apply_regex_substitutions
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.py2vs3 import string_type
@@ -213,7 +213,7 @@ class EB_PETSc(ConfigureMake):
             # SCOTCH has to be treated separately since they add weird postfixes
             # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
             if (LooseVersion(self.version) >= LooseVersion("3.17")):
-                sep_deps += ['SCOTCH']
+                sep_deps.append('SCOTCH')
             depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
@@ -230,21 +230,22 @@ class EB_PETSc(ConfigureMake):
 
             # SCOTCH has to be treated separately since they add weird postfixes
             # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
-            if (LooseVersion(self.version) >= LooseVersion("3.17")):
-                scotch = get_software_root('SCOTCH')
-                if scotch:
-                    withdep = "--with-ptscotch"
-                    scotch_inc = [os.path.join(scotch, "include")]
-                    inc_spec = "-include=[%s]" % ','.join(scotch_inc)
+            scotch = get_software_root('SCOTCH')
+            scotch_ver = get_software_version('SCOTCH')
+            if (scotch and LooseVersion(scotch_ver) >= LooseVersion("7.0.1")):
+                withdep = "--with-ptscotch"
+                scotch_inc = [os.path.join(scotch, "include")]
+                inc_spec = "-include=[%s]" % ','.join(scotch_inc)
 
-                    # For some reason there is a v3 suffix added to libptscotchparmetis
-                    # which is the reason for this new code.
-                    req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a',
-                                       'libptscotch.a', 'libptscotcherr.a', 'libesmumps.a',
-                                       'libscotch.a', 'libscotcherr.a']
-                    scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
-                    lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
-                    self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+                # For some reason there is a v3 suffix added to libptscotchparmetis
+                # which is the reason for this new code.
+                req_scotch_libs = ['libesmumps.a', 'libptesmumps.a', 'libptscotch.a',
+                                   'libptscotcherr.a', 'libptscotchparmetisv3.a', 'libscotch.a',
+                                   'libscotcherr.a']
+                scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
+                lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
+                self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+
             # SuiteSparse options changed in PETSc 3.5,
             suitesparse = get_software_root('SuiteSparse')
             if suitesparse:
