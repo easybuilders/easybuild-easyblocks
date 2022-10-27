@@ -3,7 +3,33 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 246 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 37 generic easyblocks.
+
+
+v4.6.2 (October 21st 2022)
+--------------------------
+
+update/bugfix release
+
+- 2 new software-specific easyblock:
+  - CUDA compatibility libraries (#2764) and mamba (#2808)
+- minor enhancements and updates, including:
+  - update OpenFOAM easyblock to support OpenFOAM 10 + clean up variant/version checks (#2766)
+  - added support for ESMPy in ESMF (#2789)
+  - enhance OpenBLAS easyblock to support running LAPACK test suite + checking how many tests fail (#2801)
+  - make numexpr easyblock aware of toolchain with GCC + imkl (#2810)
+  - add sanity check commands for netCDF (#2811)
+- various bug fixes, including:
+  - handle problems copying symlink that points to CUDA folder that is not created for non CUDA builds of SuiteSparse (#2790)
+  - don't install docs (to avoid trouble with Java) + add Rocky support for ABAQUS (#2792)
+  - correctly count the number of failing tests (not failing test suites) in PyTorch builds (#2794, #2803)
+  - fix docstring for PyTorch easyblock (#2795)
+  - handle iterative builds with MakeCp easyblock (#2798)
+  - accept both None and empty value for optarch to let OpenCV detect host CPU (#2804)
+  - enhance EasyBuildMeta easyblock: auto-enable installing with pip + fix setup.py of easyconfigs package so installation with setuptools >= 61.0 works (#2805)
+  - use `python -m pip` instead of `pip` in PythonPackage easyblock (#2807)
+- other changes:
+  - make the test output from PythonPackage less verbose by disabling default search for error patterns done by run_cmd (2797)
 
 
 v4.6.1 (September 12th 2022)
