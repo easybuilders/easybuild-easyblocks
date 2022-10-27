@@ -164,7 +164,7 @@ class EB_NVHPC(PackedBinary):
             line = re.sub(r"^PATH=/", r"#PATH=/", line)
             sys.stdout.write(line)
 
-        cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
+        cmd = "%s -x %s -g77 gfortran" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
