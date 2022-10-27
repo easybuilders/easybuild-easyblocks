@@ -42,6 +42,7 @@ import easybuild.tools.toolchain.utilities as tc_utils
 from easybuild.base import fancylogger
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.gopackage import GoPackage
+from easybuild.easyblocks.generic.juliapackage import JuliaPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
@@ -285,6 +286,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             # $EBROOTGO must be set for GoPackage easyblock
             os.environ['EBROOTGO'] = '/fake/install/prefix/Go/1.14'
             os.environ['EBVERSIONGO'] = '1.14'
+
+        elif app_class == JuliaPackage:
+            # $EBROOTJULIA must be set for JuliaPackage easyblock
+            os.environ['EBROOTJULIA'] = '/fake/install/prefix/Julia/1.6.7'
+            os.environ['EBVERSIONJULIA'] = '1.6.7'
 
         elif app_class == EB_OpenFOAM:
             # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
