@@ -228,6 +228,9 @@ class EB_OpenCV(CMakeMake):
         """Custom extra module file entries for OpenCV."""
         txt = super(EB_OpenCV, self).make_module_extra()
 
+        if LooseVersion(self.version) >= LooseVersion('4.0'):
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join('include', 'opencv4'))
+
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
 
         if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
