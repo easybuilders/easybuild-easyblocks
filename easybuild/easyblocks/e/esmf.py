@@ -39,7 +39,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY
+from easybuild.framework.easyconfig import MANDATORY
 
 
 class EB_ESMF(ConfigureMake):
@@ -47,11 +47,11 @@ class EB_ESMF(ConfigureMake):
 
     @staticmethod
     def extra_options():
-      """Custom easyconfig parameters for ESMF"""
-      extra_vars = {
-          'disable_lapack': [False, 'Disable external LAPACK - True or False', MANDATORY]
-      }
-      return ConfigureMake.extra_options(extra_vars)
+        """Custom easyconfig parameters for ESMF"""
+        extra_vars = {
+            'disable_lapack': [False, 'Disable external LAPACK - True or False', MANDATORY]
+        }
+        return ConfigureMake.extra_options(extra_vars)
 
     def configure_step(self):
         """Custom configuration procedure for ESMF through environment variables."""
@@ -89,13 +89,13 @@ class EB_ESMF(ConfigureMake):
             # MOAB can't be built without LAPACK
             env.setvar('ESMF_MOAB', 'OFF')
         else:
-          env.setvar('ESMF_LAPACK', 'user')
-          ldflags = os.getenv('LDFLAGS')
-          liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
-          if liblapack is None:
-              raise EasyBuildError("$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
-          else:
-              env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
+            env.setvar('ESMF_LAPACK', 'user')
+            ldflags = os.getenv('LDFLAGS')
+            liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
+            if liblapack is None:
+                raise EasyBuildError("$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
+            else:
+                env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
 
         # specify netCDF
         netcdf = get_software_root('netCDF')
