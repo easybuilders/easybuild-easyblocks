@@ -93,7 +93,8 @@ class EB_ESMF(ConfigureMake):
             ldflags = os.getenv('LDFLAGS')
             liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
             if liblapack is None:
-                raise EasyBuildError("$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
+                msg = "$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?"
+                raise EasyBuildError(msg, self.toolchain.name)
             else:
                 env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
 
