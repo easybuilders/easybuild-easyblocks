@@ -411,7 +411,7 @@ class EB_Clang(CMakeMake):
         # Make sure clang and clang++ compilers from the previous stage are (temporarily) in PATH
         orig_path = os.getenv('PATH')
         prev_obj_path = os.path.join(prev_obj, 'bin')
-        setvar('PATH', prev_obj_path + ":" + current_path['path'])
+        setvar('PATH', prev_obj_path + ":" + orig_path['path'])
 
         # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
         if build_option('rpath'):
