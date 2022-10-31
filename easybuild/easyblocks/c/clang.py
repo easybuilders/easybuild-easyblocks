@@ -463,8 +463,10 @@ class EB_Clang(CMakeMake):
         mkdir(next_obj)
         change_dir(next_obj)
 
-        # keep track of original $PATH value, we need to restore it in case RPATH wrappers were put in place
+        # Make sure clang and clang++ compilers from the previous stage are (temporarily) in PATH
         orig_path = os.getenv('PATH')
+        prev_obj_path = os.path.join(prev_obj, 'bin')
+        setvar('PATH', prev_obj_path + ":" + current_path['path'])
 
         # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
         if build_option('rpath'):
@@ -485,8 +487,8 @@ class EB_Clang(CMakeMake):
             setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
 
         # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
-        clang = which('clang') or os.path.join(prev_obj, 'bin', 'clang')
-        clangxx = which('clang++') or os.path.join(prev_obj, 'bin', 'clang++')
+        clang = which('clang')
+        clangxx = which('clang++')
 
         # Configure.
         options = [
