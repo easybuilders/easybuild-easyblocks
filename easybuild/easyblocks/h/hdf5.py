@@ -77,6 +77,9 @@ class EB_HDF5(ConfigureMake):
         self.cfg.update('configopts', "--with-pic --with-pthread --enable-shared")
         self.cfg.update('configopts', "--enable-cxx --enable-fortran %s" % fcomp)
 
+        # make C API thread safe (C++ / FORTRAN APIs are unaffected)
+        self.cfg.update('configopts', "--enable-threadsafe")
+
         # MPI and C++ support enabled requires --enable-unsupported, because this is untested by HDF5
         # also returns False if MPI is not supported by this toolchain
         if self.toolchain.options.get('usempi', None):
