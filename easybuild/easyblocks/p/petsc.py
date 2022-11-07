@@ -232,7 +232,7 @@ class EB_PETSc(ConfigureMake):
             # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
             scotch = get_software_root('SCOTCH')
             scotch_ver = get_software_version('SCOTCH')
-            if (scotch and LooseVersion(scotch_ver) >= LooseVersion("7.0.1")):
+            if (scotch and LooseVersion(scotch_ver) >= LooseVersion("7.0")):
                 withdep = "--with-ptscotch"
                 scotch_inc = [os.path.join(scotch, "include")]
                 inc_spec = "-include=[%s]" % ','.join(scotch_inc)
