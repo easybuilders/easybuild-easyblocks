@@ -409,6 +409,8 @@ class EB_Clang(CMakeMake):
         change_dir(next_obj)
 
         # Make sure clang and clang++ compilers from the previous stage are (temporarily) in PATH
+        # The call to prepare_rpath_wrappers() requires the compilers-to-be-wrapped on the PATH
+        # Also, the call to 'which' in later in this current function also requires that
         orig_path = os.getenv('PATH')
         prev_obj_path = os.path.join(prev_obj, 'bin')
         setvar('PATH', prev_obj_path + ":" + orig_path)
