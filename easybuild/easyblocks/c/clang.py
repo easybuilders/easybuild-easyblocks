@@ -41,10 +41,11 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -407,21 +408,60 @@ class EB_Clang(CMakeMake):
         mkdir(next_obj)
         change_dir(next_obj)
 
-        # Configure.
-        CC = os.path.join(prev_obj, 'bin', 'clang')
-        CXX = os.path.join(prev_obj, 'bin', 'clang++')
+        # Make sure clang and clang++ compilers from the previous stage are (temporarily) in PATH
+        # The call to prepare_rpath_wrappers() requires the compilers-to-be-wrapped on the PATH
+        # Also, the call to 'which' in later in this current function also requires that
+        orig_path = os.getenv('PATH')
+        prev_obj_path = os.path.join(prev_obj, 'bin')
+        setvar('PATH', prev_obj_path + ":" + orig_path)
 
-        options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
-        options += "-DCMAKE_C_COMPILER='%s' " % CC
-        options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
-        options += self.cfg['configopts']
-        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
+        # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
+        if build_option('rpath'):
+            my_clang_toolchain = Clang(name='Clang', version='1')
+            my_clang_toolchain.prepare_rpath_wrappers()
+            self.log.info("Prepared clang rpath wrappers")
+
+            # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling
+            # Clang by default warns about that, and then some configure tests use -Werror which turns those warnings
+            # into errors. As a result, those configure tests fail, even though the compiler supports the requested
+            # functionality (e.g. the test that checks if -fPIC is supported would fail, and it compiles without
+            # resulting in relocation errors).
+            # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1270621100
+            # Here, we add -Wno-unused-command-line-argument to CXXFLAGS to avoid these warnings alltogether
+            cflags = os.getenv('CFLAGS')
+            cxxflags = os.getenv('CXXFLAGS')
+            setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
+            setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+
+        # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
+        clang = which('clang')
+        clangxx = which('clang++')
+
+        # Configure.
+        options = [
+            "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir,
+            "-DCMAKE_C_COMPILER='%s' " % clang,
+            "-DCMAKE_CXX_COMPILER='%s' " % clangxx,
+            self.cfg['configopts'],
+            "-DCMAKE_BUILD_TYPE=%s " % self.build_type,
+        ]
+
+        # Cmake looks for llvm-link by default in the same directory as the compiler
+        # However, when compiling with rpath, the clang 'compiler' is not actually the compiler, but the wrapper
+        # Clearly, the wrapper directory won't llvm-link. Thus, we pass the linker to be used by full path.
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1275916186
+        if build_option('rpath'):
+            llvm_link = which('llvm-link')
+            options.append("-DLIBOMPTARGET_NVPTX_BC_LINKER=%s" % llvm_link)
 
         self.log.info("Configuring")
-        run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
+        run_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir), log_all=True)
 
         self.log.info("Building")
-        run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+        run_cmd("make %s VERBOSE=1" % self.make_parallel_opts, log_all=True)
+
+        # restore $PATH
+        setvar('PATH', orig_path)
 
     def run_clang_tests(self, obj_dir):
         """Run Clang tests in specified directory (unless disabled)."""
