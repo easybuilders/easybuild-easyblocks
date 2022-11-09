@@ -92,6 +92,10 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         else:
             self.cfg.update('configopts', '--without-python')
 
+        # building of static libraries is disabled by default for libxml >= 2.10
+        if LooseVersion(self.version) >= LooseVersion('2.10'):
+            self.cfg.update('configopts', '--enable-static')
+
         ConfigureMake.configure_step(self)
 
         if self.with_python_bindings:
