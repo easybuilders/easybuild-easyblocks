@@ -121,12 +121,13 @@ class JuliaPackage(ExtensionEasyBlock):
                 'Pkg.develop(PackageSpec(path="%s"))' % install_pkg_path,
                 'Pkg.build("%s")' % self.name,
             ])
+
         julia_pkg_cmd = ';'.join(julia_pkg_cmd)
-
-        install_cmd = "julia -e '%s'" % julia_pkg_cmd
-
-        cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
-
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            "julia -e '%s'" % julia_pkg_cmd,
+            self.cfg['installopts'],
+        ])
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
         return out
