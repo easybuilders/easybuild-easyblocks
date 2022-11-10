@@ -97,7 +97,10 @@ class JuliaPackage(ExtensionEasyBlock):
 
         # prepend installation directory to Julia DEPOT_PATH
         # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
-        env.setvar('JULIA_DEPOT_PATH', ':'.join([self.installdir, os.getenv('JULIA_DEPOT_PATH', '')]))
+        depot_path = os.getenv('JULIA_DEPOT_PATH')
+        if depot_path is not None:
+            depot_path = ':'.join([self.installdir, depot_path])
+        env.setvar('JULIA_DEPOT_PATH', depot_path)
 
         # command sequence for Julia.Pkg
         julia_pkg_cmd = ['using Pkg']
