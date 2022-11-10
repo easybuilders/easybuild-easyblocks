@@ -50,7 +50,7 @@ class JuliaPackage(ExtensionEasyBlock):
         """Extra easyconfig parameters specific to JuliaPackage."""
         extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
-            'bundle_deps': [
+            'download_pkg_deps': [
                 False, "Let Julia download and bundle all needed dependencies for this installation", CUSTOM
             ],
         })
@@ -61,7 +61,7 @@ class JuliaPackage(ExtensionEasyBlock):
         if get_software_root('Julia') is None:
             raise EasyBuildError("Julia not included as dependency!")
 
-        if not self.cfg['bundle_deps']:
+        if not self.cfg['download_pkg_deps']:
             julia_version = get_software_version('Julia')
             if LooseVersion(julia_version) >= LooseVersion('1.5'):
                 # Enable offline mode of Julia Pkg
@@ -70,7 +70,7 @@ class JuliaPackage(ExtensionEasyBlock):
             else:
                 errmsg = (
                     "Cannot set offline mode in Julia v%s (needs Julia >= 1.5). "
-                    "Enable easyconfig option 'bundle_deps' to allow installation "
+                    "Enable easyconfig option 'download_pkg_deps' to allow installation "
                     "with any extra downloaded dependencies."
                 )
                 raise EasyBuildError(errmsg, julia_version)
