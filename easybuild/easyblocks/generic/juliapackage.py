@@ -56,10 +56,6 @@ class JuliaPackage(ExtensionEasyBlock):
         })
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """JuliaPackage easyblock constructor."""
-        super(JuliaPackage, self).__init__(*args, **kwargs)
-
     def set_pkg_offline(self):
         """Enable offline mode of Julia Pkg"""
         if get_software_root('Julia') is None:
