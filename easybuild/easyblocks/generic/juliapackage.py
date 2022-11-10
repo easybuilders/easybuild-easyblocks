@@ -92,8 +92,8 @@ class JuliaPackage(ExtensionEasyBlock):
         """No separate (standard) test procedure for JuliaPackage."""
         pass
 
-    def install_julia_pkg(self):
-        """Install procedure for Julia packages with Pkg"""
+    def install_step(self):
+        """Install Julia package with Pkg"""
 
         # prepend installation directory to Julia DEPOT_PATH
         # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
@@ -131,20 +131,16 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return out
 
-    def install_step(self):
-        """Install Julia package"""
-        self.install_julia_pkg()
-
     def run(self):
         """Install Julia package as an extension."""
 
         if not self.src:
-            errmsg = "No source found for Julia package %s, require    d for installation. (src: %s)"
+            errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
             raise EasyBuildError(errmsg, self.name, self.src)
         ExtensionEasyBlock.run(self, unpack_src=True)
 
         self.set_pkg_offline()
-        self.install_julia_pkg()
+        self.install_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for JuliaPackage"""
