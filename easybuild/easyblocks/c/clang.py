@@ -73,6 +73,9 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 # List of all supported CUDA toolkit versions supported by LLVM
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
+# List of the known LLVM projects
+KNOWN_LLVM_PROJECTS = ['llvm', 'compiler-rt', 'clang', 'openmp', 'polly', 'lld', 'libunwind', 'lldb',
+                       'libcxx', 'libcxxabi', 'clang-tools-extra', 'flang']
 
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
@@ -118,6 +121,11 @@ class EB_Clang(CMakeMake):
 
         if not self.cfg['llvm_projects']:
             self.cfg['llvm_projects'] = []
+        else:
+            for project in [p for p in self.cfg['llvm_projects'] if p not in KNOWN_LLVM_PROJECTS]:
+                msg = "LLVM project %s included but not recognised, this project will NOT be sanity checked!" % project
+                self.log.warning(msg)
+                print_warning(msg)
 
         # keep compatibility between using llvm_projects vs using flags
         if LooseVersion(self.version) >= LooseVersion('14'):
@@ -581,6 +589,9 @@ class EB_Clang(CMakeMake):
         if 'libcxx' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
             custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
+
+        if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
+            custom_paths['files'].extend(["bin/flang"])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
