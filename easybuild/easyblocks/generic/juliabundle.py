@@ -57,27 +57,23 @@ class JuliaBundle(Bundle):
         self.cfg['exts_filter'] = EXTS_FILTER_JULIA_PACKAGES
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
-        prev_enable_templating = self.cfg.enable_templating
-        self.cfg.enable_templating = False
+        with self.cfg.disable_templating():
+            # set default options for extensions according to relevant top-level easyconfig parameters
+            jlpkg_keys = JuliaPackage.extra_options().keys()
+            for key in jlpkg_keys:
+                if key not in self.cfg['exts_default_options']:
+                    self.cfg['exts_default_options'][key] = self.cfg[key]
 
-        # set default options for extensions according to relevant top-level easyconfig parameters
-        jlpkg_keys = JuliaPackage.extra_options().keys()
-        for key in jlpkg_keys:
-            if key not in self.cfg['exts_default_options']:
-                self.cfg['exts_default_options'][key] = self.cfg[key]
-
-        # Sources of Julia packages are commonly distributed from GitHub repos.
-        # By default, rename downloaded tarballs to avoid name collisions on
-        # packages sharing the same version string
-        if 'sources' not in self.cfg['exts_default_options']:
-            self.cfg['exts_default_options']['sources'] = [
-                {
-                    'download_filename': 'v%(version)s.tar.gz',
-                    'filename': '%(name)s-%(version)s.tar.gz',
-                }
-            ]
-
-        self.cfg.enable_templating = prev_enable_templating
+            # Sources of Julia packages are commonly distributed from GitHub repos.
+            # By default, rename downloaded tarballs to avoid name collisions on
+            # packages sharing the same version string
+            if 'sources' not in self.cfg['exts_default_options']:
+                self.cfg['exts_default_options']['sources'] = [
+                    {
+                        'download_filename': 'v%(version)s.tar.gz',
+                        'filename': '%(name)s-%(version)s.tar.gz',
+                    }
+                ]
 
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
