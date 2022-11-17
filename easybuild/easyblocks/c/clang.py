@@ -78,6 +78,7 @@ CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111
 KNOWN_LLVM_PROJECTS = ['llvm', 'compiler-rt', 'clang', 'openmp', 'polly', 'lld', 'libunwind', 'lldb',
                        'libcxx', 'libcxxabi', 'clang-tools-extra', 'flang']
 
+
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
 
