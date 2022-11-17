@@ -92,12 +92,8 @@ class JuliaBundle(Bundle):
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Julia packages"""
-        if not self.cfg['sanity_check_paths']:
-            pkg_dir = os.path.join('packages', self.name)
-
-            self.cfg['sanity_check_paths'] = {
-                'files': [],
-                'dirs': [pkg_dir],
-            }
-
-        super(JuliaBundle, self).sanity_check_step(*args, **kwargs)
+        custom_paths = {
+            'files': [],
+            'dirs': [os.path.join('packages', self.name)],
+        }
+        super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
