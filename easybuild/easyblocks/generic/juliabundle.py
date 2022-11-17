@@ -66,6 +66,17 @@ class JuliaBundle(Bundle):
             if key not in self.cfg['exts_default_options']:
                 self.cfg['exts_default_options'][key] = self.cfg[key]
 
+        # Sources of Julia packages are commonly distributed from GitHub repos.
+        # By default, rename downloaded tarballs to avoid name collisions on
+        # packages sharing the same version string
+        if 'sources' not in self.cfg['exts_default_options']:
+            self.cfg['exts_default_options']['sources'] = [
+                {
+                    'download_filename': 'v%(version)s.tar.gz',
+                    'filename': '%(name)s-%(version)s.tar.gz',
+                }
+            ]
+
         self.cfg.enable_templating = prev_enable_templating
 
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
