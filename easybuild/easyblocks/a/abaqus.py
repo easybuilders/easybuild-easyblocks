@@ -44,6 +44,7 @@ from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import change_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.systemtools import get_os_name
 from easybuild.tools.py2vs3 import OrderedDict
 
 
@@ -78,6 +79,9 @@ class EB_ABAQUS(Binary):
     def configure_step(self):
         """Configure ABAQUS installation."""
         if LooseVersion(self.version) >= LooseVersion('2016'):
+            # Rocky Linux isn't recognized; faking it as RHEL
+            if get_os_name() in ['Rocky Linux', 'AlmaLinux']:
+                setvar('DISTRIB_ID', 'RedHatEnterpriseServer')
             # skip checking of Linux version
             setvar('DSY_Force_OS', 'linux_a64')
             # skip checking of license server
@@ -126,10 +130,9 @@ class EB_ABAQUS(Binary):
             # rather than a regular dictionary (where there's no guarantee on key order in general)
             std_qa = OrderedDict()
 
-            # Enable Extended Product Documentation
-            std_qa[selectionstr % (r"\[ \]", "Extended Product Documentation")] = "%(nr)s"
-            # Enable Abaqus CAE (docs)
-            std_qa[selectionstr % (r"\[ \]", "Abaqus CAE")] = "%(nr)s"
+            # Disable Extended Product Documentation because it has a troublesome Java dependency
+            std_qa[selectionstr % (r"\[*\]", "Extended Product Documentation")] = "%(nr)s"
+            installed_docs = False  # hard disabled, previous support was actually incomplete
 
             # enable all ABAQUS components
             std_qa[selectionstr % (r"\[ \]", "Abaqus.*")] = "%(nr)s"
@@ -146,9 +149,9 @@ class EB_ABAQUS(Binary):
 
             # Disable/enable Tosca
             if self.cfg['with_tosca']:
-                std_qa[selectionstr % (r"\[\ \]", "Tosca")] = "%(nr)s"
+                std_qa[selectionstr % (r"\[\ \]", "Tosca.*")] = "%(nr)s"
             else:
-                std_qa[selectionstr % (r"\[\*\]", "Tosca")] = "%(nr)s"
+                std_qa[selectionstr % (r"\[\*\]", "Tosca.*")] = "%(nr)s"
 
             # disable CloudView
             std_qa[r"(?P<cloudview>[0-9]+) \[X\] Search using CloudView\nEnter selection:"] = '%(cloudview)s\n\n'
@@ -170,7 +173,7 @@ class EB_ABAQUS(Binary):
             cae_subdir = os.path.join(self.installdir, 'cae')
             sim_subdir = os.path.join(self.installdir, 'sim')
             std_qa[r"Default.*SIMULIA/EstProducts.*:"] = cae_subdir
-            std_qa[r"SIMULIA[0-9]*doc.*:"] = os.path.join(self.installdir, 'doc')
+            std_qa[r"SIMULIA[0-9]*doc.*:"] = os.path.join(self.installdir, 'doc')  # if docs are installed
             std_qa[r"SimulationServices.*:"] = sim_subdir
             std_qa[r"Choose the CODE installation directory.*:\n.*\n\n.*:"] = sim_subdir
             std_qa[r"SIMULIA/CAE.*:"] = cae_subdir
@@ -197,13 +200,13 @@ class EB_ABAQUS(Binary):
 
             std_qa[r"Please choose an action:"] = '1'
 
-            if LooseVersion(self.version) >= LooseVersion('2022'):
+            if LooseVersion(self.version) >= LooseVersion('2022') and installed_docs:
                 java_root = get_software_root('Java')
                 if java_root:
                     std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[\]:"] = java_root
                     std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[.+\]:"] = ''
                 else:
-                    raise EasyBuildError("Java is a required dependency for ABAQUS versions >= 2022, but it is missing")
+                    raise EasyBuildError("Java is required for ABAQUS docs versions >= 2022, but it is missing")
 
             # Continue
             std_qa[nextstr] = ''
@@ -330,7 +333,7 @@ class EB_ABAQUS(Binary):
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
-            custom_paths['dirs'].extend(['cae', 'Commands', 'doc'])
+            custom_paths['dirs'].extend(['cae', 'Commands'])
             if LooseVersion(self.version) < LooseVersion('2020'):
                 custom_paths['dirs'].extend(['sim'])
             # 'all' also check license server, but lmstat is usually not available
