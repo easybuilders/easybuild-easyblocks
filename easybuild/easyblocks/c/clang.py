@@ -632,7 +632,7 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
 
         if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
-            custom_paths['files'].extend(["bin/flang"])
+            custom_paths['files'].extend(["bin/flang-new"])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
