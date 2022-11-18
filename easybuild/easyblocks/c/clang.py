@@ -602,6 +602,7 @@ class EB_Clang(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Clang."""
+        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
@@ -632,7 +633,9 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
 
         if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
-            custom_paths['files'].extend(["bin/flang-new"])
+            flang_compiler = 'flang-new'
+            custom_paths['files'].extend(["bin/%s" % flang_compiler])
+            custom_commands.extend(["%s --help" % flang_compiler])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
@@ -690,7 +693,6 @@ class EB_Clang(CMakeMake):
                 custom_paths['files'].extend(["lib/libomptarget-new-amdgpu-%s.bc" % gfx
                                               for gfx in self.cfg['amd_gfx_list']])
 
-        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         if self.cfg['python_bindings']:
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
             custom_commands.extend(["python -c 'import clang'"])
