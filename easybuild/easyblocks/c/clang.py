@@ -75,8 +75,11 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
 # List of the known LLVM projects
-KNOWN_LLVM_PROJECTS = ['llvm', 'compiler-rt', 'clang', 'openmp', 'polly', 'lld', 'libunwind', 'lldb',
-                       'libcxx', 'libcxxabi', 'clang-tools-extra', 'flang']
+KNOWN_LLVM_PROJECTS = ['llvm', 'compiler-rt', 'clang', 'openmp', 'polly', 'lld', 'lldb',
+                       'clang-tools-extra', 'flang']
+
+# List of the known LLVM runtimes
+KNOWN_LLVM_RUNTIMES = ['libunwind', 'libcxx', 'libcxxabi']
 
 
 class EB_Clang(CMakeMake):
@@ -106,6 +109,7 @@ class EB_Clang(CMakeMake):
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'llvm_projects': [[], "LLVM projects to install", CUSTOM],
+            'llvm_runtimes': [[], "LLVM runtimes to install", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -129,27 +133,36 @@ class EB_Clang(CMakeMake):
                 self.log.warning(msg)
                 print_warning(msg)
 
-        # keep compatibility between using llvm_projects vs using flags
+        if not self.cfg['llvm_runtimes']:
+            self.cfg['llvm_runtimes'] = []
+        else:
+            for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in KNOWN_LLVM_RUNTIMES]:
+                msg = "LLVM runtime %s included but not recognised, this runtime will NOT be sanity checked!" % runtime
+                self.log.warning(msg)
+                print_warning(msg)
+
+        # keep compatibility between using llvm_projects/llvm_runtimes vs using flags
         if LooseVersion(self.version) >= LooseVersion('14'):
             self.cfg.update('llvm_projects', ['llvm', 'compiler-rt', 'clang', 'openmp'], allow_duplicate=False)
             if self.cfg['usepolly']:
                 self.cfg.update('llvm_projects', 'polly', allow_duplicate=False)
             if self.cfg['build_lld']:
-                self.cfg.update('llvm_projects', ['lld', 'libunwind'], allow_duplicate=False)
+                self.cfg.update('llvm_projects', ['lld'], allow_duplicate=False)
+                self.cfg.update('llvm_runtimes', ['libunwind'], allow_duplicate=False)
             if self.cfg['build_lldb']:
                 self.cfg.update('llvm_projects', 'lldb', allow_duplicate=False)
             if self.cfg['libcxx']:
-                self.cfg.update('llvm_projects', ['libcxx', 'libcxxabi'], allow_duplicate=False)
+                self.cfg.update('llvm_runtimes', ['libcxx', 'libcxxabi'], allow_duplicate=False)
             if self.cfg['build_extra_clang_tools']:
                 self.cfg.update('llvm_projects', 'clang-tools-extra', allow_duplicate=False)
 
         # ensure libunwind is there if lld is there
         if 'lld' in self.cfg['llvm_projects']:
-            self.cfg.update('llvm_projects', 'libunwind', allow_duplicate=False)
+            self.cfg.update('llvm_runtimes', 'libunwind', allow_duplicate=False)
 
         # ensure libcxxabi is there if libcxx is there
-        if 'libcxx' in self.cfg['llvm_projects']:
-            self.cfg.update('llvm_projects', 'libcxxabi', allow_duplicate=False)
+        if 'libcxx' in self.cfg['llvm_runtimes']:
+            self.cfg.update('llvm_runtimes', 'libcxxabi', allow_duplicate=False)
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -193,6 +206,7 @@ class EB_Clang(CMakeMake):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
+            self.cfg.update('configopts', '-DLLVM_ENABLE_RUNTIMES="%s"' % ';'.join(self.cfg['llvm_runtimes']))
         else:
             # Layout for previous versions
             #        llvm/             Unpack llvm-*.tar.gz here
@@ -222,7 +236,7 @@ class EB_Clang(CMakeMake):
             if 'lldb' in self.cfg['llvm_projects']:
                 find_source_dir('lldb-*', os.path.join(self.llvm_src_dir, 'tools', 'lldb'))
 
-            if 'libcxx' in self.cfg['llvm_projects']:
+            if 'libcxx' in self.cfg['llvm_runtimes']:
                 find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
                 find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
@@ -604,6 +618,32 @@ class EB_Clang(CMakeMake):
         """Custom sanity check for Clang."""
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
+
+        # Detect OpenMP support for CPU architecture
+        arch = get_cpu_architecture()
+        # Check architecture explicitly since Clang uses potentially
+        # different names
+        if arch == X86_64:
+            arch = 'x86_64'
+        elif arch == POWER:
+            arch = 'ppc64'
+        elif arch == AARCH64:
+            arch = 'aarch64'
+        else:
+            print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch)
+
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            glob_pattern = os.path.join(self.installdir, 'lib', '%s-*' % arch)
+            matches = glob.glob(glob_pattern)
+            if matches:
+                directory = os.path.basename(match[0])
+                self.runtime_lib_path = os.path.join("lib", directory)
+            else:
+                print_warning("Could not find runtime library directory")
+                self.runtime_lib_path = "lib"
+        else:
+            self.runtime_lib_path = "lib"
+
         custom_paths = {
             'files': [
                 "bin/clang", "bin/clang++", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt", "bin/llvm-link",
@@ -628,9 +668,14 @@ class EB_Clang(CMakeMake):
         if 'lldb' in self.cfg['llvm_projects']:
             custom_paths['files'].extend(["bin/lldb"])
 
-        if 'libcxx' in self.cfg['llvm_projects']:
-            custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
-            custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
+        if 'libunwind' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libunwind.%s" % shlib_ext)])
+
+        if 'libcxx' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++.%s" % shlib_ext)])
+
+        if 'libcxxabi' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++abi.%s" % shlib_ext)])
 
         if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
             flang_compiler = 'flang-new'
@@ -640,18 +685,6 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
-        # Detect OpenMP support for CPU architecture
-        arch = get_cpu_architecture()
-        # Check architecture explicitly since Clang uses potentially
-        # different names
-        if arch == X86_64:
-            arch = 'x86_64'
-        elif arch == POWER:
-            arch = 'ppc64'
-        elif arch == AARCH64:
-            arch = 'aarch64'
-        else:
-            print_warning("Unknown CPU architecture (%s) for OpenMP library check!" % arch)
         custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
                                       "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
         # If building for CUDA check that OpenMP target library was created
@@ -708,3 +741,15 @@ class EB_Clang(CMakeMake):
         if self.cfg['python_bindings']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
         return txt
+
+    def make_module_req_guess(self):
+        """
+        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
+        """
+        guesses = super(EB_Clang, self).make_module_req_guess()
+        guesses.update({
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
+        })
+        return guesses
