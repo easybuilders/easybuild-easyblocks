@@ -636,7 +636,7 @@ class EB_Clang(CMakeMake):
             glob_pattern = os.path.join(self.installdir, 'lib', '%s-*' % arch)
             matches = glob.glob(glob_pattern)
             if matches:
-                directory = os.path.basename(match[0])
+                directory = os.path.basename(matches[0])
                 self.runtime_lib_path = os.path.join("lib", directory)
             else:
                 print_warning("Could not find runtime library directory")
