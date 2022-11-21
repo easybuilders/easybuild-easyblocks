@@ -124,6 +124,7 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
+        self.runtime_lib_path = "lib"
 
         if not self.cfg['llvm_projects']:
             self.cfg['llvm_projects'] = []
