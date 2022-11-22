@@ -173,6 +173,42 @@ class EB_Clang(CMakeMake):
         # ensure libcxxabi is there if libcxx is there
         if 'libcxx' in self.cfg['llvm_runtimes']:
             self.cfg.update('llvm_runtimes', 'libcxxabi', allow_duplicate=False)
+        
+        build_targets = self.cfg['build_targets']
+        # define build_targets if not set
+        if build_targets is None:
+            arch = get_cpu_architecture()
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
+                # If CUDA is included as a dep, add NVPTX as a target
+                if get_software_root("CUDA"):
+                    default_targets += ["NVPTX"]
+                # For AMDGPU support we need ROCR-Runtime and
+                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
+                # ROCR we only check for the ROCR-Runtime here
+                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
+                if get_software_root("ROCR-Runtime"):
+                    default_targets += ["AMDGPU"]
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            except KeyError:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        # carry on with empty list from this point forward if no build targets are specified
+        if build_targets is None:
+            self.cfg['build_targets'] = build_targets = []
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -269,45 +305,6 @@ class EB_Clang(CMakeMake):
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare build environment."""
-        super(EB_Clang, self).prepare_step(*args, **kwargs)
-
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            try:
-                default_targets = DEFAULT_TARGETS_MAP[arch][:]
-                # If CUDA is included as a dep, add NVPTX as a target
-                if get_software_root("CUDA"):
-                    default_targets += ["NVPTX"]
-                # For AMDGPU support we need ROCR-Runtime and
-                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
-                # ROCR we only check for the ROCR-Runtime here
-                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-                if get_software_root("ROCR-Runtime"):
-                    default_targets += ["AMDGPU"]
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            except KeyError:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        # carry on with empty list from this point forward if no build targets are specified
-        if build_targets is None:
-            self.cfg['build_targets'] = build_targets = []
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
@@ -699,8 +696,12 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('3.8'):
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
 
-        custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
-                                      "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
+        if LooseVersion(self.version) >= LooseVersion('12'):
+            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
+        else:
+            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext]
+        custom_paths['files'].extend(omp_target_libs)
+        
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
