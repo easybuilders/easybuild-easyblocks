@@ -74,12 +74,12 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 # List of all supported CUDA toolkit versions supported by LLVM
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
-# List of the known LLVM projects
-KNOWN_LLVM_PROJECTS = ['llvm', 'compiler-rt', 'clang', 'openmp', 'polly', 'lld', 'lldb',
-                       'clang-tools-extra', 'flang']
 
+# When extending the lists below, make sure to add additional sanity checks!
+# List of the known LLVM projects
+KNOWN_LLVM_PROJECTS = ['llvm', 'clang', 'polly', 'lld', 'lldb', 'clang-tools-extra', 'flang']
 # List of the known LLVM runtimes
-KNOWN_LLVM_RUNTIMES = ['libunwind', 'libcxx', 'libcxxabi']
+KNOWN_LLVM_RUNTIMES = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi', 'openmp']
 
 
 class EB_Clang(CMakeMake):
@@ -128,23 +128,32 @@ class EB_Clang(CMakeMake):
 
         if not self.cfg['llvm_projects']:
             self.cfg['llvm_projects'] = []
-        else:
-            for project in [p for p in self.cfg['llvm_projects'] if p not in KNOWN_LLVM_PROJECTS]:
-                msg = "LLVM project %s included but not recognised, this project will NOT be sanity checked!" % project
-                self.log.warning(msg)
-                print_warning(msg)
-
         if not self.cfg['llvm_runtimes']:
             self.cfg['llvm_runtimes'] = []
-        else:
-            for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in KNOWN_LLVM_RUNTIMES]:
-                msg = "LLVM runtime %s included but not recognised, this runtime will NOT be sanity checked!" % runtime
-                self.log.warning(msg)
-                print_warning(msg)
+
+        # Be forgiving if someone places a runtime under projects since it is pretty new
+        for project in [p for p in self.cfg['llvm_projects'] if p in KNOWN_LLVM_RUNTIMES]:
+            msg = "LLVM project %s included but this should be a runtime, moving to runtime list!" % project
+            self.log.warning(msg)
+            self.cfg.update('llvm_runtimes', [project], allow_duplicate=False)
+            # No cleaner way to remove an element from the list
+            self.cfg['llvm_projects'] = [p for p in self.cfg['llvm_projects'] if p != project]
+            print_warning(msg)
+
+        for project in [p for p in self.cfg['llvm_projects'] if p not in KNOWN_LLVM_PROJECTS]:
+            msg = "LLVM project %s included but not recognised, this project will NOT be sanity checked!" % project
+            self.log.warning(msg)
+            print_warning(msg)
+
+        for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in KNOWN_LLVM_RUNTIMES]:
+            msg = "LLVM runtime %s included but not recognised, this runtime will NOT be sanity checked!" % runtime
+            self.log.warning(msg)
+            print_warning(msg)
 
         # keep compatibility between using llvm_projects/llvm_runtimes vs using flags
         if LooseVersion(self.version) >= LooseVersion('14'):
-            self.cfg.update('llvm_projects', ['llvm', 'compiler-rt', 'clang', 'openmp'], allow_duplicate=False)
+            self.cfg.update('llvm_projects', ['llvm', 'clang'], allow_duplicate=False)
+            self.cfg.update('llvm_runtimes', ['compiler-rt', 'openmp'], allow_duplicate=False)
             if self.cfg['usepolly']:
                 self.cfg.update('llvm_projects', 'polly', allow_duplicate=False)
             if self.cfg['build_lld']:
@@ -371,7 +380,11 @@ class EB_Clang(CMakeMake):
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
         if 'polly' in self.cfg['llvm_projects']:
-            self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
+            # Not exactly sure when this change took place, educated guess
+            if LooseVersion(self.version) >= LooseVersion('14'):
+                self.cfg.update('configopts', "-DLLVM_POLLY_LINK_INTO_TOOLS=ON")
+            else:
+                self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
         # If Z3 is included as a dep, enable support in static analyzer (if enabled)
         if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
@@ -452,7 +465,7 @@ class EB_Clang(CMakeMake):
                     regex_subs = [(r'.*add_subdirectory\(lit_tests\).*', '')]
                     apply_regex_substitutions(cmakelists, regex_subs)
 
-            # There is a common part seperate for the specific saniters, we disable all the common tests
+            # There is a common part seperate for the specific sanitizers, we disable all the common tests
             cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
             regex_subs = [(r'.*add_subdirectory\(tests\).*', '')]
             apply_regex_substitutions(cmakelists, regex_subs)
