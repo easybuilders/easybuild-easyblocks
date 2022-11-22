@@ -173,7 +173,7 @@ class EB_Clang(CMakeMake):
         # ensure libcxxabi is there if libcxx is there
         if 'libcxx' in self.cfg['llvm_runtimes']:
             self.cfg.update('llvm_runtimes', 'libcxxabi', allow_duplicate=False)
-        
+
         build_targets = self.cfg['build_targets']
         # define build_targets if not set
         if build_targets is None:
@@ -701,7 +701,7 @@ class EB_Clang(CMakeMake):
         else:
             omp_target_libs = ["lib/libomptarget.%s" % shlib_ext]
         custom_paths['files'].extend(omp_target_libs)
-        
+
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
