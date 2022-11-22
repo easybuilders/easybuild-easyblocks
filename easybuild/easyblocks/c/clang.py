@@ -75,7 +75,7 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
 
-## When extending the lists below, make sure to add additional sanity checks
+# When extending the lists below, make sure to add additional sanity checks!
 # List of the known LLVM projects
 KNOWN_LLVM_PROJECTS = ['llvm', 'clang', 'polly', 'lld', 'lldb', 'clang-tools-extra', 'flang']
 # List of the known LLVM runtimes
@@ -135,7 +135,7 @@ class EB_Clang(CMakeMake):
         for project in [p for p in self.cfg['llvm_projects'] if p in KNOWN_LLVM_RUNTIMES]:
             msg = "LLVM project %s included but this should be a runtime, moving to runtime list!" % project
             self.log.warning(msg)
-            self.cfg.update('llvm_runtimes', [project], allow_duplicate=False) 
+            self.cfg.update('llvm_runtimes', [project], allow_duplicate=False)
             # No cleaner way to remove an element from the list
             self.cfg['llvm_projects'] = [p for p in self.cfg['llvm_projects'] if p != project]
             print_warning(msg)
