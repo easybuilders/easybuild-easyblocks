@@ -860,9 +860,14 @@ class PythonPackage(ExtensionEasyBlock):
 
                     if not self.is_extension:
                         # for stand-alone Python package installations (not part of a bundle of extensions),
-                        # we need to load the fake module file, otherwise the Python package being installed
-                        # is not "in view", and we will overlook missing dependencies...
-                        fake_mod_data = self.load_fake_module(purge=True)
+                        # the (fake or real) module file must be loaded at this point,
+                        # otherwise the Python package being installed is not "in view",
+                        # and we will overlook missing dependencies...
+                        loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
+                        if self.short_mod_name not in loaded_modules:
+                            self.log.debug("Currently loaded modules: %s", loaded_modules)
+                            raise EasyBuildError("%s module is not loaded, this should never happen...",
+                                                 self.short_mod_name)
 
                     pip_check_errors = []
 
@@ -907,9 +912,6 @@ class PythonPackage(ExtensionEasyBlock):
                             "required (check the source for a pyproject.toml and see PEP517 for details on that)."
                          ) % (faulty_version, '\n'.join(faulty_pkg_names))
                         pip_check_errors.append(msg)
-
-                    if not self.is_extension:
-                        self.clean_up_fake_module(fake_mod_data)
 
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
