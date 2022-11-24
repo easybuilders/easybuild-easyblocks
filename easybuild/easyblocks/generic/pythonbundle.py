@@ -41,7 +41,8 @@ import easybuild.tools.environment as env
 
 class PythonBundle(Bundle):
     """
-    Bundle of modules: only generate module files, nothing to build/install
+    Bundle of PythonPackages: install Python packages as extensions in a bundle
+    Defines custom sanity checks and module environment
     """
 
     @staticmethod
