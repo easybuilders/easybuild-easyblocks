@@ -37,7 +37,8 @@ from easybuild.tools.modules import get_software_root
 
 class JuliaBundle(Bundle):
     """
-    Bundle of modules: only generate module files, nothing to build/install
+    Bundle of JuliaPackages: install Julia packages as extensions in a bundle
+    Defines custom sanity checks and module environment
     """
 
     @staticmethod
