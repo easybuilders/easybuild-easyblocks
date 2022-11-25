@@ -273,23 +273,12 @@ class EB_PyTorch(PythonPackage):
         for hit in ran_tests_hits:
             test_cnt += int(hit)
 
-        # Get matches to create clear summary report, greps for patterns like:
-        # FAILED (errors=10, skipped=190, expected failures=6)
-        # test_fx failed!
-        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"  # noqa: E501
-        summary_matches = re.findall(regex, tests_out, re.M)
-
-        # Get matches to create clear summary report, greps for patterns like:
-        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
-        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
-        summary_matches_pattern2 = re.findall(regex, tests_out, re.M)
-
-        # Count failures and errors
         def get_count_for_pattern(regex, text):
-            match = re.findall(regex, text, re.M)
-            if len(match) == 0:
-                return 0
-            elif len(match) == 1:
+            """Match the regexp containing a single group and return the integer value of the matched group.
+               Return zero if no or more than 1 match was found and warn for the latter case
+            """
+            match = re.findall(regex, text)
+            if len(match) == 1:
                 return int(match[0])
             elif len(match) > 1:
                 # Shouldn't happen, but means something went wrong with the regular expressions.
@@ -297,22 +286,41 @@ class EB_PyTorch(PythonPackage):
                 warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
                 warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
                 print_warning(warn_msg)
+            return 0
 
+        # Create clear summary report
+        failure_report = ""
         failure_cnt = 0
         error_cnt = 0
-        # Loop over first pattern to count failures/errors:
-        for summary in summary_matches:
-            failures = get_count_for_pattern(r"^.*(?<!expected )failures=(?P<failures>[0-9]+).*$", summary[1])
-            failure_cnt += failures
-            errs = get_count_for_pattern(r"^.*errors=(?P<errors>[0-9]+).*$", summary[1])
-            error_cnt += errs
 
-        # Loop over the second pattern to count failures/errors
-        for summary in summary_matches_pattern2:
-            failures = get_count_for_pattern(r"^.*[^0-9](?P<failures>[0-9]+) failed.*$", summary[0])
-            failure_cnt += failures
-            errs = get_count_for_pattern(r"^.*[^0-9](?P<errors>[0-9]+) error.*$", summary[0])
-            error_cnt += errs
+        # Grep for patterns like:
+        # Ran 219 tests in 67.325s
+        #
+        # FAILED (errors=10, skipped=190, expected failures=6)
+        # test_fx failed!
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"  # noqa: E501
+
+        for summary in re.findall(regex, tests_out, re.M):
+            # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
+            failure_summary = summary[1]
+            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+                    test_suite=summary[2], total=summary[0], failure_summary=failure_summary
+                )
+            failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
+            error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+
+        # Grep for patterns like:
+        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
+        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
+
+        for summary in re.findall(regex, tests_out, re.M):
+            # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
+            failure_summary = summary[0]
+            failure_report += "{test_suite} ({failure_summary})\n".format(
+                    test_suite=summary[1], failure_summary=failure_summary
+                )
+            failure_cnt = get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+            error_cnt = get_count_for_pattern(r"([0-9]+) error", failure_summary)
 
         # Calculate total number of unsuccesful tests
         failed_test_cnt = failure_cnt + error_cnt
@@ -325,12 +333,7 @@ class EB_PyTorch(PythonPackage):
             msg = "%d test %s, %d test %s (out of %d):\n" % (
                 failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
             )
-            for summary in summary_matches_pattern2:
-                msg += "{test_suite} ({failure_summary})\n".format(test_suite=summary[1], failure_summary=summary[0])
-            for summary in summary_matches:
-                msg += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                    test_suite=summary[2], total=summary[0], failure_summary=summary[1]
-                )
+            msg += failure_summary
 
             if max_failed_tests == 0:
                 raise EasyBuildError(msg)
