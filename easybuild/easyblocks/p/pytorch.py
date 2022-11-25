@@ -298,7 +298,10 @@ class EB_PyTorch(PythonPackage):
         #
         # FAILED (errors=10, skipped=190, expected failures=6)
         # test_fx failed!
-        regex = r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\nFAILED \((?P<failure_summary>.*)\)$\n(?:^(?:(?!failed!).)*$\n)*(?P<failed_test_suite_name>.*) failed!$"  # noqa: E501
+        regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
+                 r"FAILED \((?P<failure_summary>.*)\)$\n"
+                 r"(?:^(?:(?!failed!).)*$\n)*"
+                 r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
 
         for summary in re.findall(regex, tests_out, re.M):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
