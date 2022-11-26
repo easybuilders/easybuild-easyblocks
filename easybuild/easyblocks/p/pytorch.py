@@ -322,8 +322,8 @@ class EB_PyTorch(PythonPackage):
             failure_report += "{test_suite} ({failure_summary})\n".format(
                     test_suite=summary[1], failure_summary=failure_summary
                 )
-            failure_cnt = get_count_for_pattern(r"([0-9]+) failed", failure_summary)
-            error_cnt = get_count_for_pattern(r"([0-9]+) error", failure_summary)
+            failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+            error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
 
         # Calculate total number of unsuccesful tests
         failed_test_cnt = failure_cnt + error_cnt
