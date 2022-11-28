@@ -303,11 +303,12 @@ class EB_PyTorch(PythonPackage):
                  r"(?:^(?:(?!failed!).)*$\n)*"
                  r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
 
-        for summary in re.findall(regex, tests_out, re.M):
+        for m in re.finditer(regex, tests_out, re.M):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-            failure_summary = summary[1]
+            failure_summary = m['failure_summary']
+            total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
             failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                    test_suite=summary[2], total=summary[0], failure_summary=failure_summary
+                    test_suite=test_suite, total=total, failure_summary=failure_summary
                 )
             failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
             error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
@@ -316,11 +317,12 @@ class EB_PyTorch(PythonPackage):
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
         regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
 
-        for summary in re.findall(regex, tests_out, re.M):
+        for m in re.finditer(regex, tests_out, re.M):
             # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-            failure_summary = summary[0]
+            failure_summary = m['failure_summary']
+            test_suite = m['failed_test_suite_name']
             failure_report += "{test_suite} ({failure_summary})\n".format(
-                    test_suite=summary[1], failure_summary=failure_summary
+                    test_suite=test_suite, failure_summary=failure_summary
                 )
             failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
@@ -336,7 +338,7 @@ class EB_PyTorch(PythonPackage):
             msg = "%d test %s, %d test %s (out of %d):\n" % (
                 failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
             )
-            msg += failure_summary
+            msg += failure_report
 
             if max_failed_tests == 0:
                 raise EasyBuildError(msg)
