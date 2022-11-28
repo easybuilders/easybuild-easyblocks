@@ -267,12 +267,7 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
-
-        ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
-        test_cnt = 0
-        for hit in ran_tests_hits:
-            test_cnt += int(hit)
+        tests_out, tests_ec = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
         def get_count_for_pattern(regex, text):
             """Match the regexp containing a single group and return the integer value of the matched group.
@@ -331,29 +326,36 @@ class EB_PyTorch(PythonPackage):
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
             failed_test_suites.append(test_suite)
 
-        # Calculate total number of unsuccesful tests
-        failed_test_cnt = failure_cnt + error_cnt
         # Make the names unique
         failed_test_suites = nub(failed_test_suites)
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        failed_test_suites_2 = nub(
+        all_failed_test_suites = nub(
             re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
         )
-        if failed_test_suites_2 != failed_test_suites:
-            failure_report = '\n'.join('* %s' % t for t in sorted(failed_test_suites_2)) + failure_report
+        # If we missed any test suites prepend a list of all failed test suites
+        if failed_test_suites != all_failed_test_suites:
+            failure_report_save = failure_report
+            failure_report = 'Failed tests (suites/files):\n'
+            failure_report += '\n'.join('* %s' % t for t in sorted(all_failed_test_suites))
+            if failure_report_save:
+                failure_report += '\n' + failure_report_save
+
+        # Calculate total number of unsuccesful and total tests
+        failed_test_cnt = failure_cnt + error_cnt
+        test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']
 
-            failure_or_failures = 'failures' if failure_cnt > 1 else 'failure'
-            error_or_errors = 'errors' if error_cnt > 1 else 'error'
+            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
+            error_or_errors = 'error' if error_cnt == 1 else 'errors'
             msg = "%d test %s, %d test %s (out of %d):\n" % (
                 failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
             )
             msg += failure_report
 
             # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
-            if max_failed_tests == 0 or failed_test_suites_2 != failed_test_suites:
+            if max_failed_tests == 0 or failed_test_suites != all_failed_test_suites:
                 raise EasyBuildError(msg)
             else:
                 msg += '\n\n' + ' '.join([
