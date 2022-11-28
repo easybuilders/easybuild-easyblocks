@@ -40,6 +40,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
@@ -292,6 +293,7 @@ class EB_PyTorch(PythonPackage):
         failure_report = ""
         failure_cnt = 0
         error_cnt = 0
+        failed_test_suites = []
 
         # Grep for patterns like:
         # Ran 219 tests in 67.325s
@@ -312,6 +314,7 @@ class EB_PyTorch(PythonPackage):
                 )
             failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
             error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+            failed_test_suites.append(test_suite)
 
         # Grep for patterns like:
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
@@ -326,9 +329,18 @@ class EB_PyTorch(PythonPackage):
                 )
             failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
+            failed_test_suites.append(test_suite)
 
         # Calculate total number of unsuccesful tests
         failed_test_cnt = failure_cnt + error_cnt
+        # Make the names unique
+        failed_test_suites = nub(failed_test_suites)
+        # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
+        failed_test_suites_2 = nub(
+            re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
+        )
+        if failed_test_suites_2 != failed_test_suites:
+            failure_report = '\n'.join('* %s' % t for t in sorted(failed_test_suites_2)) + failure_report
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']
@@ -340,7 +352,8 @@ class EB_PyTorch(PythonPackage):
             )
             msg += failure_report
 
-            if max_failed_tests == 0:
+            # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
+            if max_failed_tests == 0 or failed_test_suites_2 != failed_test_suites:
                 raise EasyBuildError(msg)
             else:
                 msg += '\n\n' + ' '.join([
@@ -360,6 +373,8 @@ class EB_PyTorch(PythonPackage):
                 if failed_test_cnt > max_failed_tests:
                     raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
                                          failed_test_cnt, max_failed_tests)
+        elif failure_report:
+            raise EasyBuildError("Test command had non-zero exit code (%s)!\n%s", tests_ec, failure_report)
         elif tests_ec:
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
