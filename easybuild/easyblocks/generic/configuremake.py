@@ -190,7 +190,8 @@ class ConfigureMake(EasyBlock):
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
-            'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
+            'test_cmd': [None, "Test command to use ('runtest' value is appended, default: '%s')" % DEFAULT_TEST_CMD,
+                         CUSTOM],
         })
         return extra_vars
 
@@ -350,13 +351,13 @@ class ConfigureMake(EasyBlock):
         """
 
         test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
-        if self.cfg['runtest'] or test_cmd != DEFAULT_TEST_CMD:
-            cmd = ' '.join([
-                self.cfg['pretestopts'],
-                test_cmd,
-                self.cfg['runtest'],
-                self.cfg['testopts'],
-            ])
+        run_test = self.cfg['runtest']
+        if run_test or test_cmd != DEFAULT_TEST_CMD:
+            # Make run_test a string (empty if it is e.g. a boolean)
+            if not isinstance(run_test, str):
+                run_test = ''
+            # Compose command filtering out empty values
+            cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, run_test, self.cfg['testopts']) if x])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             return out
