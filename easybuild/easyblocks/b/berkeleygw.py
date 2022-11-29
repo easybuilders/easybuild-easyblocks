@@ -178,6 +178,7 @@ class EB_BerkeleyGW(ConfigureMake):
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
             setvar('OMP_NUM_THREADS', '4')
+            setvar('TEMPDIRPATH', os.path.join(self.builddir, 'tmp'))
         super(EB_BerkeleyGW, self).test_step()
 
     def sanity_check_step(self):
