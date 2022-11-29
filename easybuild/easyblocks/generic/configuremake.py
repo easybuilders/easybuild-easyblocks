@@ -190,7 +190,8 @@ class ConfigureMake(EasyBlock):
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
-            'test_cmd': [None, "Test command to use ('runtest' value is appended, default: '%s')" % DEFAULT_TEST_CMD, CUSTOM],
+            'test_cmd': [None, "Test command to use ('runtest' value is appended, default: '%s')" % DEFAULT_TEST_CMD,
+                         CUSTOM],
         })
         return extra_vars
 
