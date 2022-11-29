@@ -40,7 +40,6 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
@@ -326,17 +325,18 @@ class EB_PyTorch(PythonPackage):
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
             failed_test_suites.append(test_suite)
 
-        # Make the names unique
-        failed_test_suites = nub(failed_test_suites)
+        # Make the names unique and sorted
+        failed_test_suites = sorted(set(failed_test_suites))
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        all_failed_test_suites = nub(
+        # Also unique and sorted to be able to compare the lists below
+        all_failed_test_suites = sorted(set(
             re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
-        )
+        ))
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
             failure_report_save = failure_report
             failure_report = 'Failed tests (suites/files):\n'
-            failure_report += '\n'.join('* %s' % t for t in sorted(all_failed_test_suites))
+            failure_report += '\n'.join('* %s' % t for t in all_failed_test_suites)
             if failure_report_save:
                 failure_report += '\n' + failure_report_save
 
