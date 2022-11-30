@@ -301,7 +301,7 @@ class EB_PyTorch(PythonPackage):
 
         for m in re.finditer(regex, tests_out, re.M):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-            failure_summary = m['failure_summary']
+            failure_summary = m.group('failure_summary')
             total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
             failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
                     test_suite=test_suite, total=total, failure_summary=failure_summary
@@ -316,8 +316,8 @@ class EB_PyTorch(PythonPackage):
 
         for m in re.finditer(regex, tests_out, re.M):
             # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-            failure_summary = m['failure_summary']
-            test_suite = m['failed_test_suite_name']
+            failure_summary = m.group('failure_summary')
+            test_suite = m.group('failed_test_suite_name')
             failure_report += "{test_suite} ({failure_summary})\n".format(
                     test_suite=test_suite, failure_summary=failure_summary
                 )
