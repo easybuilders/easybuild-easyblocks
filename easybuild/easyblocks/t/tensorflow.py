@@ -430,10 +430,14 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
+        # This is either the builddir (for standalone builds) or the extension sub folder when TF is an extension
+        # Either way this folder only contains the folder with the sources and hence we can use fixed names
+        # for the subfolders
+        parent_dir = os.path.dirname(self.start_dir)
         # Path where Bazel will store its output, build artefacts etc.
-        self.output_user_root_dir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
-        self.wrapper_dir = tempfile.mkdtemp(suffix='-wrapper_bin', dir=self.builddir)
+        self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
