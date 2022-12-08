@@ -351,13 +351,13 @@ class ConfigureMake(EasyBlock):
         """
 
         test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
-        run_test = self.cfg['runtest']
-        if run_test or test_cmd != DEFAULT_TEST_CMD:
+        runtest = self.cfg['runtest']
+        if runtest or test_cmd != DEFAULT_TEST_CMD:
             # Make run_test a string (empty if it is e.g. a boolean)
-            if not isinstance(run_test, str):
-                run_test = ''
+            if not isinstance(runtest, str):
+                runtest = ''
             # Compose command filtering out empty values
-            cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, run_test, self.cfg['testopts']) if x])
+            cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             return out
