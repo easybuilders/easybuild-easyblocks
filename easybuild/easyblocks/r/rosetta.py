@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2021 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for building and installing Rosetta, implemented as an easyblo
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Ali Kerrache (University of Manitoba)
 """
 import fileinput
 import os
@@ -37,6 +38,7 @@ import re
 import shutil
 import sys
 import easybuild.tools.toolchain as toolchain
+
 from easybuild.easyblocks.icc import get_icc_version
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
@@ -44,10 +46,18 @@ from easybuild.tools.filetools import change_dir, extract_file, mkdir, write_fil
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-
+from distutils.version import LooseVersion
+from easybuild.framework.easyconfig import CUSTOM
 
 class EB_Rosetta(EasyBlock):
     """Support for building/installing Rosetta."""
+
+    @staticmethod
+    def extra_options():
+        extra_vars = {
+            'serialization': [False, "Enable mpi,serialization build for Rosetta.", CUSTOM],
+        }
+        return EasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Rosetta."""
@@ -109,7 +119,10 @@ class EB_Rosetta(EasyBlock):
         self.cfg.update('buildopts', "cxx=%s cxx_ver=%s" % (self.cxx, cxx_ver))
 
         if self.toolchain.options.get('usempi', None):
-            self.cfg.update('buildopts', 'extras=mpi')
+            if self.cfg['serialization']:
+                self.cfg.update('buildopts', 'extras=mpi,serialization')
+            else:
+                self.cfg.update('buildopts', 'extras=mpi')
             defines.extend(['USEMPI', 'MPICH_IGNORE_CXX_SEEK'])
 
         # make sure important environment variables are passed down
@@ -121,20 +134,16 @@ class EB_Rosetta(EasyBlock):
         self.log.debug("List of extra environment variables to pass down: %s" % str(env_vars))
 
         # create user.settings file
-        paths = os.getenv('PATH')
-        paths = paths.split(':') if paths else []
-        ld_library_paths = os.getenv('LD_LIBRARY_PATH')
-        ld_library_paths = ld_library_paths.split(':') if ld_library_paths else []
-        cpaths = os.getenv('CPATH')
-        cpaths = cpaths.split(':') if cpaths else []
+        paths = os.getenv('PATH').split(':')
+        #ld_library_paths = os.getenv('LD_LIBRARY_PATH').split(':')
+        cpaths = os.getenv('CPATH').split(':')
         flags = [str(f).strip('-') for f in self.toolchain.variables['CXXFLAGS'].copy()]
 
         txt = '\n'.join([
+            "import os",
             "settings = {",
             "   'user': {",
             "       'prepends': {",
-            "           'library_path': %s," % str(ld_library_paths),
-            "           'include_path': %s," % str(cpaths),
             "       },",
             "       'appends': {",
             "           'program_path': %s," % str(paths),
@@ -145,18 +154,7 @@ class EB_Rosetta(EasyBlock):
             "           'defines': %s," % str(defines),
             "       },",
             "       'overrides': {",
-            "           'cc': '%s'," % os.getenv('CC'),
-            "           'cxx': '%s'," % os.getenv('CXX'),
-            "           'ENV': {",
-            "               'INTEL_LICENSE_FILE': '%s'," % os.getenv('INTEL_LICENSE_FILE'),  # Intel license file
-            "               'PATH': %s," % str(paths),
-            "               'LD_LIBRARY_PATH': %s," % str(ld_library_paths),
-        ])
-        txt += '\n'
-        for (key, val) in env_vars.items():
-            txt += "               '%s': '%s',\n" % (key, val)
-        txt += '\n'.join([
-            "           },",
+            "           'ENV': os.environ,",
             "       },",
             "       'removes': {",
             "       },",
@@ -249,8 +247,6 @@ class EB_Rosetta(EasyBlock):
         # (extract and) copy database, docs, demos (incl tutorials) and biotools (if it's there)
         if os.path.exists(os.path.join(self.cfg['start_dir'], 'main', 'database')):
             extract_and_copy(os.path.join('main', 'database') + '%s')
-        else:
-            extract_and_copy('rosetta_database%s')
 
         extract_and_copy('demos%s', optional=True, symlinks=True)
         extract_and_copy('documentation%s', optional=True, symlinks=True)
@@ -276,7 +272,10 @@ class EB_Rosetta(EasyBlock):
 
         infix = ''
         if self.toolchain.options.get('usempi', None):
-            infix = 'mpi.'
+            if self.cfg['serialization']:
+                infix = 'mpiserialization.'
+            else:
+                infix = 'mpi.'
 
         binaries = ["AbinitioRelax", "backrub", "cluster", "combine_silent", "extract_pdbs",
                     "idealize_jd2", "packstat", "relax", "score_jd2", "score"]
