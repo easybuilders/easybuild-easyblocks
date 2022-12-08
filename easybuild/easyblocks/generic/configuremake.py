@@ -184,6 +184,7 @@ class ConfigureMake(EasyBlock):
                                  " False implies to leave it up to the configure script)", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
+            'configure_no_prefix': [False, "Avoid adding a prefix to the configure command", CUSTOM],
             'host_type': [None, "Value to provide to --host option of configure script, e.g., x86_64-pc-linux-gnu "
                                 "(determined by config.guess shipped with EasyBuild if None,"
                                 " False implies to leave it up to the configure script)", CUSTOM],
@@ -303,11 +304,16 @@ class ConfigureMake(EasyBlock):
             if host_type:
                 build_and_host_options.append(' --host=' + host_type)
 
+        if self.cfg.get('configure_no_prefix'):
+            configure_prefix = ''
+        else:
+            configure_prefix = prefix_opt + self.installdir
+
         cmd = ' '.join(
             [
                 self.cfg['preconfigopts'],
                 configure_command,
-                prefix_opt + self.installdir,
+                configure_prefix,
             ] + build_and_host_options + [self.cfg['configopts']]
         )
 
