@@ -247,7 +247,12 @@ class EB_Rosetta(EasyBlock):
         # (extract and) copy database, docs, demos (incl tutorials) and biotools (if it's there)
         if os.path.exists(os.path.join(self.cfg['start_dir'], 'main', 'database')):
             extract_and_copy(os.path.join('main', 'database') + '%s')
-
+        else:
+            self.looseversion = LooseVersion(self.version)
+            if self.looseversion <= LooseVersion('3.12'):
+                extract_and_copy('rosetta_database%s')
+            else:
+                extract_and_copy('database%s')
         extract_and_copy('demos%s', optional=True, symlinks=True)
         extract_and_copy('documentation%s', optional=True, symlinks=True)
         extract_and_copy('BioTools%s', optional=True)
