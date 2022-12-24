@@ -65,9 +65,6 @@ class EB_MRtrix(EasyBlock):
             env.setvar('QMAKE_CXX', os.getenv('CXX'))
             cmd = "python configure -verbose"
 
-            if LooseVersion(self.version) >= LooseVersion('3.0'):
-                cmd += " -openmp"
-
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def build_step(self):
