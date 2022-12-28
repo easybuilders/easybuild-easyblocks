@@ -52,8 +52,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Custom easyconfig parameters for Quantum ESPRESSO."""
         extra_vars = {
             'hybrid': [False, "Enable hybrid build (with OpenMP)", CUSTOM],
-            'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
+            'lmaxx': [False, "max non local angular momentum (l=0 to lmaxx)", CUSTOM],
+            'lqmax': [False, "max number of angular momenta of Q", CUSTOM],
+            'npk': [False, "max number of k-points", CUSTOM],
+            'nsx': [False, "max number of atomic species (CP)", CUSTOM],
+            'ntypx': [False, "Max number of different types of atom", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
+            'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -255,6 +260,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
             make_ext = '.inc'
         else:
             make_ext = '.sys'
+
+        # patch Modules/parameter.f90 file to set compilation parameters
+        regex_para = []
+        for key in ['lmaxx', 'lqmax', 'npk', 'nsx', 'ntypx']:
+            if self.cfg[key]:
+                regex_para.append((key + r'\s*=[^,&!]+', '{0} = {1}'.format(key, self.cfg[key])))
+        apply_regex_substitutions(os.path.join('Modules', 'parameters.f90'), regex_para)
 
         # patch make.sys file
         fn = os.path.join(self.cfg['start_dir'], 'make' + make_ext)
