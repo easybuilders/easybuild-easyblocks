@@ -46,8 +46,7 @@ from easybuild.tools.run import run_cmd
 
 class Tarball(ExtensionEasyBlock):
     """
-    Precompiled software supplied as a tarball:
-    - will unpack binary and copy it to the install dir
+    Precompiled software supplied as a tarball: will unpack binary and copy it to the install dir
     """
 
     @staticmethod

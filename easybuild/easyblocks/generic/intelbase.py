@@ -91,6 +91,7 @@ COMP_DEFAULTS = 'DEFAULTS'
 class IntelBase(EasyBlock):
     """
     Base class for Intel software
+
     - no configure/make : binary release
     - add license_file variable
     """
