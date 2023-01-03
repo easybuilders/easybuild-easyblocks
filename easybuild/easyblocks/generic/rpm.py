@@ -94,6 +94,7 @@ def rebuild_rpm(rpm_path, targetdir):
 class Rpm(Binary):
     """
     Support for installing RPM files.
+
     - sources is a list of rpms
     - installation is with --nodeps (so the sources list has to be complete)
     """
