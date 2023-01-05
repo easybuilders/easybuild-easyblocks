@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -56,6 +56,8 @@ class EB_ANSYS(PackedBinary):
         if licport is None:
             licport = os.getenv('EB_ANSYS_LICENSE_SERVER_PORT', '2325:1055')
 
+        # Sources (e.g. iso files) may drop the execute permissions
+        adjust_permissions('INSTALL', stat.S_IXUSR)
         cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
         run_cmd(cmd, log_all=True, simple=True)
 
