@@ -163,8 +163,7 @@ class EB_Clang_minus_AOMP(Bundle):
         custom_paths = {
             'files': ['bin/clang', 'bin/lld', 'lib/libomp.%s' % shlib_ext,
                       'lib/libomptarget.rtl.amdgpu.%s' % shlib_ext, 'lib/libomptarget.%s' % shlib_ext],
-            'dirs': ['amdgcn/bitcode', 'include/clang', 'include/lld', 'include/llvm',
-                     'lib/libdevice'],
+            'dirs': ['amdgcn/bitcode', 'include/clang', 'include/lld', 'include/llvm'],
         }
         custom_commands = ['clang --help', 'clang++ --help']
 
@@ -176,7 +175,8 @@ class EB_Clang_minus_AOMP(Bundle):
 
         # Check that all AMD GFX libraries were built
         for gfx in self.amd_gfx_archs:
-            custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
+            if LooseVersion(self.version) < LooseVersion("5.2"):
+                custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
             if LooseVersion(self.version) >= LooseVersion("5"):
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-amdgcn-%s.bc' % gfx))
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-new-amdgpu-%s.bc' % gfx))
@@ -267,6 +267,11 @@ class EB_Clang_minus_AOMP(Bundle):
             '',
         ])
 
+        if LooseVersion(self.version) >= LooseVersion("5.2"):
+            component['configopts'] += ' '.join([
+                "-DDEVICELIBS_ROOT=%s" % self.device_lib_path,
+            ])
+
         if get_software_root('CUDA'):
             llvm_link = os.path.join(self.installdir, 'bin', 'llvm-link')
             cuda_path = os.path.join(self.installdir, 'bin', 'clang++')
@@ -288,4 +293,10 @@ class EB_Clang_minus_AOMP(Bundle):
             "-DAOMP_STANDALONE_BUILD=1",
             "-DROCDL=%s" % self.device_lib_path,
             "-DROCM_DIR=%s" % self.installdir,
+            '',
         ])
+
+        if LooseVersion(self.version) >= LooseVersion("5.2"):
+            component['configopts'] += ' '.join([
+                "-DAOMP_VERSION_STRING=%s" % self.version,
+            ])
