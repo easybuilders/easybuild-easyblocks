@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2023 Ghent University
+# Copyright 2017-2022 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,14 +35,13 @@ import os
 import re
 import stat
 import tempfile
-from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import run
+from easybuild.tools import run, LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
@@ -760,6 +759,11 @@ class EB_TensorFlow(PythonPackage):
         self.bazel_opts = [
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
+        # Environment variables and values needed for Bazel actions.
+        action_env = {}
+        # A value of None is interpreted as using the invoking environments value
+        INHERIT = None  # For better readability
+
         jvm_max_memory = self.cfg['jvm_max_memory']
         if jvm_max_memory:
             jvm_startup_memory = min(512, int(jvm_max_memory))
@@ -801,21 +805,17 @@ class EB_TensorFlow(PythonPackage):
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
         if cpaths:
-            self.target_opts.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
+            action_env['CPATH'] = ':'.join(cpaths)
         if libpaths:
-            self.target_opts.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
-        self.target_opts.append('--action_env=PYTHONPATH')
+            action_env['LIBRARY_PATH'] = ':'.join(libpaths)
+        action_env['PYTHONPATH'] = INHERIT
         # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
         if 'EBPYTHONPREFIXES' in os.environ:
-            self.target_opts.append('--action_env=EBPYTHONPREFIXES')
+            action_env['EBPYTHONPREFIXES'] = INHERIT
 
         # Ignore user environment for Python
-        self.target_opts.append('--action_env=PYTHONNOUSERSITE=1')
-
-        # Use the same configuration (i.e. environment) for compiling and using host tools
-        # This means that our action_envs are always passed
-        self.target_opts.append('--distinct_host_configuration=false')
+        action_env['PYTHONNOUSERSITE'] = '1'
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
@@ -850,6 +850,26 @@ class EB_TensorFlow(PythonPackage):
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn),
             # and download it if needed
             self.target_opts.append('--config=mkl')
+
+        bazel_version = LooseVersion(get_software_version('Bazel'))
+        if bazel_version.version is None:
+            raise EasyBuildError('Bazel version not found. Is it a dependency?')
+
+        # Use the same configuration (i.e. environment) for compiling and using host tools
+        # This means that our action_envs are (almost) always passed
+        # Fully removed in Bazel 6.0 and limitted effect after at least 3.7 (see --host_action_env)
+        if bazel_version < '6.0.0':
+            self.target_opts.append('--distinct_host_configuration=false')
+
+        for key, value in action_env.items():
+            option = key
+            if value is not None:
+                option += "='%s'" % value
+
+            self.target_opts.append('--action_env=' + option)
+            if bazel_version >= '3.7.0':
+                # See https://github.com/bazelbuild/bazel/commit/a463d9095386b22c121d20957222dbb44caef7d4
+                self.target_opts.append('--host_action_env=' + option)
 
         # Compose final command
         cmd = (
@@ -1017,6 +1037,7 @@ class EB_TensorFlow(PythonPackage):
                         self.log.warning('Test %s failed with output\n%s', test_name,
                                          read_file(log_path, log_error=False))
                 if failed_tests:
+                    failed_tests = sorted(set(failed_tests))  # Make unique to not count retries
                     fail_msg = 'At least %s %s tests failed:\n%s' % (
                         len(failed_tests), device, ', '.join(failed_tests))
                 self.report_test_failure(fail_msg)
