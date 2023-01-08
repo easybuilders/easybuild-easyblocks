@@ -3,7 +3,48 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 39 generic easyblocks.
+
+
+v4.7.0 (January 9th 2023)
+-------------------------
+
+feature release
+
+- add generic easyblocks for installing (bundle of) Julia packages: JuliaPackage (#2816) and JuliaBundle (#2830)
+- minor enhancements and updates, including:
+  - enhance TensorFlow easyblock to take into account provided OpenSSL dependency (#2575)
+  - add fix_shebang to install_step of PythonPackage easyblock so that we can fix shebangs when installing extensions (#2680)
+  - update PETSc easyblock for newer versions (>= 3.17) (#2796)
+  - update Clang easyblock to add support for new directory structure in Clang versions >= 14 + support Flang (#2800)
+  - update Xmipp easyblock since versions >= 3.20.07 use `noAsk` option to configure (#2809)
+  - add include/opencv4 to $CPATH for OpenCV versions >= 4.0 (#2818)
+  - add extra option for disabling LAPACK in ESMF (#2821)
+  - enable building of static libraries for libxml2 >= 2.10 (#2825)
+  - update Xmipp easyblock to handle effects of CUDA at SYSTEM level and newer CUDA version requirements for stdc++ (#2831)
+  - update LLVM easyblock to put 'cmake' symlink in place so separate CMake modules required for LLVM 15+ can be found (#2832)
+  - set $TEMPDIRPATH for testsuite in the BerkeleyGW easyblock, to avoid polluting /tmp (#2836)
+  - add `configure_no_prefix` option to skip addition of prefix to configure command in ConfigureMake easyblock (#2842)
+  - update qscintilla.py to be compatible with EB install of PyQt5 >= 5.15 (#2845)
+  - add UCC to known_dependencies in OpenMPI EasyBlock (#2847)
+  - update Clang-AOMP easyblock to handle version 5.2 and newer (#2851)
+- various bug fixes, including:
+  - fix installing of Clang with RPATH linking (#2799)
+  - fix --module-only for Clang + fix sanity check for Clang 11.x (#2800)
+  - create $XDG_CACHE_HOME for PyTorch tests (#2806)
+  - make PythonPackage easyblock compatible with --sanity-check-only by loading module early during sanity check step (#2828)
+  - fix docstring of PythonBundle generic easyblock (#2833)
+  - fix counting of failures in PyTorch tests (#2834, #2840)
+  - make sure that ANSYS INSTALL script has execute permissions (#2852, #2853)
+- other changes:
+  - remove useless -openmp build option for MRtrix v3.x (#2822)
+  - update HDF5 easyblock to use --enable-threadsafe configure option to make C API thread safe (#2824)
+  - use new EasyBuild logo in README (#2827)
+  - automatically cancel Github Action workflow runs for outdated commits (#2835)
+  - use fixed names for bazel/wrapper subdirectories used when building TensorFlow, to make debugging easier (#2841)
+  - also run unit tests with Python 3.11 (#2844)
+  - tweak docstring in some generic easyblocks so it renders nicely in auto-generated documentation (#2849)
+  - update copyright lines for 2023 (#2850)
 
 
 v4.6.2 (October 21st 2022)
