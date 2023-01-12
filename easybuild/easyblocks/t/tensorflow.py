@@ -210,6 +210,14 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     return result
 
 
+def get_bazel_version():
+    """Get the Bazel version as a LooseVersion. Error if not found"""
+    version = get_software_version('Bazel')
+    if version is None:
+        raise EasyBuildError('Bazel version not found. Is it a dependency?')
+    return LooseVersion(version)
+
+
 class EB_TensorFlow(PythonPackage):
     """Support for building/installing TensorFlow."""
 
@@ -445,7 +453,9 @@ class EB_TensorFlow(PythonPackage):
         # and will hang forever building the TensorFlow package.
         # So limit to something high but still reasonable while allowing ECs to overwrite it
         if self.cfg['maxparallel'] is None:
-            self.cfg['parallel'] = min(self.cfg['parallel'], 96)
+            # Seemingly Bazel around 3.x got better, so double the max there
+            bazel_max = 64 if get_bazel_version() < '3.0.0' else 128
+            self.cfg['parallel'] = min(self.cfg['parallel'], bazel_max)
 
         binutils_root = get_software_root('binutils')
         if not binutils_root:
@@ -852,9 +862,7 @@ class EB_TensorFlow(PythonPackage):
             # and download it if needed
             self.target_opts.append('--config=mkl')
 
-        bazel_version = LooseVersion(get_software_version('Bazel'))
-        if bazel_version.version is None:
-            raise EasyBuildError('Bazel version not found. Is it a dependency?')
+        bazel_version = get_bazel_version()
 
         # Use the same configuration (i.e. environment) for compiling and using host tools
         # This means that our action_envs are (almost) always passed
