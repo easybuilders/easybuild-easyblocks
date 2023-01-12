@@ -79,13 +79,12 @@ def extract_failed_tests_info(tests_out):
              r"(?:^(?:(?!failed!).)*$\n)*"
              r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
 
-    for m in re.finditer(regex, tests_out, re.M):
+    for match in re.finditer(regex, tests_out, re.M):
         # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-        failure_summary = m.group('failure_summary')
-        total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-        failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                test_suite=test_suite, total=total, failure_summary=failure_summary
-            )
+        info = match.groupdict()
+        failure_summary =  info['failure_summary']
+        test_cnt, test_suite = info['test_cnt'], info['failed_test_suite_name']
+        failure_report += test_suite + ' (' + test_cnt + " total tests, " + failure_summary + ')\n'
         failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
         error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
         failed_test_suites.append(test_suite)
@@ -94,13 +93,11 @@ def extract_failed_tests_info(tests_out):
     # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
     regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
 
-    for m in re.finditer(regex, tests_out, re.M):
+    for match in re.finditer(regex, tests_out, re.M):
         # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-        failure_summary = m.group('failure_summary')
-        test_suite = m.group('failed_test_suite_name')
-        failure_report += "{test_suite} ({failure_summary})\n".format(
-                test_suite=test_suite, failure_summary=failure_summary
-            )
+        info = match.groupdict()
+        failure_summary, test_suite = info['failure_summary'], info['failed_test_suite_name']
+        failure_report += test_suite + ' ' + failure_summary + '\n'
         failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
         error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
         failed_test_suites.append(test_suite)
@@ -112,11 +109,10 @@ def extract_failed_tests_info(tests_out):
     regex = (r"^AssertionError: (?P<failed_test_cnt>[0-9]+) unit test\(s\) failed:$\n"
              r"(?:^(?:(?!failed!).)*$\n)*"
              r"(?P<failed_test_group_name>.*) failed!$")
-    for m in re.finditer(regex, tests_out, re.M):
-        test_group = m.group('failed_test_group_name')
-        failed_test_cnt = m.group('failed_test_cnt')
-        failure_report += "{test_group} ({failed_test_cnt} failed tests)\n".format(
-                test_group=test_group, failed_test_cnt=failed_test_cnt)
+    for match in re.finditer(regex, tests_out, re.M):
+        info = match.groupdict()
+        test_group, failed_test_cnt = info['failed_test_group_name'], info['failed_test_cnt']
+        failure_report += test_group + ' (' + failed_test_cnt + " failed tests)\n"
         failure_cnt += int(failed_test_cnt)
         failed_test_suites.append(test_group)
 
