@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2022 Ghent University
+# Copyright 2017-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -445,7 +445,7 @@ class EB_TensorFlow(PythonPackage):
         # and will hang forever building the TensorFlow package.
         # So limit to something high but still reasonable while allowing ECs to overwrite it
         if self.cfg['maxparallel'] is None:
-            self.cfg['parallel'] = min(self.cfg['parallel'], 64)
+            self.cfg['parallel'] = min(self.cfg['parallel'], 96)
 
         binutils_root = get_software_root('binutils')
         if not binutils_root:
@@ -758,6 +758,7 @@ class EB_TensorFlow(PythonPackage):
         # Options passed to the bazel command
         self.bazel_opts = [
             '--output_user_root=%s' % self.output_user_root_dir,
+            '--local_startup_timeout_secs=600',  # 5min for bazel to start
         ]
         # Environment variables and values needed for Bazel actions.
         action_env = {}
