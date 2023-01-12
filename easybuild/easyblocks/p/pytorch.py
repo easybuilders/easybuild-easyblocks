@@ -69,7 +69,7 @@ def extract_failed_tests_info(tests_out):
     error_cnt = 0
     failed_test_suites = []
 
-    # Grep for patterns like:
+    # Look for patterns like:
     # Ran 219 tests in 67.325s
     #
     # FAILED (errors=10, skipped=190, expected failures=6)
@@ -89,7 +89,7 @@ def extract_failed_tests_info(tests_out):
         error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
         failed_test_suites.append(test_suite)
 
-    # Grep for patterns like:
+    # Look for patterns like:
     # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
     regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
 
@@ -102,7 +102,7 @@ def extract_failed_tests_info(tests_out):
         error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
         failed_test_suites.append(test_suite)
 
-    # Grep for patterns like:
+    # Look for patterns like:
     # AssertionError: 4 unit test(s) failed:
     # ...
     # distributed/test_c10d_gloo failed!
@@ -115,6 +115,20 @@ def extract_failed_tests_info(tests_out):
         failure_report += test_group + ' (' + failed_test_cnt + " failed tests)\n"
         failure_cnt += int(failed_test_cnt)
         failed_test_suites.append(test_group)
+
+    # Look for patterns like:
+    # Running test_jit_cuda_fuser ... [2023-01-12 04:04:08.949222]
+    # ...
+    # AttributeError: 'NoneType' object has no attribute 'split'
+    # test_jit_cuda_fuser failed!
+    regex = (r"^Running (?P<test_name>test_[^\s]+) .*\n"
+             r"(?:^(?:(?!failed!).)*$\n)*"
+             r"\1 failed!$")
+    for match in re.finditer(regex, tests_out, re.M):
+        test_name = match.group('test_name')
+        failure_report += test_name + " (unknown failed test count)\n"
+        failure_cnt += 1
+        failed_test_suites.append(test_name)
 
     return failure_report, failure_cnt, error_cnt, failed_test_suites
 

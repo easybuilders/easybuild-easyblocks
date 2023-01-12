@@ -107,6 +107,16 @@ FAILED (failures=1, skipped=52, expected failures=1)
 test_autograd failed!
 Running test_binary_ufuncs ... [2023-01-12 09:02:45.049490]
 ...
+
+Running test_jit_cuda_fuser ... [2023-01-12 04:04:08.949222]
+Executing ['/user/gent/400/vsc40023/eb_arcaninescratch/RHEL8/skylake-ib/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_jit_cuda_fuser.py', '-v'] ... [2023-01-12 04:04:08.949319]
+CUDA not available, skipping tests
+monkeytype is not installed. Skipping tests for Profile-Directed Typing
+Traceback (most recent call last):
+  File "/tmp/vsc40023/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_jit_cuda_fuser.py", line 25, in <module>
+    CUDA_MAJOR, CUDA_MINOR = (int(x) for x in torch.version.cuda.split('.'))
+AttributeError: 'NoneType' object has no attribute 'split'
+test_jit_cuda_fuser failed!
 """
 
 class EasyBlockSpecificTest(TestCase):
@@ -334,16 +344,16 @@ class EasyBlockSpecificTest(TestCase):
             "distributions/test_distributions (216 total tests, errors=4)",
             "test_autograd (464 total tests, failures=1, skipped=52, expected failures=1)",
             "distributed/test_c10d_gloo (4 failed tests)",
-            '',
+            "test_jit_cuda_fuser (unknown failed test count)",
         ])
-        self.assertEqual(res[0], expected_failure_report)
+        self.assertEqual(res[0].strip(), expected_failure_report)
         # test failures
-        self.assertEqual(res[1], 7)
+        self.assertEqual(res[1], 8)
         # test errors
         self.assertEqual(res[2], 4)
 
         expected_failed_test_suites = ['distributed/fsdp/test_fsdp_input', 'distributions/test_distributions',
-                                       'test_autograd', 'distributed/test_c10d_gloo']
+                                       'test_autograd', 'distributed/test_c10d_gloo', 'test_jit_cuda_fuser']
         self.assertEqual(res[3], expected_failed_test_suites)
 
 
