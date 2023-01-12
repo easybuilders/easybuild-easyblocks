@@ -52,7 +52,6 @@ from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.py2vs3 import StringIO
 
-
 PYTORCH_TESTS_OUTPUT = """
 ...
 AssertionError: Expected zero exit code but got -6 for pid: 2006681
@@ -117,7 +116,8 @@ Traceback (most recent call last):
     CUDA_MAJOR, CUDA_MINOR = (int(x) for x in torch.version.cuda.split('.'))
 AttributeError: 'NoneType' object has no attribute 'split'
 test_jit_cuda_fuser failed!
-"""
+"""  # noqa
+
 
 class EasyBlockSpecificTest(TestCase):
     """ Baseclass for easyblock testcases """

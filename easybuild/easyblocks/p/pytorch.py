@@ -82,7 +82,7 @@ def extract_failed_tests_info(tests_out):
     for match in re.finditer(regex, tests_out, re.M):
         # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
         info = match.groupdict()
-        failure_summary =  info['failure_summary']
+        failure_summary = info['failure_summary']
         test_cnt, test_suite = info['test_cnt'], info['failed_test_suite_name']
         failure_report += test_suite + ' (' + test_cnt + " total tests, " + failure_summary + ')\n'
         failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
