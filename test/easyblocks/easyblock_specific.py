@@ -126,6 +126,21 @@ Traceback (most recent call last):
     CUDA_MAJOR, CUDA_MINOR = (int(x) for x in torch.version.cuda.split('.'))
 AttributeError: 'NoneType' object has no attribute 'split'
 test_jit_cuda_fuser failed!
+...
+Running distributions/test_constraints ... [2023-01-12 09:05:15.013470]
+SKIPPED [2] distributions/test_constraints.py:83: `biject_to` not implemented.
+FAILED distributions/test_constraints.py::test_constraint[True-constraint_fn5-False-value5]
+FAILED distributions/test_constraints.py::test_constraint[True-constraint_fn7-True-value7]
+============= 2 failed, 128 passed, 2 skipped, 2 warnings in 8.66s =============
+distributions/test_constraints failed!
+
+Running distributions/rpc/test_tensorpipe_agent ... [2023-01-12 09:06:37.093571]
+...
+Ran 123 tests in 7.549s
+
+FAILED (errors=2, skipped=2)
+distributed/rpc/test_tensorpipe_agent failed!
+test_fx failed! Received signal: SIGSEGV
 """  # noqa
 
 
@@ -353,18 +368,27 @@ class EasyBlockSpecificTest(TestCase):
             "distributed/fsdp/test_fsdp_input (2 total tests, failures=2)",
             "distributions/test_distributions (216 total tests, errors=4)",
             "test_autograd (464 total tests, failures=1, skipped=52, expected failures=1)",
+            "distributed/rpc/test_tensorpipe_agent (123 total tests, errors=2, skipped=2)",
+            "distributions/test_constraints 2 failed, 128 passed, 2 skipped, 2 warnings",
             "distributed/test_c10d_gloo (4 failed tests)",
             "test_jit_cuda_fuser (unknown failed test count)",
         ])
-        self.assertEqual(res[0].strip(), expected_failure_report)
+        self.assertEqual(res.failure_report.strip(), expected_failure_report)
         # test failures
-        self.assertEqual(res[1], 8)
+        self.assertEqual(res.failure_cnt, 10)
         # test errors
-        self.assertEqual(res[2], 4)
+        self.assertEqual(res.error_cnt, 6)
 
-        expected_failed_test_suites = ['distributed/fsdp/test_fsdp_input', 'distributions/test_distributions',
-                                       'test_autograd', 'distributed/test_c10d_gloo', 'test_jit_cuda_fuser']
-        self.assertEqual(res[3], expected_failed_test_suites)
+        expected_failed_test_suites = [
+            'distributed/fsdp/test_fsdp_input',
+            'distributions/test_distributions',
+            'test_autograd',
+            'distributed/rpc/test_tensorpipe_agent',
+            'distributions/test_constraints',
+            'distributed/test_c10d_gloo',
+            'test_jit_cuda_fuser',
+        ]
+        self.assertEqual(res.failed_test_suites, expected_failed_test_suites)
 
 
 def suite():

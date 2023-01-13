@@ -32,6 +32,7 @@ import os
 import re
 import tempfile
 import easybuild.tools.environment as env
+from collections import namedtuple
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
@@ -81,9 +82,7 @@ def extract_failed_tests_info(tests_out):
 
     for match in re.finditer(regex, tests_out, re.M):
         # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-        info = match.groupdict()
-        failure_summary = info['failure_summary']
-        test_cnt, test_suite = info['test_cnt'], info['failed_test_suite_name']
+        failure_summary, test_cnt, test_suite = match.group('failure_summary', 'test_cnt', 'failed_test_suite_name')
         failure_report += test_suite + ' (' + test_cnt + " total tests, " + failure_summary + ')\n'
         failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
         error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
@@ -95,8 +94,7 @@ def extract_failed_tests_info(tests_out):
 
     for match in re.finditer(regex, tests_out, re.M):
         # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-        info = match.groupdict()
-        failure_summary, test_suite = info['failure_summary'], info['failed_test_suite_name']
+        failure_summary, test_suite = match.group('failure_summary', 'failed_test_suite_name')
         failure_report += test_suite + ' ' + failure_summary + '\n'
         failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
         error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
@@ -110,8 +108,7 @@ def extract_failed_tests_info(tests_out):
              r"(?:^(?:(?!failed!).)*$\n)*"
              r"(?P<failed_test_group_name>.*) failed!$")
     for match in re.finditer(regex, tests_out, re.M):
-        info = match.groupdict()
-        test_group, failed_test_cnt = info['failed_test_group_name'], info['failed_test_cnt']
+        test_group, failed_test_cnt = match.group('failed_test_group_name', 'failed_test_cnt')
         failure_report += test_group + ' (' + failed_test_cnt + " failed tests)\n"
         failure_cnt += int(failed_test_cnt)
         failed_test_suites.append(test_group)
@@ -130,8 +127,8 @@ def extract_failed_tests_info(tests_out):
         failure_cnt += 1
         failed_test_suites.append(test_name)
 
-    return failure_report, failure_cnt, error_cnt, failed_test_suites
-
+    TestsInfo = namedtuple('TestsInfo', ('failure_report', 'failure_cnt', 'error_cnt', 'failed_test_suites'))
+    return TestsInfo(failure_report, failure_cnt, error_cnt, failed_test_suites)
 
 
 class EB_PyTorch(PythonPackage):
