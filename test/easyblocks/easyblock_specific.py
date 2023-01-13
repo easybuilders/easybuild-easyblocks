@@ -81,10 +81,10 @@ Test exited with non-zero exitcode 1. Command to reproduce: /software/Python/3.9
 test_ddp_invalid_comm_hook_return_type (__main__.DistributedDataParallelTest)
 
 AssertionError: 4 unit test(s) failed:
-	DistributedDataParallelTest.test_ddp_comm_hook_register_just_once
-	DistributedDataParallelTest.test_ddp_invalid_comm_hook_init
-	ProcessGroupGlooTest.test_round_robin
-	ProcessGroupGlooTest.test_round_robin_create_destroy
+    DistributedDataParallelTest.test_ddp_comm_hook_register_just_once
+    DistributedDataParallelTest.test_ddp_invalid_comm_hook_init
+    ProcessGroupGlooTest.test_round_robin
+    ProcessGroupGlooTest.test_round_robin_create_destroy
 distributed/test_c10d_gloo failed!
 Running distributed/test_c10d_nccl ... [2023-01-12 07:43:41.085197]
 
