@@ -122,7 +122,7 @@ def extract_failed_tests_info(tests_out):
     # AttributeError: 'NoneType' object has no attribute 'split'
     # test_jit_cuda_fuser failed!
     regex = (r"^Running (?P<test_name>test_[^\s]+) .*\n"
-             r"(?:^(?:(?!failed!).)*$\n)*"
+             r"(?:^(?:(?!(Ran [0-9]+|failed!)).)*$\n)*"
              r"\1 failed!$")
     for match in re.finditer(regex, tests_out, re.M):
         test_name = match.group('test_name')

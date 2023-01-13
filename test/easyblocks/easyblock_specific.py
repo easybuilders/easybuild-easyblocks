@@ -97,8 +97,18 @@ Ran 216 tests in 22.396s
 FAILED (errors=4)
 distributions/test_distributions failed!
 
+Running test_autograd ... [2023-01-13 04:19:25.587981]
+Executing ['/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_autograd.py', '-v'] ... [2023-01-13 04:19:25.588074]
 ...
-
+test_autograd_views_codegen (__main__.TestAutograd) ... ok
+...
+======================================================================
+FAIL: test_thread_shutdown (__main__.TestAutograd)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/vsc40023/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_autograd.py", line 4220, in test_thread_shutdown
+    self.assertRegex(s, "PYTORCH_API_USAGE torch.autograd.thread_shutdown")
+AssertionError: Regex didn't match: 'PYTORCH_API_USAGE torch.autograd.thread_shutdown' not found in 'PYTORCH_API_USAGE torch.python.import\nPYTORCH_API_USAGE c10d.python.import\nPYTORCH_API_USAGE tensor.create\n'
 ----------------------------------------------------------------------
 Ran 464 tests in 18.443s
 
@@ -108,11 +118,11 @@ Running test_binary_ufuncs ... [2023-01-12 09:02:45.049490]
 ...
 
 Running test_jit_cuda_fuser ... [2023-01-12 04:04:08.949222]
-Executing ['/user/gent/400/vsc40023/eb_arcaninescratch/RHEL8/skylake-ib/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_jit_cuda_fuser.py', '-v'] ... [2023-01-12 04:04:08.949319]
+Executing ['/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_jit_cuda_fuser.py', '-v'] ... [2023-01-12 04:04:08.949319]
 CUDA not available, skipping tests
 monkeytype is not installed. Skipping tests for Profile-Directed Typing
 Traceback (most recent call last):
-  File "/tmp/vsc40023/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_jit_cuda_fuser.py", line 25, in <module>
+  File "/tmp/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_jit_cuda_fuser.py", line 25, in <module>
     CUDA_MAJOR, CUDA_MINOR = (int(x) for x in torch.version.cuda.split('.'))
 AttributeError: 'NoneType' object has no attribute 'split'
 test_jit_cuda_fuser failed!
