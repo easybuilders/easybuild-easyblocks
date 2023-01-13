@@ -758,6 +758,8 @@ class EB_TensorFlow(PythonPackage):
     def build_step(self):
         """Custom build procedure for TensorFlow."""
 
+        bazel_version = get_bazel_version()
+
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
@@ -768,8 +770,10 @@ class EB_TensorFlow(PythonPackage):
         # Options passed to the bazel command
         self.bazel_opts = [
             '--output_user_root=%s' % self.output_user_root_dir,
-            '--local_startup_timeout_secs=600',  # 5min for bazel to start
         ]
+        if bazel_version >= '4.0.0':
+            self.bazel_opts.append('--local_startup_timeout_secs=600')  # 5min for bazel to start
+
         # Environment variables and values needed for Bazel actions.
         action_env = {}
         # A value of None is interpreted as using the invoking environments value
@@ -861,8 +865,6 @@ class EB_TensorFlow(PythonPackage):
             # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn),
             # and download it if needed
             self.target_opts.append('--config=mkl')
-
-        bazel_version = get_bazel_version()
 
         # Use the same configuration (i.e. environment) for compiling and using host tools
         # This means that our action_envs are (almost) always passed
