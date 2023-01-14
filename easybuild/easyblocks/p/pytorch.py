@@ -357,10 +357,11 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
-        failure_report, failure_cnt, error_cnt, failed_test_suites = extract_failed_tests_info(tests_out)
+        failed_tests_info = extract_failed_tests_info(tests_out)
+        failure_report = failed_tests_info.failure_report
 
         # Make the names unique and sorted
-        failed_test_suites = sorted(set(failed_test_suites))
+        failed_test_suites = sorted(set(failed_tests_info.failed_test_suites))
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
         # Also unique and sorted to be able to compare the lists below
         all_failed_test_suites = sorted(set(
@@ -375,17 +376,17 @@ class EB_PyTorch(PythonPackage):
                 failure_report += '\n' + failure_report_save
 
         # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = failure_cnt + error_cnt
+        failed_test_cnt = failed_tests_info.failure_cnt + failed_tests_info.error_cnt
         test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+        max_failed_tests = self.cfg['max_failed_tests']
+        self.log.info("%d unsuccessful tests (out of %d), - max. failed tests set to %d",
+                      failed_test_cnt, test_cnt, max_failed_tests)
 
         if failed_test_cnt > 0:
-            max_failed_tests = self.cfg['max_failed_tests']
-
-            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if error_cnt == 1 else 'errors'
-            msg = "%d test %s, %d test %s (out of %d):\n" % (
-                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
-            )
+            failure_or_failures = 'failure' if failed_tests_info.failure_cnt == 1 else 'failures'
+            msg = "%d test %s, " % (failed_tests_info.failure_cnt, failure_or_failures)
+            error_or_errors = 'error' if failed_tests_info.error_cnt == 1 else 'errors'
+            msg += "%d test %s (out of %d):\n" % (failed_tests_info.error_cnt, error_or_errors, test_cnt)
             msg += failure_report
 
             # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
