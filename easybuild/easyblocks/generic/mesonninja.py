@@ -81,9 +81,9 @@ class MesonNinja(EasyBlock):
         configure_cmd = self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD
         # Meson >= 0.64.0 has a deprecatation warning for running `meson [options]`
         # instead of `meson setup [options]`
-        if (LooseVersion(get_software_version('Meson')) >= LooseVersion('0.64.0')
-            and configure_cmd == DEFAULT_CONFIGURE_CMD):
-                configure_cmd += ' setup' 
+        if (LooseVersion(get_software_version('Meson')) >= LooseVersion('0.64.0') and
+                configure_cmd == DEFAULT_CONFIGURE_CMD):
+            configure_cmd += ' setup'
 
         cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
             'configopts': self.cfg['configopts'],
