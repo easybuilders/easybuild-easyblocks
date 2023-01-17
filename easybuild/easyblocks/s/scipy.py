@@ -60,7 +60,7 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
         self.pylibdir = det_pylibdir()
-        
+
         # scipy >= 1.9.0 uses Meson/Ninja
         if self.use_meson:
             # configure BLAS/LAPACK library to use with Meson for scipy >= 1.9.0
@@ -72,14 +72,14 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
             elif lapack_lib == toolchain.OPENBLAS:
                 blas_lapack = 'openblas'
             else:
-                raise EasyBuildError("Unknown BLAS/LAPACK library used: %s", lapack_lib) 
-            
+                raise EasyBuildError("Unknown BLAS/LAPACK library used: %s", lapack_lib)
+
             configopts = '-Dblas=%(blas_lapack)s -Dlapack=%(blas_lapack)s' % {'blas_lapack': blas_lapack}
             self.cfg.update('configopts', configopts)
-            
+
             pythonpath = os.getenv('PYTHONPATH')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
-            
+
             path = os.getenv('PATH')
             env.setvar('PATH', os.pathsep.join([os.path.join(self.installdir, 'bin'), path]))
 
@@ -113,8 +113,8 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
         if self.use_meson:
             self.cfg['installopts'] = ""
             MesonNinja.install_step(self)
-           
-           # also run the test
+
+            # also run the test
             python_root = get_software_root('Python')
             python_bin = os.path.join(python_root, 'bin', 'python')
             run_cmd(self.testcmd % {'python': python_bin}, log_all=True, simple=True)
