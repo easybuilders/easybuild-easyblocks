@@ -28,11 +28,15 @@ EasyBuild support for installing software with Meson & Ninja.
 @author: Kenneth Hoste (Ghent University)
 """
 
+from distutils.version import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
+
+DEFAULT_CONFIGURE_CMD = 'meson'
 
 
 class MesonNinja(EasyBlock):
@@ -45,6 +49,7 @@ class MesonNinja(EasyBlock):
         """Define extra easyconfig parameters specific to MesonNinja."""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
@@ -73,8 +78,16 @@ class MesonNinja(EasyBlock):
         if no_Dlibdir and no_libdir:
             self.cfg.update('configopts', '-Dlibdir=lib')
 
-        cmd = "%(preconfigopts)s meson --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
+        configure_cmd = self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD
+        # Meson >= 0.64.0 has a deprecatation warning for running `meson [options]`
+        # instead of `meson setup [options]`
+        if (LooseVersion(get_software_version('Meson')) >= LooseVersion('0.64.0')
+            and configure_cmd == DEFAULT_CONFIGURE_CMD):
+                configure_cmd += ' setup' 
+
+        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
             'configopts': self.cfg['configopts'],
+            'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
             'sourcedir': self.start_dir,
