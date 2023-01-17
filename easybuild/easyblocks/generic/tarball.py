@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,8 +46,7 @@ from easybuild.tools.run import run_cmd
 
 class Tarball(ExtensionEasyBlock):
     """
-    Precompiled software supplied as a tarball:
-    - will unpack binary and copy it to the install dir
+    Precompiled software supplied as a tarball: will unpack binary and copy it to the install dir
     """
 
     @staticmethod

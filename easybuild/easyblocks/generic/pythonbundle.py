@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,7 +41,8 @@ import easybuild.tools.environment as env
 
 class PythonBundle(Bundle):
     """
-    Bundle of modules: only generate module files, nothing to build/install
+    Bundle of PythonPackages: install Python packages as extensions in a bundle
+    Defines custom sanity checks and module environment
     """
 
     @staticmethod

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -730,6 +730,9 @@ class PythonPackage(ExtensionEasyBlock):
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
 
+        # fix shebangs if specified
+        self.fix_shebang()
+
         # restore env vars if it they were set
         for name in ('PYTHONPATH', 'PATH'):
             value = old_values[name]
@@ -786,6 +789,14 @@ class PythonPackage(ExtensionEasyBlock):
         """
 
         success, fail_msg = True, ''
+
+        # load module early ourselves rather than letting parent sanity_check_step method do so,
+        # since custom actions taken below require that environment is set up properly already
+        # (especially when using --sanity-check-only)
+        if not self.sanity_check_module_loaded:
+            extension = self.is_extension or kwargs.get('extension', False)
+            extra_modules = kwargs.get('extra_modules', None)
+            self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/;
@@ -849,9 +860,14 @@ class PythonPackage(ExtensionEasyBlock):
 
                     if not self.is_extension:
                         # for stand-alone Python package installations (not part of a bundle of extensions),
-                        # we need to load the fake module file, otherwise the Python package being installed
-                        # is not "in view", and we will overlook missing dependencies...
-                        fake_mod_data = self.load_fake_module(purge=True)
+                        # the (fake or real) module file must be loaded at this point,
+                        # otherwise the Python package being installed is not "in view",
+                        # and we will overlook missing dependencies...
+                        loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
+                        if self.short_mod_name not in loaded_modules:
+                            self.log.debug("Currently loaded modules: %s", loaded_modules)
+                            raise EasyBuildError("%s module is not loaded, this should never happen...",
+                                                 self.short_mod_name)
 
                     pip_check_errors = []
 
@@ -896,9 +912,6 @@ class PythonPackage(ExtensionEasyBlock):
                             "required (check the source for a pyproject.toml and see PEP517 for details on that)."
                          ) % (faulty_version, '\n'.join(faulty_pkg_names))
                         pip_check_errors.append(msg)
-
-                    if not self.is_extension:
-                        self.clean_up_fake_module(fake_mod_data)
 
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
