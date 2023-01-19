@@ -145,7 +145,7 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
             MesonNinja.test_step(self)
 
             # reconfigure meson to use real install dir
-            os.chdir(cwd)
+            change_dir(cwd)
             cmd = 'meson configure --prefix=%s' % self.installdir
             run_cmd(cmd, log_all=True, simple=True, verbose=False)
 
