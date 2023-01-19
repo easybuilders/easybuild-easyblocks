@@ -33,6 +33,7 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Jasper Grimm (University of York)
 """
 import os
+import tempfile
 from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
@@ -41,6 +42,7 @@ from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPacka
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
@@ -53,13 +55,16 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
         super(EB_scipy, self).__init__(*args, **kwargs)
 
         self.use_meson = LooseVersion(self.version) >= LooseVersion('1.9')
-        self.pylibdir = None
         self.testinstall = True
-        self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
+        self.testcmd = " && ".join([
+            "cd ..",
+            "touch %(srcdir)s/.coveragerc",
+            "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
+        ])
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
-        self.pylibdir = det_pylibdir()
+        pylibdir = det_pylibdir()
 
         # scipy >= 1.9.0 uses Meson/Ninja
         if self.use_meson:
@@ -77,21 +82,23 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
             configopts = '-Dblas=%(blas_lapack)s -Dlapack=%(blas_lapack)s' % {'blas_lapack': blas_lapack}
             self.cfg.update('configopts', configopts)
 
+            # need to have already installed extensions in PATH, PYTHONPATH for configure/build/install steps
             pythonpath = os.getenv('PYTHONPATH')
-            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, pylibdir), pythonpath]))
 
             path = os.getenv('PATH')
             env.setvar('PATH', os.pathsep.join([os.path.join(self.installdir, 'bin'), path]))
 
             MesonNinja.configure_step(self)
+
         else:
             super(EB_scipy, self).configure_step()
 
-            if LooseVersion(self.version) >= LooseVersion('0.13'):
-                # in recent scipy versions, additional compilation is done in the install step,
-                # which requires unsetting $LDFLAGS
-                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
-                    self.cfg.update('preinstallopts', "unset LDFLAGS && ")
+        if LooseVersion(self.version) >= LooseVersion('0.13'):
+            # in recent scipy versions, additional compilation is done in the install step,
+            # which requires unsetting $LDFLAGS
+            if self.toolchain.comp_family() in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
+                self.cfg.update('preinstallopts', "unset LDFLAGS && ")
 
     def build_step(self):
         """Custom build step for scipy: use ninja for scipy >= 1.9.0"""
@@ -101,23 +108,66 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
             super(EB_scipy, self).build_step()
 
     def test_step(self):
-        """Custom test step for scipy: skip if scipy >= 1.9.0"""
+        """Run available scipy unit tests. Adapted from numpy easyblock"""
+
         if self.use_meson:
-            # need to run `ninja install` before we can run the test
-            pass
+
+            # temporarily install scipy so we can run the test suite
+            tmpdir = tempfile.mkdtemp()
+            cwd = os.getcwd()
+
+            cmd = " && ".join([
+                # reconfigure meson to use temp dir
+                'meson configure --prefix=%s' % tmpdir,
+                'ninja -j %s install' % self.cfg['parallel'],
+            ])
+            run_cmd(cmd, log_all=True, simple=True, verbose=False)
+
+            abs_pylibdirs = [os.path.join(tmpdir, pylibdir) for pylibdir in self.all_pylibdirs]
+            for pylibdir in abs_pylibdirs:
+                mkdir(pylibdir, parents=True)
+            python_root = get_software_root('Python')
+            python_bin = os.path.join(python_root, 'bin', 'python')
+
+            self.cfg['pretestopts'] = " && ".join([
+                # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+                # see http://projects.scipy.org/numpy/ticket/182
+                "unset LDFLAGS",
+                "export PYTHONPATH=%s:$PYTHONPATH" % os.pathsep.join(abs_pylibdirs),
+                "",
+            ])
+            self.cfg['runtest'] = self.testcmd % {
+                'python': python_bin,
+                'srcdir': self.cfg['start_dir'],
+                'parallel': self.cfg['parallel'],
+            }
+
+            MesonNinja.test_step(self)
+
+            # reconfigure meson to use real install dir
+            os.chdir(cwd)
+            cmd = 'meson configure --prefix=%s' % self.installdir
+            run_cmd(cmd, log_all=True, simple=True, verbose=False)
+
+            try:
+                remove_dir(tmpdir)
+            except OSError as err:
+                raise EasyBuildError("Failed to remove directory %s: %s", tmpdir, err)
+
         else:
-            super(EB_scipy, self).build_step()
+            self.testcmd = self.testcmd % {
+                'srcdir': self.cfg['start_dir'],
+                'parallel': self.cfg['parallel']
+            }
+            super(EB_scipy, self).test_step()
 
     def install_step(self):
         """Custom install step for scipy: use ninja for scipy >= 1.9.0"""
         if self.use_meson:
+            # ignore installopts inherited from FortranPythonPackage
             self.cfg['installopts'] = ""
             MesonNinja.install_step(self)
 
-            # also run the test
-            python_root = get_software_root('Python')
-            python_bin = os.path.join(python_root, 'bin', 'python')
-            run_cmd(self.testcmd % {'python': python_bin}, log_all=True, simple=True)
         else:
             super(EB_scipy, self).install_step()
 
