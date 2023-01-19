@@ -156,8 +156,9 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
 
         else:
             self.testcmd = self.testcmd % {
+                'python': '%(python)s',
                 'srcdir': self.cfg['start_dir'],
-                'parallel': self.cfg['parallel']
+                'parallel': self.cfg['parallel'],
             }
             super(EB_scipy, self).test_step()
 
