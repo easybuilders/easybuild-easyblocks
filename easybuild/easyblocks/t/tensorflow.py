@@ -771,8 +771,9 @@ class EB_TensorFlow(PythonPackage):
         self.bazel_opts = [
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
+        # Increase time to wait for bazel to start, available since 4.0+
         if bazel_version >= '4.0.0':
-            self.bazel_opts.append('--local_startup_timeout_secs=600')  # 5min for bazel to start
+            self.bazel_opts.append('--local_startup_timeout_secs=300')  # 5min
 
         # Environment variables and values needed for Bazel actions.
         action_env = {}
@@ -868,17 +869,19 @@ class EB_TensorFlow(PythonPackage):
 
         # Use the same configuration (i.e. environment) for compiling and using host tools
         # This means that our action_envs are (almost) always passed
-        # Fully removed in Bazel 6.0 and limitted effect after at least 3.7 (see --host_action_env)
+        # Fully removed in Bazel 6.0 and limited effect after at least 3.7 (see --host_action_env)
         if bazel_version < '6.0.0':
             self.target_opts.append('--distinct_host_configuration=false')
 
-        for key, value in action_env.items():
+        for key, value in sorted(action_env.items()):
             option = key
             if value is not None:
                 option += "='%s'" % value
 
             self.target_opts.append('--action_env=' + option)
             if bazel_version >= '3.7.0':
+                # Since Bazel 3.7 action_env only applies to the "target" environment, not the "host" environment
+                # As we are not cross-compiling we need both be the same -> Duplicate the setting to host_action_env
                 # See https://github.com/bazelbuild/bazel/commit/a463d9095386b22c121d20957222dbb44caef7d4
                 self.target_opts.append('--host_action_env=' + option)
 
