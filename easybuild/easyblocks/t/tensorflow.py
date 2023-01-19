@@ -214,7 +214,7 @@ def get_bazel_version():
     """Get the Bazel version as a LooseVersion. Error if not found"""
     version = get_software_version('Bazel')
     if version is None:
-        raise EasyBuildError('Bazel version not found. Is it a dependency?')
+        raise EasyBuildError('Failed to determine Bazel version - is it listed as a (build) dependency?')
     return LooseVersion(version)
 
 
