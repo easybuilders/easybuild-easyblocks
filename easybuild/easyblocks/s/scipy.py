@@ -56,7 +56,8 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
         """Easyconfig parameters specific to scipy."""
         extra_vars = ({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
-            'ignore_test_result': [False, "Run scipy test suite, but ignore result (only log)", CUSTOM],
+            # ignore tests by default to maintain behaviour in older easyconfigs
+            'ignore_test_result': [True, "Run scipy test suite, but ignore result (only log)", CUSTOM],
         })
 
         return FortranPythonPackage.extra_options(extra_vars=extra_vars)
