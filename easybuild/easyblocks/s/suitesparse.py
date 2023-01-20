@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, write_file, adjust_permissions
+from easybuild.tools.filetools import mkdir, write_file, adjust_permissions, copy_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.modules import get_software_libdir
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -150,7 +150,10 @@ class EB_SuiteSparse(ConfigureMake):
             dst = os.path.join(self.installdir, x)
             try:
                 if os.path.isdir(src):
-                    shutil.copytree(src, dst)
+                    # symlink points to CUDA folder that is
+                    # not created for non GPU nodes. shutil
+                    # throws an error in this case.
+                    copy_dir(src, dst, symlinks=True)
                     # symlink
                     # - dst/Lib to dst/lib
                     # - dst/Include to dst/include

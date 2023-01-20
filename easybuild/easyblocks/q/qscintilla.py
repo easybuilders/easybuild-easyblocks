@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -124,7 +124,10 @@ class EB_QScintilla(ConfigureMake):
                                                          'site-packages', 'sip', self.pyqt_pkg_name), False)
             # fall back to a single sipdir
             if not pyqt_sipdir:
-                pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
+                if LooseVersion(get_software_version(self.pyqt_pkg_name)) >= LooseVersion('5.15'):
+                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip')
+                else:
+                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),

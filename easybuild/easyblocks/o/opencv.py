@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -165,7 +165,7 @@ class EB_OpenCV(CMakeMake):
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
         if self.toolchain.options.get('optarch') and 'CPU_BASELINE' not in self.cfg['configopts']:
             optarch = build_option('optarch')
-            if optarch is None:
+            if not optarch:
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
             elif optarch == OPTARCH_GENERIC:
@@ -227,6 +227,9 @@ class EB_OpenCV(CMakeMake):
     def make_module_extra(self):
         """Custom extra module file entries for OpenCV."""
         txt = super(EB_OpenCV, self).make_module_extra()
+
+        if LooseVersion(self.version) >= LooseVersion('4.0'):
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join('include', 'opencv4'))
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
 

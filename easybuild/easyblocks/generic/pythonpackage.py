@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,7 +60,7 @@ from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
 EASY_INSTALL_TARGET = "easy_install"
-PIP_INSTALL_CMD = "pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
+PIP_INSTALL_CMD = "%(python)s -m pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
@@ -204,14 +204,14 @@ def get_pylibdirs(python_cmd):
     return all_pylibdirs
 
 
-def det_pip_version():
-    """Determine version of currently active 'pip' command."""
+def det_pip_version(python_cmd='python'):
+    """Determine version of currently active 'pip' module."""
 
     pip_version = None
     log = fancylogger.getLogger('det_pip_version', fname=False)
     log.info("Determining pip version...")
 
-    out, _ = run_cmd("pip --version", verbose=False, simple=False, trace=False)
+    out, _ = run_cmd("%s -m pip --version" % python_cmd, verbose=False, simple=False, trace=False)
 
     pip_version_regex = re.compile('^pip ([0-9.]+)')
     res = pip_version_regex.search(out)
@@ -247,8 +247,8 @@ class PythonPackage(ExtensionEasyBlock):
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
-            'sanity_pip_check': [False, "Run 'pip check' to ensure all required Python packages are installed "
-                                        "and check for any package with an invalid (0.0.0) version.", CUSTOM],
+            'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
+                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
                                CUSTOM],
@@ -261,8 +261,8 @@ class PythonPackage(ExtensionEasyBlock):
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
             'use_pip_for_deps': [False, "Install dependencies using '%s'" % PIP_INSTALL_CMD, CUSTOM],
-            'use_pip_requirement': [False, "Install using 'pip install --requirement'. The sources is expected " +
-                                           "to be the requirements file.", CUSTOM],
+            'use_pip_requirement': [False, "Install using 'python -m pip install --requirement'. The sources is " +
+                                           "expected to be the requirements file.", CUSTOM],
             'zipped_egg': [False, "Install as a zipped eggs", CUSTOM],
         })
         # Use PYPI_SOURCE as the default for source_urls.
@@ -318,6 +318,12 @@ class PythonPackage(ExtensionEasyBlock):
 
         # determine install command
         self.use_setup_py = False
+        self.determine_install_command()
+
+    def determine_install_command(self):
+        """
+        Determine install command to use.
+        """
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
@@ -361,7 +367,7 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
 
-        self.log.debug("Using '%s' as install command", self.install_cmd)
+        self.log.info("Using '%s' as install command", self.install_cmd)
 
     def set_pylibdirs(self):
         """Set Python lib directory-related class variables."""
@@ -470,7 +476,7 @@ class PythonPackage(ExtensionEasyBlock):
         using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
         if using_pip:
 
-            pip_version = det_pip_version()
+            pip_version = det_pip_version(python_cmd=self.python_cmd)
             if pip_version:
                 # pip 8.x or newer required, because of --prefix option being used
                 if LooseVersion(pip_version) >= LooseVersion('8.0'):
@@ -686,7 +692,9 @@ class PythonPackage(ExtensionEasyBlock):
                 ])
 
                 if return_output_ec:
-                    (out, ec) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+                    (out, ec) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                    # need to log seperately, since log_all and log_ok need to be false to retrieve out and ec
+                    self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
                 else:
                     run_cmd(cmd, log_all=True, simple=True)
 
@@ -808,6 +816,14 @@ class PythonPackage(ExtensionEasyBlock):
 
         success, fail_msg = True, ''
 
+        # load module early ourselves rather than letting parent sanity_check_step method do so,
+        # since custom actions taken below require that environment is set up properly already
+        # (especially when using --sanity-check-only)
+        if not self.sanity_check_module_loaded:
+            extension = self.is_extension or kwargs.get('extension', False)
+            extra_modules = kwargs.get('extra_modules', None)
+            self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/;
         # must be set here to ensure that it is defined when running sanity check for extensions,
@@ -861,23 +877,31 @@ class PythonPackage(ExtensionEasyBlock):
                 kwargs.update({'exts_filter': exts_filter})
 
         if self.cfg.get('sanity_pip_check', False):
-            pip_version = det_pip_version()
+            pip_version = det_pip_version(python_cmd=python_cmd)
+
             if pip_version:
+                pip_check_command = "%s -m pip check" % python_cmd
+
                 if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
 
                     if not self.is_extension:
                         # for stand-alone Python package installations (not part of a bundle of extensions),
-                        # we need to load the fake module file, otherwise the Python package being installed
-                        # is not "in view", and we will overlook missing dependencies...
-                        fake_mod_data = self.load_fake_module(purge=True)
+                        # the (fake or real) module file must be loaded at this point,
+                        # otherwise the Python package being installed is not "in view",
+                        # and we will overlook missing dependencies...
+                        loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
+                        if self.short_mod_name not in loaded_modules:
+                            self.log.debug("Currently loaded modules: %s", loaded_modules)
+                            raise EasyBuildError("%s module is not loaded, this should never happen...",
+                                                 self.short_mod_name)
 
                     pip_check_errors = []
 
-                    pip_check_msg, ec = run_cmd("pip check", log_ok=False)
+                    pip_check_msg, ec = run_cmd(pip_check_command, log_ok=False)
                     if ec:
-                        pip_check_errors.append('`pip check` failed:\n%s' % pip_check_msg)
+                        pip_check_errors.append('`%s` failed:\n%s' % (pip_check_command, pip_check_msg))
                     else:
-                        self.log.info('`pip check` completed successfully')
+                        self.log.info('`%s` completed successfully' % pip_check_command)
 
                     # Also check for a common issue where the package version shows up as 0.0.0 often caused
                     # by using setup.py as the installation method for a package which is released as a generic wheel
@@ -896,8 +920,8 @@ class PythonPackage(ExtensionEasyBlock):
                                 version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
                             except StopIteration:
                                 msg = ('Package %s in unversioned_packages was not found in the installed packages. '
-                                       'Check that the name from `pip list` is used which may be different than the '
-                                       'module name.' % unversioned_package)
+                                       'Check that the name from `python -m pip list` is used which may be different '
+                                       'than the module name.' % unversioned_package)
                             else:
                                 msg = ('Package %s in unversioned_packages has a version of %s which is valid. '
                                        'Please remove it from unversioned_packages.' % (unversioned_package, version))
@@ -915,13 +939,11 @@ class PythonPackage(ExtensionEasyBlock):
                          ) % (faulty_version, '\n'.join(faulty_pkg_names))
                         pip_check_errors.append(msg)
 
-                    if not self.is_extension:
-                        self.clean_up_fake_module(fake_mod_data)
-
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
                 else:
-                    raise EasyBuildError("pip >= 9.0.0 is required for running 'pip check', found %s", pip_version)
+                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s", (pip_check_command,
+                                                                                                 pip_version))
             else:
                 raise EasyBuildError("Failed to determine pip version!")
 

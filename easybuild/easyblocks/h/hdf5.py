@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -76,10 +76,16 @@ class EB_HDF5(ConfigureMake):
         self.cfg.update('configopts', "--with-pic --with-pthread --enable-shared")
         self.cfg.update('configopts', "--enable-cxx --enable-fortran %s" % fcomp)
 
+        # make C API thread safe (C++ / FORTRAN APIs are unaffected)
+        self.cfg.update('configopts', "--enable-threadsafe")
+
+        # --enable-unsupported is needed to allow --enable-threadsafe to be used together with --enable-cxx
+        self.cfg.update('configopts', "--enable-unsupported")
+
         # MPI and C++ support enabled requires --enable-unsupported, because this is untested by HDF5
         # also returns False if MPI is not supported by this toolchain
         if self.toolchain.options.get('usempi', None):
-            self.cfg.update('configopts', "--enable-unsupported --enable-parallel")
+            self.cfg.update('configopts', "--enable-parallel")
             mpich_mpi_families = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]
             if self.toolchain.mpi_family() in mpich_mpi_families:
                 self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DMPICH_IGNORE_CXX_SEEK"')

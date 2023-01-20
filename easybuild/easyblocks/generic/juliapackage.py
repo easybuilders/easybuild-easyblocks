@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2022-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,137 +23,144 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing Julia packages, implemented as an easyblock
+EasyBuild support for Julia Packages, implemented as an easyblock
 
-@author: Victor Holanda (CSCS)
-@author: Samuel Omlin (CSCS)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
-import shutil
 
-import easybuild.tools.toolchain as toolchain
+from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
-from easybuild.tools.run import run_cmd, parse_log_for_error
+from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.filetools import copy_dir
+from easybuild.tools.run import run_cmd
+
+EXTS_FILTER_JULIA_PACKAGES = ("julia -e 'using %(ext_name)s'", "")
 
 
 class JuliaPackage(ExtensionEasyBlock):
-    """
-    Install an Julia package as a separate module, or as an extension.
-    """
+    """Builds and installs Julia Packages."""
 
     @staticmethod
     def extra_options(extra_vars=None):
-        if extra_vars is None:
-            extra_vars = {}
-
+        """Extra easyconfig parameters specific to JuliaPackage."""
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
         extra_vars.update({
-            'arch_name': [None, "Change julia's Project.toml pathname", CUSTOM],
-            'mpiexec':  [None, "Set the mpiexec command", CUSTOM],
-            'mpiexec_args':  [None, "Set the mpiexec command args", CUSTOM],
+            'download_pkg_deps': [
+                False, "Let Julia download and bundle all needed dependencies for this installation", CUSTOM
+            ],
         })
-        return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
+        return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Initliaze RPackage-specific class variables."""
+    def set_pkg_offline(self):
+        """Enable offline mode of Julia Pkg"""
+        if get_software_root('Julia') is None:
+            raise EasyBuildError("Julia not included as dependency!")
 
-        super(JuliaPackage, self).__init__(*args, **kwargs)
-        self.package_name = self.name
-        names = self.package_name.split('.')
-        if len(names) > 1:
-            self.package_name = ''.join(names[:-1])
+        if not self.cfg['download_pkg_deps']:
+            julia_version = get_software_version('Julia')
+            if LooseVersion(julia_version) >= LooseVersion('1.5'):
+                # Enable offline mode of Julia Pkg
+                # https://pkgdocs.julialang.org/v1/api/#Pkg.offline
+                env.setvar('JULIA_PKG_OFFLINE', 'true')
+            else:
+                errmsg = (
+                    "Cannot set offline mode in Julia v%s (needs Julia >= 1.5). "
+                    "Enable easyconfig option 'download_pkg_deps' to allow installation "
+                    "with any extra downloaded dependencies."
+                )
+                raise EasyBuildError(errmsg, julia_version)
 
-        julia_env_name = os.getenv('EBJULIA_ENV_NAME', '')
-        self.depot=os.path.join(self.installdir, 'extensions')
-        self.projectdir=os.path.join(self.depot, 'environments', julia_env_name)
-        self.log.info("Depot for package installations: %s" % self.depot)
-
-    def patch_step(self, beginpath=None):
-        pass
-
-    def fetch_sources(self, sources=None, checksums=None):
-        pass
-
-    def extract_step(self):
-        """Source should not be extracted."""
-        pass
+    def prepare_step(self, *args, **kwargs):
+        """Prepare for installing Julia package."""
+        super(JuliaPackage, self).prepare_step(*args, **kwargs)
+        self.set_pkg_offline()
 
     def configure_step(self):
-        """No configuration for installing Julia packages."""
+        """No separate configuration for JuliaPackage."""
         pass
 
     def build_step(self):
-        """No separate build step for Julia packages."""
+        """No separate build procedure for JuliaPackage."""
         pass
 
-    def make_julia_cmd(self, remove=False):
-        """Create a command to run in julia to install an julia package."""
-
-        install_opts = ""
-        if self.cfg['installopts']:
-            install_opts = self.cfg['installopts']
-        else:
-            install_opts = "name=\"%s\", version=\"%s\"" % (self.package_name, self.version)
-
-        pre_cmd = '%s unset EBJULIA_USER_DEPOT_PATH && export EBJULIA_ADMIN_DEPOT_PATH=%s && export JULIA_DEPOT_PATH=%s && export JULIA_PROJECT=%s' % (self.cfg['preinstallopts'], self.depot, self.depot, self.projectdir)
-
-        has_mpi = False
-        if self.toolchain.options.get('usempi', None):
-            has_mpi = True
-
-        if (self.cfg['mpiexec'] or self.cfg['mpiexec_args']) and not has_mpi:
-            raise EasyBuildError("When enabling building with mpi, also enable the 'usempi' toolchain option.")
-
-        if self.toolchain.toolchain_family() == toolchain.CRAYPE and has_mpi:
-          cray_mpich_dir = os.getenv('CRAY_MPICH_DIR', '')
-          pre_cmd += ' && export JULIA_MPI_BINARY=system'
-          pre_cmd += ' && export JULIA_MPI_PATH="%s"' % cray_mpich_dir
-          pre_cmd += ' && export JULIA_MPICC="cc"'
-
-        if self.cfg['mpiexec']:
-            pre_cmd += ' && export JULIA_MPIEXEC="%s"' % self.cfg['mpiexec']
-
-        if self.cfg['mpiexec_args']:
-            pre_cmd += ' && export JULIA_MPIEXEC_ARGS="%s"' % self.cfg['mpiexec_args']
-
-        if self.cfg['arch_name'] == 'gpu':
-            pre_cmd += ' && export JULIA_CUDA_USE_BINARYBUILDER=false'
-
-        if remove:
-            cmd = ' && '.join([pre_cmd, "julia --eval 'using Pkg; Pkg.rm(PackageSpec(%s))'" % install_opts])
-        else:
-            cmd = ' && '.join([pre_cmd, "julia --eval 'using Pkg; Pkg.add(PackageSpec(%s))'" % install_opts])
-
-        return cmd
+    def test_step(self):
+        """No separate (standard) test procedure for JuliaPackage."""
+        pass
 
     def install_step(self):
-        """Install procedure for Julia packages."""
+        """Install Julia package with Pkg"""
 
-        cmd = self.make_julia_cmd(remove=False)
-        cmdttdouterr, _ = run_cmd(cmd, log_all=True, simple=False, regexp=False)
+        # prepend installation directory to Julia DEPOT_PATH
+        # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
+        depot_path = os.getenv('JULIA_DEPOT_PATH')
+        if depot_path is not None:
+            depot_path = ':'.join([self.installdir, depot_path])
+        env.setvar('JULIA_DEPOT_PATH', depot_path)
 
-        cmderrors = parse_log_for_error(cmdttdouterr, regExp="^ERROR:")
-        if cmderrors:
-            cmd = self.make_julia_cmd(remove=True)
-            run_cmd(cmd, log_all=False, log_ok=False, simple=False, inp=stdin, regexp=False)
-            raise EasyBuildError("Errors detected during installation of Julia package %s!", self.name)
+        # command sequence for Julia.Pkg
+        julia_pkg_cmd = ['using Pkg']
+        if os.path.isdir(os.path.join(self.start_dir, '.git')):
+            # sources from git repos can be installed as any remote package
+            self.log.debug('Installing Julia package in normal mode (Pkg.add)')
+
+            julia_pkg_cmd.extend([
+                # install package from local path preserving existing dependencies
+                'Pkg.add(url="%s"; preserve=Pkg.PRESERVE_ALL)' % self.start_dir,
+            ])
         else:
-            self.log.info("Julia package %s installed succesfully" % self.name)
+            # plain sources have to be installed in develop mode
+            # copy sources to install directory and install
+            self.log.debug('Installing Julia package in develop mode (Pkg.develop)')
+
+            install_pkg_path = os.path.join(self.installdir, 'packages', self.name)
+            copy_dir(self.start_dir, install_pkg_path)
+
+            julia_pkg_cmd.extend([
+                'Pkg.develop(PackageSpec(path="%s"))' % install_pkg_path,
+                'Pkg.build("%s")' % self.name,
+            ])
+
+        julia_pkg_cmd = ';'.join(julia_pkg_cmd)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            "julia -e '%s'" % julia_pkg_cmd,
+            self.cfg['installopts'],
+        ])
+        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+
+        return out
 
     def run(self):
         """Install Julia package as an extension."""
+
+        if not self.src:
+            errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
+            raise EasyBuildError(errmsg, self.name, self.src)
+        ExtensionEasyBlock.run(self, unpack_src=True)
+
+        self.set_pkg_offline()
         self.install_step()
 
     def sanity_check_step(self, *args, **kwargs):
-        """
-        Custom sanity check for Julia packages
-        """
-        #NOTE: we don't use Pkg.status with arguments as only supported for Julia >=v1.1
-        cmd = "unset EBJULIA_USER_DEPOT_PATH && export EBJULIA_ADMIN_DEPOT_PATH=%s && export JULIA_DEPOT_PATH=%s && export JULIA_PROJECT=%s && julia --eval 'using Pkg; Pkg.status()'" % (self.depot, self.depot, self.projectdir)
-        cmdttdouterr, _ = run_cmd(cmd, log_all=True, simple=False, regexp=False)
-        self.log.error("Julia package %s sanity returned %s" % (self.name, cmdttdouterr))
-        return len(parse_log_for_error(cmdttdouterr, regExp="%s\s+v%s" % (self.package_name, self.version))) != 0
+        """Custom sanity check for JuliaPackage"""
 
+        pkg_dir = os.path.join('packages', self.name)
+
+        custom_paths = {
+            'files': [],
+            'dirs': [pkg_dir],
+        }
+        kwargs.update({'custom_paths': custom_paths})
+
+        return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
+
+    def make_module_extra(self):
+        """Prepend installation directory to JULIA_DEPOT_PATH in module file."""
+        txt = super(JuliaPackage, self).make_module_extra()
+        txt += self.module_generator.prepend_paths('JULIA_DEPOT_PATH', [''])
+        return txt

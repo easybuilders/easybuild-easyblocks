@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -93,6 +93,7 @@ COMP_DEFAULTS = 'DEFAULTS'
 class IntelBase(EasyBlock):
     """
     Base class for Intel software
+
     - no configure/make : binary release
     - add license_file variable
     """

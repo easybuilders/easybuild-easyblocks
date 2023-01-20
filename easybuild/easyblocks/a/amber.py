@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2022 Ghent University
-# Copyright 2015-2022 Stanford University
+# Copyright 2009-2023 Ghent University
+# Copyright 2015-2023 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -239,7 +239,7 @@ class EB_Amber(CMakeMake):
         elif flexiblas_root or openblas_root:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:
-                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+                raise EasyBuildError("$LIBLAPACK for OpenBLAS or FlexiBLAS not defined in build environment!")
             else:
                 env.setvar('GOTO', lapack)
 
@@ -337,12 +337,12 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory, only for Amber. Tests fail when building only AmberTools
         if self.cfg['runtest'] and self.name == 'Amber':
-            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
 
             # serial tests
-            run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
+            run_cmd("%s && make test.serial" % pretestcommands, log_all=True, simple=True)
             if self.with_cuda:
-                (out, ec) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
+                (out, ec) = run_cmd("%s && make test.cuda_serial" % pretestcommands, log_all=True, simple=False)
                 if ec > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 

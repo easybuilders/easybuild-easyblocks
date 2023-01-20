@@ -21,18 +21,29 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
-# #
+##
 """
-Unit tests.
+EasyBuild support for building and installing Mamba, implemented as an easyblock
 
-@author: Stijn De Weirdt (Ghent University)
-@author: Dries Verdegem (Ghent University)
-@author: Kenneth Hoste (Ghent University)
-@author: Pieter De Baets (Ghent University)
-@author: Jens Timmerman (Ghent University)
-@author: Toon Willems (Ghent University)
+@author: Caspar van Leeuwen (SURF)
+@author: Kenneth Hoste (HPC-UGent)
 """
-from pkgutil import extend_path
 
-# we're not the only ones in this namespace
-__path__ = extend_path(__path__, __name__)  # @ReservedAssignment
+import os
+
+from easybuild.easyblocks.a.anaconda import EB_Anaconda
+
+
+class EB_Mamba(EB_Anaconda):
+    """Support for building/installing Mamba."""
+
+    def sanity_check_step(self):
+        """
+        Custom sanity check for Mamba
+        """
+        custom_paths = {
+            'files': [os.path.join('bin', x) for x in ['2to3', 'conda', 'pydoc', 'python', 'mamba']],
+            'dirs': ['etc', 'lib', 'pkgs'],
+        }
+        # Directly call EB_Anaconda's super, as this sanity_check_step should _overwrite_ Anaconda's (not call it)
+        super(EB_Anaconda, self).sanity_check_step(custom_paths=custom_paths)

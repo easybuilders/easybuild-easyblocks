@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,9 +33,9 @@ import re
 import sys
 from distutils.version import LooseVersion
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
@@ -66,6 +66,27 @@ class EB_EasyBuildMeta(PythonPackage):
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
 
+        # opt-in to using pip for recent version of EasyBuild, if:
+        # - EasyBuild is being installed for Python >= 3.6;
+        # - pip is available, and recent enough (>= 21.0);
+        # - use_pip is not specified;
+        pyver = sys.version.split(' ')[0]
+        self.log.info("Python version: %s", pyver)
+        if sys.version_info >= (3, 6) and self.cfg['use_pip'] is None:
+            # try to determine pip version, ignore any failures that occur while doing so;
+            # problems may occur due changes in environment ($PYTHONPATH, etc.)
+            pip_version = None
+            try:
+                pip_version = det_pip_version(python_cmd=sys.executable)
+                self.log.info("Found Python v%s + pip: %s", pyver, pip_version)
+            except Exception as err:
+                self.log.warning("Failed to determine pip version: %s", err)
+
+            if pip_version and LooseVersion(pip_version) >= LooseVersion('21.0'):
+                self.log.info("Auto-enabling use of pip to install EasyBuild!")
+                self.cfg['use_pip'] = True
+                self.determine_install_command()
+
     # Override this function since we want to respect the user choice for the python installation to use
     # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
     def prepare_python(self):
@@ -92,6 +113,21 @@ class EB_EasyBuildMeta(PythonPackage):
         """No building for EasyBuild packages."""
         pass
 
+    def fix_easyconfigs_setup_py_setuptools61(self):
+        """
+        Patch setup.py of easybuild-easyconfigs package if needed to make sure that installation works
+        for recent setuptools versions (>= 61.0).
+        """
+        # cfr. https://github.com/easybuilders/easybuild-easyconfigs/pull/15206
+        cwd = os.getcwd()
+        regex = re.compile(r'packages=\[\]')
+        setup_py_txt = read_file('setup.py')
+        if regex.search(setup_py_txt) is None:
+            self.log.info("setup.py at %s needs to be fixed to install with setuptools >= 61.0", cwd)
+            apply_regex_substitutions('setup.py', [(r'^setup\(', 'setup(packages=[],')])
+        else:
+            self.log.info("setup.py at %s does not need to be fixed to install with setuptools >= 61.0", cwd)
+
     def install_step(self):
         """Install EasyBuild packages one by one."""
         try:
@@ -108,7 +144,11 @@ class EB_EasyBuildMeta(PythonPackage):
 
                 else:
                     self.log.info("Installing package %s", pkg)
-                    os.chdir(os.path.join(self.builddir, seldirs[0]))
+                    change_dir(os.path.join(self.builddir, seldirs[0]))
+
+                    if pkg == 'easybuild-easyconfigs':
+                        self.fix_easyconfigs_setup_py_setuptools61()
+
                     super(EB_EasyBuildMeta, self).install_step()
 
         except OSError as err:
