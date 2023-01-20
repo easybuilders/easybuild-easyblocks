@@ -56,6 +56,7 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
         """Easyconfig parameters specific to scipy."""
         extra_vars = ({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
+            'ignore_test_result': [False, "Run scipy test suite, but ignore result (only log)", CUSTOM],
         })
 
         return FortranPythonPackage.extra_options(extra_vars=extra_vars)
@@ -66,13 +67,17 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
 
         self.use_meson = LooseVersion(self.version) >= LooseVersion('1.9')
         self.testinstall = True
-        self.testcmd = " && ".join([
-            "cd ..",
-            "touch %(srcdir)s/.coveragerc",
-            "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
-        ])
-        if self.cfg['enable_slow_tests'] is True:
-            self.testcmd += " -m full "
+        if self.cfg['ignore_test_result']:
+            # running tests this way exits with 0 regardless
+            self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
+        else:
+            self.testcmd = " && ".join([
+                "cd ..",
+                "touch %(srcdir)s/.coveragerc",
+                "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
+            ])
+            if self.cfg['enable_slow_tests'] is True:
+                self.testcmd += " -m full "
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
