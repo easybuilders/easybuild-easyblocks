@@ -41,6 +41,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPackage
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir
 from easybuild.tools.modules import get_software_root
@@ -49,6 +50,15 @@ from easybuild.tools.run import run_cmd
 
 class EB_scipy(FortranPythonPackage, MesonNinja):
     """Support for installing the scipy Python package as part of a Python installation."""
+
+    @staticmethod
+    def extra_options():
+        """Easyconfig parameters specific to scipy."""
+        extra_vars = ({
+            'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
+        })
+
+        return FortranPythonPackage.extra_options(extra_vars=extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Set scipy-specific test command."""
@@ -61,6 +71,8 @@ class EB_scipy(FortranPythonPackage, MesonNinja):
             "touch %(srcdir)s/.coveragerc",
             "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
         ])
+        if self.cfg['enable_slow_tests'] is True:
+            self.testcmd += " -m full "
 
     def configure_step(self):
         """Custom configure step for scipy: set extra installation options when needed."""
