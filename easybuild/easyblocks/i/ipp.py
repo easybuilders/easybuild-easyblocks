@@ -86,7 +86,8 @@ class EB_ipp(IntelBase):
             }
 
         # in case of IPP 9.x, we have to specify ARCH_SELECTED in silent.cfg
-        if LooseVersion(self.version) >= LooseVersion('9.0') and LooseVersion(self.version) < LooseVersion(new_path_version):
+        if LooseVersion(self.version) >= LooseVersion('9.0') \
+            and LooseVersion(self.version) < LooseVersion(new_path_version):
             silent_cfg_extras = {
                 'ARCH_SELECTED': self.arch.upper()
             }
