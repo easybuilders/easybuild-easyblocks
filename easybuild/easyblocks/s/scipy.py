@@ -43,9 +43,7 @@ from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, copy_dir, mkdir
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import change_dir, copy_dir
 
 
 class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
@@ -77,7 +75,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.cfg['installopts'] = ""
         else:
             self.use_meson = False
-        
+
         if self.cfg['ignore_test_result']:
             # maintains compatibility with easyconfigs predating scipy 1.9. Runs tests (serially) in
             # a way that exits with code 0 regardless of test results, see:
