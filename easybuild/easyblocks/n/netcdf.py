@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -141,7 +141,12 @@ class EB_netCDF(CMakeMake):
             'dirs': []
         }
 
-        super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = [
+            "nc-config --help",
+            "ncgen -h",
+        ]
+
+        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def set_netcdf_env_vars(log):

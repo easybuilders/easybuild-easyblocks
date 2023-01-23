@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2021 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,19 +29,24 @@ Unit tests for specific easyblocks.
 """
 import copy
 import os
+import stat
 import sys
 import tempfile
-from unittest import TestCase, TestLoader, TextTestRunner
+import textwrap
+from unittest import TestLoader, TextTestRunner
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
+from easybuild.base.testing import TestCase
+from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
-from easybuild.framework.easyblock import get_easyblock_instance
+from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
 from easybuild.framework.easyconfig.easyconfig import process_easyconfig
 from easybuild.tools import config
-from easybuild.tools.config import get_module_syntax
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
 from easybuild.tools.environment import modify_env
-from easybuild.tools.filetools import remove_dir, write_file
+from easybuild.tools.filetools import adjust_permissions, remove_dir, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.py2vs3 import StringIO
@@ -49,6 +54,18 @@ from easybuild.tools.py2vs3 import StringIO
 
 class EasyBlockSpecificTest(TestCase):
     """ Baseclass for easyblock testcases """
+
+    # initialize configuration (required for e.g. default modules_tool setting)
+    eb_go = eboptions.parse_options()
+    config.init(eb_go.options, eb_go.get_options_by_section('config'))
+    build_options = {
+        'suffix_modules_path': GENERAL_CLASS,
+        'valid_module_classes': config.module_classes(),
+        'valid_stops': [x[0] for x in EasyBlock.get_steps()],
+    }
+    config.init_build_options(build_options=build_options)
+    set_tmpdir()
+    del eb_go
 
     def setUp(self):
         """Test setup."""
@@ -199,6 +216,54 @@ class EasyBlockSpecificTest(TestCase):
             if any(key.startswith(x) for x in ['EBROOT', 'EBVERSION']):
                 extra_eb_env_vars.append(key)
         self.assertEqual(extra_eb_env_vars, [])
+
+    def test_det_cmake_version(self):
+        """Tests for det_cmake_version function provided along with CMakeMake generic easyblock."""
+
+        # set up fake 'cmake' command
+        cmake_cmd = os.path.join(self.tmpdir, 'cmake')
+        write_file(cmake_cmd, '#!/bin/bash\nexit 1')
+        adjust_permissions(cmake_cmd, stat.S_IXUSR)
+
+        os.environ['PATH'] = '%s:%s' % (self.tmpdir, os.getenv('PATH'))
+
+        self.assertErrorRegex(EasyBuildError, "Failed to determine CMake version", det_cmake_version)
+
+        # if $EBVERSIONCMAKE is defined (by loaded CMake module), that's picked up
+        os.environ['EBVERSIONCMAKE'] = '1.2.3'
+        self.assertEqual(det_cmake_version(), '1.2.3')
+
+        del os.environ['EBVERSIONCMAKE']
+
+        # output of 'cmake --version' as produced by CMake 2.x < 2.4.0
+        write_file(cmake_cmd, textwrap.dedent("""
+        #!/bin/bash
+        echo "CMake version 2.3.0"
+        """))
+        self.assertEqual(det_cmake_version(), '2.3.0')
+
+        # output of 'cmake --version' as produced by CMake 2.x >= 2.4.0
+        write_file(cmake_cmd, textwrap.dedent("""
+        #!/bin/bash
+        echo "cmake version 2.4.1"
+        """))
+        self.assertEqual(det_cmake_version(), '2.4.1')
+
+        # output of 'cmake --version' as produced by CMake 3.x
+        write_file(cmake_cmd, textwrap.dedent("""
+        #!/bin/bash
+        echo "cmake version 3.15.3"
+        echo ""
+        echo "CMake suite maintained and supported by Kitware (kitware.com/cmake)."
+        """))
+        self.assertEqual(det_cmake_version(), '3.15.3')
+
+        # also consider release candidate versions
+        write_file(cmake_cmd, textwrap.dedent("""
+        #!/bin/bash
+        echo "cmake version 1.2.3-rc4"
+        """))
+        self.assertEqual(det_cmake_version(), '1.2.3-rc4')
 
 
 def suite():

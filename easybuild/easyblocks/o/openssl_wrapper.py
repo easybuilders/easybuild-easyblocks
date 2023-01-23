@@ -1,5 +1,5 @@
 ##
-# Copyright 2021 Vrije Universiteit Brussel
+# Copyright 2021-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -112,6 +112,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 LINUX: ('so.1.1', ),
                 DARWIN: ('1.1.dylib', ),
             },
+            '3.0': {
+                LINUX: ('so.3', ),
+                DARWIN: ('3.dylib', ),
+            },
         }
 
         os_type = get_os_type()
@@ -135,6 +139,7 @@ class EB_OpenSSL_wrapper(Bundle):
         openssl_engines = {
             '1.0': 'engines',
             '1.1': 'engines-1.1',
+            '3.0': 'engines-3',
         }
         self.target_ssl_engine = openssl_engines[self.majmin_version]
 
@@ -222,7 +227,7 @@ class EB_OpenSSL_wrapper(Bundle):
         self.log.debug("Found the following include directories in host system: %s", ', '.join(sys_include_dirs))
 
         # headers are located in 'include/openssl' by default
-        ssl_include_subdirs = [self.name.lower()]
+        ssl_include_subdirs = ['openssl']
         if self.majmin_version == '1.1':
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
@@ -256,8 +261,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
         if not self.system_ssl['include']:
-            self.log.info("OpenSSL headers not found in host system, falling back to OpenSSL in EasyBuild")
-            return
+            err_msg = ("OpenSSL v%s headers not found in host system, but libraries for v%s are present. "
+                       "Install the development package of OpenSSL for your system or force building OpenSSL from "
+                       "source in EasyBuild by setting 'wrap_system_openssl = False' in the OpenSSL easyconfig.")
+            raise EasyBuildError(err_msg, self.version, self.system_ssl['version'])
 
         # Check system OpenSSL binary
         if self.majmin_version == '1.1':
@@ -265,7 +272,7 @@ class EB_OpenSSL_wrapper(Bundle):
             self.system_ssl['bin'] = which('openssl11')
 
         if not self.system_ssl['bin']:
-            self.system_ssl['bin'] = which(self.name.lower())
+            self.system_ssl['bin'] = which('openssl')
 
         if self.system_ssl['bin']:
             self.log.info("System OpenSSL binary found: %s", self.system_ssl['bin'])
@@ -361,8 +368,11 @@ class EB_OpenSSL_wrapper(Bundle):
             'dirs': ssl_dirs,
         }
 
-        # make sure that version mentioned in output of 'openssl version' matches version we are using
-        custom_commands = ["ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version]
+        custom_commands = [
+            # make sure that version mentioned in output of 'openssl version' matches version we are using
+            "ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version,
+            "echo | openssl s_client -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'",
+        ]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
@@ -416,15 +426,19 @@ Version: %(version)s
                 pc_name_suffix = pc_name + '11'
                 pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
                 if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False):
+                    self.log.info("%s exists", pc_name_suffix)
                     pc_name = pc_name_suffix
 
             # get requires from pkg-config
             pc_file['requires'] = []
             for require_type in ['Requires', 'Requires.private']:
                 require_print = require_type.lower().replace('.', '-')
-                requires, _ = run_cmd("pkg-config --print-%s %s" % (require_print, pc_name), simple=False)
+                pc_print_cmd = "pkg-config --print-%s %s" % (require_print, pc_name)
+                out, _ = run_cmd(pc_print_cmd, simple=False, log_ok=False)
+                self.log.info("Output of '%s': %s", pc_print_cmd, out)
 
-                if requires:
+                if out:
+                    requires = out
                     # use unsuffixed names for components provided by this wrapper
                     for wrap_comp in openssl_components:
                         requires = re.sub(r'^%s[0-9]+$' % wrap_comp, wrap_comp, requires, flags=re.M)
@@ -440,9 +454,16 @@ Version: %(version)s
                 pc_file['libs'] = "Libs: -L${libdir} -l%s" % c_lib_name
                 pc_file['cflags'] = "Cflags: -I${includedir}"
                 # infer private libs through pkg-config
-                linker_libs, _ = run_cmd("pkg-config --libs %s" % pc_name, simple=False)
-                all_libs, _ = run_cmd("pkg-config --libs --static %s" % pc_name, simple=False)
-                libs_priv = "%s " % all_libs.rstrip()
+                pc_libs_cmd = "pkg-config --libs %s" % pc_name
+                out, _ = run_cmd(pc_libs_cmd, simple=False, log_ok=False)
+                self.log.info("Output of '%s': %s", pc_libs_cmd, out)
+                linker_libs = out
+
+                pc_libs_static_cmd = "pkg-config --libs --static %s" % pc_name
+                out, _ = run_cmd(pc_libs_static_cmd, simple=False, log_ok=False)
+                self.log.info("Output of '%s': %s", pc_libs_static_cmd, out)
+
+                libs_priv = "%s " % out.rstrip()
                 for flag in linker_libs.rstrip().split(' '):
                     libs_priv = libs_priv.replace("%s " % flag, '')
                 pc_file['libs'] += "\nLibs.private: %s" % libs_priv

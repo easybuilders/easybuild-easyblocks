@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2013-2019 CaSToRC, The Cyprus Institute
+# Copyright:: Copyright 2013-2023 CaSToRC, The Cyprus Institute
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 # License::   MIT/GPL
 # $Id$
@@ -45,6 +45,7 @@ class EB_NAMD(MakeCp):
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
             'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
+            'cuda': [None, "Enable CUDA build if CUDA is among the dependencies", CUSTOM],
             'namd_basearch': [None, "NAMD base target architecture (compiler family is appended)", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
@@ -152,8 +153,12 @@ class EB_NAMD(MakeCp):
 
         # NAMD dependencies: CUDA, TCL, FFTW
         cuda = get_software_root('CUDA')
-        if cuda:
+        if cuda and (self.cfg['cuda'] is None or self.cfg['cuda']):
             self.cfg.update('namd_cfg_opts', "--with-cuda --cuda-prefix %s" % cuda)
+        elif not self.cfg['cuda']:
+            self.log.warning("CUDA is disabled")
+        elif not cuda and self.cfg['cuda']:
+            raise EasyBuildError("CUDA is not a dependency, but support for CUDA is enabled.")
 
         tcl = get_software_root('Tcl')
         if tcl:
@@ -196,10 +201,12 @@ class EB_NAMD(MakeCp):
             ppn = ''
             if self.toolchain.options.get('openmp', False):
                 ppn = '+ppn 2'
-            cmd = "%(namd)s %(ppn)s %(testdir)s" % {
+            cmd = "%(pretestopts)s %(namd)s %(ppn)s %(testopts)s %(testdir)s" % {
                 'namd': namdcmd,
                 'ppn': ppn,
+                'pretestopts': self.cfg['pretestopts'],
                 'testdir': os.path.join(self.cfg['start_dir'], self.namd_arch, 'src', 'alanin'),
+                'testopts': self.cfg['testopts'],
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:

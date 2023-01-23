@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -203,8 +203,9 @@ class EB_FFTW(ConfigureMake):
                 comp_fam = self.toolchain.comp_family()
                 fftw_ver = LooseVersion(self.version)
                 if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
-                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5.x - 10.x
-                    if prec == 'single' and fftw_ver <= LooseVersion('3.3.9'):
+                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5 and above
+                    # Upper bound of 3.4 (as of yet unreleased) in hope there will eventually be a fix.
+                    if prec == 'single' and fftw_ver < LooseVersion('3.4'):
                         self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
                                       % self.version)
                         prec_configopts.append('--disable-altivec')
@@ -246,13 +247,16 @@ class EB_FFTW(ConfigureMake):
 
         super(EB_FFTW, self).test_step()
 
-    def sanity_check_step(self):
-        """Custom sanity check for FFTW."""
+    def sanity_check_step(self, mpionly=False):
+        """Custom sanity check for FFTW. mpionly=True only for FFTW.MPI"""
 
         custom_paths = {
-            'files': ['bin/fftw-wisdom-to-conf', 'include/fftw3.f', 'include/fftw3.h'],
-            'dirs': ['lib/pkgconfig'],
+            'files': ['include/fftw3.f', 'include/fftw3.h'],
+            'dirs': [],
         }
+        if not mpionly:
+            custom_paths['files'].insert(0, 'bin/fftw-wisdom-to-conf')
+            custom_paths['dirs'].insert(0, 'lib/pkgconfig')
 
         shlib_ext = get_shared_lib_ext()
 
@@ -261,7 +265,8 @@ class EB_FFTW(ConfigureMake):
             if self.cfg['with_%s_prec' % prec]:
 
                 # precision-specific binaries
-                extra_files.append('bin/fftw%s-wisdom' % letter)
+                if not mpionly:
+                    extra_files.append('bin/fftw%s-wisdom' % letter)
 
                 # precision-specific .f03 header files
                 inc_f03 = 'include/fftw3%s.f03' % letter
@@ -271,7 +276,11 @@ class EB_FFTW(ConfigureMake):
                 extra_files.append(inc_f03)
 
                 # libraries, one for each precision and variant (if enabled)
-                for variant in ['', 'mpi', 'openmp', 'threads']:
+                if mpionly:
+                    variantlist = ['mpi']
+                else:
+                    variantlist = ['', 'mpi', 'openmp', 'threads']
+                for variant in variantlist:
                     if variant == 'openmp':
                         suff = '_omp'
                     elif variant == '':

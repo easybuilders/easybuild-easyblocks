@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,8 +51,8 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir, cop
 from easybuild.tools.filetools import which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import check_os_dependency, get_os_name, get_os_type
-from easybuild.tools.systemtools import get_cpu_architecture, get_gcc_version, get_shared_lib_ext
+from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
+from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
 
@@ -89,7 +89,8 @@ class EB_GCC(ConfigureMake):
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
             'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
-            'use_gold_linker': [True, "Configure GCC to use GOLD as default linker", CUSTOM],
+            'use_gold_linker': [None, "Configure GCC to use GOLD as default linker "
+                                      "(default: enable automatically for GCC < 11.3.0, except on RISC-V)", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
             'withisl': [False, "Build GCC with ISL support", CUSTOM],
             'withlibiberty': [False, "Enable installing of libiberty", CUSTOM],
@@ -128,6 +129,10 @@ class EB_GCC(ConfigureMake):
             # I think ISL without CLooG has no purpose in GCC < 5.0.0 ...
             if version < LooseVersion('5.0.0') and self.cfg['withisl'] and not self.cfg['withcloog']:
                 raise EasyBuildError("Activating ISL without CLooG is pointless")
+
+            # Disable the Gold linker by default for GCC 11.3.0 and newer, as it suffers from bitrot
+            if self.cfg['use_gold_linker'] is None:
+                self.cfg['use_gold_linker'] = version < LooseVersion('11.3.0')
 
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
         self.cfg.update('unwanted_env_vars', ['CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'OBJC_INCLUDE_PATH'])
@@ -521,8 +526,10 @@ class EB_GCC(ConfigureMake):
         # enable plugin support
         self.configopts += " --enable-plugins "
 
-        # use GOLD as default linker
-        if self.cfg['use_gold_linker']:
+        # use GOLD as default linker, except on RISC-V (since it's not supported there)
+        if get_cpu_family() == RISCV:
+            self.configopts += " --disable-gold --enable-ld=default"
+        elif self.cfg['use_gold_linker']:
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
         else:
             self.configopts += " --enable-gold --enable-ld=default"

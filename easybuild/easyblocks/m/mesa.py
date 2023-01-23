@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -66,10 +66,14 @@ class EB_Mesa(MesonNinja):
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
             arch_gallium_drivers = {
-                X86_64: ['swrast', 'swr'],
+                X86_64: ['swrast'],
                 POWER: ['swrast'],
                 AARCH64: ['swrast'],
             }
+            if LooseVersion(self.version) < LooseVersion('22'):
+                # swr driver support removed in Mesa 22.0
+                arch_gallium_drivers[X86_64].append('swr')
+
             if arch in arch_gallium_drivers:
                 gallium_drivers = arch_gallium_drivers[arch]
                 # Add configopt for additional Gallium drivers

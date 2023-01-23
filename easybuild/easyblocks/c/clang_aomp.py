@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for building and installing AOMP version of LLVM/Clang
 import glob
 import os
 
+from distutils.version import LooseVersion
 from easybuild.easyblocks.clang import DEFAULT_TARGETS_MAP as LLVM_ARCH_MAP
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyblock import EasyBlock
@@ -162,17 +163,26 @@ class EB_Clang_minus_AOMP(Bundle):
         custom_paths = {
             'files': ['bin/clang', 'bin/lld', 'lib/libomp.%s' % shlib_ext,
                       'lib/libomptarget.rtl.amdgpu.%s' % shlib_ext, 'lib/libomptarget.%s' % shlib_ext],
-            'dirs': ['amdgcn/bitcode', 'include/clang', 'include/lld', 'include/llvm',
-                     'lib/libdevice'],
+            'dirs': ['amdgcn/bitcode', 'include/clang', 'include/lld', 'include/llvm'],
         }
         custom_commands = ['clang --help', 'clang++ --help']
 
-        libs = ['aompextras', 'omptarget']
+        if LooseVersion(self.version) >= LooseVersion("5"):
+            libs = ['aompextras']
+        else:
+            libs = ['aompextras', 'omptarget']
         libdevice = os.path.join('lib', 'libdevice')
 
         # Check that all AMD GFX libraries were built
         for gfx in self.amd_gfx_archs:
-            custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
+            if LooseVersion(self.version) < LooseVersion("5.2"):
+                custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
+            if LooseVersion(self.version) >= LooseVersion("5"):
+                custom_paths['files'].append(os.path.join('lib', 'libomptarget-amdgcn-%s.bc' % gfx))
+                custom_paths['files'].append(os.path.join('lib', 'libomptarget-new-amdgpu-%s.bc' % gfx))
+
+        if LooseVersion(self.version) >= LooseVersion("5"):
+            custom_paths['files'].append(os.path.join('lib', 'libomptarget.rtl.amdgpu.%s' % shlib_ext))
 
         # Check that CPU target OpenMP offloading library was built
         arch = get_cpu_architecture()
@@ -195,7 +205,11 @@ class EB_Clang_minus_AOMP(Bundle):
 
             for arch in self.cuda_archs:
                 sm_arch = 'sm_%s' % arch
-                custom_paths['files'].append(os.path.join('lib', 'libomptarget-nvptx-%s.bc' % sm_arch))
+                if LooseVersion(self.version) >= LooseVersion("5"):
+                    custom_paths['files'].append(os.path.join(libdevice, 'libm-nvptx-%s.bc' % sm_arch))
+                    custom_paths['files'].append(os.path.join('lib', 'libomptarget-new-nvptx-%s.bc' % sm_arch))
+                else:
+                    custom_paths['files'].append(os.path.join('lib', 'libomptarget-nvptx-%s.bc' % sm_arch))
 
         # need to bypass sanity_check_step of Bundle, because it only loads the generated module
         # unless custom paths or commands are specified in the easyconfig
@@ -253,6 +267,11 @@ class EB_Clang_minus_AOMP(Bundle):
             '',
         ])
 
+        if LooseVersion(self.version) >= LooseVersion("5.2"):
+            component['configopts'] += ' '.join([
+                "-DDEVICELIBS_ROOT=%s" % self.device_lib_path,
+            ])
+
         if get_software_root('CUDA'):
             llvm_link = os.path.join(self.installdir, 'bin', 'llvm-link')
             cuda_path = os.path.join(self.installdir, 'bin', 'clang++')
@@ -274,4 +293,10 @@ class EB_Clang_minus_AOMP(Bundle):
             "-DAOMP_STANDALONE_BUILD=1",
             "-DROCDL=%s" % self.device_lib_path,
             "-DROCM_DIR=%s" % self.installdir,
+            '',
         ])
+
+        if LooseVersion(self.version) >= LooseVersion("5.2"):
+            component['configopts'] += ' '.join([
+                "-DAOMP_VERSION_STRING=%s" % self.version,
+            ])

@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2021 Ghent University
+# Copyright 2021-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,8 +35,15 @@ from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import write_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+IMKL_CONF_TEMPLATE = """[IMKL]
+library = libflexiblas_imkl_%(parallel)s_thread.so
+[IMKL_SEQ]
+library = libflexiblas_imkl_sequential.so
+"""
 
 
 class EB_FlexiBLAS(CMakeMake):
@@ -51,7 +58,8 @@ class EB_FlexiBLAS(CMakeMake):
             'flexiblas_default': [None, "Default BLAS lib to set at compile time. If not defined, " +
                                   "the first BLAS lib in backends or the list of dependencies is set as default",
                                   CUSTOM],
-            'backends': [None, "List of (build)dependency names to use as BLAS library backends. " +
+            'backends': [None, "List of (build)dependency names to use as BLAS library backends, or " +
+                         "'imkl', which does not need to be a (build)dependency." +
                          "If not defined, use the list of dependencies.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
@@ -63,8 +71,10 @@ class EB_FlexiBLAS(CMakeMake):
 
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         if self.cfg['backends']:
-            self.blas_libs = self.cfg['backends']
-            # make sure that all listed backends are (build)dependencies
+            self.blas_libs = self.cfg['backends'][:]
+            # make sure that all listed backends except imkl are (build)dependencies
+            if 'imkl' in self.blas_libs and 'imkl' not in dep_names:
+                self.blas_libs.remove('imkl')
             backends_nodep = [x for x in self.blas_libs if x not in dep_names]
             if backends_nodep:
                 raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
@@ -136,6 +146,18 @@ class EB_FlexiBLAS(CMakeMake):
             self.cfg['abs_path_compilers'] = True
 
         super(EB_FlexiBLAS, self).configure_step(builddir=self.obj_builddir)
+
+    def install_step(self):
+        """Install imkl configuration, found via FLEXIBLAS_LIBRARY_PATH set by imkl module."""
+
+        super(EB_FlexiBLAS, self).install_step()
+        if self.cfg['backends'] and 'imkl' in self.cfg['backends'] and 'imkl' not in self.blas_libs:
+            if self.toolchain.comp_family() == toolchain.GCC:
+                parallel = "gnu"
+            else:
+                parallel = "intel"
+            write_file(os.path.join(self.installdir, 'etc', 'flexiblasrc.d', 'imkl.conf'),
+                       IMKL_CONF_TEMPLATE % {'parallel': parallel})
 
     def test_step(self):
         """Run tests using each of the backends."""

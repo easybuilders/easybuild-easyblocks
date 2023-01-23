@@ -1,5 +1,5 @@
 # #
-# Copyright 2021-2021 Ghent University
+# Copyright 2021-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -147,6 +147,9 @@ class EB_intel_minus_compilers(IntelBase):
             ],
             'LD_LIBRARY_PATH': libdirs,
             'LIBRARY_PATH': libdirs,
+            'MANPATH': [
+                os.path.join('compiler', self.version, 'documentation', 'en', 'man', 'common'),
+            ],
             'OCL_ICD_FILENAMES': [
                 os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
             ],

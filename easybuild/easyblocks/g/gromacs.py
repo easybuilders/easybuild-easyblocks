@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,6 +68,8 @@ class EB_GROMACS(CMakeMake):
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
+            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
+                       "True or False forces behaviour.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -190,14 +192,31 @@ class EB_GROMACS(CMakeMake):
                     self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
                 else:
                     self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+
+                # Set CUDA capabilities based on template value.
+                if '-DGMX_CUDA_TARGET_SM' not in self.cfg['configopts']:
+                    cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
+                        "cuda_cc_semicolon_sep").replace('.', '')
+                    self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
             else:
                 # explicitly disable GPU support if CUDA is not available,
-                # to avoid that GROMACS find and uses a system-wide CUDA compiler
+                # to avoid that GROMACS finds and uses a system-wide CUDA compiler
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
-        # check whether PLUMED is loaded as a dependency
+        # PLUMED detection
+        # enable PLUMED support if PLUMED is listed as a dependency
+        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
         plumed_root = get_software_root('PLUMED')
+        if self.cfg['plumed'] and not plumed_root:
+            msg = "PLUMED support has been requested but PLUMED is not listed as a dependency."
+            raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is False:
+            self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
+            plumed_root = None
+
         if plumed_root:
+            self.log.info('PLUMED support has been enabled.')
+
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 

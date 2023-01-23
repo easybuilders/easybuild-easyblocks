@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -118,6 +118,9 @@ class EB_Libint(CMakeMake):
         else:
             if self.cfg['with_fortran']:
                 self.cfg.update('configopts', '-DENABLE_FORTRAN=ON')
+
+            # also build shared libraries (not enabled by default)
+            self.cfg.update('configopts', "-DLIBINT2_BUILD_SHARED_AND_STATIC_LIBS=ON")
 
             # specify current directory as source directory (that contains CMakeLists.txt),
             # since that's the path to the unpacked source tarball for Libint library (created by 'make export')

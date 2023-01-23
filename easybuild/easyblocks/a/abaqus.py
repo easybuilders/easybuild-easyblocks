@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,8 +41,10 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import change_dir, write_file
+from easybuild.tools.filetools import change_dir, symlink, write_file
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.systemtools import get_os_name
 from easybuild.tools.py2vs3 import OrderedDict
 
 
@@ -77,6 +79,9 @@ class EB_ABAQUS(Binary):
     def configure_step(self):
         """Configure ABAQUS installation."""
         if LooseVersion(self.version) >= LooseVersion('2016'):
+            # Rocky Linux isn't recognized; faking it as RHEL
+            if get_os_name() in ['Rocky Linux', 'AlmaLinux']:
+                setvar('DISTRIB_ID', 'RedHatEnterpriseServer')
             # skip checking of Linux version
             setvar('DSY_Force_OS', 'linux_a64')
             # skip checking of license server
@@ -109,6 +114,7 @@ class EB_ABAQUS(Binary):
             no_qa = [
                 '___',
                 r"\(\d+\s*[KM]B\)",
+                r'\.\.\.$',
             ]
 
             # Match string for continuing on with the selected items
@@ -124,10 +130,9 @@ class EB_ABAQUS(Binary):
             # rather than a regular dictionary (where there's no guarantee on key order in general)
             std_qa = OrderedDict()
 
-            # Enable Extended Product Documentation
-            std_qa[selectionstr % (r"\[ \]", "Extended Product Documentation")] = "%(nr)s"
-            # Enable Abaqus CAE (docs)
-            std_qa[selectionstr % (r"\[ \]", "Abaqus CAE")] = "%(nr)s"
+            # Disable Extended Product Documentation because it has a troublesome Java dependency
+            std_qa[selectionstr % (r"\[*\]", "Extended Product Documentation")] = "%(nr)s"
+            installed_docs = False  # hard disabled, previous support was actually incomplete
 
             # enable all ABAQUS components
             std_qa[selectionstr % (r"\[ \]", "Abaqus.*")] = "%(nr)s"
@@ -144,9 +149,20 @@ class EB_ABAQUS(Binary):
 
             # Disable/enable Tosca
             if self.cfg['with_tosca']:
-                std_qa[selectionstr % (r"\[\ \]", "Tosca")] = "%(nr)s"
+                std_qa[selectionstr % (r"\[\ \]", "Tosca.*")] = "%(nr)s"
             else:
-                std_qa[selectionstr % (r"\[\*\]", "Tosca")] = "%(nr)s"
+                std_qa[selectionstr % (r"\[\*\]", "Tosca.*")] = "%(nr)s"
+
+            # disable CloudView
+            std_qa[r"(?P<cloudview>[0-9]+) \[X\] Search using CloudView\nEnter selection:"] = '%(cloudview)s\n\n'
+            # accept default port for documentation server
+            std_qa[r"Check that the port is free.\nDefault \[[0-9]+\]:"] = '\n'
+
+            # disable feedback by users
+            std_qa[r"(?P<feedback>[0-9]+) \[X\] Allow users to send feedback.\nEnter selection:"] = '%(feedback)s\n\n'
+
+            # disable reverse proxy
+            std_qa[r"(?P<proxy>[0-9]+) \[X\] Use a reverse proxy.\nEnter selection:"] = '%(proxy)s\n\n'
 
             # Disable Isight
             std_qa[selectionstr % (r"\[\*\]", "Isight")] = "%(nr)s"
@@ -157,7 +173,7 @@ class EB_ABAQUS(Binary):
             cae_subdir = os.path.join(self.installdir, 'cae')
             sim_subdir = os.path.join(self.installdir, 'sim')
             std_qa[r"Default.*SIMULIA/EstProducts.*:"] = cae_subdir
-            std_qa[r"SIMULIA[0-9]*doc.*:"] = os.path.join(self.installdir, 'doc')
+            std_qa[r"SIMULIA[0-9]*doc.*:"] = os.path.join(self.installdir, 'doc')  # if docs are installed
             std_qa[r"SimulationServices.*:"] = sim_subdir
             std_qa[r"Choose the CODE installation directory.*:\n.*\n\n.*:"] = sim_subdir
             std_qa[r"SIMULIA/CAE.*:"] = cae_subdir
@@ -184,10 +200,18 @@ class EB_ABAQUS(Binary):
 
             std_qa[r"Please choose an action:"] = '1'
 
+            if LooseVersion(self.version) >= LooseVersion('2022') and installed_docs:
+                java_root = get_software_root('Java')
+                if java_root:
+                    std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[\]:"] = java_root
+                    std_qa[r"Please enter .*Java Runtime Environment.* path.(\n.*)+Default \[.+\]:"] = ''
+                else:
+                    raise EasyBuildError("Java is required for ABAQUS docs versions >= 2022, but it is missing")
+
             # Continue
             std_qa[nextstr] = ''
 
-            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
+            run_cmd_qa('./StartTUI.sh', qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=1000)
         else:
             change_dir(self.builddir)
             if self.cfg['install_cmd'] is None:
@@ -284,6 +308,22 @@ class EB_ABAQUS(Binary):
                     run_cmd_qa('./StartTUI.sh', {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=100)
                     change_dir(cwd)
 
+        # create 'abaqus' symlink for main command, which is not there anymore starting with ABAQUS 2022
+        if LooseVersion(self.version) >= LooseVersion('2022'):
+            commands_dir = os.path.join(self.installdir, 'Commands')
+            abaqus_cmd = os.path.join(commands_dir, 'abaqus')
+            if os.path.exists(abaqus_cmd):
+                self.log.info("Main 'abaqus' command already found at %s, no need to create symbolic link", abaqus_cmd)
+            else:
+                abq_ver_cmd = os.path.join(commands_dir, 'abq%s' % self.version)
+                self.log.info("Creating symbolic link 'abaqus' for main command %s", abq_ver_cmd)
+                if os.path.exists(abq_ver_cmd):
+                    cwd = change_dir(commands_dir)
+                    symlink(os.path.basename(abq_ver_cmd), os.path.basename(abaqus_cmd))
+                    change_dir(cwd)
+                else:
+                    raise EasyBuildError("Path to main command %s does not exist!", abq_ver_cmd)
+
     def sanity_check_step(self):
         """Custom sanity check for ABAQUS."""
         custom_paths = {
@@ -293,7 +333,7 @@ class EB_ABAQUS(Binary):
         custom_commands = []
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
-            custom_paths['dirs'].extend(['cae', 'Commands', 'doc'])
+            custom_paths['dirs'].extend(['cae', 'Commands'])
             if LooseVersion(self.version) < LooseVersion('2020'):
                 custom_paths['dirs'].extend(['sim'])
             # 'all' also check license server, but lmstat is usually not available

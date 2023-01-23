@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2021 Ghent University
+# Copyright 2017-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -134,6 +134,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     available_system_libs = {
         # Format: (<EB name>, <version range>): <TF name>
         #         <version range> is '<min version>:<exclusive max version>'
+        ('Abseil', '2.9.0:'): 'com_google_absl',
         ('cURL', '2.0.0:'): 'curl',
         ('double-conversion', '2.0.0:'): 'double_conversion',
         ('flatbuffers', '2.0.0:'): 'flatbuffers',
@@ -177,7 +178,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('astunparse', '2.2.0:'): 'astunparse_archive',
         ('cython', '2.0.0:'): 'cython',  # Part of Python EC
         ('dill', '2.4.0:'): 'dill_archive',
-        ('enum', '2.0.0:'): 'enum34_archive',  # Part of Python3
+        ('enum', '2.0.0:2.8.0'): 'enum34_archive',  # Part of Python3
         ('flatbuffers', '2.4.0:'): 'flatbuffers',
         ('functools', '2.0.0:'): 'functools32_archive',  # Part of Python3
         ('gast', '2.0.0:'): 'gast_archive',
@@ -191,6 +192,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('typing_extensions', '2.4.0:'): 'typing_extensions_archive',
         ('wrapt', '2.0.0:'): 'wrapt',
     }
+
     dependency_mapping = dict((dep_name, tf_name)
                               for (dep_name, version_range), tf_name in available_system_libs.items()
                               if is_version_ok(version_range))
@@ -399,6 +401,18 @@ class EB_TensorFlow(PythonPackage):
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
+        # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
+        openssl_root = get_software_root('OpenSSL')
+        if openssl_root:
+            if 'boringssl' not in system_libs:
+                system_libs.append('boringssl')
+            incpath = os.path.join(openssl_root, 'include')
+            if os.path.exists(incpath):
+                cpaths.append(incpath)
+            libpath = get_software_libdir(dep_name)
+            if libpath:
+                libpaths.append(os.path.join(openssl_root, libpath))
+
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
                           len(ignored_system_deps))
@@ -416,10 +430,14 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
+        # This is either the builddir (for standalone builds) or the extension sub folder when TF is an extension
+        # Either way this folder only contains the folder with the sources and hence we can use fixed names
+        # for the subfolders
+        parent_dir = os.path.dirname(self.start_dir)
         # Path where Bazel will store its output, build artefacts etc.
-        self.output_user_root_dir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
-        self.wrapper_dir = tempfile.mkdtemp(suffix='-wrapper_bin', dir=self.builddir)
+        self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -672,9 +690,10 @@ class EB_TensorFlow(PythonPackage):
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
             # figure out location of GCC include files
-            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
+            # make sure we don't pick up the nvptx-none directory by looking for a specific include file
+            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include', 'immintrin.h'))
             if res and len(res) == 1:
-                gcc_lib_inc = res[0]
+                gcc_lib_inc = os.path.dirname(res[0])
                 inc_paths.append(gcc_lib_inc)
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
