@@ -120,14 +120,14 @@ class EB_QScintilla(ConfigureMake):
             sip_incdir = find_glob_pattern(os.path.join(self.pyqt_root, 'include', 'python%s*' % pyshortver), False)
             # depending on PyQt5 versions and how it was installed, the sip directory could be in various places
             # test them and figure out the first one that matches
-            pyqt_sip_subidr = [os.path.join('share', 'python%s*' % pyshortver, 'site-packages', 'sip',
+            pyqt_sip_subdir = [os.path.join('share', 'python%s*' % pyshortver, 'site-packages', 'sip',
                                             self.pyqt_pkg_name),
                                os.path.join('share', 'sip', self.pyqt_pkg_name),
                                os.path.join('share', 'sip'),
                                os.path.join('lib', 'python%s*' % pyshortver, 'site-packages', self.pyqt_pkg_name,
                                             'bindings')
                                ]
-            pyqt_sipdir_options = [os.path.join(self.pyqt_root, subdir) for subdir in pyqt_sip_subidr]
+            pyqt_sipdir_options = [os.path.join(self.pyqt_root, subdir) for subdir in pyqt_sip_subdir]
             for pyqt_sipdir_option in pyqt_sipdir_options:
                 pyqt_sipdir = find_glob_pattern(pyqt_sipdir_option, False)
                 if pyqt_sipdir:
