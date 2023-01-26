@@ -126,7 +126,7 @@ class EB_QScintilla(ConfigureMake):
                                os.path.join('share', 'sip'),
                                os.path.join('lib', 'python%s*' % pyshortver, 'site-packages', self.pyqt_pkg_name,
                                             'bindings')
-                              ]
+                               ]
             pyqt_sipdir_options = [os.path.join(self.pyqt_root, subdir) for subdir in pyqt_sip_subidr]
             for pyqt_sipdir_option in pyqt_sipdir_options:
                 pyqt_sipdir = find_glob_pattern(pyqt_sipdir_option, False)
