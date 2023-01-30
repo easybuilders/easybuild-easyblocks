@@ -250,6 +250,7 @@ class PythonPackage(ExtensionEasyBlock):
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
                                         "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
                                CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
@@ -283,7 +284,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgfn = 'site.cfg'
         self.sitecfglibdir = None
         self.sitecfgincdir = None
-        self.testinstall = False
+        self.testinstall = self.cfg['testinstall']
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
