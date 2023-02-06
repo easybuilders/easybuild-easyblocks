@@ -917,8 +917,9 @@ class PythonPackage(ExtensionEasyBlock):
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
                 else:
-                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s", (pip_check_command,
-                                                                                                 pip_version))
+                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s",
+                                         pip_check_command,
+                                         pip_version)
             else:
                 raise EasyBuildError("Failed to determine pip version!")
 
