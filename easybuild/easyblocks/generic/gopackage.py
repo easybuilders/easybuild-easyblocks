@@ -34,6 +34,7 @@ import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
@@ -125,6 +126,9 @@ class GoPackage(EasyBlock):
 
     def install_step(self):
         """Install Go package to a custom path"""
+
+        if build_option('debug'):
+            self.cfg['installopts'] = '-x ' + self.cfg['installopts']
 
         # actually install Go package
         cmd = ' '.join([
