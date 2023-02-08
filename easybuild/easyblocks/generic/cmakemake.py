@@ -150,7 +150,7 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
-        #re-enable template resolution
+        # re-enable template resolution
         self.cfg.enable_templating = True
 
     def configure_step(self, srcdir=None, builddir=None):
