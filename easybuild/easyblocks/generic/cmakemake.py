@@ -143,15 +143,13 @@ class CMakeMake(ConfigureMake):
         """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
         # need to disable template resolution or it will remain the same for all runs
         self.cfg.enable_templating = False
+        with self.cfg.disable_templating():
+            cfg_configopts = self.cfg['configopts']
 
-        cfg_configopts = self.cfg['configopts']
         # All options are of the form '-D<key>=<value>'
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
-
-        # re-enable template resolution
-        self.cfg.enable_templating = True
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
