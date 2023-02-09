@@ -268,10 +268,10 @@ class EB_PyTorch(PythonPackage):
 
         test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
         if test_result is None:
-            if self.cfg['runtest'] or self.cfg['runtest'] is None:
-                msg = "runtest must be set to a command to run."
+            if self.cfg['runtest'] is False:
+                msg = "Do not set 'runtest' to False, use --skip-test-step instead."
             else:
-                msg = "Do not set runtest to False, use --skip-test-step instead."
+                msg = "Tests did not run. Make sure 'runtest' is set to a command."
             raise EasyBuildError(msg)
 
         tests_out, tests_ec = test_result
