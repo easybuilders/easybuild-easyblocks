@@ -248,137 +248,143 @@ class EB_PyTorch(PythonPackage):
 
     def test_step(self):
         """Run unit tests"""
-        self._set_cache_dir()
-        # Pretend to be on FB CI which disables some tests, especially those which download stuff
-        env.setvar('SANDCASTLE', '1')
-        # Skip this test(s) which is very flaky
-        env.setvar('SKIP_TEST_BOTTLENECK', '1')
-        # Parse excluded_tests and flatten into space separated string
-        excluded_tests = []
-        for arch, tests in self.cfg['excluded_tests'].items():
-            if not arch or arch == get_cpu_architecture():
-                excluded_tests.extend(tests)
-        # -x should not be used if there are no excluded tests
-        if excluded_tests:
-            excluded_tests = ['-x'] + excluded_tests
-        self.cfg.template_values.update({
-            'python': self.python_cmd,
-            'excluded_tests': ' '.join(excluded_tests)
-        })
 
-        tests_out, tests_ec = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        # Must not run this unless runtest is actually set to a command,
+        # otherwise PythonPackage.test_step doesn't return the expected "out, ec" values which makes the code crash
+        if isinstance(self.cfg['runtest'], string_type):
+            cmd = self.cfg['runtest']
+        if self.cfg['runtest'] and cmd is not None:
+            self._set_cache_dir()
+            # Pretend to be on FB CI which disables some tests, especially those which download stuff
+            env.setvar('SANDCASTLE', '1')
+            # Skip this test(s) which is very flaky
+            env.setvar('SKIP_TEST_BOTTLENECK', '1')
+            # Parse excluded_tests and flatten into space separated string
+            excluded_tests = []
+            for arch, tests in self.cfg['excluded_tests'].items():
+                if not arch or arch == get_cpu_architecture():
+                    excluded_tests.extend(tests)
+            # -x should not be used if there are no excluded tests
+            if excluded_tests:
+                excluded_tests = ['-x'] + excluded_tests
+            self.cfg.template_values.update({
+                'python': self.python_cmd,
+                'excluded_tests': ' '.join(excluded_tests)
+            })
 
-        def get_count_for_pattern(regex, text):
-            """Match the regexp containing a single group and return the integer value of the matched group.
-               Return zero if no or more than 1 match was found and warn for the latter case
-            """
-            match = re.findall(regex, text)
-            if len(match) == 1:
-                return int(match[0])
-            elif len(match) > 1:
-                # Shouldn't happen, but means something went wrong with the regular expressions.
-                # Throw warning, as the build might be fine, no need to error on this.
-                warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
-                warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
-                print_warning(warn_msg)
-            return 0
+            tests_out, tests_ec = super(EB_PyTorch, self).test_step(return_output_ec=True)
 
-        # Create clear summary report
-        failure_report = ""
-        failure_cnt = 0
-        error_cnt = 0
-        failed_test_suites = []
+            def get_count_for_pattern(regex, text):
+                """Match the regexp containing a single group and return the integer value of the matched group.
+                   Return zero if no or more than 1 match was found and warn for the latter case
+                """
+                match = re.findall(regex, text)
+                if len(match) == 1:
+                    return int(match[0])
+                elif len(match) > 1:
+                    # Shouldn't happen, but means something went wrong with the regular expressions.
+                    # Throw warning, as the build might be fine, no need to error on this.
+                    warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
+                    warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
+                    print_warning(warn_msg)
+                return 0
 
-        # Grep for patterns like:
-        # Ran 219 tests in 67.325s
-        #
-        # FAILED (errors=10, skipped=190, expected failures=6)
-        # test_fx failed!
-        regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
-                 r"FAILED \((?P<failure_summary>.*)\)$\n"
-                 r"(?:^(?:(?!failed!).)*$\n)*"
-                 r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+            # Create clear summary report
+            failure_report = ""
+            failure_cnt = 0
+            error_cnt = 0
+            failed_test_suites = []
 
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-            failure_summary = m.group('failure_summary')
-            total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                    test_suite=test_suite, total=total, failure_summary=failure_summary
+            # Grep for patterns like:
+            # Ran 219 tests in 67.325s
+            #
+            # FAILED (errors=10, skipped=190, expected failures=6)
+            # test_fx failed!
+            regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
+                     r"FAILED \((?P<failure_summary>.*)\)$\n"
+                     r"(?:^(?:(?!failed!).)*$\n)*"
+                     r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+
+            for m in re.finditer(regex, tests_out, re.M):
+                # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
+                failure_summary = m.group('failure_summary')
+                total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
+                failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+                        test_suite=test_suite, total=total, failure_summary=failure_summary
+                    )
+                failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
+                error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+                failed_test_suites.append(test_suite)
+
+            # Grep for patterns like:
+            # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
+            regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
+
+            for m in re.finditer(regex, tests_out, re.M):
+                # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
+                failure_summary = m.group('failure_summary')
+                test_suite = m.group('failed_test_suite_name')
+                failure_report += "{test_suite} ({failure_summary})\n".format(
+                        test_suite=test_suite, failure_summary=failure_summary
+                    )
+                failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+                error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
+                failed_test_suites.append(test_suite)
+
+            # Make the names unique and sorted
+            failed_test_suites = sorted(set(failed_test_suites))
+            # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
+            # Also unique and sorted to be able to compare the lists below
+            all_failed_test_suites = sorted(set(
+                re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
+            ))
+            # If we missed any test suites prepend a list of all failed test suites
+            if failed_test_suites != all_failed_test_suites:
+                failure_report_save = failure_report
+                failure_report = 'Failed tests (suites/files):\n'
+                failure_report += '\n'.join('* %s' % t for t in all_failed_test_suites)
+                if failure_report_save:
+                    failure_report += '\n' + failure_report_save
+
+            # Calculate total number of unsuccesful and total tests
+            failed_test_cnt = failure_cnt + error_cnt
+            test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+
+            if failed_test_cnt > 0:
+                max_failed_tests = self.cfg['max_failed_tests']
+
+                failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
+                error_or_errors = 'error' if error_cnt == 1 else 'errors'
+                msg = "%d test %s, %d test %s (out of %d):\n" % (
+                    failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
                 )
-            failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
-            error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
-            failed_test_suites.append(test_suite)
+                msg += failure_report
 
-        # Grep for patterns like:
-        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
-        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
+                # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
+                if max_failed_tests == 0 or failed_test_suites != all_failed_test_suites:
+                    raise EasyBuildError(msg)
+                else:
+                    msg += '\n\n' + ' '.join([
+                        "The PyTorch test suite is known to include some flaky tests,",
+                        "which may fail depending on the specifics of the system or the context in which they are run.",
+                        "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
+                        "We recommend to double check that the failing tests listed above ",
+                        "are known to be flaky, or do not affect your intended usage of PyTorch.",
+                        "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
+                    ])
+                    # Print to console, the user should really be aware that we are accepting failing tests here...
+                    print_warning(msg)
 
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-            failure_summary = m.group('failure_summary')
-            test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
-                    test_suite=test_suite, failure_summary=failure_summary
-                )
-            failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
-            error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
-            failed_test_suites.append(test_suite)
+                    # Also log this warning in the file log
+                    self.log.warning(msg)
 
-        # Make the names unique and sorted
-        failed_test_suites = sorted(set(failed_test_suites))
-        # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        # Also unique and sorted to be able to compare the lists below
-        all_failed_test_suites = sorted(set(
-            re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
-        ))
-        # If we missed any test suites prepend a list of all failed test suites
-        if failed_test_suites != all_failed_test_suites:
-            failure_report_save = failure_report
-            failure_report = 'Failed tests (suites/files):\n'
-            failure_report += '\n'.join('* %s' % t for t in all_failed_test_suites)
-            if failure_report_save:
-                failure_report += '\n' + failure_report_save
-
-        # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = failure_cnt + error_cnt
-        test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
-
-        if failed_test_cnt > 0:
-            max_failed_tests = self.cfg['max_failed_tests']
-
-            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if error_cnt == 1 else 'errors'
-            msg = "%d test %s, %d test %s (out of %d):\n" % (
-                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
-            )
-            msg += failure_report
-
-            # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
-            if max_failed_tests == 0 or failed_test_suites != all_failed_test_suites:
-                raise EasyBuildError(msg)
-            else:
-                msg += '\n\n' + ' '.join([
-                    "The PyTorch test suite is known to include some flaky tests,",
-                    "which may fail depending on the specifics of the system or the context in which they are run.",
-                    "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
-                    "We recommend to double check that the failing tests listed above ",
-                    "are known to be flaky, or do not affect your intended usage of PyTorch.",
-                    "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
-                ])
-                # Print to console, the user should really be aware that we are accepting failing tests here...
-                print_warning(msg)
-
-                # Also log this warning in the file log
-                self.log.warning(msg)
-
-                if failed_test_cnt > max_failed_tests:
-                    raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
-                                         failed_test_cnt, max_failed_tests)
-        elif failure_report:
-            raise EasyBuildError("Test command had non-zero exit code (%s)!\n%s", tests_ec, failure_report)
-        elif tests_ec:
-            raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
+                    if failed_test_cnt > max_failed_tests:
+                        raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
+                                             failed_test_cnt, max_failed_tests)
+            elif failure_report:
+                raise EasyBuildError("Test command had non-zero exit code (%s)!\n%s", tests_ec, failure_report)
+            elif tests_ec:
+                raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
         self._set_cache_dir()
