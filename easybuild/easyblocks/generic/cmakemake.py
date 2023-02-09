@@ -142,7 +142,6 @@ class CMakeMake(ConfigureMake):
     def prepend_config_opts(self, config_opts):
         """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
         # need to disable template resolution or it will remain the same for all runs
-        self.cfg.enable_templating = False
         with self.cfg.disable_templating():
             cfg_configopts = self.cfg['configopts']
 
