@@ -139,13 +139,20 @@ class CMakeMake(ConfigureMake):
             build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
         return build_type
 
-    def prepend_config_opts(self, config_opts):
-        """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
+    def combine_config_opts(self, config_opts_default):
+        """Combine configure options (-Dkey=value) from config_opts_default with those from the EC
+
+        -- config_opts_default: Dictionary mapping keys (variable names) to values.
+                                Those will be prepended to the ECs configopts if they are set by the EC,
+                                i.e. if they would be overwritten/duplicated.
+        """
         cfg_configopts = self.cfg['configopts']
         # All options are of the form '-D<key>=<value>'
-        new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
+        new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts_default.items()
                             if '-D%s=' % key not in cfg_configopts)
-        self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
+        if new_opts and cfg_configopts:
+            new_opts += ' '
+        return new_opts + cfg_configopts
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -286,12 +293,11 @@ class CMakeMake(ConfigureMake):
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
-            self.prepend_config_opts(options)
             command = ' '.join([
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
                 generator,
-                self.cfg['configopts'],
+                self.combine_config_opts(options),
                 srcdir])
         else:
             command = ' '.join([
