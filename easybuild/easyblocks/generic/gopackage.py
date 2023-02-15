@@ -127,14 +127,12 @@ class GoPackage(EasyBlock):
     def install_step(self):
         """Install Go package to a custom path"""
 
-        if build_option('debug'):
-            self.cfg['installopts'] = '-x ' + self.cfg['installopts']
-
         # actually install Go package
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             'go',
             'install',
+            '-x',
             self.cfg['installopts'],
         ])
         run_cmd(cmd, log_all=True, log_ok=True, simple=True)
