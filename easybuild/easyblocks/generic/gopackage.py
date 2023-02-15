@@ -131,6 +131,8 @@ class GoPackage(EasyBlock):
             self.cfg['preinstallopts'],
             'go',
             'install',
+            # print commands as they are executed,
+            # such as downloads and installs of package deps as listed in the go.mod file
             '-x',
             self.cfg['installopts'],
         ])
