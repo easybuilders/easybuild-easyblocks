@@ -54,8 +54,9 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         """Easyconfig parameters specific to scipy."""
         extra_vars = ({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
-            # ignore tests by default to maintain behaviour in older easyconfigs
-            'ignore_test_result': [None, "Run scipy test suite, but ignore result (only log)", CUSTOM],
+            # ignore test failures by default in scipy < 1.9 to maintain behaviour in older easyconfigs
+            'ignore_test_result': [None, "Run scipy test suite, but ignore test failures (True/False/None). Default "
+                                         "(None) implies True for scipy < 1.9, and False for scipy ?= 1.9", CUSTOM],
         })
 
         return PythonPackage.extra_options(extra_vars=extra_vars)
@@ -68,17 +69,27 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
 
         if LooseVersion(self.version) >= LooseVersion('1.9'):
             self.use_meson = True
+
             # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
             if self.cfg['ignore_test_result'] is None:
-                self.cfg['ignore_test_result'] = True
-            # ignore installopts inherited from FortranPythonPackage
-            self.cfg['installopts'] = ""
+                self.cfg['ignore_test_result'] = False
+
+            # strip inherited PythonPackage installopts
+            installopts = self.cfg['installopts']
+            pythonpackage_installopts = ['--no-deps', '--ignore-installed', '--no-index', '--egg',
+                                         '--zip-ok', '--no-index']
+            self.log.info("Stripping inherited PythonPackage installopts %s from installopts %s",
+                          pythonpackage_installopts, installopts)
+            for i in pythonpackage_installopts:
+                installopts.replace(i, '')
+            self.cfg['installopts'] = installopts
+
         else:
             self.use_meson = False
 
         if self.cfg['ignore_test_result']:
-            # maintains compatibility with easyconfigs predating scipy 1.9. Runs tests (serially) in
-            # a way that exits with code 0 regardless of test results, see:
+            # can be used to maintain compatibility with easyconfigs predating scipy 1.9. Runs tests
+            # (serially) in a way that exits with code 0 regardless of test results, see:
             # https://github.com/easybuilders/easybuild-easyblocks/issues/2237
             self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
         else:
@@ -106,8 +117,8 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             else:
                 raise EasyBuildError("Unknown BLAS/LAPACK library used: %s", lapack_lib)
 
-            configopts = '-Dblas=%(blas_lapack)s -Dlapack=%(blas_lapack)s' % {'blas_lapack': blas_lapack}
-            self.cfg.update('configopts', configopts)
+            for opt in ('blas', 'lapack'):
+                self.cfg.update('configopts', '-D%(opt)s=%(blas_lapack)s' % {'opt': opt, 'blas_lapack': blas_lapack})
 
             # need to have already installed extensions in PATH, PYTHONPATH for configure/build/install steps
             pythonpath = os.getenv('PYTHONPATH')
@@ -120,6 +131,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             MesonNinja.configure_step(self)
 
         else:
+            # scipy < 1.9.0 uses install procedure using setup.py
             FortranPythonPackage.configure_step(self)
 
         if LooseVersion(self.version) >= LooseVersion('0.13'):
@@ -184,7 +196,6 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         """Custom install step for scipy: use ninja for scipy >= 1.9.0"""
         if self.use_meson:
             MesonNinja.install_step(self)
-
         else:
             FortranPythonPackage.install_step(self)
 
