@@ -81,7 +81,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.log.info("Stripping inherited PythonPackage installopts %s from installopts %s",
                           pythonpackage_installopts, installopts)
             for i in pythonpackage_installopts:
-                installopts.replace(i, '')
+                installopts = installopts.replace(i, '')
             self.cfg['installopts'] = installopts
 
         else:
