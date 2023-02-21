@@ -70,7 +70,7 @@ class EB_pybind11(CMakePythonPackage):
 
     def test_step(self):
         """Run pybind11 tests"""
-        # always run tests unless explicitly disabled
+        # run tests unless explicitly disabled
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
         super(EB_pybind11, self).test_step()
