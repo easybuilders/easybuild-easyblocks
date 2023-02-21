@@ -99,8 +99,10 @@ class JuliaPackage(ExtensionEasyBlock):
         # extensions in a bundle can share their DEPOT_PATH
         # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
         depot_path = os.getenv('JULIA_DEPOT_PATH', '')
+        if depot_path:
+            depot_path = depot_path.split(os.pathsep)
         if self.installdir not in depot_path:
-            depot_path = ':'.join([depot for depot in (self.installdir, depot_path) if depot])
+            depot_path = os.pathsep.join([depot for depot in (self.installdir, depot_path) if depot])
             env.setvar('JULIA_DEPOT_PATH', depot_path)
 
         # command sequence for Julia.Pkg
