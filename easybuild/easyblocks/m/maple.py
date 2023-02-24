@@ -72,7 +72,7 @@ class EB_Maple(Binary):
             'PRESS <ENTER> TO EXIT THE INSTALLER:': '',
             'License server (DEFAULT: ):': self.cfg['license_server'],
             "License server []:": self.cfg['license_server'],
-            'Port number (optional) (DEFAULT: ):': '',
+            'Port number (optional) (DEFAULT: ):': self.cfg['license_server_port'] or '',
             '->1- Configure toolbox for Matlab 2- Do not configure at this time ENTER THE NUMBER FOR YOUR CHOICE, ' +
             'OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2',
             "MATLAB Configuration [y/N]:": 'n',
@@ -84,7 +84,7 @@ class EB_Maple(Binary):
             r"Choose Install Folder \[.*\]:": self.installdir,
             r"\[2\] Network License.*\nPlease choose an option \[.\] :": '2',
             r"\[1\] Single Server.*\n.*\nPlease choose an option \[.\] :": '1',
-            r"Port number \[[0-9]+\]:": '',
+            r"Port number \[[0-9]+\]:": self.cfg['license_server_port'] or '',
             r"Enable periodic checking for Maple .* updates after installation \[Y/n\]:": 'n',
             r'Pre-Installation Summary[\s\S]*': '',
         }
