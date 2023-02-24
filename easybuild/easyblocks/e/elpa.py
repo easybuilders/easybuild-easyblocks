@@ -39,7 +39,7 @@ from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.systemtools import get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
-
+from easybuild.tools.modules import get_software_root
 
 ELPA_CPU_FEATURE_FLAGS = ['avx', 'avx2', 'avx512f', 'vsx', 'sse4_2']
 
@@ -175,6 +175,28 @@ class EB_ELPA(ConfigureMake):
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
         return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+
+    def configure_step(self):
+        """Configure step for ELPA"""
+
+        # Add nvidia GPU support if requested
+        cuda_root = get_software_root('CUDA')
+        self.log.info("Got cuda root: %s", cuda_root)
+        if cuda_root:
+            self.cfg.update('configopts', '--enable-nvidia-gpu')
+            self.cfg.update('configopts', '--with-cuda-path=%s' % cuda_root)
+            self.cfg.update('configopts', '--with-cuda-sdk-path=%s' % cuda_root)
+
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            if not cuda_cc:
+                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                     'cuda_compute_capabilities easyconfig parameter or via '
+                                     '--cuda-compute-capabilities')
+            cuda_cc_string = ','.join(['sm_%s' % x.replace('.', '') for x in cuda_cc])
+            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
+            self.log.info("Enabling nvidia GPU support for compute capabilitie: %s", cuda_cc_string)
+
+        super(EB_ELPA, self).configure_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch manual_cpp script to avoid using hardcoded /usr/bin/python."""
