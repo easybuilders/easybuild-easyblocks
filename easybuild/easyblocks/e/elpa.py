@@ -204,15 +204,9 @@ class EB_ELPA(ConfigureMake):
             self.log.info("Enabling nvidia GPU support for compute capabilitie: %s", cuda_cc_string)
 
         # From v2022.05.001 onwards, the config complains if CPP is not set
-        env_dict = env.read_environment({'cxx': 'CXX', 'cpp': 'CPP'})
-        if 'cxx' in env_dict:
-            if 'cpp' in env_dict and env_dict['cxx'] != env_dict['cpp']:
-                self.log.warning("Overwriting value of CPP (%s) with the value for CXX (%s)",
-                                 env_dict['cpp'], env_dict['cxx'])
-            env.setvar('CPP', env_dict['cxx'])
-        else:
-            raise EasyBuildError('ELPA requires CPP to be set. EasyBuild tried setting it based on the value of CXX, '
-                                 'but could not retreive a value for CXX')
+        # Need to make this neater so that it is either set by easybuild-framework, OR query the toolchain for something like COMPILER_CPP
+        # Discussing that right now on EB Slack...
+        env.setvar('CPP', 'cpp')
 
         super(EB_ELPA, self).configure_step()
 
