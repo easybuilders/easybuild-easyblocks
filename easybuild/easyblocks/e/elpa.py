@@ -192,6 +192,12 @@ class EB_ELPA(ConfigureMake):
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
+
+            # ELPA's --with-NVIDIA-GPU-compute-capability only accepts a single architecture
+            if len(cuda_cc) > 1:
+                raise EasyBuildError('ELPA currently only supports specifying one architecture when '
+                                     'building. You specified cuda-compute-capabilities: %s', cuda_cc)
+
             cuda_cc_string = ','.join(['sm_%s' % x.replace('.', '') for x in cuda_cc])
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capabilitie: %s", cuda_cc_string)
