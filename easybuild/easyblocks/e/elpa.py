@@ -31,6 +31,7 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 """
 import os
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -201,6 +202,17 @@ class EB_ELPA(ConfigureMake):
             cuda_cc_string = ','.join(['sm_%s' % x.replace('.', '') for x in cuda_cc])
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capabilitie: %s", cuda_cc_string)
+
+        # From v2022.05.001 onwards, the config complains if CPP is not set
+        env_dict = env.read_environment({'cxx': 'CXX', 'cpp': 'CPP'})
+        if 'cxx' in env_dict:
+            if 'cpp' in env_dict and env_dict['cxx'] != env_dict['cpp']:
+                self.log.warning("Overwriting value of CPP (%s) with the value for CXX (%s)",
+                                 env_dict['cpp'], env_dict['cxx'])
+            env.setvar('CPP', env_dict['cxx'])
+        else:
+            raise EasyBuildError('ELPA requires CPP to be set. EasyBuild tried setting it based on the value of CXX, '
+                                 'but could not retreive a value for CXX')
 
         super(EB_ELPA, self).configure_step()
 
