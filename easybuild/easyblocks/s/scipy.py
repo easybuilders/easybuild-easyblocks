@@ -56,7 +56,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
             # ignore test failures by default in scipy < 1.9 to maintain behaviour in older easyconfigs
             'ignore_test_result': [None, "Run scipy test suite, but ignore test failures (True/False/None). Default "
-                                         "(None) implies True for scipy < 1.9, and False for scipy ?= 1.9", CUSTOM],
+                                         "(None) implies True for scipy < 1.9, and False for scipy >= 1.9", CUSTOM],
         })
 
         return PythonPackage.extra_options(extra_vars=extra_vars)
@@ -71,9 +71,6 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.use_meson = True
 
             # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
-            if self.cfg['ignore_test_result'] is None:
-                self.cfg['ignore_test_result'] = False
-
             # strip inherited PythonPackage installopts
             installopts = self.cfg['installopts']
             pythonpackage_installopts = ['--no-deps', '--ignore-installed', '--no-index', '--egg',
@@ -86,6 +83,13 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
 
         else:
             self.use_meson = False
+
+        if self.cfg['ignore_test_result'] is None:
+            # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
+            if self.use_meson:
+                self.cfg['ignore_test_result'] = False
+            else:
+                self.cfg['ignore_test_result'] = True
 
         if self.cfg['ignore_test_result']:
             # can be used to maintain compatibility with easyconfigs predating scipy 1.9. Runs tests
