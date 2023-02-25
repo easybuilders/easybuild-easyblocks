@@ -28,7 +28,6 @@ EasyBuild support for building and installing numexpr, implemented as an easyblo
 import os
 from distutils.version import LooseVersion
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
@@ -55,15 +54,11 @@ class EB_numexpr(PythonPackage):
 
         self.imkl_root = None
 
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for numexpr: check whether we're building on top of Intel MKL."""
-        super(EB_numexpr, self).prepare_step(*args, **kwargs)
-
-        self.imkl_root = get_software_root('imkl')
-
     def configure_step(self):
         """Custom configuration procedure for numexpr."""
         super(EB_numexpr, self).configure_step()
+
+        self.imkl_root = get_software_root('imkl')
 
         # if Intel MKL is available, set up site.cfg such that the right VML library is used;
         # this makes a *big* difference in terms of performance;
@@ -84,20 +79,12 @@ class EB_numexpr(PythonPackage):
 
             mkl_ver = get_software_version('imkl')
 
-            comp_fam = self.toolchain.comp_family()
-            self.log.info("Using toolchain with compiler family %s", comp_fam)
-
             if LooseVersion(mkl_ver) >= LooseVersion('2021'):
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
                 ]
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
-                if comp_fam == toolchain.INTELCOMP:
-                    mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'iomp5']
-                elif comp_fam == toolchain.GCC:
-                    mkl_libs = ['mkl_intel_lp64', 'mkl_gnu_thread', 'mkl_core', 'gomp']
-                else:
-                    raise EasyBuildError("Unknown compiler family, don't know how to link MKL libraries: %s", comp_fam)
+                mkl_libs = ['mkl_rt']
             else:
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
