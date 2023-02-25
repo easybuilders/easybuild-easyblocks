@@ -54,7 +54,6 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         """Easyconfig parameters specific to scipy."""
         extra_vars = ({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
-            # ignore test failures by default in scipy < 1.9 to maintain behaviour in older easyconfigs
             'ignore_test_result': [None, "Run scipy test suite, but ignore test failures (True/False/None). Default "
                                          "(None) implies True for scipy < 1.9, and False for scipy >= 1.9", CUSTOM],
         })
@@ -85,16 +84,15 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.use_meson = False
 
         if self.cfg['ignore_test_result'] is None:
-            # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
-            if self.use_meson:
-                self.cfg['ignore_test_result'] = False
-            else:
-                self.cfg['ignore_test_result'] = True
+            # automatically ignore scipy test suite results for scipy < 1.9, as we did in older easyconfigs
+            self.cfg['ignore_test_result'] = LooseVersion(self.version) < '1.9'
+            self.log.info("ignore_test_result not specified, so automatically set to %s for scipy %s",
+                          self.cfg['ignore_test_result'], self.version)
 
         if self.cfg['ignore_test_result']:
-            # can be used to maintain compatibility with easyconfigs predating scipy 1.9. Runs tests
-            # (serially) in a way that exits with code 0 regardless of test results, see:
-            # https://github.com/easybuilders/easybuild-easyblocks/issues/2237
+            # used to maintain compatibility with easyconfigs predating scipy 1.9;
+            # runs tests (serially) in a way that exits with code 0 regardless of test results,
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/2237
             self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
         else:
             self.testcmd = " && ".join([
