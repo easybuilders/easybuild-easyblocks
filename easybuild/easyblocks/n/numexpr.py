@@ -29,7 +29,6 @@ import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_cpu_features
