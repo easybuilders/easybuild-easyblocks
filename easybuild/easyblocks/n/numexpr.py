@@ -55,11 +55,15 @@ class EB_numexpr(PythonPackage):
 
         self.imkl_root = None
 
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for numexpr: check whether we're building on top of Intel MKL."""
+        super(EB_numexpr, self).prepare_step(*args, **kwargs)
+
+        self.imkl_root = get_software_root('imkl')
+
     def configure_step(self):
         """Custom configuration procedure for numexpr."""
         super(EB_numexpr, self).configure_step()
-
-        self.imkl_root = get_software_root('imkl')
 
         # if Intel MKL is available, set up site.cfg such that the right VML library is used;
         # this makes a *big* difference in terms of performance;
@@ -122,8 +126,15 @@ class EB_numexpr(PythonPackage):
 
         custom_commands = []
 
+        # imkl_root may still be None, for example when running with --sanity-check-only
+        if self.imkl_root is None:
+            self.imkl_root = get_software_root('imkl')
+
         # if Intel MKL is available, make sure VML is used
         if self.imkl_root:
-            custom_commands.append("python -c 'import numexpr; assert(numexpr.use_vml)'")
+            custom_commands.extend([
+                "python -c 'import numexpr; assert(numexpr.use_vml)'",
+                """python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """,
+            ])
 
         return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)
