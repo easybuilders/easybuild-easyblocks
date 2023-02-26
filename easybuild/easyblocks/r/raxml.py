@@ -31,35 +31,71 @@ import os
 
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import get_cpu_features, HAVE_ARCHSPEC
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 RAXML_BINARY_NAME = "raxmlHPC"
-# Supported CPU features grouped by each instruction label
+# Supported instruction sets ordered by priority (high to low) and related CPU features
+RAXML_INSTRUCT_SETS = ["AVX2", "AVX", "SSE3"]
 RAXML_CPU_FEATURES = {
-    'SSE3': ['sse3', 'see4_1', 'sse4_2'],
-    'AVX': ['avx', 'avx1.0'],
-    'AVX2': ['avx2'],
+    "SSE3": ["sse3", "see4_1", "sse4_2"],
+    "AVX": ["avx", "avx1.0"],
+    "AVX2": ["avx2"],
 }
 # Supported parallelization features grouped in non-MPI and MPI
 RAXML_PARALLEL_FEATURES = {
-    'nompi': [None, 'PTHREADS'],
-    'mpi': ['MPI', 'HYBRID'],
+    "nompi": [None, "PTHREADS"],
+    "mpi": ["MPI", "HYBRID"],
 }
+
 
 class EB_RAxML(MakeCp):
     """Support for building and installing RAxML."""
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Change default values of options"""
         extra = MakeCp.extra_options()
         # files_to_copy is not mandatory
-        extra['files_to_copy'][2] = CUSTOM
+        extra["files_to_copy"][2] = CUSTOM
         return extra
 
     def __init__(self, *args, **kwargs):
         """RAxML easyblock constructor, define class variables."""
         super(EB_RAxML, self).__init__(*args, **kwargs)
+
+        def filter_optarch_features(support_features):
+            """
+            Filter list of supported CPU instruction sets based on optarch string
+            """
+            if not isinstance(support_features, list):
+                support_features = list(support_features)
+            unfilter_features = [feat.upper() for feat in support_features]
+
+            optarch = build_option("optarch") or self.toolchain.options.get("optarch") or ""
+            if isinstance(optarch, dict):
+                # optarch is a dictionary with settings per compiler family
+                comp_fam = self.toolchain.comp_family()
+                optarch = optarch.get(comp_fam, "")
+            optarch = optarch.upper()
+
+            # check for generic build
+            if optarch == OPTARCH_GENERIC:
+                self.log.debug("Building generic RAxML per optarch setting: %s", optarch)
+                return [None]
+            # check for supported labels in optarch (by given priority order)
+            for instruct_set in unfilter_features:
+                if instruct_set in optarch:
+                    dbg_msg = "Restricting supported features in RAxML to '%s' per optarch: %s"
+                    self.log.debug(dbg_msg, instruct_set, optarch)
+                    return [instruct_set]
+            # anything else is unsupported
+            if optarch:
+                print_warning("Unsupported 'optarch' configuration setting for RAxML, ignoring: %s" % optarch)
+
+            return support_features
 
         def has_cpu_feature(feature):
             """
@@ -67,18 +103,19 @@ class EB_RAxML(MakeCp):
             """
             if HAVE_ARCHSPEC:
                 import archspec.cpu
+
                 host = archspec.cpu.host()
                 return feature.lower() in host
-            else:
-                try:
-                    return any(f in get_cpu_features() for f in RAXML_CPU_FEATURES[feature])
-                except KeyError:
-                    raise EasyBuildError("Unknown CPU feature level for RAxML: %s", feature)
+
+            try:
+                return any(f in get_cpu_features() for f in RAXML_CPU_FEATURES[feature])
+            except KeyError:
+                raise EasyBuildError("Unknown CPU feature level for RAxML: %s", feature)
 
         def list_filename_variants(main_features, extra_features, prefix, suffix, divider):
-            """Returns list of RAxML filenames for the combination of all given features"""
-
-            # Features are expected as lists
+            """
+            Returns list of RAxML filenames for the combination of all given features
+            """
             if not isinstance(main_features, list):
                 main_features = list(main_features)
             if not isinstance(extra_features, list):
@@ -88,55 +125,57 @@ class EB_RAxML(MakeCp):
             all_features = [(mf, xf) for mf in main_features for xf in extra_features]
 
             # Prepend/Append prefix/suffix
-            print(all_features)
             file_variants = [(prefix,) + variant + (suffix,) for variant in all_features]
             file_variants = [divider.join([segment for segment in variant if segment]) for variant in file_variants]
-            print(file_variants)
 
             return file_variants
 
-        # Set optimization level of RAxML for host micro-architecture
-        host_cpu_features = [feat for feat in RAXML_CPU_FEATURES if has_cpu_feature(feat)]
-        self.log.debug("Enabling the following CPU optimizations for RAxML: %s", ', '.join(host_cpu_features))
-        # Add generic build
-        host_cpu_features.append(None)
+        # Filter target CPU instructions sets according to optarch
+        cpu_features = filter_optarch_features(RAXML_INSTRUCT_SETS)
+
+        if len(cpu_features) > 1:
+            # unrestricted optimization settings, set optimization level for host micro-architecture
+            cpu_features = [feat for feat in cpu_features if has_cpu_feature(feat)]
+            dbg_msg = "Enabling the following CPU optimizations for RAxML by autodetection: %s"
+            self.log.debug(dbg_msg, ", ".join(cpu_features))
+            # add generic build
+            cpu_features.append(None)
 
         # Set parallelization level of RAxML for current toolchain
-        parallel_features = RAXML_PARALLEL_FEATURES['nompi']
-        if self.toolchain.options.get('usempi', None):
-            parallel_features.extend(RAXML_PARALLEL_FEATURES['mpi'])
+        parallel_features = RAXML_PARALLEL_FEATURES["nompi"]
+        if self.toolchain.options.get("usempi", None):
+            parallel_features.extend(RAXML_PARALLEL_FEATURES["mpi"])
 
         # List of builds to carry out
-        self.target_makefiles = list_filename_variants(host_cpu_features, parallel_features, 'Makefile', 'gcc', '.')
-        self.target_bins = list_filename_variants(parallel_features, host_cpu_features, RAXML_BINARY_NAME, None, '-')
+        self.target_makefiles = list_filename_variants(cpu_features, parallel_features, "Makefile", "gcc", ".")
+        self.target_bins = list_filename_variants(parallel_features, cpu_features, RAXML_BINARY_NAME, None, "-")
 
     def build_step(self):
         """Build all binaries of RAxML compatible with host CPU architecture"""
 
         # Compiler is manually set through 'buildopts'
-        compiler = os.getenv('CC')
+        compiler = os.getenv("CC")
         compiler_nompi = compiler
-        if self.toolchain.options.get('usempi', None):
-            compiler_nompi = os.getenv('CC_SEQ')
+        if self.toolchain.options.get("usempi", None):
+            compiler_nompi = os.getenv("CC_SEQ")
 
         # Build selected RAxML makefiles
-        user_buildopts = self.cfg['buildopts']
+        user_buildopts = self.cfg["buildopts"]
 
         for mf in self.target_makefiles:
             cc_opt = compiler
-            if not any(feature in mf for feature in RAXML_PARALLEL_FEATURES['mpi']):
+            if not any(feature in mf for feature in RAXML_PARALLEL_FEATURES["mpi"]):
                 cc_opt = compiler_nompi
-            self.cfg['buildopts'] = '-f %s CC="%s" %s' % (mf, cc_opt, user_buildopts)
+            self.cfg["buildopts"] = '-f %s CC="%s" %s' % (mf, cc_opt, user_buildopts)
             self.log.debug("Building RAxML makefile with %s: %s", cc_opt, mf)
             super(EB_RAxML, self).build_step()
-
 
     def install_step(self):
         """Copy files into installation directory"""
 
-        self.cfg['files_to_copy'] = [
-            (self.target_bins, 'bin'),
-            (['README', 'manual', 'usefulScripts'], 'share'),
+        self.cfg["files_to_copy"] = [
+            (self.target_bins, "bin"),
+            (["README", "manual", "usefulScripts"], "share"),
         ]
         super(EB_RAxML, self).install_step()
 
@@ -144,7 +183,7 @@ class EB_RAxML(MakeCp):
         """Custom sanity check for RAxML."""
 
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in self.target_bins],
-            'dirs': ['share/manual', 'share/usefulScripts']
+            "files": [os.path.join("bin", x) for x in self.target_bins],
+            "dirs": ["share/manual", "share/usefulScripts"],
         }
         super(EB_RAxML, self).sanity_check_step(custom_paths=custom_paths)
