@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,7 +58,12 @@ class EB_g2clib(ConfigureMake):
             raise EasyBuildError("JasPer module not loaded?")
 
         # beware: g2clib uses INC, while g2lib uses INCDIR !
-        buildopts = 'CC="%s" FC="%s" INC="-I%s/include"' % (os.getenv('CC'), os.getenv('F90'), jasper)
+        buildopts = ' '.join([
+            r'CC="%s"' % os.getenv('CC'),
+            r'CFLAGS="%s \$(INC) \$(DEF) -D__64BIT__"' % os.getenv('CFLAGS'),
+            r'FC="%s"' % os.getenv('F90'),
+            r'INC="-I%s"' % os.path.join(jasper, 'include'),
+        ])
         self.cfg.update('buildopts', buildopts)
 
         super(EB_g2clib, self).build_step()

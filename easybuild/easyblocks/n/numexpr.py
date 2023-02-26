@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2020 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,10 +26,13 @@
 EasyBuild support for building and installing numexpr, implemented as an easyblock
 """
 import os
+from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_cpu_features
 
 
@@ -75,20 +78,44 @@ class EB_numexpr(PythonPackage):
                 # use default kernels as fallback for non-AVX systems
                 mkl_vml_lib = 'mkl_vml_def'
 
-            mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'mkl_rt', 'iomp5']
+            mkl_ver = get_software_version('imkl')
 
-            mkl_lib_dirs = [
-                os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
-                os.path.join(self.imkl_root, 'lib', 'intel64'),
+            comp_fam = self.toolchain.comp_family()
+            self.log.info("Using toolchain with compiler family %s", comp_fam)
+
+            if LooseVersion(mkl_ver) >= LooseVersion('2021'):
+                mkl_lib_dirs = [
+                    os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
+                ]
+                mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
+                if comp_fam == toolchain.INTELCOMP:
+                    mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'iomp5']
+                elif comp_fam == toolchain.GCC:
+                    mkl_libs = ['mkl_intel_lp64', 'mkl_gnu_thread', 'mkl_core', 'gomp']
+                else:
+                    raise EasyBuildError("Unknown compiler family, don't know how to link MKL libraries: %s", comp_fam)
+            else:
+                mkl_lib_dirs = [
+                    os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
+                    os.path.join(self.imkl_root, 'lib', 'intel64'),
+                ]
+                mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'include')
+                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'mkl_def', mkl_vml_lib, 'iomp5']
+
+            site_cfg_lines = [
+                "[mkl]",
+                "include_dirs = %s" % mkl_include_dirs,
+                "library_dirs = %s" % os.pathsep.join(mkl_lib_dirs + self.toolchain.get_variable('LDFLAGS', typ=list)),
             ]
 
-            site_cfg_txt = '\n'.join([
-                "[mkl]",
-                "include_dirs = %s" % os.path.join(self.imkl_root, 'mkl', 'include'),
-                "library_dirs = %s" % ':'.join(mkl_lib_dirs),
-                "mkl_libs = %s" % ', '.join(mkl_libs),
-            ])
+            if LooseVersion(self.version) >= LooseVersion("2.8.0"):
+                site_cfg_lines.append("libraries = %s" % os.pathsep.join(mkl_libs))
+            else:
+                site_cfg_lines.append("mkl_libs = %s" % ', '.join(mkl_libs))
+
+            site_cfg_txt = '\n'.join(site_cfg_lines)
             write_file('site.cfg', site_cfg_txt)
+            self.log.info("site.cfg used for numexpr:\n" + site_cfg_txt)
 
     def sanity_check_step(self):
         """Custom sanity check for numexpr."""

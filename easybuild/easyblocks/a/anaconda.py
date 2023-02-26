@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,8 @@ class EB_Anaconda(Binary):
 
         adjust_permissions(os.path.join(self.builddir, install_script), stat.S_IRUSR | stat.S_IXUSR)
 
-        cmd = "%s ./%s -p %s -b -f" % (self.cfg['preinstallopts'], install_script, self.installdir)
+        # Anacondas own install instructions specify "bash [script]" despite using different shebangs
+        cmd = "%s bash ./%s -p %s -b -f" % (self.cfg['preinstallopts'], install_script, self.installdir)
         self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
         run_cmd(cmd, log_all=True, simple=True)
 

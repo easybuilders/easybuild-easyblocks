@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,12 +50,16 @@ class EB_QScintilla(ConfigureMake):
 
         pyqt5 = get_software_root('PyQt5')
         pyqt = get_software_root('PyQt')
+        qt5 = get_software_root('Qt5')
         if pyqt5:
             self.pyqt_root = pyqt5
             self.pyqt_pkg_name = "PyQt5"
         elif pyqt:
             self.pyqt_root = pyqt
             self.pyqt_pkg_name = "PyQt4"
+        elif qt5:
+            self.pyqt_root = qt5
+            self.pyqt_pkg_name = "PyQt5"
         else:
             raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
 
@@ -120,7 +124,10 @@ class EB_QScintilla(ConfigureMake):
                                                          'site-packages', 'sip', self.pyqt_pkg_name), False)
             # fall back to a single sipdir
             if not pyqt_sipdir:
-                pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
+                if LooseVersion(get_software_version(self.pyqt_pkg_name)) >= LooseVersion('5.15'):
+                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip')
+                else:
+                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),

@@ -1,5 +1,5 @@
 ##
-# Copyright 2020 Ghent University
+# Copyright 2020-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,13 +26,18 @@
 EasyBuild support for building and installing LLVM, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
+@author: Kenneth Hoste (Ghent University)
 """
+import os
+
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
+from distutils.version import LooseVersion
 
 
 class EB_LLVM(CMakeMake):
@@ -48,12 +53,29 @@ class EB_LLVM(CMakeMake):
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
         })
+
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize LLVM-specific variables."""
+        super(EB_LLVM, self).__init__(*args, **kwargs)
+
+        self.build_shared = self.cfg.get('build_shared_libs', False)
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            self.cfg['start_dir'] = '%s-%s.src' % (self.name.lower(), self.version)
+            # avoid using -DBUILD_SHARED_LIBS directly, use -DLLVM_{BUILD,LINK}_LLVM_DYLIB flags instead
+            if self.build_shared:
+                self.cfg['build_shared_libs'] = None
 
     def configure_step(self):
         """
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            self.cfg.update('configopts', '-DLLVM_INCLUDE_BENCHMARKS=OFF')
+            if self.build_shared:
+                self.cfg.update('configopts', '-DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON')
+
         self.cfg.update('configopts', '-DLLVM_INSTALL_UTILS=ON')
 
         if get_software_root('zlib'):
@@ -65,11 +87,11 @@ class EB_LLVM(CMakeMake):
         build_targets = self.cfg['build_targets']
         if build_targets is None:
             arch = get_cpu_architecture()
-            default_targets = DEFAULT_TARGETS_MAP.get(arch, None)
-            if default_targets:
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            else:
+            except KeyError:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
         unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
@@ -79,5 +101,16 @@ class EB_LLVM(CMakeMake):
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
+
+        if LooseVersion(self.version) >= LooseVersion('15.0'):
+            # make sure that CMake modules are available in build directory,
+            # and if so make a 'cmake' symlink so LLVM can find them
+            cmake_modules_path = os.path.join(self.builddir, 'cmake-%s.src' % self.version)
+            if os.path.exists(cmake_modules_path):
+                cwd = change_dir(self.builddir)
+                symlink('cmake-%s.src' % self.version, 'cmake')
+                change_dir(cwd)
+            else:
+                raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
 
         super(EB_LLVM, self).configure_step()

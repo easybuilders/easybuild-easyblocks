@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,6 +63,7 @@ class EB_Score_minus_P(ConfigureMake):
                 toolchain.GCC: 'gcc',
                 toolchain.IBMCOMP: 'ibm',
                 toolchain.INTELCOMP: 'intel',
+                toolchain.NVHPC: 'pgi',
                 toolchain.PGI: 'pgi',
             }
             comp_fam = self.toolchain.comp_family()

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,8 +40,10 @@ from easybuild.easyblocks.generic.rpackage import RPackage
 class EB_Rmpi(RPackage):
     """Build and install Rmpi R library."""
 
-    def run(self):
-        """Set various configure arguments prior to building."""
+    def prepare_rmpi_configureargs(self):
+        """
+        Prepare configure arguments for installing Rpmi.
+        """
 
         mpi_types = {
             toolchain.MPI_TYPE_OPENMPI: "OPENMPI",
@@ -51,16 +53,31 @@ class EB_Rmpi(RPackage):
         # type of MPI
         # MPI_TYPE does not distinguish between MPICH and IntelMPI, which is why we also check mpi_family()
         mpi_type = self.toolchain.mpi_family()
-        Rmpi_type = mpi_types[self.toolchain.MPI_TYPE]
+        rmpi_type = mpi_types[self.toolchain.MPI_TYPE]
         # Rmpi versions 0.6-4 and up support INTELMPI (using --with-Rmpi-type=INTELMPI)
         if ((LooseVersion(self.version) >= LooseVersion('0.6-4')) and (mpi_type == toolchain.INTELMPI)):
-            Rmpi_type = 'INTELMPI'
+            rmpi_type = 'INTELMPI'
 
         self.log.debug("Setting configure args for Rmpi")
         self.configureargs = [
             "--with-Rmpi-include=%s" % self.toolchain.get_variable('MPI_INC_DIR'),
             "--with-Rmpi-libpath=%s" % self.toolchain.get_variable('MPI_LIB_DIR'),
             "--with-mpi=%s" % self.toolchain.get_software_root(self.toolchain.MPI_MODULE_NAME)[0],
-            "--with-Rmpi-type=%s" % Rmpi_type,
+            "--with-Rmpi-type=%s" % rmpi_type,
         ]
-        super(EB_Rmpi, self).run()  # it might be needed to get the R cmd and run it with mympirun...
+
+    def run(self):
+        """
+        Install Rmpi as extension, after seting various configure arguments.
+        """
+        self.prepare_rmpi_configureargs()
+        # it might be needed to get the R cmd and run it with mympirun...
+        super(EB_Rmpi, self).run()
+
+    def run_async(self):
+        """
+        Asynchronously install Rmpi as extension, after seting various configure arguments.
+        """
+        self.prepare_rmpi_configureargs()
+        # it might be needed to get the R cmd and run it with mympirun...
+        super(EB_Rmpi, self).run_async()

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -176,6 +176,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             "Please enter your %s's location: " % mpilib: mpilib_root,
             "Do you want to try LIBCCHEM?  (yes/no): ": 'no',
             "Enter full path to OpenBLAS libraries (without 'lib' subdirectory):": mathlib_root,
+            "Optional: Build Michigan State University CCT3 & CCSD3A methods?  (yes/no): ": 'no',
         }
         stdqa = {
             r"GAMESS directory\? \[.*\] ": self.builddir,
