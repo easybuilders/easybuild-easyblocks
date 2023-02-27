@@ -74,7 +74,7 @@ class EB_RAxML(MakeCp):
                 support_features = list(support_features)
             unfilter_features = [feat.upper() for feat in support_features]
 
-            optarch = build_option("optarch") or self.toolchain.options.get("optarch") or ""
+            optarch = build_option("optarch") or self.toolchain.options.get("optarch", "")
             if isinstance(optarch, dict):
                 # optarch is a dictionary with settings per compiler family
                 comp_fam = self.toolchain.comp_family()
