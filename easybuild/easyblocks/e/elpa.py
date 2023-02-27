@@ -209,7 +209,7 @@ class EB_ELPA(ConfigureMake):
             if '8.0' in cuda_cc and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
-        # From v2022.05.001 onwards, the config complains if CPP is not set
+        # From v2022.05.001 onwards, the config complains if CPP is not set, resulting in non-zero exit of configure
         # C preprocessor to use for given comp_fam
         cpp_dict = {
             TC_CONSTANT_GCC: 'cpp',
