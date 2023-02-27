@@ -201,7 +201,7 @@ class EB_ELPA(ConfigureMake):
             if len(cuda_cc) == 1:
                 cuda_cc = cuda_cc[0]
                 cuda_cc_string = cuda_cc.replace('.', '')
-                self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
+                self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc_string)
                 self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
                 # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
                 if float(cuda_cc) >= 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
