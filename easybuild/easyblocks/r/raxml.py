@@ -75,10 +75,15 @@ class EB_RAxML(MakeCp):
             unfilter_features = [feat.upper() for feat in support_features]
 
             optarch = build_option("optarch") or self.toolchain.options.get("optarch", "")
+            # optarch is a dictionary with settings per compiler family
             if isinstance(optarch, dict):
-                # optarch is a dictionary with settings per compiler family
                 comp_fam = self.toolchain.comp_family()
                 optarch = optarch.get(comp_fam, "")
+            # convert boolean optarch settings to string equivalents
+            if optarch is False:
+                optarch = OPTARCH_GENERIC
+            elif optarch is True:
+                optarch = ""
             optarch = optarch.upper()
 
             # check for generic build
