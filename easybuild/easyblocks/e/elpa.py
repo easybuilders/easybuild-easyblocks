@@ -30,10 +30,13 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
+from easybuild.toolchains.compiler.inteliccifort import TC_CONSTANT_INTELCOMP
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
@@ -201,12 +204,24 @@ class EB_ELPA(ConfigureMake):
 
             cuda_cc_string = ','.join(['sm_%s' % x.replace('.', '') for x in cuda_cc])
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
-            self.log.info("Enabling nvidia GPU support for compute capabilitie: %s", cuda_cc_string)
+            self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
+            # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
+            if '8.0' in cuda_cc and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
+                self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # From v2022.05.001 onwards, the config complains if CPP is not set
-        # Need to make this neater so that it is either set by easybuild-framework, OR query the toolchain for something like COMPILER_CPP
-        # Discussing that right now on EB Slack...
-        env.setvar('CPP', 'cpp')
+        # C preprocessor to use for given comp_fam
+        cpp_dict = {
+            TC_CONSTANT_GCC: 'cpp',
+            TC_CONSTANT_INTELCOMP: 'cpp',
+        }
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam in cpp_dict:
+            env.setvar('CPP', cpp_dict[comp_fam])
+        else:
+            raise EasyBuildError('ELPA EasyBlock does not know which C preprocessor to use for the '
+                                 'current compiler family (%s). Please add the correct preprocessor '
+                                 'for this compiler family to cpp_dict in the ELPA EasyBlock', comp_fam)
 
         super(EB_ELPA, self).configure_step()
 
