@@ -198,16 +198,17 @@ class EB_ELPA(ConfigureMake):
                                      '--cuda-compute-capabilities')
 
             # ELPA's --with-NVIDIA-GPU-compute-capability only accepts a single architecture
-            if len(cuda_cc) > 1:
+            if len(cuda_cc) == 1:
+                cuda_cc = cuda_cc[0]
+                cuda_cc_string = cuda_cc.replace('.', '')
+                self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
+                self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
+                # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
+                if float(cuda_cc) >= 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
+                    self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
+            else:
                 raise EasyBuildError('ELPA currently only supports specifying one architecture when '
                                      'building. You specified cuda-compute-capabilities: %s', cuda_cc)
-
-            cuda_cc_string = ','.join(['sm_%s' % x.replace('.', '') for x in cuda_cc])
-            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
-            self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
-            # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
-            if '8.0' in cuda_cc and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
-                self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # From v2022.05.001 onwards, the config complains if CPP is not set, resulting in non-zero exit of configure
         # C preprocessor to use for given comp_fam
