@@ -118,16 +118,23 @@ class EB_QScintilla(ConfigureMake):
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
 
             sip_incdir = find_glob_pattern(os.path.join(self.pyqt_root, 'include', 'python%s*' % pyshortver), False)
-            # in case PyQt5's sip was installed in directories that are specific to each version of python
-            # as could happen with multi_deps
-            pyqt_sipdir = find_glob_pattern(os.path.join(self.pyqt_root, 'share', 'python%s*' % pyshortver,
-                                                         'site-packages', 'sip', self.pyqt_pkg_name), False)
-            # fall back to a single sipdir
+            # depending on PyQt5 versions and how it was installed, the sip directory could be in various places
+            # test them and figure out the first one that matches
+            pyqt_sip_subdir = [os.path.join('share', 'python%s*' % pyshortver, 'site-packages', 'sip',
+                                            self.pyqt_pkg_name),
+                               os.path.join('share', 'sip', self.pyqt_pkg_name),
+                               os.path.join('share', 'sip'),
+                               os.path.join('lib', 'python%s*' % pyshortver, 'site-packages', self.pyqt_pkg_name,
+                                            'bindings')
+                               ]
+            pyqt_sipdir_options = [os.path.join(self.pyqt_root, subdir) for subdir in pyqt_sip_subdir]
+            for pyqt_sipdir_option in pyqt_sipdir_options:
+                pyqt_sipdir = find_glob_pattern(pyqt_sipdir_option, False)
+                if pyqt_sipdir:
+                    break
+
             if not pyqt_sipdir:
-                if LooseVersion(get_software_version(self.pyqt_pkg_name)) >= LooseVersion('5.15'):
-                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip')
-                else:
-                    pyqt_sipdir = os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name)
+                raise EasyBuildError("Failed to find PyQt5 sip directory")
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
