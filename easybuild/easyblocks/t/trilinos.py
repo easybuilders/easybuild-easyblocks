@@ -289,10 +289,14 @@ class EB_Trilinos(CMakeMake):
             libs.remove('Galeri')
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
 
-        if LooseVersion(self.version) >= LooseVersion('13'):
-            libs.remove('GlobiPack')
+        # Mesquite and MOOCHO packages gone in 12.18:
+        if LooseVersion(self.version) >= LooseVersion('12.18'):
             libs.remove('Mesquite')
             libs.remove('MOOCHO')
+
+        # GlobiPack package gone in 13.0:
+        if LooseVersion(self.version) >= LooseVersion('13.0'):
+            libs.remove('GlobiPack')
 
         # Get the library extension
         if self.cfg['build_shared_libs']:
