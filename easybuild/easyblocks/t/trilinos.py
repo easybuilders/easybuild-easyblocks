@@ -54,6 +54,8 @@ class EB_Trilinos(CMakeMake):
         extra_vars = {
             'shared_libs': [None, "Deprecated. Use build_shared_libs", CUSTOM],
             'openmp': [True, "Enable OpenMP support", CUSTOM],
+            'forward_deps': [True, "Enable all forward dependencies", CUSTOM],
+            'build_tests': [True, "Enable building tests/examples", CUSTOM],
             'all_exts': [True, "Enable all Trilinos packages", CUSTOM],
             'skip_exts': [[], "List of Trilinos packages to skip", CUSTOM],
             'verbose': [False, "Configure for verbose output", CUSTOM],
@@ -106,9 +108,11 @@ class EB_Trilinos(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
 
-        # enable full testing
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
+        if self.cfg['build_tests']:
+            # enable full testing
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
+        if self.cfg['forward_deps']:
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
 
         lib_re = re.compile("^lib(.*).a$")
 
@@ -284,6 +288,11 @@ class EB_Trilinos(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('12.6'):
             libs.remove('Galeri')
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
+        if LooseVersion(self.version) >= LooseVersion('13'):
+            libs.remove('GlobiPack')
+            libs.remove('Mesquite')
+            libs.remove('MOOCHO')
 
         # Get the library extension
         if self.cfg['build_shared_libs']:
