@@ -134,10 +134,19 @@ class RPackage(ExtensionEasyBlock):
         else:
             prefix = ''
 
+        loc = self.start_dir
+        if loc is None:
+            loc = self.ext_dir or self.ext_src
+        elif not os.path.isabs(loc):
+            # TODO: deprecated behaviour in framework 4.7.1, remove after 5.0
+            loc = os.path.join(self.ext_dir or os.path.sep, loc)
+            deprecation_msg = "Found relative path in start_dir, please upgrade to easybuild-framework>=4.7.1"
+            self.log.deprecated(deprecation_msg, '5.0')
+
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             "R CMD INSTALL",
-            self.start_dir,
+            loc,
             confargs,
             confvars,
             prefix,
