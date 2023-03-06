@@ -114,7 +114,7 @@ class Cargo(EasyBlock):
         # Can't figure out how to supply this via command line
         write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
         cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (
-            self.cfg['prebuildopts'], profile, offline, lto, tests, parallel, self.cfg['buildopts']) 
+            self.cfg['prebuildopts'], profile, offline, lto, tests, parallel, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
