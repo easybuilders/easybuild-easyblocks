@@ -62,7 +62,7 @@ class Cargo(EasyBlock):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Constructor for Simpack easyblock."""
+        """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         env.setvar('CARGO_HOME', os.path.join(self.builddir, '.cargo'))
         env.setvar('RUSTC', 'rustc')
