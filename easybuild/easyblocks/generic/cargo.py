@@ -40,6 +40,7 @@ from easybuild.tools.filetools import write_file, compute_checksum
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
+
 class Cargo(EasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
@@ -128,4 +129,3 @@ class Cargo(EasyBlock):
         cmd = "%s cargo install --offline --root %s --path . %s" % (
             self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
-
