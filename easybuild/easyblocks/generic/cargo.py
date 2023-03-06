@@ -88,6 +88,10 @@ class Cargo(EasyBlock):
             chkfile = '%s/%s/.cargo-checksum.json' % (self.builddir, dirname)
             write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
 
+    @property
+    def profile(self):
+        return 'debug' if self.toolchain.options.get('debug', None) else 'release'
+
     def build_step(self):
         """Build with cargo"""
         parallel = ''
@@ -102,11 +106,9 @@ class Cargo(EasyBlock):
         if self.cfg['offline']:
             parallel = "--offline"
 
-        profile = 'debug' if self.toolchain.options.get('debug', None) else 'release'
-
         lto = ''
         if self.cfg['lto']:
-            parallel = '--config profile.%s.lto=true' % profile
+            parallel = '--config profile.%s.lto=true' % self.profile
 
         run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
         # attempt to circumvent the checksum-check that cargo build does, but it still looks for the checksum json file
@@ -114,18 +116,17 @@ class Cargo(EasyBlock):
         # Can't figure out how to supply this via command line
         write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
         cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (
-            self.cfg['prebuildopts'], profile, offline, lto, tests, parallel, self.cfg['buildopts'])
+            self.cfg['prebuildopts'], self.profile, offline, lto, tests, parallel, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
         """Test with cargo"""
         if self.cfg['tests']:
-            profile = 'debug' if self.toolchain.options.get('debug', None) else 'release'
-            cmd = "%s cargo test --profile=%s %s" % (self.cfg['pretestopts'], profile, self.cfg['testopts'])
+            cmd = "%s cargo test --profile=%s %s" % (self.cfg['pretestopts'], self.profile, self.cfg['testopts'])
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Install with cargo"""
-        cmd = "%s cargo install --offline --root %s --path . %s" % (
-            self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
+        cmd = "%s cargo install --profile=%s --offline --root %s --path . %s" % (
+            self.cfg['preinstallopts'], self.profile, self.installdir, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
