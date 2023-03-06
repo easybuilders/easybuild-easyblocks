@@ -29,15 +29,14 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 """
 
 import os
-import glob
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import remove_file, write_file, extract_file, compute_checksum
+from easybuild.tools.filetools import write_file, compute_checksum
+# from easybuild.tools.filetools import remove_file
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
@@ -49,15 +48,15 @@ class Cargo(EasyBlock):
         """Define extra easyconfig parameters specific to Cargo"""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
-            #'tests': [True, "Build tests", CUSTOM],
+            # 'tests': [True, "Build tests", CUSTOM],
             'offline': [True, "Build tests", CUSTOM],
             'lto': [False, "Build with link time optimization", CUSTOM],
         })
 
-        #if 'source_urls' not in extra_vars:
+        # if 'source_urls' not in extra_vars:
         #    extra_vars['source_urls'] = [CRATESIO_SOURCE]
 
-        #extra_vars['download_filename'] = '%(name)s/%(version)s/download'
+        # extra_vars['download_filename_template'] = '%(name)s/%(version)s/download'
 
         return extra_vars
 
@@ -109,10 +108,12 @@ class Cargo(EasyBlock):
             parallel = '--config profile.%s.lto=true' % profile
 
         run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
-        #remove_file('Cargo.lock')  # attempt to circumvent the checksum-check that cargo build does, but it still looks for the checksum json file.
+        # attempt to circumvent the checksum-check that cargo build does, but it still looks for the checksum json file
+        # remove_file('Cargo.lock')
         # Can't figure out how to supply this via command line
         write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
-        cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (self.cfg['prebuildopts'], profile, offline, lto, tests, parallel, self.cfg['buildopts']) 
+        cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (
+            self.cfg['prebuildopts'], profile, offline, lto, tests, parallel, self.cfg['buildopts']) 
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
@@ -124,6 +125,7 @@ class Cargo(EasyBlock):
 
     def install_step(self):
         """Install with cargo"""
-        cmd = "%s cargo install --offline --root %s --path . %s" % (self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
+        cmd = "%s cargo install --offline --root %s --path . %s" % (
+            self.cfg['preinstallopts'], self.installdir, self.cfg['installopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
