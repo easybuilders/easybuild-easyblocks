@@ -81,8 +81,8 @@ class EB_GAMESS_minus_US(EasyBlock):
             self.testdir = tempfile.mkdtemp()
             # make sure test dir doesn't contain [ or ], rungms csh script doesn't handle that well ("set: No match")
             if re.search(r'[\[\]]', self.testdir):
-                raise EasyBuildError("Temporary dir for tests '%s' will cause problems with rungms csh script",
-                                     self.testdir)
+                error_msg = "Temporary dir for tests '%s' will cause problems with rungms csh script"
+                raise EasyBuildError(error_msg, self.testdir)
 
         self.scratch_dir = self.cfg['scratch_dir']
 
