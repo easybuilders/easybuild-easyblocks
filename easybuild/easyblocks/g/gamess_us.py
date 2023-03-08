@@ -69,7 +69,6 @@ class EB_GAMESS_minus_US(EasyBlock):
             'maxcpus': [None, "Maximum number of cores per node", MANDATORY],
             'maxnodes': [None, "Maximum number of nodes", MANDATORY],
             'runtest': [True, "Run GAMESS-US tests", CUSTOM],
-            'omp': [False, "Enabling OpenMP", CUSTOM],
             'scratch_dir': ['$TMPDIR', "dir for temporary binary files", CUSTOM],
             'user_scratch_dir': ['$TMPDIR', "dir for supplementary output files", CUSTOM],
         }
@@ -203,7 +202,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         f. writelines(["setenv GMS_PHI none " + "\n"])
         f. writelines(["setenv GMS_SHMTYPE sysv " + "\n"])
 
-        if self.cfg['omp'] == 'True':
+        if self.toolchain.options.get('openmp', None):
             f. writelines(["setenv GMS_OPENMP true" + "\n"])
         else:
             f. writelines(["setenv GMS_OPENMP false" + "\n"])
