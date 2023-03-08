@@ -206,8 +206,16 @@ class EB_GAMESS_minus_US(EasyBlock):
             f. writelines(["setenv GMS_OPENMP true" + "\n"])
         else:
             f. writelines(["setenv GMS_OPENMP false" + "\n"])
-        
-        f. writelines(["setenv GMS_LIBXC false " + "\n"])
+
+        external_plugs = dict()
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            external_plugs['GMS_LIBXC'] = "false"
+            if get_software_root('libxc'):
+                external_plugs['GMS_LIBXC'] = "true"
+
+        for opt in external_plugs.items():
+            f. writelines(["setenv %s %s \n" % opt])
+
         f. writelines(["setenv GMS_MDI false " + "\n"])
         f. writelines(["setenv GMS_VM2 false " + "\n"])
         f. writelines(["setenv TINKER false " + "\n"])
