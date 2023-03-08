@@ -44,6 +44,8 @@ import sys
 import tempfile
 import fnmatch
 
+from distutils.version import LooseVersion
+
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
@@ -129,39 +131,41 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # math library config
         known_mathlibs = ['imkl', 'OpenBLAS', 'ATLAS', 'ACML']
-        mathlib, mathlib_root = None, None
-        for mathlib in known_mathlibs:
-            mathlib_root = get_software_root(mathlib)
-            if mathlib_root is not None:
-                break
-        if mathlib_root is None:
+        loaded_mathlib = [mathlib for mathlib in known_mathlibs if get_software_root(mathlib)]
+
+        # math library: default settings
+        try:
+            mathlib = loaded_mathlib[0].lower()
+            mathlib_root = get_software_root(loaded_mathlib[0])
+            mathlib_subfolder = ''
+            mathlib_flags = ''
+        except IndexError:
             raise EasyBuildError("None of the known math libraries (%s) available, giving up.", known_mathlibs)
+
         if mathlib == 'imkl':
             mathlib = 'mkl'
-            mathlib_vers_res = '.'.join(get_software_version('imkl').split('.')[:1])
-            if int(mathlib_vers_res) == 2020:
-                mathlib_root = os.path.join(mathlib_root, 'mkl/lib/intel64')
-            elif int(mathlib_vers_res) == 2021:
-                mathlib_root = os.path.join(mathlib_root, 'mkl/latest/lib/intel64')
+            mathlib_subfolder = 'mkl'
+            mathlib_flags = '-lmkl_intel_lp64'
+            imkl_ver = get_software_version('imkl')
+            if LooseVersion(imkl_ver) >= LooseVersion("2021"):
+                mathlib_subfolder = 'mkl/latest/lib/intel64'
+            elif LooseVersion(imkl_ver) >= LooseVersion("2020"):
+                mathlib_subfolder = 'mkl/lib/intel64'
+        elif mathlib == 'openblas':
+            mathlib_flags="-lopenblas -lgfortran"
+            if LooseVersion(self.version) >= LooseVersion('20210101'):
+                mathlib_subfolder = 'lib'
 
-            if int(mathlib_vers_res) >= 2020:
-                # For some GAMESS-US versions oneapi is not in lked, so we use 12-so instead
-                if self.version == "20200630-R1" or self.version == "20200930-R2":
-                    mathlib_vers = "12-so"
-                elif self.version == "20210620-R1":
-                    mathlib_vers = "12-so"
-                else:
-                    mathlib_vers = "oneapi-so"
-            else:
-                mathlib_vers = "12"
-
+        if mathlib_root is not None:
+            mathlib_path = os.path.join(mathlib_root, mathlib_subfolder)
+            self.log.debug("Software root of math libraries set to: %s", mathlib_path)
         else:
-            mathlib = mathlib.lower()
+            raise EasyBuildError("Software root of math libraries (%s) not found", mathlib)
 
-        f.writelines(["setenv GMS_MATHLIB " + mathlib + "\n" +
-            "setenv GMS_MATHLIB_PATH " + mathlib_root + "\n" +
-            "setenv GMS_MKL_VERNO " + mathlib_vers + "\n" +
-            "setenv GMS_LAPACK_LINK_LINE" + "" + "\n"])
+        f.writelines([
+            "setenv GMS_MATHLIB " + mathlib + "\n" + 
+            "setenv GMS_MATHLIB_PATH " + mathlib_path + "\n" +
+            "setenv GMS_LAPACK_LINK_LINE " + '"%s"' % mathlib_flags + "\n"])
 
         # verify selected DDI communication layer
         known_ddi_comms = ['mpi', 'mixed', 'shmem', 'sockets']
@@ -169,7 +173,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             raise EasyBuildError("Unsupported DDI communication layer specified (known: %s): %s",
                                  known_ddi_comms, self.cfg['ddi_comm'])
         
-        f.writelines(["setenv GMS_DDI_COMM " + self.cfg['ddi_comm'] + "\n" ])
+        f.writelines(["setenv GMS_DDI_COMM " + self.cfg['ddi_comm'] + "\n"])
 
         # MPI library config
         mpilib, mpilib_root, mpilib_path = None, None, None
