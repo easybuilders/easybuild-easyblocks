@@ -214,6 +214,16 @@ class EB_GAMESS_minus_US(EasyBlock):
             plugs_opt['GMS_LIBXC'] = "false"
             if get_software_root('libxc'):
                 plugs_opt['GMS_LIBXC'] = "true"
+                # the linker needs to be patched to use external libXC
+                lixc_libs = [os.path.join(os.environ['EBROOTLIBXC'], 'lib', l) for l in ['libxcf03.a', 'libxc.a']]
+                libxc_linker_flags = ' '.join(lixc_libs)
+                try:
+                    lked = os.path.join(self.builddir, 'lked')
+                    for line in fileinput.input(lked, inplace=1, backup='.orig'):
+                        line = re.sub(r"^(\s*set\sLIBXC_FLAGS)=.*GMS_PATH.*", r'\1="%s"' % libxc_linker_flags, line)
+                        sys.stdout.write(line)
+                except IOError as err:
+                    raise EasyBuildError("Failed to patch %s: %s", lked, err)
         # MDI
         # needs https://github.com/MolSSI-MDI/MDI_Library
         plugs_opt['GMS_MDI'] = "false"
@@ -236,7 +246,8 @@ class EB_GAMESS_minus_US(EasyBlock):
         for opt in plugs_opt.items():
             f. writelines(["setenv %s %s \n" % opt])
 
-        f. writelines(["setenv GMS_FPE_FLAGS " + "\n"]) 
+        # add include paths from dependencies
+        f. writelines(['setenv GMS_FPE_FLAGS "%s" \n' % os.environ['CPPFLAGS']]) 
         #f. writelines(["setenv GMS_FPE_FLAGS '-ffpe-trap=invalid,zero,overflow' " + "\n"]) # This seems to be useful for debugging 
 
         f.close()
