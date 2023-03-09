@@ -207,22 +207,35 @@ class EB_GAMESS_minus_US(EasyBlock):
         else:
             f. writelines(["setenv GMS_OPENMP false" + "\n"])
 
-        external_plugs = dict()
-        if LooseVersion(self.version) >= LooseVersion('2021'):
-            external_plugs['GMS_LIBXC'] = "false"
+        # Optional plug-ins and interfaces
+        # libXC
+        plugs_opt = dict()
+        if LooseVersion(self.version) >= LooseVersion('20210101'):
+            plugs_opt['GMS_LIBXC'] = "false"
             if get_software_root('libxc'):
-                external_plugs['GMS_LIBXC'] = "true"
-
-        for opt in external_plugs.items():
+                plugs_opt['GMS_LIBXC'] = "true"
+        # MDI
+        # needs https://github.com/MolSSI-MDI/MDI_Library
+        plugs_opt['GMS_MDI'] = "false"
+        # VM2
+        plugs_opt['GMS_VM2'] = "false"
+        # NBO
+        plugs_opt['NBO'] = "false"
+        if get_software_root('NBO'):
+            plugs_opt['NBO'] = "true"
+        # NEO
+        plugs_opt['NEO'] = "false"
+        # TINKER
+        plugs_opt['TINKER'] = "false"
+        if get_software_root('TINKER'):
+            plugs_opt['TINKER'] = "true"
+        # VB2000
+        plugs_opt['VB2000'] = "false"
+        # XMVB
+        plugs_opt['XMVB'] = "false"
+        for opt in plugs_opt.items():
             f. writelines(["setenv %s %s \n" % opt])
 
-        f. writelines(["setenv GMS_MDI false " + "\n"])
-        f. writelines(["setenv GMS_VM2 false " + "\n"])
-        f. writelines(["setenv TINKER false " + "\n"])
-        f. writelines(["setenv VB2000 false " + "\n"])
-        f. writelines(["setenv XMVB false " + "\n"])
-        f. writelines(["setenv NEO false " + "\n"])
-        f. writelines(["setenv NBO false " + "\n"])
         f. writelines(["setenv GMS_FPE_FLAGS " + "\n"]) 
         #f. writelines(["setenv GMS_FPE_FLAGS '-ffpe-trap=invalid,zero,overflow' " + "\n"]) # This seems to be useful for debugging 
 
