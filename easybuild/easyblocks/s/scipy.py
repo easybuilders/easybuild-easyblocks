@@ -202,7 +202,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # copy PKG-INFO file included in scipy source tarball to scipy-<version>.egg-info in installation,
             # so pip is aware of the scipy installation (required for 'pip list', 'pip check', etc.);
             # see also https://github.com/easybuilders/easybuild-easyblocks/issues/2901
-            pkg_info = 'PKG-INFO'
+            pkg_info = os.path.join(self.cfg['start_dir'], 'PKG-INFO')
             target_egg_info = os.path.join(self.installdir, self.pylibdir, 'scipy-%s.egg-info' % self.version)
             if os.path.isfile(pkg_info):
                 copy_file(pkg_info, target_egg_info)
@@ -226,6 +226,6 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         # make sure that scipy is included in output of 'pip list',
         # so that 'pip check' passes if scipy is a required dependency for another Python package;
         # use case-insensitive match, since name is sometimes reported as 'SciPy'
-        custom_commands = [r"pip list | grep -i '^scipy[ \t]*%s[ \t]*$'" % self.version]
+        custom_commands = [r"pip list | grep -iE '^scipy\s+%s\s*$'" % self.version.replace('.', r'\.')]
 
         return PythonPackage.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
