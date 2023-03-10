@@ -196,16 +196,17 @@ class EB_GAMESS_minus_US(EasyBlock):
         f.writelines(["setenv GMS_MPI_LIB " + mpilib + "\n" + 
             "setenv GMS_MPI_PATH " + mpilib_root + "\n"])
 
+        # OpenMP config
+        if self.toolchain.options.get('openmp', None):
+            f. writelines(["setenv GMS_OPENMP true" + "\n"])
+        else:
+            f. writelines(["setenv GMS_OPENMP false" + "\n"])
+
         # These are extra programs which for now we simply set all to FALSE
         f. writelines(["setenv GMS_MSUCC false " + "\n"])
         f. writelines(["setenv GMS_LIBCCHEM false" + "\n"])
         f. writelines(["setenv GMS_PHI none " + "\n"])
         f. writelines(["setenv GMS_SHMTYPE sysv " + "\n"])
-
-        if self.toolchain.options.get('openmp', None):
-            f. writelines(["setenv GMS_OPENMP true" + "\n"])
-        else:
-            f. writelines(["setenv GMS_OPENMP false" + "\n"])
 
         # Optional plug-ins and interfaces
         # libXC
