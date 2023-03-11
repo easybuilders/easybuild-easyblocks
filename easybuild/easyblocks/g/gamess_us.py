@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, read_file, write_file
+from easybuild.tools.filetools import change_dir, read_file, write_file, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_platform_name
@@ -398,8 +398,12 @@ class EB_GAMESS_minus_US(EasyBlock):
 
     def cleanup_step(self):
         """Cleanup set."""
-        # remove dedicated scratch directory (if any);
-        # we must use a shell command for this, since the path may contain environment variables
         super(EB_GAMESS_minus_US, self).cleanup_step()
 
-        # FIXME
+        # remove dedicated scratch directory (if any);
+        # we must use a shell command for this, since the path may contain environment variables
+        (scratch_path, _) = run_cmd('echo "%s"' % self.cfg['scratch_dir'], simple=False)
+        if os.path.isdir(scratch_path):
+            remove_dir(scratch_path)
+            self.log.info("Removed test scratch: %s", scratch_path)
+
