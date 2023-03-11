@@ -337,6 +337,10 @@ class EB_GAMESS_minus_US(EasyBlock):
                 self.log.info("Skipping testing of GAMESS-US since MPI testing is disabled")
                 return
 
+            if int(self.cfg['parallel']) < 2:
+                self.log.info("Skipping testing of GAMESS-US as MPI tests need at least 2 CPU cores to run")
+                return
+
             cwd = change_dir(self.testdir)
 
             # copy input files for exam<id> standard tests
