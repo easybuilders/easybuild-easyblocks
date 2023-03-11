@@ -53,8 +53,10 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, read_file, write_file, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_platform_name
+from easybuild.tools.systemtools import POWER, X86_64
+from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import toolchain
+INSTALL_INFO = 'install.info'
 
 
 class EB_GAMESS_minus_US(EasyBlock):
@@ -92,20 +94,24 @@ class EB_GAMESS_minus_US(EasyBlock):
         super(EB_GAMESS_minus_US, self).extract_step()
 
     def configure_step(self):
-        """Configure GAMESS-US build via provided interactive 'config' script."""
-        """Opening install.info file as append"""
-        f = open(self.builddir + "/install.info", "a")
-        f.writelines(["setenv GMS_PATH " + self.builddir + "\n"
-            "setenv GMS_BUILD_DIR " + self.installdir + "\n"])
+        """Configure GAMESS-US via install.info file"""
+        installinfo_opts = {}
+
+        # installation paths
+        installinfo_opts["GMS_PATH"] = self.installdir
+        installinfo_opts["GMS_BUILD_DIR"] = self.builddir
+
         # machine type
-        platform_name = get_platform_name()
-        x86_64_linux_re = re.compile('^x86_64-.*$')
-        if x86_64_linux_re.match(platform_name):
+        cpu_arch = get_cpu_architecture()
+        if cpu_arch == X86_64:
             machinetype = "linux64"
-            f.writelines(["setenv GMS_TARGET " + machinetype + "\n" +
-                "setenv GMS_HPC_SYSTEM_TARGET generic" + "\n"])
+        elif cpu_arch == POWER:
+            machinetype = "ibm64"
         else:
-            raise EasyBuildError("Build target %s currently unsupported", platform_name)
+            raise EasyBuildError("Build target %s currently unsupported", cpu_arch)
+
+        installinfo_opts["GMS_TARGET"] = machinetype
+        installinfo_opts["GMS_HPC_SYSTEM_TARGET"] = "generic"
 
         # compiler config
         comp_fam = self.toolchain.comp_family()
@@ -124,8 +130,8 @@ class EB_GAMESS_minus_US(EasyBlock):
         else:
             raise EasyBuildError("Compiler family '%s' currently unsupported.", comp_fam)
 
-        f.writelines(["setenv GMS_FORTRAN " + fortran_comp + "\n" + 
-            "setenv GMS_GFORTRAN_VERNO " + fortran_ver + "\n"])
+        installinfo_opts["GMS_FORTRAN"] = fortran_comp
+        installinfo_opts["GMS_GFORTRAN_VERNO"] = fortran_ver
 
         # math library config
         known_mathlibs = ['imkl', 'OpenBLAS', 'ATLAS', 'ACML']
@@ -140,6 +146,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         except IndexError:
             raise EasyBuildError("None of the known math libraries (%s) available, giving up.", known_mathlibs)
 
+        # math library: special cases
         if mathlib == 'imkl':
             mathlib = 'mkl'
             mathlib_subfolder = 'mkl'
@@ -160,18 +167,18 @@ class EB_GAMESS_minus_US(EasyBlock):
         else:
             raise EasyBuildError("Software root of math libraries (%s) not found", mathlib)
 
-        f.writelines([
-            "setenv GMS_MATHLIB " + mathlib + "\n" + 
-            "setenv GMS_MATHLIB_PATH " + mathlib_path + "\n" +
-            "setenv GMS_LAPACK_LINK_LINE " + '"%s"' % mathlib_flags + "\n"])
+        installinfo_opts["GMS_MATHLIB"] = mathlib
+        installinfo_opts["GMS_MATHLIB_PATH"] = mathlib_path
+        installinfo_opts["GMS_LAPACK_LINK_LINE"] = '"%s"' % mathlib_flags
 
         # verify selected DDI communication layer
         known_ddi_comms = ['mpi', 'mixed', 'shmem', 'sockets']
         if not self.cfg['ddi_comm'] in known_ddi_comms:
-            raise EasyBuildError("Unsupported DDI communication layer specified (known: %s): %s",
-                                 known_ddi_comms, self.cfg['ddi_comm'])
+            raise EasyBuildError(
+                "Unsupported DDI communication layer specified (known: %s): %s", known_ddi_comms, self.cfg['ddi_comm']
+            )
         
-        f.writelines(["setenv GMS_DDI_COMM " + self.cfg['ddi_comm'] + "\n"])
+        installinfo_opts["GMS_DDI_COMM"] = self.cfg['ddi_comm']
 
         # MPI library config
         mpilib, mpilib_root, mpilib_path = None, None, None
@@ -192,28 +199,29 @@ class EB_GAMESS_minus_US(EasyBlock):
         else:
             mpilib, mpilib_root = '', ''
 
-        f.writelines(["setenv GMS_MPI_LIB " + mpilib + "\n" + 
-            "setenv GMS_MPI_PATH " + mpilib_root + "\n"])
+        installinfo_opts["GMS_MPI_LIB"] = mpilib
+        installinfo_opts["GMS_MPI_PATH"] = mpilib_root
 
         # OpenMP config
         if self.toolchain.options.get('openmp', None):
-            f. writelines(["setenv GMS_OPENMP true" + "\n"])
+            omp_enabled = "true"
         else:
-            f. writelines(["setenv GMS_OPENMP false" + "\n"])
+            omp_enabled = "false"
+
+        installinfo_opts["GMS_OPENMP"] = omp_enabled
 
         # These are extra programs which for now we simply set all to FALSE
-        f. writelines(["setenv GMS_MSUCC false " + "\n"])
-        f. writelines(["setenv GMS_LIBCCHEM false" + "\n"])
-        f. writelines(["setenv GMS_PHI none " + "\n"])
-        f. writelines(["setenv GMS_SHMTYPE sysv " + "\n"])
+        installinfo_opts["GMS_MSUCC"] = "false"
+        installinfo_opts["GMS_LIBCCHEM"] = "false"
+        installinfo_opts["GMS_PHI"] = "none"
+        installinfo_opts["GMS_SHMTYPE"] = "sysv"
 
         # Optional plug-ins and interfaces
         # libXC
-        plugs_opt = dict()
         if LooseVersion(self.version) >= LooseVersion('20210101'):
-            plugs_opt['GMS_LIBXC'] = "false"
+            installinfo_opts['GMS_LIBXC'] = "false"
             if get_software_root('libxc'):
-                plugs_opt['GMS_LIBXC'] = "true"
+                installinfo_opts['GMS_LIBXC'] = "true"
                 # the linker needs to be patched to use external libXC
                 lixc_libs = [os.path.join(os.environ['EBROOTLIBXC'], 'lib', l) for l in ['libxcf03.a', 'libxc.a']]
                 libxc_linker_flags = ' '.join(lixc_libs)
@@ -226,33 +234,35 @@ class EB_GAMESS_minus_US(EasyBlock):
                     raise EasyBuildError("Failed to patch %s: %s", lked, err)
         # MDI
         # needs https://github.com/MolSSI-MDI/MDI_Library
-        plugs_opt['GMS_MDI'] = "false"
+        installinfo_opts['GMS_MDI'] = "false"
         # VM2
-        plugs_opt['GMS_VM2'] = "false"
+        installinfo_opts['GMS_VM2'] = "false"
         # NBO
-        plugs_opt['NBO'] = "false"
+        installinfo_opts['NBO'] = "false"
         if get_software_root('NBO'):
-            plugs_opt['NBO'] = "true"
+            installinfo_opts['NBO'] = "true"
         # NEO
-        plugs_opt['NEO'] = "false"
+        installinfo_opts['NEO'] = "false"
         # TINKER
-        plugs_opt['TINKER'] = "false"
+        installinfo_opts['TINKER'] = "false"
         if get_software_root('TINKER'):
-            plugs_opt['TINKER'] = "true"
+            installinfo_opts['TINKER'] = "true"
         # VB2000
-        plugs_opt['VB2000'] = "false"
+        installinfo_opts['VB2000'] = "false"
         # XMVB
-        plugs_opt['XMVB'] = "false"
-        for opt in plugs_opt.items():
-            f. writelines(["setenv %s %s \n" % opt])
+        installinfo_opts['XMVB'] = "false"
 
         # add include paths from dependencies
-        f. writelines(['setenv GMS_FPE_FLAGS "%s" \n' % os.environ['CPPFLAGS']]) 
-        #f. writelines(["setenv GMS_FPE_FLAGS '-ffpe-trap=invalid,zero,overflow' " + "\n"]) # This seems to be useful for debugging 
+        installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS']
+        # might be useful for debugging 
+        # installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS'] + "-ffpe-trap=invalid,zero,overflow"
 
-        f.close()
-
-        self.log.debug("Contents of install.info:\n%s" % read_file(os.path.join(self.builddir, 'install.info')))
+        # write install.info file with configuration settings
+        # format: setenv KEY VALUE
+        installinfo_file = os.path.join(self.builddir, INSTALL_INFO)
+        txt = '\n'.join(["setenv %s %s" % (k, installinfo_opts[k]) for k in installinfo_opts])
+        write_file(installinfo_file, txt)
+        self.log.debug("Contents of install.info:\n%s" % read_file(installinfo_file))
 
         # patch hardcoded settings in rungms to use values specified in easyconfig file
         rungms = os.path.join(self.builddir, 'rungms')
@@ -402,7 +412,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # remove dedicated scratch directory (if any);
         # we must use a shell command for this, since the path may contain environment variables
-        (scratch_path, _) = run_cmd('echo "%s"' % self.cfg['scratch_dir'], simple=False)
+        (scratch_path, _) = run_cmd('printf "%%s" "%s"' % self.cfg['scratch_dir'], simple=False)
         if os.path.isdir(scratch_path):
             remove_dir(scratch_path)
             self.log.info("Removed test scratch: %s", scratch_path)
