@@ -69,6 +69,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             'ddi_comm': ['mpi', "DDI communication layer to use", CUSTOM],
             'maxcpus': [None, "Maximum number of cores per node", MANDATORY],
             'maxnodes': [None, "Maximum number of nodes", MANDATORY],
+            'hyperthreading': [True, "Enable support for hyperthreading (2 threads per core)", CUSTOM],
             'runtest': [True, "Run GAMESS-US tests", CUSTOM],
             'scratch_dir': ['$TMPDIR', "dir for temporary binary files", CUSTOM],
             'user_scratch_dir': ['$TMPDIR', "dir for supplementary output files", CUSTOM],
@@ -284,6 +285,10 @@ class EB_GAMESS_minus_US(EasyBlock):
                 line = re.sub(r"^(\s*set\s*SCR)=.*", r"if ( ! $?SCR ) \1=%s" % self.cfg['scratch_dir'], line)
                 line = re.sub(r"^(\s*set\s*USERSCR)=.*", r"if ( ! $?USERSCR ) \1=%s" % self.cfg['user_scratch_dir'], line)
                 line = re.sub(r"^(df -k \$SCR)$", r"mkdir -p $SCR && mkdir -p $USERSCR && \1", line)
+                if self.cfg['hyperthreading'] is False:
+                    # disable hyperthreading (1 thread per core)
+                    line = re.sub(r"\$PPN \+ \$PPN", r"$PPN", line)
+                    line = re.sub(r"\$NCPUS \+ \$NCPUS", r"$NCPUS", line)
                 sys.stdout.write(line)
         except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", rungms, err)
