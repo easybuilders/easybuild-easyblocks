@@ -152,13 +152,15 @@ class EB_GAMESS_minus_US(EasyBlock):
         # math library: special cases
         if mathlib == 'imkl':
             mathlib = 'mkl'
-            mathlib_subfolder = 'mkl'
-            mathlib_flags = '-lmkl_intel_lp64'
+            mathlib_subfolder = 'mkl/lib/intel64'
+            mkl_version = '12'
             imkl_ver = get_software_version('imkl')
             if LooseVersion(imkl_ver) >= LooseVersion("2021"):
+                # OneAPI version
                 mathlib_subfolder = 'mkl/latest/lib/intel64'
-            elif LooseVersion(imkl_ver) >= LooseVersion("2020"):
-                mathlib_subfolder = 'mkl/lib/intel64'
+                mkl_version = 'oneapi'
+            installinfo_opts["GMS_MKL_VERNO"] = mkl_version
+
         elif mathlib == 'openblas':
             mathlib_flags="-lopenblas -lgfortran"
             if LooseVersion(self.version) >= LooseVersion('20210101'):
