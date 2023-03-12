@@ -183,9 +183,8 @@ class EB_GAMESS_minus_US(EasyBlock):
         installinfo_opts["GMS_DDI_COMM"] = self.cfg['ddi_comm']
 
         # MPI library config
-        mpilib, mpilib_root, mpilib_path = None, None, None
+        mpilib, mpilib_path = '', ''
         if self.cfg['ddi_comm'] == 'mpi':
-
             known_mpilibs = ['impi', 'OpenMPI', 'MVAPICH2', 'MPICH2']
             for mpilib in known_mpilibs:
                 mpilib_root = get_software_root(mpilib)
@@ -195,14 +194,16 @@ class EB_GAMESS_minus_US(EasyBlock):
                 raise EasyBuildError("None of the known MPI libraries (%s) available, giving up.", known_mpilibs)
             mpilib_path = mpilib_root
             if mpilib == 'impi':
-                mpilib_path = os.path.join(mpilib_root, 'intel64')
+                impi_ver = get_software_version('impi')
+                if LooseVersion(impi_ver) >= LooseVersion("2021.0.0"):
+                    mpilib_path = os.path.join(mpilib_root, 'mpi', 'latest')
+                else:
+                    mpilib_path = os.path.join(mpilib_root, 'intel64')
             else:
                 mpilib = mpilib.lower()
-        else:
-            mpilib, mpilib_root = '', ''
 
         installinfo_opts["GMS_MPI_LIB"] = mpilib
-        installinfo_opts["GMS_MPI_PATH"] = mpilib_root
+        installinfo_opts["GMS_MPI_PATH"] = mpilib_path
 
         # OpenMP config
         if self.toolchain.options.get('openmp', None):
