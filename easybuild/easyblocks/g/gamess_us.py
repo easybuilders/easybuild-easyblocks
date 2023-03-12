@@ -120,18 +120,20 @@ class EB_GAMESS_minus_US(EasyBlock):
             fortran_comp = 'ifort'
             (out, _) = run_cmd("ifort -v", simple=False)
             res = re.search(r"^ifort version ([0-9]+)\.[0-9.]+$", out)
-            if res:
-                fortran_ver = res.group(1)
-            else:
+            try:
+                version_num = res.group(1)
+            except (AttributeError, IndexError):
                 raise EasyBuildError("Failed to determine ifort major version number")
+            fortran_version = {"GMS_IFORT_VERNO": version_num}
         elif comp_fam == toolchain.GCC:
             fortran_comp = 'gfortran'
-            fortran_ver = '.'.join(get_software_version('GCC').split('.')[:2])
+            version_num = '.'.join(get_software_version('GCC').split('.')[:2])
+            fortran_version = {"GMS_GFORTRAN_VERNO": version_num}
         else:
             raise EasyBuildError("Compiler family '%s' currently unsupported.", comp_fam)
 
         installinfo_opts["GMS_FORTRAN"] = fortran_comp
-        installinfo_opts["GMS_GFORTRAN_VERNO"] = fortran_ver
+        installinfo_opts.update(fortran_version)
 
         # math library config
         known_mathlibs = ['imkl', 'OpenBLAS', 'ATLAS', 'ACML']
