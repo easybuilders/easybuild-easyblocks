@@ -191,21 +191,40 @@ class EB_GAMESS_minus_US(EasyBlock):
         mpilib, mpilib_path = '', ''
         if self.cfg['ddi_comm'] == 'mpi':
             known_mpilibs = ['impi', 'OpenMPI', 'MVAPICH2', 'MPICH2']
-            for mpilib in known_mpilibs:
-                mpilib_root = get_software_root(mpilib)
-                if mpilib_root is not None:
-                    break
-            if mpilib_root is None:
+            loaded_mpilib = [mpilib for mpilib in known_mpilibs if get_software_root(mpilib)]
+
+            # mpi library: default settings
+            try:
+                mpilib = loaded_mpilib[0].lower()
+                mpilib_root = get_software_root(loaded_mpilib[0])
+                mpilib_subfolder = ''
+            except IndexError:
                 raise EasyBuildError("None of the known MPI libraries (%s) available, giving up.", known_mpilibs)
-            mpilib_path = mpilib_root
+
             if mpilib == 'impi':
                 impi_ver = get_software_version('impi')
-                if LooseVersion(impi_ver) >= LooseVersion("2021.0.0"):
-                    mpilib_path = os.path.join(mpilib_root, 'mpi', 'latest')
+                if LooseVersion(impi_ver) >= LooseVersion("2021"):
+                    mpilib_subfolder = "mpi/latest"
                 else:
-                    mpilib_path = os.path.join(mpilib_root, 'intel64')
+                    mpilib_subfolder = "intel64"
+
+                if LooseVersion(impi_ver) >= LooseVersion("2019"):
+                    # fix rungms settings for newer versions of Intel MPI
+                    print("PATCH IMPI")
+                    rungms = os.path.join(self.builddir, 'rungms')
+                    try:
+                        for line in fileinput.input(rungms, inplace=1, backup='.orig'):
+                            line = re.sub(r"^(\s*setenv\s*I_MPI_STATS).*", r"# \1", line)
+                            line = re.sub(r"^(\s*setenv\s*I_MPI_WAIT_MODE)\s*enable.*", r"\1 1", line)
+                            sys.stdout.write(line)
+                    except IOError as err:
+                        raise EasyBuildError("Failed to patch Intel MPI settings in %s: %s", rungms, err)
+
+            if mpilib_root is not None:
+                mpilib_path = os.path.join(mpilib_root, mpilib_subfolder)
+                self.log.debug("Software root of MPI libraries set to: %s", mpilib_path)
             else:
-                mpilib = mpilib.lower()
+                raise EasyBuildError("Software root of MPI libraries (%s) not found", mpilib)
 
         installinfo_opts["GMS_MPI_LIB"] = mpilib
         installinfo_opts["GMS_MPI_PATH"] = mpilib_path
