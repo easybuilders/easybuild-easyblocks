@@ -56,7 +56,9 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import toolchain
-INSTALL_INFO = 'install.info'
+
+GAMESS_INSTALL_INFO = 'install.info'
+GAMESS_TEST_TASKS = 2
 
 
 class EB_GAMESS_minus_US(EasyBlock):
@@ -265,10 +267,10 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # write install.info file with configuration settings
         # format: setenv KEY VALUE
-        installinfo_file = os.path.join(self.builddir, INSTALL_INFO)
+        installinfo_file = os.path.join(self.builddir, GAMESS_INSTALL_INFO)
         txt = '\n'.join(["setenv %s %s" % (k, installinfo_opts[k]) for k in installinfo_opts])
         write_file(installinfo_file, txt)
-        self.log.debug("Contents of install.info:\n%s" % read_file(installinfo_file))
+        self.log.debug("Contents of %s:\n%s" % (installinfo_file, read_file(installinfo_file)))
 
         # patch hardcoded settings in rungms to use values specified in easyconfig file
         rungms = os.path.join(self.builddir, 'rungms')
@@ -382,7 +384,8 @@ class EB_GAMESS_minus_US(EasyBlock):
             tests_path = os.path.join(self.installdir, 'tests', 'standard')
             n_tests = len(fnmatch.filter(os.listdir(tests_path), '*.inp'))
             for i in range(1, n_tests+1):
-                test_cmd = ' '.join(test_env_vars + [rungms, 'exam%02d' % i, self.version, '1', '2'])
+                rungms_cmd = [rungms, 'exam%02d' % i, self.version, str(GAMESS_TEST_TASKS), str(GAMESS_TEST_TASKS)]
+                test_cmd = ' '.join(test_env_vars + rungms_cmd)
                 (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
                 write_file('exam%02d.log' % i, out)
 
