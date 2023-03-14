@@ -444,10 +444,13 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
-        # Create non-versioned, relative symlinks for python and pip
+        # Create non-versioned, relative symlinks for python, python-config and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
             symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        python_config_binary_path = os.path.join(self.installdir, 'bin', 'python-config')
+        if not os.path.isfile(python_config_binary_path):
+            symlink('python' + self.pyshortver + '-config', python_config_binary_path, use_abspath_source=False)
         if self.install_pip:
             pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
             if not os.path.isfile(pip_binary_path):
