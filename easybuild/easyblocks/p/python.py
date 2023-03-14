@@ -537,7 +537,13 @@ class EB_Python(ConfigureMake):
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
-            'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
+            'files': [
+                os.path.join('bin', pyver),
+                os.path.join('bin', 'python'),
+                os.path.join('bin', pyver + '-config'),
+                os.path.join('bin', 'python-config'),
+                os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext),
+            ],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
@@ -549,6 +555,7 @@ class EB_Python(ConfigureMake):
             "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
+            "python-config --help",  # make sure that symlink was created correctly
         ]
 
         if self.install_pip:
