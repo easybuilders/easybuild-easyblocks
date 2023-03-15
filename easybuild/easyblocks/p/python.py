@@ -552,10 +552,10 @@ class EB_Python(ConfigureMake):
 
         custom_commands = [
             "python --version",
+            "python-config --help",  # make sure that symlink was created correctly
             "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
-            "python-config --help",  # make sure that symlink was created correctly
         ]
 
         if self.install_pip:
