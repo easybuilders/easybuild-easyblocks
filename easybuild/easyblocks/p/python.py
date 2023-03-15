@@ -444,10 +444,13 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
-        # Create non-versioned, relative symlinks for python and pip
+        # Create non-versioned, relative symlinks for python, python-config and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
             symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        python_config_binary_path = os.path.join(self.installdir, 'bin', 'python-config')
+        if not os.path.isfile(python_config_binary_path):
+            symlink('python' + self.pyshortver + '-config', python_config_binary_path, use_abspath_source=False)
         if self.install_pip:
             pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
             if not os.path.isfile(pip_binary_path):
@@ -534,7 +537,13 @@ class EB_Python(ConfigureMake):
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
-            'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
+            'files': [
+                os.path.join('bin', pyver),
+                os.path.join('bin', 'python'),
+                os.path.join('bin', pyver + '-config'),
+                os.path.join('bin', 'python-config'),
+                os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext),
+            ],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
@@ -543,6 +552,7 @@ class EB_Python(ConfigureMake):
 
         custom_commands = [
             "python --version",
+            "python-config --help",  # make sure that symlink was created correctly
             "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
