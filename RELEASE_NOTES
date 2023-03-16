@@ -5,6 +5,46 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 
 The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 39 generic easyblocks.
 
+v4.7.1 (March 20th 2023)
+------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - make NAMD easyblock aware of (pre)testopts (#2856)
+  - update MesonNinja easyblock for Meson >=0.64.0 (#2861)
+  - update scipy easyblock for scipy >= 1.9.0 to use meson/ninja  (#2862)
+  - modify logic in QScintilla easyblock to find the PyQt5 sipdir in more places (#2868)
+  - add `testinstall` custom easyconfig parameter to PythonPackage easyblock (#2872)
+  - use -x option for "go install" in GoPackage generic easyblock (#2878)
+  - allow disabling pybind11 tests with '`runtest = False`' (#2892)
+  - call parent post_install_step in EasyBuildMeta easyblock (so postinstallcmds are taken into account) (#2893)
+  - update and enhance Maple easyblock for recent versions (#2895)
+  - relax glob pattern to find Mathematica install script (#2896)
+  - implement CUDA support in the ELPA EasyBlock & fix CPP configure issue on newer ELPA versions (#2898)
+  - update Trilinos easyblock to allow disabling of building tests and forward deps + support Trilinos v13.x (#2900)
+  - enhance Python easyblock to create non-versioned symlink for python-config + check for bin/python and bin/python-config in sanity check (#2904)
+- various bug fixes, including:
+  - do not use -g77 option when installing NVHPC 22.9+ (#2819)
+  - check that sanity_check_module_loaded attribute exists before querying it in PythonPackage easyblock (#2865)
+  - fix $JULIA_DEPOT_PATH in installation of multiple JuliaPackage extensions (#2869)
+  - fix website/docs links in README (#2870)
+  - fix checking of CUDA/ROCR-Runtime dependencies for Clang to determine default build targets (#2873)
+  - show template values of exts_default_options in PythonBundle (#2874)
+  - Fix missing initialization of CMakeMake in CMakePythonPackage (#2876)
+  - fix error when failing pip version check during PythonPackage sanity check (#2877)
+  - handle templating correctly in CMakeMake when playing with configopts (#2882)
+  - avoid crash in test step of PyTorch easyblock if runtest is not a command (#2883)
+  - fix check configure option in FlexiBLAS easyblock (#2886)
+  - Use older `ncgen -H` for older netCDF (#2889)
+  - relax glob pattern to find Mathematica install script (#2896)
+  - fix linking numexpr with Intel MKL's VML library for imkl >= 2021.x (#2897)
+  - update scipy easyblock to copy PKG-INFO to scipy-<version>.egg-info when installing with Meson/Ninja + add sanity check command using 'pip list' (#2903)
+- other changes:
+  - only give read permissions in GitHub Actions workflows (#2863)
+  - use start dir of extension to install R packages (#2867)
+  - add deprecation notice to RPackage extensions with relative paths in start_dir (#2879)
+
 
 v4.7.0 (January 9th 2023)
 -------------------------
