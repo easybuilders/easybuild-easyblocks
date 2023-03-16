@@ -372,6 +372,7 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif self.cuda:
+            print_msg("Using gpu (not Kokkos) arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
