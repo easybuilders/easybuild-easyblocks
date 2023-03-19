@@ -36,7 +36,6 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file, compute_checksum
-# from easybuild.tools.filetools import remove_file
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
@@ -49,15 +48,11 @@ class Cargo(EasyBlock):
         """Define extra easyconfig parameters specific to Cargo"""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
-            # 'tests': [True, "Build tests", CUSTOM],
-            'offline': [True, "Build tests", CUSTOM],
+            'enable_tests': [True, "Enable building of tests", CUSTOM],
+            'offline': [True, "Build offline", CUSTOM],
             'lto': [False, "Build with link time optimization", CUSTOM],
+            'crates': [[], "List of (crate, version) tuples to use", CUSTOM],
         })
-
-        # if 'source_urls' not in extra_vars:
-        #    extra_vars['source_urls'] = [CRATESIO_SOURCE]
-
-        # extra_vars['download_filename_template'] = '%(name)s/%(version)s/download'
 
         return extra_vars
 
@@ -74,6 +69,16 @@ class Cargo(EasyBlock):
         env.setvar('RUSTFLAGS', '-C target-cpu=%s' % optarch)
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
+
+        # Populate sources from "crates" list of tuples
+        sources = self.cfg['sources']
+        for crate, version in self.cfg['crates']:
+            sources.append({
+                'download_filename': crate + '/' + version + '/download',
+                'filename': crate + '-' + version + '.tar.gz',
+                'source_urls': CRATESIO_SOURCE,
+            })
+        self.cfg.update('sources', sources)
 
     def configure_step(self):
         pass
@@ -99,29 +104,27 @@ class Cargo(EasyBlock):
             parallel = "-j %s" % self.cfg['parallel']
 
         tests = ''
-        if self.cfg['tests']:
+        if self.cfg['enable_tests']:
             parallel = "--tests"
 
         offline = ''
         if self.cfg['offline']:
             parallel = "--offline"
+            # Replace crates-io with vendored sources
+            write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
 
         lto = ''
         if self.cfg['lto']:
             parallel = '--config profile.%s.lto=true' % self.profile
 
         run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
-        # attempt to circumvent the checksum-check that cargo build does, but it still looks for the checksum json file
-        # remove_file('Cargo.lock')
-        # Can't figure out how to supply this via command line
-        write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
         cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (
             self.cfg['prebuildopts'], self.profile, offline, lto, tests, parallel, self.cfg['buildopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
         """Test with cargo"""
-        if self.cfg['tests']:
+        if self.cfg['enable_tests']:
             cmd = "%s cargo test --profile=%s %s" % (self.cfg['pretestopts'], self.profile, self.cfg['testopts'])
             run_cmd(cmd, log_all=True, simple=True)
 
