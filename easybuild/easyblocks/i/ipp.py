@@ -141,8 +141,8 @@ class EB_ipp(IntelBase):
 
         if LooseVersion(self.version) >= LooseVersion('2021'):
             lib_path = [os.path.join('ipp', self.version, 'lib', self.arch),
-                os.path.join('compiler', '*', 'linux', 'lib'),
-                os.path.join('compiler', '*', 'linux', 'compiler', 'lib', 'intel64_lin')]
+                        os.path.join('compiler', '*', 'linux', 'lib'),
+                        os.path.join('compiler', '*', 'linux', 'compiler', 'lib', 'intel64_lin')]
             include_path = os.path.join('ipp', self.version, 'include')
         else:
             if LooseVersion(self.version) >= LooseVersion('9.0'):
