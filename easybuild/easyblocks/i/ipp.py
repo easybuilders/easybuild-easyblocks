@@ -150,11 +150,12 @@ class EB_ipp(IntelBase):
                 lib_path = [os.path.join('ipp', 'lib', self.arch), os.path.join('lib', self.arch)]
                 include_path = os.path.join('ipp', 'include')
 
-        guesses.update({
-            'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': lib_path,
-            'CPATH': [include_path],
-            'INCLUDE': [include_path],
-        })
+        if LooseVersion(self.version) >= LooseVersion('9.0'):
+            guesses.update({
+                'LD_LIBRARY_PATH': lib_path,
+                'LIBRARY_PATH': lib_path,
+                'CPATH': [include_path],
+                'INCLUDE': [include_path],
+            })
 
         return guesses
