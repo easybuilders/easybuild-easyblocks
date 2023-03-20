@@ -33,6 +33,7 @@ EasyBuild support for building and installing GAMESS-US, implemented as an easyb
 @author: Toon Willems (Ghent University)
 @author: Pablo Escobar (sciCORE, SIB, University of Basel)
 @author: Benjamin Roberts (The University of Auckland)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import fileinput
 import glob
