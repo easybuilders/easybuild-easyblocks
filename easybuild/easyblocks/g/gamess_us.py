@@ -245,7 +245,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # Optional plug-ins and interfaces
         # libXC
-        if LooseVersion(self.version) >= LooseVersion('20210101'):
+        if LooseVersion(self.version) >= LooseVersion('20200101'):
             installinfo_opts['GMS_LIBXC'] = "false"
             if get_software_root('libxc'):
                 installinfo_opts['GMS_LIBXC'] = "true"
