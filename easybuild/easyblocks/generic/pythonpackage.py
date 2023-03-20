@@ -250,6 +250,7 @@ class PythonPackage(ExtensionEasyBlock):
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
                                         "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
                                CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
@@ -283,7 +284,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgfn = 'site.cfg'
         self.sitecfglibdir = None
         self.sitecfgincdir = None
-        self.testinstall = False
+        self.testinstall = self.cfg['testinstall']
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
@@ -793,7 +794,7 @@ class PythonPackage(ExtensionEasyBlock):
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # since custom actions taken below require that environment is set up properly already
         # (especially when using --sanity-check-only)
-        if not self.sanity_check_module_loaded:
+        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
             extension = self.is_extension or kwargs.get('extension', False)
             extra_modules = kwargs.get('extra_modules', None)
             self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
@@ -916,8 +917,9 @@ class PythonPackage(ExtensionEasyBlock):
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
                 else:
-                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s", (pip_check_command,
-                                                                                                 pip_version))
+                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s",
+                                         pip_check_command,
+                                         pip_version)
             else:
                 raise EasyBuildError("Failed to determine pip version!")
 

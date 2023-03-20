@@ -28,9 +28,7 @@ EasyBuild support for building and installing numexpr, implemented as an easyblo
 import os
 from distutils.version import LooseVersion
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import get_cpu_features
@@ -80,20 +78,12 @@ class EB_numexpr(PythonPackage):
 
             mkl_ver = get_software_version('imkl')
 
-            comp_fam = self.toolchain.comp_family()
-            self.log.info("Using toolchain with compiler family %s", comp_fam)
-
             if LooseVersion(mkl_ver) >= LooseVersion('2021'):
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
                 ]
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
-                if comp_fam == toolchain.INTELCOMP:
-                    mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'iomp5']
-                elif comp_fam == toolchain.GCC:
-                    mkl_libs = ['mkl_intel_lp64', 'mkl_gnu_thread', 'mkl_core', 'gomp']
-                else:
-                    raise EasyBuildError("Unknown compiler family, don't know how to link MKL libraries: %s", comp_fam)
+                mkl_libs = ['mkl_rt']
             else:
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
@@ -122,8 +112,16 @@ class EB_numexpr(PythonPackage):
 
         custom_commands = []
 
+        # imkl_root may still be None, for example when running with --sanity-check-only
+        if self.imkl_root is None:
+            self.imkl_root = get_software_root('imkl')
+
         # if Intel MKL is available, make sure VML is used
         if self.imkl_root:
             custom_commands.append("python -c 'import numexpr; assert(numexpr.use_vml)'")
+
+            # for sufficiently recent versions of numexpr, also do a more extensive check for VML support
+            if LooseVersion(self.version) >= LooseVersion('2.7.3'):
+                custom_commands.append("""python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
 
         return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)

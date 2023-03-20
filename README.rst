@@ -4,7 +4,7 @@
 
 .. image:: https://github.com/easybuilders/easybuild-easyblocks/workflows/easyblocks%20unit%20tests/badge.svg?branch=develop
 
-`EasyBuild <https://easybuilders.github.io/easybuild>`_ is a software build
+`EasyBuild <https://easybuild.io>`_ is a software build
 and installation framework that allows you to manage (scientific) software
 on High Performance Computing (HPC) systems in an efficient way.
 
@@ -13,7 +13,7 @@ EasyBuild. Easyblocks are Python modules that implement the install procedure fo
 (group of) software package(s). Together with the EasyBuild framework,
 they allow to easily build and install supported software packages.
 
-The EasyBuild documentation is available at http://easybuild.readthedocs.org/.
+The EasyBuild documentation is available at http://docs.easybuild.io/.
 
 The easybuild-easyblocks source code is hosted on GitHub, along
 with an issue tracker for bug reports and feature requests, see

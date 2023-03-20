@@ -68,7 +68,7 @@ class EB_Mathematica(Binary):
         install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
         # Starting at V13, Mathematica have renamed their install file...
         if LooseVersion(self.version) >= LooseVersion("13"):
-            install_script_glob = '%s_%s_BNDL_LINUX*.sh' % (self.name, self.version)
+            install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
