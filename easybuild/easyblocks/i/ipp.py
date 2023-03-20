@@ -42,6 +42,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_platform_name
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+
 class EB_ipp(IntelBase):
     """
     Support for installing Intel Integrated Performance Primitives library
