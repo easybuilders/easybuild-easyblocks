@@ -76,7 +76,8 @@ class Cargo(EasyBlock):
             sources.append({
                 'download_filename': crate + '/' + version + '/download',
                 'filename': crate + '-' + version + '.tar.gz',
-                'source_urls': CRATESIO_SOURCE,
+                'source_urls': [CRATESIO_SOURCE],
+                'alt_location': 'crates.io',
             })
         self.cfg.update('sources', sources)
 
