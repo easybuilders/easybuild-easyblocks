@@ -167,7 +167,6 @@ class GoPackage(EasyBlock):
         self.log.debug("List of loaded modules: %s", self.modules_tool.list())
 
         not_found_regex = re.compile(r'(\S+)\s*\=\>\s*not found')
-        readelf_rpath_regex = re.compile('(RPATH)', re.M)
 
         # List of libraries that should be exempt from the RPATH sanity check;
         # For example, libcuda.so.1 should never be RPATH-ed by design,
