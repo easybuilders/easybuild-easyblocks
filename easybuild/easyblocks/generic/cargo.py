@@ -90,7 +90,6 @@ class Cargo(EasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
-        dirs = set()
         for src in self.src:
             existing_dirs = set(os.listdir(self.builddir))
             self.log.info("Unpacking source %s" % src['name'])
