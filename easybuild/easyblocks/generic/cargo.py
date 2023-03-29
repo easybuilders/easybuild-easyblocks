@@ -31,8 +31,10 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 import os
 
 import easybuild.tools.environment as env
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.tools.filetools import extract_file, change_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file, compute_checksum
