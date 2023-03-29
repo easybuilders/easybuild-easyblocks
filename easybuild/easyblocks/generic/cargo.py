@@ -100,7 +100,7 @@ class Cargo(EasyBlock):
             else:
                 raise EasyBuildError("Unpacking source %s failed", src['name'])
 
-            # Create checksum file for all sources required for 
+            # Create checksum file for all sources required by vendored crates.io sources
             if self.cfg['offline']:
                 self.log.info('creating .cargo-checksums.json file for : %s', srcdir)
                 chksum = compute_checksum(src['path'], checksum_type='sha256')
