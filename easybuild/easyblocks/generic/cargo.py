@@ -85,14 +85,25 @@ class Cargo(EasyBlock):
         pass
 
     def extract_step(self):
-        """Populate all vendored deps with required .cargo-checksum.json"""
-        EasyBlock.extract_step(self)
-        for source in self.src:
-            dirname = source["name"].rsplit('.', maxsplit=2)[0]
-            self.log.info('creating .cargo-checksums.json file for : %s', dirname)
-            chksum = compute_checksum(source['path'], checksum_type='sha256')
-            chkfile = '%s/%s/.cargo-checksum.json' % (self.builddir, dirname)
-            write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
+        """
+        Unpack the source files and populate them with required .cargo-checksum.json if offline
+        """
+        for src in self.src:
+            self.log.info("Unpacking source %s" % src['name'])
+            srcdir = extract_file(src['path'], self.builddir, cmd=src['cmd'],
+                                  extra_options=self.cfg['unpack_options'], change_into_dir=False)
+            change_dir(srcdir)
+            if srcdir:
+                self.src[self.src.index(src)]['finalpath'] = srcdir
+            else:
+                raise EasyBuildError("Unpacking source %s failed", src['name'])
+
+            # Create checksum file for all sources required for 
+            if self.cfg['offline']:
+                self.log.info('creating .cargo-checksums.json file for : %s', srcdir)
+                chksum = compute_checksum(src['path'], checksum_type='sha256')
+                chkfile = '%s/%s/.cargo-checksum.json' % (self.builddir, srcdir)
+                write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
 
     @property
     def profile(self):
@@ -106,31 +117,50 @@ class Cargo(EasyBlock):
 
         tests = ''
         if self.cfg['enable_tests']:
-            parallel = "--tests"
+            tests = "--tests"
 
         offline = ''
         if self.cfg['offline']:
-            parallel = "--offline"
+            offline = "--offline"
             # Replace crates-io with vendored sources
             write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
 
         lto = ''
         if self.cfg['lto']:
-            parallel = '--config profile.%s.lto=true' % self.profile
+            lto = '--config profile.%s.lto=true' % self.profile
 
         run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
-        cmd = '%s cargo build --profile=%s %s %s %s %s %s' % (
-            self.cfg['prebuildopts'], self.profile, offline, lto, tests, parallel, self.cfg['buildopts'])
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            'cargo build',
+            '--profile=' + self.profile,
+            offline,
+            lto,
+            tests,
+            parallel,
+            self.cfg['buildopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
         """Test with cargo"""
         if self.cfg['enable_tests']:
-            cmd = "%s cargo test --profile=%s %s" % (self.cfg['pretestopts'], self.profile, self.cfg['testopts'])
+            cmd = ' '.join([
+                self.cfg['pretestopts'],
+                'cargo test',
+                '--profile=' + self.profile,
+                self.cfg['testopts'],
+            ])
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Install with cargo"""
-        cmd = "%s cargo install --profile=%s --offline --root %s --path . %s" % (
-            self.cfg['preinstallopts'], self.profile, self.installdir, self.cfg['installopts'])
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            'cargo install'
+            '--profile=' + self.profile,
+            '--root=' + self.installdir,
+            '--path=.',
+            self.cfg['installopts'],
+        ])
         run_cmd(cmd, log_all=True, simple=True)
