@@ -90,7 +90,9 @@ class Cargo(EasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
+        dirs = set()
         for src in self.src:
+            existing_dirs = set(os.listdir(self.builddir))
             self.log.info("Unpacking source %s" % src['name'])
             srcdir = extract_file(src['path'], self.builddir, cmd=src['cmd'],
                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
@@ -101,10 +103,12 @@ class Cargo(EasyBlock):
                 raise EasyBuildError("Unpacking source %s failed", src['name'])
 
             # Create checksum file for all sources required by vendored crates.io sources
-            if self.cfg['offline']:
-                self.log.info('creating .cargo-checksums.json file for : %s', srcdir)
+            new_dirs = set(os.listdir(self.builddir)) - existing_dirs
+            if self.cfg['offline'] and len(new_dirs) == 1:
+                cratedir = new_dirs.pop()
+                self.log.info('creating .cargo-checksums.json file for : %s', cratedir)
                 chksum = compute_checksum(src['path'], checksum_type='sha256')
-                chkfile = '%s/%s/.cargo-checksum.json' % (self.builddir, srcdir)
+                chkfile = os.path.join(self.builddir, cratedir, '.cargo-checksum.json')
                 write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
 
     @property
@@ -159,7 +163,7 @@ class Cargo(EasyBlock):
         """Install with cargo"""
         cmd = ' '.join([
             self.cfg['preinstallopts'],
-            'cargo install'
+            'cargo install',
             '--profile=' + self.profile,
             '--root=' + self.installdir,
             '--path=.',
