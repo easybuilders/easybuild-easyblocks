@@ -163,7 +163,7 @@ class EB_MATLAB(PackedBinary):
                 keys = os.environ['EB_MATLAB_KEY']
             except KeyError:
                 raise EasyBuildError("The MATLAB install key is not set. This can be set either with the environment "
-									 "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
+                                     "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
         if isinstance(keys, string_type):
             keys = keys.split(',')
 
