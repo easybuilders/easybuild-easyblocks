@@ -28,6 +28,7 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
+import configparser
 import os
 
 from distutils.version import LooseVersion
@@ -35,7 +36,6 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.py2vs3 import configparser
 from easybuild.tools.run import run_cmd
 
 

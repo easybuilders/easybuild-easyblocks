@@ -32,9 +32,10 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
 import glob
 import os
+from collections import OrderedDict
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -45,7 +46,6 @@ from easybuild.tools.filetools import change_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_os_name
-from easybuild.tools.py2vs3 import OrderedDict
 
 
 class EB_ABAQUS(Binary):

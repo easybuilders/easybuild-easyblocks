@@ -36,7 +36,6 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which, write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
 
@@ -84,7 +83,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         if not min_openssl_version:
             min_openssl_version = self.version
-        elif not isinstance(min_openssl_version, string_type):
+        elif not isinstance(min_openssl_version, str):
             min_openssl_version = str(min_openssl_version)
 
         # Minimum OpenSSL version can only increase depth of wrapper version
