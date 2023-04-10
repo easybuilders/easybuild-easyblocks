@@ -83,7 +83,13 @@ class EB_HPL(ConfigureMake):
         Build with make and correct make options
         """
 
-        for envvar in ['MPICC', 'LIBLAPACK_MT', 'CPPFLAGS', 'LDFLAGS', 'CFLAGS']:
+        # Only use _MT version of LAPACK if openmp toolchainopt is True
+        if self.toolchain.options.get('openmp', False):
+            lapack = 'LIBLAPACK_MT'
+        else:
+            lapack = 'LIBLAPACK'
+
+        for envvar in ['MPICC', lapack, 'CPPFLAGS', 'LDFLAGS', 'CFLAGS']:
             # environment variable may be defined but empty
             if os.getenv(envvar, None) is None:
                 raise EasyBuildError("Required environment variable %s not found (no toolchain used?).", envvar)
@@ -94,8 +100,8 @@ class EB_HPL(ConfigureMake):
         # compilers
         extra_makeopts += 'CC="%(mpicc)s" MPICC="%(mpicc)s" LINKER="%(mpicc)s" ' % {'mpicc': os.getenv('MPICC')}
 
-        # libraries: LAPACK and FFTW
-        extra_makeopts += 'LAlib="%s" ' % os.getenv('LIBLAPACK_MT')
+        # libraries: LAPACK
+        extra_makeopts += 'LAlib="%s" ' % os.getenv(lapack)
 
         # HPL options
         extra_makeopts += 'HPL_OPTS="%s " ' % os.getenv('CPPFLAGS')
