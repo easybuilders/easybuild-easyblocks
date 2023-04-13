@@ -52,7 +52,7 @@ class Cargo(EasyBlock):
         extra_vars.update({
             'enable_tests': [True, "Enable building of tests", CUSTOM],
             'offline': [True, "Build offline", CUSTOM],
-            'lto': [False, "Build with link time optimization", CUSTOM],
+            'lto': [None, "Override default LTO flag ('fat', 'thin', 'off')", CUSTOM],
             'crates': [[], "List of (crate, version) tuples to use", CUSTOM],
         })
 
@@ -131,8 +131,8 @@ class Cargo(EasyBlock):
             write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
 
         lto = ''
-        if self.cfg['lto']:
-            lto = '--config profile.%s.lto=true' % self.profile
+        if self.cfg['lto'] is not None:
+            lto = '--config profile.%s.lto=\\"%s\\"' % (self.profile, self.cfg['lto'])
 
         run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
         cmd = ' '.join([
@@ -150,22 +150,71 @@ class Cargo(EasyBlock):
     def test_step(self):
         """Test with cargo"""
         if self.cfg['enable_tests']:
+            offline = ''
+            if self.cfg['offline']:
+                offline = "--offline"
+
             cmd = ' '.join([
                 self.cfg['pretestopts'],
                 'cargo test',
                 '--profile=' + self.profile,
+                offline,
                 self.cfg['testopts'],
             ])
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Install with cargo"""
+        offline = ''
+        if self.cfg['offline']:
+            offline = "--offline"
+
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             'cargo install',
             '--profile=' + self.profile,
+            offline,
             '--root=' + self.installdir,
             '--path=.',
             self.cfg['installopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
+
+
+def generate_crate_list(sourcedir):
+    """Helper for generating crate list"""
+    import toml
+
+    cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
+    cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
+
+    app_name = cargo_toml['package']['name']
+    deps = cargo_lock['package']
+
+    app_in_cratesio = False
+    crates = []
+    other_crates = []
+    for dep in deps:
+        name = dep['name']
+        version = dep['version']
+        if 'source' in dep and dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
+            if name == app_name:
+                app_in_cratesio = True  # exclude app itself, needs to be first in crates list
+            else:
+                crates.append((name, version))
+        else:
+            other_crates.append((name, version))
+    return app_in_cratesio, crates, other_crates
+
+
+if __name__ == '__main__':
+    import sys
+    app_in_cratesio, crates, _ = generate_crate_list(sys.argv[1])
+    if app_in_cratesio or crates:
+        print('crates = [')
+        if app_in_cratesio:
+            print('    (name, version),')
+        for name, version in crates:
+            print("    ('" + name + "', '" + version + "'),")
+        print(']')
+    
