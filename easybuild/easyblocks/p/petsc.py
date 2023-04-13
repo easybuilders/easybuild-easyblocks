@@ -40,7 +40,6 @@ from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
-from easybuild.tools.py2vs3 import string_type
 
 NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
@@ -218,7 +217,7 @@ class EB_PETSc(ConfigureMake):
 
             deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
             for dep in deps:
-                if isinstance(dep, string_type):
+                if isinstance(dep, str):
                     dep = (dep, dep)
                 deproot = get_software_root(dep[0])
                 if deproot:

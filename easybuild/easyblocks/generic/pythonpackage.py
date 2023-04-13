@@ -51,8 +51,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import string_type, subprocess_popen_text
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_cmd, subprocess_popen_text
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
@@ -503,7 +502,7 @@ class PythonPackage(ExtensionEasyBlock):
             if self._should_unpack_source():
                 # specify current directory
                 loc = '.'
-            elif isinstance(self.src, string_type):
+            elif isinstance(self.src, str):
                 # for extensions, self.src specifies the location of the source file
                 loc = self.src
             else:
@@ -653,7 +652,7 @@ class PythonPackage(ExtensionEasyBlock):
         :param return_output: return output and exit code of test command
         """
 
-        if isinstance(self.cfg['runtest'], string_type):
+        if isinstance(self.cfg['runtest'], str):
             self.testcmd = self.cfg['runtest']
 
         if self.cfg['runtest'] and self.testcmd is not None:

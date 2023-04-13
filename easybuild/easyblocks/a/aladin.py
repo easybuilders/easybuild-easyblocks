@@ -33,6 +33,7 @@ import re
 import shutil
 import sys
 import tempfile
+from collections import OrderedDict
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -41,7 +42,6 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir
 from easybuild.tools.modules import get_software_root, get_software_libdir
-from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.run import run_cmd, run_cmd_qa
 
 

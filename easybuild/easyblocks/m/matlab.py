@@ -43,7 +43,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_file, read_file, write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
 
@@ -160,7 +159,7 @@ class EB_MATLAB(PackedBinary):
         keys = self.cfg['key']
         if keys is None:
             keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
-        if isinstance(keys, string_type):
+        if isinstance(keys, str):
             keys = keys.split(',')
 
         # Compile the installation key regex outside of the loop

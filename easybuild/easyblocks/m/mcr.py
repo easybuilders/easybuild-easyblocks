@@ -44,7 +44,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, read_file, write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_cmd
 
 
@@ -116,7 +115,7 @@ class EB_MCR(PackedBinary):
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
         self.set_subdir()
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
 
         custom_paths = {
@@ -140,7 +139,7 @@ class EB_MCR(PackedBinary):
         self.set_subdir()
         # if no subdir was selected, set it to NOTFOUND
         # this is done to enable the use of --module-only without having an actual MCR installation
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
