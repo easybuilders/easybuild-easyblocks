@@ -217,4 +217,4 @@ if __name__ == '__main__':
         for name, version in crates:
             print("    ('" + name + "', '" + version + "'),")
         print(']')
-    
+
