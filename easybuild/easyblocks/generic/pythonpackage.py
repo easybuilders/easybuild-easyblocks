@@ -47,7 +47,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.asyncprocess import subprocess_popen_text
+from easybuild.tools.run import subprocess_popen_text
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir, remove_dir, which
