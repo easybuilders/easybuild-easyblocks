@@ -162,7 +162,7 @@ class EB_CP2K(EasyBlock):
         if libxsmm:
             self.cfg.update('extradflags', '-D__LIBXSMM')
             self.libsmm = '-lxsmm -lxsmmf'
-            self.libsmm_path=libxsmm
+            self.libsmm_path = libxsmm
             self.log.debug('Using libxsmm %s' % libxsmm)
         elif libsmm:
             libsmms = glob.glob(os.path.join(libsmm, 'lib', 'libsmm_*nn.a'))
@@ -170,7 +170,7 @@ class EB_CP2K(EasyBlock):
             moredflags = ' ' + ' '.join(dfs)
             self.cfg.update('extradflags', moredflags)
             self.libsmm = ' '.join(libsmms)
-            self.libsmm_path=libsmm
+            self.libsmm_path = libsmm
             self.log.debug('Using libsmm %s (extradflags %s)' % (self.libsmm, moredflags))
 
         # obtain list of modinc's to use
@@ -251,11 +251,11 @@ class EB_CP2K(EasyBlock):
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
                 options['OFFLOAD_CC'] = 'nvcc'
-                options['OFFLOAD_FLAGS']= "-O3 -g -w --std=c++11 $(DFLAGS) -Xcompiler='-fopenmp -Wall -Wextra -Werror'"
-                options['OFFLOAD_TARGET'] = 'cuda' 
-                options['GPUVER']=self.cfg['gpuver']
-                options['CXX']='mpicxx'
-                options['CXXFLAGS']='-O3 -fopenmp -g -w --std=c++14 -fPIC $(DFLAGS) $(INCS)'
+                options['OFFLOAD_FLAGS'] = "-O3 -g -w --std=c++11 $(DFLAGS) -Xcompiler='-fopenmp -Wall -Wextra -Werror'"
+                options['OFFLOAD_TARGET'] = 'cuda'
+                options['GPUVER'] = self.cfg['gpuver']
+                options['CXX'] = 'mpicxx'
+                options['CXXFLAGS'] = '-O3 -fopenmp -g -w --std=c++14 -fPIC $(DFLAGS) $(INCS)'
             else:
                 options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC'
                 options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt'
@@ -332,7 +332,6 @@ class EB_CP2K(EasyBlock):
         if self.cfg['type'] == 'psmp' or self.cfg['v2023']:
             self.openmp = self.toolchain.get_flag('openmp')
 
-
         # determine which opt flags to use
         if self.cfg['typeopt']:
             optflags = 'OPT'
@@ -370,7 +369,7 @@ class EB_CP2K(EasyBlock):
         cflags = os.getenv('CFLAGS')
         fflags = os.getenv('FFLAGS')
         fflags_lowopt = re.sub('-O[0-9]', '-O1', fflags)
-        
+
         options = {
             'CC': os.getenv('MPICC'),
             'AR': 'ar -r',
@@ -379,17 +378,17 @@ class EB_CP2K(EasyBlock):
             'FPIC': self.fpic,
             'DFLAGS': ' -D__parallel -D__BLACS -D__SCALAPACK -D__FFTSG %s' % self.cfg['extradflags'],
             'INCS': '',
-            'CFLAGS': ' -O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) $(INCS) $(DFLAGS) %s ' % self.cfg['extracflags'],
+            'CFLAGS': ' -O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) $(INCS) $(DFLAGS) %s ' %
+                      self.cfg['extracflags'],
             'DEBUG': self.debug,
-            'FREE':'',
+            'FREE': '',
             'FCFLAGS': '$(FCFLAGS%s) $(INCS)' % optflags,
             'FCFLAGS2': '$(FCFLAGS%s)' % regflags,
             'FCFLAGSNOOPT': '$(DFLAGS) $(CFLAGS) -O0  $(FREE) $(FPIC) $(DEBUG)',
             'FCFLAGSOPT': '%s $(FREE) $(SAFE) $(FPIC) $(DEBUG)' % fflags,
             'FCFLAGSOPT2': '%s $(FREE) $(SAFE) $(FPIC) $(DEBUG)' % fflags_lowopt,
 
-
-            'LDFLAGS' : '$(FCFLAGS) %s ' % ldflags,
+            'LDFLAGS': '$(FCFLAGS) %s ' % ldflags,
             'LIBS': os.getenv('LIBS', ''),
 
         }
@@ -468,9 +467,9 @@ class EB_CP2K(EasyBlock):
             else:
                 options['LIBS'] += ' -L%s/lib -lxc' % libxc
 
-            if self.cfg['v2023'] :
+            if self.cfg['v2023']:
                 options['INCS'] += ' -I%s/include ' % libxc
-            
+
             self.log.info("Using Libxc-%s" % cur_libxc_version)
         else:
             self.log.info("libxc module not loaded, so building without libxc support")
@@ -523,7 +522,7 @@ class EB_CP2K(EasyBlock):
         # Required due to memory leak that occurs if high optimizations are used (from CP2K 7.1 intel-popt-makefile)
         if ifortver >= LooseVersion("2018.5"):
             self.make_instructions += "mp2_optimize_ri_basis.o: mp2_optimize_ri_basis.F\n" \
-                "\t$(FC) -c $(subst O2,O0,$(FCFLAGSOPT)) $<\n"
+                                      "\t$(FC) -c $(subst O2,O0,$(FCFLAGSOPT)) $<\n"
             self.log.info("Optimization level of mp2_optimize_ri_basis.F was decreased to '-O0'")
 
         # RHEL8 intel/2020a lots of CPASSERT failed (due to high optimization in cholesky decomposition)
@@ -569,13 +568,14 @@ class EB_CP2K(EasyBlock):
     def configure_GCC_based(self):
         """Configure for GCC based toolchains"""
         options = self.configure_common()
-        if self.cfg['v2023'] :
+        if self.cfg['v2023']:
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
                 'FREE': '-ffree-form -ffree-line-length-none -std=f2008',
             })
-            options['FCFLAGSOPT'] = ' -O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768'
-        else: 
+            options[
+                'FCFLAGSOPT'] = ' -O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768'
+        else:
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
                 'FREE': '-ffree-form -ffree-line-length-none ',
@@ -586,7 +586,6 @@ class EB_CP2K(EasyBlock):
             options['FCFLAGSOPT2'] += ' $(DFLAGS) $(CFLAGS)'
 
         options['DFLAGS'] += ' -D__GFORTRAN'
-
 
         gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
         if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('7.1'):
@@ -613,7 +612,7 @@ class EB_CP2K(EasyBlock):
         blas = os.getenv('LIBBLAS', '')
         blas = blas.replace('gfortran64', 'gfortran64%s' % openmp_suffix)
         options['LIBS'] += ' %s %s %s' % (self.libsmm, os.getenv('LIBSCALAPACK', ''), blas)
-        if self.cfg['v2023'] :
+        if self.cfg['v2023']:
             options['LDFLAGS'] += ' -L%s/lib ' % self.libsmm_path
             options['INCS'] += ' -I%s/include ' % self.libsmm_path
 
@@ -622,7 +621,7 @@ class EB_CP2K(EasyBlock):
     def configure_BLAS_lib(self, options):
         """Configure for BLAS library."""
         options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBBLAS', ''))
-        if self.cfg['v2023'] :
+        if self.cfg['v2023']:
             options['LDFLAGS'] += ' -L%s/lib ' % self.libsmm_path
             options['INCS'] += ' -I%s/include ' % self.libsmm_path
         return options
@@ -660,15 +659,15 @@ class EB_CP2K(EasyBlock):
             options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
-        if self.cfg['v2023'] :
+        if self.cfg['v2023']:
             options['LDFLAGS'] += ' %s ' % self.libsmm
 
         return options
 
     def configure_FFTW3(self, options):
         """Configure for FFTW3"""
-        if self.cfg['v2023'] :
-            libfft = os.getenv('LIBFFT_MT', '') #PSMP=POPT 
+        if self.cfg['v2023']:
+            libfft = os.getenv('LIBFFT_MT', '')
             options['LIBS'] += ' -lfftw3_omp -lfftw3'
             options['LDFLAGS'] += ' -L%s ' % os.getenv('FFT_LIB_DIR', '')
             options['INCS'] += ' -I%s ' % os.getenv('FFT_INC_DIR', '')
@@ -817,14 +816,14 @@ class EB_CP2K(EasyBlock):
                 'maxtasks=%(maxtasks)s',
                 'cp2k_run_prefix="%(mpicmd_prefix)s"',
             ]) % {
-                'f90': os.getenv('F90'),
-                'base': os.path.dirname(os.path.normpath(self.cfg['start_dir'])),
-                'cp2k_version': self.cfg['type'],
-                'triplet': self.typearch,
-                'cp2k_dir': os.path.basename(os.path.normpath(self.cfg['start_dir'])),
-                'maxtasks': self.cfg['maxtasks'],
-                'mpicmd_prefix': self.toolchain.mpi_cmd_for('', test_core_cnt),
-            }
+                          'f90': os.getenv('F90'),
+                          'base': os.path.dirname(os.path.normpath(self.cfg['start_dir'])),
+                          'cp2k_version': self.cfg['type'],
+                          'triplet': self.typearch,
+                          'cp2k_dir': os.path.basename(os.path.normpath(self.cfg['start_dir'])),
+                          'maxtasks': self.cfg['maxtasks'],
+                          'mpicmd_prefix': self.toolchain.mpi_cmd_for('', test_core_cnt),
+                      }
 
             write_file(cfg_fn, cfg_txt)
             self.log.debug("Contents of %s: %s" % (cfg_fn, cfg_txt))
