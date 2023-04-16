@@ -378,7 +378,8 @@ class EB_CP2K(EasyBlock):
             'FPIC': self.fpic,
             'DFLAGS': ' -D__parallel -D__BLACS -D__SCALAPACK -D__FFTSG %s' % self.cfg['extradflags'],
             'INCS': '',
-            'CFLAGS': ' -O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) $(INCS) $(DFLAGS) %s ' %
+            'CFLAGS': '-O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) '
+                      '$(INCS) $(DFLAGS) %s ' %
                       self.cfg['extracflags'],
             'DEBUG': self.debug,
             'FREE': '',
@@ -574,7 +575,8 @@ class EB_CP2K(EasyBlock):
                 'FREE': '-ffree-form -ffree-line-length-none -std=f2008',
             })
             options[
-                'FCFLAGSOPT'] = ' -O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768'
+                'FCFLAGSOPT'] = '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) ' \
+                                '-fmax-stack-var-size=32768'
         else:
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
