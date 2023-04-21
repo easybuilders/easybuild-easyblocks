@@ -357,9 +357,6 @@ class EB_GCC(ConfigureMake):
             # (see https://gcc.gnu.org/install/configure.html)
             self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
 
-            # avoid that --sysroot is passed to linker by patching value for SYSROOT_SPEC in gcc/gcc.c
-            apply_regex_substitutions(os.path.join('gcc', 'gcc.c'), [('--sysroot=%R', '')])
-
             # prefix dynamic linkers with sysroot
             # this patches lines like:
             # #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld-linux-x86-64.so.2"
