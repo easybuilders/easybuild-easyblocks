@@ -381,7 +381,8 @@ class EB_OpenSSL_wrapper(Bundle):
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
             "ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version,
-            "echo | openssl s_client%s -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'" % proxy_arg,
+            ("echo | openssl s_client%s -connect github.com:443 -verify 9 "
+             "| grep 'Verify return code: 0 (ok)'" % proxy_arg),
         ]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
