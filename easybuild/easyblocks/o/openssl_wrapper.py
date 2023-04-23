@@ -31,6 +31,7 @@ import os
 import re
 
 from distutils.version import LooseVersion
+from urllib.parse import urlparse
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
@@ -368,10 +369,19 @@ class EB_OpenSSL_wrapper(Bundle):
             'dirs': ssl_dirs,
         }
 
+        # use proxy to connect if https_proxy environment variable is defined
+        proxy_arg = ''
+        if os.environ.get('https_proxy'):
+            # only use host & port from https_proxy env var, that is, strip
+            # any protocol prefix and trailing slashes
+            proxy_parsed = urlparse(os.environ.get('https_proxy'))
+            if proxy_parsed.netloc:
+                proxy_arg = f' -proxy {proxy_parsed.netloc}'
+
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
             "ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version,
-            "echo | openssl s_client -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'",
+            "echo | openssl s_client%s -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'" % proxy_arg,
         ]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
