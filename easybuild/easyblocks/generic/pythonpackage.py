@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -250,6 +250,7 @@ class PythonPackage(ExtensionEasyBlock):
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
                                         "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
+            'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
                                CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
@@ -283,7 +284,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfgfn = 'site.cfg'
         self.sitecfglibdir = None
         self.sitecfgincdir = None
-        self.testinstall = False
+        self.testinstall = self.cfg['testinstall']
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
@@ -790,6 +791,14 @@ class PythonPackage(ExtensionEasyBlock):
 
         success, fail_msg = True, ''
 
+        # load module early ourselves rather than letting parent sanity_check_step method do so,
+        # since custom actions taken below require that environment is set up properly already
+        # (especially when using --sanity-check-only)
+        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
+            extension = self.is_extension or kwargs.get('extension', False)
+            extra_modules = kwargs.get('extra_modules', None)
+            self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/;
         # must be set here to ensure that it is defined when running sanity check for extensions,
@@ -852,9 +861,14 @@ class PythonPackage(ExtensionEasyBlock):
 
                     if not self.is_extension:
                         # for stand-alone Python package installations (not part of a bundle of extensions),
-                        # we need to load the fake module file, otherwise the Python package being installed
-                        # is not "in view", and we will overlook missing dependencies...
-                        fake_mod_data = self.load_fake_module(purge=True)
+                        # the (fake or real) module file must be loaded at this point,
+                        # otherwise the Python package being installed is not "in view",
+                        # and we will overlook missing dependencies...
+                        loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
+                        if self.short_mod_name not in loaded_modules:
+                            self.log.debug("Currently loaded modules: %s", loaded_modules)
+                            raise EasyBuildError("%s module is not loaded, this should never happen...",
+                                                 self.short_mod_name)
 
                     pip_check_errors = []
 
@@ -900,14 +914,12 @@ class PythonPackage(ExtensionEasyBlock):
                          ) % (faulty_version, '\n'.join(faulty_pkg_names))
                         pip_check_errors.append(msg)
 
-                    if not self.is_extension:
-                        self.clean_up_fake_module(fake_mod_data)
-
                     if pip_check_errors:
                         raise EasyBuildError('\n'.join(pip_check_errors))
                 else:
-                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s", (pip_check_command,
-                                                                                                 pip_version))
+                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s",
+                                         pip_check_command,
+                                         pip_version)
             else:
                 raise EasyBuildError("Failed to determine pip version!")
 

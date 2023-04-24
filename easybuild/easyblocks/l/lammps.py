@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -346,7 +346,7 @@ class EB_LAMMPS(CMakeMake):
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
         if self.cfg['kokkos']:
-            print_msg("Using Kokkos arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
+            print_msg("Using Kokkos package with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
 
             if self.toolchain.options.get('openmp', None):
@@ -372,6 +372,7 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif self.cuda:
+            print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))

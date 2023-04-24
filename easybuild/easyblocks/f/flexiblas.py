@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2022 Ghent University
+# Copyright 2021-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -138,7 +138,7 @@ class EB_FlexiBLAS(CMakeMake):
         # to allow easyconfig to override specifies settings
         for key, value in sorted(configopts.items()):
             opt = '-D%s=' % key
-            if key not in self.cfg['configopts']:
+            if opt not in self.cfg['configopts']:
                 self.cfg.update('configopts', opt + "'%s'" % value)
 
         # specify compiler commands with absolute paths, to ensure that RPATH wrapper scripts are used

@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2013-2022 CaSToRC, The Cyprus Institute
+# Copyright:: Copyright 2013-2023 CaSToRC, The Cyprus Institute
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 # License::   MIT/GPL
 # $Id$
@@ -201,10 +201,12 @@ class EB_NAMD(MakeCp):
             ppn = ''
             if self.toolchain.options.get('openmp', False):
                 ppn = '+ppn 2'
-            cmd = "%(namd)s %(ppn)s %(testdir)s" % {
+            cmd = "%(pretestopts)s %(namd)s %(ppn)s %(testopts)s %(testdir)s" % {
                 'namd': namdcmd,
                 'ppn': ppn,
+                'pretestopts': self.cfg['pretestopts'],
                 'testdir': os.path.join(self.cfg['start_dir'], self.namd_arch, 'src', 'alanin'),
+                'testopts': self.cfg['testopts'],
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:

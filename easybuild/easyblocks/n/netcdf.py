@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -143,7 +143,7 @@ class EB_netCDF(CMakeMake):
 
         custom_commands = [
             "nc-config --help",
-            "ncgen -h",
+            "ncgen -h" if LooseVersion(self.version) > LooseVersion("4.6.1") else "ncgen -H",
         ]
 
         super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

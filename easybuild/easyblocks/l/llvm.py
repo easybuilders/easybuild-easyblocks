@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Ghent University
+# Copyright 2020-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,11 +26,15 @@
 EasyBuild support for building and installing LLVM, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
+@author: Kenneth Hoste (Ghent University)
 """
+import os
+
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
 from distutils.version import LooseVersion
@@ -97,5 +101,16 @@ class EB_LLVM(CMakeMake):
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
+
+        if LooseVersion(self.version) >= LooseVersion('15.0'):
+            # make sure that CMake modules are available in build directory,
+            # and if so make a 'cmake' symlink so LLVM can find them
+            cmake_modules_path = os.path.join(self.builddir, 'cmake-%s.src' % self.version)
+            if os.path.exists(cmake_modules_path):
+                cwd = change_dir(self.builddir)
+                symlink('cmake-%s.src' % self.version, 'cmake')
+                change_dir(cwd)
+            else:
+                raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
 
         super(EB_LLVM, self).configure_step()

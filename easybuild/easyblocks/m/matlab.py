@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -159,7 +159,11 @@ class EB_MATLAB(PackedBinary):
 
         keys = self.cfg['key']
         if keys is None:
-            keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
+            try:
+                keys = os.environ['EB_MATLAB_KEY']
+            except KeyError:
+                raise EasyBuildError("The MATLAB install key is not set. This can be set either with the environment "
+                                     "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
         if isinstance(keys, string_type):
             keys = keys.split(',')
 

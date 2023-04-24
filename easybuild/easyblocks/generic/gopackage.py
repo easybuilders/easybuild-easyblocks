@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -131,6 +131,9 @@ class GoPackage(EasyBlock):
             self.cfg['preinstallopts'],
             'go',
             'install',
+            # print commands as they are executed,
+            # including downloading and installing of package deps as listed in the go.mod file
+            '-x',
             self.cfg['installopts'],
         ])
         run_cmd(cmd, log_all=True, log_ok=True, simple=True)
