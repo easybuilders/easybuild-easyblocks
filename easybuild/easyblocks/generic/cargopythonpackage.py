@@ -28,8 +28,6 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 @author: Mikael Oehman (Chalmers University of Technology)
 """
 
-import os
-
 from easybuild.easyblocks.generic.cargo import Cargo
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 
@@ -57,4 +55,3 @@ class CargoPythonPackage(PythonPackage, Cargo):  # PythonPackage must come first
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
-
