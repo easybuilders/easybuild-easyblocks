@@ -83,6 +83,14 @@ class Cargo(EasyBlock):
             })
         self.cfg.update('sources', sources)
 
+        if self.cfg['offline']:
+            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
+            # because the rust source subdirectories might differ with python packages
+            config_toml = os.path.join(self.builddir, '.cargo', 'config.toml')
+            write_file(config_toml, '[source.crates-io]\ndirectory="%s"' % self.builddir)
+            # Use environment variable since it would also be passed along to builds triggered via python packages
+            env.setvar('CARGO_NET_OFFLINE', 'true')
+
     def configure_step(self):
         pass
 
@@ -124,12 +132,6 @@ class Cargo(EasyBlock):
         if self.cfg['enable_tests']:
             tests = "--tests"
 
-        offline = ''
-        if self.cfg['offline']:
-            offline = "--offline"
-            # Replace crates-io with vendored sources
-            write_file('.cargo/config.toml', '[source.crates-io]\ndirectory=".."', append=True)
-
         lto = ''
         if self.cfg['lto'] is not None:
             lto = '--config profile.%s.lto=\\"%s\\"' % (self.profile, self.cfg['lto'])
@@ -139,7 +141,6 @@ class Cargo(EasyBlock):
             self.cfg['prebuildopts'],
             'cargo build',
             '--profile=' + self.profile,
-            offline,
             lto,
             tests,
             parallel,
@@ -150,30 +151,20 @@ class Cargo(EasyBlock):
     def test_step(self):
         """Test with cargo"""
         if self.cfg['enable_tests']:
-            offline = ''
-            if self.cfg['offline']:
-                offline = "--offline"
-
             cmd = ' '.join([
                 self.cfg['pretestopts'],
                 'cargo test',
                 '--profile=' + self.profile,
-                offline,
                 self.cfg['testopts'],
             ])
             run_cmd(cmd, log_all=True, simple=True)
 
     def install_step(self):
         """Install with cargo"""
-        offline = ''
-        if self.cfg['offline']:
-            offline = "--offline"
-
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             'cargo install',
             '--profile=' + self.profile,
-            offline,
             '--root=' + self.installdir,
             '--path=.',
             self.cfg['installopts'],
@@ -189,6 +180,7 @@ def generate_crate_list(sourcedir):
     cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
 
     app_name = cargo_toml['package']['name']
+    print(app_name)
     deps = cargo_lock['package']
 
     app_in_cratesio = False
@@ -199,6 +191,7 @@ def generate_crate_list(sourcedir):
         version = dep['version']
         if 'source' in dep and dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
             if name == app_name:
+                print('check')
                 app_in_cratesio = True  # exclude app itself, needs to be first in crates list
             else:
                 crates.append((name, version))
@@ -209,7 +202,8 @@ def generate_crate_list(sourcedir):
 
 if __name__ == '__main__':
     import sys
-    app_in_cratesio, crates, _ = generate_crate_list(sys.argv[1])
+    app_in_cratesio, crates, other = generate_crate_list(sys.argv[1])
+    print(other)
     if app_in_cratesio or crates:
         print('crates = [')
         if app_in_cratesio:
