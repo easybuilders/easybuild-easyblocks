@@ -61,7 +61,8 @@ class Cargo(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
-        env.setvar('CARGO_HOME', os.path.join(self.builddir, '.cargo'))
+        self.cargo_home = os.path.join(self.builddir, '.cargo')
+        env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
         env.setvar('RUSTFMT', 'rustfmt')
@@ -83,14 +84,6 @@ class Cargo(EasyBlock):
             })
         self.cfg.update('sources', sources)
 
-        if self.cfg['offline']:
-            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-            # because the rust source subdirectories might differ with python packages
-            config_toml = os.path.join(self.builddir, '.cargo', 'config.toml')
-            write_file(config_toml, '[source.crates-io]\ndirectory="%s"' % self.builddir)
-            # Use environment variable since it would also be passed along to builds triggered via python packages
-            env.setvar('CARGO_NET_OFFLINE', 'true')
-
     def configure_step(self):
         pass
 
@@ -98,6 +91,15 @@ class Cargo(EasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
+        if self.cfg['offline']:
+            self.log.info("Setting vendored crates-io dir")
+            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
+            # because the rust source subdirectories might differ with python packages
+            config_toml = os.path.join(self.cargo_home, 'config.toml')
+            write_file(config_toml, '[source.crates-io]\ndirectory="%s"' % self.builddir)
+            # Use environment variable since it would also be passed along to builds triggered via python packages
+            env.setvar('CARGO_NET_OFFLINE', 'true')
+
         for src in self.src:
             existing_dirs = set(os.listdir(self.builddir))
             self.log.info("Unpacking source %s" % src['name'])
