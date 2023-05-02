@@ -49,9 +49,7 @@ class CargoPythonPackage(PythonPackage, Cargo):  # PythonPackage must come first
 
     def __init__(self, *args, **kwargs):
         """Constructor for CargoPythonPackage easyblock."""
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX 2")
         Cargo.__init__(self, *args, **kwargs)
-        self.log.info("CHECK B")
         return PythonPackage.__init__(self, *args, **kwargs)
 
     def extract_step(self):
