@@ -633,6 +633,11 @@ class EB_Clang(CMakeMake):
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
 
+        # Clang v16+ only use the major version number for the resource dir
+        resdir_version = self.version
+        if LooseVersion(self.version) >= LooseVersion('16'):
+            resdir_version = self.version.split('.')[0]
+
         # Detect OpenMP support for CPU architecture
         arch = get_cpu_architecture()
         # Check architecture explicitly since Clang uses potentially
@@ -662,9 +667,9 @@ class EB_Clang(CMakeMake):
             'files': [
                 "bin/clang", "bin/clang++", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt", "bin/llvm-link",
                 "bin/llvm-config", "bin/llvm-symbolizer", "include/llvm-c/Core.h", "include/clang-c/Index.h",
-                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % self.version,
+                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % resdir_version,
             ],
-            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % self.version],
+            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % resdir_version],
         }
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
@@ -697,7 +702,7 @@ class EB_Clang(CMakeMake):
             custom_commands.extend(["%s --help" % flang_compiler])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
-            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
+            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % resdir_version])
 
         if LooseVersion(self.version) >= LooseVersion('12'):
             omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
