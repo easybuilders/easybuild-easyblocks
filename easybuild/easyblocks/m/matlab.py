@@ -192,7 +192,9 @@ class EB_MATLAB(PackedBinary):
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
                 "Not a valid key",
-                "Exiting with status -2",
+                "All selected products are already installed",
+                "The application encountered an unexpected error and needs to close",
+                "Exiting with status -\\d",
                 "End - Unsuccessful",
             ]
 
