@@ -106,7 +106,7 @@ class EB_MATLAB(PackedBinary):
             config = regagree.sub(b"agreeToLicense=Yes", config)
             config = regmode.sub(b"mode=silent", config)
             config = reglicpath.sub(b"licensePath=%s" % licfile.encode('utf-8'), config)
-            config = regoutfile.sub(b"outputFile=\"%s\"" % self.outputfile, config)
+            config = regoutfile.sub(b"outputFile=\"%s\"" % self.outputfile.encode('utf-8'), config)
 
             write_file(self.configfile, config)
 
