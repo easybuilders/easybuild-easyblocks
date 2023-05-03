@@ -201,12 +201,10 @@ class EB_MATLAB(PackedBinary):
                 if regex.search(out):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
                                          regex.pattern, cmd, out)
-                
                 with open(self.outputfile) as f:
                     if regex.search(f.read()):
                         raise EasyBuildError("Found error pattern '%s' in output file of installer",
                                              regex.pattern)
-
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
