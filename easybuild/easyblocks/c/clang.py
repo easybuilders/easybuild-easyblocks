@@ -550,14 +550,6 @@ class EB_Clang(CMakeMake):
         # restore $PATH
         setvar('PATH', orig_path)
 
-    def run_clang_tests(self, obj_dir):
-        """Run Clang tests in specified directory (unless disabled)."""
-        if not self.cfg['skip_all_tests']:
-            change_dir(obj_dir)
-
-            self.log.info("Running tests")
-            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
-
     def build_step(self):
         """Build Clang stage 1, 2, 3"""
 
@@ -567,23 +559,20 @@ class EB_Clang(CMakeMake):
         super(EB_Clang, self).build_step()
 
         if self.cfg['bootstrap']:
-            # Stage 1: run tests.
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
-
             self.log.info("Building stage 2")
             self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            self.run_clang_tests(self.llvm_obj_dir_stage2)
 
             self.log.info("Building stage 3")
             self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
-            # Don't run stage 3 tests here, do it in the test step.
 
     def test_step(self):
-        """Run Clang tests."""
-        if self.cfg['bootstrap']:
-            self.run_clang_tests(self.llvm_obj_dir_stage3)
-        else:
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
+        """Run Clang tests on final stage (unless disabled)."""
+        if not self.cfg['skip_all_tests']:
+            if self.cfg['bootstrap']:
+                change_dir(self.llvm_obj_dir_stage3)
+            else:
+                change_dir(self.llvm_obj_dir_stage1)
+            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
 
     def install_step(self):
         """Install stage 3 binaries."""
