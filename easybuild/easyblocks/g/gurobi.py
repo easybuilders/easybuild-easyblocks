@@ -70,7 +70,7 @@ class EB_Gurobi(Tarball):
         super(EB_Gurobi, self).install_step()
 
         if self.cfg['copy_license_file']:
-            if self.orig_license_file is None or not os.path.exists(self.cfg['license_file']):
+            if self.orig_license_file is None or not os.path.exists(self.orig_license_file):
                 raise EasyBuildError("No existing license file specified: %s", self.orig_license_file)
 
             copy_file(self.orig_license_file, self.license_file)
