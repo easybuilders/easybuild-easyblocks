@@ -53,7 +53,7 @@ class Cargo(EasyBlock):
             'enable_tests': [True, "Enable building of tests", CUSTOM],
             'offline': [True, "Build offline", CUSTOM],
             'lto': [None, "Override default LTO flag ('fat', 'thin', 'off')", CUSTOM],
-            'crates': [[], "List of (crate, version) tuples to use", CUSTOM],
+            'crates': [[], "List of (crate, version, [repo, rev]) tuples to use", CUSTOM],
         })
 
         return extra_vars
@@ -74,14 +74,25 @@ class Cargo(EasyBlock):
         env.setvar('RUST_BACKTRACE', '1')
 
         # Populate sources from "crates" list of tuples
-        sources = self.cfg['sources']
-        for crate, version in self.cfg['crates']:
-            sources.append({
-                'download_filename': crate + '/' + version + '/download',
-                'filename': crate + '-' + version + '.tar.gz',
-                'source_urls': [CRATESIO_SOURCE],
-                'alt_location': 'crates.io',
-            })
+        sources = []
+        for crate_info in self.cfg['crates']:
+            if len(crate_info) == 2:
+                crate, version = crate_info
+                sources.append({
+                    'download_filename': crate + '/' + version + '/download',
+                    'filename': crate + '-' + version + '.tar.gz',
+                    'source_urls': [CRATESIO_SOURCE],
+                    'alt_location': 'crates.io',
+                })
+            else:
+                crate, version, repo, rev = crate_info
+                url, repo_name_git = repo.rsplit('/', maxsplit=1)
+                sources.append({
+                    'git_config': {'url': url, 'repo_name': repo_name_git[:-4], 'commit': rev},
+                    'filename': crate + '-' + version + '.tar.gz',
+                    'source_urls': [CRATESIO_SOURCE],
+                })
+
         self.cfg.update('sources', sources)
 
     def configure_step(self):
@@ -96,10 +107,24 @@ class Cargo(EasyBlock):
             # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
             # because the rust source subdirectories might differ with python packages
             config_toml = os.path.join(self.cargo_home, 'config.toml')
-            write_file(config_toml, '[source.crates-io]\ndirectory="%s"' % self.builddir)
+            write_file(config_toml, '[source.vendored-sources]\ndirectory = "%s"\n\n' % self.builddir, append=True)
+            write_file(config_toml, '[source.crates-io]\ndirectory = "vendored-sources"\n\n', append=True)
+
+            # also vendor sources from other git sources:
+            # note that one repo can contain multiple packages but we should specify the source once
+            git_sources = set()
+            for crate_info in self.cfg['crates']:
+                if len(crate_info) == 4:
+                    _, _, repo, rev = crate_info
+                    git_sources.add((repo, rev))
+            for repo, rev in git_sources:
+                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\ndirectory = "vendored-sources"\n\n' % (
+                    repo, repo, rev), append=True)
+
             # Use environment variable since it would also be passed along to builds triggered via python packages
             env.setvar('CARGO_NET_OFFLINE', 'true')
 
+        # More work is needed here for git sources to work, especially those repos with multiple packages.
         for src in self.src:
             existing_dirs = set(os.listdir(self.builddir))
             self.log.info("Unpacking source %s" % src['name'])
@@ -182,7 +207,6 @@ def generate_crate_list(sourcedir):
     cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
 
     app_name = cargo_toml['package']['name']
-    print(app_name)
     deps = cargo_lock['package']
 
     app_in_cratesio = False
@@ -191,12 +215,15 @@ def generate_crate_list(sourcedir):
     for dep in deps:
         name = dep['name']
         version = dep['version']
-        if 'source' in dep and dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
+        if 'source' in dep:
             if name == app_name:
-                print('check')
-                app_in_cratesio = True  # exclude app itself, needs to be first in crates list
+                app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
             else:
-                crates.append((name, version))
+                if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
+                    crates.append((name, version))
+                else:
+                    # Lock file has revision#revision in the url for some reason.
+                    crates.append((name, version, dep['source'].rsplit('#', maxsplit=1)[0]))
         else:
             other_crates.append((name, version))
     return app_in_cratesio, crates, other_crates
@@ -210,6 +237,6 @@ if __name__ == '__main__':
         print('crates = [')
         if app_in_cratesio:
             print('    (name, version),')
-        for name, version in crates:
-            print("    ('" + name + "', '" + version + "'),")
+        for crate_info in crates:
+            print("    ('" + "', '".join(crate_info) + "'),")
         print(']')
