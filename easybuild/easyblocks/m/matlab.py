@@ -194,6 +194,7 @@ class EB_MATLAB(PackedBinary):
                 "Not a valid key",
                 "All selected products are already installed",
                 "The application encountered an unexpected error and needs to close",
+                "Error: Unable to write to",
                 "Exiting with status -\\d",
                 "End - Unsuccessful",
             ]
