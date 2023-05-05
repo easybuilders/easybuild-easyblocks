@@ -117,7 +117,7 @@ class Cargo(EasyBlock):
                     _, _, repo, rev = crate_info
                     git_sources.add((repo, rev))
             for repo, rev in git_sources:
-                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\n' \
+                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\n'
                                         'replace-with = "vendored-sources"\n\n' % (repo, repo, rev), append=True)
 
             # Use environment variable since it would also be passed along to builds triggered via python packages
