@@ -55,6 +55,7 @@ class EB_MATLAB(PackedBinary):
         super(EB_MATLAB, self).__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_installer_input.txt')
+        self.outputfile = os.path.join(self.builddir, 'my_installer_output.txt')
 
     @staticmethod
     def extra_options():
@@ -98,12 +99,14 @@ class EB_MATLAB(PackedBinary):
             regagree = re.compile(br"^# agreeToLicense=.*", re.M)
             regmode = re.compile(br"^# mode=.*", re.M)
             reglicpath = re.compile(br"^# licensePath=.*", re.M)
+            regoutfile = re.compile(br"^# outputFile=.*", re.M)
 
             # must use byte-strings here when using Python 3, see above
             config = regdest.sub(b"destinationFolder=%s" % self.installdir.encode('utf-8'), config)
             config = regagree.sub(b"agreeToLicense=Yes", config)
             config = regmode.sub(b"mode=silent", config)
             config = reglicpath.sub(b"licensePath=%s" % licfile.encode('utf-8'), config)
+            config = regoutfile.sub(b"outputFile=%s" % self.outputfile.encode('utf-8'), config)
 
             write_file(self.configfile, config)
 
@@ -188,6 +191,12 @@ class EB_MATLAB(PackedBinary):
             # check installer output for known signs of trouble
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
+                "Not a valid key",
+                "All selected products are already installed",
+                "The application encountered an unexpected error and needs to close",
+                "Error: Unable to write to",
+                "Exiting with status -\\d",
+                "End - Unsuccessful",
             ]
 
             for pattern in patterns:
@@ -195,6 +204,10 @@ class EB_MATLAB(PackedBinary):
                 if regex.search(out):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
                                          regex.pattern, cmd, out)
+                with open(self.outputfile) as f:
+                    if regex.search(f.read()):
+                        raise EasyBuildError("Found error pattern '%s' in output file of installer",
+                                             regex.pattern)
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
