@@ -103,22 +103,21 @@ class Cargo(EasyBlock):
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
         if self.cfg['offline']:
-            self.log.info("Setting vendored crates-io dir")
+            self.log.info("Setting vendored crates dir")
             # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
             # because the rust source subdirectories might differ with python packages
             config_toml = os.path.join(self.cargo_home, 'config.toml')
             write_file(config_toml, '[source.vendored-sources]\ndirectory = "%s"\n\n' % self.builddir, append=True)
-            write_file(config_toml, '[source.crates-io]\ndirectory = "vendored-sources"\n\n', append=True)
+            write_file(config_toml, '[source.crates-io]\nreplace-with = "vendored-sources"\n\n', append=True)
 
-            # also vendor sources from other git sources:
-            # note that one repo can contain multiple packages but we should specify the source once
+            # also vendor sources from other git sources (could be many crates for one git source)
             git_sources = set()
             for crate_info in self.cfg['crates']:
                 if len(crate_info) == 4:
                     _, _, repo, rev = crate_info
                     git_sources.add((repo, rev))
             for repo, rev in git_sources:
-                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\ndirectory = "vendored-sources"\n\n' % (
+                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\nreplace-with = "vendored-sources"\n\n' % (
                     repo, repo, rev), append=True)
 
             # Use environment variable since it would also be passed along to builds triggered via python packages
