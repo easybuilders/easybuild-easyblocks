@@ -33,7 +33,7 @@ import os
 import easybuild.tools.environment as env
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.filetools import extract_file, change_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
@@ -42,13 +42,13 @@ from easybuild.tools.filetools import write_file, compute_checksum
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
 
-class Cargo(EasyBlock):
+class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
     @staticmethod
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters specific to Cargo"""
-        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars = ExtensionEasyBlock.extra_options(extra_vars)
         extra_vars.update({
             'enable_tests': [True, "Enable building of tests", CUSTOM],
             'offline': [True, "Build offline", CUSTOM],
