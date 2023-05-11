@@ -199,8 +199,9 @@ class EB_tbb(IntelBase, ConfigureMake):
         # This is also important so that /lib and /lib64 are actually on the same level
         root_lib_path = os.path.join(self.installdir, 'lib')
         move_file(libpath, root_lib_path)
-        # Create a relative symlink at the original location as-if we didn't move it
-        symlink(os.path.relpath(root_lib_path, libpath), libpath, use_abspath_source=False)
+        # Create a relative symlink at the original location as-if we didn't move it.
+        # Note that the path must be relative from the folder where the symlink will be!
+        symlink(os.path.relpath(root_lib_path, os.path.dirname(libpath)), libpath, use_abspath_source=False)
 
         # Install CMake config files if possible
         if self._has_cmake() and LooseVersion(self.version) >= LooseVersion('2020.0'):
