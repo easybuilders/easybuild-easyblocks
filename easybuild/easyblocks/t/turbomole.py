@@ -45,7 +45,7 @@ class EB_TURBOMOLE(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for TURBOMOLE."""
-        super(EB_turbomole, self).__init__(*args, **kwargs)
+        super(EB_TURBOMOLE, self).__init__(*args, **kwargs)
         self.tmolex = None
         self.tmoledir = ""
         self.sysname = ""
@@ -102,7 +102,7 @@ class EB_TURBOMOLE(Tarball):
             self.sysname = self.get_sysname()
 
         if not self.has_tmolex():
-            super(EB_turbomole, self).extract_step()
+            super(EB_TURBOMOLE, self).extract_step()
         else:
             installer = next(src['path'] for src in self.src if
                              re.match(r"TmoleX.*bin", src['name']))
@@ -113,7 +113,7 @@ class EB_TURBOMOLE(Tarball):
                 raise EasyBuildError("Failed to run TurbomoleX installer.")
 
     def install_step(self):
-        super(EB_turbomole, self).install_step()
+        super(EB_TURBOMOLE, self).install_step()
         bindir = os.path.join(self.installdir, self.get_turboroot(), 'bin',
                               self.sysname)
         adjust_permissions(bindir, stat.S_IROTH | stat.S_IXOTH, add=True,
@@ -131,8 +131,6 @@ class EB_TURBOMOLE(Tarball):
             # reliably for every version
             tmolexdir = os.path.join(self.installdir, "TmoleX")
             tmolex_binary = ""
-            files = [file for file in os.listdir(tmolexdir)
-                     if os.path.isfile(os.path.join(tmolexdir, file))]
             for file in os.listdir(tmolexdir):
                 if os.path.isfile(os.path.join(tmolexdir, file)):
                     match = re.match(r"TmoleX([0-9]+)$", file)
@@ -145,7 +143,7 @@ class EB_TURBOMOLE(Tarball):
 
             custom_paths['files'].append(tmolex_binary)
 
-        super(EB_turbomole, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_TURBOMOLE, self).sanity_check_step(custom_paths=custom_paths)
 
     def test_step(self):
         """Custom test for TURBOMOLE, based on TTEST script"""
