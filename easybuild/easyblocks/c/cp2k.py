@@ -103,6 +103,7 @@ class EB_CP2K(EasyBlock):
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
+            'nvarch': ['sm_72', "NVidia architecture", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -231,9 +232,11 @@ class EB_CP2K(EasyBlock):
         # CUDA
         cuda = get_software_root('CUDA')
         if cuda:
-            options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC'
+            options['DFLAGS'] += ' -D__ACC -D__DBCSR_ACC -D__PW_CUDA'
             options['LIBS'] += ' -lcudart -lcublas -lcufft -lrt'
             options['NVCC'] = ' nvcc'
+            self.log.info("Using Nvidia arch: %s" % self.cfg['nvarch'])
+            options['NVFLAGS'] = options['DFLAGS'] + ' -O3 -arch ' + self.cfg['nvarch']
 
         # avoid group nesting
         options['LIBS'] = options['LIBS'].replace('-Wl,--start-group', '').replace('-Wl,--end-group', '')
