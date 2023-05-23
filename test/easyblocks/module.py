@@ -333,7 +333,7 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)
 
         # take into account that for some easyblock, particular dependencies are hard required early on
-        # (in prepare_step for exampel);
+        # (in prepare_step for example);
         # we just set the corresponding $EBROOT* environment variables here to fool it...
         req_deps = {
             # QScintilla easyblock requires that either PyQt or PyQt5 are available as dependency
@@ -460,6 +460,10 @@ def suite():
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
+        elif eb_fn == 'torchvision.py':
+            # torchvision easyblock requires that PyTorch is listed as dependency
+            extra_txt = "dependencies = [('PyTorch', '1.12.1')]"
+            innertest = make_inner_test(easyblock, name='torchvision', extra_txt=extra_txt)
         elif eb_fn == 'ucx_plugins.py':
             # install fake ucx_info command (used in make_module_extra)
             tmpdir = tempfile.mkdtemp()
