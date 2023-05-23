@@ -118,7 +118,7 @@ class ModuleOnlyTest(TestCase):
     def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt='', toolchain=None):
         """ create temporary easyconfig file """
         if toolchain is None:
-            toolchain = {'name': 'dummy', 'version': 'dummy'}
+            toolchain = {'name': 'system', 'version': 'system'}
 
         txt = '\n'.join([
             'easyblock = "%s"',
@@ -434,8 +434,9 @@ def suite():
     for prgenv in ['PrgEnv-cray', 'PrgEnv-gnu', 'PrgEnv-intel', 'PrgEnv-pgi']:
         write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
-    # add foo/1.3.2.1.1 module, required for testing ModuleAlias easyblock
-    write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.2.3.4.5'), "#%Module")
+    # add empty module files for dependencies that are required for testing easyblocks
+    for dep_mod_name in ('foo/1.2.3.4.5', 'PyTorch/1.12.1'):
+        write_file(os.path.join(TMPDIR, 'modules', 'all', dep_mod_name), "#%Module")
 
     for easyblock in easyblocks:
         eb_fn = os.path.basename(easyblock)
