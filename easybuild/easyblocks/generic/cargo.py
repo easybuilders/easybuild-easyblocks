@@ -75,7 +75,7 @@ class Cargo(ExtensionEasyBlock):
 
         # Populate sources from "crates" list of tuples (only once)
         if self.cfg['crates']:
-            # copy list of crates, so we can wipe 'crates' easyconfig paramter,
+            # copy list of crates, so we can wipe 'crates' easyconfig parameter,
             # to avoid that creates are processed into 'sources' easyconfig parameter again
             # when easyblock is initialized again using same parsed easyconfig
             # (for example when check_sha256_checksums function is called, like in easyconfigs test suite)
