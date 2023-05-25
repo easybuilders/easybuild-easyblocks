@@ -28,6 +28,7 @@ EasyBuild support for Julia Packages, implemented as an easyblock
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
+import re
 
 from distutils.version import LooseVersion
 
@@ -40,6 +41,7 @@ from easybuild.tools.filetools import copy_dir
 from easybuild.tools.run import run_cmd
 
 EXTS_FILTER_JULIA_PACKAGES = ("julia -e 'using %(ext_name)s'", "")
+USER_DEPOT_PATTERN = re.compile(r"\/\.julia\/?$")
 
 
 class JuliaPackage(ExtensionEasyBlock):
@@ -55,6 +57,26 @@ class JuliaPackage(ExtensionEasyBlock):
             ],
         })
         return extra_vars
+
+    def set_depot_path(self):
+        """
+        Top directory in JULIA_DEPOT_PATH is target installation directory
+        Prepend installation directory to JULIA_DEPOT_PATH
+        Remove user depot from JULIA_DEPOT_PATH during installation
+        see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
+        """
+        depot_path = os.getenv('JULIA_DEPOT_PATH', [])
+
+        if depot_path:
+            depot_path = depot_path.split(os.pathsep)
+        if len(depot_path) > 0:
+            # strip user depot path (top entry by definition)
+            if USER_DEPOT_PATTERN.search(depot_path[0]):
+                self.log.debug('Temporary disabling Julia user depot: %s', depot_path[0])
+                del depot_path[0]
+
+        depot_path.insert(0, self.installdir)
+        env.setvar('JULIA_DEPOT_PATH', os.pathsep.join(depot_path))
 
     def set_pkg_offline(self):
         """Enable offline mode of Julia Pkg"""
@@ -79,6 +101,7 @@ class JuliaPackage(ExtensionEasyBlock):
         """Prepare for installing Julia package."""
         super(JuliaPackage, self).prepare_step(*args, **kwargs)
         self.set_pkg_offline()
+        self.set_depot_path()
 
     def configure_step(self):
         """No separate configuration for JuliaPackage."""
@@ -94,16 +117,6 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def install_step(self):
         """Install Julia package with Pkg"""
-
-        # prepend installation directory to Julia DEPOT_PATH
-        # extensions in a bundle can share their DEPOT_PATH
-        # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
-        depot_path = os.getenv('JULIA_DEPOT_PATH', [])
-        if depot_path:
-            depot_path = depot_path.split(os.pathsep)
-        if self.installdir not in depot_path:
-            depot_path = os.pathsep.join([depot for depot in [self.installdir] + depot_path if depot])
-            env.setvar('JULIA_DEPOT_PATH', depot_path)
 
         # command sequence for Julia.Pkg
         julia_pkg_cmd = ['using Pkg']
@@ -147,6 +160,7 @@ class JuliaPackage(ExtensionEasyBlock):
         ExtensionEasyBlock.run(self, unpack_src=True)
 
         self.set_pkg_offline()
+        self.set_depot_path()  # all extensions share common depot in installdir
         self.install_step()
 
     def sanity_check_step(self, *args, **kwargs):
