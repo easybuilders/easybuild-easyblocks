@@ -177,7 +177,10 @@ class JuliaPackage(ExtensionEasyBlock):
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
 
     def make_module_extra(self):
-        """Prepend installation directory to JULIA_DEPOT_PATH in module file."""
+        """
+        Module has to append installation directory to JULIA_DEPOT_PATH to keep
+        the user depot in the top entry. See issue easybuilders/easybuild-easyconfigs#17455
+        """
         txt = super(JuliaPackage, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('JULIA_DEPOT_PATH', [''])
+        txt += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
         return txt
