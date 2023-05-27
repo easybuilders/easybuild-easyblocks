@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
-from easybuild.tools.filetools import which, write_file
+from easybuild.tools.filetools import which, read_file, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
@@ -356,6 +356,20 @@ class EB_GCC(ConfigureMake):
             # value set for EasyBuild's --sysroot configuration option as the root filesystem of the operating system
             # (see https://gcc.gnu.org/install/configure.html)
             self.cfg.update('configopts', '--with-sysroot=%s' % sysroot)
+
+            libc_so_candidates = [os.path.join(sysroot, x, 'libc.so') for x in
+                                  ['lib', 'lib64', os.path.join('usr', 'lib'), os.path.join('usr', 'lib64')]]
+            for libc_so in libc_so_candidates:
+                if os.path.exists(libc_so):
+                    # only patch gcc.c or gcc.cc if entries in libc.so are prefixed with sysroot
+                    if '\nGROUP ( ' + sysroot in read_file(libc_so):
+                        gccfile = os.path.join('gcc', 'gcc.c')
+                        # renamed to gcc.cc in GCC 12
+                        if not os.path.exists(gccfile):
+                            gccfile = os.path.join('gcc', 'gcc.cc')
+                        # avoid that --sysroot is passed to linker by patching value for SYSROOT_SPEC in gcc/gcc.c*
+                        apply_regex_substitutions(gccfile, [('--sysroot=%R', '')])
+                    break
 
             # prefix dynamic linkers with sysroot
             # this patches lines like:
