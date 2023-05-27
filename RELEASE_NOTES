@@ -3,7 +3,25 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 39 generic easyblocks.
+The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 41 generic easyblocks.
+
+
+v4.7.2 (27 May 2023)
+--------------------
+
+- new generic easyblock for installing Rust crates with cargo: Cargo and CargoPythonPackage (#2902, #2934)
+- minor enhancements and updates, including:
+  - let MATLAB easyblock raise an error if the MATLAB installation key is not provided (#2905)
+  - print message to inform that GPU package (instead of Kokkos) is used for LAMMPS (#2906)
+  - enhance PyTorch easyblock to use FlexiBLAS for PyTorch >= 1.11.0 (#2915)
+- various bug fixes, including:
+  - use custom RPATH sanity check for Go packages that doesn't actually check for an RPATH section in the binary (#2913)
+  - use string '0' to avoid problems when openssl version is not determined (#2914)
+  - update GCC easyblock to ensure that --sysroot is passed to linker (but only when it needs to be) (#2921)
+  - add output log to MATLAB installs, actually parse for common errors (#2924)
+  - enhance Gurobi easyblock to allow using $EB_GUROBI_LICENSE_FILE environment variable (#2926)
+  - force building torchvision with CUDA support if CUDA is included as dependency by setting `$FORCE_CUDA` (#2931)
+  - fix exec permission on files in arch bindir for COMSOL (#2932)
 
 v4.7.1 (March 20th 2023)
 ------------------------
