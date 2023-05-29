@@ -28,9 +28,6 @@ EasyBuild support for building and installing torchvision, implemented as an eas
 @author: Alexander Grund (TU Dresden)
 @author: Kenneth Hoste (HPC-UGent)
 """
-
-import os
-
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
