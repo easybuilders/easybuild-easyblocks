@@ -53,11 +53,6 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         extra_vars['runtest'][0] = None
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Initialize with PythonPackage."""
-        PythonPackage.__init__(self, *args, **kwargs)
-        self._lib_ext = None  # From CMakeMake.__init__
-
     def configure_step(self, *args, **kwargs):
         """Main configuration using cmake"""
 

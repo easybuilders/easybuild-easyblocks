@@ -208,10 +208,12 @@ class EB_NAMD(MakeCp):
             ppn = ''
             if self.toolchain.options.get('openmp', False):
                 ppn = '+ppn 2'
-            cmd = "%(namd)s %(ppn)s %(testdir)s" % {
+            cmd = "%(pretestopts)s %(namd)s %(ppn)s %(testopts)s %(testdir)s" % {
                 'namd': namdcmd,
                 'ppn': ppn,
+                'pretestopts': self.cfg['pretestopts'],
                 'testdir': os.path.join(self.cfg['start_dir'], self.namd_arch, 'src', 'alanin'),
+                'testopts': self.cfg['testopts'],
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:

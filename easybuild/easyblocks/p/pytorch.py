@@ -155,6 +155,9 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
+        elif pytorch_version >= '1.11.0' and get_software_root('FlexiBLAS'):
+            options.append('BLAS=FlexiBLAS')
+            options.append('WITH_BLAS=flexi')
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
@@ -266,7 +269,15 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        tests_out, tests_ec = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        if test_result is None:
+            if self.cfg['runtest'] is False:
+                msg = "Do not set 'runtest' to False, use --skip-test-step instead."
+            else:
+                msg = "Tests did not run. Make sure 'runtest' is set to a command."
+            raise EasyBuildError(msg)
+
+        tests_out, tests_ec = test_result
 
         def get_count_for_pattern(regex, text):
             """Match the regexp containing a single group and return the integer value of the matched group.
