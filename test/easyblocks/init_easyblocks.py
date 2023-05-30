@@ -29,6 +29,7 @@ Unit tests for initializing easyblocks.
 """
 
 import glob
+import inspect
 import os
 import re
 import sys
@@ -38,6 +39,7 @@ from unittest import TestCase, TestLoader, TextTestRunner
 import easybuild.tools.options as eboptions
 from easybuild.base import fancylogger
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.extension import Extension
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class
 from easybuild.framework.easyconfig.tools import get_paths_for
@@ -189,6 +191,18 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
         ]
         for (new_fn, old_fn) in renamed_functions:
             self.assertFalse(hasattr(mod, old_fn), "%s: %s is replaced by %s" % (app.__module__, old_fn, new_fn))
+
+        # make sure that easyblocks that derive from Extension and customize sanity_check_step have a return statement,
+        # since that is required to ensure a correct sanity check when the software is installed as an extension
+        # rather than a standalone
+        if isinstance(app, Extension) and 'sanity_check_step' in app_class.__dict__:
+            srctxt = inspect.getsource(app.sanity_check_step)
+            # can't use a very strict pattern here, since some easyblocks capture the return value of the call to
+            # sanity_check_step of a parent easyblock, and perform additional checks before returning the result
+            regex = re.compile(r' return ')
+            res = regex.search(srctxt)
+            self.assertTrue(res, "Pattern '%s' not found in sanity_check_step method of %s easyblock" % (regex.pattern,
+                                                                                                         ebname))
 
         # cleanup
         app.close_log()

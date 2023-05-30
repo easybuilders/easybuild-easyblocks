@@ -409,7 +409,7 @@ class EB_PyTorch(PythonPackage):
                 fail_msg = 'found one or more downloaded dependencies: %s' % ', '.join(downloaded_deps)
                 self.sanity_check_fail_msgs.append(fail_msg)
 
-        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
+        return super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
 
     def make_module_req_guess(self):
         """Set extra environment variables for PyTorch."""

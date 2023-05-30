@@ -276,7 +276,8 @@ class EB_EasyBuildMeta(PythonPackage):
             val = self.initial_environ.pop(key)
             self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
-        super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths,
+                                                               custom_commands=custom_commands)
 
     def make_module_extra(self):
         """

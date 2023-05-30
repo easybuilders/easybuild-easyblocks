@@ -85,7 +85,7 @@ class EB_VSC_minus_tools(PythonPackage):
             'dirs': ['lib'],
         }
 
-        super(EB_VSC_minus_tools, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_VSC_minus_tools, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH"""

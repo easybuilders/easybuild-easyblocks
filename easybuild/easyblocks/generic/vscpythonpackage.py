@@ -46,5 +46,6 @@ class VSCPythonPackage(VersionIndependentPythonPackage):
         pythonpath = os.environ.get('PYTHONPATH', '')
         os.environ['PYTHONPATH'] = ''
         kwargs.update({'exts_filter': ('%s -s -S -c "import %%(ext_name)s"' % self.python_cmd, "")})
-        super(VSCPythonPackage, self).sanity_check_step(*args, **kwargs)
+        res = super(VSCPythonPackage, self).sanity_check_step(*args, **kwargs)
         os.environ['PYTHONPATH'] = pythonpath
+        return res

@@ -106,7 +106,7 @@ class EB_Hadoop(Tarball):
             'files': ['bin/hadoop'] + native_files,
             'dirs': ['etc', 'libexec'],
         }
-        super(EB_Hadoop, self).sanity_check_step(custom_paths=custom_paths)
+        res = super(EB_Hadoop, self).sanity_check_step(custom_paths=custom_paths)
 
         fake_mod_data = self.load_fake_module(purge=True)
         # exit code is ignored, since this cmd exits with 1 if not all native libraries were found
@@ -122,6 +122,8 @@ class EB_Hadoop(Tarball):
                 not_found.append(native_lib)
         if not_found:
             raise EasyBuildError("%s not found by 'hadoop checknative -a'.", ', '.join(not_found))
+
+        return res
 
     def make_module_extra(self):
         """Custom extra module file entries for Hadoop."""

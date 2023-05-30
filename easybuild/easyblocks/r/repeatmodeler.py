@@ -182,7 +182,8 @@ class EB_RepeatModeler(Tarball):
 
         custom_commands = [("RepeatModeler -help 2>&1 | grep 'RepeatModeler - Model repetitive DNA'", '')]
 
-        super(EB_RepeatModeler, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        return super(EB_RepeatModeler, self).sanity_check_step(custom_commands=custom_commands,
+                                                               custom_paths=custom_paths)
 
     def make_module_req_guess(self):
         """Custom guesses for path-like environment variables for RepeatModelerConfig."""

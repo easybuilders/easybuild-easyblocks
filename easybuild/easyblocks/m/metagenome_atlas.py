@@ -84,7 +84,7 @@ class EB_Metagenome_Atlas(PythonPackage):
             'atlas init --help',
             'atlas run --help',
         ]
-        super(PythonPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(PythonPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
 
 # obtained from

@@ -92,4 +92,4 @@ class EB_FreeSurfer(Tarball):
             'dirs': ['bin', 'lib', 'mni'],
         }
 
-        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths)

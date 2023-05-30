@@ -91,4 +91,4 @@ class EB_UFC(CMakePythonPackage):
             'files': ['include/ufc.h'],
             'dirs': ['lib/python%s/site-packages/%s/' % (self.pyver, x) for x in ['ufc', 'ufc_utils']],
         }
-        super(EB_UFC, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_UFC, self).sanity_check_step(custom_paths=custom_paths)

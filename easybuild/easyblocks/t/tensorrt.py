@@ -133,6 +133,4 @@ class EB_TensorRT(PythonPackage, Binary):
 
         custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
 
-        res = super(EB_TensorRT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-        return res
+        return super(EB_TensorRT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -96,4 +96,4 @@ class EB_torchvision(PythonPackage):
             ])
             custom_commands.append('python -c "%s"' % python_code)
 
-        super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands)
+        return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands)

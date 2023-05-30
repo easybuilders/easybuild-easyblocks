@@ -356,4 +356,4 @@ class EB_DOLFIN(CMakePythonPackage):
             'dirs': ['%s/dolfin' % self.pylibdir],
         }
 
-        super(EB_DOLFIN, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_DOLFIN, self).sanity_check_step(custom_paths=custom_paths)
