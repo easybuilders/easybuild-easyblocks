@@ -93,7 +93,7 @@ class EB_Gurobi(Tarball):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
 
-        super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        return super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for Gurobi."""

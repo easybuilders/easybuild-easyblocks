@@ -153,4 +153,4 @@ class EB_libxml2(ConfigureMake, PythonPackage):
             custom_paths['files'].extend([os.path.join(self.pylibdir, f) for f in pyfiles])
             custom_paths['dirs'].append(self.pylibdir)
 
-        ConfigureMake.sanity_check_step(self, custom_paths=custom_paths)
+        return ConfigureMake.sanity_check_step(self, custom_paths=custom_paths)

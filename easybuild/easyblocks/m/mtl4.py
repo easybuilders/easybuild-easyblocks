@@ -45,7 +45,7 @@ class EB_MTL4(Tarball):
             'dirs': [os.path.join(incpref, x) for x in ["itl", "linear_algebra", "meta_math", "mtl"]],
         }
 
-        super(EB_MTL4, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_MTL4, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
         """Adjust CPATH for MTL4."""

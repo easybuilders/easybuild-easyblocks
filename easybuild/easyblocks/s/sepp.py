@@ -86,4 +86,4 @@ class EB_SEPP(PythonPackage):
         }
         custom_commands = ["%s --help" % s for s in scripts]
 
-        super(EB_SEPP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_SEPP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
