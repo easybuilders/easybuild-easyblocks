@@ -86,6 +86,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'TURING75',  # NVIDIA Turing generation CC 7.5 GPU
     'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
     'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
+    'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
@@ -135,6 +136,7 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
+    '9.0': 'HOPPER90',  # NVIDIA Hopper generation CC 9.0
 }
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
