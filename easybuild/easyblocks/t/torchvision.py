@@ -28,7 +28,7 @@ EasyBuild support for building and installing torchvision, implemented as an eas
 @author: Alexander Grund (TU Dresden)
 @author: Kenneth Hoste (HPC-UGent)
 """
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version
@@ -82,12 +82,14 @@ class EB_torchvision(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
-        custom_commands = []
+        custom_commands = None
+        custom_paths = None
 
         # check whether torchvision was indeed built with CUDA support,
         # cfr. https://discuss.pytorch.org/t/notimplementederror-could-not-run-torchvision-nms-with-arguments-from-\
         #      the-cuda-backend-this-could-be-because-the-operator-doesnt-exist-for-this-backend/132352/4
         if self.with_cuda:
+            custom_commands = []
             python_code = '; '.join([
                 "import torch, torchvision",
                 "boxes = torch.tensor([[0., 1., 2., 3.]]).to('cuda')",
@@ -95,5 +97,9 @@ class EB_torchvision(PythonPackage):
                 "print(torchvision.ops.nms(boxes, scores, 0.5))",
             ])
             custom_commands.append('python -c "%s"' % python_code)
+            custom_paths = {
+                'files': [],
+                'dirs': [det_pylibdir()],
+            }
 
-        return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands)
+        return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
