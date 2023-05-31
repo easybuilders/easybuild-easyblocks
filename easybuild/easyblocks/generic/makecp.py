@@ -1,5 +1,5 @@
 ##
-# Copyright 2013 the Cyprus Institute
+# Copyright 2013-2023 the Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,6 +26,7 @@
 @author: George Tsouloupas (The Cyprus Institute)
 @author: Fotis Georgatos (Uni.Lu, NTUA)
 @author: Kenneth Hoste (Ghent University)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada, Universite Laval)
 """
 import os
 import glob
@@ -70,6 +71,10 @@ class MakeCp(ConfigureMake):
 
         files_to_copy = self.cfg.get('files_to_copy') or []
         self.log.debug("Starting install_step with files_to_copy: %s", files_to_copy)
+
+        # if this is an iterative build directories will be copied multiple times
+        dirs_exist_ok = True if self.iter_opts else False
+
         for fil in files_to_copy:
             if isinstance(fil, tuple):
                 # ([src1, src2], targetdir)
@@ -128,6 +133,6 @@ class MakeCp(ConfigureMake):
                     elif os.path.isdir(filepath):
                         self.log.debug("Copying directory %s to %s", filepath, target)
                         fulltarget = os.path.join(target, os.path.basename(filepath))
-                        copy_dir(filepath, fulltarget, symlinks=self.cfg['keepsymlinks'])
+                        copy_dir(filepath, fulltarget, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=dirs_exist_ok)
                     else:
                         raise EasyBuildError("Can't copy non-existing path %s to %s", filepath, target)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2020 Alexander Grund
+# Copyright 2020-2023 Alexander Grund
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,6 +34,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
 import easybuild.tools.environment as env
+from easybuild.tools.filetools import symlink
 
 
 class EB_CMake(ConfigureMake):
@@ -154,6 +155,16 @@ class EB_CMake(ConfigureMake):
         self.cfg['configopts'] = configure_opts + ' -- ' + cmake_opts
 
         super(EB_CMake, self).configure_step()
+
+    def install_step(self):
+        """Create symlinks for CMake binaries"""
+        super(EB_CMake, self).install_step()
+        # Some applications assume the existance of e.g. cmake3 to distinguish it from cmake, which can be 2 or 3
+        maj_ver = self.version.split('.')[0]
+        bin_path = os.path.join(self.installdir, 'bin')
+        for binary in ('ccmake', 'cmake', 'cpack', 'ctest'):
+            symlink_name = binary + maj_ver
+            symlink(binary, os.path.join(bin_path, symlink_name), use_abspath_source=False)
 
     def sanity_check_step(self):
         """

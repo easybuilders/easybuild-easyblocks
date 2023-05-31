@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,11 +30,12 @@ EasyBuild support for installing EasyBuild, implemented as an easyblock
 import copy
 import os
 import re
+import sys
 from distutils.version import LooseVersion
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
@@ -48,7 +49,8 @@ class EB_EasyBuildMeta(PythonPackage):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
         super(EB_EasyBuildMeta, self).__init__(*args, **kwargs)
-        self.real_initial_environ = None
+
+        self.real_initial_environ = copy.deepcopy(self.initial_environ)
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
         if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
@@ -64,6 +66,38 @@ class EB_EasyBuildMeta(PythonPackage):
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
 
+        # opt-in to using pip for recent version of EasyBuild, if:
+        # - EasyBuild is being installed for Python >= 3.6;
+        # - pip is available, and recent enough (>= 21.0);
+        # - use_pip is not specified;
+        pyver = sys.version.split(' ')[0]
+        self.log.info("Python version: %s", pyver)
+        if sys.version_info >= (3, 6) and self.cfg['use_pip'] is None:
+            # try to determine pip version, ignore any failures that occur while doing so;
+            # problems may occur due changes in environment ($PYTHONPATH, etc.)
+            pip_version = None
+            try:
+                pip_version = det_pip_version(python_cmd=sys.executable)
+                self.log.info("Found Python v%s + pip: %s", pyver, pip_version)
+            except Exception as err:
+                self.log.warning("Failed to determine pip version: %s", err)
+
+            if pip_version and LooseVersion(pip_version) >= LooseVersion('21.0'):
+                self.log.info("Auto-enabling use of pip to install EasyBuild!")
+                self.cfg['use_pip'] = True
+                self.determine_install_command()
+
+    # Override this function since we want to respect the user choice for the python installation to use
+    # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
+    def prepare_python(self):
+        """Python-specific preparations."""
+
+        self.python_cmd = sys.executable
+        # set Python lib directories
+        self.set_pylibdirs()
+
+        self.log.info("Python command being used: %s", self.python_cmd)
+
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
         env_var_name = get_software_root_env_var_name(self.name)
@@ -78,6 +112,21 @@ class EB_EasyBuildMeta(PythonPackage):
     def build_step(self):
         """No building for EasyBuild packages."""
         pass
+
+    def fix_easyconfigs_setup_py_setuptools61(self):
+        """
+        Patch setup.py of easybuild-easyconfigs package if needed to make sure that installation works
+        for recent setuptools versions (>= 61.0).
+        """
+        # cfr. https://github.com/easybuilders/easybuild-easyconfigs/pull/15206
+        cwd = os.getcwd()
+        regex = re.compile(r'packages=\[\]')
+        setup_py_txt = read_file('setup.py')
+        if regex.search(setup_py_txt) is None:
+            self.log.info("setup.py at %s needs to be fixed to install with setuptools >= 61.0", cwd)
+            apply_regex_substitutions('setup.py', [(r'^setup\(', 'setup(packages=[],')])
+        else:
+            self.log.info("setup.py at %s does not need to be fixed to install with setuptools >= 61.0", cwd)
 
     def install_step(self):
         """Install EasyBuild packages one by one."""
@@ -95,7 +144,11 @@ class EB_EasyBuildMeta(PythonPackage):
 
                 else:
                     self.log.info("Installing package %s", pkg)
-                    os.chdir(os.path.join(self.builddir, seldirs[0]))
+                    change_dir(os.path.join(self.builddir, seldirs[0]))
+
+                    if pkg == 'easybuild-easyconfigs':
+                        self.fix_easyconfigs_setup_py_setuptools61()
+
                     super(EB_EasyBuildMeta, self).install_step()
 
         except OSError as err:
@@ -103,6 +156,8 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def post_install_step(self):
         """Remove setuptools.pth file that hard includes a system-wide (site-packages) path, if it is there."""
+
+        super(EB_EasyBuildMeta, self).post_install_step()
 
         setuptools_pth = os.path.join(self.installdir, self.pylibdir, 'setuptools.pth')
         if os.path.exists(setuptools_pth):
@@ -208,12 +263,18 @@ class EB_EasyBuildMeta(PythonPackage):
         ]
 
         # (temporary) cleanse copy of initial environment to avoid conflict with (potentially) loaded EasyBuild module
-        self.real_initial_environ = copy.deepcopy(self.initial_environ)
-        for env_var in ['_LMFILES_', 'LOADEDMODULES']:
+        for env_var in ['_LMFILES_', 'LOADEDMODULES', 'MODULES_LMCONFLICT', '__MODULES_LMCONFLICT']:
             if env_var in self.initial_environ:
                 self.initial_environ.pop(env_var)
                 os.environ.pop(env_var)
                 self.log.debug("Unset $%s in current env and copy of original env to make sanity check work" % env_var)
+
+        # unset all $EASYBUILD_* environment variables when running sanity check commands,
+        # to prevent failing sanity check for old EasyBuild versions when configuration options are defined
+        # via $EASYBUILD_* environment variables
+        for key in [k for k in self.initial_environ if k.startswith('EASYBUILD_')]:
+            val = self.initial_environ.pop(key)
+            self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
         super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

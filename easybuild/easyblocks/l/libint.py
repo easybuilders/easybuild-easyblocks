@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,8 @@ EasyBuild support for building and installing Libint, implemented as an easybloc
 import os.path
 from distutils.version import LooseVersion
 
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.easyblocks.generic.configuremake import DEFAULT_CONFIGURE_CMD, ConfigureMake
+from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.filetools import change_dir, extract_file
@@ -40,7 +41,7 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
-class EB_Libint(ConfigureMake):
+class EB_Libint(CMakeMake):
 
     @staticmethod
     def extra_options():
@@ -49,27 +50,10 @@ class EB_Libint(ConfigureMake):
             'libint_compiler_configopts': [True, "Configure options for Libint compiler", CUSTOM],
             'with_fortran': [False, "Enable Fortran support", CUSTOM],
         }
-        return ConfigureMake.extra_options(extra_vars)
+        return CMakeMake.extra_options(extra_vars)
 
     def configure_step(self):
         """Add some extra configure options."""
-
-        # also build shared libraries (not enabled by default)
-        self.cfg.update('configopts', "--enable-shared")
-
-        if self.toolchain.options['pic']:
-            # Enforce consistency.
-            self.cfg.update('configopts', "--with-pic")
-
-        if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('2.1'):
-            # the code in libint is automatically generated and hence it is in some
-            # parts so complex that -O2 or -O3 compiler optimization takes forever
-            self.cfg.update('configopts', "--with-cxx-optflags='-O1'")
-
-        elif LooseVersion(self.version) >= LooseVersion('2.1'):
-            # pass down $CXXFLAGS to --with-cxxgen-optflags configure option;
-            # mainly to avoid warning about it not being set (but $CXXFLAGS is picked up anyway in practice)
-            self.cfg.update('configopts', "--with-cxxgen-optflags='%s'" % os.getenv('CXXFLAGS'))
 
         if LooseVersion(self.version) >= LooseVersion('2.6.0'):
             # Libint 2.6.0 requires first compiling the Libint compiler,
@@ -102,12 +86,45 @@ class EB_Libint(ConfigureMake):
             else:
                 raise EasyBuildError("Could not find generated source tarball after 'make export'!")
 
-        # --enable-fortran is only a known configure option for Libint library, not for Libint compiler,
-        # so only add --enable-fortran *after* configuring & generating Libint compiler
-        if self.cfg['with_fortran']:
-            self.cfg.update('configopts', '--enable-fortran')
+        # Libint < 2.7.0 can be configured using configure script,
+        # Libint >= 2.7.0 should be configured via cmake
+        if LooseVersion(self.version) < LooseVersion('2.7.0'):
 
-        super(EB_Libint, self).configure_step()
+            # also build shared libraries (not enabled by default)
+            self.cfg.update('configopts', "--enable-shared")
+
+            if self.toolchain.options['pic']:
+                # Enforce consistency.
+                self.cfg.update('configopts', "--with-pic")
+
+            if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('2.1'):
+                # the code in libint is automatically generated and hence it is in some
+                # parts so complex that -O2 or -O3 compiler optimization takes forever
+                self.cfg.update('configopts', "--with-cxx-optflags='-O1'")
+
+            elif LooseVersion(self.version) >= LooseVersion('2.1'):
+                # pass down $CXXFLAGS to --with-cxxgen-optflags configure option;
+                # mainly to avoid warning about it not being set (but $CXXFLAGS is picked up anyway in practice)
+                self.cfg.update('configopts', "--with-cxxgen-optflags='%s'" % os.getenv('CXXFLAGS'))
+
+            # --enable-fortran is only a known configure option for Libint library, not for Libint compiler,
+            # so only add --enable-fortran *after* configuring & generating Libint compiler
+            if self.cfg['with_fortran']:
+                self.cfg.update('configopts', '--enable-fortran')
+
+            self.cfg['configure_cmd'] = DEFAULT_CONFIGURE_CMD
+            ConfigureMake.configure_step(self)
+
+        else:
+            if self.cfg['with_fortran']:
+                self.cfg.update('configopts', '-DENABLE_FORTRAN=ON')
+
+            # also build shared libraries (not enabled by default)
+            self.cfg.update('configopts', "-DLIBINT2_BUILD_SHARED_AND_STATIC_LIBS=ON")
+
+            # specify current directory as source directory (that contains CMakeLists.txt),
+            # since that's the path to the unpacked source tarball for Libint library (created by 'make export')
+            super(EB_Libint, self).configure_step(srcdir=os.getcwd())
 
     def test_step(self):
         """Run Libint test suite for recent versions"""

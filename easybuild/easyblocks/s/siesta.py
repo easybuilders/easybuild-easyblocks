@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -71,7 +71,8 @@ class EB_Siesta(ConfigureMake):
         arch_make = os.path.join(obj_dir, 'arch.make')
         bindir = os.path.join(start_dir, 'bin')
 
-        loose_ver = LooseVersion(self.version)
+        version = self.version.replace('-b', '.0.2.').replace('-MaX-', '.')
+        loose_ver = LooseVersion(version)
 
         par = ''
         if loose_ver >= LooseVersion('4.1'):
@@ -87,7 +88,8 @@ class EB_Siesta(ConfigureMake):
         lapack = os.environ['LIBLAPACK' + env_var_suff]
         blas = os.environ['LIBBLAS' + env_var_suff]
         if get_software_root('imkl') or get_software_root('FFTW'):
-            fftw = os.environ['LIBFFT' + env_var_suff]
+            # the only module that uses FFTW is STM and it explicitly wants a non-MPI version
+            fftw = os.environ['LIBFFT_MT']
         else:
             fftw = None
 
@@ -105,6 +107,12 @@ class EB_Siesta(ConfigureMake):
             (r"^(FCFLAGS_free_f90\s*=.*)$", r"\1 -ffree-line-length-none"),
             (r"^(FPPFLAGS_free_F90\s*=.*)$", r"\1 -ffree-line-length-none"),
         ]
+
+        gfortran_flags = ''
+        gcc_version = get_software_version('GCCcore') or get_software_version('GCC')
+        if LooseVersion(gcc_version) >= LooseVersion('10.0') and LooseVersion(self.version) <= LooseVersion('4.1.5'):
+            # -fallow-argument-mismatch is required when compiling with GCC 10.x & more recent
+            gfortran_flags = '-fallow-argument-mismatch'
 
         netcdff_loc = get_software_root('netCDF-Fortran')
         if netcdff_loc:
@@ -125,7 +133,7 @@ class EB_Siesta(ConfigureMake):
         # Populate start_dir with makefiles
         run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
 
-        if loose_ver < LooseVersion('4.1-b2'):
+        if loose_ver < LooseVersion('4.1.0.2.2'):
             # MPI?
             if self.toolchain.options.get('usempi', None):
                 self.cfg.update('configopts', '--enable-mpi')
@@ -179,7 +187,7 @@ class EB_Siesta(ConfigureMake):
             regex_subs.extend([
                 (r"^(LIBS\s*=).*$", r"\1 %s" % complibs),
                 # Needed for a couple of the utils
-                (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s" % os.environ['FCFLAGS']),
+                (r"^(FFLAGS\s*=\s*).*$", r"\1 -fPIC %s %s" % (os.environ['FCFLAGS'], gfortran_flags)),
             ])
             regex_newlines.append((r"^(COMP_LIBS\s*=.*)$", r"\1\nWXML = libwxml.a"))
 
@@ -270,6 +278,13 @@ class EB_Siesta(ConfigureMake):
                 makefile = os.path.join(start_dir, 'Util', 'TS', 'tshs2tshs', 'Makefile')
                 apply_regex_substitutions(makefile, regex_subs_TS)
 
+                if self.version != '4.1-MaX-1.0':
+                    regex_subs_Gen_basis = [
+                        (r"^(INCFLAGS.*)$", r"\1 -I%s" % obj_dir),
+                    ]
+                    makefile = os.path.join(start_dir, 'Util', 'Gen-basis', 'Makefile')
+                    apply_regex_substitutions(makefile, regex_subs_Gen_basis)
+
             if loose_ver >= LooseVersion('4'):
                 # SUFFIX rules in wrong place
                 regex_subs_suffix = [
@@ -293,7 +308,7 @@ class EB_Siesta(ConfigureMake):
             # remove clean at the end of default target
             # And yes, they are re-introducing this bug.
             is_ver40_to_401 = loose_ver >= LooseVersion('4.0') and loose_ver < LooseVersion('4.0.2')
-            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1-b3')):
+            if (is_ver40_to_401 or loose_ver == LooseVersion('4.1.0.2.3')):
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'SimpleTest', 'Src', 'Makefile')
                 apply_regex_substitutions(makefile, [(r"simple_mpi_parallel clean", r"simple_mpi_parallel")])
                 makefile = os.path.join(start_dir, 'Util', 'SiestaSubroutine', 'ProtoNEB', 'Src', 'Makefile')
@@ -416,7 +431,7 @@ class EB_Siesta(ConfigureMake):
             change_dir(obj_dir)
 
             ts_clean_target = 'clean'
-            if loose_ver >= LooseVersion('4.1-b4'):
+            if loose_ver >= LooseVersion('4.1.0.2.4'):
                 ts_clean_target += '-transiesta'
 
             run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)

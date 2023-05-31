@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ from easybuild.tools.modules import get_software_root
 class EB_XML(RPackage):
     """Support for installing the XML R package."""
 
-    def install_R_package(self, cmd, inp=None):
+    def install_R_package(self, *args, **kwargs):
         """Customized install procedure for XML R package, add zlib lib path to LIBS."""
 
         libs = os.getenv('LIBS', '')
@@ -52,4 +52,4 @@ class EB_XML(RPackage):
         else:
             raise EasyBuildError("zlib module not loaded (required)")
 
-        super(EB_XML, self).install_R_package(cmd, inp)
+        return super(EB_XML, self).install_R_package(*args, **kwargs)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,8 +67,8 @@ class ModuleRC(EasyBlock):
             raise EasyBuildError("Name does not match dependency name: %s vs %s", self.name, deps[0]['name'])
 
         # ensure version to alias to is a prefix of the version of the dependency
-        if not deps[0]['version'].startswith(self.version):
-            raise EasyBuildError("Version is not a prefix of dependency version: %s vs %s",
+        if not deps[0]['version'].startswith(self.version) and not self.version == "default":
+            raise EasyBuildError("Version is not 'default' and not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
         alias_modname = deps[0]['short_mod_name']
@@ -108,6 +108,8 @@ class ModuleRC(EasyBlock):
                     else:
                         raise EasyBuildError("%s exists but is not a symlink to %s", modulerc_symlink, modulerc)
                 else:
+                    # Make sure folder exists
+                    mkdir(os.path.dirname(modulerc_symlink), parents=True)
                     symlink(modulerc, modulerc_symlink)
                     print_msg("created symlink %s to .modulerc file at %s", modulerc_symlink, modulerc, log=self.log)
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -66,6 +66,10 @@ class EB_Mathematica(Binary):
         orig_display = os.environ.pop('DISPLAY', None)
 
         install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
+        # Starting at V13, Mathematica have renamed their install file...
+        if LooseVersion(self.version) >= LooseVersion("13"):
+            install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
+
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
             install_script = matches[0]
