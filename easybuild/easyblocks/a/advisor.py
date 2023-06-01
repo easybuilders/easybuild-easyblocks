@@ -46,11 +46,10 @@ class EB_Advisor(IntelBase):
         super(EB_Advisor, self).__init__(*args, **kwargs)
         if LooseVersion(self.version) < LooseVersion('2017'):
             self.subdir = 'advisor_xe'
-        else:
-        #elif LooseVersion(self.version) < LooseVersion('2021'):
+        elif LooseVersion(self.version) < LooseVersion('2021'):
             self.subdir = 'advisor'
-        #else:
-        #    self.subdir = os.path.join('advisor', 'latest')
+        else:
+            self.subdir = os.path.join('advisor', 'latest')
 
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
