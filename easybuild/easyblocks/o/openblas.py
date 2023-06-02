@@ -70,10 +70,13 @@ class EB_OpenBLAS(ConfigureMake):
         """ Custom build step excluding the tests """
 
         # Equivalent to `make all` without the tests
-        build_parts = ['libs', 'netlib']
-        for buildopt in self.cfg['buildopts'].split():
-            if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
-                build_parts += ['re_lapack']
+        build_parts = []
+        if LooseVersion(self.version) < LooseVersion('0.3.23'):
+            build_parts += ['libs', 'netlib']
+            for buildopt in self.cfg['buildopts'].split():
+                if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
+                    build_parts += ['re_lapack']
+        # just shared is necessary and sufficient with 0.3.23 + xianyi/OpenBLAS#3983
         build_parts += ['shared']
 
         # Pass CFLAGS through command line to avoid redefinitions (issue xianyi/OpenBLAS#818)
