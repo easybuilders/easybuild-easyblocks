@@ -57,14 +57,6 @@ class PerlBundle(Bundle):
         self.cfg['exts_defaultclass'] = 'PerlModule'
         self.cfg['exts_filter'] = EXTS_FILTER_PERL_MODULES
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for installing bundle of Perl packages."""
-        super(Bundle, self).prepare_step(*args, **kwargs)
-
-        perl_root = get_software_root('Perl')
-        if perl_root is None:
-            raise EasyBuildError("Perl not included as dependency!")
-
     def extensions_step(self, *args, **kwargs):
         """Install extensions"""
 
