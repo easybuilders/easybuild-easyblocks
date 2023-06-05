@@ -31,6 +31,7 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 import os
 
 import easybuild.tools.environment as env
+import easybuild.tools.systemtools as systemtools
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
@@ -38,6 +39,7 @@ from easybuild.tools.filetools import extract_file, change_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file, compute_checksum
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
@@ -67,7 +69,7 @@ class Cargo(ExtensionEasyBlock):
             generic = '-C target-cpu=x86-64'
         else:
             generic = '-C target-cpu=generic'
-            
+
         optimal = '-C target-cpu=native'
 
         optarch = build_option('optarch')
