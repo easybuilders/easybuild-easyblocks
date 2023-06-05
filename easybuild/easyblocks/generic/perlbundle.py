@@ -28,14 +28,13 @@ EasyBuild support for installing a bundle of Perl modules, implemented as a gene
 @author: Mikael Öhman (Chalmers University of Technology)
 """
 import os
-import sys
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.perlmodule import PerlModule
 from easybuild.easyblocks.perl import EXTS_FILTER_PERL_MODULES, get_major_perl_version, get_site_suffix
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.environment import setvar
 
 
@@ -89,7 +88,7 @@ class PerlBundle(Bundle):
             majver = get_major_perl_version()
             self.cfg['sanity_check_paths'] = {
                 'files': [],
-                'dirs': [os.path.join('lib', 'perl%s' % self.majver)],
+                'dirs': [os.path.join('lib', 'perl%s' % majver)],
             }
 
         super(Bundle, self).sanity_check_step(*args, **kwargs)
