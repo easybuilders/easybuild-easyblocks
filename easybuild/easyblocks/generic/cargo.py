@@ -86,9 +86,7 @@ class Cargo(ExtensionEasyBlock):
                     return generic
                 else:
                     self.log.warning("optarch is ignored as there is no translation for rustc")
-                    return optimal
-        else:
-            return optimal
+        return optimal
 
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
