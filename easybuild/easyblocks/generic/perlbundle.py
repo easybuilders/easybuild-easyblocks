@@ -32,9 +32,7 @@ import os
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.perlmodule import PerlModule
 from easybuild.easyblocks.perl import EXTS_FILTER_PERL_MODULES, get_major_perl_version, get_site_suffix
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.modules import get_software_root
 from easybuild.tools.environment import setvar
 
 
