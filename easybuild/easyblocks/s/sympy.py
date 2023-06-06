@@ -5,10 +5,11 @@ import tempfile
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 
+
 class EB_sympy(PythonPackage):
     """Build sympy"""
 
-    def test_step(self): 
+    def test_step(self):
         original_tmpdir = tempfile.gettempdir()
         print("Old TMPDIR: %s" % original_tmpdir)
         tempfile.tempdir = os.path.realpath(tempfile.gettempdir())
