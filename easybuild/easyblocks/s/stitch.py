@@ -30,7 +30,6 @@ EasyBuild support for stitch, implemented as an easyblock
 """
 import os
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file
@@ -146,4 +145,3 @@ class EB_stitch(EasyBlock):
 
         for lib in libs:
             copy_file(os.path.join(self.srcdir_stitch, lib), os.path.join(self.installdir, 'lib', lib))
-

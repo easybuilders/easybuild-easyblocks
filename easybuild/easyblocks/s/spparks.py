@@ -31,7 +31,6 @@ EasyBuild support for spparks, implemented as an easyblock
 import os
 import glob
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, symlink
@@ -41,6 +40,7 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 DEFAULT_BUILD_CMD = 'make'
 DEFAULT_TEST_CMD = 'make'
+
 
 class EB_spparks(EasyBlock):
     """Support for building/installing spparks."""
@@ -69,17 +69,15 @@ class EB_spparks(EasyBlock):
             ccflags += ' %s' % self.toolchain.get_flag('cstd')
 
         if self.toolchain.options.get('pic', False):
-             pic = '%s' % self.toolchain.get_flag('pic')
+            pic = '%s' % self.toolchain.get_flag('pic')
         else:
-             pic = ''
+            pic = ''
 
         spk_inc = ''
         if self.toolchain.options.get('usempi', False):
             cxx = os.environ['MPICXX']
-            mpi_inc = ''
-            mpi_lib = ''
             # It's undocumented what this does, but the example makefiles seem to always contain it for MPI-based builds
-            spk_inc += ' -DSPPARKS_UNORDERED_MAP' 
+            spk_inc += ' -DSPPARKS_UNORDERED_MAP'
         else:
             cxx = os.environ['CXX']
 
@@ -105,7 +103,7 @@ class EB_spparks(EasyBlock):
             (r"^(JPG_LIB\s*=\s*).*$", r"\1%s" % jpeg_lib),
             (r"^(SPK_INC\s*=\s*).*$", r"\1%s" % spk_inc),
         ]
-        
+
         makefile_include_dir = os.path.join(self.spparks_srcdir, 'MAKE')
         # Parallel build?
         if self.toolchain.options.get('usempi', False):
@@ -126,7 +124,6 @@ class EB_spparks(EasyBlock):
                 (r"^(CCFLAGS\s*=\s*).*$", r"\1%s" % ccflags_stubs),
             ]
             apply_regex_substitutions(makefile_stubs, regex_subs_stubs)
-       
 
         apply_regex_substitutions(makefile_spparks, regex_subs_spparks)
 
@@ -159,7 +156,7 @@ class EB_spparks(EasyBlock):
 
             (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 
-        return out 
+        return out
 
     def test_step(self):
         """
