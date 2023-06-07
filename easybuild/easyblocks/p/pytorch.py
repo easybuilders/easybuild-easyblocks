@@ -155,6 +155,9 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
+        elif pytorch_version >= '1.11.0' and get_software_root('FlexiBLAS'):
+            options.append('BLAS=FlexiBLAS')
+            options.append('WITH_BLAS=flexi')
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))

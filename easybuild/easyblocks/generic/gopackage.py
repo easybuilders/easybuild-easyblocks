@@ -149,3 +149,6 @@ class GoPackage(EasyBlock):
         custom_commands = ['%s --help' % self.name.lower()]
 
         super(GoPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def sanity_check_rpath(self, rpath_dirs=None):
+        super(GoPackage, self).sanity_check_rpath(rpath_dirs=rpath_dirs, check_readelf_rpath=False)

@@ -161,7 +161,7 @@ class EB_OpenSSL_wrapper(Bundle):
             for solib in solibs:
                 system_solib = find_library_path(solib)
                 if system_solib:
-                    openssl_version = 0
+                    openssl_version = '0'
                     # get version of system library filename
                     try:
                         openssl_version = full_version_regex.search(os.path.realpath(system_solib)).group(0)
