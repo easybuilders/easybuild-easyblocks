@@ -86,7 +86,7 @@ class Cargo(ExtensionEasyBlock):
                 if optarch == OPTARCH_GENERIC:
                     return generic
                 else:
-                    self.log.warning("optarch is ignored as there is no translation for rustc")
+                    self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
         return optimal
 
     def __init__(self, *args, **kwargs):
