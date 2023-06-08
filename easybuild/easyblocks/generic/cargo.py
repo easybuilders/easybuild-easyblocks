@@ -81,6 +81,7 @@ class Cargo(ExtensionEasyBlock):
                         return generic
                     else:
                         return '-' + rust_optarch
+                self.log.info("no rustc information in the optarch dict, so using %s" % optimal)
             else:
                 if optarch == OPTARCH_GENERIC:
                     return generic
