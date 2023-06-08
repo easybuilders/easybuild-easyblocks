@@ -31,6 +31,7 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 import os
 
 import easybuild.tools.environment as env
+import easybuild.tools.systemtools as systemtools
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
@@ -38,6 +39,7 @@ from easybuild.tools.filetools import extract_file, change_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import write_file, compute_checksum
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
@@ -58,6 +60,35 @@ class Cargo(ExtensionEasyBlock):
 
         return extra_vars
 
+    def rustc_optarch(self):
+        """Determines what architecture to target.
+        Translates GENERIC optarch, and respects rustc specific optarch.
+        General optarchs are ignored as there is no direct translation.
+        """
+        if systemtools.X86_64 == systemtools.get_cpu_architecture():
+            generic = '-C target-cpu=x86-64'
+        else:
+            generic = '-C target-cpu=generic'
+
+        optimal = '-C target-cpu=native'
+
+        optarch = build_option('optarch')
+        if optarch:
+            if type(optarch) == dict:
+                if 'rustc' in optarch:
+                    rust_optarch = optarch['rustc']
+                    if rust_optarch == OPTARCH_GENERIC:
+                        return generic
+                    else:
+                        return '-' + rust_optarch
+                self.log.info("no rustc information in the optarch dict, so using %s" % optimal)
+            else:
+                if optarch == OPTARCH_GENERIC:
+                    return generic
+                else:
+                    self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
+        return optimal
+
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
@@ -66,10 +97,7 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
         env.setvar('RUSTFMT', 'rustfmt')
-        optarch = build_option('optarch')
-        if not optarch:
-            optarch = 'native'
-        env.setvar('RUSTFLAGS', '-C target-cpu=%s' % optarch)
+        env.setvar('RUSTFLAGS', self.rustc_optarch())
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
