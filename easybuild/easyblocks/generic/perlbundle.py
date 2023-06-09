@@ -83,16 +83,11 @@ class PerlBundle(Bundle):
 
         super(Bundle, self).sanity_check_step(*args, **kwargs)
 
-    def make_module_req_guess(self):
-        """Customized dictionary of paths to look for with PERL*LIB."""
+    def make_module_extra(self):
+        """Extra module entries for Perl bundles."""
         majver = get_major_perl_version()
-        sitearchsuffix = get_site_suffix('sitearch')
-        sitelibsuffix = get_site_suffix('sitelib')
+        sitelibsuffix = get_site_suffix('sitelib')  # use this!
 
-        print(sitelibsuffix)
-        print(sitearchsuffix)
-        guesses = super(Bundle, self).make_module_req_guess()
-        guesses.update({
-            "PERL%sLIB" % majver: ['', sitearchsuffix, sitelibsuffix],
-        })
-        return guesses
+        txt = super(Bundle, self).make_module_extra()
+        txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix])
+        return txt
