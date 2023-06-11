@@ -86,8 +86,9 @@ class PerlBundle(Bundle):
     def make_module_extra(self):
         """Extra module entries for Perl bundles."""
         majver = get_major_perl_version()
-        sitelibsuffix = get_site_suffix('sitelib')  # use this!
+        sitearchsuffix = get_site_suffix('sitearch')  # Some parl modules use this path instead.
+        sitelibsuffix = get_site_suffix('sitelib')
 
         txt = super(Bundle, self).make_module_extra()
-        txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix])
+        txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix, sitearchsuffix])
         return txt
