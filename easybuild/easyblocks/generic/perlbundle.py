@@ -31,7 +31,7 @@ import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.perlmodule import PerlModule
-from easybuild.easyblocks.perl import EXTS_FILTER_PERL_MODULES, get_major_perl_version, get_site_suffix
+from easybuild.easyblocks.perl import get_major_perl_version, get_site_suffix
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 
@@ -53,11 +53,12 @@ class PerlBundle(Bundle):
         super(PerlBundle, self).__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'PerlModule'
-        self.cfg['exts_filter'] = EXTS_FILTER_PERL_MODULES
+        self.cfg['exts_filter'] = ("perl -e 'require %(ext_name)s'", '')
 
     def extensions_step(self, *args, **kwargs):
         """Install extensions"""
 
+        setvar('INSTALLDIRS', 'site')
         # define $OPENSSL_PREFIX to ensure that e.g. Net-SSLeay extension picks up OpenSSL
         # from specified sysroot rather than from host OS
         sysroot = build_option('sysroot')
@@ -86,9 +87,8 @@ class PerlBundle(Bundle):
     def make_module_extra(self):
         """Extra module entries for Perl bundles."""
         majver = get_major_perl_version()
-        sitearchsuffix = get_site_suffix('sitearch')  # Some parl modules use this path instead.
         sitelibsuffix = get_site_suffix('sitelib')
 
         txt = super(Bundle, self).make_module_extra()
-        txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix, sitearchsuffix])
+        txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix])
         return txt
