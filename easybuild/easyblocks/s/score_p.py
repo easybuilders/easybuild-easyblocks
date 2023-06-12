@@ -77,7 +77,7 @@ class EB_Score_minus_P(ConfigureMake):
                 'Score-P': '8.0',
                 'Scalasca': '2.6.1',
                 'OTF2': '3.0.2',
-                'CubeW': '4.8',
+                'CubeWriter': '4.8',
                 'CubeLib': '4.8',
                 'CubeGUI': '4.8',
             }
