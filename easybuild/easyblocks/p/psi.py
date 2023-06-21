@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -141,7 +141,7 @@ class EB_PSI(CMakeMake):
             ConfigureMake.configure_step(self, cmd_prefix=self.cfg['start_dir'])
         else:
             self.log.info("Using CMake based build")
-            self.cfg.update('configopts', ' -DPYTHON_INTERPRETER=%s' % os.path.join(pythonroot, 'bin', 'python'))
+            self.cfg.update('configopts', ' -DPYTHON_EXECUTABLE=%s' % os.path.join(pythonroot, 'bin', 'python'))
             if self.name == 'PSI4' and LooseVersion(self.version) >= LooseVersion("1.2"):
                 self.log.info("Remove the CMAKE_BUILD_TYPE test in PSI4 source and the downloaded dependencies!")
                 self.log.info("Use PATCH_COMMAND in the corresponding CMakeLists.txt")
@@ -156,7 +156,11 @@ class EB_PSI(CMakeMake):
             if self.name == 'PSI4':
                 pcmsolverroot = get_software_root('PCMSolver')
                 if pcmsolverroot:
-                    self.cfg.update('configopts', " -DENABLE_PCMSOLVER=ON")
+                    if LooseVersion(self.version) >= LooseVersion("1.1"):
+                        pcmsolver = 'PCMSolver'
+                    else:
+                        pcmsolver = 'PCMSOLVER'
+                    self.cfg.update('configopts', " -DENABLE_%s=ON" % pcmsolver)
                     if LooseVersion(self.version) < LooseVersion("1.2"):
                         self.cfg.update('configopts', " -DPCMSOLVER_ROOT=%s" % pcmsolverroot)
                     else:
@@ -165,7 +169,11 @@ class EB_PSI(CMakeMake):
 
                 chempsroot = get_software_root('CheMPS2')
                 if chempsroot:
-                    self.cfg.update('configopts', " -DENABLE_CHEMPS2=ON")
+                    if LooseVersion(self.version) >= LooseVersion("1.1"):
+                        chemps2 = 'CheMPS2'
+                    else:
+                        chemps2 = 'CHEMPS2'
+                    self.cfg.update('configopts', " -DENABLE_%s=ON" % chemps2)
                     if LooseVersion(self.version) < LooseVersion("1.2"):
                         self.cfg.update('configopts', " -DCHEMPS2_ROOT=%s" % chempsroot)
                     else:

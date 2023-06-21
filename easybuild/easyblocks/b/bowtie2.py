@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -27,7 +27,7 @@ class EB_Bowtie2(MakeCp):
     """
     Support for building bowtie2 (ifast and sensitive read alignment)
     - create Make.UNKNOWN
-    - build with make and install 
+    - build with make and install
     """
     @staticmethod
     def extra_options(extra_vars=None):

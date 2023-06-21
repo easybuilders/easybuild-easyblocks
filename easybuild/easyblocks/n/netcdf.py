@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,7 +68,7 @@ class EB_netCDF(CMakeMake):
             self.cfg.update('configopts', 'FCFLAGS="%s" CC="%s" FC="%s"' % tup)
 
             # add -DgFortran to CPPFLAGS when building with GCC
-            if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
 
             ConfigureMake.configure_step(self)
@@ -126,20 +126,28 @@ class EB_netCDF(CMakeMake):
         # since v4.2, the non-C libraries have been split off in seperate extensions_step
         # see netCDF-Fortran and netCDF-C++
         if LooseVersion(self.version) < LooseVersion("4.2"):
-            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]] + \
-                    ["ncvalues.h", "typesizes.mod"]
+            incs += ["netcdf%s" % x for x in ["cpp.h", ".hh", ".inc", ".mod"]]
+            incs += ["ncvalues.h", "typesizes.mod"]
             libs += ["libnetcdf_c++.%s" % shlib_ext, "libnetcdff.%s" % shlib_ext,
                      "libnetcdf_c++.a", "libnetcdff.a"]
+        binaries = ["nc%s" % x for x in ["-config", "copy", "dump", "gen", "gen3"]]
 
         custom_paths = {
-                        'files': ["bin/nc%s" % x for x in ["-config", "copy", "dump",
-                                                          "gen", "gen3"]] +
-                                 [("lib/%s" % x, "lib64/%s" % x) for x in libs] +
-                                 ["include/%s" % x for x in incs],
-                        'dirs': []
-                       }
+            'files': (
+                [os.path.join("bin", x) for x in binaries] +
+                [os.path.join("lib", x) for x in libs] +
+                [os.path.join("include", x) for x in incs]
+            ),
+            'dirs': []
+        }
 
-        super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = [
+            "nc-config --help",
+            "ncgen -h" if LooseVersion(self.version) > LooseVersion("4.6.1") else "ncgen -H",
+        ]
+
+        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+
 
 def set_netcdf_env_vars(log):
     """Set netCDF environment variables used by other software."""

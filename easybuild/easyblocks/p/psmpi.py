@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2020 Ghent University, Forschungszentrum Juelich
+# Copyright 2016-2023 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -73,7 +73,7 @@ class EB_psmpi(EB_MPICH):
             toolchain.GCC: 'gcc',
             toolchain.INTELCOMP: 'intel',
             # TODO: Include PGI as soon as it is available as toolchain
-            #toolchain.PGI: 'pgi',
+            # toolchain.PGI: 'pgi',
         }
 
         # Set confset

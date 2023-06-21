@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -172,15 +172,18 @@ class EB_QuantumESPRESSO(ConfigureMake):
             repls.append(('CPP', cpp, False))
             env.setvar('CPP', cpp)
 
-            # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
-            env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
+        # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
+        env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
             repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
             repls.append(('FFLAGS', '-assume byterecl', True))
         elif comp_fam == toolchain.GCC:
-            repls.append(('F90FLAGS', '-cpp', True))
+            f90_flags = ['-cpp']
+            if LooseVersion(get_software_version('GCC')) >= LooseVersion('10'):
+                f90_flags.append('-fallow-argument-mismatch')
+            repls.append(('F90FLAGS', ' '.join(f90_flags), True))
 
         super(EB_QuantumESPRESSO, self).configure_step()
 
@@ -203,6 +206,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # always include -w to supress warnings
         dflags.append('-w')
+
+        if LooseVersion(self.version) >= LooseVersion("6.6"):
+            dflags.append(" -Duse_beef")
+            libbeef = get_software_root("libbeef")
+            if libbeef:
+                repls.append(('BEEF_LIBS_SWITCH', 'external', False))
+                repls.append(('BEEF_LIBS', '%s/lib/libbeef.a' % libbeef, False))
 
         repls.append(('DFLAGS', ' '.join(dflags), False))
 
@@ -265,6 +275,15 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       "\t$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
                                       line)
+
+                if LooseVersion(self.version) >= LooseVersion("6.6"):
+                    # fix order of BEEF_LIBS in QE_LIBS
+                    line = re.sub(r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
+                                  r"QELIBS = $(BEEF_LIBS) \2 \3", line)
+
+                    # use FCCPP instead of CPP for Fortran headers
+                    line = re.sub(r"\t\$\(CPP\) \$\(CPPFLAGS\) \$< -o \$\*\.fh",
+                                  "\t$(FCCPP) $(CPPFLAGS) $< -o $*.fh", line)
 
                 sys.stdout.write(line)
         except IOError as err:
@@ -367,7 +386,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
                         copy_file(full_path, bindir)
 
         if 'upf' in targets or 'all' in targets:
-            copy_binaries('upftools')
+            if LooseVersion(self.version) < LooseVersion("6.6"):
+                copy_binaries('upftools')
+            else:
+                copy_binaries('upflib')
+                copy_file(os.path.join(self.cfg['start_dir'], 'upflib', 'fixfiles.py'), bindir)
 
         if 'want' in targets:
             copy_binaries('WANT')
@@ -384,8 +407,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # extract build targets as list
         targets = self.cfg['buildopts'].split()
 
-        # build list of expected binaries based on make targets
-        bins = ["iotk", "iotk.x", "iotk_print_kinds.x"]
+        bins = []
+        if LooseVersion(self.version) < LooseVersion("6.7"):
+            # build list of expected binaries based on make targets
+            bins.extend(["iotk", "iotk.x", "iotk_print_kinds.x"])
 
         if 'cp' in targets or 'all' in targets:
             bins.extend(["cp.x", "wfdd.x"])
@@ -446,16 +471,19 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         upftools = []
         if 'upf' in targets or 'all' in targets:
-            upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
-                        "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x"]
-            if LooseVersion(self.version) > LooseVersion("5"):
-                upftools.extend(["interpolate.x", "upf2casino.x"])
-            if LooseVersion(self.version) >= LooseVersion("6.3"):
-                upftools.extend(["fix_upf.x"])
-            if LooseVersion(self.version) < LooseVersion("6.4"):
-                upftools.extend(["virtual.x"])
+            if LooseVersion(self.version) < LooseVersion("6.6"):
+                upftools = ["casino2upf.x", "cpmd2upf.x", "fhi2upf.x", "fpmd2upf.x", "ncpp2upf.x",
+                            "oldcp2upf.x", "read_upf_tofile.x", "rrkj2upf.x", "uspp2upf.x", "vdb2upf.x"]
+                if LooseVersion(self.version) > LooseVersion("5"):
+                    upftools.extend(["interpolate.x", "upf2casino.x"])
+                if LooseVersion(self.version) >= LooseVersion("6.3"):
+                    upftools.extend(["fix_upf.x"])
+                if LooseVersion(self.version) < LooseVersion("6.4"):
+                    upftools.extend(["virtual.x"])
+                else:
+                    upftools.extend(["virtual_v2.x"])
             else:
-                upftools.extend(["virtual_v2.x"])
+                upftools = ["upfconv.x", "virtual_v2.x", "fixfiles.py"]
 
         if 'vdw' in targets:  # only for v4.x, not in v5.0 anymore
             bins.extend(["vdw.x"])
@@ -484,9 +512,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         d3q_bins = []
         if 'd3q' in targets:
-            d3q_bins = ['d3_asr3.x', 'd3_import3py.x', 'd3_lw.x', 'd3_q2r.x',
+            d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
                         'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
                         'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+            if LooseVersion(self.version) < LooseVersion("6.4"):
+                d3q_bins.append('d3_import3py.x')
 
         custom_paths = {
             'files': [os.path.join('bin', x) for x in bins + upftools + want_bins + yambo_bins + d3q_bins],

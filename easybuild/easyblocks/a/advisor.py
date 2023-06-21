@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,6 +33,7 @@ EasyBuild support for installing the Intel Advisor XE, implemented as an easyblo
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+
 
 class EB_Advisor(IntelBase):
     """

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -85,7 +85,6 @@ class EB_Ferret(ConfigureMake):
         else:
             for name in deps:
                 regex_subs.append((r"^(%s.*DIR\s*)=.*" % name.upper(), r"\1 = %s" % get_software_root(name)))
-
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
             regex_subs.extend([

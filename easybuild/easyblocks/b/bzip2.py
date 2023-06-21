@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -104,7 +104,7 @@ class EB_bzip2(ConfigureMake):
 
         custom_paths = {
             'files': ['bin/b%s' % x for x in ['unzip2', 'zcat', 'zdiff', 'zgrep', 'zip2', 'zip2recover', 'zmore']] +
-                     ['include/bzlib.h'] + libs,
+            ['include/bzlib.h'] + libs,
             'dirs': [],
         }
         super(EB_bzip2, self).sanity_check_step(custom_paths=custom_paths)

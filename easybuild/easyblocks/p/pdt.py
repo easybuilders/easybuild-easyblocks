@@ -1,7 +1,7 @@
 ##
 # This is an easyblock for EasyBuild, see https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2015 Juelich Supercomputing Centre, Germany
+# Copyright:: Copyright 2015-2023 Juelich Supercomputing Centre, Germany
 # Authors::   Bernd Mohr <b.mohr@fz-juelich.de>
 #             Markus Geimer <m.geimer@fz-juelich.de>
 # License::   3-clause BSD
@@ -73,8 +73,12 @@ class EB_PDT(ConfigureMake):
             raise EasyBuildError("Compiler family not supported yet: %s" % comp_fam)
         self.cfg.update('configopts', compiler_opt)
 
+        # PDT's configure script ignores CFLAGS/CXXFLAGS set in the environment,
+        # but allows to pass in custom flags via configure option
+        useropt = os.getenv('CXXFLAGS')
         if self.toolchain.options['pic']:
-            self.cfg.update('-useropt=-fPIC')
+            useropt += ' -fPIC'
+        self.cfg.update('configopts', '-useropt="%s"' % useropt)
 
         # Configure creates required subfolders in installdir, so create first (but only once, during first iteration)
         if self.iter_idx == 0:

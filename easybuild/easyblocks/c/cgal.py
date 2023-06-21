@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,7 +68,7 @@ class EB_CGAL(CMakeMake):
         """Custom sanity check for CGAL."""
 
         shlib_ext = get_shared_lib_ext()
-        libs = [os.path.join('lib64', 'libCGAL%s.%s' % (l, shlib_ext)) for l in ['', '_Core']]
+        libs = [os.path.join('lib64', 'libCGAL%s.%s' % (suffix, shlib_ext)) for suffix in ['', '_Core']]
         dirs = [os.path.join('include', 'CGAL')]
         if LooseVersion(self.version) >= LooseVersion('4.12'):
             dirs.append(os.path.join('lib64', 'cmake', 'CGAL'))

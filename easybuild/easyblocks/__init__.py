@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ from pkgutil import extend_path
 # recent setuptools versions will *TRANSFORM* something like 'X.Y.Zdev' into 'X.Y.Z.dev0', with a warning like
 #   UserWarning: Normalizing '2.4.0dev' to '2.4.0.dev0'
 # This causes problems further up the dependency chain...
-VERSION = LooseVersion('4.2.2.dev0')
+VERSION = LooseVersion('4.7.3.dev0')
 UNKNOWN = 'UNKNOWN'
 
 
@@ -79,13 +79,13 @@ else:
     VERBOSE_VERSION = LooseVersion("%s-r%s" % (VERSION, git_rev))
 
 # extend path so python finds our easyblocks in the subdirectories where they are located
-subdirs = [chr(l) for l in range(ord('a'), ord('z') + 1)] + ['0']
+subdirs = [chr(x) for x in range(ord('a'), ord('z') + 1)] + ['0']
 for subdir in subdirs:
     __path__ = extend_path(__path__, '%s.%s' % (__name__, subdir))
 
 del subdir, subdirs, git_rev
-if 'l' in dir():
-    del l
+if 'x' in dir():
+    del x
 
 # let python know this is not the only place to look for easyblocks, so we can have multiple
 # easybuild/easyblocks paths in the Python search path, next to the official easyblocks distribution

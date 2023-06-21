@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_WRF_minus_Fire(EasyBlock):
@@ -45,7 +46,7 @@ class EB_WRF_minus_Fire(EasyBlock):
     def extra_options():
         """Custom easyconfig parameters for WRF-Fire."""
         extra_vars = {
-            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), " \
+            'buildtype': [None, "Specify the type of build (serial, smpar (OpenMP), "
                                 "dmpar (MPI), dm+sm (hybrid OpenMP/MPI)).", MANDATORY],
             'runtest': [True, "Build and run WRF tests", CUSTOM],
         }
@@ -98,7 +99,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         if build_type_option is None:
             raise EasyBuildError("Don't know which WPS configure option to select for compiler family %s", comp_fam)
 
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, self.cfg['buildtype'])
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, self.cfg['buildtype'])
         qa = {
             "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": '1',
         }
@@ -154,7 +155,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         if wps_build_type is None:
             raise EasyBuildError("Don't know which WPS build type to pick for '%s'", self.cfg['builddtype'])
 
-        build_type_question = "\s*(?P<nr>[0-9]+).\s*%s.*%s(?!NO GRIB2)" % (build_type_option, wps_build_type)
+        build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s.*%s(?!NO GRIB2)" % (build_type_option, wps_build_type)
         std_qa = {
             # named group in match will be used to construct answer
             r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: '%(nr)s',
@@ -210,7 +211,7 @@ class EB_WRF_minus_Fire(EasyBlock):
         """Custom sanity check for WRF-Fire."""
         custom_paths = {
             'files': [os.path.join('WRFV3', 'main', f) for f in ['ideal.exe', 'libwrflib.a', 'wrf.exe']] +
-                     [os.path.join('WPS', f) for f in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
+            [os.path.join('WPS', f) for f in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
             'dirs': [os.path.join('WRFV3', d) for d in ['main', 'run']],
         }
         super(EB_WRF_minus_Fire, self).sanity_check_step(custom_paths=custom_paths)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -148,7 +148,7 @@ class EB_ParMETIS(EasyBlock):
 
             # libraries
             try:
-                src = os.path.join(self.cfg['start_dir'], 'build' ,'libmetis' ,'libmetis.a')
+                src = os.path.join(self.cfg['start_dir'], 'build', 'libmetis', 'libmetis.a')
                 dst = os.path.join(libdir, 'libmetis.a')
                 shutil.copy2(src, dst)
             except OSError as err:

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,9 +60,10 @@ class EB_Primer3(ConfigureMake):
 
     def configure_step(self):
         """Configure Primer3 build by setting make options."""
-        self.cfg.update('buildopts', 'CC="%s" CPP="%s" O_OPTS="%s" all' % (os.getenv('CC'),
-                                                                         os.getenv('CXX'),
-                                                                         os.getenv('CFLAGS')))
+        self.cfg.update('buildopts', 'CC="%s"' % (os.getenv('CC')))
+        self.cfg.update('buildopts', 'CPP="%s"' % (os.getenv('CXX')))
+        self.cfg.update('buildopts', 'O_OPTS="%s"' % (os.getenv('CFLAGS')))
+        self.cfg.update('buildopts', 'all')
 
     # default build_step should be fine
 
@@ -74,10 +75,10 @@ class EB_Primer3(ConfigureMake):
         """Custom sanity check for Primer3."""
 
         custom_paths = {
-                        'files':["%s/%s" % (self.bindir, x) for x in ["primer3_core", "ntdpal",
-                                                                      "oligotm", "long_seq_tm_test"]],
-                        'dirs':[]
-                       }
+            'files': ["%s/%s" % (self.bindir, x) for x in ["primer3_core", "ntdpal",
+                                                           "oligotm", "long_seq_tm_test"]],
+            'dirs': []
+        }
 
         super(EB_Primer3, self).sanity_check_step(custom_paths=custom_paths)
 

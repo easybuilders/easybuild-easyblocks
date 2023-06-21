@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for building and installing pbdMPI, implemented as an easybloc
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.rpackage import RPackage
+
 
 class EB_pbdMPI(RPackage):
     """Support for building/installing pbdMPI."""

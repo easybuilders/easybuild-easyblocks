@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,6 @@ import os
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -51,6 +50,7 @@ Requires:
 Cflags: -I%s
 Libs: -L%s -lhdf5 %s
 """
+
 
 class EB_HDF5(ConfigureMake):
     """Support for building/installing HDF5"""
@@ -77,10 +77,16 @@ class EB_HDF5(ConfigureMake):
         self.cfg.update('configopts', "--with-pic --with-pthread --enable-shared")
         self.cfg.update('configopts', "--enable-cxx --enable-fortran %s" % fcomp)
 
+        # make C API thread safe (C++ / FORTRAN APIs are unaffected)
+        self.cfg.update('configopts', "--enable-threadsafe")
+
+        # --enable-unsupported is needed to allow --enable-threadsafe to be used together with --enable-cxx
+        self.cfg.update('configopts', "--enable-unsupported")
+
         # MPI and C++ support enabled requires --enable-unsupported, because this is untested by HDF5
         # also returns False if MPI is not supported by this toolchain
         if self.toolchain.options.get('usempi', None):
-            self.cfg.update('configopts', "--enable-unsupported --enable-parallel")
+            self.cfg.update('configopts', "--enable-parallel")
             mpich_mpi_families = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]
             if self.toolchain.mpi_family() in mpich_mpi_families:
                 self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DMPICH_IGNORE_CXX_SEEK"')
@@ -95,7 +101,7 @@ class EB_HDF5(ConfigureMake):
 
         # set RUNPARALLEL if MPI is enabled in this toolchain
         if self.toolchain.options.get('usempi', None):
-            env.setvar('RUNPARALLEL', 'mpirun -np \$\${NPROCS:=2}')
+            env.setvar('RUNPARALLEL', r'mpirun -np $${NPROCS:=3}')
 
         super(EB_HDF5, self).configure_step()
 
@@ -121,19 +127,18 @@ class EB_HDF5(ConfigureMake):
 
         # also returns False if MPI is not supported by this toolchain
         if self.toolchain.options.get('usempi', None):
-            extra_binaries = ["bin/%s" % x for x in ["h5perf", "h5pcc", "h5pfc", "ph5diff"]]
+            extra_binaries = ["h5perf", "h5pcc", "h5pfc", "ph5diff"]
         else:
-            extra_binaries = ["bin/%s" % x for x in ["h5cc", "h5fc"]]
+            extra_binaries = ["h5cc", "h5fc"]
 
-        libs = ['', '_cpp', '_fortran', '_hl_cpp', '_hl', 'hl_fortran']
+        h5binaries = ["c++", "copy", "debug", "diff", "dump", "import", "jam", "ls", "mkgrp", "perf_serial",
+                      "redeploy", "repack", "repart", "stat", "unjam"]
+        binaries = ["h5%s" % x for x in h5binaries] + extra_binaries
+
         shlib_ext = get_shared_lib_ext()
+        libs = ["libhdf5%s.%s" % (lib, shlib_ext) for lib in ['', '_cpp', '_fortran', '_hl_cpp', '_hl', 'hl_fortran']]
         custom_paths = {
-            'files': ["bin/h5%s" % x for x in ["2gif", "c++", "copy", "debug", "diff",
-                                               "dump", "import", "jam","ls", "mkgrp",
-                                               "perf_serial", "redeploy", "repack",
-                                               "repart", "stat", "unjam"]] +
-                     ["bin/gif2h5"] + extra_binaries +
-                     ["lib/libhdf5%s.%s" % (l, shlib_ext) for l in libs],
+            'files': [os.path.join("bin", x) for x in binaries] + [os.path.join("lib", lib) for lib in libs],
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)

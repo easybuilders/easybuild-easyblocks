@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2019 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,6 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake, setup_cmake_env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ELSI(CMakeMake):
@@ -43,6 +42,7 @@ class EB_ELSI(CMakeMake):
         """Initialize ELSI-specific variables."""
         super(EB_ELSI, self).__init__(*args, **kwargs)
         self.enable_sips = False
+        self.internal_ntpoly = True
         self.env_suff = '_MT' if self.toolchain.options.get('openmp', None) else ''
 
     @staticmethod
@@ -116,6 +116,21 @@ class EB_ELSI(CMakeMake):
             else:
                 raise EasyBuildError("Could not find FFTW library or interface.")
 
+        ntpoly = get_software_root('NTPoly')
+        if ntpoly:
+            self.internal_ntpoly = False
+            self.log.info("Using external NTPoly.")
+            self.cfg.update('configopts', "-DUSE_EXTERNAL_NTPOLY=ON")
+            external_libs.append('NTPoly')
+        else:
+            self.log.info("No external NTPoly specified as dependency, building internal NTPoly.")
+
+        bsepack = get_software_root('bsepack')
+        if bsepack:
+            self.log.info("Using external BSEPACK.")
+            self.cfg.update('configopts', "-DENABLE_BSEPACK=ON -DUSE_EXTERNAL_BSEPACK=ON")
+            external_libs.extend(['bsepack', 'sseig'])
+
         if get_software_root('imkl') or get_software_root('ScaLAPACK'):
             external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK%s_STATIC_LIBS' % self.env_suff]))
         else:
@@ -132,7 +147,9 @@ class EB_ELSI(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for ELSI."""
 
-        libs = ['elsi', 'fortjson', 'MatrixSwitch', 'NTPoly', 'OMM']
+        libs = ['elsi', 'fortjson', 'MatrixSwitch', 'OMM']
+        if self.internal_ntpoly:
+            libs.append('NTPoly')
         modules = [lib.lower() for lib in libs if lib != 'OMM']
         modules.extend(['omm_ops', 'omm_params', 'omm_rand'])
 

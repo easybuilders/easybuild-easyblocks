@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2020 Ghent University
-# Copyright 2015-2020 Stanford University
+# Copyright 2009-2023 Ghent University
+# Copyright 2015-2023 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,14 +94,27 @@ class EB_VMD(ConfigureMake):
         netcdflib = os.path.join(deps['netCDF'], 'lib')
 
         # Python locations
-        pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-        env.setvar('PYTHON_INCLUDE_DIR', os.path.join(deps['Python'], 'include/python%s' % pyshortver))
+        pyver = get_software_version('Python')
+        pymajver = pyver.split('.')[0]
+        out, ec = run_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", simple=False)
+        if ec:
+            raise EasyBuildError("Failed to determine Python include path: %s", out)
+        else:
+            env.setvar('PYTHON_INCLUDE_DIR', out.strip())
         pylibdir = det_pylibdir()
         python_libdir = os.path.join(deps['Python'], os.path.dirname(pylibdir))
         env.setvar('PYTHON_LIBRARY_DIR', python_libdir)
+        if LooseVersion(pyver) >= LooseVersion('3.8'):
+            out, ec = run_cmd("python%s-config --libs --embed" % pymajver, simple=False)
+        else:
+            out, ec = run_cmd("python%s-config --libs" % pymajver, simple=False)
+        if ec:
+            raise EasyBuildError("Failed to determine Python library name: %s", out)
+        else:
+            env.setvar('PYTHON_LIBRARIES', out.strip())
 
         # numpy include location, easiest way to determine it is via numpy.get_include()
-        out, ec = run_cmd("python -c 'import numpy; print numpy.get_include()'", simple=False)
+        out, ec = run_cmd("python -c 'import numpy; print(numpy.get_include())'", simple=False)
         if ec:
             raise EasyBuildError("Failed to determine numpy include directory: %s", out)
         else:

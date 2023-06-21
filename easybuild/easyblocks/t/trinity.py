@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,9 +35,7 @@ EasyBuild support for building and installing Trinity, implemented as an easyblo
 """
 import glob
 import os
-import re
 import shutil
-import sys
 from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain

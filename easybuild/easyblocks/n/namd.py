@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2013-2019 CaSToRC, The Cyprus Institute
+# Copyright:: Copyright 2013-2023 CaSToRC, The Cyprus Institute
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 # License::   MIT/GPL
 # $Id$
@@ -27,6 +27,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
 
 
 class EB_NAMD(MakeCp):
@@ -42,17 +43,37 @@ class EB_NAMD(MakeCp):
         extra.update({
             # see http://charm.cs.illinois.edu/manuals/html/charm++/A.html
             'charm_arch': [None, "Charm++ target architecture", MANDATORY],
+            'charm_extra_cxxflags': ['', "Extra C++ compiler options to use for building Charm++", CUSTOM],
             'charm_opts': ['--with-production', "Charm++ build options", CUSTOM],
-            'namd_basearch': ['Linux-x86_64', "NAMD base target architecture (compiler family is appended", CUSTOM],
+            'cuda': [None, "Enable CUDA build if CUDA is among the dependencies", CUSTOM],
+            'namd_basearch': [None, "NAMD base target architecture (compiler family is appended)", CUSTOM],
             'namd_cfg_opts': ['', "NAMD configure options", CUSTOM],
             'runtest': [True, "Run NAMD test case after building", CUSTOM],
         })
+
         return extra
 
     def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for NAMD, initialize class variables."""
         super(EB_NAMD, self).__init__(*args, **kwargs)
         self.namd_arch = None
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare build environment."""
+        super(EB_NAMD, self).prepare_step(*args, **kwargs)
+
+        if self.cfg['namd_basearch'] is None:
+
+            self.log.info("namd_basearch not specified, so determining it based a CPU arch...")
+
+            arch = get_cpu_architecture()
+            if arch == X86_64:
+                basearch = 'Linux-x86_64'
+            elif arch == POWER:
+                basearch = 'Linux-POWER'
+
+            self.cfg['namd_basearch'] = basearch
+            self.log.info("Derived value for 'namd_basearch': %s", self.cfg['namd_basearch'])
 
     def extract_step(self):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
@@ -65,6 +86,20 @@ class EB_NAMD(MakeCp):
 
         srcdir = extract_file(self.charm_tarballs[0], os.getcwd(), change_into_dir=False)
         change_dir(srcdir)
+
+    def patch_step(self, *args, **kwargs):
+        """Patch scripts to avoid using hardcoded /bin/csh."""
+        super(EB_NAMD, self).patch_step(*args, **kwargs)
+
+        self.charm_dir = self.charm_tarballs[0][:-4]
+
+        charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
+        apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
+
+        for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
+                           os.path.join(self.charm_dir, 'src', 'QuickThreads', 'time', 'raw')]:
+            if os.path.exists(csh_script):
+                apply_regex_substitutions(csh_script, [(r'^#!\s*/bin/csh\s*$', '#!/usr/bin/env csh')])
 
     def configure_step(self):
         """Custom configure step for NAMD, we build charm++ first (if required)."""
@@ -94,13 +129,17 @@ class EB_NAMD(MakeCp):
         if self.toolchain.options.get('openmp', False):
             self.cfg.update('charm_arch', 'smp')
         self.cfg.update('charm_arch', charm_arch_comp)
+        self.log.info("Updated 'charm_arch': %s", self.cfg['charm_arch'])
 
-        self.log.info("Updated 'charm_arch': %s" % self.cfg['charm_arch'])
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
-        self.log.info("Completed NAMD target architecture: %s" % self.namd_arch)
+        self.log.info("Completed NAMD target architecture: %s", self.namd_arch)
 
-        tup = (self.cfg['charm_arch'], self.cfg['charm_opts'], self.cfg['parallel'], os.environ['CXXFLAGS'])
-        cmd = "./build charm++ %s %s --with-numa -j%s %s -DMPICH_IGNORE_CXX_SEEK" % tup
+        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
+            'arch': self.cfg['charm_arch'],
+            'cxxflags': os.environ['CXXFLAGS'] + ' -DMPICH_IGNORE_CXX_SEEK ' + self.cfg['charm_extra_cxxflags'],
+            'opts': self.cfg['charm_opts'],
+            'parallel': self.cfg['parallel'],
+        }
         charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
         self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
         run_cmd(cmd, path=charm_subdir)
@@ -114,14 +153,19 @@ class EB_NAMD(MakeCp):
 
         # NAMD dependencies: CUDA, TCL, FFTW
         cuda = get_software_root('CUDA')
-        if cuda:
+        if cuda and (self.cfg['cuda'] is None or self.cfg['cuda']):
             self.cfg.update('namd_cfg_opts', "--with-cuda --cuda-prefix %s" % cuda)
+        elif not self.cfg['cuda']:
+            self.log.warning("CUDA is disabled")
+        elif not cuda and self.cfg['cuda']:
+            raise EasyBuildError("CUDA is not a dependency, but support for CUDA is enabled.")
 
         tcl = get_software_root('Tcl')
         if tcl:
             self.cfg.update('namd_cfg_opts', '--with-tcl --tcl-prefix %s' % tcl)
             tclversion = '.'.join(get_software_version('Tcl').split('.')[0:2])
             tclv_subs = [(r'-ltcl[\d.]*\s', '-ltcl%s ' % tclversion)]
+
             apply_regex_substitutions(os.path.join('arch', '%s.tcl' % self.cfg['namd_basearch']), tclv_subs)
 
         fftw = get_software_root('FFTW')
@@ -157,14 +201,16 @@ class EB_NAMD(MakeCp):
             ppn = ''
             if self.toolchain.options.get('openmp', False):
                 ppn = '+ppn 2'
-            cmd = "%(namd)s %(ppn)s %(testdir)s" % {
+            cmd = "%(pretestopts)s %(namd)s %(ppn)s %(testopts)s %(testdir)s" % {
                 'namd': namdcmd,
                 'ppn': ppn,
+                'pretestopts': self.cfg['pretestopts'],
                 'testdir': os.path.join(self.cfg['start_dir'], self.namd_arch, 'src', 'alanin'),
+                'testopts': self.cfg['testopts'],
             }
             out, ec = run_cmd(cmd, simple=False)
             if ec == 0:
-                test_ok_regex = re.compile("(^Program finished.$|End of program\s*$)", re.M)
+                test_ok_regex = re.compile(r"(^Program finished.$|End of program\s*$)", re.M)
                 if test_ok_regex.search(out):
                     self.log.debug("Test '%s' ran fine." % cmd)
                 else:
@@ -178,7 +224,7 @@ class EB_NAMD(MakeCp):
         srcdir = os.path.join(self.cfg['start_dir'], self.namd_arch)
         try:
             # copy all files, except for .rootdir (required to avoid cyclic copying)
-            for item in [x for x in os.listdir(srcdir) if not x in ['.rootdir']]:
+            for item in [x for x in os.listdir(srcdir) if x not in ['.rootdir']]:
                 fullsrc = os.path.join(srcdir, item)
                 if os.path.isdir(fullsrc):
                     shutil.copytree(fullsrc, os.path.join(self.installdir, item), symlinks=False)

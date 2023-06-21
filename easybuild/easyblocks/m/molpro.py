@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -86,9 +86,10 @@ class EB_Molpro(ConfigureMake, Binary):
                 symlink(self.cfg['license_file'], self.license_token)
                 self.log.debug("Symlinked %s to %s", self.cfg['license_file'], self.license_token)
             else:
-                self.log.warning("No licence token found at either {0} or via 'license_file'".format(self.license_token))
-        
-        # Only do the rest of the configuration if we're building from source 
+                self.log.warning("No licence token found at either %s or via 'license_file'",
+                                 self.license_token)
+
+        # Only do the rest of the configuration if we're building from source
         if not self.cfg['precompiled_binaries']:
             # installation prefix
             self.cfg.update('configopts', "-prefix %s" % self.installdir)
@@ -167,10 +168,10 @@ class EB_Molpro(ConfigureMake, Binary):
         Custom test procedure for Molpro.
         Run 'make quicktest, make test', but only for source install and if license is available.
         """
-        
+
         # Only bother to check if the licence token is available
         if os.path.isfile(self.license_token) and not self.cfg['precompiled_binaries']:
-        
+
             # check 'main routes' only
             run_cmd("make quicktest")
 
@@ -251,8 +252,9 @@ class EB_Molpro(ConfigureMake, Binary):
         dirs_to_check = []
         if LooseVersion(self.version) >= LooseVersion('2015') or not self.cfg['precompiled_binaries']:
             files_to_check.extend(['bin/molpro.exe'])
-            dirs_to_check.extend(['doc', 'examples', 'utilities'])
-
+            dirs_to_check.extend(['utilities'])
+            if LooseVersion(self.version) <= LooseVersion('2021'):
+                dirs_to_check.extend(['doc', 'examples'])
         custom_paths = {
             'files': [os.path.join(prefix_subdir, x) for x in files_to_check],
             'dirs': [os.path.join(prefix_subdir, x) for x in dirs_to_check],

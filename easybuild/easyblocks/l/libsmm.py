@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -54,7 +54,7 @@ class EB_libsmm(EasyBlock):
     @staticmethod
     def extra_options():
         # default dimensions
-        dd = [1,4,5,6,9,13,16,17,22]
+        dd = [1, 4, 5, 6, 9, 13, 16, 17, 22]
         extra_vars = {
             'transpose_flavour': [1, "Transpose flavour of routines", CUSTOM],
             'max_tiny_dim': [12, "Maximum tiny dimension", CUSTOM],
@@ -103,7 +103,8 @@ transpose_flavor=%(transposeflavour)s
 data_type=%(datatype)s
 
 # target compiler... this are the options used for building the library.
-# They should be aggessive enough to e.g. perform vectorization for the specific CPU (e.g. -ftree-vectorize -march=native),
+# They should be aggessive enough to e.g. perform vectorization for the specific CPU
+# (e.g. -ftree-vectorize -march=native),
 # and allow some flexibility in reordering floating point expressions (-ffast-math).
 # Higher level optimisation (in particular loop nest optimization) should not be used.
 #
@@ -146,7 +147,7 @@ tasks=%(tasks)s
         """
 
         # only GCC is supported for now
-        if self.toolchain.comp_family() == toolchain.GCC:  #@UndefinedVariable
+        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             hostcompile = os.getenv('F90')
 
             # optimizations
@@ -166,15 +167,15 @@ tasks=%(tasks)s
             raise EasyBuildError("No BLAS library specifications found (LIBBLAS not set)!")
 
         cfgdict = {
-                   'datatype': None,
-                   'transposeflavour': self.cfg['transpose_flavour'],
-                   'targetcompile': targetcompile,
-                   'hostcompile': hostcompile,
-                   'dims': ' '.join([str(d) for d in self.cfg['dims']]),
-                   'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim']+1)]),
-                   'tasks': self.cfg['parallel'],
-                   'LIBBLAS': "%s %s" % (os.getenv('LDFLAGS'), os.getenv('LIBBLAS'))
-                  }
+            'datatype': None,
+            'transposeflavour': self.cfg['transpose_flavour'],
+            'targetcompile': targetcompile,
+            'hostcompile': hostcompile,
+            'dims': ' '.join([str(d) for d in self.cfg['dims']]),
+            'tiny_dims': ' '.join([str(d) for d in range(1, self.cfg['max_tiny_dim'] + 1)]),
+            'tasks': self.cfg['parallel'],
+            'LIBBLAS': "%s %s" % (os.getenv('LDFLAGS'), os.getenv('LIBBLAS'))
+        }
 
         # configure for various iterations
         datatypes = [(1, 'double precision real'), (3, 'double precision complex')]

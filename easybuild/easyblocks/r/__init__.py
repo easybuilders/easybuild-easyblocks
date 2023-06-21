@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,4 +27,4 @@ Special handling of R easyblocks, due to clash with easybuild.easyblocks.r names
 
 author: Kenneth Hoste (Ghent University)
 """
-from easybuild.easyblocks.r.r import *
+from easybuild.easyblocks.r.r import *  # noqa

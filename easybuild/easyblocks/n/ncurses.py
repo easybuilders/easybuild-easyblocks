@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -17,7 +17,9 @@ Easybuild support for building ncurses, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 
+import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+
 
 class EB_ncurses(ConfigureMake):
     """
@@ -34,18 +36,19 @@ class EB_ncurses(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for ncurses."""
 
+        binaries = ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config", "reset", "tabs", "tic", "toe",
+                    "tput", "tset"]
+        libs = ['lib%s.a' % x for x in ["form", "form", "menu", "menu_g", "ncurses", "ncurses++", "ncurses_g",
+                                        "panel", "panel_g"]]
         custom_paths = {
-                        'files' : ['bin/%s' % x for x in ["captoinfo", "clear", "infocmp", "infotocap", "ncurses5-config",
-                                                          "reset", "tabs", "tic", "toe", "tput", "tset"]] +
-                                  ['lib/lib%s.a' % x for x in ["form", "form", "menu", "menu_g", "ncurses", "ncurses++",
-                                                               "ncurses_g", "panel", "panel_g"]],
-                        'dirs' : ['include']
-                       }
+            'files': [os.path.join('bin', x) for x in binaries] + [os.path.join('lib', x) for x in libs],
+            'dirs': ['include']
+        }
 
         super(EB_ncurses, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_req_guess(self):
-        """  
+        """
         Set correct CPLUS path.
         """
         guesses = super(EB_ncurses, self).make_module_req_guess()

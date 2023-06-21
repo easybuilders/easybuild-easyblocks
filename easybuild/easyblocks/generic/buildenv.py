@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
     """
+
     def make_module_extra(self):
         """Add all the build environment variables."""
         txt = super(BuildEnv, self).make_module_extra()

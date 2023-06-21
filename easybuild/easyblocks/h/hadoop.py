@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,11 +30,11 @@ EasyBuild support for building and installing Hadoop, implemented as an easybloc
 import glob
 import os
 import re
-import shutil
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -49,7 +49,7 @@ class EB_Hadoop(Tarball):
         extra_vars = {
             'build_native_libs': [False, "Build native libraries", CUSTOM],
             'extra_native_libs': [[], "Extra native libraries to install (list of tuples)", CUSTOM],
-         }
+        }
         return Tarball.extra_options(extra_vars)
 
     def build_step(self):
@@ -83,9 +83,17 @@ class EB_Hadoop(Tarball):
             lib_src = os.path.join(lib_root, lib_path)
             lib_dest = os.path.join(self.installdir, 'lib', 'native')
             self.log.info('Copying shared objects in "%s"', lib_src)
+            copied_libs = []
             for lib in glob.glob(lib_src):
-                self.log.info('Copying "%s" to "%s"', lib, lib_dest)
-                shutil.copy2(lib, lib_dest)
+                lib_fn = os.path.basename(lib)
+                # avoid copying the same file again, which may cause problems due to read-only permissions of target
+                # this could happen when 'lib' is a symlink to 'lib64', which leads to duplicates in the glob result
+                if lib_fn in copied_libs:
+                    self.log.info("Not copying '%s' to '%s', this file was already copied", lib, lib_dest)
+                else:
+                    self.log.info("Copying '%s' to '%s'", lib, lib_dest)
+                    copy_file(lib, lib_dest)
+                    copied_libs.append(lib_fn)
 
     def sanity_check_step(self):
         """Custom sanity check for Hadoop."""

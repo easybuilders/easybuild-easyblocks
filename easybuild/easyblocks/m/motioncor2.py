@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2020 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,17 +28,18 @@ EasyBuild support for building and installing MotionCor2, implemented as an easy
 @author: Ake Sandgren, (HPC2N, Umea University)
 """
 
+import glob
 import os
 import stat
 
 from distutils.version import LooseVersion
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
 from easybuild.tools.modules import get_software_root
 
 
-class EB_MotionCor2(EasyBlock):
+class EB_MotionCor2(PackedBinary):
     """
     Support for installing MotionCor2
      - creates wrapper that loads the correct version of CUDA before
@@ -52,7 +53,7 @@ class EB_MotionCor2(EasyBlock):
         self.cuda_mod_name, self.cuda_name = None, None
         self.motioncor2_bin = None
         self.motioncor2_verstring = self.version
-        if (LooseVersion(self.version) >= LooseVersion("1.3.1")):
+        if (LooseVersion(self.version) == LooseVersion("1.3.1")):
             self.motioncor2_verstring = "v%s" % self.version
 
     def prepare_step(self, *args, **kwargs):
@@ -61,34 +62,47 @@ class EB_MotionCor2(EasyBlock):
         """
         super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
 
-        if not get_software_root('CUDA'):
-            raise EasyBuildError("CUDA must be a direct (build)dependency of MotionCor2")
+        if not get_software_root('CUDA') and not get_software_root('CUDAcore'):
+            raise EasyBuildError("CUDA(core) must be a direct (build)dependency of MotionCor2")
 
         for dep in self.cfg.dependencies():
-            if dep['name'] == 'CUDA':
+            if dep['name'] == 'CUDA' or dep['name'] == 'CUDAcore':
                 self.cuda_mod_name = dep['short_mod_name']
                 self.cuda_name = os.path.dirname(self.cuda_mod_name)
                 cuda_ver = dep['version']
                 cuda_short_ver = "".join(cuda_ver.split('.')[:2])
-                self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.motioncor2_verstring, cuda_short_ver)
+                if (LooseVersion(self.version) >= LooseVersion("1.4")):
+                    self.motioncor2_bin = 'MotionCor2_%s_Cuda%s' % (self.motioncor2_verstring, cuda_short_ver)
+                else:
+                    self.motioncor2_bin = 'MotionCor2_%s-Cuda%s' % (self.motioncor2_verstring, cuda_short_ver)
                 break
-
-    def configure_step(self):
-        """No configuration, this is binary software"""
-        pass
-
-    def build_step(self):
-        """No compilation, this is binary software"""
-        pass
 
     def install_step(self):
         """
         Install binary and a wrapper that loads correct CUDA version.
         """
 
-        src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
+        # for versions < 1.4.0 and at least for version 1.4.2 the binary is directly in the builddir
+        # for versions 1.4.0 and 1.4.4 the binary is in a subdirectory {self.name}_{self.version}
+        if (LooseVersion(self.version) >= LooseVersion("1.4")):
+            pattern1 = os.path.join(self.builddir, '%s*' % self.motioncor2_bin)
+            pattern2 = os.path.join(self.builddir,
+                                    '%s_%s' % (self.name, self.version),
+                                    '%s*' % self.motioncor2_bin)
+            matches = glob.glob(pattern1) + glob.glob(pattern2)
+
+            if len(matches) == 1:
+                src_mc2_bin = matches[0]
+            else:
+                raise EasyBuildError(
+                    "Found multiple, or no, matching MotionCor2 binary named %s*" % self.motioncor2_bin
+                )
+        else:
+            src_mc2_bin = os.path.join(self.builddir, self.motioncor2_bin)
         if not os.path.exists(src_mc2_bin):
-            raise EasyBuildError("Specified CUDA version has no corresponding MotionCor2 binary")
+            raise EasyBuildError(
+                "Specified CUDA version has no corresponding MotionCor2 binary named %s" % self.motioncor2_bin
+            )
 
         bindir = os.path.join(self.installdir, 'bin')
         mkdir(bindir)

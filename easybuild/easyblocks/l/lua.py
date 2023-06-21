@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2020 Ghent University
+# Copyright 2018-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,6 +68,10 @@ class EB_Lua(ConfigureMake):
             mycflags.append('-DLUA_COMPAT_5_1')
         if LooseVersion(self.version) > LooseVersion('5.2'):
             mycflags.append('-DLUA_COMPAT_5_2')
+
+        mycflags.append(os.getenv('CFLAGS', ''))
+        mycflags.append(os.getenv('MYCFLAGS', ''))
+
         if mycflags:
             self.cfg.update('buildopts', 'MYCFLAGS="%s"' % ' '.join(mycflags))
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,6 @@ EasyBuild support for installing COMSOL, implemented as an easyblock
 """
 import os
 import re
-import shutil
 import stat
 
 import easybuild.tools.environment as env
@@ -50,11 +49,15 @@ class EB_COMSOL(PackedBinary):
         super(EB_COMSOL, self).__init__(*args, **kwargs)
         self.configfile = os.path.join(self.builddir, 'my_setupconfig.ini')
 
-    def configure_step(self):
-        """Configure COMSOL installation: create license file."""
+    def extract_step(self):
+        """Need to adjust the permissions on the top dir, the DVD has 0444."""
+        super(EB_COMSOL, self).extract_step()
 
         # The tar file comes from the DVD and has 0444 as permission at the top dir.
-        adjust_permissions(self.start_dir, stat.S_IWUSR)
+        adjust_permissions(self.builddir, stat.S_IWUSR)
+
+    def configure_step(self):
+        """Configure COMSOL installation: create license file."""
 
         default_lic_env_var = 'LMCOMSOL_LICENSE_FILE'
         lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
@@ -110,6 +113,11 @@ class EB_COMSOL(PackedBinary):
 
         # make sure setup script is executable
         adjust_permissions(setup_script, stat.S_IXUSR)
+
+        # make sure binaries in arch bindir is executable
+        archpath = os.path.join(self.start_dir, 'bin', 'glnxa64')
+        adjust_permissions(os.path.join(archpath, 'inflate'), stat.S_IXUSR)
+        adjust_permissions(os.path.join(archpath, 'setuplauncher'), stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
         # this is a workaround for not being able to specify --nodisplay to the install scripts

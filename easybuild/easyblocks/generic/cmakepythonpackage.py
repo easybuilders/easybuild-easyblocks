@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,38 +41,23 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
     Some packages use cmake to first build and install C Python packages
     and then put the Python package in lib/pythonX.Y/site-packages.
 
-    We install this in a seperate location and generate a module file 
-    which sets the PYTHONPATH.
-
-    We use the default CMake implementation, and use make_module_extra from PythonPackage.
+    We use the default CMake implementation, and use make_module_extra from PythonPackage
+    to generate a module file which sets the PYTHONPATH.
     """
     @staticmethod
     def extra_options(extra_vars=None):
         """Easyconfig parameters specific to Python packages thar are configured/built/installed via CMake"""
         extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
         extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
-        # enable out-of-source build
-        extra_vars['separate_build_dir'][0] = True
+        # Disable runtest again (set to True by PythonPackage which is not understood by CMakeMake.test_step)
+        extra_vars['runtest'][0] = None
         return extra_vars
-
-    def __init__(self, *args, **kwargs):
-        """Initialize with PythonPackage."""
-        PythonPackage.__init__(self, *args, **kwargs)
 
     def configure_step(self, *args, **kwargs):
         """Main configuration using cmake"""
 
         PythonPackage.configure_step(self, *args, **kwargs)
-
         return CMakeMake.configure_step(self, *args, **kwargs)
-
-    def build_step(self, *args, **kwargs):
-        """Build Python package with cmake"""
-        return CMakeMake.build_step(self, *args, **kwargs)
-
-    def install_step(self):
-        """Install with cmake install"""
-        return CMakeMake.install_step(self)
 
     def sanity_check_step(self, *args, **kwargs):
         """

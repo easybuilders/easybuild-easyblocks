@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,8 +34,8 @@ from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file, find_glob_pattern
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -50,12 +50,16 @@ class EB_QScintilla(ConfigureMake):
 
         pyqt5 = get_software_root('PyQt5')
         pyqt = get_software_root('PyQt')
+        qt5 = get_software_root('Qt5')
         if pyqt5:
             self.pyqt_root = pyqt5
             self.pyqt_pkg_name = "PyQt5"
         elif pyqt:
             self.pyqt_root = pyqt
             self.pyqt_pkg_name = "PyQt4"
+        elif qt5:
+            self.pyqt_root = qt5
+            self.pyqt_pkg_name = "PyQt5"
         else:
             raise EasyBuildError("Failed to determine PyQt(5) installation prefix. Missing PyQt(5) dependency?")
 
@@ -88,7 +92,7 @@ class EB_QScintilla(ConfigureMake):
         """Custom build procedure for QScintilla."""
 
         # make sure that $CXXFLAGS is being passed down
-        self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
+        self.cfg.update('buildopts', r'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
 
         super(EB_QScintilla, self).build_step()
 
@@ -111,16 +115,38 @@ class EB_QScintilla(ConfigureMake):
             mkdir(qsci_sipdir, parents=True)
 
             pylibdir = os.path.join(det_pylibdir(), self.pyqt_pkg_name)
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+
+            sip_incdir = find_glob_pattern(os.path.join(self.pyqt_root, 'include', 'python%s*' % pyshortver), False)
+            # depending on PyQt5 versions and how it was installed, the sip directory could be in various places
+            # test them and figure out the first one that matches
+            pyqt_sip_subdir = [os.path.join('share', 'python%s*' % pyshortver, 'site-packages', 'sip',
+                                            self.pyqt_pkg_name),
+                               os.path.join('share', 'sip', self.pyqt_pkg_name),
+                               os.path.join('share', 'sip'),
+                               os.path.join('lib', 'python%s*' % pyshortver, 'site-packages', self.pyqt_pkg_name,
+                                            'bindings')
+                               ]
+            pyqt_sipdir_options = [os.path.join(self.pyqt_root, subdir) for subdir in pyqt_sip_subdir]
+            for pyqt_sipdir_option in pyqt_sipdir_options:
+                pyqt_sipdir = find_glob_pattern(pyqt_sipdir_option, False)
+                if pyqt_sipdir:
+                    break
+
+            if not pyqt_sipdir:
+                raise EasyBuildError("Failed to find PyQt5 sip directory")
 
             cfgopts = [
                 '--destdir %s' % os.path.join(self.installdir, pylibdir),
                 '--qsci-sipdir %s' % qsci_sipdir,
                 '--qsci-incdir %s' % os.path.join(self.installdir, 'include'),
                 '--qsci-libdir %s' % os.path.join(self.installdir, 'lib'),
-                '--pyqt-sipdir %s' % os.path.join(self.pyqt_root, 'share', 'sip', self.pyqt_pkg_name),
+                '--pyqt-sipdir %s' % pyqt_sipdir,
                 '--apidir %s' % os.path.join(self.installdir, 'qsci', 'api', 'python'),
                 '--no-stubs',
             ]
+            if sip_incdir:
+                cfgopts += ['--sip-incdir %s' % sip_incdir]
 
             if LooseVersion(self.version) >= LooseVersion('2.10.7'):
                 cfgopts.append('--no-dist-info')
@@ -180,5 +206,8 @@ class EB_QScintilla(ConfigureMake):
         txt = super(EB_QScintilla, self).make_module_extra()
         python = get_software_root('Python')
         if python:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
+            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+            else:
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
         return txt

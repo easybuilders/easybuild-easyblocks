@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2020 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,7 @@ EasyBuild support for installing Intel Inspector, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
+import os
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
@@ -47,8 +48,10 @@ class EB_Inspector(IntelBase):
         loosever = LooseVersion(self.version)
         if loosever >= LooseVersion('2013_update7') and loosever < LooseVersion('2017'):
             self.subdir = 'inspector_xe'
-        elif loosever >= LooseVersion('2017'):
+        elif loosever >= LooseVersion('2017') and loosever < LooseVersion('2021'):
             self.subdir = 'inspector'
+        elif loosever >= LooseVersion('2021'):
+            self.subdir = os.path.join('inspector', 'latest')
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""

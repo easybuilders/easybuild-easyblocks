@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,7 @@ EasyBuild support for installing Tornado, implemented as an easyblock
 """
 import os
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+
 
 class EB_Tornado(PackedBinary):
     """EasyBlock for Tornado"""

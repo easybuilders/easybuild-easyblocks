@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, patch_perl_script_autoflush, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir
+from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
@@ -143,13 +144,13 @@ class EB_WRF(EasyBlock):
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = "INTEL\ \(ifort\/icc\)"
+                build_type_option = r"INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
         elif self.comp_fam == toolchain.GCC:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = "GNU\ \(gfortran\/gcc\)"
+                build_type_option = r"GNU\ \(gfortran\/gcc\)"
             else:
                 build_type_option = "x86_64 Linux, gfortran compiler with gcc"
 
@@ -172,7 +173,7 @@ class EB_WRF(EasyBlock):
             # the two relevant lines in the configure output for WRF 3.8 are:
             #  13. (serial)  14. (smpar)  15. (dmpar)  16. (dm+sm)   INTEL (ifort/icc)
             #  32. (serial)  33. (smpar)  34. (dmpar)  35. (dm+sm)   GNU (gfortran/gcc)
-            build_type_question = "\s*(?P<nr>[0-9]+)\.\ \(%s\).*%s" % (bt, build_type_option)
+            build_type_question = r"\s*(?P<nr>[0-9]+)\.\ \(%s\).*%s" % (bt, build_type_option)
         else:
             # the relevant lines in the configure output for WRF 3.6 are:
             #  13.  Linux x86_64 i486 i586 i686, ifort compiler with icc  (serial)
@@ -183,10 +184,10 @@ class EB_WRF(EasyBlock):
             #  33.  x86_64 Linux, gfortran compiler with gcc   (smpar)
             #  34.  x86_64 Linux, gfortran compiler with gcc   (dmpar)
             #  35.  x86_64 Linux, gfortran compiler with gcc   (dm+sm)
-            build_type_question = "\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
+            build_type_question = r"\s*(?P<nr>[0-9]+).\s*%s\s*\(%s\)" % (build_type_option, bt)
 
         # run configure script
-        cmd = "./configure"
+        cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
         qa = {
             # named group in match will be used to construct answer
             "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
@@ -201,7 +202,7 @@ class EB_WRF(EasyBlock):
             r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
         }
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
 
         cfgfile = 'configure.wrf'
 
@@ -214,6 +215,9 @@ class EB_WRF(EasyBlock):
             'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
+        # fix hardcoded preprocessor
+        regex_subs.append(('/lib/cpp', 'cpp'))
+
         apply_regex_substitutions(cfgfile, regex_subs)
 
         # rewrite optimization options if desired
@@ -249,13 +253,35 @@ class EB_WRF(EasyBlock):
         if par:
             self.par = "-j %s" % par
 
-        # build wrf (compile script uses /bin/csh )
-        cmd = "tcsh ./compile %s wrf" % self.par
+        # fix compile script shebang to use provided tcsh
+        cmpscript = os.path.join(self.start_dir, 'compile')
+        tcsh_root = get_software_root('tcsh')
+        if tcsh_root:
+            tcsh_path = os.path.join(tcsh_root, 'bin', 'tcsh')
+            # avoid using full path to tcsh if possible, since it may be too long to be used as shebang line
+            which_tcsh = which('tcsh')
+            if which_tcsh and os.path.samefile(which_tcsh, tcsh_path):
+                env_path = os.path.join('/usr', 'bin', 'env')
+                # use env command from alternate sysroot, if available
+                sysroot = build_option('sysroot')
+                if sysroot:
+                    sysroot_env_path = os.path.join(sysroot, 'usr', 'bin', 'env')
+                    if os.path.exists(sysroot_env_path):
+                        env_path = sysroot_env_path
+                new_shebang = env_path + ' tcsh'
+            else:
+                new_shebang = tcsh_path
+
+            regex_subs = [('^#!/bin/csh.*', '#!' + new_shebang)]
+            apply_regex_substitutions(cmpscript, regex_subs)
+
+        # build wrf
+        cmd = "%s %s wrf" % (cmpscript, self.par)
         run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
         # build two testcases to produce ideal.exe and real.exe
         for test in ["em_real", "em_b_wave"]:
-            cmd = "tcsh ./compile %s %s" % (self.par, test)
+            cmd = "%s %s %s" % (cmpscript, self.par, test)
             run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
     def test_step(self):
@@ -298,7 +324,7 @@ class EB_WRF(EasyBlock):
             # determine number of MPI ranks to use in tests (1/2 of available processors + 1);
             # we need to limit max number of MPI ranks (8 is too high for some tests, 4 is OK),
             # since otherwise run may fail because domain size is too small
-            n_mpi_ranks = min(self.cfg['parallel'] / 2 + 1, 4)
+            n_mpi_ranks = min(self.cfg['parallel'] // 2 + 1, 4)
 
             # prepare run command
 
@@ -350,7 +376,7 @@ class EB_WRF(EasyBlock):
                 self.log.debug("Building and running test %s" % test)
 
                 # build and install
-                cmd = "tcsh ./compile %s %s" % (self.par, test)
+                cmd = "./compile %s %s" % (self.par, test)
                 run_cmd(cmd, log_all=True, simple=True)
 
                 # run test

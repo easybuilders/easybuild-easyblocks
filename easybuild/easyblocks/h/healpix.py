@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -70,7 +70,7 @@ class EB_HEALPix(ConfigureMake):
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             self.target_string = 'linux_icc'
-        elif comp_fam in [toolchain.DUMMY, toolchain.GCC]:  # @UndefinedVariable
+        elif comp_fam in [toolchain.DUMMY, toolchain.SYSTEM, toolchain.GCC]:  # @UndefinedVariable
 
             self.target_string = self.cfg['gcc_target']
 
@@ -94,9 +94,9 @@ class EB_HEALPix(ConfigureMake):
 
         cmd = "./configure -L"
         qa = {
-            "Should I attempt to create these directories (Y\|n)?": 'Y',
+            r"Should I attempt to create these directories (Y\|n)?": 'Y',
             "full name of cfitsio library (libcfitsio.a):": '',
-            "Do you want this modification to be done (y\|N)?": 'y',
+            r"Do you want this modification to be done (y\|N)?": 'y',
             "enter suffix for directories ():": '',
             # configure for C (2), Fortran (3), C++ (4), then exit (0)
             "Enter your choice (configuration of packages can be done in any order):": ['2', '3', '4', '0'],

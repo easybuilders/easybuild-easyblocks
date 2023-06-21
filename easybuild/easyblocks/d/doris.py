@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,16 +59,16 @@ class EB_Doris(ConfigureMake):
             "===> Press enter to continue (CTRL-C to exit).": '',
         }
         std_qa = {
-            "===> Do you want to compile a more verbose DEBUG version \(y/n\)\? \[n\](.|\n)*expected results\)": 'n',
-            "===> What is your C\+\+ compiler\? \[.*\]": os.getenv('CXX'),
-            "===> Do you have the FFTW library \(y/n\)\? \[.*\]": 'y',
-            "===> What is the path to the FFTW library \(libfftw3f.*\)\? \[.*\]": os.path.join(fftw, 'lib'),
-            "===> What is the path to the FFTW include file \(fftw3.h\)\? \[.*\]": os.path.join(fftw, 'include'),
-            "===> Do you have the VECLIB library \(y/n\)\? \[.*\]": 'n',
-            "===> Do you have the LAPACK library \(y/n\)\? \[.*\]": 'y',
-            "===> What is the path to the LAPACK library liblapack.a\? \[.*\]": os.getenv('LAPACK_LIB_DIR'),
-            "===> Are you working on a Little Endian \(X86 PC, Intel\) machine \(y/n\)\? \[.*\]": 'y',
-            "===> Installation of Doris in directory: /usr/local/bin \(y/n\)\? \[.*\]": 'n',
+            r"===> Do you want to compile a more verbose DEBUG version \(y/n\)\? \[n\](.|\n)*expected results\)": 'n',
+            r"===> What is your C\+\+ compiler\? \[.*\]": os.getenv('CXX'),
+            r"===> Do you have the FFTW library \(y/n\)\? \[.*\]": 'y',
+            r"===> What is the path to the FFTW library \(libfftw3f.*\)\? \[.*\]": os.path.join(fftw, 'lib'),
+            r"===> What is the path to the FFTW include file \(fftw3.h\)\? \[.*\]": os.path.join(fftw, 'include'),
+            r"===> Do you have the VECLIB library \(y/n\)\? \[.*\]": 'n',
+            r"===> Do you have the LAPACK library \(y/n\)\? \[.*\]": 'y',
+            r"===> What is the path to the LAPACK library liblapack.a\? \[.*\]": os.getenv('LAPACK_LIB_DIR'),
+            r"===> Are you working on a Little Endian \(X86 PC, Intel\) machine \(y/n\)\? \[.*\]": 'y',
+            r"===> Installation of Doris in directory: /usr/local/bin \(y/n\)\? \[.*\]": 'n',
         }
 
         run_cmd_qa('./configure', qa, std_qa=std_qa, log_all=True, simple=True)
@@ -84,7 +84,7 @@ class EB_Doris(ConfigureMake):
         lflags = "-L%s -lfftw3f " % os.path.join(get_software_root('FFTW'), 'lib')
         lflags += "-L%s %s" % (os.getenv('LAPACK_LIB_DIR'), os.getenv('LIBLAPACK_MT'))
         self.cfg.update('buildopts', 'LFLAGS="%s"' % lflags)
-        self.cfg.update('buildopts', 'CFLAGSOPT="%s \$(DEFS)"' % os.getenv('CXXFLAGS'))
+        self.cfg.update('buildopts', r'CFLAGSOPT="%s \$(DEFS)"' % os.getenv('CXXFLAGS'))
 
         super(EB_Doris, self).build_step()
 

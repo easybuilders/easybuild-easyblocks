@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2020 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,7 +69,7 @@ class EB_Armadillo(CMakeMake):
             libdir = 'lib64'
 
         custom_paths = {
-            'files': ['include/armadillo', os.path.join(libdir,'libarmadillo.%s' % get_shared_lib_ext())],
+            'files': ['include/armadillo', os.path.join(libdir, 'libarmadillo.%s' % get_shared_lib_ext())],
             'dirs': ['include/armadillo_bits'],
         }
         super(EB_Armadillo, self).sanity_check_step(custom_paths=custom_paths)

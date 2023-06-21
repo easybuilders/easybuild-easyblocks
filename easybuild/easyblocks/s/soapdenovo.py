@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -36,7 +36,7 @@ class EB_SOAPdenovo(ConfigureMake):
 
     def configure_step(self):
         """
-	    Skip the configure as not part of this build process
+            Skip the configure as not part of this build process
         """
         pass
 
@@ -59,8 +59,8 @@ class EB_SOAPdenovo(ConfigureMake):
         """Custom sanity check for SOAPdenovo."""
 
         custom_paths = {
-                        'files': ['bin/SOAPdenovo-%s' % x for x in self.bin_suffixes],
-                        'dirs': []
-                       }
+            'files': ['bin/SOAPdenovo-%s' % x for x in self.bin_suffixes],
+            'dirs': []
+        }
 
         super(EB_SOAPdenovo, self).sanity_check_step(custom_paths=custom_paths)

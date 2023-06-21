@@ -1,7 +1,10 @@
-.. image:: https://easybuilders.github.io/easybuild/images/easybuild_logo_small.png
+.. image:: https://github.com/easybuilders/easybuild/raw/develop/logo/png/easybuild_logo_2022_horizontal_dark_bg_transparent.png
    :align: center
+   :height: 400px
 
-`EasyBuild <https://easybuilders.github.io/easybuild>`_ is a software build
+.. image:: https://github.com/easybuilders/easybuild-easyblocks/workflows/easyblocks%20unit%20tests/badge.svg?branch=develop
+
+`EasyBuild <https://easybuild.io>`_ is a software build
 and installation framework that allows you to manage (scientific) software
 on High Performance Computing (HPC) systems in an efficient way.
 
@@ -10,7 +13,7 @@ EasyBuild. Easyblocks are Python modules that implement the install procedure fo
 (group of) software package(s). Together with the EasyBuild framework,
 they allow to easily build and install supported software packages.
 
-The EasyBuild documentation is available at http://easybuild.readthedocs.org/.
+The EasyBuild documentation is available at http://docs.easybuild.io/.
 
 The easybuild-easyblocks source code is hosted on GitHub, along
 with an issue tracker for bug reports and feature requests, see
@@ -32,15 +35,3 @@ Related Python packages:
     with the latest compatible versions of the easybuild-framework and easybuild-easyblocks packages
   * GitHub repository: https://github.com/easybuilders/easybuild-easyconfigs
   * PyPi: https://pypi.python.org/pypi/easybuild-easyconfigs
-
-*Build status overview:*
-
-* **master** branch:
-
-  .. image:: https://travis-ci.org/easybuilders/easybuild-easyblocks.svg?branch=master
-      :target: https://travis-ci.org/easybuilders/easybuild-easyblocks/branches
-
-* **develop** branch:
-
-  .. image:: https://travis-ci.org/easybuilders/easybuild-easyblocks.svg?branch=develop
-      :target: https://travis-ci.org/easybuilders/easybuild-easyblocks/branches
