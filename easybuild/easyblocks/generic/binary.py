@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
 from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_cmd_qa
 
 
 PREPEND_TO_PATH_DEFAULT = ['']
@@ -114,8 +115,10 @@ class Binary(EasyBlock):
         else:
             cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
             self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
-            run_cmd(cmd, log_all=True, simple=True)
-
+            if self.cfg['qa'] is None:
+                run_cmd(cmd, log_all=True, simple=True)
+            else:
+                run_cmd_qa(cmd, self.cfg['qa'], log_all=True, simple=True)
     def post_install_step(self):
         """Copy installation to actual installation directory in case of a staged installation."""
         if self.cfg.get('staged_install', False):
