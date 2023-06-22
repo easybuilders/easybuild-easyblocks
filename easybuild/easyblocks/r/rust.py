@@ -27,9 +27,16 @@ EasyBuild support for building and installing Rust, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
+import glob
 import os
+import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
+from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Rust(ConfigureMake):
@@ -66,6 +73,41 @@ class EB_Rust(ConfigureMake):
         cargo_home = "export CARGO_HOME=%s && " % os.path.join(self.builddir, 'cargo')
         self.cfg.update('prebuildopts', cargo_home)
         self.cfg.update('preinstallopts', cargo_home)
+
+    def install_step(self):
+        """Custom install step for Rust"""
+
+        super(EB_Rust, self).install_step()
+
+        if build_option('rpath'):
+            # make sure that all shared libraries use RPATH, not RUNPATH;
+            # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/18079
+            shlib_ext = get_shared_lib_ext()
+            shared_libs = glob.glob(os.path.join(self.installdir, 'lib', 'lib*.%s' % shlib_ext))
+
+            runpath_regex = re.compile(r"\(RUNPATH\)\s+Library runpath")
+
+            for shared_lib in shared_libs:
+                out, ec = run_cmd("readelf -d %s" % shared_lib, simple=False, trace=False)
+                if ec:
+                    raise EasyBuildError("Failed to check RPATH section in %s: %s", shared_lib, out)
+                elif runpath_regex.search(out):
+                    self.log.info("RUNPATH section found in %s - need to change to RPATH", shared_lib)
+
+                    # first determine current RUNPATH value
+                    out, ec = run_cmd("patchelf --print-rpath %s" % shared_lib)
+                    if ec:
+                        raise EasyBuildError("Failed to determine current RUNPATH value for %s: %s", shared_lib, out)
+                    else:
+                        runpath = out.strip()
+                        # use RUNPATH value to RPATH value
+                        out, ec = run_cmd("patchelf --set-rpath '%s' --force-rpath %s" % (runpath, shared_lib))
+                        if ec:
+                            raise EasyBuildError("Failed to set RPATH for %s: %s", shared_lib, out)
+                        else:
+                            self.log.info("RPATH set for %s", shared_lib)
+                else:
+                    self.log.info("No RUNPATH section found in %s", shared_lib)
 
     def sanity_check_step(self):
         """Custom sanity check for Rust"""
