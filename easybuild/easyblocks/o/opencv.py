@@ -167,8 +167,10 @@ class EB_OpenCV(CMakeMake):
             optarch = build_option('optarch')
             if (
                 not optarch
-                or optarch == 'march=native'
-                or (get_software_root('GCC') and optarch['GCC'] == 'march=native')
+                or (get_software_root('GCC') and (
+                    optarch == 'march=native' or optarch.get('GCC', '') == 'march=native'))
+                or (get_software_root('intel-compilers') and (
+                    optarch == 'xHost' or optarch.get('Intel', '') == 'xHost'))
             ):
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
