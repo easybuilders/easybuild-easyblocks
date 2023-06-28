@@ -94,6 +94,12 @@ class EB_spparks(EasyBlock):
         else:
             jpeg_lib = ''
 
+        # Build with stitch support?
+        stitch_root = get_software_root('stitch')
+        if stitch_root:
+            self.add_package = 'stitch'
+            spk_inc += ' -DSTITCH_PARALLEL -DLOG_STITCH'
+
         regex_subs_spparks = [
             (r"^(CC\s*=\s*).*$", r"\1%s" % cxx),
             (r"^(LINK\s*=\s*).*$", r"\1%s" % cxx),
@@ -140,9 +146,8 @@ class EB_spparks(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        # The mode=shlib is _not_ documented, but is one of the targets shown in the makefile, and seems to succesfully
-        # build the shared library
-        targets = [self.machine, 'mode=shlib %s' % self.machine, 'mode=lib %s' % self.machine]
+        # Build targets
+        targets = ['yes-%s' % self.add_package, self.machine]
 
         for target in targets:
             cmd = ' '.join([
@@ -177,8 +182,6 @@ class EB_spparks(EasyBlock):
 
         binaries = ['spk']
         headers = list(glob.glob(os.path.join(self.spparks_srcdir, '*.h')))
-        shared_libs = ['libspparks']
-        static_libs = ['libspparks']
 
         self.log.debug("headers: %s" % headers)
 
@@ -192,20 +195,3 @@ class EB_spparks(EasyBlock):
 
         for header in headers:
             copy_file(header, os.path.join(self.installdir, 'include', os.path.basename(header)))
-
-        for lib in shared_libs:
-            libname = '%s_%s.%s' % (lib, self.machine, get_shared_lib_ext())
-            src = os.path.join(self.spparks_srcdir, libname)
-            target = os.path.join(self.installdir, 'lib', libname)
-            copy_file(src, target)
-            # Create link, e.g. libspparks_<self.machine>.so => libspparks.so
-            # Regular spparks installation also creates these links for the libraries
-            symlink(target, os.path.join(self.installdir, 'lib', '%s.%s' % (lib, get_shared_lib_ext())))
-
-        for lib in static_libs:
-            libname = '%s_%s.a' % (lib, self.machine)
-            src = os.path.join(self.spparks_srcdir, libname)
-            target = os.path.join(self.installdir, 'lib', libname)
-            copy_file(src, target)
-            # Create link e.g. libspparks_<self.machine>.a => libspparks.a
-            symlink(target, os.path.join(self.installdir, 'lib', '%s.a' % lib))
