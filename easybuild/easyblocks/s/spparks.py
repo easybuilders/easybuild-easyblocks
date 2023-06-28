@@ -36,7 +36,6 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
 
 DEFAULT_BUILD_CMD = 'make'
 DEFAULT_TEST_CMD = 'make'
