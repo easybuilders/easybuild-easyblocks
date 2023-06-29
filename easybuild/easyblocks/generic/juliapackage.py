@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2022 Vrije Universiteit Brussel
+# Copyright 2022-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -96,11 +96,14 @@ class JuliaPackage(ExtensionEasyBlock):
         """Install Julia package with Pkg"""
 
         # prepend installation directory to Julia DEPOT_PATH
+        # extensions in a bundle can share their DEPOT_PATH
         # see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
-        depot_path = os.getenv('JULIA_DEPOT_PATH')
-        if depot_path is not None:
-            depot_path = ':'.join([self.installdir, depot_path])
-        env.setvar('JULIA_DEPOT_PATH', depot_path)
+        depot_path = os.getenv('JULIA_DEPOT_PATH', [])
+        if depot_path:
+            depot_path = depot_path.split(os.pathsep)
+        if self.installdir not in depot_path:
+            depot_path = os.pathsep.join([depot for depot in [self.installdir] + depot_path if depot])
+            env.setvar('JULIA_DEPOT_PATH', depot_path)
 
         # command sequence for Julia.Pkg
         julia_pkg_cmd = ['using Pkg']

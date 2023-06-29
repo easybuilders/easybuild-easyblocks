@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -184,6 +184,8 @@ class ConfigureMake(EasyBlock):
                                  " False implies to leave it up to the configure script)", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
+            'configure_without_installdir': [False, "Avoid passing an install directory to the configure command "
+                                                    "(such as via --prefix)", CUSTOM],
             'host_type': [None, "Value to provide to --host option of configure script, e.g., x86_64-pc-linux-gnu "
                                 "(determined by config.guess shipped with EasyBuild if None,"
                                 " False implies to leave it up to the configure script)", CUSTOM],
@@ -303,11 +305,19 @@ class ConfigureMake(EasyBlock):
             if host_type:
                 build_and_host_options.append(' --host=' + host_type)
 
+        if self.cfg.get('configure_without_installdir'):
+            configure_prefix = ''
+            if self.cfg.get('prefix_opt'):
+                print_warning("Specified prefix_opt '%s' is ignored due to use of configure_without_installdir",
+                              prefix_opt)
+        else:
+            configure_prefix = prefix_opt + self.installdir
+
         cmd = ' '.join(
             [
                 self.cfg['preconfigopts'],
                 configure_command,
-                prefix_opt + self.installdir,
+                configure_prefix,
             ] + build_and_host_options + [self.cfg['configopts']]
         )
 

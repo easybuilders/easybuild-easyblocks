@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -151,7 +151,10 @@ class CMakeMake(ConfigureMake):
 
     def prepend_config_opts(self, config_opts):
         """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
-        cfg_configopts = self.cfg['configopts']
+        # need to disable template resolution or it will remain the same for all runs
+        with self.cfg.disable_templating():
+            cfg_configopts = self.cfg['configopts']
+
         # All options are of the form '-D<key>=<value>'
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
