@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -91,6 +91,10 @@ class EB_libxml2(ConfigureMake, PythonPackage):
             self.cfg.update('configopts', "--with-python-install-dir=%s" % libxml2_pylibdir)
         else:
             self.cfg.update('configopts', '--without-python')
+
+        # building of static libraries is disabled by default for libxml >= 2.10
+        if LooseVersion(self.version) >= LooseVersion('2.10'):
+            self.cfg.update('configopts', '--enable-static')
 
         ConfigureMake.configure_step(self)
 

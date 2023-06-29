@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2022 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -83,7 +83,7 @@ class EB_numexpr(PythonPackage):
                     os.path.join(self.imkl_root, 'mkl', 'latest', 'lib', 'intel64'),
                 ]
                 mkl_include_dirs = os.path.join(self.imkl_root, 'mkl', 'latest', 'include')
-                mkl_libs = ['mkl_intel_lp64', 'mkl_intel_thread', 'mkl_core', 'iomp5']
+                mkl_libs = ['mkl_rt']
             else:
                 mkl_lib_dirs = [
                     os.path.join(self.imkl_root, 'mkl', 'lib', 'intel64'),
@@ -103,15 +103,25 @@ class EB_numexpr(PythonPackage):
             else:
                 site_cfg_lines.append("mkl_libs = %s" % ', '.join(mkl_libs))
 
-            write_file('site.cfg', '\n'.join(site_cfg_lines))
+            site_cfg_txt = '\n'.join(site_cfg_lines)
+            write_file('site.cfg', site_cfg_txt)
+            self.log.info("site.cfg used for numexpr:\n" + site_cfg_txt)
 
     def sanity_check_step(self):
         """Custom sanity check for numexpr."""
 
         custom_commands = []
 
+        # imkl_root may still be None, for example when running with --sanity-check-only
+        if self.imkl_root is None:
+            self.imkl_root = get_software_root('imkl')
+
         # if Intel MKL is available, make sure VML is used
         if self.imkl_root:
             custom_commands.append("python -c 'import numexpr; assert(numexpr.use_vml)'")
+
+            # for sufficiently recent versions of numexpr, also do a more extensive check for VML support
+            if LooseVersion(self.version) >= LooseVersion('2.7.3'):
+                custom_commands.append("""python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
 
         return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)

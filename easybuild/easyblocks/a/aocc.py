@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Forschungszentrum Juelich GmbH
+# Copyright 2020-2023 Forschungszentrum Juelich GmbH
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
