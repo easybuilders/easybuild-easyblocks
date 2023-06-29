@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Free University of Brussels (VUB)
+# Copyright 2018-2023 Free University of Brussels (VUB)
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),

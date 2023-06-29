@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -113,6 +113,11 @@ class EB_COMSOL(PackedBinary):
 
         # make sure setup script is executable
         adjust_permissions(setup_script, stat.S_IXUSR)
+
+        # make sure binaries in arch bindir is executable
+        archpath = os.path.join(self.start_dir, 'bin', 'glnxa64')
+        adjust_permissions(os.path.join(archpath, 'inflate'), stat.S_IXUSR)
+        adjust_permissions(os.path.join(archpath, 'setuplauncher'), stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
         # this is a workaround for not being able to specify --nodisplay to the install scripts
