@@ -32,6 +32,7 @@ import os
 import re
 import tempfile
 import easybuild.tools.environment as env
+from collections import namedtuple
 from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
@@ -40,6 +41,94 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
+
+
+def get_count_for_pattern(regex, text):
+    """Match the regexp containing a single group and return the integer value of the matched group.
+       Return zero if no or more than 1 match was found and warn for the latter case
+    """
+    match = re.findall(regex, text)
+    if len(match) == 1:
+        return int(match[0])
+    elif len(match) > 1:
+        # Shouldn't happen, but means something went wrong with the regular expressions.
+        # Throw warning, as the build might be fine, no need to error on this.
+        warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
+        warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
+        print_warning(warn_msg)
+    return 0
+
+
+def extract_failed_tests_info(tests_out):
+    """
+    Extract information about failed tests from output produced by PyTorch tests
+    """
+
+    # Create clear summary report
+    failure_report = ""
+    failure_cnt = 0
+    error_cnt = 0
+    failed_test_suites = []
+
+    # Look for patterns like:
+    # Ran 219 tests in 67.325s
+    #
+    # FAILED (errors=10, skipped=190, expected failures=6)
+    # test_fx failed!
+    regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
+             r"FAILED \((?P<failure_summary>.*)\)$\n"
+             r"(?:^(?:(?!failed!).)*$\n)*"
+             r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+
+    for match in re.finditer(regex, tests_out, re.M):
+        # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
+        failure_summary, test_cnt, test_suite = match.group('failure_summary', 'test_cnt', 'failed_test_suite_name')
+        failure_report += test_suite + ' (' + test_cnt + " total tests, " + failure_summary + ')\n'
+        failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
+        error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+        failed_test_suites.append(test_suite)
+
+    # Look for patterns like:
+    # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
+    regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
+
+    for match in re.finditer(regex, tests_out, re.M):
+        # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
+        failure_summary, test_suite = match.group('failure_summary', 'failed_test_suite_name')
+        failure_report += test_suite + ' ' + failure_summary + '\n'
+        failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+        error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
+        failed_test_suites.append(test_suite)
+
+    # Look for patterns like:
+    # AssertionError: 4 unit test(s) failed:
+    # ...
+    # distributed/test_c10d_gloo failed!
+    regex = (r"^AssertionError: (?P<failed_test_cnt>[0-9]+) unit test\(s\) failed:$\n"
+             r"(?:^(?:(?!failed!).)*$\n)*"
+             r"(?P<failed_test_group_name>.*) failed!$")
+    for match in re.finditer(regex, tests_out, re.M):
+        test_group, failed_test_cnt = match.group('failed_test_group_name', 'failed_test_cnt')
+        failure_report += test_group + ' (' + failed_test_cnt + " failed tests)\n"
+        failure_cnt += int(failed_test_cnt)
+        failed_test_suites.append(test_group)
+
+    # Look for patterns like:
+    # Running test_jit_cuda_fuser ... [2023-01-12 04:04:08.949222]
+    # ...
+    # AttributeError: 'NoneType' object has no attribute 'split'
+    # test_jit_cuda_fuser failed!
+    regex = (r"^Running (?P<test_name>test_[^\s]+) .*\n"
+             r"(?:^(?:(?!(Ran [0-9]+|failed!)).)*$\n)*"
+             r"\1 failed!$")
+    for match in re.finditer(regex, tests_out, re.M):
+        test_name = match.group('test_name')
+        failure_report += test_name + " (unknown failed test count)\n"
+        failure_cnt += 1
+        failed_test_suites.append(test_name)
+
+    TestsInfo = namedtuple('TestsInfo', ('failure_report', 'failure_cnt', 'error_cnt', 'failed_test_suites'))
+    return TestsInfo(failure_report, failure_cnt, error_cnt, failed_test_suites)
 
 
 class EB_PyTorch(PythonPackage):
@@ -279,65 +368,11 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = test_result
 
-        def get_count_for_pattern(regex, text):
-            """Match the regexp containing a single group and return the integer value of the matched group.
-               Return zero if no or more than 1 match was found and warn for the latter case
-            """
-            match = re.findall(regex, text)
-            if len(match) == 1:
-                return int(match[0])
-            elif len(match) > 1:
-                # Shouldn't happen, but means something went wrong with the regular expressions.
-                # Throw warning, as the build might be fine, no need to error on this.
-                warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
-                warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
-                print_warning(warn_msg)
-            return 0
-
-        # Create clear summary report
-        failure_report = ""
-        failure_cnt = 0
-        error_cnt = 0
-        failed_test_suites = []
-
-        # Grep for patterns like:
-        # Ran 219 tests in 67.325s
-        #
-        # FAILED (errors=10, skipped=190, expected failures=6)
-        # test_fx failed!
-        regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
-                 r"FAILED \((?P<failure_summary>.*)\)$\n"
-                 r"(?:^(?:(?!failed!).)*$\n)*"
-                 r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
-
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-            failure_summary = m.group('failure_summary')
-            total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                    test_suite=test_suite, total=total, failure_summary=failure_summary
-                )
-            failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
-            error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
-            failed_test_suites.append(test_suite)
-
-        # Grep for patterns like:
-        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
-        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
-
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-            failure_summary = m.group('failure_summary')
-            test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
-                    test_suite=test_suite, failure_summary=failure_summary
-                )
-            failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
-            error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
-            failed_test_suites.append(test_suite)
+        failed_tests_info = extract_failed_tests_info(tests_out)
+        failure_report = failed_tests_info.failure_report
 
         # Make the names unique and sorted
-        failed_test_suites = sorted(set(failed_test_suites))
+        failed_test_suites = sorted(set(failed_tests_info.failed_test_suites))
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
         # Also unique and sorted to be able to compare the lists below
         all_failed_test_suites = sorted(set(
@@ -352,17 +387,17 @@ class EB_PyTorch(PythonPackage):
                 failure_report += '\n' + failure_report_save
 
         # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = failure_cnt + error_cnt
+        failed_test_cnt = failed_tests_info.failure_cnt + failed_tests_info.error_cnt
         test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+        max_failed_tests = self.cfg['max_failed_tests']
+        self.log.info("%d unsuccessful tests (out of %d), - max. failed tests set to %d",
+                      failed_test_cnt, test_cnt, max_failed_tests)
 
         if failed_test_cnt > 0:
-            max_failed_tests = self.cfg['max_failed_tests']
-
-            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if error_cnt == 1 else 'errors'
-            msg = "%d test %s, %d test %s (out of %d):\n" % (
-                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
-            )
+            failure_or_failures = 'failure' if failed_tests_info.failure_cnt == 1 else 'failures'
+            msg = "%d test %s, " % (failed_tests_info.failure_cnt, failure_or_failures)
+            error_or_errors = 'error' if failed_tests_info.error_cnt == 1 else 'errors'
+            msg += "%d test %s (out of %d):\n" % (failed_tests_info.error_cnt, error_or_errors, test_cnt)
             msg += failure_report
 
             # If no tests are supposed to fail or some failed for which we were not able to count errors fail now

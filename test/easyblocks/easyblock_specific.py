@@ -40,6 +40,7 @@ import easybuild.tools.options as eboptions
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
+from easybuild.easyblocks import pytorch
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
 from easybuild.framework.easyconfig.easyconfig import process_easyconfig
 from easybuild.tools import config
@@ -50,6 +51,97 @@ from easybuild.tools.filetools import adjust_permissions, remove_dir, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.py2vs3 import StringIO
+
+PYTORCH_TESTS_OUTPUT = """
+...
+AssertionError: Expected zero exit code but got -6 for pid: 2006681
+
+----------------------------------------------------------------------
+Ran 2 tests in 6.576s
+
+FAILED (failures=2)
+distributed/fsdp/test_fsdp_input failed!
+Running distributed/fsdp/test_fsdp_multiple_forward ... [2023-01-12 05:46:45.746098]
+
+RuntimeError: Process 0 terminated or timed out after 610.0615825653076 seconds
+
+----------------------------------------------------------------------
+Ran 1 test in 610.744s
+
+FAILED (errors=1)
+Test exited with non-zero exitcode 1. Command to reproduce: /software/Python/3.9.6-GCCcore-11.2.0/bin/python distributed/test_c10d_gloo.py -v DistributedDataParallelTest.test_ddp_comm_hook_register_just_once
+
+RuntimeError: Process 0 terminated or timed out after 610.0726096630096 seconds
+
+----------------------------------------------------------------------
+Ran 1 test in 610.729s
+
+FAILED (errors=1)
+Test exited with non-zero exitcode 1. Command to reproduce: /software/Python/3.9.6-GCCcore-11.2.0/bin/python distributed/test_c10d_gloo.py -v DistributedDataParallelTest.test_ddp_invalid_comm_hook_init
+test_ddp_invalid_comm_hook_return_type (__main__.DistributedDataParallelTest)
+
+AssertionError: 4 unit test(s) failed:
+    DistributedDataParallelTest.test_ddp_comm_hook_register_just_once
+    DistributedDataParallelTest.test_ddp_invalid_comm_hook_init
+    ProcessGroupGlooTest.test_round_robin
+    ProcessGroupGlooTest.test_round_robin_create_destroy
+distributed/test_c10d_gloo failed!
+Running distributed/test_c10d_nccl ... [2023-01-12 07:43:41.085197]
+
+ValueError: For each axis slice, the sum of the observed frequencies must agree with the sum of the expected frequencies to a relative tolerance of 1e-08, but the percent differences are:
+4.535600093557479e-05
+
+----------------------------------------------------------------------
+Ran 216 tests in 22.396s
+
+FAILED (errors=4)
+distributions/test_distributions failed!
+
+Running test_autograd ... [2023-01-13 04:19:25.587981]
+Executing ['/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_autograd.py', '-v'] ... [2023-01-13 04:19:25.588074]
+...
+test_autograd_views_codegen (__main__.TestAutograd) ... ok
+...
+======================================================================
+FAIL: test_thread_shutdown (__main__.TestAutograd)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/vsc40023/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_autograd.py", line 4220, in test_thread_shutdown
+    self.assertRegex(s, "PYTORCH_API_USAGE torch.autograd.thread_shutdown")
+AssertionError: Regex didn't match: 'PYTORCH_API_USAGE torch.autograd.thread_shutdown' not found in 'PYTORCH_API_USAGE torch.python.import\nPYTORCH_API_USAGE c10d.python.import\nPYTORCH_API_USAGE tensor.create\n'
+----------------------------------------------------------------------
+Ran 464 tests in 18.443s
+
+FAILED (failures=1, skipped=52, expected failures=1)
+test_autograd failed!
+Running test_binary_ufuncs ... [2023-01-12 09:02:45.049490]
+...
+
+Running test_jit_cuda_fuser ... [2023-01-12 04:04:08.949222]
+Executing ['/software/Python/3.9.6-GCCcore-11.2.0/bin/python', 'test_jit_cuda_fuser.py', '-v'] ... [2023-01-12 04:04:08.949319]
+CUDA not available, skipping tests
+monkeytype is not installed. Skipping tests for Profile-Directed Typing
+Traceback (most recent call last):
+  File "/tmp/easybuild_build/PyTorch/1.11.0/foss-2021b/pytorch-v1.11.0/test/test_jit_cuda_fuser.py", line 25, in <module>
+    CUDA_MAJOR, CUDA_MINOR = (int(x) for x in torch.version.cuda.split('.'))
+AttributeError: 'NoneType' object has no attribute 'split'
+test_jit_cuda_fuser failed!
+...
+Running distributions/test_constraints ... [2023-01-12 09:05:15.013470]
+SKIPPED [2] distributions/test_constraints.py:83: `biject_to` not implemented.
+FAILED distributions/test_constraints.py::test_constraint[True-constraint_fn5-False-value5]
+FAILED distributions/test_constraints.py::test_constraint[True-constraint_fn7-True-value7]
+============= 2 failed, 128 passed, 2 skipped, 2 warnings in 8.66s =============
+distributions/test_constraints failed!
+
+Running distributions/rpc/test_tensorpipe_agent ... [2023-01-12 09:06:37.093571]
+...
+Ran 123 tests in 7.549s
+
+FAILED (errors=2, skipped=2)
+...
+test_fx failed! Received signal: SIGSEGV
+"""  # noqa
 
 
 class EasyBlockSpecificTest(TestCase):
@@ -264,6 +356,39 @@ class EasyBlockSpecificTest(TestCase):
         echo "cmake version 1.2.3-rc4"
         """))
         self.assertEqual(det_cmake_version(), '1.2.3-rc4')
+
+    def test_pytorch_extract_failed_tests_info(self):
+        """
+        Test extract_failed_tests_info function from PyTorch easyblock.
+        """
+        res = pytorch.extract_failed_tests_info(PYTORCH_TESTS_OUTPUT)
+        self.assertEqual(len(res), 4)
+
+        expected_failure_report = '\n'.join([
+            "distributed/fsdp/test_fsdp_input (2 total tests, failures=2)",
+            "distributions/test_distributions (216 total tests, errors=4)",
+            "test_autograd (464 total tests, failures=1, skipped=52, expected failures=1)",
+            "test_fx (123 total tests, errors=2, skipped=2)",
+            "distributions/test_constraints 2 failed, 128 passed, 2 skipped, 2 warnings",
+            "distributed/test_c10d_gloo (4 failed tests)",
+            "test_jit_cuda_fuser (unknown failed test count)",
+        ])
+        self.assertEqual(res.failure_report.strip(), expected_failure_report)
+        # test failures
+        self.assertEqual(res.failure_cnt, 10)
+        # test errors
+        self.assertEqual(res.error_cnt, 6)
+
+        expected_failed_test_suites = [
+            'distributed/fsdp/test_fsdp_input',
+            'distributions/test_distributions',
+            'test_autograd',
+            'test_fx',
+            'distributions/test_constraints',
+            'distributed/test_c10d_gloo',
+            'test_jit_cuda_fuser',
+        ]
+        self.assertEqual(res.failed_test_suites, expected_failed_test_suites)
 
 
 def suite():
