@@ -85,4 +85,4 @@ class EB_EggLib(PythonPackage, ConfigureMake):
             'files': ['bin/egglib', 'lib/libegglib-cpp.a'],
             'dirs': ['include/egglib-cpp', self.pylibdir],
         }
-        super(EB_EggLib, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_EggLib, self).sanity_check_step(custom_paths=custom_paths)

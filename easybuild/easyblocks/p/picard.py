@@ -81,7 +81,7 @@ class EB_picard(Tarball):
             'dirs': [],
         }
 
-        super(EB_picard, self).sanity_check_step(custom_paths=custom_paths)
+        return super(EB_picard, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add module entries specific to picard"""

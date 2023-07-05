@@ -126,7 +126,8 @@ class EB_RepeatMasker(Tarball):
 
         custom_commands = ['RepeatMasker']
 
-        super(EB_RepeatMasker, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_RepeatMasker, self).sanity_check_step(custom_paths=custom_paths,
+                                                              custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """Custom guesses for path-like environment variables for RepeatMaskerConfig."""
