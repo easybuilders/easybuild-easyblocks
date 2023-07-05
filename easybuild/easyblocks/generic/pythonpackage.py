@@ -923,6 +923,12 @@ class PythonPackage(ExtensionEasyBlock):
             else:
                 raise EasyBuildError("Failed to determine pip version!")
 
+        # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
+        # and let ExtensionEasyBlock do its job
+        if 'Python' in self.cfg["multi_deps"] and self.fake_mod_data:
+            self.clean_up_fake_module(self.fake_mod_data)
+            self.sanity_check_module_loaded = False
+
         parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 
         if parent_fail_msg:
