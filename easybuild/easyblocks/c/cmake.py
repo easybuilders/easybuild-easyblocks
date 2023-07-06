@@ -126,14 +126,6 @@ class EB_CMake(ConfigureMake):
             if dep_name_upper in available_system_options and '-system-' + dep_name.lower() not in configure_opts:
                 add_cmake_opts['CMAKE_USE_SYSTEM_' + dep_name_upper] = 'ON'
 
-        sysroot = build_option('sysroot')
-        if sysroot:
-            self.log.info("Found sysroot '%s', adding it to $CMAKE_PREFIX_PATH and $CMAKE_LIBRARY_PATH", sysroot)
-            cmake_prefix_path.append(sysroot)
-            cmake_library_path.append(os.path.join(sysroot, 'usr', 'lib'))
-            cmake_library_path.append(os.path.join(sysroot, 'usr', 'lib64'))
-            cmake_include_path.append(os.path.join(sysroot, 'usr', 'include'))
-
         cmake_path_env_vars = {
             'CMAKE_PREFIX_PATH': cmake_prefix_path,
             'CMAKE_LIBRARY_PATH': cmake_library_path,
