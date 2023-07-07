@@ -177,7 +177,9 @@ class EB_Clang_minus_AOMP(Bundle):
         for gfx in self.amd_gfx_archs:
             if LooseVersion(self.version) < LooseVersion("5.2"):
                 custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
-            if LooseVersion(self.version) >= LooseVersion("5"):
+            if LooseVersion(self.version) >= LooseVersion("5.6"):
+                custom_paths['files'].append(os.path.join('lib', 'libomptarget-old-amdgpu-%s.bc' % gfx))
+            elif LooseVersion(self.version) >= LooseVersion("5"):
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-amdgcn-%s.bc' % gfx))
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-new-amdgpu-%s.bc' % gfx))
 
@@ -230,7 +232,7 @@ class EB_Clang_minus_AOMP(Bundle):
         component['configopts'] = ' '.join([
             "-DLLVM_ENABLE_PROJECTS='clang;lld;compiler-rt'",
             "-DCLANG_DEFAULT_LINKER=lld",
-            "-DGCC_INSTALL_PREFIX=$EBROOTGCC",
+            "-DGCC_INSTALL_PREFIX=$EBROOTGCCCORE",
             "-DLLVM_ENABLE_ASSERTIONS=ON",
             "-DLLVM_ENABLE_BINDINGS=OFF",
             "-DLLVM_INCLUDE_BENCHMARKS=OFF",
