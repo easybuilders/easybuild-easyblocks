@@ -102,7 +102,7 @@ class EB_MXNet(MakeCp):
         for srcdir in [d for d in os.listdir(self.builddir) if d != os.path.basename(self.mxnet_src_dir)]:
             submodule, _, _ = srcdir.rpartition('-')
 
-            # the package mkldnn was renamed to oneDNN since this easyblock was written
+            # MXNet assumes the old for oneDNN which was mkldnn
             if submodule == 'oneDNN':
                 submodule = 'mkldnn'
                 # rename the file to 'mkldnn':
