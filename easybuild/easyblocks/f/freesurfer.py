@@ -30,6 +30,8 @@ EasyBuild support for building and installing FreeSurfer, implemented as an easy
 
 import os
 
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import MANDATORY
 from easybuild.tools.filetools import write_file
@@ -92,4 +94,8 @@ class EB_FreeSurfer(Tarball):
             'dirs': ['bin', 'lib', 'mni'],
         }
 
-        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion("7.2"):
+            custom_commands.append('checkMCR.sh')
+
+        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
