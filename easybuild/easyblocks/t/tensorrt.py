@@ -27,6 +27,7 @@ EasyBuild support for building and installing TensorRT, implemented as an easybl
 
 @author: Ake Sandgren (Umea University)
 @author: Maxime Boissonneault (Universite Laval, Compute Canada)
+@author: Charles Coulombe (Universite Laval, Calcul Quebec)
 """
 import glob
 import os
@@ -96,17 +97,21 @@ class EB_TensorRT(PythonPackage, Binary):
         super(EB_TensorRT, self).extensions_step()
 
         pyver = ''.join(get_software_version('Python').split('.')[:2])
+        whlver = '.'.join(self.version.split('.')[:2])
+
+        # Be flexible accross different versions, find wheels instead of hardcoding them.
+        # Will find onnx_graphsurgeon/onnx_graphsurgeon-*-py2.py3-none-any.whl
+        # and tensorrt, tensorrt_dispatch, tensorrt_lean wheels for instance
         whls = [
-            os.path.join('graphsurgeon', 'graphsurgeon-*-py2.py3-none-any.whl'),
-            os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
-            os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)),
+            os.path.join('**', '*-py2.py3-none-any.whl'),
+            os.path.join('python', 'tensorrt*%s*-cp%s-*-linux_x86_64.whl' % (whlver, pyver)),
         ]
         for whl in whls:
-            whl_paths = glob.glob(os.path.join(self.installdir, whl))
-            if len(whl_paths) == 1:
+            whl_paths = glob.glob(os.path.join(self.installdir, whl), recursive=True)
+            if len(whl_paths):
                 cmd = PIP_INSTALL_CMD % {
                     'installopts': self.cfg['installopts'],
-                    'loc': whl_paths[0],
+                    'loc': ' '.join(whl_paths),
                     'prefix': self.installdir,
                     'python': self.python_cmd,
                 }
@@ -119,7 +124,7 @@ class EB_TensorRT(PythonPackage, Binary):
 
                 run_cmd(cmd, log_all=True, simple=True, log_ok=True)
             else:
-                raise EasyBuildError("Failed to isolate .whl in %s: %s", whl_paths, self.installdir)
+                raise EasyBuildError("Failed to isolate .whl in %s: %s", whl_paths, os.path.join(self.installdir, whl))
 
     def sanity_check_step(self):
         """Custom sanity check for TensorRT."""
@@ -131,7 +136,9 @@ class EB_TensorRT(PythonPackage, Binary):
         else:
             custom_paths['files'] = ['bin/trtexec', 'lib/libnvinfer.a']
 
-        custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
+        custom_commands = [
+            "python -c 'import tensorrt'",
+        ]
 
         res = super(EB_TensorRT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
