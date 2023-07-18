@@ -40,6 +40,7 @@ DEFAULT_CONFIGURE_CMD = 'meson'
 DEFAULT_BUILD_CMD = 'ninja'
 DEFAULT_INSTALL_CMD = 'ninja'
 
+
 class MesonNinja(EasyBlock):
     """
     Support for building and installing software with 'meson' and 'ninja'.
