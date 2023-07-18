@@ -42,8 +42,6 @@ from easybuild.tools.modules import get_software_libdir, get_software_root, get_
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
-from easybuild.tools.systemtools import get_cpu_vendor
-import sys
 
 class EB_OpenCV(CMakeMake):
     """Support for building/installing OpenCV."""
