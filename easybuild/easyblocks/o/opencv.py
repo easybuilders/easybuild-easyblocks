@@ -42,6 +42,8 @@ from easybuild.tools.modules import get_software_libdir, get_software_root, get_
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
+from easybuild.tools.systemtools import get_cpu_vendor
+import sys
 
 class EB_OpenCV(CMakeMake):
     """Support for building/installing OpenCV."""
@@ -164,11 +166,16 @@ class EB_OpenCV(CMakeMake):
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
         if self.toolchain.options.get('optarch') and 'CPU_BASELINE' not in self.cfg['configopts']:
+            optimal_arch_option = self.toolchain.COMPILER_OPTIMAL_ARCHITECTURE_OPTION.get(
+                (self.toolchain.arch, self.toolchain.cpu_family), '')
             optarch = build_option('optarch')
             if (
                 not optarch
-                or (get_software_root('GCC') and (optarch == 'march=native' or optarch.get('GCC') == 'march=native'))
-                or (get_software_root('intel-compilers') and (optarch == 'xHost' or optarch.get('Intel') == 'xHost'))
+                or (isinstance(optarch, str) and optimal_arch_option in optarch)
+                or (isinstance(optarch, dict) and (
+                    (get_software_root('GCC') and optimal_arch_option in optarch.get('GCC', ''))
+                    or (get_software_root('intel-compilers') and optimal_arch_option in optarch.get('Intel', ''))
+                ))
             ):
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
