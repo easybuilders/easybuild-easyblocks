@@ -56,4 +56,3 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
-
