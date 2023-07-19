@@ -167,14 +167,18 @@ class EB_OpenCV(CMakeMake):
             optimal_arch_option = self.toolchain.COMPILER_OPTIMAL_ARCHITECTURE_OPTION.get(
                 (self.toolchain.arch, self.toolchain.cpu_family), '')
             optarch = build_option('optarch')
-            if (
-                not optarch
-                or (isinstance(optarch, str) and optimal_arch_option in optarch)
-                or (isinstance(optarch, dict) and (
-                    (get_software_root('GCC') and optimal_arch_option in optarch.get('GCC', ''))
-                    or (get_software_root('intel-compilers') and optimal_arch_option in optarch.get('Intel', ''))
-                ))
-            ):
+            optarch_detect = False
+            if not optarch:
+                optarch_detect = True
+            elif isinstance(optarch, str):
+                optarch_detect = optimal_arch_option in optarch
+            elif isinstance(optarch, dict):
+                gcc_detect = get_software_root('GCC') and optimal_arch_option in optarch.get('GCC', '')
+                intel_root = get_software_root('iccifort') or get_software_root('intel-compilers')
+                intel_detect = intel_root and optimal_arch_option in optarch.get('Intel', '')
+                optarch_detect = gcc_detect or intel_detect
+
+            if optarch_detect:
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
             elif optarch == OPTARCH_GENERIC:
