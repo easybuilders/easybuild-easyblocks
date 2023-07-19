@@ -65,7 +65,7 @@ class Bundle(EasyBlock):
         })
         return EasyBlock.extra_options(extra_vars)
 
-    def __init__(self, *args, check_for_sources=True, **kwargs):
+    def __init__(self, check_for_sources=True, *args, **kwargs):
         """Initialize easyblock."""
         super(Bundle, self).__init__(*args, **kwargs)
         self.altroot = None
