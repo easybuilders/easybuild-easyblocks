@@ -65,7 +65,7 @@ class Bundle(EasyBlock):
         })
         return EasyBlock.extra_options(extra_vars)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, check_for_sources=True, **kwargs):
         """Initialize easyblock."""
         super(Bundle, self).__init__(*args, **kwargs)
         self.altroot = None
@@ -78,10 +78,11 @@ class Bundle(EasyBlock):
         self.comp_cfgs_sanity_check = []
 
         # list of sources for bundle itself *must* be empty
-        if self.cfg['sources']:
-            raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
-        if self.cfg['patches']:
-            raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
+        if check_for_sources:
+            if self.cfg['sources']:
+                raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
+            if self.cfg['patches']:
+                raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
