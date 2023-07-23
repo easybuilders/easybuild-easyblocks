@@ -440,6 +440,16 @@ class EB_CP2K(EasyBlock):
         else:
             self.log.info("libxc module not loaded, so building without libxc support")
 
+        libvori = get_software_root('libvori')
+        if libvori:
+            if LooseVersion(self.version) >= LooseVersion('8.1'):
+                options['LIBS'] += ' -lvori'
+                options['DFLAGS'] += ' -D__LIBVORI'
+            else:
+                raise EasyBuildError("This version of CP2K does not suppport libvori")
+        else:
+            self.log.info("libvori module not loaded, so building without support for Voronoi integration")
+
         return options
 
     def configure_intel_based(self):
