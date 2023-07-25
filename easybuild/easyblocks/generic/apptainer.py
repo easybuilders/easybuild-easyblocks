@@ -53,13 +53,13 @@ class Apptainer(EasyBlock):
             'source_param': [None, "Source parameter to pass to the build script.", CUSTOM],
             'source_type': [None, "Type of source used by the build script", CUSTOM],
             'apptainer_params': ["", "Default parameters for apptainer", CUSTOM],
+            'container_path': ["", "Path to the container that gets created", CUSTOM],
         })
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
         super(Apptainer, self).__init__(*args, **kwargs)
-        self.containerpath = os.path.join("/cvmfs/containers.computecanada.ca/content/containers", "-".join([self.name.lower(), self.version]))
 
     def configure_step(self):
         """No configuration, included in the container recipe"""
@@ -87,7 +87,7 @@ class Apptainer(EasyBlock):
         """
         # For module file generation: temporarly set the container path as installdir
         self.orig_installdir = self.installdir
-        self.installdir = self.containerpath
+        self.installdir = self.cfg["container_path"]
 
         # Generate module
         res = super(Apptainer, self).make_module_step(fake=fake)
@@ -104,7 +104,7 @@ class Apptainer(EasyBlock):
 
         txt = super(Apptainer, self).make_module_extra(*args, **kwargs)
         for alias in self.cfg["aliases"]:
-            txt += self.module_generator.set_alias(alias, "apptainer exec %s %s %s" % (self.cfg["apptainer_params"], self.containerpath, alias))
+            txt += self.module_generator.set_alias(alias, "apptainer exec %s %s %s" % (self.cfg["apptainer_params"], self.cfg["container_path"], alias))
         return txt
 
     def sanity_check_step(self):
@@ -114,7 +114,7 @@ class Apptainer(EasyBlock):
 
         # For module file generation: temporarly set installdir to container path
         orig_installdir = self.installdir
-        self.installdir = self.containerpath
+        self.installdir = self.cfg["container_path"]
 
         # sanity check
         res = super(Apptainer, self).sanity_check_step()
