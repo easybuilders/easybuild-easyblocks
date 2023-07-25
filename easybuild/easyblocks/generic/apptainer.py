@@ -28,7 +28,7 @@
 """
 General EasyBuild support for software, using containerized applications
 
-@author: Maxime Boissonneault (Universitle Laval, Calcul Quebec, Digital Research Alliance of Canada)
+@author: Maxime Boissonneault (Universite Laval, Calcul Quebec, Digital Research Alliance of Canada)
 """
 import os
 import re
@@ -85,7 +85,7 @@ class Apptainer(EasyBlock):
         """
         Custom module step for Apptainer: use container path directly
         """
-        # For module file generation: temporarly set Nix profile
+        # For module file generation: temporarly set the container path as installdir
         self.orig_installdir = self.installdir
         self.installdir = self.containerpath
 
