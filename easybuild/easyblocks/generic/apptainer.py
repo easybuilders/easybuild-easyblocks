@@ -70,19 +70,30 @@ class Apptainer(Binary):
         """
         return ""
 
+    def make_devel_module(self, create_in_builddir=False):
+        """
+        Make sure the easybuild directory is created in easybuild space
+        NOTE TO FUTURE READER: don't ask me why this method is what defines where the easybuild directory is created
+        """
+        newinstalldir = self.installdir
+        self.installdir = self.orig_installdir
+        res = super(Apptainer, self).make_devel_module(create_in_builddir)
+        self.installdir = newinstalldir
+        return res
+
     def make_module_step(self, fake=False):
         """
         Custom module step for Apptainer: use container path directly
         """
         # For module file generation: temporarly set the container path as installdir
-        self.orig_installdir = self.installdir
+        orig_installdir = self.installdir
         self.installdir = self.cfg["container_path"]
 
         # Generate module
         res = super(Apptainer, self).make_module_step(fake=fake)
 
         # Reset installdir to EasyBuild values
-        self.installdir = self.orig_installdir
+        self.installdir = orig_installdir
         return res
 
     def make_module_extra(self, *args, **kwargs):
@@ -102,13 +113,13 @@ class Apptainer(Binary):
         """
 
         # For module file generation: temporarly set installdir to container path
-        orig_installdir = self.installdir
+        self.orig_installdir = self.installdir
         self.installdir = self.cfg["container_path"]
 
         # sanity check
         res = super(Apptainer, self).sanity_check_step()
 
         # Reset installdir to EasyBuild values
-        self.installdir = orig_installdir
+        self.installdir = self.orig_installdir
         return res
 
