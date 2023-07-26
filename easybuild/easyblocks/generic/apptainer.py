@@ -32,26 +32,22 @@ General EasyBuild support for software, using containerized applications
 """
 import os
 import re
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
 
-
-class Apptainer(EasyBlock):
+DEFAULT_INSTALL_CMD = "/bin/sudo -iu containeruser build_container_image.sh -t sandbox "
+class Apptainer(Binary):
     """
-    Support for installing software via a container
+    Support for installing software via an Apptainer container
     """
 
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to Binary easyblock."""
-        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars = Binary.extra_options(extra_vars)
         extra_vars.update({
             'aliases': [[], "Commands to alias in the module.", CUSTOM],
-            'source_param': [None, "Source parameter to pass to the build script.", CUSTOM],
-            'source_type': [None, "Type of source used by the build script", CUSTOM],
             'apptainer_params': ["", "Default parameters for apptainer", CUSTOM],
             'container_path': ["", "Path to the container that gets created", CUSTOM],
         })
@@ -60,20 +56,13 @@ class Apptainer(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
         super(Apptainer, self).__init__(*args, **kwargs)
+        self.cfg['install_cmd'] = DEFAULT_INSTALL_CMD
+        # do not prepend anything to path like binary does
+        self.cfg['prepend_to_path'] = None
 
-    def configure_step(self):
-        """No configuration, included in the container recipe"""
+    def extract_step(self):
+        """No extract step"""
         pass
-
-    def build_step(self):
-        """Compilation done in install step"""
-        pass
-
-    def install_step(self):
-        """Build and install the container."""
-        cmd = "/bin/sudo -iu containeruser build_container_image.sh -t sandbox -v %s -n %s -s %s -i %s" % (self.version, self.name.lower(), self.cfg['source_param'], self.cfg['source_type'])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
 
     def make_module_req(self):
         """
