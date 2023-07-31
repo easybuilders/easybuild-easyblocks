@@ -74,7 +74,7 @@ class Cargo(ExtensionEasyBlock):
 
         optarch = build_option('optarch')
         if optarch:
-            if type(optarch) == dict:
+            if isinstance(optarch, dict):
                 if 'rustc' in optarch:
                     rust_optarch = optarch['rustc']
                     if rust_optarch == OPTARCH_GENERIC:
@@ -82,11 +82,10 @@ class Cargo(ExtensionEasyBlock):
                     else:
                         return '-' + rust_optarch
                 self.log.info("no rustc information in the optarch dict, so using %s" % optimal)
+            elif optarch == OPTARCH_GENERIC:
+                return generic
             else:
-                if optarch == OPTARCH_GENERIC:
-                    return generic
-                else:
-                    self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
+                self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
         return optimal
 
     def __init__(self, *args, **kwargs):
