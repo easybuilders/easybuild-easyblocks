@@ -112,7 +112,7 @@ class EB_LLVM(CMakeMake):
                 change_dir(cwd)
             else:
                 raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
-        
+
         if LooseVersion(self.version) >= LooseVersion('16.0'):
             # make sure that third-party modules are available in build directory,
             # and if so make a 'third-party' symlink so LLVM can find them
