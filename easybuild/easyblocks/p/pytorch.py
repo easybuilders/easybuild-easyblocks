@@ -114,6 +114,7 @@ class EB_PyTorch(PythonPackage):
             ('USE_SYSTEM_FXDIV=1', None, '1.6.0:'),
             ('USE_SYSTEM_BENCHMARK=1', None, '1.6.0:'),  # Google Benchmark
             ('USE_SYSTEM_ONNX=1', None, '1.6.0:'),
+            ('USE_SYSTEM_PYBIND11=1', 'pybind11', '1.10.0:'),
             ('USE_SYSTEM_XNNPACK=1', None, '1.6.0:'),
         )
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
