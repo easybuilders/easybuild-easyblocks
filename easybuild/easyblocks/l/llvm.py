@@ -122,7 +122,7 @@ class EB_LLVM(CMakeMake):
                 symlink('third-party-%s.src' % self.version, 'third-party')
                 change_dir(cwd)
             else:
-                raise EasyBuildError("Failed to find unpacked 'third-party' modules directory at %s", 
+                raise EasyBuildError("Failed to find unpacked 'third-party' modules directory at %s",
                                      third_party_modules_path)
 
         super(EB_LLVM, self).configure_step()
