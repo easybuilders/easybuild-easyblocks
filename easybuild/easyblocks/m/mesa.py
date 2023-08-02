@@ -154,7 +154,11 @@ class EB_Mesa(MesonNinja):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) >= LooseVersion('20.0'):
-            header_files = [os.path.join('include', 'EGL', x) for x in ['eglmesaext.h', 'eglextchromium.h']]
+            header_files = [os.path.join('include', 'EGL', 'eglmesaext.h')]
+            if LooseVersion(self.version) >= LooseVersion('22.3'):
+                header_files.extend([os.path.join('include', 'EGL', 'eglext_angle.h')])
+            else:
+                header_files.extend([os.path.join('include', 'EGL', 'eglextchromium.h')])
             header_files.extend([
                 os.path.join('include', 'GL', 'osmesa.h'),
                 os.path.join('include', 'GL', 'internal', 'dri_interface.h'),
