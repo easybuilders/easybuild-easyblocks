@@ -3,7 +3,27 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 248 software-specific easyblocks and 41 generic easyblocks.
+The latest version of easybuild-easyblocks provides 249 software-specific easyblocks and 42 generic easyblocks.
+
+
+v4.8.0 (7 July 2023)
+--------------------
+
+feature release
+
+- add `PerlBundle` generic easyblock for installing a bundle of Perl modules (#2945)
+- add custom easyblock for Rust, which makes sure that all shared libraries use RPATH rather than RUNPATH if --rpath is used (#2952)
+- minor enhancements and updates, including:
+  - add support for NVIDIA Hopper CC 9.0 in LAMMPS (#2941)
+  - add support for `install_cmds` in `Binary` easyblock (#2953)
+- various bug fixes, including:
+  - patch CMake's UnixPaths.cmake script if --sysroot is set (#2248)
+  - fix incorrect sanity_check_step for torchvision (#2938)
+  - update OpenBLAS easyblock since make shared is necessary and sufficient with OpenBLAS 0.3.23 + recent parallel build fixes (#2944)
+  - improve handling of `optarch` in `Cargo` easyblock (#2947)
+  - reset modules loaded by PythonPackage to let ExtensionEasyBlock handle `multi_deps` correctly (#2951)
+- other changes:
+  - stop running tests with Python 2.7 since it is no longer supported in GitHub Actions (#2943)
 
 
 v4.7.2 (27 May 2023)
@@ -22,6 +42,7 @@ v4.7.2 (27 May 2023)
   - enhance Gurobi easyblock to allow using $EB_GUROBI_LICENSE_FILE environment variable (#2926)
   - force building torchvision with CUDA support if CUDA is included as dependency by setting `$FORCE_CUDA` (#2931)
   - fix exec permission on files in arch bindir for COMSOL (#2932)
+
 
 v4.7.1 (March 20th 2023)
 ------------------------
