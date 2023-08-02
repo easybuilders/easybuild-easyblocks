@@ -33,7 +33,6 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Jasper Grimm (University of York)
 @author: Sebastian Achilles (Juelich Supercomputing Centre)
 """
-import copy
 import os
 import tempfile
 from distutils.version import LooseVersion
@@ -100,7 +99,8 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             if LooseVersion(self.version) >= LooseVersion('1.11'):
                 self.testcmd = " && ".join([
                     "cd ..",
-                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v --parallel %(parallel)s",
+                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v "
+                    "--parallel %(parallel)s",
                 ])
             else:
                 self.testcmd = " && ".join([
