@@ -26,23 +26,56 @@
 EasyBuild support for sympy, implemented as an easyblock
 
 @author: Caspar van Leeuwen (SURF)
+@author: Kenneth Hoste (HPC-UGent)
 """
 
 import os
 import tempfile
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 
 
 class EB_sympy(PythonPackage):
-    """Build sympy"""
+    """Custom easyblock for installing the sympy Python package."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Customize default value for easyconfig parameters for sympy"""
+        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
+        extra_vars['use_pip'][0] = True
+        extra_vars['sanity_pip_check'][0] = True
+        extra_vars['download_dep_fail'][0] = True
+        return extra_vars
 
     def test_step(self):
-        """Test step for sympy"""
+        """Custom test step for sympy"""
+
+        self.cfg['runtest'] = "python setup.py test"
+
+        # we need to make sure that the temporary directory being used is not a symlinked path;
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/17593
         original_tmpdir = tempfile.gettempdir()
         tempfile.tempdir = os.path.realpath(tempfile.gettempdir())
-        self.log.debug("Changing TMPDIR for test step to avoid easybuild-easyconfigs issue #17593.")
-        self.log.debug("Old TMPDIR %s. New TMPDIR %s.", original_tmpdir, tempfile.gettempdir())
+        msg = "Temporary directory set to resolved path %s (was %s), " % (original_tmpdir, tempfile.gettempdir())
+        msg += "to avoid failing tests due to the temporary directory being a symlinked path..."
+        self.log.info(msg)
+
         super(EB_sympy, self).test_step(self)
+
+        # restore original temporary directory
         tempfile.tempdir = original_tmpdir
-        self.log.debug("Restored TMPDIR to %s", tempfile.gettempdir())
+        self.log.debug("Temporary directory restored to %s", tempfile.gettempdir())
+
+    def sanity_check_step(self, *args, **kwargs):
+        """Custom sanity check for sympy."""
+
+        # can't use self.pylibdir here, need to determine path on the fly using currently active 'python' command;
+        # this is important for sympy installations for multiple Python version (via multi_deps)
+        custom_paths = {
+            'files': [os.path.join('bin', 'isympy')],
+            'dirs': [os.path.join(det_pylibdir(), 'sympy')],
+        }
+
+        custom_commands = ["isympy --help"]
+
+        return super(EB_sympy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
