@@ -264,7 +264,7 @@ class EB_imkl(IntelBase):
 
                 # Avoid unused command line arguments (-Wl,rpath...) causeing errors when using RPATH
                 # See https://github.com/easybuilders/easybuild-easyconfigs/pull/18439#issuecomment-1662671054
-                if build_option('rpath'):
+                if build_option('rpath') and os.getenv('CC') in ('icx', 'clang'):
                     cflags = flags + ' -Wno-unused-command-line-argument'
                 else:
                     cflags = flags
