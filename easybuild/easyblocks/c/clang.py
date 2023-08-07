@@ -550,14 +550,6 @@ class EB_Clang(CMakeMake):
         # restore $PATH
         setvar('PATH', orig_path)
 
-    def run_clang_tests(self, obj_dir):
-        """Run Clang tests in specified directory (unless disabled)."""
-        if not self.cfg['skip_all_tests']:
-            change_dir(obj_dir)
-
-            self.log.info("Running tests")
-            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
-
     def build_step(self):
         """Build Clang stage 1, 2, 3"""
 
@@ -567,23 +559,20 @@ class EB_Clang(CMakeMake):
         super(EB_Clang, self).build_step()
 
         if self.cfg['bootstrap']:
-            # Stage 1: run tests.
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
-
             self.log.info("Building stage 2")
             self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            self.run_clang_tests(self.llvm_obj_dir_stage2)
 
             self.log.info("Building stage 3")
             self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
-            # Don't run stage 3 tests here, do it in the test step.
 
     def test_step(self):
-        """Run Clang tests."""
-        if self.cfg['bootstrap']:
-            self.run_clang_tests(self.llvm_obj_dir_stage3)
-        else:
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
+        """Run Clang tests on final stage (unless disabled)."""
+        if not self.cfg['skip_all_tests']:
+            if self.cfg['bootstrap']:
+                change_dir(self.llvm_obj_dir_stage3)
+            else:
+                change_dir(self.llvm_obj_dir_stage1)
+            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
 
     def install_step(self):
         """Install stage 3 binaries."""
@@ -633,6 +622,11 @@ class EB_Clang(CMakeMake):
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
 
+        # Clang v16+ only use the major version number for the resource dir
+        resdir_version = self.version
+        if LooseVersion(self.version) >= LooseVersion('16'):
+            resdir_version = self.version.split('.')[0]
+
         # Detect OpenMP support for CPU architecture
         arch = get_cpu_architecture()
         # Check architecture explicitly since Clang uses potentially
@@ -662,9 +656,9 @@ class EB_Clang(CMakeMake):
             'files': [
                 "bin/clang", "bin/clang++", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt", "bin/llvm-link",
                 "bin/llvm-config", "bin/llvm-symbolizer", "include/llvm-c/Core.h", "include/clang-c/Index.h",
-                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % self.version,
+                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % resdir_version,
             ],
-            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % self.version],
+            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % resdir_version],
         }
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
@@ -697,7 +691,7 @@ class EB_Clang(CMakeMake):
             custom_commands.extend(["%s --help" % flang_compiler])
 
         if LooseVersion(self.version) >= LooseVersion('3.8'):
-            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
+            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % resdir_version])
 
         if LooseVersion(self.version) >= LooseVersion('12'):
             omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
