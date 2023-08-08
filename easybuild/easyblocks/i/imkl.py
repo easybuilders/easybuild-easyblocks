@@ -262,7 +262,7 @@ class EB_imkl(IntelBase):
                 tmpbuild = tempfile.mkdtemp(dir=self.builddir)
                 self.log.debug("Created temporary directory %s" % tmpbuild)
 
-                # Avoid unused command line arguments (-Wl,rpath...) causeing errors when using RPATH
+                # Avoid unused command line arguments (-Wl,rpath...) causing errors when using RPATH
                 # See https://github.com/easybuilders/easybuild-easyconfigs/pull/18439#issuecomment-1662671054
                 if build_option('rpath') and os.getenv('CC') in ('icx', 'clang'):
                     cflags = flags + ' -Wno-unused-command-line-argument'
