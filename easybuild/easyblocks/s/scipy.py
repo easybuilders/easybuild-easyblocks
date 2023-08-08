@@ -99,8 +99,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             if LooseVersion(self.version) >= LooseVersion('1.11'):
                 self.testcmd = " && ".join([
                     "cd ..",
-                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v "
-                    "--parallel %(parallel)s",
+                    # note: beware of adding --parallel here to speed up running the tests:
+                    # in some contexts the test suite could hang because pytest-xdist doesn't deal well with cgroups
+                    # cfr. https://github.com/pytest-dev/pytest-xdist/issues/658
+                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v ",
                 ])
             else:
                 self.testcmd = " && ".join([
