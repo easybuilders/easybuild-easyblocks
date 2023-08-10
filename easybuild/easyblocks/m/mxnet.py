@@ -141,7 +141,6 @@ class EB_MXNet(MakeCp):
                 remove_dir(newdir)
                 symlink(olddir, newdir)
 
-
     def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing MXNet."""
         super(EB_MXNet, self).prepare_step(*args, **kwargs)
