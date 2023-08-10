@@ -280,6 +280,24 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = test_result
 
+        # Show failed subtests to aid in debugging failures
+        # I.e. patterns like
+        # FAIL: test_add_scalar_relu (quantization.core.test_quantized_op.TestQuantizedOps)
+        # ERROR: test_all_to_all_group_cuda (__main__.TestDistBackendWithSpawn)
+        regex = r"^[=-]+\n(FAIL|ERROR): (test_.*?)\s\(.*\n[=-]+\n"
+        failed_test_cases = re.findall(regex, tests_out, re.M)
+        if failed_test_cases:
+            errored_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR')
+            failed_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'FAIL')
+            msg = []
+            if errored_test_cases:
+                msg.append("Found %d individual tests that exited with an error: %s"
+                           % (len(errored_test_cases), ', '.join(errored_test_cases)))
+            if failed_test_cases:
+                msg.append("Found %d individual tests with failed assertions: %s"
+                           % (len(failed_test_cases), ', '.join(failed_test_cases)))
+            self.log.warning("\n".join(msg))
+
         def get_count_for_pattern(regex, text):
             """Match the regexp containing a single group and return the integer value of the matched group.
                Return zero if no or more than 1 match was found and warn for the latter case
