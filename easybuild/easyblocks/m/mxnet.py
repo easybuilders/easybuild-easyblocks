@@ -212,7 +212,7 @@ class EB_MXNet(MakeCp):
         # MXNet doesn't provide a list of its R dependencies by default
         write_file("NAMESPACE", R_NAMESPACE)
         change_dir(self.mxnet_src_dir)
-        self.r_ext.prerun()  # tried commenting this out
+        self.r_ext.prerun()
         # MXNet is just weird. To install the R extension, we have to:
         # - First install the extension like it is
         # - Let R export the extension again. By doing this, all the dependencies get
