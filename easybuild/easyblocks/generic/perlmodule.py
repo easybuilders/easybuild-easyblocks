@@ -47,7 +47,7 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Easyconfig parameters specific to Perl modules."""
         extra_vars = {
             'runtest': ['test', "Run unit tests.", CUSTOM],  # overrides default
-            'prefix_opt': [None, "Option to use to specify installation prefix", CUSTOM],
+            'prefix_opt': [None, "String to use for option to set installation prefix (default is 'PREFIX')", CUSTOM],
         }
         return ExtensionEasyBlock.extra_options(extra_vars)
 
