@@ -54,7 +54,7 @@ class MesonNinja(EasyBlock):
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
-            'builddir': [None, "builddir to pass to meson", CUSTOM],
+            'build_dir': [None, "build_dir to pass to meson", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
         })
         return extra_vars
@@ -90,14 +90,14 @@ class MesonNinja(EasyBlock):
                 configure_cmd == DEFAULT_CONFIGURE_CMD):
             configure_cmd += ' setup'
 
-        builddir = self.cfg.get('builddir') or self.start_dir
+        build_dir = self.cfg.get('build_dir') or self.start_dir
 
-        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
+        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(source_dir)s" % {
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
-            'sourcedir': builddir,
+            'source_dir': build_dir,
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
         return out
