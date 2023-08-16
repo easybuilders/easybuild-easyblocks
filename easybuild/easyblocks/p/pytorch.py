@@ -288,7 +288,7 @@ class EB_PyTorch(PythonPackage):
         failed_test_cases = re.findall(regex, tests_out, re.M)
         # And patterns like:
         # FAILED test_ops_gradients.py::TestGradientsCPU::test_fn_grad_linalg_det_singular_cpu_complex128 - [snip]
-        regex = r"^(FAILED): \w+\.py.*::(test_.*?) - "
+        regex = r"^(FAILED) \w+\.py.*::(test_.*?) - "
         failed_test_cases.extend(re.findall(regex, tests_out, re.M))
         if failed_test_cases:
             errored_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR')
