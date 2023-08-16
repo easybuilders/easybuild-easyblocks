@@ -116,50 +116,63 @@ class EB_SuiteSparse(ConfigureMake):
             })
 
         # patch file
-        fp = os.path.join(self.cfg['start_dir'], self.config_name, '%s.mk' % self.config_name)
+        if LooseVersion(self.version) < LooseVersion('6.0'):
+            fp = os.path.join(self.cfg['start_dir'], self.config_name, '%s.mk' % self.config_name)
+            
+            try:
+                for line in fileinput.input(fp, inplace=1, backup='.orig'):
+                    for (var, val) in list(cfgvars.items()):
+                        # Let's overwrite NVCCFLAGS at the end, since the line breaks and the fact that it appears multiple
+                        # times makes it tricky to handle it properly
+                        if var != 'NVCCFLAGS':
+                            orig_line = line
+                            # for variables in cfgvars, substiture lines assignment
+                            # in the file, whatever they are, by assignments to the
+                            # values in cfgvars
+                            line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
+                                        r"\1 %s # patched by EasyBuild\n" % val,
+                                        line)
+                            if line != orig_line:
+                                cfgvars.pop(var)
+                    sys.stdout.write(line)
+            except IOError as err:
+                raise EasyBuildError("Failed to patch %s in: %s", fp, err)
 
-        try:
-            for line in fileinput.input(fp, inplace=1, backup='.orig'):
-                for (var, val) in list(cfgvars.items()):
-                    # Let's overwrite NVCCFLAGS at the end, since the line breaks and the fact that it appears multiple
-                    # times makes it tricky to handle it properly
-                    if var != 'NVCCFLAGS':
-                        orig_line = line
-                        # for variables in cfgvars, substiture lines assignment
-                        # in the file, whatever they are, by assignments to the
-                        # values in cfgvars
-                        line = re.sub(r"^\s*(%s\s*=\s*).*\n$" % var,
-                                      r"\1 %s # patched by EasyBuild\n" % val,
-                                      line)
-                        if line != orig_line:
-                            cfgvars.pop(var)
-                sys.stdout.write(line)
-        except IOError as err:
-            raise EasyBuildError("Failed to patch %s in: %s", fp, err)
-
-        # add remaining entries at the end
-        if cfgvars:
-            cfgtxt = '# lines below added automatically by EasyBuild\n'
-            cfgtxt += '\n'.join(["%s = %s" % (var, val) for (var, val) in cfgvars.items()])
-            write_file(fp, cfgtxt, append=True)
+            # add remaining entries at the end
+            if cfgvars:
+                cfgtxt = '# lines below added automatically by EasyBuild\n'
+                cfgtxt += '\n'.join(["%s = %s" % (var, val) for (var, val) in cfgvars.items()])
+                write_file(fp, cfgtxt, append=True)
 
     def install_step(self):
         """Install by copying the contents of the builddir to the installdir (preserving permissions)"""
         for x in os.listdir(self.cfg['start_dir']):
             src = os.path.join(self.cfg['start_dir'], x)
-            dst = os.path.join(self.installdir, x)
+            dst = os.path.join(self.installdir, x)           
             try:
                 if os.path.isdir(src):
                     # symlink points to CUDA folder that is
                     # not created for non GPU nodes. shutil
                     # throws an error in this case.
                     copy_dir(src, dst, symlinks=True)
+                    
                     # symlink
-                    # - dst/Lib to dst/lib
+                    # - dst/Lib to dst/lib for v<6.0
+                    # - dst/build to dst/lib for v>=6.0
                     # - dst/Include to dst/include
-                    for c in ['Lib', 'Include']:
+                    lib_dir_name = 'Lib'
+                    include_dir_name = 'Include'
+                    if LooseVersion(self.version) >= LooseVersion('6.0'):
+                        # Starting from v6.0 all libraries are installed in the 'build' directory
+                        # The include files remain in the 'Include' directory
+                        lib_dir_name = 'build'
+
+                    for c in [lib_dir_name, include_dir_name]:
                         nsrc = os.path.join(dst, c)
                         ndst = os.path.join(dst, c.lower())
+                        if LooseVersion(self.version) >= LooseVersion('6.0') and c == 'build':
+                            ndst = os.path.join(dst, 'lib')
+
                         if os.path.exists(nsrc):
                             os.symlink(nsrc, ndst)
                     # enable r-x permissions for group/others
@@ -222,16 +235,16 @@ class EB_SuiteSparse(ConfigureMake):
         libnames = ['AMD', 'BTF', 'CAMD', 'CCOLAMD', 'CHOLMOD', 'COLAMD', 'CXSparse', 'KLU',
                     'LDL', 'RBio', 'SPQR', 'UMFPACK']
         libs = [os.path.join(x, 'lib', 'lib%s.a' % x.lower()) for x in libnames]
-
+        
         if LooseVersion(self.version) < LooseVersion('4.0'):
             csparse_dir = 'CSparse3'
         else:
             csparse_dir = 'CSparse'
         libs.append(os.path.join(csparse_dir, 'lib', 'libcsparse.a'))
 
-        # Latest version of SuiteSparse also compiles shared library and put them in 'lib'
+        # Some versions of SuiteSparse also compile shared library and put them in 'lib'
         shlib_ext = get_shared_lib_ext()
-        if LooseVersion(self.version) >= LooseVersion('4.5.1'):
+        if LooseVersion(self.version) >= LooseVersion('4.5.1') and LooseVersion(self.version) < LooseVersion('6.0.0'):
             libs += [os.path.join('lib', 'lib%s.%s' % (x.lower(), shlib_ext)) for x in libnames]
 
         custom_paths = {
