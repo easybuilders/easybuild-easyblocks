@@ -32,6 +32,7 @@ import os
 import shutil
 from distutils.version import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.easyblocks.generic.rpackage import RPackage
@@ -40,7 +41,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-import easybuild.tools.environment as env
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 # the namespace file for the R extension
@@ -110,7 +110,7 @@ class EB_MXNet(MakeCp):
         for srcdir in [d for d in os.listdir(self.builddir) if d != os.path.basename(self.mxnet_src_dir)]:
             submodule, _, _ = srcdir.rpartition('-')
 
-            if LooseVersion(self.version) > LooseVersion('1.0'):
+            if LooseVersion(self.version) >= LooseVersion('1.0'):
                 # if newdir starts with 'oneDNN-', we rename it to mkldnn:
                 if submodule == 'oneDNN':
                     submodule = 'mkldnn'
@@ -122,8 +122,8 @@ class EB_MXNet(MakeCp):
                 olddir = os.path.join(self.builddir, srcdir)
                 newdir = os.path.join(self.mxnet_src_dir, '3rdparty', submodule)
             else:
-                newdir = os.path.join(self.mxnet_src_dir, submodule)
                 olddir = os.path.join(self.builddir, srcdir)
+                newdir = os.path.join(self.mxnet_src_dir, submodule)
 
             # first remove empty existing directory
             remove_dir(newdir)
@@ -134,7 +134,6 @@ class EB_MXNet(MakeCp):
                 raise EasyBuildError("Failed to move %s to %s: %s", olddir, newdir, err)
 
             if LooseVersion(self.version) < LooseVersion('1.0'):
-                print('yaayyayayayayayaa')
                 # the nnvm submodules has dmlc-core as a submodule too. Let's put a symlink in place.
                 newdir = os.path.join(self.mxnet_src_dir, "nnvm", "dmlc-core")
                 olddir = os.path.join(self.mxnet_src_dir, "dmlc-core")
@@ -152,7 +151,6 @@ class EB_MXNet(MakeCp):
             self.cfg.update('buildopts', '%s="%s"' % (var, os.getenv(env_var)))
 
         toolchain_blas = self.toolchain.definition().get('BLAS', None)[0]
-        print('toolchain_blas: %s' % toolchain_blas)
         if toolchain_blas == 'imkl':
             blas = "mkl"
             imkl_version = get_software_version('imkl')
@@ -198,9 +196,12 @@ class EB_MXNet(MakeCp):
             # Also, from the website of MXNet, Python bindings seem to be the preferred ones so we'll focus on that.
             self.install_r_ext()
         else:
-            self.log.debug("Skipping R extension installation")
+            self.log.info("Skipping R extension installation")
 
     def install_r_ext(self):
+        """
+        Also install R extension for MXNet.
+        """
         # next up, the R bindings
         self.r_ext.src = os.path.join(self.mxnet_src_dir, "R-package")
         change_dir(self.r_ext.src)
