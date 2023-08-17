@@ -173,9 +173,11 @@ class EB_OpenCV(CMakeMake):
             elif isinstance(optarch, str):
                 optarch_detect = optimal_arch_option in optarch
             elif isinstance(optarch, dict):
-                gcc_detect = get_software_root('GCC') and optimal_arch_option in optarch.get('GCC', '')
+                optarch_gcc = optarch.get('GCC')
+                optarch_intel = optarch.get('Intel')
+                gcc_detect = get_software_root('GCC') and (not optarch_gcc or optimal_arch_option in optarch_gcc)
                 intel_root = get_software_root('iccifort') or get_software_root('intel-compilers')
-                intel_detect = intel_root and optimal_arch_option in optarch.get('Intel', '')
+                intel_detect = intel_root and (not optarch_intel or optimal_arch_option in optarch_intel)
                 optarch_detect = gcc_detect or intel_detect
 
             if optarch_detect:
