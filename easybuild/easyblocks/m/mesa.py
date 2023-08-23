@@ -181,9 +181,10 @@ class EB_Mesa(MesonNinja):
         super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self, *args, **kwargs):
-        """ Append to EGL vendor library path, 
+        """ Append to EGL vendor library path,
         so that any NVidia libraries take precedence. """
         txt = ''
+        # Append rather than prepend path to ensure that system NVidia drivers have priority.
         txt += self.module_generator.append_paths('__EGL_VENDOR_LIBRARY_DIRS', 'share/glvnd/egl_vendor.d')
         txt += super(EB_Mesa, self).make_module_extra(*args, **kwargs)
         return txt
