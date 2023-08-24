@@ -59,11 +59,8 @@ class EB_PETSc(ConfigureMake):
         self.prefix_bin = ''
 
         self.with_python = False
-        print("petsc_arch",    self.petsc_arch )
 
         if self.cfg['sourceinstall']:
-            self.prefix_inc = self.petsc_subdir
-            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
             self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
@@ -313,7 +310,8 @@ class EB_PETSc(ConfigureMake):
                     
                 self.petsc_subdir = self.name.lower()
                 self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
-                print("self.petsc_subdir", self.petsc_subdir)
+                self.prefix_inc = os.path.join(self.petsc_subdir, self.petsc_arch)
+                this.prefix_bin = os.path.join(self.petsc_subdir, self.petsc_arch)
             else:
               self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
