@@ -73,6 +73,7 @@ class EB_PETSc(ConfigureMake):
         """Add extra config options specific to PETSc."""
         extra_vars = {
             'sourceinstall': [False, "Indicates whether a source installation should be performed", CUSTOM],
+            'petsc_arch': ['', "Custom PETSC_ARCH for sourceinstall", CUSTOM],
             'shared_libs': [False, "Build shared libraries", CUSTOM],
             'with_papi': [False, "Enable PAPI support", CUSTOM],
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
