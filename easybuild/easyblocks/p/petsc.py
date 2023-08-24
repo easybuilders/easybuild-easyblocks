@@ -313,6 +313,7 @@ class EB_PETSc(ConfigureMake):
                     
                 self.petsc_subdir = self.name.lower()
                 self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+                print("self.petsc_subdir", self.petsc_subdir)
             else:
               self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
