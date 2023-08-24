@@ -52,7 +52,7 @@ class EB_PETSc(ConfigureMake):
         """Initialize PETSc specific variables."""
         super(EB_PETSc, self).__init__(*args, **kwargs)
 
-        self.petsc_arch = ""
+        self.petsc_arch = self.cfg['petsc_arch']
         self.petsc_subdir = ""
         self.prefix_inc = ''
         self.prefix_lib = ''
