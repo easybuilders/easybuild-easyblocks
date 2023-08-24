@@ -220,11 +220,6 @@ class EB_MATLAB(PackedBinary):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
 
-        # make MATLAB runtime available
-        if LooseVersion(self.version) >= LooseVersion('2017a'):
-            for ldlibdir in ['runtime', 'bin', os.path.join('sys', 'os')]:
-                libdir = os.path.join(ldlibdir, 'glnxa64')
-                txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', libdir)
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt
