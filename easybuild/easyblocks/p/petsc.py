@@ -412,7 +412,7 @@ class EB_PETSc(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for PETSc"""
-        print("petsc_subdir:", this.petsc_subdir)
+        print("petsc_subdir:", self.petsc_subdir)
         if self.cfg['shared_libs']:
             libext = get_shared_lib_ext()
         else:
