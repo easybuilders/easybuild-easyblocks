@@ -309,6 +309,9 @@ class EB_PETSc(ConfigureMake):
 
             self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
+			if self.cfg['sourceinstall']:
+				self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+
         else:  # old versions (< 3.x)
 
             self.cfg.update('configopts', '--prefix=%s' % self.installdir)
@@ -409,7 +412,7 @@ class EB_PETSc(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for PETSc"""
-
+		print("petsc_subdir:", this.petsc_subdir)
         if self.cfg['shared_libs']:
             libext = get_shared_lib_ext()
         else:
