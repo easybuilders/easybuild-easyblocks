@@ -86,14 +86,15 @@ class Apptainer(Binary):
         Custom module step for Apptainer: use container path directly
         """
         # For module file generation: temporarly set the container path as installdir
-        orig_installdir = self.installdir
-        self.installdir = self.cfg["container_path"]
+        self.orig_installdir = self.installdir
+        if self.cfg['container_path'] is not None:
+            self.installdir = self.cfg["container_path"]
 
         # Generate module
         res = super(Apptainer, self).make_module_step(fake=fake)
 
         # Reset installdir to EasyBuild values
-        self.installdir = orig_installdir
+        self.installdir = self.orig_installdir
         return res
 
     def make_module_extra(self, *args, **kwargs):
