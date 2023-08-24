@@ -284,7 +284,7 @@ def handle_local_py_install_scheme(install_dir):
         local_subdirs = os.listdir(install_dir_local)
         log.info("Subdirectories of %s: %s", install_dir_local, local_subdirs)
 
-        # symlink subdirectories of <prefix>/local to directly into <prefix>
+        # symlink subdirectories of <prefix>/local directly into <prefix>
         cwd = change_dir(install_dir)
         for local_subdir in local_subdirs:
             srcpath = os.path.join('local', local_subdir)
@@ -636,7 +636,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         Run post-installation shenanigans on specified installation directory, incl:
         * dealing with 'local' subdirectory in install directory in case 'posix_local' installation scheme was used;
-        * symlinking site-packages to dist-packages is only the former is available;
+        * symlinking site-packages to dist-packages if only the former is available;
         """
         py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
 
