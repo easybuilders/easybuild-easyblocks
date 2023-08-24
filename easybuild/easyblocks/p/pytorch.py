@@ -300,7 +300,7 @@ class EB_PyTorch(PythonPackage):
             if failed_test_cases:
                 msg.append("Found %d individual tests with failed assertions: %s"
                            % (len(failed_test_cases), ', '.join(failed_test_cases)))
-            print("\n".join(msg))
+            self.log.warning("\n".join(msg))
 
         def get_count_for_pattern(regex, text):
             """Match the regexp containing a single group and return the integer value of the matched group.
