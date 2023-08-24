@@ -307,15 +307,14 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('buildopts', 'PETSC_ARCH=%s' % self.petsc_arch)
                 else:
                     raise EasyBuildError("Failed to determine PETSC_ARCH setting.")
-                    
+
                 self.petsc_subdir = self.name.lower()
                 self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
                 self.prefix_inc = os.path.join(self.petsc_subdir, self.petsc_arch)
                 self.prefix_bin = os.path.join(self.petsc_subdir, self.petsc_arch)
             else:
-              self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
+                self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
-           
 
         else:  # old versions (< 3.x)
 
