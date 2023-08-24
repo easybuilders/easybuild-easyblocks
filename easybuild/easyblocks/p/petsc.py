@@ -59,6 +59,7 @@ class EB_PETSc(ConfigureMake):
         self.prefix_bin = ''
 
         self.with_python = False
+        print("petsc_arch",    self.petsc_arch )
 
         if self.cfg['sourceinstall']:
             self.prefix_inc = self.petsc_subdir
@@ -286,6 +287,9 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
 
             if self.cfg['sourceinstall']:
+                if self.petsc_arch:
+                    env.setvar('PETSC_ARCH', self.cfg['petsc_arch'])
+
                 # run configure without --prefix (required)
                 cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
