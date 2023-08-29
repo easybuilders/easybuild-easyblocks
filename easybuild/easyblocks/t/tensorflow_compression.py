@@ -139,8 +139,14 @@ class EB_tensorflow_minus_compression(PythonPackage):
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
         # run generated 'build_pip_pkg' script to build the .whl
-        cmd = "python build_pip_pkg.py bazel-bin/build_pip_pkg.runfiles/tensorflow_compression %s %s" % (self.builddir, self.version)
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        cmd = (
+            'python',
+            'build_pip_pkg.py',
+            'bazel-bin/build_pip_pkg.runfiles/tensorflow_compression',
+            self.builddir,
+            self.version
+        )
+        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
     def install_step(self):
         """Custom install procedure for TensorFlow-Compression."""
