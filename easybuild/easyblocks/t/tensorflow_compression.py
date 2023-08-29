@@ -32,7 +32,7 @@ import os
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools import run, LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
 
