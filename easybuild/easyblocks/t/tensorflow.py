@@ -416,7 +416,7 @@ class EB_TensorFlow(PythonPackage):
             incpath = os.path.join(openssl_root, 'include')
             if os.path.exists(incpath):
                 cpaths.append(incpath)
-            libpath = get_software_libdir(dep_name)
+            libpath = get_software_libdir('OpenSSL')
             if libpath:
                 libpaths.append(os.path.join(openssl_root, libpath))
 
