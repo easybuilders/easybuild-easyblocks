@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,6 +40,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -207,7 +208,7 @@ EULA=accept
             mpi_mods.extend(['mpi_base.mod', 'mpi_constants.mod', 'mpi_sizeofs.mod'])
 
         if impi_ver >= LooseVersion('2021'):
-            mpi_subdir = os.path.join('mpi', 'latest')
+            mpi_subdir = os.path.join('mpi', self.version)
             bin_dir = os.path.join(mpi_subdir, 'bin')
             include_dir = os.path.join(mpi_subdir, 'include')
             lib_dir = os.path.join(mpi_subdir, 'lib', 'release')
@@ -234,32 +235,33 @@ EULA=accept
 
         custom_commands = []
 
-        if impi_ver >= LooseVersion('2017'):
-            # Add minimal test program to sanity checks
-            if impi_ver >= LooseVersion('2021'):
-                impi_testsrc = os.path.join(self.installdir, 'mpi', 'latest', 'test', 'test.c')
-            else:
-                impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
+        if build_option('mpi_tests'):
+            if impi_ver >= LooseVersion('2017'):
+                # Add minimal test program to sanity checks
+                if impi_ver >= LooseVersion('2021'):
+                    impi_testsrc = os.path.join(self.installdir, 'mpi', self.version, 'test', 'test.c')
+                else:
+                    impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
 
-            impi_testexe = os.path.join(self.builddir, 'mpi_test')
-            self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
+                impi_testexe = os.path.join(self.builddir, 'mpi_test')
+                self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
-            # Build test program with appropriate compiler from current toolchain
-            comp_fam = self.toolchain.comp_family()
-            if comp_fam == toolchain.INTELCOMP:
-                build_comp = 'mpiicc'
-            else:
-                build_comp = 'mpicc'
-            build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
+                # Build test program with appropriate compiler from current toolchain
+                comp_fam = self.toolchain.comp_family()
+                if comp_fam == toolchain.INTELCOMP:
+                    build_comp = 'mpiicc'
+                else:
+                    build_comp = 'mpicc'
+                build_cmd = "%s %s -o %s" % (build_comp, impi_testsrc, impi_testexe)
 
-            # Execute test program with appropriate MPI executable for target toolchain
-            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
-            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+                # Execute test program with appropriate MPI executable for target toolchain
+                params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+                mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
 
-            custom_commands.extend([
-                build_cmd,  # build test program
-                mpi_cmd_tmpl % params,  # run test program
-            ])
+                custom_commands.extend([
+                    build_cmd,  # build test program
+                    mpi_cmd_tmpl % params,  # run test program
+                ])
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
@@ -281,7 +283,7 @@ EULA=accept
 
             impi_ver = LooseVersion(self.version)
             if impi_ver >= LooseVersion('2021'):
-                mpi_subdir = os.path.join('mpi', 'latest')
+                mpi_subdir = os.path.join('mpi', self.version)
                 lib_dirs = [
                     os.path.join(mpi_subdir, 'lib'),
                     os.path.join(mpi_subdir, 'lib', 'release'),
@@ -295,7 +297,7 @@ EULA=accept
                 manpath = os.path.join(mpi_subdir, 'man')
 
                 if self.cfg['ofi_internal']:
-                    libfabric_dir = os.path.join('mpi', '2021.1.1', 'libfabric')
+                    libfabric_dir = os.path.join('mpi', self.version, 'libfabric')
                     lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
                     path_dirs.append(os.path.join(libfabric_dir, 'bin'))
                     guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
@@ -328,8 +330,14 @@ EULA=accept
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""
+
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            mpiroot = os.path.join(self.installdir, 'mpi', self.version)
+        else:
+            mpiroot = self.installdir
+
         txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
-        txt += self.module_generator.set_environment('I_MPI_ROOT', self.installdir)
+        txt += self.module_generator.set_environment('I_MPI_ROOT', mpiroot)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:
                 if var == 'FC':

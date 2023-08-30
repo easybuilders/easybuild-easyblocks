@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,6 +27,7 @@ EasyBuild support for building and installing ESMF, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada)
 """
 import os
 from distutils.version import LooseVersion
@@ -35,13 +36,22 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_ESMF(ConfigureMake):
     """Support for building/installing ESMF."""
+
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameters for ESMF"""
+        extra_vars = {
+            'disable_lapack': [False, 'Disable external LAPACK - True or False', CUSTOM]
+        }
+        return ConfigureMake.extra_options(extra_vars)
 
     def configure_step(self):
         """Custom configuration procedure for ESMF through environment variables."""
@@ -74,13 +84,19 @@ class EB_ESMF(ConfigureMake):
         env.setvar('ESMF_COMM', comm)
 
         # specify decent LAPACK lib
-        env.setvar('ESMF_LAPACK', 'user')
-        ldflags = os.getenv('LDFLAGS')
-        liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
-        if liblapack is None:
-            raise EasyBuildError("$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?", self.toolchain.name)
+        if self.cfg['disable_lapack']:
+            env.setvar('ESMF_LAPACK', 'OFF')
+            # MOAB can't be built without LAPACK
+            env.setvar('ESMF_MOAB', 'OFF')
         else:
-            env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
+            env.setvar('ESMF_LAPACK', 'user')
+            ldflags = os.getenv('LDFLAGS')
+            liblapack = os.getenv('LIBLAPACK_MT') or os.getenv('LIBLAPACK')
+            if liblapack is None:
+                msg = "$LIBLAPACK(_MT) not defined, no BLAS/LAPACK in %s toolchain?"
+                raise EasyBuildError(msg, self.toolchain.name)
+            else:
+                env.setvar('ESMF_LAPACK_LIBS', ldflags + ' ' + liblapack)
 
         # specify netCDF
         netcdf = get_software_root('netCDF')
@@ -114,14 +130,57 @@ class EB_ESMF(ConfigureMake):
         cmd = "make info"
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
+    def install_step(self):
+        # first, install the software
+        super(EB_ESMF, self).install_step()
+
+        python = get_software_version('Python')
+        if python:
+            # then, install the python bindings
+            py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')),
+                                     'src', 'addon', 'ESMPy')
+            try:
+                os.chdir(py_subdir)
+            except OSError as err:
+                raise EasyBuildError("Failed to move to: %s", err)
+
+            cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
+            cmd += " && python setup.py install --prefix=%s" % self.installdir
+            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+
+    def make_module_extra(self):
+        """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
+        txt = super(EB_ESMF, self).make_module_extra()
+
+        if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
+            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
+        else:
+            python = get_software_version('Python')
+            if python:
+                pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+                pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
+                txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
+
+        return txt
+
     def sanity_check_step(self):
         """Custom sanity check for ESMF."""
 
-        binaries = ['ESMF_Info', 'ESMF_InfoC', 'ESMF_RegridWeightGen', 'ESMF_WebServController']
+        if LooseVersion(self.version) < LooseVersion('8.1.0'):
+            binaries = ['ESMF_Info', 'ESMF_InfoC', 'ESMF_Regrid', 'ESMF_RegridWeightGen',
+                        'ESMF_Scrip2Unstruct', 'ESMF_WebServController']
+        else:
+            binaries = ['ESMF_PrintInfo', 'ESMF_PrintInfoC', 'ESMF_Regrid', 'ESMF_RegridWeightGen',
+                        'ESMF_Scrip2Unstruct', 'ESMF_WebServController']
+
         libs = ['libesmf.a', 'libesmf.%s' % get_shared_lib_ext()]
         custom_paths = {
             'files': [os.path.join('bin', x) for x in binaries] + [os.path.join('lib', x) for x in libs],
             'dirs': ['include', 'mod'],
         }
 
-        super(EB_ESMF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if get_software_root('Python'):
+            custom_commands += ["python -c 'import ESMF'"]
+
+        super(EB_ESMF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

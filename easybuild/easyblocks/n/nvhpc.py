@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2019 Bart Oldeman
-# Copyright 2016-2021 Forschungszentrum Juelich
+# Copyright 2015-2023 Bart Oldeman
+# Copyright 2016-2023 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -40,6 +40,7 @@ import stat
 import sys
 import platform
 
+from distutils.version import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
@@ -134,9 +135,10 @@ class EB_NVHPC(PackedBinary):
         if isinstance(default_compute_capability, list):
             _before_default_compute_capability = default_compute_capability
             default_compute_capability = _before_default_compute_capability[0]
-            warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
-            warning_msg += "with first element of list {}".format(default_compute_capability)
-            print_warning(warning_msg)
+            if len(_before_default_compute_capability) > 1:
+                warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
+                warning_msg += "with first element of list: {}".format(default_compute_capability)
+                print_warning(warning_msg)
 
         # Remove dot-divider for CC; error out if it is not a string
         if isinstance(default_compute_capability, str):
@@ -162,7 +164,10 @@ class EB_NVHPC(PackedBinary):
             line = re.sub(r"^PATH=/", r"#PATH=/", line)
             sys.stdout.write(line)
 
-        cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
+        if LooseVersion(self.version) >= LooseVersion('22.9'):
+            cmd = "%s -x %s" % (makelocalrc_filename, compilers_subdir)
+        else:
+            cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
@@ -173,11 +178,12 @@ class EB_NVHPC(PackedBinary):
                 if os.path.islink(path):
                     os.remove(path)
 
-        # install (or update) siterc file to make NVHPC consider $LIBRARY_PATH
-        siterc_path = os.path.join(compilers_subdir, 'bin', 'siterc')
-        write_file(siterc_path, SITERC_LIBRARY_PATH, append=True)
-        self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
-                      siterc_path, SITERC_LIBRARY_PATH)
+        if LooseVersion(self.version) < LooseVersion('21.3'):
+            # install (or update) siterc file to make NVHPC consider $LIBRARY_PATH
+            siterc_path = os.path.join(compilers_subdir, 'bin', 'siterc')
+            write_file(siterc_path, SITERC_LIBRARY_PATH, append=True)
+            self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
+                          siterc_path, SITERC_LIBRARY_PATH)
 
         # The cuda nvvp tar file has broken permissions
         adjust_permissions(self.installdir, stat.S_IWUSR, add=True, onlydirs=True)
@@ -186,8 +192,13 @@ class EB_NVHPC(PackedBinary):
         """Custom sanity check for NVHPC"""
         prefix = self.nvhpc_install_subdir
         compiler_names = ['nvc', 'nvc++', 'nvfortran']
+
+        files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names]
+        if LooseVersion(self.version) < LooseVersion('21.3'):
+            files.append(os.path.join(prefix, 'compilers', 'bin', 'siterc'))
+
         custom_paths = {
-            'files': [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names + ['siterc']],
+            'files': files,
             'dirs': [os.path.join(prefix, 'compilers', 'bin'), os.path.join(prefix, 'compilers', 'lib'),
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
@@ -293,4 +304,8 @@ class EB_NVHPC(PackedBinary):
         """Add environment variable for NVHPC location"""
         txt = super(EB_NVHPC, self).make_module_extra()
         txt += self.module_generator.set_environment('NVHPC', self.installdir)
+        if LooseVersion(self.version) >= LooseVersion('22.7'):
+            # NVHPC 22.7+ requires the variable NVHPC_CUDA_HOME for external CUDA. CUDA_HOME has been deprecated.
+            if not self.cfg['module_add_cuda'] and get_software_root('CUDA'):
+                txt += self.module_generator.set_environment('NVHPC_CUDA_HOME', os.getenv('CUDA_HOME'))
         return txt

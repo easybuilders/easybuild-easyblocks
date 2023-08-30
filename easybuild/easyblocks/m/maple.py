@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for installing Maple, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Sven Hansen (RWTH Aachen University)
 """
 import glob
 import os
@@ -61,6 +62,8 @@ class EB_Maple(Binary):
             "Do you accept this license? [y/n]:": 'y',
             'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :': self.installdir,
             'IS THIS CORRECT? (Y/N):': 'Y',
+            'Language Selection\n\nPlease select the installation language\n[1] English - English\n[2] Japanese - \n'
+            'Please choose an option [1] : ': '1',
             'Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No ENTER THE NUMBER ' +
             'FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2',
             "Do you wish to have a shortcut installed on your desktop? [Y/n]:": 'n',
@@ -69,7 +72,7 @@ class EB_Maple(Binary):
             'PRESS <ENTER> TO EXIT THE INSTALLER:': '',
             'License server (DEFAULT: ):': self.cfg['license_server'],
             "License server []:": self.cfg['license_server'],
-            'Port number (optional) (DEFAULT: ):': '',
+            'Port number (optional) (DEFAULT: ):': self.cfg['license_server_port'] or '',
             '->1- Configure toolbox for Matlab 2- Do not configure at this time ENTER THE NUMBER FOR YOUR CHOICE, ' +
             'OR PRESS <ENTER> TO ACCEPT THE DEFAULT::': '2',
             "MATLAB Configuration [y/N]:": 'n',
@@ -81,8 +84,9 @@ class EB_Maple(Binary):
             r"Choose Install Folder \[.*\]:": self.installdir,
             r"\[2\] Network License.*\nPlease choose an option \[.\] :": '2',
             r"\[1\] Single Server.*\n.*\nPlease choose an option \[.\] :": '1',
-            r"Port number \[[0-9]+\]:": '',
+            r"Port number \[[0-9]+\]:": self.cfg['license_server_port'] or '',
             r"Enable periodic checking for Maple .* updates after installation \[Y/n\]:": 'n',
+            r'Pre-Installation Summary[\s\S]*': '',
         }
 
         no_qa = [
@@ -91,10 +95,10 @@ class EB_Maple(Binary):
             'Launching installer...',
             "Configuring the installer for this system's environment...",
             'Unpacking the JRE...',
-            r'\[[-|]*',
+            r'\[[-|#|]*',
         ]
 
-        run_cmd_qa(cmd, qa, std_qa=std_qa, no_qa=no_qa, log_all=True, simple=True)
+        run_cmd_qa(cmd, qa, std_qa=std_qa, no_qa=no_qa, log_all=True, simple=True, maxhits=150)
 
         upgrade_installers = glob.glob(os.path.join(self.builddir, 'Maple*Upgrade*'))
         if upgrade_installers:

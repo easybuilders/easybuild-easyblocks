@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -66,10 +66,14 @@ class EB_Mesa(MesonNinja):
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
             arch_gallium_drivers = {
-                X86_64: ['swrast', 'swr'],
+                X86_64: ['swrast'],
                 POWER: ['swrast'],
                 AARCH64: ['swrast'],
             }
+            if LooseVersion(self.version) < LooseVersion('22'):
+                # swr driver support removed in Mesa 22.0
+                arch_gallium_drivers[X86_64].append('swr')
+
             if arch in arch_gallium_drivers:
                 gallium_drivers = arch_gallium_drivers[arch]
                 # Add configopt for additional Gallium drivers
@@ -150,7 +154,11 @@ class EB_Mesa(MesonNinja):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) >= LooseVersion('20.0'):
-            header_files = [os.path.join('include', 'EGL', x) for x in ['eglmesaext.h', 'eglextchromium.h']]
+            header_files = [os.path.join('include', 'EGL', 'eglmesaext.h')]
+            if LooseVersion(self.version) >= LooseVersion('22.3'):
+                header_files.extend([os.path.join('include', 'EGL', 'eglext_angle.h')])
+            else:
+                header_files.extend([os.path.join('include', 'EGL', 'eglextchromium.h')])
             header_files.extend([
                 os.path.join('include', 'GL', 'osmesa.h'),
                 os.path.join('include', 'GL', 'internal', 'dri_interface.h'),

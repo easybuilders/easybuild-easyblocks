@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2019 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Kenneth Hoste
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>, Fotis Georgatos <fotis@cern.ch>
 # License::   MIT/GPL
@@ -19,9 +19,11 @@ EasyBuild support for building and installing BWA, implemented as an easyblock
 @author: George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 """
 import os
+import glob
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, mkdir
 
 
@@ -40,6 +42,8 @@ class EB_BWA(ConfigureMake):
             # is covered by other tools already
             # cfr. http://osdir.com/ml/general/2010-10/msg26205.html
             self.files.append('solid2fastq.pl')
+        self.includes = []
+        self.libs = ['libbwa.a']
 
     def configure_step(self):
         """
@@ -61,11 +65,31 @@ class EB_BWA(ConfigureMake):
         Install by copying files to install dir
         """
         srcdir = self.cfg['start_dir']
-        destdir = os.path.join(self.installdir, 'bin')
-        mkdir(destdir)
+        # copy binaries
+        bindir = os.path.join(self.installdir, 'bin')
+        mkdir(bindir)
         for filename in self.files:
             srcfile = os.path.join(srcdir, filename)
-            copy_file(srcfile, destdir)
+            copy_file(srcfile, bindir)
+
+        # copy include files
+        includes = glob.glob(os.path.join(srcdir, '*.h'))
+        self.includes = [os.path.basename(include) for include in includes]
+        incdir = os.path.join(self.installdir, 'include', 'bwa')
+        if not self.includes:
+            raise EasyBuildError("Unable to find header files")
+
+        mkdir(incdir, parents=True)
+        for filename in self.includes:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, incdir)
+
+        # copy libraries
+        libdir = os.path.join(self.installdir, 'lib')
+        mkdir(libdir)
+        for filename in self.libs:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, libdir)
 
         manfile = os.path.join(srcdir, 'bwa.1')
         manman1dir = os.path.join(self.installdir, 'man', 'man1')
@@ -75,8 +99,12 @@ class EB_BWA(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for BWA."""
 
+        bins = [os.path.join('bin', x) for x in self.files]
+        incs = [os.path.join('include', 'bwa', x) for x in self.includes]
+        libs = [os.path.join('lib', 'libbwa.a')]
+
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in self.files],
+            'files': bins + incs + libs,
             'dirs': []
         }
 

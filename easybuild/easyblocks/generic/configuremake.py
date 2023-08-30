@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -62,9 +62,11 @@ CONFIG_GUESS_COMMIT_ID = "59e2ce0e6b46bb47ef81b68b600ed087e14fdaad"
 CONFIG_GUESS_SHA256 = "c02eb9cc55c86cfd1e9a794e548d25db5c9539e7b2154beb649bc6e2cbffc74c"
 
 
-DEFAULT_CONFIGURE_CMD = './configure'
 DEFAULT_BUILD_CMD = 'make'
+DEFAULT_BUILD_TARGET = ''
+DEFAULT_CONFIGURE_CMD = './configure'
 DEFAULT_INSTALL_CMD = 'make install'
+DEFAULT_TEST_CMD = 'make'
 
 
 def check_config_guess(config_guess):
@@ -175,17 +177,22 @@ class ConfigureMake(EasyBlock):
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
+            'build_cmd_targets': [DEFAULT_BUILD_TARGET, "Target name (string) or list of target names to build",
+                                  CUSTOM],
             'build_type': [None, "Value to provide to --build option of configure script, e.g., x86_64-pc-linux-gnu "
                                  "(determined by config.guess shipped with EasyBuild if None,"
                                  " False implies to leave it up to the configure script)", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'configure_cmd_prefix': ['', "Prefix to be glued before ./configure", CUSTOM],
+            'configure_without_installdir': [False, "Avoid passing an install directory to the configure command "
+                                                    "(such as via --prefix)", CUSTOM],
             'host_type': [None, "Value to provide to --host option of configure script, e.g., x86_64-pc-linux-gnu "
                                 "(determined by config.guess shipped with EasyBuild if None,"
                                 " False implies to leave it up to the configure script)", CUSTOM],
-            'install_cmd': [DEFAULT_INSTALL_CMD, "Build command to use", CUSTOM],
+            'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'prefix_opt': [None, "Prefix command line option for configure script ('--prefix=' if None)", CUSTOM],
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
+            'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
         })
         return extra_vars
 
@@ -298,11 +305,19 @@ class ConfigureMake(EasyBlock):
             if host_type:
                 build_and_host_options.append(' --host=' + host_type)
 
+        if self.cfg.get('configure_without_installdir'):
+            configure_prefix = ''
+            if self.cfg.get('prefix_opt'):
+                print_warning("Specified prefix_opt '%s' is ignored due to use of configure_without_installdir",
+                              prefix_opt)
+        else:
+            configure_prefix = prefix_opt + self.installdir
+
         cmd = ' '.join(
             [
                 self.cfg['preconfigopts'],
                 configure_command,
-                prefix_opt + self.installdir,
+                configure_prefix,
             ] + build_and_host_options + [self.cfg['configopts']]
         )
 
@@ -320,14 +335,21 @@ class ConfigureMake(EasyBlock):
         if self.cfg['parallel']:
             paracmd = "-j %s" % self.cfg['parallel']
 
-        cmd = ' '.join([
-            self.cfg['prebuildopts'],
-            self.cfg.get('build_cmd') or DEFAULT_BUILD_CMD,
-            paracmd,
-            self.cfg['buildopts'],
-        ])
+        targets = self.cfg.get('build_cmd_targets') or DEFAULT_BUILD_TARGET
+        # ensure strings are converted to list
+        targets = [targets] if isinstance(targets, str) else targets
 
-        (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
+        for target in targets:
+            cmd = ' '.join([
+                self.cfg['prebuildopts'],
+                self.cfg.get('build_cmd') or DEFAULT_BUILD_CMD,
+                target,
+                paracmd,
+                self.cfg['buildopts'],
+            ])
+            self.log.info("Building target '%s'", target)
+
+            (out, _) = run_cmd(cmd, path=path, log_all=True, simple=False, log_output=verbose)
 
         return out
 
@@ -337,8 +359,14 @@ class ConfigureMake(EasyBlock):
         - default: None
         """
 
-        if self.cfg['runtest']:
-            cmd = "%s make %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
+        test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
+        if self.cfg['runtest'] or test_cmd != DEFAULT_TEST_CMD:
+            cmd = ' '.join([
+                self.cfg['pretestopts'],
+                test_cmd,
+                self.cfg['runtest'],
+                self.cfg['testopts'],
+            ])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
             return out

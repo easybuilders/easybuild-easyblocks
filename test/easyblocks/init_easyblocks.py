@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,15 +65,17 @@ class InitTest(TestCase):
     set_tmpdir()
     del eb_go
 
-    def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt=''):
+    def write_ec(self, easyblock, name='foo', version='1.3.2', toolchain=None, extratxt=''):
         """ create temporary easyconfig file """
+        if toolchain is None:
+            toolchain = 'SYSTEM'
         txt = '\n'.join([
             'easyblock = "%s"',
             'name = "%s"' % name,
             'version = "%s"' % version,
             'homepage = "http://example.com"',
             'description = "Dummy easyconfig file."',
-            'toolchain = {"name": "dummy", "version": "dummy"}',
+            'toolchain = %s' % toolchain,
             'sources = []',
             extratxt,
         ])
@@ -94,7 +96,7 @@ class InitTest(TestCase):
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
-def template_init_test(self, easyblock, name='foo', version='1.3.2'):
+def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=None, deps=None):
     """Test whether all easyblocks can be initialized."""
 
     def check_extra_options_format(extra_options):
@@ -162,8 +164,11 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2'):
                     test_param = 'foo'
                 extra_txt += '%s = "%s"\n' % (key, test_param)
 
+        if deps:
+            extra_txt += 'dependencies = %s' % str(deps)
+
         # write easyconfig file
-        self.writeEC(ebname, name=name, version=version, extratxt=extra_txt)
+        self.write_ec(ebname, name=name, version=version, toolchain=toolchain, extratxt=extra_txt)
 
         # initialize easyblock
         # if this doesn't fail, the test succeeds
@@ -205,16 +210,26 @@ def suite():
     easyblocks = [eb for eb in all_pys if not eb.endswith('__init__.py') and '/test/' not in eb]
 
     for easyblock in easyblocks:
+        easyblock_fn = os.path.basename(easyblock)
         # dynamically define new inner functions that can be added as class methods to InitTest
-        if os.path.basename(easyblock) == 'systemcompiler.py':
+        if easyblock_fn == 'systemcompiler.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
-        elif os.path.basename(easyblock) == 'systemmpi.py':
+        elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
-        elif os.path.basename(easyblock) == 'intel_compilers.py':
+        elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif easyblock_fn == 'openfoam.py':
+            # custom easyblock for OpenFOAM requires non-system toolchain
+            innertest = make_inner_test(easyblock, toolchain={'name': 'foss', 'version': '2021a'})
+        elif easyblock_fn == 'openssl_wrapper.py':
+            # easyblock to create OpenSSL wrapper expects an OpenSSL version
+            innertest = make_inner_test(easyblock, version='1.1')
+        elif easyblock_fn == 'torchvision.py':
+            # torchvision easyblock requires that PyTorch is listed as dependency
+            innertest = make_inner_test(easyblock, name='torchvision', deps=[('PyTorch', '1.12.1')])
         else:
             innertest = make_inner_test(easyblock)
 

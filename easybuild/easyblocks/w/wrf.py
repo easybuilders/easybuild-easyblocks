@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, patch_perl_script_autoflush, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir
+from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd, run_cmd_qa
@@ -252,11 +253,26 @@ class EB_WRF(EasyBlock):
         if par:
             self.par = "-j %s" % par
 
-        # fix compile script shebang
+        # fix compile script shebang to use provided tcsh
         cmpscript = os.path.join(self.start_dir, 'compile')
-        cmpsh_root = get_software_root('tcsh')
-        if cmpsh_root:
-            regex_subs = [('/bin/csh', os.path.join(cmpsh_root, 'bin/tcsh'))]
+        tcsh_root = get_software_root('tcsh')
+        if tcsh_root:
+            tcsh_path = os.path.join(tcsh_root, 'bin', 'tcsh')
+            # avoid using full path to tcsh if possible, since it may be too long to be used as shebang line
+            which_tcsh = which('tcsh')
+            if which_tcsh and os.path.samefile(which_tcsh, tcsh_path):
+                env_path = os.path.join('/usr', 'bin', 'env')
+                # use env command from alternate sysroot, if available
+                sysroot = build_option('sysroot')
+                if sysroot:
+                    sysroot_env_path = os.path.join(sysroot, 'usr', 'bin', 'env')
+                    if os.path.exists(sysroot_env_path):
+                        env_path = sysroot_env_path
+                new_shebang = env_path + ' tcsh'
+            else:
+                new_shebang = tcsh_path
+
+            regex_subs = [('^#!/bin/csh.*', '#!' + new_shebang)]
             apply_regex_substitutions(cmpscript, regex_subs)
 
         # build wrf

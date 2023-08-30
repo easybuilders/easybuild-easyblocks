@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -132,7 +132,7 @@ class EB_BerkeleyGW(ConfigureMake):
 
         mkl = get_software_root('imkl')
         if mkl:
-            self.cfg.update('buildopts', 'MKLPATH="%s"' % mkl)
+            self.cfg.update('buildopts', 'MKLPATH="%s"' % os.getenv('MKLROOT'))
 
         fftw = get_software_root('FFTW')
         if mkl or fftw:
@@ -178,6 +178,7 @@ class EB_BerkeleyGW(ConfigureMake):
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
             setvar('OMP_NUM_THREADS', '4')
+            setvar('TEMPDIRPATH', os.path.join(self.builddir, 'tmp'))
         super(EB_BerkeleyGW, self).test_step()
 
     def sanity_check_step(self):

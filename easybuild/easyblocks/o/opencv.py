@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2021 Ghent University
+# Copyright 2018-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,6 +26,7 @@
 EasyBuild support for building and installing OpenCV, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Simon Branford (University of Birmingham)
 """
 import glob
 import os
@@ -37,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import compute_checksum, copy
-from easybuild.tools.modules import get_software_libdir, get_software_root
+from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -149,11 +150,37 @@ class EB_OpenCV(CMakeMake):
                     lib_path = os.path.join(dep_root, libdir, lib_file)
                     self.cfg.update('configopts', '-D%s_LIBRARY=%s' % (opt_name, lib_path))
 
+        # GTK+3 is used by default, use GTK+2 or none explicitely to avoid picking up a system GTK
+        if get_software_root('GTK+'):
+            if LooseVersion(get_software_version('GTK+')) < LooseVersion('3.0'):
+                self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        elif get_software_root('GTK3'):
+            pass
+        elif get_software_root('GTK2'):
+            self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
+        else:
+            self.cfg.update('configopts', '-DWITH_GTK=OFF')
+
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
         if self.toolchain.options.get('optarch') and 'CPU_BASELINE' not in self.cfg['configopts']:
+            optimal_arch_option = self.toolchain.COMPILER_OPTIMAL_ARCHITECTURE_OPTION.get(
+                (self.toolchain.arch, self.toolchain.cpu_family), '')
             optarch = build_option('optarch')
-            if optarch is None:
+            optarch_detect = False
+            if not optarch:
+                optarch_detect = True
+            elif isinstance(optarch, str):
+                optarch_detect = optimal_arch_option in optarch
+            elif isinstance(optarch, dict):
+                optarch_gcc = optarch.get('GCC')
+                optarch_intel = optarch.get('Intel')
+                gcc_detect = get_software_root('GCC') and (not optarch_gcc or optimal_arch_option in optarch_gcc)
+                intel_root = get_software_root('iccifort') or get_software_root('intel-compilers')
+                intel_detect = intel_root and (not optarch_intel or optimal_arch_option in optarch_intel)
+                optarch_detect = gcc_detect or intel_detect
+
+            if optarch_detect:
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
             elif optarch == OPTARCH_GENERIC:
@@ -215,6 +242,9 @@ class EB_OpenCV(CMakeMake):
     def make_module_extra(self):
         """Custom extra module file entries for OpenCV."""
         txt = super(EB_OpenCV, self).make_module_extra()
+
+        if LooseVersion(self.version) >= LooseVersion('4.0'):
+            txt += self.module_generator.prepend_paths('CPATH', os.path.join('include', 'opencv4'))
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
 

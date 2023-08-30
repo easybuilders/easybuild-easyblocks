@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,6 +55,7 @@ class EB_MATLAB(PackedBinary):
         super(EB_MATLAB, self).__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_installer_input.txt')
+        self.outputfile = os.path.join(self.builddir, 'my_installer_output.txt')
 
     @staticmethod
     def extra_options():
@@ -86,6 +87,7 @@ class EB_MATLAB(PackedBinary):
 
         try:
             copy_file(os.path.join(self.cfg['start_dir'], 'installer_input.txt'), self.configfile)
+            adjust_permissions(self.configfile, stat.S_IWUSR)
 
             # read file in binary mode to avoid UTF-8 encoding issues when using Python 3,
             # due to non-UTF-8 characters...
@@ -97,12 +99,14 @@ class EB_MATLAB(PackedBinary):
             regagree = re.compile(br"^# agreeToLicense=.*", re.M)
             regmode = re.compile(br"^# mode=.*", re.M)
             reglicpath = re.compile(br"^# licensePath=.*", re.M)
+            regoutfile = re.compile(br"^# outputFile=.*", re.M)
 
             # must use byte-strings here when using Python 3, see above
             config = regdest.sub(b"destinationFolder=%s" % self.installdir.encode('utf-8'), config)
             config = regagree.sub(b"agreeToLicense=Yes", config)
             config = regmode.sub(b"mode=silent", config)
             config = reglicpath.sub(b"licensePath=%s" % licfile.encode('utf-8'), config)
+            config = regoutfile.sub(b"outputFile=%s" % self.outputfile.encode('utf-8'), config)
 
             write_file(self.configfile, config)
 
@@ -120,8 +124,11 @@ class EB_MATLAB(PackedBinary):
         adjust_permissions(src, stat.S_IXUSR)
 
         if LooseVersion(self.version) >= LooseVersion('2016b'):
-            jdir = os.path.join(self.cfg['start_dir'], 'sys', 'java', 'jre', 'glnxa64', 'jre', 'bin')
-            for perm_dir in [os.path.join(self.cfg['start_dir'], 'bin', 'glnxa64'), jdir]:
+            perm_dirs = [os.path.join(self.cfg['start_dir'], 'bin', 'glnxa64')]
+            if LooseVersion(self.version) < LooseVersion('2021b'):
+                jdir = os.path.join(self.cfg['start_dir'], 'sys', 'java', 'jre', 'glnxa64', 'jre', 'bin')
+                perm_dirs.append(jdir)
+            for perm_dir in perm_dirs:
                 adjust_permissions(perm_dir, stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
@@ -155,7 +162,11 @@ class EB_MATLAB(PackedBinary):
 
         keys = self.cfg['key']
         if keys is None:
-            keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
+            try:
+                keys = os.environ['EB_MATLAB_KEY']
+            except KeyError:
+                raise EasyBuildError("The MATLAB install key is not set. This can be set either with the environment "
+                                     "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
         if isinstance(keys, string_type):
             keys = keys.split(',')
 
@@ -180,6 +191,12 @@ class EB_MATLAB(PackedBinary):
             # check installer output for known signs of trouble
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
+                "Not a valid key",
+                "All selected products are already installed",
+                "The application encountered an unexpected error and needs to close",
+                "Error: Unable to write to",
+                "Exiting with status -\\d",
+                "End - Unsuccessful",
             ]
 
             for pattern in patterns:
@@ -187,6 +204,10 @@ class EB_MATLAB(PackedBinary):
                 if regex.search(out):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
                                          regex.pattern, cmd, out)
+                with open(self.outputfile) as f:
+                    if regex.search(f.read()):
+                        raise EasyBuildError("Found error pattern '%s' in output file of installer",
+                                             regex.pattern)
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
@@ -200,11 +221,6 @@ class EB_MATLAB(PackedBinary):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
 
-        # make MATLAB runtime available
-        if LooseVersion(self.version) >= LooseVersion('2017a'):
-            for ldlibdir in ['runtime', 'bin', os.path.join('sys', 'os')]:
-                libdir = os.path.join(ldlibdir, 'glnxa64')
-                txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', libdir)
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt

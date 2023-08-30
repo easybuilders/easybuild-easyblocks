@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,6 +43,7 @@ from easybuild.toolchains.linalg.acml import Acml
 from easybuild.toolchains.linalg.atlas import Atlas
 from easybuild.toolchains.linalg.blacs import Blacs
 from easybuild.toolchains.linalg.blis import Blis
+from easybuild.toolchains.linalg.flexiblas import FlexiBLAS, det_flexiblas_backend_libs
 from easybuild.toolchains.linalg.gotoblas import GotoBLAS
 from easybuild.toolchains.linalg.lapack import Lapack
 from easybuild.toolchains.linalg.openblas import OpenBLAS
@@ -104,11 +105,19 @@ class EB_ScaLAPACK(CMakeMake):
         extra_makeopts = []
 
         acml = get_software_root(Acml.LAPACK_MODULE_NAME[0])
+        flexiblas = get_software_root(FlexiBLAS.LAPACK_MODULE_NAME[0])
+        intelmkl = get_software_root(IntelMKL.LAPACK_MODULE_NAME[0])
         lapack = get_software_root(Lapack.LAPACK_MODULE_NAME[0])
         openblas = get_software_root(OpenBLAS.LAPACK_MODULE_NAME[0])
-        intelmkl = get_software_root(IntelMKL.LAPACK_MODULE_NAME[0])
 
-        if lapack:
+        if flexiblas:
+            libdir = os.path.join(flexiblas, 'lib')
+            blas_libs = ' '.join(['-l%s' % lib for lib in FlexiBLAS.BLAS_LIB])
+            extra_makeopts.extend([
+                'BLASLIB="-L%s %s -lpthread"' % (libdir, blas_libs),
+                'LAPACKLIB="-L%s %s"' % (libdir, blas_libs),
+            ])
+        elif lapack:
             extra_makeopts.append('LAPACKLIB=%s' % os.path.join(lapack, 'lib', 'liblapack.a'))
 
             for blas in [Atlas, Blis, GotoBLAS]:
@@ -257,6 +266,19 @@ class EB_ScaLAPACK(CMakeMake):
                 for lib in glob.glob(os.path.join(src, '*%s' % ext)):
                     copy_file(lib, os.path.join(dest, os.path.basename(lib)))
                     self.log.debug("Copied %s to %s", lib, dest)
+
+    def banned_linked_shared_libs(self):
+        """
+        List of shared libraries which are not allowed to be linked in any installed binary/library.
+        """
+        res = super(EB_ScaLAPACK, self).banned_linked_shared_libs()
+
+        # register FlexiBLAS backends as banned libraries,
+        # ScaLAPACK should not be linking to those directly
+        if get_software_root(FlexiBLAS.LAPACK_MODULE_NAME[0]):
+            res.extend(det_flexiblas_backend_libs())
+
+        return res
 
     def sanity_check_step(self):
         """Custom sanity check for ScaLAPACK."""

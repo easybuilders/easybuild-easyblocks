@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2021 Ghent University
+# Copyright 2012-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,8 @@ EasyBuild support for cuDNN, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 @author: Robert Mijakovic (LuxProvide)
 """
+from distutils.version import LooseVersion
+
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture
@@ -38,17 +40,31 @@ class EB_cuDNN(Tarball):
 
     def __init__(self, *args, **kwargs):
         """ Init the cuDNN easyblock adding a new cudnnarch template var """
-        myarch = get_cpu_architecture()
-        if myarch == AARCH64:
-            cudnnarch = 'aarch64sbsa'
-        elif myarch == POWER:
-            cudnnarch = 'ppc64le'
-        elif myarch == X86_64:
-            cudnnarch = 'x64'
-        else:
-            raise EasyBuildError("Architecture %s is not supported for cuDNN on EasyBuild", myarch)
 
+        # Need to call super's init first, so we can use self.version
         super(EB_cuDNN, self).__init__(*args, **kwargs)
 
+        # Generate cudnnarch template value for this system
+        cudnnarch = False
+        myarch = get_cpu_architecture()
+
+        if LooseVersion(self.version) < LooseVersion('8.3.3'):
+            if myarch == AARCH64:
+                cudnnarch = 'aarch64sbsa'
+            elif myarch == POWER:
+                cudnnarch = 'ppc64le'
+            elif myarch == X86_64:
+                cudnnarch = 'x64'
+        else:
+            if myarch == AARCH64:
+                cudnnarch = 'sbsa'
+            elif myarch == POWER:
+                cudnnarch = 'ppc64le'
+            elif myarch == X86_64:
+                cudnnarch = 'x86_64'
+
+        if not cudnnarch:
+            raise EasyBuildError("The cuDNN easyblock does not currently support architecture %s", myarch)
+        self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
