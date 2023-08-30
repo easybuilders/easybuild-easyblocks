@@ -51,11 +51,11 @@ class MesonNinja(EasyBlock):
         """Define extra easyconfig parameters specific to MesonNinja."""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
-            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
-            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
-            'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'build_dir': [None, "build_dir to pass to meson", CUSTOM],
+            'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
 
@@ -106,7 +106,7 @@ class MesonNinja(EasyBlock):
         """
         Build with Ninja.
         """
-        build_cmd = self.cfg.get('build_cmd') or DEFAULT_BUILD_CMD
+        build_cmd = self.cfg.get('build_cmd', DEFAULT_BUILD_CMD)
 
         parallel = ''
         if self.cfg['parallel']:
@@ -134,7 +134,7 @@ class MesonNinja(EasyBlock):
         """
         Install with 'ninja install'.
         """
-        install_cmd = self.cfg.get('install_cmd') or DEFAULT_INSTALL_CMD
+        install_cmd = self.cfg.get('install_cmd', DEFAULT_INSTALL_CMD)
 
         parallel = ''
         if self.cfg['parallel']:
