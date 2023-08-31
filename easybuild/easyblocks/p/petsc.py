@@ -315,7 +315,6 @@ class EB_PETSc(ConfigureMake):
             else:
                 self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
-
         else:  # old versions (< 3.x)
 
             self.cfg.update('configopts', '--prefix=%s' % self.installdir)
