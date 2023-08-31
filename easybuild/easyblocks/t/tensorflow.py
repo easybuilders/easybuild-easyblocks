@@ -146,7 +146,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('libjpeg-turbo', '2.2.0:'): 'libjpeg_turbo',
         ('libpng', '2.0.0:2.1.0'): 'png_archive',
         ('libpng', '2.1.0:'): 'png',
-        ('LMDB', '2.0.0:'): 'lmdb',
+        ('LMDB', '2.0.0:2.13.0'): 'lmdb',
         ('NASM', '2.0.0:'): 'nasm',
         ('nsync', '2.0.0:'): 'nsync',
         ('PCRE', '2.0.0:2.6.0'): 'pcre',
@@ -161,11 +161,11 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # Software recognized by TF but which is always disabled (usually because no EC is known)
     # Format: <TF name>: <version range>
     unused_system_libs = {
-        'boringssl': '2.0.0:',
+        'boringssl': '2.0.0:',  # Implied by cURL and existence of OpenSSL anywhere in the dependency chain
         'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
-        'com_googlesource_code_re2': '2.0.0:',
+        'com_googlesource_code_re2': '2.0.0:',  # Requires the RE2 version with Abseil (or 2023-06-01+)
         'grpc': '2.0.0:2.2.0',
     }
     # Python packages installed as extensions or in the Python module
@@ -335,10 +335,10 @@ class EB_TensorFlow(PythonPackage):
                 msg = 'Values for $TF_SYSTEM_LIBS in the TensorFlow EasyBlock are incomplete.\n'
                 if missing_libs:
                     # Libs available according to TF sources but not listed in this EasyBlock
-                    msg += 'Missing entries for $TF_SYSTEM_LIBS: %s\n' % missing_libs
+                    msg += 'Missing entries for $TF_SYSTEM_LIBS: %s\n' % sorted(missing_libs)
                 if unknown_libs:
                     # Libs listed in this EasyBlock but not present in the TF sources -> Removed?
-                    msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % unknown_libs
+                    msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % sorted(unknown_libs)
                 msg += 'The EasyBlock needs to be updated to fully work with TensorFlow version %s' % self.version
             if build_option('strict') == run.ERROR:
                 raise EasyBuildError(msg)
