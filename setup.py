@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2021 Ghent University
+# Copyright 2012-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,11 +58,11 @@ setup(
     version=str(VERSION),
     author="EasyBuild community",
     author_email="easybuild@lists.ugent.be",
-    description="""Python modules which implement support for installing particular
+    description="""Python modules which implement support for installing particular \
  (groups of) software packages with EasyBuild.""",
     license="GPLv2",
     keywords="software build building installation installing compilation HPC scientific",
-    url="https://easybuilders.github.io/easybuild",
+    url="https://easybuild.io",
     packages=["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
     package_dir={"easybuild.easyblocks": "easybuild/easyblocks"},
     package_data={'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
@@ -79,6 +79,8 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Software Development :: Build Tools",
     ],
     platforms="Linux",

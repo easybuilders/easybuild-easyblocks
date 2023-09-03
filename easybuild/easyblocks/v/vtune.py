@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,7 @@ EasyBuild support for installing Intel VTune, implemented as an easyblock
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 from distutils.version import LooseVersion
+import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 
@@ -45,7 +46,9 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2020'):
+        if loosever >= LooseVersion('2021'):
+            self.subdir = os.path.join('vtune', self.version)
+        elif loosever >= LooseVersion('2020'):
             self.subdir = 'vtune_profiler'
         elif loosever >= LooseVersion('2018'):
             self.subdir = 'vtune_amplifier'
@@ -85,8 +88,16 @@ class EB_VTune(IntelBase):
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
         if LooseVersion(self.version) >= LooseVersion('2020'):
-            binaries = ['vtune', 'amplxe-feedback', 'vtune-gui', 'amplxe-runss']
+            binaries = ['amplxe-feedback', 'amplxe-runss', 'vtune', 'vtune-gui']
         else:
             binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
+
         custom_paths = self.get_custom_paths_tools(binaries)
-        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths)
+
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion('2020'):
+            custom_commands.append('vtune --version')
+        else:
+            custom_commands.append('amplxe-cl --version')
+
+        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

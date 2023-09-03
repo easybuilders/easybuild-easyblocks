@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,7 +50,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
-from easybuild.tools.filetools import apply_regex_substitutions, copy, mkdir, symlink, which, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
@@ -63,8 +63,6 @@ class EB_Boost(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Initialize Boost-specific variables."""
         super(EB_Boost, self).__init__(*args, **kwargs)
-
-        self.objdir = None
 
         self.pyvers = []
 
@@ -134,10 +132,6 @@ class EB_Boost(EasyBlock):
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
 
-        # create build directory (Boost doesn't like being built in source dir)
-        self.objdir = os.path.join(self.builddir, 'obj')
-        mkdir(self.objdir)
-
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
         if toolset is None:
@@ -149,7 +143,7 @@ class EB_Boost(EasyBlock):
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
         cmd = "%s ./bootstrap.sh --with-toolset=%s --prefix=%s %s"
-        tup = (self.cfg['preconfigopts'], toolset, self.objdir, self.cfg['configopts'])
+        tup = (self.cfg['preconfigopts'], toolset, self.installdir, self.cfg['configopts'])
         run_cmd(cmd % tup, log_all=True, simple=True)
 
         # Use build_toolset if specified or the bootstrap toolset without the OS suffix
@@ -204,22 +198,10 @@ class EB_Boost(EasyBlock):
 
         write_file('user-config.jam', '\n'.join(user_config), append=True)
 
-    def build_boost_variant(self, bjamoptions, paracmd):
-        """Build Boost library with specified options for bjam."""
-        # build with specified options
-        cmd = "%s ./%s %s %s %s" % (self.cfg['prebuildopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['buildopts'])
-        run_cmd(cmd, log_all=True, simple=True)
-        # install built Boost library
-        cmd = "%s ./%s %s install %s %s" % (
-            self.cfg['preinstallopts'], self.bjamcmd, bjamoptions, paracmd, self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
-        # clean up before proceeding with next build
-        run_cmd("./%s %s --clean-all" % (self.bjamcmd, bjamoptions), log_all=True, simple=True)
-
     def build_step(self):
         """Build Boost with bjam tool."""
 
-        self.bjamoptions = " --prefix=%s --user-config=user-config.jam" % self.objdir
+        self.bjamoptions = " --prefix=%s --user-config=user-config.jam" % self.installdir
         if 'toolset=' not in self.cfg['buildopts']:
             self.bjamoptions += " toolset=" + self.toolset
 
@@ -232,10 +214,10 @@ class EB_Boost(EasyBlock):
                 cxxflags += '1'
             else:
                 cxxflags += '0'
-        if cxxflags is not None:
+        if cxxflags:
             self.bjamoptions += " cxxflags='%s'" % cxxflags
         ldflags = os.getenv('LDFLAGS')
-        if ldflags is not None:
+        if ldflags:
             self.bjamoptions += " linkflags='%s'" % ldflags
 
         # specify path for bzip2/zlib if module is loaded
@@ -245,18 +227,22 @@ class EB_Boost(EasyBlock):
                 self.bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
                 self.bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
 
-        self.paracmd = ''
         if self.cfg['parallel']:
             self.paracmd = "-j %s" % self.cfg['parallel']
+        else:
+            self.paracmd = ''
+
+        # Add list of default library settings from project-config (created by configure step)
+        # Required because any --with-* or --without-* overwrites this entirely
+        project_config = read_file('project-config.jam')
+        libraries = re.search(r'libraries = (.*) ;', project_config)
+        if libraries:
+            self.bjamoptions += libraries.group(1)
 
         if self.cfg['only_python_bindings']:
             # magic incantation to only install Boost Python bindings is... --with-python
             # see http://boostorg.github.io/python/doc/html/building/installing_boost_python_on_your_.html
             self.bjamoptions += " --with-python"
-
-        # Default threading since at least 1.47.0 is multi with system layout
-        threading = " threading=multi"
-        layout = " --layout=system"
 
         if LooseVersion(self.version) >= LooseVersion("1.69.0"):
             # As of 1.69.0 we build with layout tagged and both single and multi threading
@@ -266,20 +252,26 @@ class EB_Boost(EasyBlock):
             if self.cfg['single_threaded'] is None:
                 self.cfg['single_threaded'] = True
 
+        # Default threading since at least 1.47.0 is multi with system layout
+
         if self.cfg['tagged_layout']:
-            layout = " --layout=tagged"
+            layout = "tagged"
+        else:
+            layout = "system"
 
         if self.cfg['single_threaded']:
             if not self.cfg['tagged_layout']:
                 raise EasyBuildError("Singled threaded build requires tagged layout.")
-            threading = " threading=single,multi"
+            threading = "single,multi"
+        else:
+            threading = "multi"
 
-        self.bjamoptions += threading + layout
+        self.bjamoptions += " threading=" + threading + " --layout=" + layout
 
-        if self.cfg['boost_mpi']:
-            self.log.info("Building boost_mpi library")
-            mpi_bjamoptions = " --with-mpi"
-            self.build_boost_variant(self.bjamoptions + mpi_bjamoptions, self.paracmd)
+        if not self.cfg['boost_mpi'] and not self.cfg['only_python_bindings']:
+            # Default but avoids a warning. Building Boost.MPI is actually enabled by `using mpi` in the user-config
+            # Note: Can't use both --with-* and --without-*
+            self.bjamoptions += " --without-mpi"
 
         self.log.info("Building Boost libraries")
         # build with specified options
@@ -308,14 +300,6 @@ class EB_Boost(EasyBlock):
         ])
         run_cmd(cmd, log_all=True, simple=True)
 
-        self.log.info("Copying %s to installation dir %s", self.objdir, self.installdir)
-        if self.cfg['only_python_bindings'] and 'Python' in self.cfg['multi_deps'] and self.iter_idx > 0:
-            self.log.info("Main installation should already exist, only copying over missing Python libraries.")
-            copy(glob.glob(os.path.join(self.objdir, 'lib', 'libboost_python*')), os.path.join(self.installdir, 'lib'),
-                 symlinks=True)
-        else:
-            copy(glob.glob(os.path.join(self.objdir, '*')), self.installdir, symlinks=True)
-
         if self.cfg['tagged_layout']:
             if LooseVersion(self.version) >= LooseVersion("1.69.0") or not self.cfg['single_threaded']:
                 # Link tagged multi threaded libs as the default libs
@@ -334,10 +318,20 @@ class EB_Boost(EasyBlock):
             'files': [],
             'dirs': ['include/boost']
         }
+        if self.cfg['tagged_layout']:
+            lib_mt_suffix = '-mt'
+            # Architecture tags introduced in 1.69.0
+            if LooseVersion(self.version) >= LooseVersion("1.69.0"):
+                if get_cpu_architecture() == AARCH64:
+                    lib_mt_suffix += '-a64'
+                elif get_cpu_architecture() == POWER:
+                    lib_mt_suffix += '-p64'
+                else:
+                    lib_mt_suffix += '-x64'
+
         if self.cfg['only_python_bindings']:
             for pyver in self.pyvers:
-                pymajorver = pyver.split('.')[0]
-                pyminorver = pyver.split('.')[1]
+                pymajorver, pyminorver = pyver.split('.')[:2]
                 if LooseVersion(self.version) >= LooseVersion("1.67.0"):
                     suffix = '%s%s' % (pymajorver, pyminorver)
                 elif int(pymajorver) >= 3:
@@ -345,21 +339,15 @@ class EB_Boost(EasyBlock):
                 else:
                     suffix = ''
                 custom_paths['files'].append(os.path.join('lib', 'libboost_python%s.%s' % (suffix, shlib_ext)))
+                if self.cfg['tagged_layout']:
+                    custom_paths['files'].append(
+                        os.path.join('lib', 'libboost_python%s%s.%s' % (suffix, lib_mt_suffix, shlib_ext)))
 
         else:
             custom_paths['files'].append(os.path.join('lib', 'libboost_system.%s' % shlib_ext))
 
             if self.cfg['tagged_layout']:
-                lib_mt_suffix = '-mt'
-                # MT libraries gained an extra suffix from v1.69.0 onwards
-                if LooseVersion(self.version) >= LooseVersion("1.69.0"):
-                    if get_cpu_architecture() == AARCH64:
-                        lib_mt_suffix += '-a64'
-                    elif get_cpu_architecture() == POWER:
-                        lib_mt_suffix += '-p64'
-                    else:
-                        lib_mt_suffix += '-x64'
-
+                custom_paths['files'].append(os.path.join('lib', 'libboost_system%s.%s' % (lib_mt_suffix, shlib_ext)))
                 custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
             if self.cfg['boost_mpi']:

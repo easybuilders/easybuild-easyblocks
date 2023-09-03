@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2021 Ghent University
+# Copyright 2017-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,20 +28,20 @@ EasyBuild support for building and installing TensorFlow, implemented as an easy
 @author: Kenneth Hoste (HPC-UGent)
 @author: Ake Sandgren (Umea University)
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
+@author: Alexander Grund (TU Dresden)
 """
 import glob
 import os
 import re
 import stat
 import tempfile
-from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import run
+from easybuild.tools import run, LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
@@ -133,6 +133,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     available_system_libs = {
         # Format: (<EB name>, <version range>): <TF name>
         #         <version range> is '<min version>:<exclusive max version>'
+        ('Abseil', '2.9.0:'): 'com_google_absl',
         ('cURL', '2.0.0:'): 'curl',
         ('double-conversion', '2.0.0:'): 'double_conversion',
         ('flatbuffers', '2.0.0:'): 'flatbuffers',
@@ -145,10 +146,10 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('libjpeg-turbo', '2.2.0:'): 'libjpeg_turbo',
         ('libpng', '2.0.0:2.1.0'): 'png_archive',
         ('libpng', '2.1.0:'): 'png',
-        ('LMDB', '2.0.0:'): 'lmdb',
+        ('LMDB', '2.0.0:2.13.0'): 'lmdb',
         ('NASM', '2.0.0:'): 'nasm',
         ('nsync', '2.0.0:'): 'nsync',
-        ('PCRE', '2.0.0:'): 'pcre',
+        ('PCRE', '2.0.0:2.6.0'): 'pcre',
         ('protobuf', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
         ('snappy', '2.0.0:'): 'snappy',
@@ -160,11 +161,11 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # Software recognized by TF but which is always disabled (usually because no EC is known)
     # Format: <TF name>: <version range>
     unused_system_libs = {
-        'boringssl': '2.0.0:',
+        'boringssl': '2.0.0:',  # Implied by cURL and existence of OpenSSL anywhere in the dependency chain
         'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
-        'com_googlesource_code_re2': '2.0.0:',
+        'com_googlesource_code_re2': '2.0.0:',  # Requires the RE2 version with Abseil (or 2023-06-01+)
         'grpc': '2.0.0:2.2.0',
     }
     # Python packages installed as extensions or in the Python module
@@ -176,7 +177,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('astunparse', '2.2.0:'): 'astunparse_archive',
         ('cython', '2.0.0:'): 'cython',  # Part of Python EC
         ('dill', '2.4.0:'): 'dill_archive',
-        ('enum', '2.0.0:'): 'enum34_archive',  # Part of Python3
+        ('enum', '2.0.0:2.8.0'): 'enum34_archive',  # Part of Python3
         ('flatbuffers', '2.4.0:'): 'flatbuffers',
         ('functools', '2.0.0:'): 'functools32_archive',  # Part of Python3
         ('gast', '2.0.0:'): 'gast_archive',
@@ -190,6 +191,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('typing_extensions', '2.4.0:'): 'typing_extensions_archive',
         ('wrapt', '2.0.0:'): 'wrapt',
     }
+
     dependency_mapping = dict((dep_name, tf_name)
                               for (dep_name, version_range), tf_name in available_system_libs.items()
                               if is_version_ok(version_range))
@@ -208,18 +210,26 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     return result
 
 
+def get_bazel_version():
+    """Get the Bazel version as a LooseVersion. Error if not found"""
+    version = get_software_version('Bazel')
+    if version is None:
+        raise EasyBuildError('Failed to determine Bazel version - is it listed as a (build) dependency?')
+    return LooseVersion(version)
+
+
 class EB_TensorFlow(PythonPackage):
     """Support for building/installing TensorFlow."""
 
     @staticmethod
     def extra_options():
-        # We only want to install mkl-dnn by default on x86_64 systems
-        with_mkl_dnn_default = get_cpu_architecture() == X86_64
         extra_vars = {
             'path_filter': [[], "List of patterns to be filtered out in paths in $CPATH and $LIBRARY_PATH", CUSTOM],
             'with_jemalloc': [None, "Make TensorFlow use jemalloc (usually enabled by default). " +
                                     "Unsupported starting at TensorFlow 1.12!", CUSTOM],
-            'with_mkl_dnn': [with_mkl_dnn_default, "Make TensorFlow use Intel MKL-DNN", CUSTOM],
+            'with_mkl_dnn': [None, "Make TensorFlow use Intel MKL-DNN / oneDNN and configure with --config=mkl "
+                                   "(enabled by default where supported for TensorFlow versions before 2.4.0)",
+                             CUSTOM],
             'with_xla': [None, "Enable XLA JIT compiler for possible runtime optimization of models", CUSTOM],
             'test_script': [None, "Script to test TensorFlow installation with", CUSTOM],
             'test_targets': [[], "List of Bazel targets which should be run during the test step", CUSTOM],
@@ -325,10 +335,10 @@ class EB_TensorFlow(PythonPackage):
                 msg = 'Values for $TF_SYSTEM_LIBS in the TensorFlow EasyBlock are incomplete.\n'
                 if missing_libs:
                     # Libs available according to TF sources but not listed in this EasyBlock
-                    msg += 'Missing entries for $TF_SYSTEM_LIBS: %s\n' % missing_libs
+                    msg += 'Missing entries for $TF_SYSTEM_LIBS: %s\n' % sorted(missing_libs)
                 if unknown_libs:
                     # Libs listed in this EasyBlock but not present in the TF sources -> Removed?
-                    msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % unknown_libs
+                    msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % sorted(unknown_libs)
                 msg += 'The EasyBlock needs to be updated to fully work with TensorFlow version %s' % self.version
             if build_option('strict') == run.ERROR:
                 raise EasyBuildError(msg)
@@ -398,6 +408,18 @@ class EB_TensorFlow(PythonPackage):
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
+        # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
+        openssl_root = get_software_root('OpenSSL')
+        if openssl_root:
+            if 'boringssl' not in system_libs:
+                system_libs.append('boringssl')
+            incpath = os.path.join(openssl_root, 'include')
+            if os.path.exists(incpath):
+                cpaths.append(incpath)
+            libpath = get_software_libdir('OpenSSL')
+            if libpath:
+                libpaths.append(os.path.join(openssl_root, libpath))
+
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
                           len(ignored_system_deps))
@@ -415,10 +437,14 @@ class EB_TensorFlow(PythonPackage):
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
+        # This is either the builddir (for standalone builds) or the extension sub folder when TF is an extension
+        # Either way this folder only contains the folder with the sources and hence we can use fixed names
+        # for the subfolders
+        parent_dir = os.path.dirname(self.start_dir)
         # Path where Bazel will store its output, build artefacts etc.
-        self.output_user_root_dir = tempfile.mkdtemp(suffix='-bazel-tf', dir=self.builddir)
+        self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
-        self.wrapper_dir = tempfile.mkdtemp(suffix='-wrapper_bin', dir=self.builddir)
+        self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -427,7 +453,9 @@ class EB_TensorFlow(PythonPackage):
         # and will hang forever building the TensorFlow package.
         # So limit to something high but still reasonable while allowing ECs to overwrite it
         if self.cfg['maxparallel'] is None:
-            self.cfg['parallel'] = min(self.cfg['parallel'], 64)
+            # Seemingly Bazel around 3.x got better, so double the max there
+            bazel_max = 64 if get_bazel_version() < '3.0.0' else 128
+            self.cfg['parallel'] = min(self.cfg['parallel'], bazel_max)
 
         binutils_root = get_software_root('binutils')
         if not binutils_root:
@@ -671,9 +699,10 @@ class EB_TensorFlow(PythonPackage):
             gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
 
             # figure out location of GCC include files
-            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include'))
+            # make sure we don't pick up the nvptx-none directory by looking for a specific include file
+            res = glob.glob(os.path.join(gcc_root, 'lib', 'gcc', '*', gcc_ver, 'include', 'immintrin.h'))
             if res and len(res) == 1:
-                gcc_lib_inc = res[0]
+                gcc_lib_inc = os.path.dirname(res[0])
                 inc_paths.append(gcc_lib_inc)
             else:
                 raise EasyBuildError("Failed to pinpoint location of GCC include files: %s", res)
@@ -729,6 +758,8 @@ class EB_TensorFlow(PythonPackage):
     def build_step(self):
         """Custom build procedure for TensorFlow."""
 
+        bazel_version = get_bazel_version()
+
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
@@ -740,6 +771,15 @@ class EB_TensorFlow(PythonPackage):
         self.bazel_opts = [
             '--output_user_root=%s' % self.output_user_root_dir,
         ]
+        # Increase time to wait for bazel to start, available since 4.0+
+        if bazel_version >= '4.0.0':
+            self.bazel_opts.append('--local_startup_timeout_secs=300')  # 5min
+
+        # Environment variables and values needed for Bazel actions.
+        action_env = {}
+        # A value of None is interpreted as using the invoking environments value
+        INHERIT = None  # For better readability
+
         jvm_max_memory = self.cfg['jvm_max_memory']
         if jvm_max_memory:
             jvm_startup_memory = min(512, int(jvm_max_memory))
@@ -781,35 +821,69 @@ class EB_TensorFlow(PythonPackage):
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
         if cpaths:
-            self.target_opts.append("--action_env=CPATH='%s'" % ':'.join(cpaths))
+            action_env['CPATH'] = ':'.join(cpaths)
         if libpaths:
-            self.target_opts.append("--action_env=LIBRARY_PATH='%s'" % ':'.join(libpaths))
-        self.target_opts.append('--action_env=PYTHONPATH')
+            action_env['LIBRARY_PATH'] = ':'.join(libpaths)
+        action_env['PYTHONPATH'] = INHERIT
         # Also export $EBPYTHONPREFIXES to handle the multi-deps python setup
         # See https://github.com/easybuilders/easybuild-easyblocks/pull/1664
         if 'EBPYTHONPREFIXES' in os.environ:
-            self.target_opts.append('--action_env=EBPYTHONPREFIXES')
+            action_env['EBPYTHONPREFIXES'] = INHERIT
 
         # Ignore user environment for Python
-        self.target_opts.append('--action_env=PYTHONNOUSERSITE=1')
-
-        # Use the same configuration (i.e. environment) for compiling and using host tools
-        # This means that our action_envs are always passed
-        self.target_opts.append('--distinct_host_configuration=false')
+        action_env['PYTHONNOUSERSITE'] = '1'
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):
             if self._with_cuda:
                 self.target_opts.append('--config=cuda')
 
-        # if mkl-dnn is listed as a dependency it is used. Otherwise downloaded if with_mkl_dnn is true
+        # note: using --config=mkl results in a significantly different build, with a different
+        # threading model (which may lead to thread oversubscription and significant performance loss,
+        # see https://github.com/easybuilders/easybuild-easyblocks/issues/2577) and different
+        # runtime behavior w.r.t. GPU vs CPU execution of functions like tf.matmul
+        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/14120),
+        # so make sure you really know you want to use this!
+
+        # auto-enable use of MKL-DNN/oneDNN and --config=mkl when possible if with_mkl_dnn is left unspecified;
+        # only do this for TensorFlow versions older than 2.4.0, since more recent versions
+        # oneDNN is used automatically for x86_64 systems (and mkl-dnn is no longer a dependency);
+        if self.cfg['with_mkl_dnn'] is None and LooseVersion(self.version) < LooseVersion('2.4.0'):
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == X86_64:
+                # Supported on x86 since forever
+                self.cfg['with_mkl_dnn'] = True
+                self.log.info("Auto-enabled use of MKL-DNN on %s CPU architecture", cpu_arch)
+            else:
+                self.log.info("Not enabling use of MKL-DNN on %s CPU architecture", cpu_arch)
+
+        # if mkl-dnn is listed as a dependency it is used
         mkl_root = get_software_root('mkl-dnn')
         if mkl_root:
             self.target_opts.append('--config=mkl')
             env.setvar('TF_MKL_ROOT', mkl_root)
         elif self.cfg['with_mkl_dnn']:
-            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn)
+            # this makes TensorFlow use mkl-dnn (cfr. https://github.com/01org/mkl-dnn),
+            # and download it if needed
             self.target_opts.append('--config=mkl')
+
+        # Use the same configuration (i.e. environment) for compiling and using host tools
+        # This means that our action_envs are (almost) always passed
+        # Fully removed in Bazel 6.0 and limited effect after at least 3.7 (see --host_action_env)
+        if bazel_version < '6.0.0':
+            self.target_opts.append('--distinct_host_configuration=false')
+
+        for key, value in sorted(action_env.items()):
+            option = key
+            if value is not None:
+                option += "='%s'" % value
+
+            self.target_opts.append('--action_env=' + option)
+            if bazel_version >= '3.7.0':
+                # Since Bazel 3.7 action_env only applies to the "target" environment, not the "host" environment
+                # As we are not cross-compiling we need both be the same -> Duplicate the setting to host_action_env
+                # See https://github.com/bazelbuild/bazel/commit/a463d9095386b22c121d20957222dbb44caef7d4
+                self.target_opts.append('--host_action_env=' + option)
 
         # Compose final command
         cmd = (
@@ -977,6 +1051,7 @@ class EB_TensorFlow(PythonPackage):
                         self.log.warning('Test %s failed with output\n%s', test_name,
                                          read_file(log_path, log_error=False))
                 if failed_tests:
+                    failed_tests = sorted(set(failed_tests))  # Make unique to not count retries
                     fail_msg = 'At least %s %s tests failed:\n%s' % (
                         len(failed_tests), device, ', '.join(failed_tests))
                 self.report_test_failure(fail_msg)

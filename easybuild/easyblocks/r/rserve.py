@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,6 +39,10 @@ class EB_Rserve(RPackage):
 
     def run(self):
         """Set LIBS environment variable correctly prior to building."""
-
         self.configurevars = ['LIBS="$LIBS -lpthread"']
         super(EB_Rserve, self).run()
+
+    def run_async(self):
+        """Set LIBS environment variable correctly prior to building."""
+        self.configurevars = ['LIBS="$LIBS -lpthread"']
+        super(EB_Rserve, self).run_async()

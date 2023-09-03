@@ -1,5 +1,5 @@
 ##
-# Copyright 2021 Vrije Universiteit Brussel
+# Copyright 2021-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -156,13 +156,16 @@ H   0.7920   0.0000  -0.4973
         test_output_energy = '-75.95934031'
         test_output_regex = 'FINAL SINGLE POINT ENERGY[ \t]*%s' % test_output_energy
 
+        # Instruct openmpi to treat hardware threads as slot
+        test_ompi_env = 'env OMPI_MCA_hwloc_base_use_hwthreads_as_cpus=1'
+
         # ORCA has to be executed using its full path to run in parallel
         if os.path.isdir(os.path.join(self.installdir, 'bin')):
             orca_bin = '$EBROOTORCA/bin/orca'
         else:
             orca_bin = '$(which orca)'
 
-        test_orca_cmd = "%s %s" % (orca_bin, test_input_path)
+        test_orca_cmd = "%s %s %s" % (test_ompi_env, orca_bin, test_input_path)
 
         custom_commands = [
             # Execute test in ORCA

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2021 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -144,10 +144,8 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        self.pythonpath = None
-        if self.cfg['ebpythonprefixes']:
-            easybuild_subdir = log_path()
-            self.pythonpath = os.path.join(easybuild_subdir, 'python')
+        # Used for EBPYTHONPREFIXES handler script
+        self.pythonpath = os.path.join(log_path(), 'python')
 
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
@@ -446,16 +444,19 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
-        # Create non-versioned, relative symlinks for python and pip
+        # Create non-versioned, relative symlinks for python, python-config and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
             symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        python_config_binary_path = os.path.join(self.installdir, 'bin', 'python-config')
+        if not os.path.isfile(python_config_binary_path):
+            symlink('python' + self.pyshortver + '-config', python_config_binary_path, use_abspath_source=False)
         if self.install_pip:
             pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
             if not os.path.isfile(pip_binary_path):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
-        if self.cfg['ebpythonprefixes']:
+        if self.cfg.get('ebpythonprefixes'):
             write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
@@ -512,7 +513,7 @@ class EB_Python(ConfigureMake):
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("which python", log_all=True, simple=False, trace=False)
+            run_cmd("command -v python", log_all=True, simple=False, trace=False)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
             (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not abiflags:
@@ -531,12 +532,18 @@ class EB_Python(ConfigureMake):
         else:
             self.log.info("No errors found in output of %s: %s", cmd, out)
 
-        if self.cfg['ebpythonprefixes']:
+        if self.cfg.get('ebpythonprefixes'):
             self._sanity_check_ebpythonprefixes()
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
-            'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
+            'files': [
+                os.path.join('bin', pyver),
+                os.path.join('bin', 'python'),
+                os.path.join('bin', pyver + '-config'),
+                os.path.join('bin', 'python-config'),
+                os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext),
+            ],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
@@ -545,6 +552,7 @@ class EB_Python(ConfigureMake):
 
         custom_commands = [
             "python --version",
+            "python-config --help",  # make sure that symlink was created correctly
             "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly
@@ -583,7 +591,7 @@ class EB_Python(ConfigureMake):
         """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
 
-        if self.pythonpath:
+        if self.cfg.get('ebpythonprefixes'):
             txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
 
         return txt

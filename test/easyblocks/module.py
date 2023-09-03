@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2021 Ghent University
+# Copyright 2015-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,9 +42,14 @@ import easybuild.tools.toolchain.utilities as tc_utils
 from easybuild.base import fancylogger
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.gopackage import GoPackage
+from easybuild.easyblocks.generic.juliabundle import JuliaBundle
+from easybuild.easyblocks.generic.juliapackage import JuliaPackage
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
+from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
+from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
 from easybuild.framework.easyconfig import easyconfig
 from easybuild.framework.easyblock import EasyBlock
@@ -113,7 +118,7 @@ class ModuleOnlyTest(TestCase):
     def writeEC(self, easyblock, name='foo', version='1.3.2', extratxt='', toolchain=None):
         """ create temporary easyconfig file """
         if toolchain is None:
-            toolchain = {'name': 'dummy', 'version': 'dummy'}
+            toolchain = {'name': 'system', 'version': 'system'}
 
         txt = '\n'.join([
             'easyblock = "%s"',
@@ -198,7 +203,7 @@ class ModuleOnlyTest(TestCase):
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
             (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]+/site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
@@ -257,6 +262,15 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         bases = list(app_class.__bases__)
         for base in copy.copy(bases):
             bases.extend(base.__bases__)
+
+        if app_class == EB_FFTW_period_MPI:
+            # $EBROOTFFTW must be set for FFTW.MPI, because of dependency check on FFTW in prepare_step
+            os.environ['EBROOTFFTW'] = '/fake/software/FFTW/3.3.10'
+
+        if app_class == EB_imkl_minus_FFTW:
+            # $EBROOTIMKL must be set for imkl-FFTW, because of dependency check on imkl in prepare_step
+            os.environ['EBROOTIMKL'] = '/fake/software/imkl/2021.4.0/mkl/2021.4.0'
+
         if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
@@ -273,6 +287,11 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             # $EBROOTGO must be set for GoPackage easyblock
             os.environ['EBROOTGO'] = '/fake/install/prefix/Go/1.14'
             os.environ['EBVERSIONGO'] = '1.14'
+
+        elif app_class in (JuliaPackage, JuliaBundle):
+            # $EBROOTJULIA must be set for JuliaPackage/JuliaBundle easyblock
+            os.environ['EBROOTJULIA'] = '/fake/install/prefix/Julia/1.6.7'
+            os.environ['EBVERSIONJULIA'] = '1.6.7'
 
         elif app_class == EB_OpenFOAM:
             # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
@@ -305,11 +324,16 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
                     test_param = 'foo'
                 extra_txt += '%s = "%s"\n' % (key, test_param)
 
+        # test --module-only for GCC easyblock with withnvptx enabled,
+        # like we do for recent GCC versions by default in easybuilders/easybuild-easyconfigs repo
+        if app_class == EB_GCC:
+            extra_txt += 'withnvptx = True\n'
+
         # write easyconfig file
         self.writeEC(ebname, name=name, version=version, extratxt=extra_txt, toolchain=toolchain)
 
         # take into account that for some easyblock, particular dependencies are hard required early on
-        # (in prepare_step for exampel);
+        # (in prepare_step for example);
         # we just set the corresponding $EBROOT* environment variables here to fool it...
         req_deps = {
             # QScintilla easyblock requires that either PyQt or PyQt5 are available as dependency
@@ -410,8 +434,9 @@ def suite():
     for prgenv in ['PrgEnv-cray', 'PrgEnv-gnu', 'PrgEnv-intel', 'PrgEnv-pgi']:
         write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
-    # add foo/1.3.2.1.1 module, required for testing ModuleAlias easyblock
-    write_file(os.path.join(TMPDIR, 'modules', 'all', 'foo', '1.2.3.4.5'), "#%Module")
+    # add empty module files for dependencies that are required for testing easyblocks
+    for dep_mod_name in ('foo/1.2.3.4.5', 'PyTorch/1.12.1'):
+        write_file(os.path.join(TMPDIR, 'modules', 'all', dep_mod_name), "#%Module")
 
     for easyblock in easyblocks:
         eb_fn = os.path.basename(easyblock)
@@ -436,6 +461,10 @@ def suite():
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
+        elif eb_fn == 'torchvision.py':
+            # torchvision easyblock requires that PyTorch is listed as dependency
+            extra_txt = "dependencies = [('PyTorch', '1.12.1')]"
+            innertest = make_inner_test(easyblock, name='torchvision', extra_txt=extra_txt)
         elif eb_fn == 'ucx_plugins.py':
             # install fake ucx_info command (used in make_module_extra)
             tmpdir = tempfile.mkdtemp()

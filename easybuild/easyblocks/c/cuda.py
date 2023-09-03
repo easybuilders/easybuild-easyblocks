@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2021 Ghent University
+# Copyright 2012-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 @author: Robert Mijakovic (LuxProvide S.A.)
 """
 import os
+import re
 import stat
 
 from distutils.version import LooseVersion
@@ -43,8 +44,8 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
-from easybuild.tools.filetools import adjust_permissions, copy_dir, patch_perl_script_autoflush
-from easybuild.tools.filetools import remove_file, symlink, which, write_file
+from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
+from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 import easybuild.tools.environment as env
@@ -173,7 +174,7 @@ class EB_CUDA(Binary):
             if p5lib == '':
                 p5lib = self.builddir
             else:
-                p5lib = os.pathsep.join(self.builddir, p5lib)
+                p5lib = os.pathsep.join([self.builddir, p5lib])
             env.setvar('PERL5LIB', p5lib)
 
         # make sure $DISPLAY is not defined, which may lead to (weird) problems
@@ -201,7 +202,10 @@ class EB_CUDA(Binary):
                 run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
     def post_install_step(self):
-        """Create wrappers for the specified host compilers and generate the appropriate stub symlinks"""
+        """
+        Create wrappers for the specified host compilers, generate the appropriate stub symlinks,
+        and create version independent pkgconfig files
+        """
         def create_wrapper(wrapper_name, wrapper_comp):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_name)
@@ -230,6 +234,17 @@ class EB_CUDA(Binary):
             raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
 
         stubs_dir = os.path.join(self.installdir, 'lib64', 'stubs')
+
+        # Remove stubs which are not required as the full library is in $EBROOTCUDA/lib64 because this duplication
+        # causes issues (e.g. CMake warnings) when using this module (see $LIBRARY_PATH & $LD_LIBRARY_PATH)
+        for stub_lib in expand_glob_paths([os.path.join(stubs_dir, '*.*')]):
+            real_lib = os.path.join(self.installdir, 'lib64', os.path.basename(stub_lib))
+            if os.path.exists(real_lib):
+                self.log.debug("Removing unnecessary stub library %s", stub_lib)
+                remove_file(stub_lib)
+            else:
+                self.log.debug("Keeping stub library %s", stub_lib)
+
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = ' '.join([ldconfig, '-N', stubs_dir])
         run_cmd(cmd)
@@ -239,9 +254,22 @@ class EB_CUDA(Binary):
         # See e.g. https://github.com/easybuilders/easybuild-easyconfigs/issues/12348
         # Workaround: Create a copy that matches this pattern
         new_stubs_dir = os.path.join(self.installdir, 'stubs')
-        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'))
+        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'), symlinks=True)
         # Also create the lib dir as a symlink
         symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
+
+        # Packages like xpra look for version independent pc files.
+        # See e.g. https://github.com/Xpra-org/xpra/blob/master/setup.py#L206
+        # Distros provide these files, so let's do it here too
+        pkgconfig_dir = os.path.join(self.installdir, 'pkgconfig')
+        if os.path.exists(pkgconfig_dir):
+            pc_files = expand_glob_paths([os.path.join(pkgconfig_dir, '*.pc')])
+            cwd = change_dir(pkgconfig_dir)
+            for pc_file in pc_files:
+                pc_file = os.path.basename(pc_file)
+                link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
+                symlink(pc_file, link, use_abspath_source=False)
+            change_dir(cwd)
 
         super(EB_CUDA, self).post_install_step()
 
@@ -258,7 +286,8 @@ class EB_CUDA(Binary):
             'dirs': ["include"],
         }
 
-        if LooseVersion(self.version) > LooseVersion('5'):
+        # Samples moved to https://github.com/nvidia/cuda-samples
+        if LooseVersion(self.version) > LooseVersion('5') and LooseVersion(self.version) < LooseVersion('11.6'):
             custom_paths['files'].append(os.path.join('samples', 'Makefile'))
         if LooseVersion(self.version) < LooseVersion('7'):
             custom_paths['files'].append(os.path.join('open64', 'bin', 'nvopencc'))
@@ -266,10 +295,22 @@ class EB_CUDA(Binary):
             custom_paths['files'].append(os.path.join("extras", "CUPTI", "lib64", "libcupti.%s") % shlib_ext)
             custom_paths['dirs'].append(os.path.join("extras", "CUPTI", "include"))
 
+        # Just a subset of files are checked, since the whole list is likely to change,
+        # and irrelevant in most cases anyway
+        if os.path.exists(os.path.join(self.installdir, 'pkgconfig')):
+            pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
+            custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
+
         super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
+
+        # avoid adding of installation directory to $PATH (cfr. Binary easyblock) since that may cause trouble,
+        # for example when there's a clash between command name and a subdirectory in the installation directory
+        # (like compute-sanitizer)
+        self.cfg['prepend_to_path'] = False
+
         txt = super(EB_CUDA, self).make_module_extra()
         txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
         txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
@@ -298,10 +339,11 @@ class EB_CUDA(Binary):
             inc_path.append(os.path.join('nvvm', 'include'))
 
         guesses.update({
-            'PATH': bin_path,
+            'CPATH': inc_path,
             'LD_LIBRARY_PATH': lib_path,
             'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
-            'CPATH': inc_path,
+            'PATH': bin_path,
+            'PKG_CONFIG_PATH': ['pkgconfig'],
         })
 
         return guesses

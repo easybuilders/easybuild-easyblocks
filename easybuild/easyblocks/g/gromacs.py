@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,6 +51,7 @@ from easybuild.tools.modules import get_software_libdir, get_software_root, get_
 from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
+from easybuild.tools.version import VERBOSE_VERSION as EASYBUILD_VERSION
 
 
 class EB_GROMACS(CMakeMake):
@@ -66,6 +67,9 @@ class EB_GROMACS(CMakeMake):
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
+            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
+                       "True or False forces behaviour.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -188,25 +192,56 @@ class EB_GROMACS(CMakeMake):
                     self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
                 else:
                     self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+
+                # Set CUDA capabilities based on template value.
+                if '-DGMX_CUDA_TARGET_SM' not in self.cfg['configopts']:
+                    cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
+                        "cuda_cc_semicolon_sep").replace('.', '')
+                    self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
             else:
                 # explicitly disable GPU support if CUDA is not available,
-                # to avoid that GROMACS find and uses a system-wide CUDA compiler
+                # to avoid that GROMACS finds and uses a system-wide CUDA compiler
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
-        # check whether PLUMED is loaded as a dependency
+        # PLUMED detection
+        # enable PLUMED support if PLUMED is listed as a dependency
+        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
         plumed_root = get_software_root('PLUMED')
+        if self.cfg['plumed'] and not plumed_root:
+            msg = "PLUMED support has been requested but PLUMED is not listed as a dependency."
+            raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is False:
+            self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
+            plumed_root = None
+
         if plumed_root:
+            self.log.info('PLUMED support has been enabled.')
+
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 
             (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
             if not re.search(engine, out):
-                raise EasyBuildError("There is no support in PLUMED version %s for GROMACS %s: %s",
-                                     get_software_version('PLUMED'), self.version, out)
+                plumed_ver = get_software_version('PLUMED')
+                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version, out)
+                if self.cfg['ignore_plumed_version_check']:
+                    self.log.warning(msg)
+                else:
+                    raise EasyBuildError(msg)
 
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
             plumed_cmd = "plumed-patch -p -e %s" % engine
+
+        # Ensure that the GROMACS log files report how the code was patched
+        # during the build, so that any problems are easier to diagnose.
+        # The GMX_VERSION_STRING_OF_FORK feature is available since 2020.
+        if (LooseVersion(self.version) >= LooseVersion('2020') and
+                '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
+            gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
+            if plumed_root:
+                gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
+            self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
         if LooseVersion(self.version) < LooseVersion('4.6'):
             self.log.info("Using configure script for configuring GROMACS build.")
@@ -399,6 +434,15 @@ class EB_GROMACS(CMakeMake):
                     regex = re.compile(pattern, re.M)
                     if not regex.search(out):
                         raise EasyBuildError("Pattern '%s' not found in GROMACS configuration output.", pattern)
+
+            # Make sure compilation of CPU detection code did not fail
+            patterns = [
+                r".*detection program did not compile.*",
+            ]
+            for pattern in patterns:
+                regex = re.compile(pattern, re.M)
+                if regex.search(out):
+                    raise EasyBuildError("Pattern '%s' found in GROMACS configuration output.", pattern)
 
     def build_step(self):
         """

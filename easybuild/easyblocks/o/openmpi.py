@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2021 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,16 +26,20 @@
 EasyBuild support for OpenMPI, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Robert Mijakovic (LuxProvide)
 """
 import os
 import re
 from distutils.version import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import check_os_dependency, get_shared_lib_ext
+from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
 
 class EB_OpenMPI(ConfigureMake):
@@ -65,7 +69,7 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
         # List of EasyBuild dependencies for which OMPI has known options
-        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX')
+        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX', 'UCC')
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
@@ -121,25 +125,59 @@ class EB_OpenMPI(ConfigureMake):
                 # auto-detect based on available OS packages
                 os_packages = EASYCONFIG_CONSTANTS['OS_PKG_IBVERBS_DEV'][0]
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
-
-            if verbs:
-                self.cfg.update('configopts', '--with-verbs')
-            else:
-                self.cfg.update('configopts', '--without-verbs')
+            # for OpenMPI v5.x, the verbs support is removed, only UCX is available
+            # see https://github.com/open-mpi/ompi/pull/6270
+            if LooseVersion(self.version) <= LooseVersion('5.0.0'):
+                if verbs:
+                    self.cfg.update('configopts', '--with-verbs')
+                else:
+                    self.cfg.update('configopts', '--without-verbs')
 
         super(EB_OpenMPI, self).configure_step()
+
+    def test_step(self):
+        """Test step for OpenMPI"""
+        # Default to `make check` if nothing is set. Disable with "runtest = False" in the EC
+        if self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'check'
+
+        super(EB_OpenMPI, self).test_step()
+
+    def load_module(self, *args, **kwargs):
+        """
+        Load (temporary) module file, after resetting to initial environment.
+
+        Also put RPATH wrappers back in place if needed, to ensure that sanity check commands work as expected.
+        """
+        super(EB_OpenMPI, self).load_module(*args, **kwargs)
+
+        # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
+        if build_option('rpath'):
+            if self.toolchain.options.get('rpath', True):
+                self.toolchain.prepare_rpath_wrappers(rpath_filter_dirs=self.rpath_filter_dirs,
+                                                      rpath_include_dirs=self.rpath_include_dirs)
 
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
-        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper', 'orterun']
+        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            bin_names.append('prterun')
+        else:
+            bin_names.append('orterun')
         bin_files = [os.path.join('bin', x) for x in bin_names]
 
         shlib_ext = get_shared_lib_ext()
-        lib_names = ['mpi_mpifh', 'mpi', 'ompitrace', 'open-pal', 'open-rte']
+        lib_names = ['mpi_mpifh', 'mpi', 'open-pal']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            lib_names.append('prrte')
+        else:
+            lib_names.extend(['ompitrace', 'open-rte'])
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
+        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+            inc_names.append('prte')
         inc_files = [os.path.join('include', x + '.h') for x in inc_names]
 
         custom_paths = {
@@ -161,7 +199,35 @@ class EB_OpenMPI(ConfigureMake):
         # for PGI, correct pattern is "pgfortran" with mpif90
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
+        # for Clang the pattern is always clang
+        for key in ['mpicxx', 'mpifort', 'mpif90']:
+            if expected[key] in ['clang++', 'flang']:
+                expected[key] = 'clang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
+
+        # Add minimal test program to sanity checks
+        # Run with correct MPI launcher
+        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
+        # Limit number of ranks to 8 to avoid it failing due to hyperthreading
+        ranks = min(8, self.cfg['parallel'])
+        for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
+            src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
+            if os.path.exists(src_path):
+                test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
+                self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
+
+                # Build test binary
+                custom_commands.append("%s %s -o %s" % (compiler, src_path, test_exe))
+
+                # Run the test if chosen
+                if build_option('mpi_tests'):
+                    params.update({'nr_ranks': ranks, 'cmd': test_exe})
+                    # Allow oversubscription for this test (in case of hyperthreading)
+                    custom_commands.append("OMPI_MCA_rmaps_base_oversubscribe=1 " + mpi_cmd_tmpl % params)
+                    # Run with 1 process which may trigger other bugs
+                    # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
+                    params['nr_ranks'] = 1
+                    custom_commands.append(mpi_cmd_tmpl % params)
 
         super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

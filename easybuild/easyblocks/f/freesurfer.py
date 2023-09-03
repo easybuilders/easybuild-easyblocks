@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2021 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,8 @@ EasyBuild support for building and installing FreeSurfer, implemented as an easy
 """
 
 import os
+
+from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import MANDATORY
@@ -67,6 +69,7 @@ class EB_FreeSurfer(Tarball):
             'FS_OVERRIDE': '0',
             'FSF_OUTPUT_FORMAT': 'nii.gz',
             'FSFAST_HOME': os.path.join(self.installdir, 'fsfast'),
+            'FREESURFER': self.installdir,
             'FREESURFER_HOME': self.installdir,
             'FUNCTIONALS_DIR': os.path.join(self.installdir, 'sessions'),
             'MNI_DIR': os.path.join(self.installdir, 'mni'),
@@ -91,4 +94,8 @@ class EB_FreeSurfer(Tarball):
             'dirs': ['bin', 'lib', 'mni'],
         }
 
-        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = []
+        if LooseVersion(self.version) >= LooseVersion("7.2"):
+            custom_commands.append('checkMCR.sh')
+
+        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

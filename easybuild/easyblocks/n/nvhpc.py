@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2019 Bart Oldeman
-# Copyright 2016-2021 Forschungszentrum Juelich
+# Copyright 2015-2023 Bart Oldeman
+# Copyright 2016-2023 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -135,9 +135,10 @@ class EB_NVHPC(PackedBinary):
         if isinstance(default_compute_capability, list):
             _before_default_compute_capability = default_compute_capability
             default_compute_capability = _before_default_compute_capability[0]
-            warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
-            warning_msg += "with first element of list {}".format(default_compute_capability)
-            print_warning(warning_msg)
+            if len(_before_default_compute_capability) > 1:
+                warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
+                warning_msg += "with first element of list: {}".format(default_compute_capability)
+                print_warning(warning_msg)
 
         # Remove dot-divider for CC; error out if it is not a string
         if isinstance(default_compute_capability, str):
@@ -163,7 +164,10 @@ class EB_NVHPC(PackedBinary):
             line = re.sub(r"^PATH=/", r"#PATH=/", line)
             sys.stdout.write(line)
 
-        cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
+        if LooseVersion(self.version) >= LooseVersion('22.9'):
+            cmd = "%s -x %s" % (makelocalrc_filename, compilers_subdir)
+        else:
+            cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
@@ -300,4 +304,8 @@ class EB_NVHPC(PackedBinary):
         """Add environment variable for NVHPC location"""
         txt = super(EB_NVHPC, self).make_module_extra()
         txt += self.module_generator.set_environment('NVHPC', self.installdir)
+        if LooseVersion(self.version) >= LooseVersion('22.7'):
+            # NVHPC 22.7+ requires the variable NVHPC_CUDA_HOME for external CUDA. CUDA_HOME has been deprecated.
+            if not self.cfg['module_add_cuda'] and get_software_root('CUDA'):
+                txt += self.module_generator.set_environment('NVHPC_CUDA_HOME', os.getenv('CUDA_HOME'))
         return txt
