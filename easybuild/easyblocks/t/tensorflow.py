@@ -457,10 +457,10 @@ class EB_TensorFlow(PythonPackage):
             bazel_max = 64 if get_bazel_version() < '3.0.0' else 128
             self.cfg['parallel'] = min(self.cfg['parallel'], bazel_max)
 
-        binutils_root = get_software_root('binutils')
-        if not binutils_root:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
-        self.binutils_bin_path = os.path.join(binutils_root, 'bin')
+        # determine location where binutils' ld command is installed
+        # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
+        ld_path = which('ld')
+        self.binutils_bin_path = os.path.dirname(ld_path)
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
