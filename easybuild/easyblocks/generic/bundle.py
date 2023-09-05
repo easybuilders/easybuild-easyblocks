@@ -65,7 +65,12 @@ class Bundle(EasyBlock):
         })
         return EasyBlock.extra_options(extra_vars)
 
-    def __init__(self, check_for_sources=True, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor for Bundle easyblock
+        """
+        # add check_for_sources named argument in a Python 2+3 compatible way
+        check_for_sources = kwargs.get('check_for_sources', True)
         """Initialize easyblock."""
         super(Bundle, self).__init__(*args, **kwargs)
         self.altroot = None
