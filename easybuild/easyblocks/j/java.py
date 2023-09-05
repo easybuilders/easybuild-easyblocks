@@ -127,58 +127,64 @@ class EB_Java(PackedBinary):
                 if elf_interp is None:
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
 
-                bindir = os.path.join(self.installdir, 'bin')
-                for path in os.listdir(bindir):
-                    path = os.path.join(bindir, path)
-                    out, _ = run_cmd("file %s" % path, trace=False)
-                    if "dynamically linked" in out:
+                module_guesses = self.make_module_req_guess()
 
-                        out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                        self.log.debug("ELF interpreter for %s: %s" % (path, out))
+                bindirs = [os.path.join(self.installdir, bindir) for bindir in module_guesses['PATH'] if
+                           os.path.exists(os.path.join(self.installdir, bindir))]
+                for bindir in bindirs:
+                    for path in os.listdir(bindir):
+                        path = os.path.join(bindir, path)
+                        out, _ = run_cmd("file %s" % path, trace=False)
+                        if "dynamically linked" in out:
 
-                        run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
+                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
 
-                        out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                        self.log.debug("ELF interpreter for %s: %s" % (path, out))
+                            run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
 
-                        out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                        curr_rpath = out.strip()
-                        self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
+                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
 
-                        new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
-                        # note: it's important to wrap the new RPATH value in single quotes,
-                        # to avoid magic values like $ORIGIN being resolved by the shell
-                        run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
+                            out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                            curr_rpath = out.strip()
+                            self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
 
-                        curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                        self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
+                            # note: it's important to wrap the new RPATH value in single quotes,
+                            # to avoid magic values like $ORIGIN being resolved by the shell
+                            run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
 
-                        run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
+                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
 
-                        curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                        self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+                            run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
 
-                libdir = os.path.join(self.installdir, 'lib')
+                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+
+                libdirs = [os.path.join(self.installdir, libdir) for libdir in module_guesses['LIBRARY_PATH'] if
+                           os.path.exists(os.path.join(self.installdir, libdir))]
                 shlib_ext = '.' + get_shared_lib_ext()
-                for path, _, filenames in os.walk(libdir):
-                    shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
-                    for shlib in shlibs:
-                        out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                        curr_rpath = out.strip()
-                        self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
+                for libdir in libdirs:
+                    for path, _, filenames in os.walk(libdir):
+                        shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
+                        for shlib in shlibs:
+                            out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
+                            curr_rpath = out.strip()
+                            self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
 
-                        new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
-                        # note: it's important to wrap the new RPATH value in single quotes,
-                        # to avoid magic values like $ORIGIN being resolved by the shell
-                        run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
+                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
+                            # note: it's important to wrap the new RPATH value in single quotes,
+                            # to avoid magic values like $ORIGIN being resolved by the shell
+                            run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
 
-                        curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                        self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
+                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
 
-                        run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
+                            run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
 
-                        curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                        self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
+                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
