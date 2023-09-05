@@ -34,6 +34,7 @@ from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import move_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
 from distutils.version import LooseVersion
@@ -106,7 +107,7 @@ class EB_LLVM(CMakeMake):
             # by moving the extracted folder to the expected location
             cmake_modules_path = os.path.join(self.builddir, 'cmake-%s.src' % self.version)
             if os.path.exists(cmake_modules_path):
-                os.rename(cmake_modules_path, os.path.join(self.builddir, 'cmake'))
+                move_file(cmake_modules_path, os.path.join(self.builddir, 'cmake'))
             else:
                 raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
 
@@ -115,7 +116,7 @@ class EB_LLVM(CMakeMake):
             # by moving the extracted folder to the expected location
             third_party_modules_path = os.path.join(self.builddir, 'third-party-%s.src' % self.version)
             if os.path.exists(third_party_modules_path):
-                os.rename(third_party_modules_path, os.path.join(self.builddir, 'third-party'))
+                move_file(third_party_modules_path, os.path.join(self.builddir, 'third-party'))
             else:
                 raise EasyBuildError("Failed to find unpacked 'third-party' modules directory at %s",
                                      third_party_modules_path)
