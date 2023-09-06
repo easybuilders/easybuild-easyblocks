@@ -34,7 +34,7 @@ from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, symlink
+from easybuild.tools.filetools import move_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
 from distutils.version import LooseVersion
@@ -104,23 +104,19 @@ class EB_LLVM(CMakeMake):
 
         if LooseVersion(self.version) >= LooseVersion('15.0'):
             # make sure that CMake modules are available in build directory,
-            # and if so make a 'cmake' symlink so LLVM can find them
+            # by moving the extracted folder to the expected location
             cmake_modules_path = os.path.join(self.builddir, 'cmake-%s.src' % self.version)
             if os.path.exists(cmake_modules_path):
-                cwd = change_dir(self.builddir)
-                symlink('cmake-%s.src' % self.version, 'cmake')
-                change_dir(cwd)
+                move_file(cmake_modules_path, os.path.join(self.builddir, 'cmake'))
             else:
                 raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
 
         if LooseVersion(self.version) >= LooseVersion('16.0'):
             # make sure that third-party modules are available in build directory,
-            # and if so make a 'third-party' symlink so LLVM can find them
+            # by moving the extracted folder to the expected location
             third_party_modules_path = os.path.join(self.builddir, 'third-party-%s.src' % self.version)
             if os.path.exists(third_party_modules_path):
-                cwd = change_dir(self.builddir)
-                symlink('third-party-%s.src' % self.version, 'third-party')
-                change_dir(cwd)
+                move_file(third_party_modules_path, os.path.join(self.builddir, 'third-party'))
             else:
                 raise EasyBuildError("Failed to find unpacked 'third-party' modules directory at %s",
                                      third_party_modules_path)
