@@ -35,6 +35,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
 
+DEFAULT_CONDA_CMD = 'conda'
 
 class Conda(Binary):
     """Support for installing software using 'conda'."""
@@ -44,6 +45,7 @@ class Conda(Binary):
         """Extra easyconfig parameters specific to Conda easyblock."""
         extra_vars = Binary.extra_options(extra_vars)
         extra_vars.update({
+            'conda_cmd': [DEFAULT_CONDA_CMD, "Conda command to use", CUSTOM],
             'channels': [None, "List of conda channels to pass to 'conda install'", CUSTOM],
             'environment_file': [None, "Conda environment.yml file to use with 'conda env create'", CUSTOM],
             'remote_environment': [None, "Remote conda environment to use with 'conda env create'", CUSTOM],
@@ -58,10 +60,11 @@ class Conda(Binary):
 
     def install_step(self):
         """Install software using 'conda env create' or 'conda create' & 'conda install'."""
+        conda_cmd = self.cfg.get('conda_cmd')
 
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "conda config --add create_default_packages setuptools"
+        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
         run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
@@ -72,7 +75,7 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s conda env create --force %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
+            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd, env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
@@ -85,8 +88,12 @@ class Conda(Binary):
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s conda create --force -y -p %s %s" % (self.cfg['preinstallopts'], self.installdir, install_args)
+            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd, self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
+
+        # clean up
+        cmd = "%s clean -ya" % conda_cmd
+        run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
