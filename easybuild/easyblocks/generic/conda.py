@@ -37,6 +37,7 @@ from easybuild.tools.run import run_cmd
 
 DEFAULT_CONDA_CMD = 'conda'
 
+
 class Conda(Binary):
     """Support for installing software using 'conda'."""
 
