@@ -405,6 +405,14 @@ class EB_NWChem(ConfigureMake):
 
         super(EB_NWChem, self).cleanup_step()
 
+    def test_step(self):
+        """
+        Simply test that we can execute the binary - this fails sometimes with PMI errors
+        """
+        cmd = os.path.join(self.builddir, 'nwchem-%s/bin/LINUX64/nwchem' % self.version)
+        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        return out
+
     def test_cases_step(self):
         """Run provided list of test cases, or provided examples is no test cases were specified."""
 
