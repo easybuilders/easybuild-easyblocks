@@ -52,7 +52,7 @@ class EB_PETSc(ConfigureMake):
         """Initialize PETSc specific variables."""
         super(EB_PETSc, self).__init__(*args, **kwargs)
 
-        self.petsc_arch = ""
+        self.petsc_arch = self.cfg['petsc_arch']
         self.petsc_subdir = ""
         self.prefix_inc = ''
         self.prefix_lib = ''
@@ -61,8 +61,6 @@ class EB_PETSc(ConfigureMake):
         self.with_python = False
 
         if self.cfg['sourceinstall']:
-            self.prefix_inc = self.petsc_subdir
-            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
             self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
@@ -73,6 +71,7 @@ class EB_PETSc(ConfigureMake):
         """Add extra config options specific to PETSc."""
         extra_vars = {
             'sourceinstall': [False, "Indicates whether a source installation should be performed", CUSTOM],
+            'petsc_arch': ['', "Custom PETSC_ARCH for sourceinstall", CUSTOM],
             'shared_libs': [False, "Build shared libraries", CUSTOM],
             'with_papi': [False, "Enable PAPI support", CUSTOM],
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
@@ -285,6 +284,9 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
 
             if self.cfg['sourceinstall']:
+                if self.petsc_arch:
+                    env.setvar('PETSC_ARCH', self.cfg['petsc_arch'])
+
                 # run configure without --prefix (required)
                 cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
@@ -306,7 +308,12 @@ class EB_PETSc(ConfigureMake):
                 else:
                     raise EasyBuildError("Failed to determine PETSC_ARCH setting.")
 
-            self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
+                self.petsc_subdir = self.name.lower()
+                self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+                self.prefix_inc = os.path.join(self.petsc_subdir, self.petsc_arch)
+                self.prefix_bin = os.path.join(self.petsc_subdir, self.petsc_arch)
+            else:
+                self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
         else:  # old versions (< 3.x)
 

@@ -86,9 +86,12 @@ class JuliaBundle(Bundle):
             raise EasyBuildError("Julia not included as dependency!")
 
     def make_module_extra(self, *args, **kwargs):
-        """Prepend installation directory to JULIA_DEPOT_PATH in module file."""
+        """
+        Module has to append installation directory to JULIA_DEPOT_PATH to keep
+        the user depot in the top entry. See issue easybuilders/easybuild-easyconfigs#17455
+        """
         txt = super(JuliaBundle, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('JULIA_DEPOT_PATH', [''])
+        txt += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
         return txt
 
     def sanity_check_step(self, *args, **kwargs):
