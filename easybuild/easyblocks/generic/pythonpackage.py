@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import mkdir, remove_dir, which
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type, subprocess_popen_text
 from easybuild.tools.run import run_cmd
@@ -63,6 +63,17 @@ EASY_INSTALL_TARGET = "easy_install"
 PIP_INSTALL_CMD = "%(python)s -m pip install --prefix=%(prefix)s %(installopts)s %(loc)s"
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
+
+# Python installation schemes, see https://docs.python.org/3/library/sysconfig.html#installation-paths;
+# posix_prefix is the default upstream installation scheme (and the want to want)
+PY_INSTALL_SCHEME_POSIX_PREFIX = 'posix_prefix'
+# posix_local is custom installation scheme on Debian/Ubuntu which implies additional action,
+# see https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+PY_INSTALL_SCHEME_POSIX_LOCAL = 'posix_local'
+PY_INSTALL_SCHEMES = [
+    PY_INSTALL_SCHEME_POSIX_PREFIX,
+    PY_INSTALL_SCHEME_POSIX_LOCAL,
+]
 
 
 def det_python_version(python_cmd):
@@ -222,6 +233,88 @@ def det_pip_version(python_cmd='python'):
         log.warning("Failed to determine pip version from '%s' using pattern '%s'", out, pip_version_regex.pattern)
 
     return pip_version
+
+
+def det_py_install_scheme(python_cmd='python'):
+    """
+    Try to determine active installation scheme used by Python.
+    """
+    # default installation scheme is 'posix_prefix',
+    # see also https://docs.python.org/3/library/sysconfig.html#installation-paths;
+    # on Debian/Ubuntu, we may be getting 'posix_local' as custom installation scheme,
+    # which injects /local as a subdirectory and cause trouble
+    # (see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976)
+
+    log = fancylogger.getLogger('det_py_install_scheme', fname=False)
+
+    # sysconfig._get_default_scheme was renamed to sysconfig.get_default_scheme in Python 3.10
+    pyver = det_python_version(python_cmd)
+    if LooseVersion(pyver) >= LooseVersion('3.10'):
+        get_default_scheme = 'get_default_scheme'
+    else:
+        get_default_scheme = '_get_default_scheme'
+
+    cmd = "%s -c 'import sysconfig; print(sysconfig.%s())'" % (python_cmd, get_default_scheme)
+    log.debug("Determining active Python installation scheme with: %s", cmd)
+    out, _ = run_cmd(cmd, verbose=False, simple=False, trace=False)
+    py_install_scheme = out.strip()
+
+    if py_install_scheme in PY_INSTALL_SCHEMES:
+        log.info("Active Python installation scheme: %s", py_install_scheme)
+    else:
+        log.warning("Unknown Python installation scheme: %s", py_install_scheme)
+
+    return py_install_scheme
+
+
+def handle_local_py_install_scheme(install_dir):
+    """
+    Handle situation in which 'posix_local' installation scheme was used,
+    which implies that <prefix>/local/' rather than <prefix>/ was used as installation prefix...
+    """
+    # see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+
+    log = fancylogger.getLogger('handle_local_py_install_scheme', fname=False)
+
+    install_dir_local = os.path.join(install_dir, 'local')
+    if os.path.exists(install_dir_local):
+        subdirs = os.listdir(install_dir)
+        log.info("Found 'local' subdirectory in installation prefix %s: %s", install_dir, subdirs)
+
+        local_subdirs = os.listdir(install_dir_local)
+        log.info("Subdirectories of %s: %s", install_dir_local, local_subdirs)
+
+        # symlink subdirectories of <prefix>/local directly into <prefix>
+        cwd = change_dir(install_dir)
+        for local_subdir in local_subdirs:
+            srcpath = os.path.join('local', local_subdir)
+            symlink(srcpath, os.path.join(install_dir, local_subdir), use_abspath_source=False)
+        change_dir(cwd)
+
+
+def symlink_dist_site_packages(install_dir, pylibdirs):
+    """
+    Symlink site-packages to dist-packages if only the latter is available in the specified directories.
+    """
+    # in some situations, for example when the default installation scheme is not the upstream default posix_prefix,
+    # as is the case in Ubuntu 22.04 (cfr. https://github.com/easybuilders/easybuild-easyblocks/issues/2976),
+    # Python packages may get installed in <prefix>/.../dist-packages rather than <prefix>/.../site-packages;
+    # we try to determine all possible paths in get_pylibdirs but we still may get it wrong,
+    # mostly because distutils.sysconfig.get_python_lib(..., prefix=...) isn't correct when posix_prefix
+    # is not the active installation scheme;
+    # so taking the coward way out: just symlink site-packages to dist-packages if only latter is available
+    dist_pkgs = 'dist-packages'
+    for pylibdir in pylibdirs:
+        dist_pkgs_path = os.path.join(install_dir, os.path.dirname(pylibdir), dist_pkgs)
+        site_pkgs_path = os.path.join(os.path.dirname(dist_pkgs_path), 'site-packages')
+
+        # site-packages may be there as empty directory (see mkdir loop in install_step);
+        # just remove it if that's the case so we can symlink to dist-packages
+        if os.path.exists(site_pkgs_path) and not os.listdir(site_pkgs_path):
+            remove_dir(site_pkgs_path)
+
+        if os.path.exists(dist_pkgs_path) and not os.path.exists(site_pkgs_path):
+            symlink(dist_pkgs, site_pkgs_path, use_abspath_source=False)
 
 
 class PythonPackage(ExtensionEasyBlock):
@@ -469,11 +562,32 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             return pkgs
 
+    def using_pip_install(self):
+        """
+        Check whether 'pip install --prefix' is being used to install Python packages.
+        """
+        if self.install_cmd.startswith(PIP_INSTALL_CMD):
+            self.log.debug("Using 'pip install' for installing Python packages: %s" % self.install_cmd)
+            return True
+        else:
+            self.log.debug("Not using 'pip install' for installing Python packages (install command template: %s)",
+                           self.install_cmd)
+            return False
+
+    def using_local_py_install_scheme(self):
+        """
+        Determine whether the custom 'posix_local' Python installation scheme is actually used.
+        This requires that 'pip install --prefix' is used, since the active Python installation scheme
+        doesn't matter when using 'python setup.py install --prefix'.
+        """
+        # see also  https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+        py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
+        return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
+
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
-        using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
-        if using_pip:
+        if self.using_pip_install():
 
             pip_version = det_pip_version(python_cmd=self.python_cmd)
             if pip_version:
@@ -510,7 +624,7 @@ class PythonPackage(ExtensionEasyBlock):
                 # otherwise, self.src is a list of dicts, one element per source file
                 loc = self.src[0]['path']
 
-        if using_pip:
+        if self.using_pip_install():
             extras = self.cfg.get('use_pip_extras')
             if extras:
                 loc += '[%s]' % extras
@@ -538,6 +652,22 @@ class PythonPackage(ExtensionEasyBlock):
         ])
 
         return ' '.join(cmd)
+
+    def py_post_install_shenanigans(self, install_dir):
+        """
+        Run post-installation shenanigans on specified installation directory, incl:
+        * dealing with 'local' subdirectory in install directory in case 'posix_local' installation scheme was used;
+        * symlinking site-packages to dist-packages if only the former is available;
+        """
+        if self.using_local_py_install_scheme():
+            self.log.debug("Looks like the active Python installation scheme injected a 'local' subdirectory...")
+            handle_local_py_install_scheme(install_dir)
+        else:
+            self.log.debug("Looks like active Python installation scheme did not inject a 'local' subdirectory, good!")
+
+        py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
+        if py_install_scheme != PY_INSTALL_SCHEME_POSIX_PREFIX:
+            symlink_dist_site_packages(install_dir, self.all_pylibdirs)
 
     def extract_step(self):
         """Unpack source files, unless instructed otherwise."""
@@ -658,7 +788,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         if self.cfg['runtest'] and self.testcmd is not None:
             extrapath = ""
-            testinstalldir = None
+            test_installdir = None
 
             out, ec = (None, None)
 
@@ -666,20 +796,31 @@ class PythonPackage(ExtensionEasyBlock):
                 # install in test directory and export PYTHONPATH
 
                 try:
-                    testinstalldir = tempfile.mkdtemp()
+                    test_installdir = tempfile.mkdtemp()
+
+                    # if posix_local is the active installation scheme there will be
+                    # a 'local' subdirectory in the specified prefix;
+                    if self.using_local_py_install_scheme():
+                        actual_installdir = os.path.join(test_installdir, 'local')
+                    else:
+                        actual_installdir = test_installdir
+
+                    self.log.debug("Pre-creating subdirectories in %s: %s", actual_installdir, self.all_pylibdirs)
                     for pylibdir in self.all_pylibdirs:
-                        mkdir(os.path.join(testinstalldir, pylibdir), parents=True)
+                        mkdir(os.path.join(actual_installdir, pylibdir), parents=True)
                 except OSError as err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
                 run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
 
-                abs_pylibdirs = [os.path.join(testinstalldir, pylibdir) for pylibdir in self.all_pylibdirs]
+                abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
-                cmd = self.compose_install_command(testinstalldir, extrapath=extrapath)
+                cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
                 run_cmd(cmd, log_all=True, simple=True, verbose=False)
+
+                self.py_post_install_shenanigans(test_installdir)
 
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
@@ -697,8 +838,8 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_cmd(cmd, log_all=True, simple=True)
 
-            if testinstalldir:
-                remove_dir(testinstalldir)
+            if test_installdir:
+                remove_dir(test_installdir)
 
             if return_output_ec:
                 return (out, ec)
@@ -706,12 +847,21 @@ class PythonPackage(ExtensionEasyBlock):
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
 
+        # if posix_local is the active installation scheme there will be
+        # a 'local' subdirectory in the specified prefix;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+        if self.using_local_py_install_scheme():
+            actual_installdir = os.path.join(self.installdir, 'local')
+        else:
+            actual_installdir = self.installdir
+
         # create expected directories
-        abs_pylibdirs = [os.path.join(self.installdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        self.log.debug("Pre-creating subdirectories %s in %s...", abs_pylibdirs, actual_installdir)
         for pylibdir in abs_pylibdirs:
             mkdir(pylibdir, parents=True)
 
-        abs_bindir = os.path.join(self.installdir, 'bin')
+        abs_bindir = os.path.join(actual_installdir, 'bin')
 
         # set PYTHONPATH and PATH as expected
         old_values = dict()
@@ -730,6 +880,8 @@ class PythonPackage(ExtensionEasyBlock):
         # take into account that install step may be run multiple times
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
+
+        self.py_post_install_shenanigans(self.installdir)
 
         # fix shebangs if specified
         self.fix_shebang()

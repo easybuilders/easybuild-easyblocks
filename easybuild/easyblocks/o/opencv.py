@@ -164,8 +164,23 @@ class EB_OpenCV(CMakeMake):
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
         if self.toolchain.options.get('optarch') and 'CPU_BASELINE' not in self.cfg['configopts']:
+            optimal_arch_option = self.toolchain.COMPILER_OPTIMAL_ARCHITECTURE_OPTION.get(
+                (self.toolchain.arch, self.toolchain.cpu_family), '')
             optarch = build_option('optarch')
+            optarch_detect = False
             if not optarch:
+                optarch_detect = True
+            elif isinstance(optarch, str):
+                optarch_detect = optimal_arch_option in optarch
+            elif isinstance(optarch, dict):
+                optarch_gcc = optarch.get('GCC')
+                optarch_intel = optarch.get('Intel')
+                gcc_detect = get_software_root('GCC') and (not optarch_gcc or optimal_arch_option in optarch_gcc)
+                intel_root = get_software_root('iccifort') or get_software_root('intel-compilers')
+                intel_detect = intel_root and (not optarch_intel or optimal_arch_option in optarch_intel)
+                optarch_detect = gcc_detect or intel_detect
+
+            if optarch_detect:
                 # optimize for host arch (let OpenCV detect it)
                 self.cfg.update('configopts', '-DCPU_BASELINE=DETECT')
             elif optarch == OPTARCH_GENERIC:
