@@ -79,7 +79,8 @@ class EB_numpy(FortranPythonPackage):
             "search_static_first=True",
         ])
 
-        if get_software_root("imkl"):
+        # If FlexiBLAS has a dependcy to MLK we want to link to FlexiBLAS and not to MKL.
+        if get_software_root("imkl") and not get_software_root("FlexiBLAS"):
 
             if self.toolchain.comp_family() == toolchain.GCC:
                 # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
