@@ -3,7 +3,7 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 252 software-specific easyblocks and 43 generic easyblocks.
+The latest version of easybuild-easyblocks provides 251 software-specific easyblocks and 42 generic easyblocks.
 
 
 v4.8.1 (11 September 2023)
@@ -11,7 +11,7 @@ v4.8.1 (11 September 2023)
 
 update/bugfix release
 
-- new custom easyblock for tensorflow-compression (#2990)
+- new custom easyblock for sympy (#2949) and tensorflow-compression (#2990)
 - minor enhancements and updates, including:
   - drop unnecessary CUDA stub libraries from $LIBRARY_PATH (#2793)
   - update Score-P easyblock to use `--with-nocross-compiler-suite=nvhpc` for recent software versions (#2928)
@@ -37,7 +37,6 @@ update/bugfix release
   - patch Java binaries/libraries when using alternate sysroot to ensure correct glibc & co are picked up + add custom sanity check (#2557, #2995)
   - update OpenMPI easyblock to fix sanity check for Clang-based compilers (#2774)
   - improve depot management in `JuliaPackage` easyblock (#2935)
-  - add custom easyblock for sympy to fix issue in test step when tmpdir is a symlink (#2949)
   - disable disk space check in STAR-CCM+ installer (#2956)
   - fix type check for `optarch` value in `Cargo` easyblock (#2969)
   - conditionally add `-Wno-unused-command-line-argument` to `$CFLAGS` to fix error when installing `imkl-FFTW` with RPATH (#2975)
