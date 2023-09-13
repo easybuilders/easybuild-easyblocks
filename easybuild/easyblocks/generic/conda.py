@@ -34,8 +34,7 @@ import os
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
-
-DEFAULT_CONDA_CMD = 'conda'
+from easybuild.tools.modules import get_software_root
 
 
 class Conda(Binary):
@@ -46,7 +45,6 @@ class Conda(Binary):
         """Extra easyconfig parameters specific to Conda easyblock."""
         extra_vars = Binary.extra_options(extra_vars)
         extra_vars.update({
-            'conda_cmd': [DEFAULT_CONDA_CMD, "Conda command to use", CUSTOM],
             'channels': [None, "List of conda channels to pass to 'conda install'", CUSTOM],
             'environment_file': [None, "Conda environment.yml file to use with 'conda env create'", CUSTOM],
             'remote_environment': [None, "Remote conda environment to use with 'conda env create'", CUSTOM],
@@ -60,9 +58,16 @@ class Conda(Binary):
             super(Conda, self).extract_step()
 
     def install_step(self):
-        """Install software using 'conda env create' or 'conda create' & 'conda install'."""
-        conda_cmd = self.cfg.get('conda_cmd')
+        if get_software_root('anaconda') or get_software_root('miniconda'):
+            conda_cmd = 'conda'
+        elif get_software_root('mamba'):
+            conda_cmd = 'mamba'
+        elif get_software_root('micromamba'):
+            conda_cmd = 'micromamba'
+        else:
+            raise EasyBuildError("No conda/mamba/micromamba available.")
 
+        """Install software using 'conda env create' or 'conda create' & 'conda install'."""
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = "%s config --add create_default_packages setuptools" % conda_cmd
