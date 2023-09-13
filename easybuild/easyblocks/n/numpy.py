@@ -79,7 +79,7 @@ class EB_numpy(FortranPythonPackage):
             "search_static_first=True",
         ])
 
-        # If FlexiBLAS has a dependcy to MLK we want to link to FlexiBLAS and not to MKL.
+        # If FlexiBLAS has a dependency on MKL we want to link to FlexiBLAS and not to MKL.
         if get_software_root("imkl") and not get_software_root("FlexiBLAS"):
 
             if self.toolchain.comp_family() == toolchain.GCC:
