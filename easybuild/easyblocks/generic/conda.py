@@ -35,6 +35,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.build_log import EasyBuildError
 
 
 class Conda(Binary):
