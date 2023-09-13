@@ -80,7 +80,9 @@ class EB_numpy(FortranPythonPackage):
         ])
 
         # If FlexiBLAS has a dependency on MKL we want to link to FlexiBLAS and not to MKL.
-        if get_software_root("imkl") and not get_software_root("FlexiBLAS"):
+        imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+
+        if imkl_direct:
 
             if self.toolchain.comp_family() == toolchain.GCC:
                 # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
@@ -113,7 +115,7 @@ class EB_numpy(FortranPythonPackage):
         lapack = None
         fft = None
 
-        if get_software_root("imkl"):
+        if imkl_direct:
             # with IMKL, no spaces and use '-Wl:'
             # redefine 'Wl,' to 'Wl:' so that the patch file can do its job
             def get_libs_for_mkl(varname):
