@@ -131,6 +131,8 @@ class EB_Java(PackedBinary):
 
                 bindirs = [os.path.join(self.installdir, bindir) for bindir in module_guesses['PATH'] if
                            os.path.exists(os.path.join(self.installdir, bindir))]
+                # Make sure these are unique real paths
+                bindirs = list(set([os.path.realpath(path) for path in bindirs]))
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
                         path = os.path.join(bindir, path)
@@ -164,6 +166,8 @@ class EB_Java(PackedBinary):
 
                 libdirs = [os.path.join(self.installdir, libdir) for libdir in module_guesses['LIBRARY_PATH'] if
                            os.path.exists(os.path.join(self.installdir, libdir))]
+                # Make sure these are unique real paths
+                libdirs = list(set([os.path.realpath(path) for path in libdirs]))
                 shlib_ext = '.' + get_shared_lib_ext()
                 for libdir in libdirs:
                     for path, _, filenames in os.walk(libdir):
