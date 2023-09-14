@@ -79,7 +79,8 @@ class EB_numpy(FortranPythonPackage):
             "search_static_first=True",
         ])
 
-        # If FlexiBLAS has a dependency on MKL we want to link to FlexiBLAS and not to MKL.
+        # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
+        # In this case we want to link to FlexiBLAS and not directly to MKL.
         imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
 
         if imkl_direct:
