@@ -194,7 +194,9 @@ class EB_tbb(IntelBase, ConfigureMake):
             # no custom install step when building from source (building is done in install directory)
             libpath = find_glob_pattern(os.path.join(self.installdir, 'build', '*_release'))
 
-        self.log.debug("libpath: %s" % libpath)
+        real_libpath = os.path.realpath(libpath)
+        self.log.debug("libpath: %s, resolved: %s" % (libpath, real_libpath))
+        libpath = real_libpath
         # applications usually look into /lib, so we move the folder there
         # This is also important so that /lib and /lib64 are actually on the same level
         root_lib_path = os.path.join(self.installdir, 'lib')
