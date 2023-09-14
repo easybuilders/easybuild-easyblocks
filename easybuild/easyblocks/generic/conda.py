@@ -39,6 +39,22 @@ from easybuild.tools.run import run_cmd
 class Conda(Binary):
     """Support for installing software using 'conda'."""
 
+    def __init__(self,*args,**kwargs):
+        super(Conda,self).__init__(*args,**kwargs)
+
+        # Populate sources from 'conda_packages' list
+        if self.cfg['conda_packages']:
+
+            sources = []
+            for package in self.cfg['conda_packages']:
+                base_url =  f"https://conda.anaconda.org/{package['channel']}/"
+                sources.append({
+                    'filename': package['fn'],
+                    'source_urls': [base_url + 'noarch',base_url + 'linux-64']
+                })
+
+            self.cfg.update('sources',sources)
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to Conda easyblock."""
@@ -48,6 +64,9 @@ class Conda(Binary):
             'environment_file': [None, "Conda environment.yml file to use with 'conda env create'", CUSTOM],
             'remote_environment': [None, "Remote conda environment to use with 'conda env create'", CUSTOM],
             'requirements': [None, "Requirements specification to pass to 'conda install'", CUSTOM],
+            'conda_packages': [None, "List of packages that need to be installed by conda", CUSTOM],
+            'python_version': [None, "The python version of conda environment, should match with the toolchain.", CUSTOM],
+            'enable_mamba': [False, "Use mamba instead of conda to install the conda_packages",CUSTOM]
         })
         return extra_vars
 
@@ -64,7 +83,27 @@ class Conda(Binary):
         cmd = "conda config --add create_default_packages setuptools"
         run_cmd(cmd, log_all=True, simple=True)
 
-        if self.cfg['environment_file'] or self.cfg['remote_environment']:
+        if self.cfg.get('conda_packages'):
+            conda_cmd = "mamba" if self.cfg.get('enable_mamba') else "conda"
+
+            python_version = self.cfg['python_version'] or f"python{self.det_python_version()}"
+
+            cmd = "%s %s create --force -y -p %s python=%s --no-default-packages --no-deps" % (self.cfg['preinstallopts'], conda_cmd, self.installdir,python_version)
+            run_cmd(cmd, log_all=True, simple=True)
+
+            install_args = ""
+            if isinstance(self.src,list):
+                if self.cfg['channels']:
+                    install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
+
+                install_args += " -y %s " % " ".join(map(lambda x: f"\'{x['path']}\'", self.src))
+
+                self.log.info("Installed conda requirements")
+
+            run_cmd("%s install -p %s --no-deps %s" % (conda_cmd,self.installdir,install_args) ,log_all=True,simple=True)
+            run_cmd("ln -sf $(which python) %s" % (os.path.join(self.installdir,"bin","python")))
+
+        elif self.cfg['environment_file'] or self.cfg['remote_environment']:
 
             if self.cfg['environment_file']:
                 env_spec = '-f ' + self.cfg['environment_file']
@@ -88,12 +127,24 @@ class Conda(Binary):
             cmd = "%s conda create --force -y -p %s %s" % (self.cfg['preinstallopts'], self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
 
+
+    def det_python_version(self):
+        """Determine major and minor of specified 'python' command."""
+        pycode = 'import sys; print("%s.%s" % sys.version_info[:2])'
+        out, _ = run_cmd("python -c '%s'" % pycode, simple=False, trace=False)
+        return out.strip()
+
     def make_module_extra(self):
         """Add the install directory to the PATH."""
         txt = super(Conda, self).make_module_extra()
         txt += self.module_generator.set_environment('CONDA_ENV', self.installdir)
         txt += self.module_generator.set_environment('CONDA_PREFIX', self.installdir)
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
+
+        if self.cfg['conda_packages']:
+            pythonpath = os.path.join('lib', 'python' + self.det_python_version(), 'site-packages')
+            txt += self.module_generator.prepend_paths('PYTHONPATH', pythonpath)
+
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
 
