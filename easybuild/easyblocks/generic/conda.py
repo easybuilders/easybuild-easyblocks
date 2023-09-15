@@ -59,7 +59,8 @@ class Conda(Binary):
             super(Conda, self).extract_step()
 
     def install_step(self):
-        if get_software_root('anaconda') or get_software_root('miniconda'):
+        if (get_software_root('anaconda2') or get_software_root('miniconda2') or
+                get_software_root('anaconda3') or get_software_root('miniconda3')):
             conda_cmd = 'conda'
         elif get_software_root('mamba'):
             conda_cmd = 'mamba'
@@ -68,7 +69,6 @@ class Conda(Binary):
         else:
             raise EasyBuildError("No conda/mamba/micromamba available.")
 
-        """Install software using 'conda env create' or 'conda create' & 'conda install'."""
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = "%s config --add create_default_packages setuptools" % conda_cmd
