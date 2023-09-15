@@ -59,6 +59,8 @@ class Conda(Binary):
             super(Conda, self).extract_step()
 
     def install_step(self):
+        """Install software using 'conda env create' or 'conda create' & 'conda install'
+        (or the 'mamba', etc., equivalent)."""
         if (get_software_root('anaconda2') or get_software_root('miniconda2') or
                 get_software_root('anaconda3') or get_software_root('miniconda3')):
             conda_cmd = 'conda'
