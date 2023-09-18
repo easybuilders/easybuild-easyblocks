@@ -101,7 +101,7 @@ class EB_SuiteSparse(ConfigureMake):
         else:
             self.log.info("Use METIS built in SuiteSparse")
             # raise EasyBuildError("Neither METIS or ParMETIS module loaded.")
-           
+
         # config file can catch environment variables after v4.5.0
         if LooseVersion(self.version) < LooseVersion('4.5.0'):
             cfgvars.update({
@@ -116,12 +116,12 @@ class EB_SuiteSparse(ConfigureMake):
 
             # patch file
             fp = os.path.join(self.cfg['start_dir'], self.config_name, '%s.mk' % self.config_name)
-    
+
             try:
                 for line in fileinput.input(fp, inplace=1, backup='.orig'):
                     for (var, val) in list(cfgvars.items()):
-                        # Let's overwrite NVCCFLAGS at the end, since the line breaks and the fact that it appears multiple
-                        # times makes it tricky to handle it properly
+                        # Let's overwrite NVCCFLAGS at the end, since the line breaks and
+                        # the fact that it appears multiple times makes it tricky to handle it properly
                         # path variables are also moved to the end
                         if var not in ['NVCCFLAGS', 'INSTALL_LIB', 'INSTALL_INCLUDE', 'METIS_PATH']:
                             orig_line = line
@@ -176,10 +176,6 @@ class EB_SuiteSparse(ConfigureMake):
             # after v6.0.0, no option for metis, its own metis is used anyway
             # nothing to do here, set the CMAKE_OPTIONS in easyconfigs
             pass
-            # self.cfg.update(
-            #     'prebuildopts', 
-            #     'CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=%s -DBLA_VENDOR=FlexiBLAS"' % self.installdir
-            # )
 
     def install_step(self):
         """Install by copying the contents of the builddir to the installdir (preserving permissions)"""
@@ -187,7 +183,7 @@ class EB_SuiteSparse(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion('4.5.0'):
             mkdir(os.path.join(self.installdir, 'lib'))
             mkdir(os.path.join(self.installdir, 'include'))
-        
+
         super(EB_SuiteSparse, self).install_step()
 
     def sanity_check_step(self):
