@@ -34,6 +34,7 @@ EasyBuild support for building and installing WRF, implemented as an easyblock
 """
 import os
 import re
+import tempfile
 
 from distutils.version import LooseVersion
 
@@ -44,7 +45,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, mkdir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
@@ -370,10 +371,13 @@ class EB_WRF(EasyBlock):
                             remove_file(filename)
                             self.log.debug("Cleaned up file %s", filename)
 
+            tests_tmpdir = os.path.join(tempfile.gettempdir(), 'wrf-tests')
+            mkdir(tests_tmpdir, parents=True)
+
             # build and run each test case individually
             for test in self.testcases:
 
-                self.log.debug("Building and running test %s" % test)
+                self.log.info("Building and running test %s", test)
 
                 # build and install
                 cmd = "./compile %s %s" % (self.par, test)
@@ -381,16 +385,21 @@ class EB_WRF(EasyBlock):
 
                 # run test
                 try:
-                    prev_dir = change_dir('run')
+                    # copy prepared 'run' directory to a (local) temporary directory (with resolved symlinks),
+                    # to try and avoid problems with hanging tests when running directly in installation directory
+                    tmpdir = os.path.join(tests_tmpdir, test)
+                    copy_dir('run', tmpdir, symlinks=False)
+                    prev_dir = change_dir(tmpdir)
 
-                    if test in ["em_fire"]:
+                    if test in ['em_fire']:
 
                         # handle tests with subtests seperately
-                        testdir = os.path.join("..", "test", test)
+                        testdir = os.path.join(prev_dir, 'test', test)
 
                         for subtest in [x for x in os.listdir(testdir) if os.path.isdir(x)]:
 
                             subtestdir = os.path.join(testdir, subtest)
+                            self.log.info("Running subtest %s of %s...", subtest, test)
 
                             # link required files
                             for filename in os.listdir(subtestdir):
