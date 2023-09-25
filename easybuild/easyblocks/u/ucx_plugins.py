@@ -29,6 +29,7 @@ EasyBuild support for UCX plugins (modules), implemented as an easyblock
 @author: Mikael Öhman (Chalmers University of Techonology)
 """
 from collections import defaultdict
+from itertools import chain
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -66,7 +67,7 @@ class EB_UCX_Plugins(ConfigureMake):
                     plugins[key].append('rocm')
 
             self._plugins = dict(plugins)
-            print("plugins", plugins)
+            self.log.info("Creating plugins for %s", ", ".join(sorted(set(chain(*plugins.values())))))
         return self._plugins
 
     def configure_step(self):
