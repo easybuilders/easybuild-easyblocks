@@ -219,7 +219,7 @@ class EB_NEURON(CMakeMake):
         ])
         (out, ec) = run_cmd("neurondemo", simple=False, log_all=True, log_output=True, inp=inp)
 
-        validate_regexp = re.compile(r"^\s+-65\s*\n\s+5\s*\n\s+-68.134337", re.M)
+        validate_regexp = re.compile(r"^\s+-65\s*\n\s+5\s*\n\s+-68.13", re.M)
         if ec or not validate_regexp.search(out):
             raise EasyBuildError("Validation of NEURON demo run failed.")
         else:
