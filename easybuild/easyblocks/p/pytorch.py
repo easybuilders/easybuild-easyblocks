@@ -409,6 +409,7 @@ class EB_PyTorch(PythonPackage):
             failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
+
         failure_report = '\n'.join(failure_report)
 
         # Calculate total number of unsuccesful and total tests
