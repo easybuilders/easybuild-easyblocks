@@ -51,6 +51,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
     @property
     def plugins(self):
+        """Property to determine list of plugins based on loaded dependencies, or return cached list of plugins."""
         if self._plugins is None:
             plugins = defaultdict(list)
 
