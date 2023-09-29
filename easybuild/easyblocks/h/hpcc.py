@@ -33,8 +33,6 @@ import shutil
 
 from easybuild.easyblocks.h.hpl import EB_HPL
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, remove_file, symlink
-from easybuild.tools.run import run_cmd
 
 
 class EB_HPCC(EB_HPL):
