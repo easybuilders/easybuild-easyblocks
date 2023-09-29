@@ -37,13 +37,14 @@ import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, remove_file, symlink
 from easybuild.tools.run import run_cmd
 
 
 class EB_HPL(ConfigureMake):
     """
     Support for building HPL (High Performance Linpack)
-    - create Make.UNKNOWN
+    - creat Make.UNKNOWN
     - build with make and install
     """
 
@@ -62,7 +63,7 @@ class EB_HPL(ConfigureMake):
             setupdir = os.path.join(basedir, 'setup')
 
         try:
-            os.chdir(setupdir)
+            change_dir(setupdir)
         except OSError as err:
             raise EasyBuildError("Failed to change to to dir %s: %s", setupdir, err)
 
@@ -71,14 +72,15 @@ class EB_HPL(ConfigureMake):
         run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
         try:
-            os.symlink(os.path.join(setupdir, 'Make.UNKNOWN'), os.path.join(makeincfile))
+            remove_file(os.path.join(makeincfile))
+            symlink(os.path.join(setupdir, 'Make.UNKNOWN'), os.path.join(makeincfile))
         except OSError as err:
             raise EasyBuildError("Failed to symlink Make.UNKNOWN from %s to %s: %s", setupdir, makeincfile, err)
 
         # go back
-        os.chdir(self.cfg['start_dir'])
+        change_dir(self.cfg['start_dir'])
 
-    def build_step(self):
+    def build_step(self, topdir=None):
         """
         Build with make and correct make options
         """
@@ -89,7 +91,9 @@ class EB_HPL(ConfigureMake):
                 raise EasyBuildError("Required environment variable %s not found (no toolchain used?).", envvar)
 
         # build dir
-        extra_makeopts = 'TOPdir="%s" ' % self.cfg['start_dir']
+        if not topdir:
+            topdir = self.cfg['start_dir']
+        extra_makeopts = 'TOPdir="%s" ' % topdir
 
         # compilers
         extra_makeopts += 'CC="%(mpicc)s" MPICC="%(mpicc)s" LINKER="%(mpicc)s" ' % {'mpicc': os.getenv('MPICC')}
