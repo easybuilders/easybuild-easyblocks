@@ -31,7 +31,7 @@ EasyBuild support for building and installing HPCC, implemented as an easyblock
 import os
 import shutil
 
-from easybuild.easyblocks.h.hpl import EB_HPL
+from easybuild.easyblocks.hpl import EB_HPL
 from easybuild.tools.build_log import EasyBuildError
 
 
