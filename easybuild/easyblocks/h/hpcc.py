@@ -60,11 +60,12 @@ class EB_HPCC(EB_HPL):
         """
         srcdir = self.cfg['start_dir']
         destdir = os.path.join(self.installdir, 'bin')
-        filename = 'hpcc'
+        srcfile = None
         try:
             os.makedirs(destdir)
-            srcfile = os.path.join(srcdir, filename)
-            shutil.copy2(srcfile, destdir)
+            for filename in ["hpcc", "_hpccinf.txt"]:
+                srcfile = os.path.join(srcdir, filename)
+                shutil.copy2(srcfile, destdir)
         except OSError as err:
             raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
 
