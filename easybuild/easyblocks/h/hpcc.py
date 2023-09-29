@@ -45,7 +45,6 @@ class EB_HPCC(EB_HPL):
     def configure_step(self):
         """
         Create Make.UNKNOWN file to build from
-        - provide subdir argument so this can be reused in HPCC easyblock
         """
         super(EB_HPCC, self).configure_step(subdir='hpl')
 
