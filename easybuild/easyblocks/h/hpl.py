@@ -44,7 +44,7 @@ from easybuild.tools.run import run_cmd
 class EB_HPL(ConfigureMake):
     """
     Support for building HPL (High Performance Linpack)
-    - creat Make.UNKNOWN
+    - create Make.UNKNOWN
     - build with make and install
     """
 
