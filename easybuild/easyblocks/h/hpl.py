@@ -83,6 +83,7 @@ class EB_HPL(ConfigureMake):
     def build_step(self, topdir=None):
         """
         Build with make and correct make options
+        - provide topdir argument so this can be reused in HPCC easyblock
         """
 
         for envvar in ['MPICC', 'LIBLAPACK_MT', 'CPPFLAGS', 'LDFLAGS', 'CFLAGS']:
