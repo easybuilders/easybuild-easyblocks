@@ -70,7 +70,7 @@ class EB_HEALPix(ConfigureMake):
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             self.target_string = 'linux_icc'
-        elif comp_fam in [toolchain.DUMMY, toolchain.SYSTEM, toolchain.GCC]:  # @UndefinedVariable
+        elif comp_fam in [toolchain.SYSTEM, toolchain.GCC]:  # @UndefinedVariable
 
             self.target_string = self.cfg['gcc_target']
 
