@@ -124,12 +124,6 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
         re.compile(r"log\.error\("),
         re.compile(r"log\.exception\("),
         re.compile(r"log\.raiseException\("),
-        # check for use of 'basestring', which is Python 2.x only (should use string_type from tools.py2vs3 instead)
-        re.compile(r"[^\w]basestring([^\w]|$)"),
-        # check for use of '.iteritems()', which is Python 2.x only (should use .items instead)
-        re.compile(r"\.iteritems\(\)"),
-        # sys.maxint is no longer there in Python 3
-        re.compile(r"sys\.maxint"),
     ]
     for regexp in regexps:
         self.assertFalse(regexp.search(txt), "No match for '%s' in %s" % (regexp.pattern, easyblock))
