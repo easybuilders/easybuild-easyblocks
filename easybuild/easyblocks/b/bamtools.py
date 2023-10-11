@@ -28,7 +28,7 @@ EasyBuild support for BamTools, implemented as an easyblock
 @author: Andreas Panteli (The Cyprus Institute)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM

@@ -35,7 +35,7 @@ EasyBuild support for building and installing WRF, implemented as an easyblock
 import os
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain

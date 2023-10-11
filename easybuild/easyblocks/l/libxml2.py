@@ -30,7 +30,7 @@ implemented as an easyblock.
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 import easybuild.tools.environment as env

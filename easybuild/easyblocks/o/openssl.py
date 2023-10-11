@@ -33,7 +33,7 @@ EasyBuild support for OpenSSL, implemented as an easyblock
 import os
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM

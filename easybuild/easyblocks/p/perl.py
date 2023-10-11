@@ -28,7 +28,7 @@ EasyBuild support for Perl, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import stat

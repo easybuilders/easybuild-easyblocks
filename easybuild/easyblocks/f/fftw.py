@@ -27,7 +27,7 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 
 @author: Kenneth Hoste (HPC-UGent)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

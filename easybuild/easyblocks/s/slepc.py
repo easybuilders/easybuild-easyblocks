@@ -30,7 +30,7 @@ EasyBuild support for SLEPc, implemented as an easyblock
 
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

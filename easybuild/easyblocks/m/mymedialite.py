@@ -32,7 +32,7 @@ EasyBuild support for MyMediaLite, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd

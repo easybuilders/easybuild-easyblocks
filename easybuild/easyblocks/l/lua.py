@@ -28,7 +28,7 @@ EasyBuild support for building and installing Lua, implemented as an easyblock
 @author: Ruben Di Battista (Ecole Polytechnique)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

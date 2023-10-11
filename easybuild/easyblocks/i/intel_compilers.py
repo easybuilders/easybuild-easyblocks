@@ -28,7 +28,7 @@ EasyBuild support for installing Intel compilers, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.t.tbb import get_tbb_gccprefix

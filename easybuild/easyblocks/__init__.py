@@ -32,7 +32,7 @@ easybuild.easyblocks package declaration
 @author: Jens Timmerman (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from pkgutil import extend_path
 
 # note: release candidates should be versioned as a pre-release, e.g. "1.1rc1"

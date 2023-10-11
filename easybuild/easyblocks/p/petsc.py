@@ -29,7 +29,7 @@ EasyBuild support for PETSc, implemented as an easyblock
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
