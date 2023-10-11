@@ -31,7 +31,7 @@ EasyBuild support for using (already installed/existing) system compiler instead
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.bundle import Bundle

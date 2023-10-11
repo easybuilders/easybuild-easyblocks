@@ -34,7 +34,7 @@ EasyBuild support for building and installing ScaLAPACK, implemented as an easyb
 
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.blacs import det_interface  # @UnresolvedImport

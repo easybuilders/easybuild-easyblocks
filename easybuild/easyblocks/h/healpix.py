@@ -29,7 +29,7 @@ EasyBuild support for building and installing HEALPix, implemented as an easyblo
 @author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

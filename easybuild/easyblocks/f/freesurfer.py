@@ -30,7 +30,7 @@ EasyBuild support for building and installing FreeSurfer, implemented as an easy
 
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import MANDATORY

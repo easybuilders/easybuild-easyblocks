@@ -37,7 +37,7 @@ import os
 import re
 import sys
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from distutils.sysconfig import get_config_vars
 
 import easybuild.tools.environment as env

@@ -28,7 +28,7 @@ EasyBuild support for BerkeleyGW, implemented as an easyblock
 @author: Miguel Dias Costa (National University of Singapore)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

@@ -34,7 +34,7 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012

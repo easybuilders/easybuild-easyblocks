@@ -29,7 +29,7 @@ author: Kenneth Hoste (HPC-UGent)
 author: Maxime Boissonneault (Compute Canada)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir

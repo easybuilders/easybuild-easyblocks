@@ -25,7 +25,7 @@
 """
 EasyBuild support for building and installing RepeatMasker, implemented as an easyblock
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball

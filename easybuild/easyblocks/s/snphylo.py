@@ -31,7 +31,7 @@ EasyBuild support for SNPyhlo, implemented as an easyblock
 import os
 import re
 import stat
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError

@@ -30,7 +30,7 @@ EasyBuild support for building and installing TensorRT, implemented as an easybl
 """
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTALL_CMD

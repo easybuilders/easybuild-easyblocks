@@ -16,7 +16,7 @@ EasyBuild support for building and installing Bowtie2, implemented as an easyblo
 @author: Fotis Georgatos (Uni.Lu)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.makecp import MakeCp

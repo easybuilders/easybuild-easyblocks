@@ -34,7 +34,7 @@ EasyBuild support for building and installing the MVAPICH2 MPI library, implemen
 @author: Xavier Besseron (University of Luxembourg)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM

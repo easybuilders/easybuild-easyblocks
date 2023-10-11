@@ -30,7 +30,7 @@ EasyBuild support for Mothur, implemented as an easyblock
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError

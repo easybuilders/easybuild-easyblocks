@@ -27,7 +27,7 @@ EasyBuild support for binary GHC packages, see http://haskell.org/ghc
 
 @author: Andy Georges (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 

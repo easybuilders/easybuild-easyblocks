@@ -30,7 +30,7 @@ EasyBuild support for MXNet, implemented as an easyblock
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.makecp import MakeCp

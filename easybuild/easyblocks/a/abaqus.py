@@ -32,9 +32,9 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
 import glob
 import os
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
