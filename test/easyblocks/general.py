@@ -50,10 +50,7 @@ for subdir in subdirs:
     __path__ = extend_path(__path__, '%s.%s' % (__name__, subdir))
 """
 NAMESPACE_EXTEND_PATH = "from pkgutil import extend_path; __path__ = extend_path(__path__, __name__)"
-EASYBLOCKS_VERSION = """
-from distutils.version import LooseVersion
-VERSION = LooseVersion('%s')
-""" % VERSION
+EASYBLOCKS_VERSION = "VERSION = '%s'" % VERSION
 
 
 def det_path_for_import(module, pythonpath=None):
