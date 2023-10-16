@@ -54,16 +54,16 @@ class EB_UCX_Plugins(ConfigureMake):
         """Property to determine list of plugins based on loaded dependencies, or return cached list of plugins."""
         if self._plugins is None:
             plugins = defaultdict(list)
+            dep_names = set(dep['name'] for dep in self.cfg.dependencies())
 
-            if get_software_root('CUDAcore') or get_software_root('CUDA'):
+            if 'CUDAcore' in dep_names or 'CUDA' in dep_names:
                 for key in ('ucm', 'uct', 'ucx_perftest'):
                     plugins[key].append('cuda')
 
-                if get_software_root('GDRCopy'):
+                if 'GDRCopy' in dep_names:
                     plugins['uct_cuda'].append('gdrcopy')
 
-            # To be supported in the future:
-            if get_software_root('ROCm'):
+            if 'ROCm' in dep_names:
                 for key in ('ucm', 'uct', 'ucx_perftest'):
                     plugins[key].append('rocm')
 
@@ -94,7 +94,6 @@ class EB_UCX_Plugins(ConfigureMake):
 
             self.makefile_dirs.extend(os.path.join(x, 'cuda') for x in ('uct', 'ucm', 'tools/perf'))
 
-        # To be supported in the future:
         rocmroot = get_software_root('ROCm')
         if rocmroot:
             configopts += '--with-rocm=%s ' % rocmroot
