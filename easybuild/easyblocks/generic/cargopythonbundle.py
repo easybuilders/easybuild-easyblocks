@@ -50,7 +50,8 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
 
     def __init__(self, *args, **kwargs):
         """Constructor for CargoPythonBundle easyblock."""
-        super(CargoPythonBundle, self).__init__(*args, check_for_sources=False, **kwargs)
+        PythonBundle.__init__(self, *args, check_for_sources=False, **kwargs)
+        Cargo.__init__(self, *args, **kwargs)
 
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
