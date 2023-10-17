@@ -109,11 +109,6 @@ class EB_SCOTCH(EasyBlock):
         if self.cfg['threadedmpi']:
             cflags += " -DSCOTCH_PTHREAD"
 
-        # For backwards compatability of v2.8.0 this is necessary but could be removed on a major version upgrade
-        mpi_family = self.toolchain.mpi_family()
-        if self.cfg['threadedmpi'] is None and mpi_family not in [toolchain.INTELMPI, toolchain.QLOGICMPI]:
-            cflags += " -DSCOTCH_PTHREAD"
-
         # actually build
         apps = ['scotch', 'ptscotch']
         if LooseVersion(self.version) >= LooseVersion('6.0'):
