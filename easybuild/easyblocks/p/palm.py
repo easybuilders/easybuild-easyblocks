@@ -28,11 +28,8 @@ EasyBuild support for building and installing PALM, implemented as an easyblock
 @author: Viktor Rehnberg (Chalmers University of Technology)
 """
 import os
-import tempfile
 
-import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.run import run_cmd
 
