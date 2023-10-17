@@ -66,11 +66,6 @@ class Bundle(EasyBlock):
         return EasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
-        """
-        Constructor for Bundle easyblock
-        """
-        # add check_for_sources named argument in a Python 2+3 compatible way
-        check_for_sources = kwargs.get('check_for_sources', True)
         """Initialize easyblock."""
         super(Bundle, self).__init__(*args, **kwargs)
         self.altroot = None
@@ -82,7 +77,8 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
 
-        # list of sources for bundle itself *must* be empty
+        check_for_sources = check_for_sources = kwargs.get('check_for_sources', True)
+        # list of sources for bundle itself *must* be empty (unless overridden by subclass)
         if check_for_sources:
             if self.cfg['sources']:
                 raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
