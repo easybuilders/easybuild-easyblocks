@@ -32,7 +32,7 @@ EasyBuild support for wxPython, implemented as an easyblock
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root

@@ -36,7 +36,7 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError

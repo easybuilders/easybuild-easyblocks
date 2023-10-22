@@ -31,7 +31,7 @@ import os
 import random
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from string import ascii_letters
 
 import easybuild.tools.toolchain as toolchain

@@ -45,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 
 class EB_numpy(FortranPythonPackage):

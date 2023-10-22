@@ -32,7 +32,7 @@ EasyBuild support for SCOTCH, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock

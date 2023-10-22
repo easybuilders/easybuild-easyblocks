@@ -31,7 +31,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Alexander Grund (TU Dresden)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir

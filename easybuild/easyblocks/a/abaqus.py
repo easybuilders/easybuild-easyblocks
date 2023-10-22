@@ -35,7 +35,7 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 import glob
 import os
 from collections import OrderedDict
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock

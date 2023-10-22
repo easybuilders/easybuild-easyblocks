@@ -31,7 +31,7 @@ EasyBuild support for building and installing Paraver, implemented as an easyblo
 """
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError, print_msg
