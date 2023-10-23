@@ -79,9 +79,6 @@ class EB_PALM(EasyBlock):
         """Extra statements specific to PALM to include in generated module file."""
         txt = super().make_module_extra()
 
-        bin_dirs = [
-            os.path.join(self.installdir, 'bin'),
-        ]
-        txt += self.module_generator.prepend_paths('PATH', bin_dirs)
+        txt += self.module_generator.prepend_paths('PATH', ['bin'])
 
         return txt
