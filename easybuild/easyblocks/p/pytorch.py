@@ -54,8 +54,6 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
             'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
 
         return extra_vars
 

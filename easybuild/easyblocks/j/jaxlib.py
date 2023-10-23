@@ -51,7 +51,6 @@ class EB_jaxlib(PythonPackage):
         """Custom easyconfig parameters specific to jaxlib."""
         extra_vars = PythonPackage.extra_options()
 
-        extra_vars['use_pip'][0] = True
         # Run custom build script and install the generated whl file
         extra_vars['buildcmd'][0] = '%(python)s build/build.py'
         extra_vars['install_src'][0] = 'dist/*.whl'

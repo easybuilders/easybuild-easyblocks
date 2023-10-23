@@ -330,7 +330,7 @@ class PythonPackage(ExtensionEasyBlock):
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
-            'download_dep_fail': [None, "Fail if downloaded dependencies are detected", CUSTOM],
+            'download_dep_fail': [True, "Fail if downloaded dependencies are detected", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
@@ -339,8 +339,8 @@ class PythonPackage(ExtensionEasyBlock):
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
-            'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
-                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
+            'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
+                                       "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
@@ -349,7 +349,7 @@ class PythonPackage(ExtensionEasyBlock):
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
             'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
-            'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip': [True, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
@@ -417,7 +417,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         Determine install command to use.
         """
-        if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
+        if self.cfg.get('use_pip', True) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
             if build_option('debug'):
@@ -439,7 +439,7 @@ class PythonPackage(ExtensionEasyBlock):
                 self.cfg.update('installopts', '--egg')
 
             pip_no_index = self.cfg.get('pip_no_index', None)
-            if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
+            if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail', True)):
                 self.cfg.update('installopts', '--no-index')
 
             # avoid that pip (ab)uses $HOME/.cache/pip
@@ -958,7 +958,7 @@ class PythonPackage(ExtensionEasyBlock):
         # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
-        if self.cfg.get('download_dep_fail', False):
+        if self.cfg.get('download_dep_fail', True):
             self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
@@ -1002,7 +1002,7 @@ class PythonPackage(ExtensionEasyBlock):
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
 
-        if self.cfg.get('sanity_pip_check', False):
+        if self.cfg.get('sanity_pip_check', True):
             pip_version = det_pip_version(python_cmd=python_cmd)
 
             if pip_version:

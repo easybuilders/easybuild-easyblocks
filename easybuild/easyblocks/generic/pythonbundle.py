@@ -69,9 +69,6 @@ class PythonBundle(Bundle):
                 if key not in self.cfg['exts_default_options']:
                     self.cfg['exts_default_options'][key] = self.cfg[key]
 
-            self.cfg['exts_default_options']['download_dep_fail'] = True
-            self.log.info("Detection of downloaded extension dependencies is enabled")
-
             self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None

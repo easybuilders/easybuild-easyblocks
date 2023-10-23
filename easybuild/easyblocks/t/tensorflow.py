@@ -251,8 +251,6 @@ class EB_TensorFlow(PythonPackage):
         with self.cfg.disable_templating():
             self.cfg['exts_defaultclass'] = 'PythonPackage'
 
-            self.cfg['exts_default_options']['download_dep_fail'] = True
-            self.cfg['exts_default_options']['use_pip'] = True
             self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
         self.system_libs_info = None
