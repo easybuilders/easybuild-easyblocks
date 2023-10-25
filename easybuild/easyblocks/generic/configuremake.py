@@ -45,7 +45,7 @@ from easybuild.base import fancylogger
 from easybuild.easyblocks import VERSION as EASYBLOCKS_VERSION
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import print_warning, EasyBuildError
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.config import source_paths, build_option
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, adjust_permissions, compute_checksum, download_file
 from easybuild.tools.filetools import read_file, remove_file
@@ -324,11 +324,7 @@ class ConfigureMake(EasyBlock):
         )
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        try:
-            check_log_for_errors(out, ['configure: WARNING: unrecognized options:'])
-        except EasyBuildError as err:
-            self.log.deprecated("Unknown arguments for configure used: %s" % err, '5.0')
-            print_warning("Unknown arguments for configure detected: %s" % err)
+        check_log_for_errors(out, ['configure: WARNING: unrecognized options:'])
 
         return out
 
