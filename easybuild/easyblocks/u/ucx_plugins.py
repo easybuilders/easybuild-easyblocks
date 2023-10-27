@@ -54,7 +54,7 @@ class EB_UCX_Plugins(ConfigureMake):
         """Property to determine list of plugins based on loaded dependencies, or return cached list of plugins."""
         if self._plugins is None:
             plugins = defaultdict(list)
-            dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+            dep_names = self.cfg.dependency_names()
 
             if 'CUDAcore' in dep_names or 'CUDA' in dep_names:
                 for key in ('ucm', 'uct', 'ucx_perftest'):
