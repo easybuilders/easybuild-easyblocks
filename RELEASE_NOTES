@@ -6,6 +6,32 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 251 software-specific easyblocks and 42 generic easyblocks.
 
 
+v4.8.2 (29 October 2023)
+------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - allow use of `test_cmd` without `runtest` for `ConfigureMake` (#2837)
+  - enhance `CMakeMake` easyblock to run `ctest` command if `runtest` is `True` (#2838)
+  - enhance `Conda` easyblock: add support for using custom `conda` command (like `mamba`), and clean up after installation (#2996)
+  - update WRF easyblock to correctly determine `WRF*` subdirectory for WRF versions >= 4.5.1 (#2997)
+  - update numpy easyblock to be able to use FlexiBLAS with MKL as dependency (#2999)
+  - add error regexp for PyTorch tests run in subprocess and enhance error message (#3003)
+  - don't blindly overwrite `-Dccflags` + honour `preconfigopts` in Perl easyblock (#3010)
+  - use more test programs in sanity check step of OpenMPI easyblock (#3016)
+  - fix CMAKE_PREFIX_PATH in mkl easyblock (#3021)
+  - update sanity check in wxPython easyblock for version 4.2.0 (#3023)
+- various bug fixes, including:
+  - fix creation of symlink for libraries in TBB easyblock (#2927)
+  - remove stray newline in pytorch error message (#3005)
+  - fix `--sanity-check-only` and `--module-only` for UCX plugins (#3007)
+  - replace umlaut in docstring of PerlBundle easyblock (to fix Non-ASCII character error when using Python 2.7) (#3008)
+  - enhance TensorFlow easyblock to avoid use of `-mcpu=native` for XNNPACK component when building on aarch64 (#3011)
+  - only use `-DCMAKE_SKIP_RPATH=ON` for CMake < 3.5.0 (#3012)
+  - fix the blas/lapack name passed to meson when building recent scipy versions (>= 1.9.0) on top of Intel MKL (#3024)
+
+
 v4.8.1 (11 September 2023)
 --------------------------
 
