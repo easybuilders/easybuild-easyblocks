@@ -29,10 +29,9 @@ EasyBuild support for building and installing HPCC, implemented as an easyblock
 """
 
 import os
-import shutil
 
 from easybuild.easyblocks.hpl import EB_HPL
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import copy_file, mkdir
 
 
 class EB_HPCC(EB_HPL):
@@ -61,13 +60,10 @@ class EB_HPCC(EB_HPL):
         srcdir = self.cfg['start_dir']
         destdir = os.path.join(self.installdir, 'bin')
         srcfile = None
-        try:
-            os.makedirs(destdir)
-            for filename in ["hpcc", "_hpccinf.txt"]:
-                srcfile = os.path.join(srcdir, filename)
-                shutil.copy2(srcfile, destdir)
-        except OSError as err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+        mkdir(destdir)
+        for filename in ["hpcc", "_hpccinf.txt"]:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, destdir)
 
     def sanity_check_step(self):
         """
@@ -79,4 +75,6 @@ class EB_HPCC(EB_HPL):
             'dirs': []
         }
 
-        super(EB_HPL, self).sanity_check_step(custom_paths)
+        custom_commands = ['hpcc']
+
+        super(EB_HPL, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

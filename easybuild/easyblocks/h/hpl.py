@@ -33,11 +33,10 @@ EasyBuild support for building and installing HPL, implemented as an easyblock
 """
 
 import os
-import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, remove_file, symlink
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
 from easybuild.tools.run import run_cmd
 
 
@@ -62,10 +61,7 @@ class EB_HPL(ConfigureMake):
             makeincfile = os.path.join(basedir, 'Make.UNKNOWN')
             setupdir = os.path.join(basedir, 'setup')
 
-        try:
-            change_dir(setupdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to change to to dir %s: %s", setupdir, err)
+        change_dir(setupdir)
 
         cmd = "/bin/bash make_generic"
 
@@ -73,7 +69,7 @@ class EB_HPL(ConfigureMake):
 
         try:
             remove_file(os.path.join(makeincfile))
-            symlink(os.path.join(setupdir, 'Make.UNKNOWN'), os.path.join(makeincfile))
+            symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
         except OSError as err:
             raise EasyBuildError("Failed to symlink Make.UNKNOWN from %s to %s: %s", setupdir, makeincfile, err)
 
@@ -122,13 +118,10 @@ class EB_HPL(ConfigureMake):
         srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
         destdir = os.path.join(self.installdir, 'bin')
         srcfile = None
-        try:
-            os.makedirs(destdir)
-            for filename in ["xhpl", "HPL.dat"]:
-                srcfile = os.path.join(srcdir, filename)
-                shutil.copy2(srcfile, destdir)
-        except OSError as err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+        mkdir(destdir)
+        for filename in ["xhpl", "HPL.dat"]:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, destdir)
 
     def sanity_check_step(self):
         """
