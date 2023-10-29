@@ -318,7 +318,7 @@ class EB_PyTorch(PythonPackage):
             return 0
 
         # Create clear summary report
-        failure_report = ""
+        failure_report = []
         failure_cnt = 0
         error_cnt = 0
         failed_test_suites = []
@@ -337,9 +337,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
             failure_summary = m.group('failure_summary')
             total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+            failure_report.append("{test_suite} ({total} total tests, {failure_summary})".format(
                     test_suite=test_suite, total=total, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
             error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
             failed_test_suites.append(test_suite)
@@ -362,27 +362,55 @@ class EB_PyTorch(PythonPackage):
             # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
             failure_summary = m.group('failure_summary')
             test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
+            failure_report.append("{test_suite} ({failure_summary})".format(
                     test_suite=test_suite, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
             failed_test_suites.append(test_suite)
 
-        # Make the names unique and sorted
-        failed_test_suites = sorted(set(failed_test_suites))
+        # Grep for patterns like:
+        # AssertionError: 2 unit test(s) failed:
+        #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_debug_detail
+        #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_grad_is_view_debug_detail
+        #
+        # FINISHED PRINTING LOG FILE of distributed/test_c10d_nccl (<snip>)
+        #
+        # distributed/test_c10d_nccl failed!
+
+        regex = (
+            r"^AssertionError: (?P<failure_summary>[0-9]+ unit test\(s\) failed):\n"
+            r"(\s+.*\n)+"
+            r"(((?!failed!).)*\n){0,5}"
+            r"(?P<failed_test_suite_name>.*) failed!$"
+        )
+
+        for m in re.finditer(regex, tests_out, re.M):
+            # E.g. '2 unit test(s) failed'
+            failure_summary = m.group('failure_summary')
+            test_suite = m.group('failed_test_suite_name')
+            failure_report.append("{test_suite} ({failure_summary})".format(
+                    test_suite=test_suite, failure_summary=failure_summary
+                ))
+            failure_cnt += get_count_for_pattern(r"([0-9]+) unit test\(s\) failed", failure_summary)
+            failed_test_suites.append(test_suite)
+
+        # Make the names unique
+        failed_test_suites = set(failed_test_suites)
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        # Also unique and sorted to be able to compare the lists below
-        all_failed_test_suites = sorted(set(
+        # Also unique to be able to compare the lists below
+        all_failed_test_suites = set(
             re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
-        ))
+        )
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
-            failure_report_save = failure_report
-            failure_report = 'Failed tests (suites/files):\n'
-            failure_report += '\n'.join('* %s' % t for t in all_failed_test_suites)
-            if failure_report_save:
-                failure_report += '\n' + failure_report_save
+            failure_report = ['Failed tests (suites/files):'] + failure_report
+            # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
+            failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
+            # Test suites not included in the catch-all regexp but counted. Should be empty.
+            failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
+
+        failure_report = '\n'.join(failure_report)
 
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = failure_cnt + error_cnt

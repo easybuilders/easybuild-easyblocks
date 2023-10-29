@@ -25,7 +25,7 @@
 """
 EasyBuild support for installing a bundle of Perl modules, implemented as a generic easyblock
 
-@author: Mikael Öhman (Chalmers University of Technology)
+@author: Mikael Oehman (Chalmers University of Technology)
 """
 import os
 
