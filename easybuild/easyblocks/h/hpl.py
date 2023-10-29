@@ -67,11 +67,8 @@ class EB_HPL(ConfigureMake):
 
         run_cmd(cmd, log_all=True, simple=True, log_output=True)
 
-        try:
-            remove_file(os.path.join(makeincfile))
-            symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
-        except OSError as err:
-            raise EasyBuildError("Failed to symlink Make.UNKNOWN from %s to %s: %s", setupdir, makeincfile, err)
+        remove_file(makeincfile)
+        symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
 
         # go back
         change_dir(self.cfg['start_dir'])
