@@ -74,5 +74,3 @@ class EB_PALM(EasyBlock):
             'dirs': [],
         }
         super().sanity_check_step(custom_paths=custom_paths)
-
-        return txt
