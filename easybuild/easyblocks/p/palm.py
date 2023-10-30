@@ -75,10 +75,4 @@ class EB_PALM(EasyBlock):
         }
         super().sanity_check_step(custom_paths=custom_paths)
 
-    def make_module_extra(self):
-        """Extra statements specific to PALM to include in generated module file."""
-        txt = super().make_module_extra()
-
-        txt += self.module_generator.prepend_paths('PATH', ['bin'])
-
         return txt
