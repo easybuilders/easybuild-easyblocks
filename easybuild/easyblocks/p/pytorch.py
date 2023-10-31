@@ -318,7 +318,7 @@ class EB_PyTorch(PythonPackage):
             return 0
 
         # Create clear summary report
-        failure_report = ""
+        failure_report = []
         failure_cnt = 0
         error_cnt = 0
         failed_test_suites = []
@@ -337,9 +337,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
             failure_summary = m.group('failure_summary')
             total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+            failure_report.append("{test_suite} ({total} total tests, {failure_summary})".format(
                     test_suite=test_suite, total=total, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
             error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
             failed_test_suites.append(test_suite)
@@ -362,9 +362,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
             failure_summary = m.group('failure_summary')
             test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
+            failure_report.append("{test_suite} ({failure_summary})".format(
                     test_suite=test_suite, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
             failed_test_suites.append(test_suite)
@@ -389,9 +389,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. '2 unit test(s) failed'
             failure_summary = m.group('failure_summary')
             test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
+            failure_report.append("{test_suite} ({failure_summary})".format(
                     test_suite=test_suite, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"([0-9]+) unit test\(s\) failed", failure_summary)
             failed_test_suites.append(test_suite)
 
@@ -404,12 +404,13 @@ class EB_PyTorch(PythonPackage):
         )
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
-            failure_report = ['Failed tests (suites/files):'] + ([failure_report] if failure_report else [])
+            failure_report = ['Failed tests (suites/files):'] + failure_report
             # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
             failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
-            failure_report = '\n'.join(failure_report)
+
+        failure_report = '\n'.join(failure_report)
 
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = failure_cnt + error_cnt
