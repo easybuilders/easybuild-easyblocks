@@ -92,7 +92,7 @@ class EB_SuiteSparse(ConfigureMake):
         if parmetis or metis:
             if parmetis:
                 metis_name = 'ParMETIS'
-            elif metis:
+            else:
                 metis_name = 'METIS'
             metis_path = get_software_root(metis_name)
             metis_include = os.path.join(metis_path, 'include')
