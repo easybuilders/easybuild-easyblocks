@@ -35,14 +35,12 @@ EasyBuild support for SuiteSparse, implemented as an easyblock
 import fileinput
 import re
 import os
-import shutil
 import sys
-import stat
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir, write_file, adjust_permissions, copy_dir
+from easybuild.tools.filetools import mkdir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.modules import get_software_libdir
 from easybuild.tools.systemtools import get_shared_lib_ext
