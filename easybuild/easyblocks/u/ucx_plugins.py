@@ -29,6 +29,7 @@ EasyBuild support for UCX plugins (modules), implemented as an easyblock
 @author: Mikael Öhman (Chalmers University of Techonology)
 """
 from collections import defaultdict
+from itertools import chain
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -42,16 +43,37 @@ class EB_UCX_Plugins(ConfigureMake):
     """Support for building additional plugins for a existing UCX module"""
 
     def __init__(self, *args, **kwargs):
-        """Custom initialization for UCX: set correct module name."""
+        """Custom initialization for UCX-Plugins."""
         super(EB_UCX_Plugins, self).__init__(*args, **kwargs)
-        self.plugins = {}
+        self._plugins = None
         self.makefile_dirs = []
+
+    @property
+    def plugins(self):
+        """Property to determine list of plugins based on loaded dependencies, or return cached list of plugins."""
+        if self._plugins is None:
+            plugins = defaultdict(list)
+            dep_names = self.cfg.dependency_names()
+
+            if 'CUDAcore' in dep_names or 'CUDA' in dep_names:
+                for key in ('ucm', 'uct', 'ucx_perftest'):
+                    plugins[key].append('cuda')
+
+                if 'GDRCopy' in dep_names:
+                    plugins['uct_cuda'].append('gdrcopy')
+
+            if 'ROCm' in dep_names:
+                for key in ('ucm', 'uct', 'ucx_perftest'):
+                    plugins[key].append('rocm')
+
+            self._plugins = dict(plugins)
+            self.log.info("Creating plugins for %s", ", ".join(sorted(set(chain(*plugins.values())))))
+        return self._plugins
 
     def configure_step(self):
         """Customize configuration for building requested plugins."""
         # make sure that required dependencies are loaded
-        ucxroot = get_software_root('UCX')
-        if not ucxroot:
+        if not get_software_root('UCX'):
             raise EasyBuildError("UCX is a required dependency")
 
         self.cfg['configure_cmd'] = 'contrib/configure-release'
@@ -61,29 +83,20 @@ class EB_UCX_Plugins(ConfigureMake):
         # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
 
-        plugins = defaultdict(list)
         cudaroot = get_software_root('CUDAcore') or get_software_root('CUDA')
         if cudaroot:
             configopts += '--with-cuda=%s ' % cudaroot
-            for key in ('ucm', 'uct', 'ucx_perftest'):
-                plugins[key].append('cuda')
 
             gdrcopyroot = get_software_root('GDRCopy')
             if gdrcopyroot:
-                plugins['uct_cuda'].append('gdrcopy')
                 configopts += '--with-gdrcopy=%s ' % gdrcopyroot
 
             self.makefile_dirs.extend(os.path.join(x, 'cuda') for x in ('uct', 'ucm', 'tools/perf'))
 
-        # To be supported in the future:
         rocmroot = get_software_root('ROCm')
         if rocmroot:
-            for key in ('ucm', 'uct', 'ucx_perftest'):
-                plugins[key].append('rocm')
             configopts += '--with-rocm=%s ' % rocmroot
             self.makefile_dirs.extend(os.path.join(x, 'rocm') for x in ('uct', 'ucm', 'tools/perf'))
-
-        self.plugins = dict(plugins)
 
         self.cfg.update('configopts', configopts)
 

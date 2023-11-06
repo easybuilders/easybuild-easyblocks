@@ -124,7 +124,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             if lapack_lib == toolchain.FLEXIBLAS:
                 blas_lapack = 'flexiblas'
             elif lapack_lib == toolchain.INTELMKL:
-                blas_lapack = 'mkl'
+                blas_lapack = 'mkl-dynamic-lp64-seq'
             elif lapack_lib == toolchain.OPENBLAS:
                 blas_lapack = 'openblas'
             else:

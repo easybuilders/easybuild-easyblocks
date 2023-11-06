@@ -48,7 +48,7 @@ from easybuild.tools.filetools import adjust_permissions, apply_regex_substituti
 from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_os_name, get_os_version
+from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
 
 
 CPU_DEVICE = 'cpu'
@@ -686,6 +686,19 @@ class EB_TensorFlow(PythonPackage):
 
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
         run_cmd(cmd, log_all=True, simple=True)
+
+        # when building on Arm 64-bit we can't just use --copt=-mcpu=native (or likewise for any -mcpu=...),
+        # because it breaks the build of XNNPACK;
+        # see also https://github.com/easybuilders/easybuild-easyconfigs/issues/18899
+        if get_cpu_architecture() == AARCH64:
+            tf_conf_bazelrc = os.path.join(self.start_dir, '.tf_configure.bazelrc')
+            regex_subs = [
+                # use --per_file_copt instead of --copt to selectively use -mcpu=native (not for XNNPACK),
+                # the leading '-' ensures that -mcpu=native is *not* used when building XNNPACK;
+                # see https://github.com/google/XNNPACK/issues/5566 + https://bazel.build/docs/user-manual#per-file-copt
+                ('--copt=-mcpu=', '--per_file_copt=-.*XNNPACK/.*@-mcpu='),
+            ]
+            apply_regex_substitutions(tf_conf_bazelrc, regex_subs)
 
     def patch_crosstool_files(self):
         """Patches the CROSSTOOL files to include EasyBuild provided compiler paths"""

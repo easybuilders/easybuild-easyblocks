@@ -546,11 +546,13 @@ class EB_imkl(IntelBase):
                     os.path.join(self.mkl_basedir, 'include'),
                     os.path.join(self.mkl_basedir, 'include', 'fftw'),
                 ]
+                cmake_prefix_path = [self.mkl_basedir]
                 guesses.update({
                     'PATH': [],
                     'LD_LIBRARY_PATH': library_path,
                     'LIBRARY_PATH': library_path,
                     'CPATH': cpath,
+                    'CMAKE_PREFIX_PATH': cmake_prefix_path,
                     'PKG_CONFIG_PATH': pkg_config_path,
                 })
                 if self.cfg['flexiblas']:

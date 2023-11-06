@@ -267,9 +267,10 @@ class CMakeMake(ConfigureMake):
                     self.log.info("Using absolute path to compiler command: %s", value)
                 options[option] = value
 
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.cmake_version) < LooseVersion('3.5.0'):
             # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
-            # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
+            # this is only required for CMake < 3.5.0, since newer version are more careful w.r.t. RPATH,
+            # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
         # show what CMake is doing by default

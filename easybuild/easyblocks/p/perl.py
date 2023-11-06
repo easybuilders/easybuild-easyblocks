@@ -74,7 +74,7 @@ class EB_Perl(ConfigureMake):
         configopts = [
             self.cfg['configopts'],
             '-Dcc="{0}"'.format(os.getenv('CC')),
-            '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
+            '-Dccflags="{0}"'.format(os.getenv('CFLAGS')) if '-Dccflags' not in self.cfg['configopts'] else '',
             '-Dinc_version_list=none',
             '-Dprefix=%(installdir)s',
             # guarantee that scripts are installed in /bin in the installation directory (and not in a guessed path)
@@ -115,7 +115,7 @@ class EB_Perl(ConfigureMake):
         if os.getenv('COLUMNS', None) == '0':
             unset_env_vars(['COLUMNS'])
 
-        cmd = './Configure -de %s' % configopts
+        cmd = '%s ./Configure -de %s' % (self.cfg['preconfigopts'], configopts)
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):
