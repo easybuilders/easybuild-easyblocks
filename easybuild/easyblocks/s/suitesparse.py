@@ -39,6 +39,7 @@ import sys
 from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, write_file
 from easybuild.tools.modules import get_software_root
@@ -48,6 +49,14 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_SuiteSparse(ConfigureMake):
     """Support for building SuiteSparse."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Define extra easyconfig parameters"""
+        extra_vars = {
+            'cmake_options': ['-DBLA_VENDOR=FlexiBLAS', "CMAKE_OPTIONS used by SuiteSparse since v6.0", CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for SuiteSparse easyblock, initialize custom class parameters."""
@@ -172,8 +181,11 @@ class EB_SuiteSparse(ConfigureMake):
 
         else:
             # after v6.0.0, no option for metis, its own metis is used anyway
-            # nothing to do here, set the CMAKE_OPTIONS in easyconfigs
-            pass
+            # set CMAKE_OPTIONS if it is not specified in easyconfigs
+            # CMAKE_INSTALL_PREFIX is managed by easybuild
+            base_cmake_options = '-DCMAKE_INSTALL_PREFIX=%s' % self.installdir
+            cmake_options = " ".join([base_cmake_options, self.cfg['cmake_options']])
+            self.cfg.update('preinstallopts', 'CMAKE_OPTIONS="%s"' % cmake_options)
 
     def install_step(self):
         """Install by copying the contents of the builddir to the installdir (preserving permissions)"""
