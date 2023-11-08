@@ -114,7 +114,6 @@ class EB_HPL(ConfigureMake):
         """
         srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
         destdir = os.path.join(self.installdir, 'bin')
-        srcfile = None
         mkdir(destdir)
         for filename in ["xhpl", "HPL.dat"]:
             srcfile = os.path.join(srcdir, filename)

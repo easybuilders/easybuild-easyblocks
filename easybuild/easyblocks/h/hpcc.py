@@ -45,12 +45,14 @@ class EB_HPCC(EB_HPL):
         """
         Create Make.UNKNOWN file to build from
         """
+        # the build script file should be created in the hpl subdir
         super(EB_HPCC, self).configure_step(subdir='hpl')
 
     def build_step(self):
         """
         Build with make and correct make options
         """
+        # TOPdir should always be ../../.. regardless of what it was in the HPL build script file
         super(EB_HPCC, self).build_step(topdir='../../..')
 
     def install_step(self):
@@ -59,7 +61,6 @@ class EB_HPCC(EB_HPL):
         """
         srcdir = self.cfg['start_dir']
         destdir = os.path.join(self.installdir, 'bin')
-        srcfile = None
         mkdir(destdir)
         for filename in ["hpcc", "_hpccinf.txt"]:
             srcfile = os.path.join(srcdir, filename)
@@ -71,7 +72,7 @@ class EB_HPCC(EB_HPL):
         """
 
         custom_paths = {
-            'files': ["bin/hpcc"],
+            'files': ['bin/hpcc', 'bin/_hpccinf.txt'],
             'dirs': []
         }
 
