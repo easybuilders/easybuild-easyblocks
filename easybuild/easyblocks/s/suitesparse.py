@@ -191,6 +191,7 @@ class EB_SuiteSparse(ConfigureMake):
             flexiblas = get_software_root('FlexiBLAS')
             mkl = get_software_root('imkl')
             openblas = get_software_root('OpenBLAS')
+
             if flexiblas:
                 cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=FlexiBLAS'])
             elif mkl:
@@ -198,7 +199,8 @@ class EB_SuiteSparse(ConfigureMake):
             elif openblas:
                 cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=OpenBLAS'])
             else:
-                raise EasyBuildError("No FlexiBLAS/MKL/OpenBLAS is founded. Please assign BLA_VENDOR in cmake_options in easyconfigs")
+                raise EasyBuildError("No FlexiBLAS/MKL/OpenBLAS is founded. "
+                                     "Please assign BLA_VENDOR in cmake_options in easyconfigs")
             cmake_options = ' '.join([cmake_options, self.cfg['cmake_options']])
             self.cfg.update('prebuildopts', 'CMAKE_OPTIONS="%s"' % cmake_options)
 
