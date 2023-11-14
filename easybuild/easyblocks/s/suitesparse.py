@@ -54,7 +54,7 @@ class EB_SuiteSparse(ConfigureMake):
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters"""
         extra_vars = {
-            'cmake_options': ['-DBLA_VENDOR=FlexiBLAS', "CMAKE_OPTIONS used by SuiteSparse since v6.0", CUSTOM],
+            'cmake_options': ['', "CMAKE_OPTIONS used by SuiteSparse since v6.0", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -83,6 +83,11 @@ class EB_SuiteSparse(ConfigureMake):
             'BLAS': os.getenv('LIBBLAS_MT'),
             'LAPACK': os.getenv('LIBLAPACK_MT'),
         }
+
+        cmake = get_software_root('CMake')
+        if not cmake and LooseVersion(self.version) >= LooseVersion('5.1.2'):
+            # graphblas exists from v5.1.2, needs cmake
+            raise EasyBuildError("CMake module is not loaded")
 
         # Get CUDA and set it up appropriately
         cuda = get_software_root('CUDA')
@@ -163,9 +168,7 @@ class EB_SuiteSparse(ConfigureMake):
             self.cfg.update('installopts', 'LAPACK="%s"' % cfgvars.get('LAPACK'))
 
             if LooseVersion(self.version) >= LooseVersion('5.1.2'):
-                # graphblas exists, needs cmake
-                # v5.0.0 until v5.1.2 has no CMAKE_OPTIONS to set
-                # probably need patch
+                # v5.0.0 until v5.1.2 has no CMAKE_OPTIONS to set, patches are needed
                 self.cfg.update('preinstallopts', 'CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=%s"' % self.installdir)
 
             # set METIS library
@@ -183,9 +186,21 @@ class EB_SuiteSparse(ConfigureMake):
             # after v6.0.0, no option for metis, its own metis is used anyway
             # set CMAKE_OPTIONS if it is not specified in easyconfigs
             # CMAKE_INSTALL_PREFIX is managed by easybuild
-            base_cmake_options = '-DCMAKE_INSTALL_PREFIX=%s' % self.installdir
-            cmake_options = " ".join([base_cmake_options, self.cfg['cmake_options']])
-            self.cfg.update('preinstallopts', 'CMAKE_OPTIONS="%s"' % cmake_options)
+            cmake_options = '-DCMAKE_INSTALL_PREFIX=%s' % self.installdir
+
+            flexiblas = get_software_root('FlexiBLAS')
+            mkl = get_software_root('imkl')
+            openblas = get_software_root('OpenBLAS')
+            if flexiblas:
+                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=FlexiBLAS'])
+            elif mkl:
+                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=Intel'])
+            elif openblas:
+                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=OpenBLAS'])
+            else:
+                raise EasyBuildError("No FlexiBLAS/MKL/OpenBLAS is founded. Please assign BLA_VENDOR in cmake_options in easyconfigs")
+            cmake_options = ' '.join([cmake_options, self.cfg['cmake_options']])
+            self.cfg.update('prebuildopts', 'CMAKE_OPTIONS="%s"' % cmake_options)
 
     def install_step(self):
         """Install by copying the contents of the builddir to the installdir (preserving permissions)"""
