@@ -38,7 +38,7 @@ class EB_flook(ConfigureMake):
         # call out to original constructor first, so 'self' (i.e. the class instance) is initialised
         super(EB_flook, self).__init__(*args, **kwargs)
 
-	# Determine vendor
+        # Determine vendor
         vendor = None
         if self.toolchain.COMPILER_FAMILY == 'Clang':
             vendor = 'clang'
@@ -49,7 +49,7 @@ class EB_flook(ConfigureMake):
         elif self.toolchain.COMPILER_FAMILY == 'PGI':
             vendor = 'pgi'
 
-	# Set some default options
+        # Set some default options
         if vendor is not None:
             local_comp_flags = 'VENDOR="%s" FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"' % vendor
         else:
