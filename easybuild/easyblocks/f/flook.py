@@ -38,8 +38,22 @@ class EB_flook(ConfigureMake):
         # call out to original constructor first, so 'self' (i.e. the class instance) is initialised
         super(EB_flook, self).__init__(*args, **kwargs)
 
-        # Set some default options
-        local_comp_flags = 'VENDOR="gnu" FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"'
+	# Determine vendor
+        vendor = None
+        if self.toolchain.COMPILER_FAMILY == 'Clang':
+            vendor = 'clang'
+        elif self.toolchain.COMPILER_FAMILY == 'GCC':
+            vendor = 'gnu'
+        elif self.toolchain.COMPILER_FAMILY == 'Intel':
+            vendor = 'intel'
+        elif self.toolchain.COMPILER_FAMILY == 'PGI':
+            vendor = 'pgi'
+
+	# Set some default options
+        if vendor is not None:
+            local_comp_flags = 'VENDOR="%s" FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"' % vendor
+        else:
+            local_comp_flags = 'FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"'
         self.cfg.update('buildopts', 'liball %s' % local_comp_flags)
         self.cfg['parallel'] = 1
 
