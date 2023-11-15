@@ -41,7 +41,7 @@ class EB_flook(ConfigureMake):
         # Set some default options
         local_comp_flags = 'VENDOR="gnu" FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"'
         self.cfg.update('buildopts', 'liball %s' % local_comp_flags)
-        self.cfg.update('parallel', 1)
+        self.cfg['parallel'] = 1
 
     def configure_step(self):
         # flook has no configure step
