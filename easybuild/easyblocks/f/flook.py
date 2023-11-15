@@ -34,6 +34,15 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 class EB_flook(ConfigureMake):
     """Support for building/installing flook."""
 
+    def __init__(self, *args, **kwargs):
+        # call out to original constructor first, so 'self' (i.e. the class instance) is initialised
+        super(EB_flook, self).__init__(*args, **kwargs)
+
+        # Set some default options
+        local_comp_flags = 'VENDOR="gnu" FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"'
+        self.cfg.update('buildopts', 'liball %s' % local_comp_flags)
+        self.cfg.update('parallel', 1)
+
     def configure_step(self):
         # flook has no configure step
         pass
@@ -41,3 +50,12 @@ class EB_flook(ConfigureMake):
     def install_step(self):
         self.cfg.update('install_cmd', 'PREFIX=%s' % self.installdir)
         super(EB_flook, self).install_step()
+
+    def sanity_check_step(self):
+        custom_paths = {
+            'files': ['include/flook.mod', 'lib/libflook.a', 'lib/libflookall.a', 'lib/pkgconfig/flook.pc'],
+            'dirs': [],
+        }
+
+        # call out to parent to do the actual sanity checking, pass through custom paths
+        super(EB_flook, self).sanity_check_step(custom_paths=custom_paths)
