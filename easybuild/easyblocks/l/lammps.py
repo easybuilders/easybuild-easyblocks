@@ -118,6 +118,8 @@ KOKKOS_CPU_MAPPING = {
     'zen2': 'ZEN2',
     'zen3': 'ZEN3',
     'power9le': 'POWER9',
+    'neoverse_n1': 'ARMV81',
+    'neoverse_v1': 'ARMV81',
 }
 
 
