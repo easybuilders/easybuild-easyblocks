@@ -55,7 +55,7 @@ class EB_intel_minus_compilers(IntelBase):
     def compilers_subdir(self):
         compilers_subdir = self.get_versioned_subdir('compiler')
         if LooseVersion(self.version) < LooseVersion('2024'):
-            compilers_subdir = os.path.join(latest_subdir, 'linux')
+            compilers_subdir = os.path.join(compilers_subdir, 'linux')
         return compilers_subdir
 
     @property
