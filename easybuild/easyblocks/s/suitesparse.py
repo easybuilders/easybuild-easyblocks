@@ -40,6 +40,7 @@ from distutils.version import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, write_file
 from easybuild.tools.modules import get_software_root
@@ -188,20 +189,20 @@ class EB_SuiteSparse(ConfigureMake):
             # CMAKE_INSTALL_PREFIX is managed by easybuild
             cmake_options = '-DCMAKE_INSTALL_PREFIX=%s' % self.installdir
 
-            flexiblas = get_software_root('FlexiBLAS')
-            mkl = get_software_root('imkl')
-            openblas = get_software_root('OpenBLAS')
-
-            if flexiblas:
-                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=FlexiBLAS'])
-            elif mkl:
-                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=Intel'])
-            elif openblas:
-                cmake_options = ' '.join([cmake_options, '-DBLA_VENDOR=OpenBLAS'])
+            lapack_lib = self.toolchain.lapack_family()
+            if '-DBLA_VENDOR=' in self.cfg['cmake_options']:
+                blas_lapack = ''
+            elif lapack_lib == toolchain.FLEXIBLAS:
+                blas_lapack = '-DBLA_VENDOR=FlexiBLAS'
+            elif lapack_lib == toolchain.INTELMKL:
+                blas_lapack = '-DBLA_VENDOR=Intel'
+            elif lapack_lib == toolchain.OPENBLAS:
+                blas_lapack = '-DBLA_VENDOR=OpenBLAS'
             else:
-                raise EasyBuildError("No FlexiBLAS/MKL/OpenBLAS is founded. "
+                raise EasyBuildError("BLA_VENDOR is not assigned and FlexiBLAS/MKL/OpenBLAS are not found. "
                                      "Please assign BLA_VENDOR in cmake_options in easyconfigs")
-            cmake_options = ' '.join([cmake_options, self.cfg['cmake_options']])
+
+            cmake_options = ' '.join([cmake_options, blas_lapack, self.cfg['cmake_options']])
             self.cfg.update('prebuildopts', 'CMAKE_OPTIONS="%s"' % cmake_options)
 
     def install_step(self):
