@@ -367,7 +367,7 @@ EULA=accept
         if self.cfg['set_mpi_wrapper_aliases_intel'] or self.cfg['set_mpi_wrappers_all']:
             # do the same for mpiicc/mpiipc/mpiifort to be consistent, even if they may not exist
             if (get_software_root('intel-compilers') and
-                LooseVersion(get_software_version('intel-compilers')) >= LooseVersion('2024')):
+                    LooseVersion(get_software_version('intel-compilers')) >= LooseVersion('2024')):
                 txt += self.module_generator.set_alias('mpiicc', 'mpiicc -cc=icx')
                 txt += self.module_generator.set_alias('mpiicpc', 'mpiicpc -cxx=icpx')
             else:
