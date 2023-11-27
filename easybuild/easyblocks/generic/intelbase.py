@@ -128,6 +128,9 @@ class IntelBase(EasyBlock):
             self.log.debug('Determined versioned directory for %s: %s', subdir, version)
         return self._latest_subdir[subdir]
 
+    def set_versioned_subdir(self, subdir, path):
+        self._latest_subdir[subdir] = path
+
     def get_guesses_tools(self):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
 
