@@ -59,7 +59,7 @@ class EB_COMSOL(PackedBinary):
     def configure_step(self):
         """Configure COMSOL installation: create license file."""
 
-        default_lic_env_var = 'LMCOMSOL_LICENSE_FILE'
+        default_lic_env_var = 'EB_COMSOL_LICENSE_FILE'
         lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
                                                               lic_specs=[self.cfg['license_file']])
 
