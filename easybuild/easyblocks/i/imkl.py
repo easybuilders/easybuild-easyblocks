@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,6 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, move_file, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
@@ -261,6 +262,13 @@ class EB_imkl(IntelBase):
                 tmpbuild = tempfile.mkdtemp(dir=self.builddir)
                 self.log.debug("Created temporary directory %s" % tmpbuild)
 
+                # Avoid unused command line arguments (-Wl,rpath...) causing errors when using RPATH
+                # See https://github.com/easybuilders/easybuild-easyconfigs/pull/18439#issuecomment-1662671054
+                if build_option('rpath') and os.getenv('CC') in ('icx', 'clang'):
+                    cflags = flags + ' -Wno-unused-command-line-argument'
+                else:
+                    cflags = flags
+
                 # always set INSTALL_DIR, SPEC_OPT, COPTS and CFLAGS
                 # fftw2x(c|f): use $INSTALL_DIR, $CFLAGS and $COPTS
                 # fftw3x(c|f): use $CFLAGS
@@ -268,7 +276,7 @@ class EB_imkl(IntelBase):
                 env.setvar('INSTALL_DIR', tmpbuild)
                 env.setvar('SPEC_OPT', flags)
                 env.setvar('COPTS', flags)
-                env.setvar('CFLAGS', flags)
+                env.setvar('CFLAGS', cflags)
 
                 intdir = os.path.join(interfacedir, lib)
                 change_dir(intdir)
@@ -538,11 +546,13 @@ class EB_imkl(IntelBase):
                     os.path.join(self.mkl_basedir, 'include'),
                     os.path.join(self.mkl_basedir, 'include', 'fftw'),
                 ]
+                cmake_prefix_path = [self.mkl_basedir]
                 guesses.update({
                     'PATH': [],
                     'LD_LIBRARY_PATH': library_path,
                     'LIBRARY_PATH': library_path,
                     'CPATH': cpath,
+                    'CMAKE_PREFIX_PATH': cmake_prefix_path,
                     'PKG_CONFIG_PATH': pkg_config_path,
                 })
                 if self.cfg['flexiblas']:

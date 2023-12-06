@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2022 Ghent University
+# Copyright 2019-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,7 +69,7 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
         # List of EasyBuild dependencies for which OMPI has known options
-        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX')
+        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX', 'UCC')
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
@@ -199,6 +199,10 @@ class EB_OpenMPI(ConfigureMake):
         # for PGI, correct pattern is "pgfortran" with mpif90
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
+        # for Clang the pattern is always clang
+        for key in ['mpicxx', 'mpifort', 'mpif90']:
+            if expected[key] in ['clang++', 'flang']:
+                expected[key] = 'clang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
@@ -207,8 +211,18 @@ class EB_OpenMPI(ConfigureMake):
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
         ranks = min(8, self.cfg['parallel'])
-        for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
-            src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
+        for srcdir, src, compiler in (
+            ('examples', 'hello_c.c', 'mpicc'),
+            ('examples', 'hello_mpifh.f', 'mpifort'),
+            ('examples', 'hello_usempi.f90', 'mpif90'),
+            ('examples', 'ring_c.c', 'mpicc'),
+            ('examples', 'ring_mpifh.f', 'mpifort'),
+            ('examples', 'ring_usempi.f90', 'mpif90'),
+            ('test/simple', 'thread_init.c', 'mpicc'),
+            ('test/simple', 'intercomm1.c', 'mpicc'),
+            ('test/simple', 'mpi_barrier.c', 'mpicc'),
+        ):
+            src_path = os.path.join(self.cfg['start_dir'], srcdir, src)
             if os.path.exists(src_path):
                 test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
                 self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)

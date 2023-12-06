@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,6 +94,7 @@ def rebuild_rpm(rpm_path, targetdir):
 class Rpm(Binary):
     """
     Support for installing RPM files.
+
     - sources is a list of rpms
     - installation is with --nodeps (so the sources list has to be complete)
     """

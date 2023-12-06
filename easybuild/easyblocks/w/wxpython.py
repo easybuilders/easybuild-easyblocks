@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -127,6 +127,9 @@ class EB_wxPython(PythonPackage):
             files.extend([os.path.join('bin', 'wxrc')])
             dirs.extend(['include', 'share'])
             py_bins.extend(['alacarte', 'alamode', 'wrap'])
+        elif LooseVersion(self.version) >= LooseVersion("4.2"):
+            majver = '3.2'  # this is 3.2 in ver 4.2.x
+            py_bins.extend(['slices', 'slicesshell'])
         elif LooseVersion(self.version) >= LooseVersion("4.1"):
             majver = '3.1'  # this is 3.1 in ver 4.1.x
             py_bins.extend(['slices', 'slicesshell'])

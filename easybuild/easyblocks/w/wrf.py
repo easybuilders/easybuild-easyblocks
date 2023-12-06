@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -56,6 +56,8 @@ def det_wrf_subdir(wrf_version):
 
     if LooseVersion(wrf_version) < LooseVersion('4.0'):
         wrf_subdir = 'WRFV%s' % wrf_version.split('.')[0]
+    elif LooseVersion(wrf_version) >= LooseVersion('4.5.1'):
+        wrf_subdir = 'WRFV%s' % wrf_version
     else:
         wrf_subdir = 'WRF-%s' % wrf_version
 
