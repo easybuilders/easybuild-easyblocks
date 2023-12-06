@@ -40,7 +40,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 PREPEND_TO_PATH_DEFAULT = ['']
@@ -126,7 +126,7 @@ class Binary(EasyBlock):
                 for install_cmd in install_cmds:
                     cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
                     self.log.info("Running install command for %s: '%s'..." % (self.name, cmd))
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
             else:
                 raise EasyBuildError("Incorrect value type for install_cmds, should be list or tuple: ",
                                      install_cmds)
