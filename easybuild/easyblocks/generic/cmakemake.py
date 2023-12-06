@@ -45,7 +45,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -63,8 +63,8 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
-        res = regex.search(out)
+        cmd_res = run_shell_cmd(cmd, hidden=True)
+        res = regex.search(cmd_res.output)
         if res:
             cmake_version = res.group('version')
         else:
@@ -311,9 +311,9 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        res = run_shell_cmd(command)
 
-        return out
+        return res.output
 
     def test_step(self):
         """CMake specific test setup"""
