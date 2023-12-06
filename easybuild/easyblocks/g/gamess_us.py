@@ -118,7 +118,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # compiler config
         comp_fam = self.toolchain.comp_family()
-        fortran_comp, fortran_ver = None, None
+        fortran_comp, fortran_version = None, None
         if comp_fam == toolchain.INTELCOMP:
             fortran_comp = 'ifort'
             (out, _) = run_cmd("ifort -v", simple=False)
@@ -250,7 +250,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             if get_software_root('libxc'):
                 installinfo_opts['GMS_LIBXC'] = "true"
                 # the linker needs to be patched to use external libXC
-                lixc_libs = [os.path.join(os.environ['EBROOTLIBXC'], 'lib', l) for l in ['libxcf03.a', 'libxc.a']]
+                lixc_libs = [os.path.join(os.environ['EBROOTLIBXC'], 'lib', lib) for lib in ['libxcf03.a', 'libxc.a']]
                 libxc_linker_flags = ' '.join(lixc_libs)
                 try:
                     lked = os.path.join(self.builddir, 'lked')
