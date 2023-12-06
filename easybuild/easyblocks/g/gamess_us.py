@@ -38,7 +38,6 @@ EasyBuild support for building and installing GAMESS-US, implemented as an easyb
 import fileinput
 import glob
 import os
-import random
 import re
 import shutil
 import sys
@@ -165,7 +164,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             installinfo_opts["GMS_MKL_VERNO"] = mkl_version
 
         elif mathlib == 'openblas':
-            mathlib_flags="-lopenblas -lgfortran"
+            mathlib_flags = "-lopenblas -lgfortran"
             if LooseVersion(self.version) >= LooseVersion('20210101'):
                 mathlib_subfolder = 'lib'
 
@@ -185,7 +184,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             raise EasyBuildError(
                 "Unsupported DDI communication layer specified (known: %s): %s", known_ddi_comms, self.cfg['ddi_comm']
             )
-        
+
         installinfo_opts["GMS_DDI_COMM"] = self.cfg['ddi_comm']
 
         # MPI library config
@@ -282,7 +281,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # add include paths from dependencies
         installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS']
-        # might be useful for debugging 
+        # might be useful for debugging
         # installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS'] + "-ffpe-trap=invalid,zero,overflow"
 
         # write install.info file with configuration settings
@@ -307,7 +306,9 @@ class EB_GAMESS_minus_US(EasyBlock):
                 line = re.sub(r"^(\s*)(setenv\s*LD_LIBRARY_PATH\s*/.*)", r"\1#\2", line)
                 # scratch directory paths
                 line = re.sub(r"^(\s*set\s*SCR)=.*", r"if ( ! $?SCR ) \1=%s" % self.cfg['scratch_dir'], line)
-                line = re.sub(r"^(\s*set\s*USERSCR)=.*", r"if ( ! $?USERSCR ) \1=%s" % self.cfg['user_scratch_dir'], line)
+                line = re.sub(
+                    r"^(\s*set\s*USERSCR)=.*", r"if ( ! $?USERSCR ) \1=%s" % self.cfg['user_scratch_dir'], line
+                )
                 line = re.sub(r"^(df -k \$SCR)$", r"mkdir -p $SCR && mkdir -p $USERSCR && \1", line)
                 if self.cfg['hyperthreading'] is False:
                     # disable hyperthreading (1 thread per core)
@@ -325,20 +326,22 @@ class EB_GAMESS_minus_US(EasyBlock):
                 line = re.sub(r"^(\s*set MAXNODES)=.*", r"\1=%s" % self.cfg['maxnodes'], line, 1)
                 sys.stdout.write(line)
         except IOError as err:
-                raise EasyBuildError("Failed to patch compddi", compddi, err)
+            raise EasyBuildError("Failed to patch compddi", compddi, err)
 
         # for GAMESS-US 20200630-R1 we need to build the actvte.x program
         if self.version == "20200630-R1":
             actvte = os.path.join(self.builddir, 'tools/actvte.code')
             try:
                 for line in fileinput.input(actvte, inplace=1, backup='.orig'):
-                    line = re.sub("\*UNX", "    ", line)
+                    line = re.sub("[*]UNX", "    ", line)
                     sys.stdout.write(line)
             except IOError as err:
                 raise EasyBuildError("Failed to patch actvte.code", actvte, err)
             # compiling
             run_cmd("mv %s/tools/actvte.code" % self.builddir + " %s/tools/actvte.f" % self.builddir)
-            run_cmd("%s -o " % fortran_comp + " %s/tools/actvte.x" % self.builddir + " %s/tools/actvte.f" % self.builddir)
+            run_cmd(
+                "%s -o " % fortran_comp + " %s/tools/actvte.x" % self.builddir + " %s/tools/actvte.f" % self.builddir
+            )
 
     def build_step(self):
         """Custom build procedure for GAMESS-US: using compddi, compall and lked scripts."""
@@ -449,4 +452,3 @@ class EB_GAMESS_minus_US(EasyBlock):
         if os.path.isdir(scratch_path):
             remove_dir(scratch_path)
             self.log.info("Removed test scratch: %s", scratch_path)
-
