@@ -64,7 +64,8 @@ def det_cmake_version():
 
         cmd = "cmake --version"
         cmd_res = run_shell_cmd(cmd, hidden=True)
-        res = regex.search(cmd_res.output)
+        out = cmd_res.output
+        res = regex.search(out)
         if res:
             cmake_version = res.group('version')
         else:
