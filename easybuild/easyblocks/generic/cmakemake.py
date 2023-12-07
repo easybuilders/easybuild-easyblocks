@@ -63,7 +63,7 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        cmd_res = run_shell_cmd(cmd, hidden=True)
+        cmd_res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
         out = cmd_res.output
         res = regex.search(out)
         if res:
