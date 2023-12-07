@@ -327,11 +327,14 @@ class ConfigureMake(EasyBlock):
 
         return res.output
 
-    def build_step(self, verbose=True, path=None):
+    def build_step(self, verbose=None, path=None):
         """
         Start the actual build
         - typical: make -j X
         """
+
+        if verbose is not None:
+            self.log.deprecated("The 'verbose' parameter to build_step is deprecated and unneeded.", '6.0')
 
         paracmd = ''
         if self.cfg['parallel']:
@@ -351,7 +354,7 @@ class ConfigureMake(EasyBlock):
             ])
             self.log.info("Building target '%s'", target)
 
-            res = run_shell_cmd(cmd, work_dir=path, output_file=verbose)
+            res = run_shell_cmd(cmd, work_dir=path)
             out = res.output
 
         return out
