@@ -31,7 +31,7 @@ EasyBuild support for building and installing FSL, implemented as an easyblock
 import difflib
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock

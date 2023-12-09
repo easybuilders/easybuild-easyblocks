@@ -34,7 +34,7 @@ import glob
 import os
 
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.scons import SCons
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir

@@ -35,7 +35,7 @@ Support for building and installing picard, implemented as an easyblock.
 import os
 import re
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError

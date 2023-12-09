@@ -29,7 +29,7 @@ EasyBuild support for building and installing PSI, implemented as an easyblock
 @author: Ward Poelmans (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import shutil

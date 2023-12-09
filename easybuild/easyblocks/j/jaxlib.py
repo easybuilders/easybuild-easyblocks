@@ -33,7 +33,7 @@ EasyBlock for installing jaxlib, implemented as an easyblock
 import os
 import tempfile
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage

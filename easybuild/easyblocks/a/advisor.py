@@ -31,7 +31,7 @@ EasyBuild support for installing the Intel Advisor XE, implemented as an easyblo
 """
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 

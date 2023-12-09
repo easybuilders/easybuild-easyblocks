@@ -36,7 +36,7 @@ import tempfile
 import easybuild.tools.config as config
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError

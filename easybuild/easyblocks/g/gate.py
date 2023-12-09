@@ -34,7 +34,7 @@ EasyBuild support for building and installing Gate, implemented as an easyblock
 """
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake

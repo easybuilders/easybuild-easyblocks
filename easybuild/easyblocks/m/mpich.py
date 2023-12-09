@@ -34,7 +34,7 @@ EasyBuild support for building and installing the MPICH MPI library and derivati
 @author: Xavier Besseron (University of Luxembourg)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
