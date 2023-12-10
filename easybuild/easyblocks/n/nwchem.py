@@ -475,12 +475,13 @@ class EB_NWChem(ConfigureMake):
                         self.log.debug("Copying %s to %s" % (test_file, tmpdir))
                         copy_file(test_file, tmpdir)
 
+                max_mpi_ranks = min(self.cfg['parallel'], 4)
                 # run tests
                 for testx in tests:
                     if testx == 'band.nw' and LooseVersion(self.version) < LooseVersion("7.2"):
                         n_mpi_ranks = 1
                     else:
-                        n_mpi_ranks = min(self.cfg['parallel'], 4)
+                        n_mpi_ranks = max_mpi_ranks
                     cmd = '%s %s' % (self.toolchain.mpi_cmd_for('nwchem', n_mpi_ranks), testx)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
