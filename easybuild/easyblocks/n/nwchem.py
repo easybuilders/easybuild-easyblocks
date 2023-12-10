@@ -458,6 +458,10 @@ class EB_NWChem(ConfigureMake):
             test_cases_logfn = os.path.join(self.installdir, config.log_path(), 'test_cases.log')
             test_cases_log = open(test_cases_logfn, "w")
 
+            # ensure parallel is set in case check_readiness_step is skipped (e.g. with --sanity-check-only)
+            if not self.cfg['parallel']:
+                self.set_parallel()
+
             for (testdir, tests) in self.cfg['tests']:
 
                 # run test in a temporary dir
@@ -472,8 +476,11 @@ class EB_NWChem(ConfigureMake):
                         copy_file(test_file, tmpdir)
 
                 # run tests
-                n_mpi_ranks = min(self.cfg['parallel'], 4)
                 for testx in tests:
+                    if testx == 'band.nw' and LooseVersion(self.version) < LooseVersion("7.2"):
+                        n_mpi_ranks = 1
+                    else:
+                        n_mpi_ranks = min(self.cfg['parallel'], 4)
                     cmd = '%s %s' % (self.toolchain.mpi_cmd_for('nwchem', n_mpi_ranks), testx)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
