@@ -458,7 +458,7 @@ class EB_NWChem(ConfigureMake):
             test_cases_logfn = os.path.join(self.installdir, config.log_path(), 'test_cases.log')
             test_cases_log = open(test_cases_logfn, "w")
 
-            # ensure parallel is set in case check_readiness_step is skipped (e.g. with --sanity-check-only)
+            # ensure parallel is set in case check_readiness_step is skipped
             if not self.cfg['parallel']:
                 self.set_parallel()
 
