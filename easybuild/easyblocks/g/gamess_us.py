@@ -239,9 +239,13 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         # These are extra programs which for now we simply set all to FALSE
         installinfo_opts["GMS_MSUCC"] = "false"
-        installinfo_opts["GMS_LIBCCHEM"] = "false"
         installinfo_opts["GMS_PHI"] = "none"
         installinfo_opts["GMS_SHMTYPE"] = "sysv"
+        installinfo_opts["GMS_LIBCCHEM"] = "false"  # libcchem
+        if LooseVersion(self.version) >= LooseVersion('20230601'):
+            # install options for libcchem2
+            installinfo_opts["GMS_HPCCHEM"] = "false"
+            installinfo_opts["GMS_HPCCHEM_USE_DATA_SERVERS"] = "false"
 
         # Optional plug-ins and interfaces
         # libXC
