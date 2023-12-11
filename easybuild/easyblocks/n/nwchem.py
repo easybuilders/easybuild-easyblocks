@@ -471,10 +471,9 @@ class EB_NWChem(ConfigureMake):
                         self.log.debug("Copying %s to %s" % (test_file, tmpdir))
                         copy_file(test_file, tmpdir)
 
-                max_mpi_ranks = min(self.cfg['parallel'], 4)
                 # run tests
                 for testx in tests:
-                    # some test cases hang with more than 1 rank on some architectures
+                    # some test cases hang with more than 1 MPI rank on some architectures
                     n_mpi_ranks = 1
                     cmd = '%s %s' % (self.toolchain.mpi_cmd_for('nwchem', n_mpi_ranks), testx)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
