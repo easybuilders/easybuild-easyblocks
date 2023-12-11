@@ -40,6 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -124,17 +125,20 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', '-DTPL_ENABLE_%s:BOOL=ON' % dep)
             libdirs = os.getenv('%s_LIB_DIR' % dep)
             if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
-                libdirs += ";%s/lib64" % get_software_root('GCC')
+                if get_software_version('gcc') >= '12.0':
+                    libdirs += ";%s/../../lib/gcc/x86_64-pc-linux-gnu/12" % get_software_root('GCC')
+                else:
+                    libdirs += ";%s/lib" % get_software_root('GCC')
             self.cfg.update('configopts', '-D%s_LIBRARY_DIRS="%s"' % (dep, libdirs))
             if self.cfg['openmp']:
                 libs = os.getenv('%s_MT_STATIC_LIBS' % dep).split(',')
             else:
                 libs = os.getenv('%s_STATIC_LIBS' % dep).split(',')
             lib_names = ';'.join([lib_re.search(x).group(1) for x in libs])
-            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
+#            if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
                 # explicitely specify static lib!
-                lib_names += ";libgfortran.a"
-            self.cfg.update('configopts', '-D%s_LIBRARY_NAMES="%s"' % (dep, lib_names))
+#                lib_names += ";libgfortran.a"
+            self.cfg.update('configopts', '-D%s_LIBRARY_NAMES="%s" ' % (dep, lib_names))
 
         # MKL
         if get_software_root('imkl') and LooseVersion(self.version) >= LooseVersion('12.12'):
@@ -277,6 +281,11 @@ class EB_Trilinos(CMakeMake):
 
         libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
+        #Komplex and Moertel and Rythmos packages gone in 15.0
+        if LooseVersion(self.version) >= LooseVersion('15.0'):
+            libs.remove('Komplex')
+            libs.remove('Moertel')
+            libs.remove('Rythmos')
         # Teuchos was refactored in 11.2
         if LooseVersion(self.version) >= LooseVersion('11.2') and 'Teuchos' in libs:
             libs.remove('Teuchos')
