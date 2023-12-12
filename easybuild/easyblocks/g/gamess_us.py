@@ -252,6 +252,8 @@ class EB_GAMESS_minus_US(EasyBlock):
             # install options for libcchem2
             installinfo_opts["GMS_HPCCHEM"] = "false"
             installinfo_opts["GMS_HPCCHEM_USE_DATA_SERVERS"] = "false"
+            # build Michigan State University code
+            installinfo_opts["GMS_MSUAUTO"] = "false"
 
         # Optional plug-ins and interfaces
         # libXC
