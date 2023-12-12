@@ -184,7 +184,7 @@ class RPackage(ExtensionEasyBlock):
             """ % self.name
             # remove package if errors were detected
             # it's possible that some of the dependencies failed, but the package itself was installed
-            run_shell_cmd(cmd, stdin=stdin)
+            run_shell_cmd(cmd, fail_on_error=False, stdin=stdin)
             raise EasyBuildError("Errors detected during installation of R package %s!", self.name)
         else:
             self.log.debug("R package %s installed succesfully", self.name)
