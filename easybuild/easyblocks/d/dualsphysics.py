@@ -39,6 +39,7 @@ from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 
+
 class EB_DualSPHysics(CMakeMakeCp):
     """Support for building/installing DualSPHysics."""
 
@@ -48,7 +49,7 @@ class EB_DualSPHysics(CMakeMakeCp):
         extra_vars = CMakeMakeCp.extra_options()
 
         extra_vars['separate_build_dir'][0] = True
-        
+
         # files_to_copy is not mandatory here since we set it in the easyblock
         extra_vars['files_to_copy'][2] = CUSTOM
         return extra_vars
@@ -59,11 +60,11 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         self.dsph_target = None
         self.shortver = None
-    
+
     def prepare_step(self):
         """Determine name of binary that will be installed."""
         super(EB_DualSPHysics, self).prepare_step()
-        
+
         if get_software_root('CUDA'):
             self.dsph_target = 'GPU'
         else:
@@ -124,10 +125,9 @@ class EB_DualSPHysics(CMakeMakeCp):
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
 
-
     def sanity_check_step(self):
         """Custom sanity checks for DualSPHysics."""
-        
+
         # repeated here in case other steps are skipped (e.g. due to --sanity-check-only)
         if get_software_root('CUDA'):
             self.dsph_target = 'GPU'
@@ -140,7 +140,7 @@ class EB_DualSPHysics(CMakeMakeCp):
                 'DualSPHysics4.0_LiquidGasCPU', 'DualSPHysics%s' % self.shortver,
                 'DualSPHysics%s%s' % (self.shortver, self.dsph_target), 'DualSPHysics%s_NNewtonian' % self.shortver,
                 'DualSPHysics%s_NNewtonianCPU' % self.shortver]
-                
+
         custom_paths = {
             'files': ['bin/%s_linux64' % x for x in bins],
             'dirs': ['lib'],
