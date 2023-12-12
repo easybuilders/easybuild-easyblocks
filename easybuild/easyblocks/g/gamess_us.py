@@ -237,6 +237,12 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         installinfo_opts["GMS_OPENMP"] = omp_enabled
 
+        # Accelerators (disabled)
+        # TODO: add support for GPUs
+        if LooseVersion(self.version) >= LooseVersion('20230601'):
+            # offloading onto Intel GPUs
+            installinfo_opts["GMS_OPENMP_OFFLOAD"] = "false"
+
         # These are extra programs which for now we simply set all to FALSE
         installinfo_opts["GMS_MSUCC"] = "false"
         installinfo_opts["GMS_PHI"] = "none"
