@@ -41,7 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, copy_file
-from easybuild.tools.run import run_cmd, parse_log_for_error
+from easybuild.tools.run import run_shell_cmd, parse_log_for_error
 
 
 def make_R_install_option(opt, values, cmdline=False):
@@ -168,8 +168,8 @@ class RPackage(ExtensionEasyBlock):
     def install_R_package(self, cmd, inp=None):
         """Install R package as specified, and check for errors."""
 
-        output, _ = run_cmd(cmd, log_all=True, simple=False, inp=inp, regexp=False)
-        self.check_install_output(output)
+        res = run_shell_cmd(cmd, stdin=inp)
+        self.check_install_output(res.output)
 
     def check_install_output(self, output):
         """
@@ -184,7 +184,7 @@ class RPackage(ExtensionEasyBlock):
             """ % self.name
             # remove package if errors were detected
             # it's possible that some of the dependencies failed, but the package itself was installed
-            run_cmd(cmd, log_all=False, log_ok=False, simple=False, inp=stdin, regexp=False)
+            run_shell_cmd(cmd, stdin=stdin)
             raise EasyBuildError("Errors detected during installation of R package %s!", self.name)
         else:
             self.log.debug("R package %s installed succesfully", self.name)
@@ -216,11 +216,11 @@ class RPackage(ExtensionEasyBlock):
         if self._required_deps is None:
             if self.src:
                 cmd = "tar --wildcards --extract --file %s --to-stdout '*/DESCRIPTION'" % self.src
-                out, _ = run_cmd(cmd, simple=False, trace=False)
+                res = run_shell_cmd(cmd, hidden=True)
 
                 # lines that start with whitespace are merged with line above
                 lines = []
-                for line in out.splitlines():
+                for line in res.output.splitlines():
                     if line and line[0] in (' ', '\t'):
                         lines[-1] = lines[-1] + line
                     else:
@@ -271,8 +271,8 @@ class RPackage(ExtensionEasyBlock):
         # determine location
         if isinstance(self.master, EB_R):
             # extension is being installed as part of an R installation/module
-            (out, _) = run_cmd("R RHOME", log_all=True, simple=False, trace=False)
-            rhome = out.strip()
+            res = run_shell_cmd("R RHOME", hidden=True)
+            rhome = res.output.strip()
             lib_install_prefix = os.path.join(rhome, 'library')
         else:
             # extension is being installed in a separate installation prefix
