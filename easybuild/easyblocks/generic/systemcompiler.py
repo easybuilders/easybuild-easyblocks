@@ -55,7 +55,8 @@ def extract_compiler_version(compiler_name):
     version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
     if compiler_name == 'gcc':
         res = run_shell_cmd("gcc --version")
-        res = version_regex.search(res.output)
+        out = res.output
+        res = version_regex.search(out)
         if res is None:
             raise EasyBuildError("Could not extract GCC version from %s", out)
         compiler_version = res.group(1)
