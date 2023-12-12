@@ -41,7 +41,7 @@ from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 _log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
 
@@ -54,8 +54,8 @@ def extract_compiler_version(compiler_name):
     # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
     version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
     if compiler_name == 'gcc':
-        out, _ = run_cmd("gcc --version", simple=False)
-        res = version_regex.search(out)
+        res = run_shell_cmd("gcc --version")
+        res = version_regex.search(res.output)
         if res is None:
             raise EasyBuildError("Could not extract GCC version from %s", out)
         compiler_version = res.group(1)
