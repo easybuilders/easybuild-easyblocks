@@ -831,10 +831,13 @@ class PythonPackage(ExtensionEasyBlock):
                     self.cfg['testopts'],
                 ])
 
-                res = run_shell_cmd(cmd)
                 if return_output_ec:
+                    res = run_shell_cmd(cmd, fail_on_error=False)
+                    # need to retrieve ec by not failing on error
                     (out, ec) = (res.output, res.exit_code)
                     self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
+                else:
+                    run_shell_cmd(cmd)
 
             if test_installdir:
                 remove_dir(test_installdir)
@@ -1022,7 +1025,7 @@ class PythonPackage(ExtensionEasyBlock):
 
                     pip_check_errors = []
 
-                    res = run_shell_cmd(pip_check_command)
+                    res = run_shell_cmd(pip_check_command, fail_on_error=False)
                     pip_check_msg = res.output
                     if res.exit_code:
                         pip_check_errors.append('`%s` failed:\n%s' % (pip_check_command, pip_check_msg))
