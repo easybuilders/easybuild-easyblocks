@@ -61,9 +61,9 @@ class EB_DualSPHysics(CMakeMakeCp):
         self.dsph_target = None
         self.shortver = None
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """Determine name of binary that will be installed."""
-        super(EB_DualSPHysics, self).prepare_step()
+        super(EB_DualSPHysics, self).prepare_step(*args, **kwargs)
 
         if get_software_root('CUDA'):
             self.dsph_target = 'GPU'
