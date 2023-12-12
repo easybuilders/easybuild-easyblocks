@@ -274,20 +274,23 @@ class EB_GAMESS_minus_US(EasyBlock):
         # MDI
         # needs https://github.com/MolSSI-MDI/MDI_Library
         installinfo_opts['GMS_MDI'] = "false"
-        # VM2
-        installinfo_opts['GMS_VM2'] = "false"
         # NBO
         installinfo_opts['NBO'] = "false"
         if get_software_root('NBO'):
             installinfo_opts['NBO'] = "true"
         # NEO
         installinfo_opts['NEO'] = "false"
+        # RISM
+        if LooseVersion(self.version) >= LooseVersion('20230601'):
+            installinfo_opts['RISM'] = "false"
         # TINKER
         installinfo_opts['TINKER'] = "false"
         if get_software_root('TINKER'):
             installinfo_opts['TINKER'] = "true"
         # VB2000
         installinfo_opts['VB2000'] = "false"
+        # VM2
+        installinfo_opts['GMS_VM2'] = "false"
         # XMVB
         installinfo_opts['XMVB'] = "false"
 
