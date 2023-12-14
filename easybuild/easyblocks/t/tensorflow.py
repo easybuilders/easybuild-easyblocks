@@ -49,6 +49,7 @@ from easybuild.tools.filetools import is_readable, read_file, symlink, which, wr
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 CPU_DEVICE = 'cpu'
@@ -464,10 +465,10 @@ class EB_TensorFlow(PythonPackage):
         ld_path = which('ld')
         self.binutils_bin_path = os.path.dirname(ld_path)
         if self.toolchain.is_rpath_wrapper(ld_path):
-            if os.path.basename(os.path.dirname(os.path.dirname(ld_path))) == toolchain.RPATH_WRAPPERS_SUBDIR:
+            if os.path.basename(os.path.dirname(os.path.dirname(ld_path))) == RPATH_WRAPPERS_SUBDIR:
                 # TF expects all binutils binaries in a single path but newer EB puts each in their own subfolder
                 # Add symlinks to each binutils binary into a single folder
-                new_rpath_wrapper_dir = os.path.join(self.wrapper_dir, toolchain.RPATH_WRAPPERS_SUBDIR)
+                new_rpath_wrapper_dir = os.path.join(self.wrapper_dir, RPATH_WRAPPERS_SUBDIR)
                 binutils_bin_path = os.path.join(get_software_root('binutils'), 'bin')
                 self.log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils in %s to %s.",
                               ld_path, binutils_bin_path, new_rpath_wrapper_dir)
