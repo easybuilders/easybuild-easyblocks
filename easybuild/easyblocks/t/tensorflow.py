@@ -446,6 +446,7 @@ class EB_TensorFlow(PythonPackage):
         self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
         self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
+        mkdir(self.wrapper_dir)
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
