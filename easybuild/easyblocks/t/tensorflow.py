@@ -45,7 +45,7 @@ from easybuild.tools import run, LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
+from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file, symlink
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
@@ -461,6 +461,12 @@ class EB_TensorFlow(PythonPackage):
         # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
         ld_path = which('ld')
         self.binutils_bin_path = os.path.dirname(ld_path)
+
+        # when EasyBuild is configured with --rpath, there is an issue where TensorFlow looks for ar in the same
+        # directory as ld, so create a symlink:
+        if build_option('rpath'):
+            ar_path = which('ar')
+            symlink(ar_path, re.sub('ld$', 'ar', ld_path))
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
