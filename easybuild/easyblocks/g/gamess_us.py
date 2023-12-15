@@ -42,7 +42,6 @@ import re
 import shutil
 import sys
 import tempfile
-import fnmatch
 
 from distutils.version import LooseVersion
 
@@ -58,7 +57,14 @@ from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import toolchain
 
 GAMESS_INSTALL_INFO = 'install.info'
-
+GAMESS_MPI_TEST_BLACKLIST = [
+    'exam05',  # only the gradients for CITYP=CIS run in parallel
+    'exam32',  # only CCTYP=CCSD or CCTYP=CCSD(T) can run in parallel
+    'exam42',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
+    'exam45',  # only CCTYP=CCSD or CCTYP=CCSD(T) can run in parallel
+    'exam46',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
+    'exam47',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
+]
 
 class EB_GAMESS_minus_US(EasyBlock):
     """Support for building/installing GAMESS-US."""
@@ -402,11 +408,16 @@ class EB_GAMESS_minus_US(EasyBlock):
             cwd = change_dir(self.testdir)
 
             # copy input files for exam<id> standard tests
+            target_tests = []
             for test_input in glob.glob(os.path.join(self.installdir, 'tests', 'standard', 'exam*.inp')):
-                try:
-                    shutil.copy2(test_input, os.getcwd())
-                except OSError as err:
-                    raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
+                test_name = os.path.splitext(os.path.basename(test_input))[0]
+                if test_name not in GAMESS_MPI_TEST_BLACKLIST:
+                    try:
+                        shutil.copy2(test_input, os.getcwd())
+                    except OSError as err:
+                        raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
+                    else:
+                        target_tests.append(test_name)
 
             rungms = os.path.join(self.installdir, 'rungms')
             test_env_vars = ['export OMP_NUM_THREADS=1; TMPDIR=%s' % self.testdir]
@@ -416,25 +427,25 @@ class EB_GAMESS_minus_US(EasyBlock):
                     'I_MPI_HYDRA_BOOTSTRAP=fork',  # tests are only run locally (2 processes), so no SSH required
                 ])
 
-            # run all exam<id> tests, dump output to exam<id>.log
-            # we let Python count the number of *.inp files as that changes
-            tests_path = os.path.join(self.installdir, 'tests', 'standard')
-            tests_num = len(fnmatch.filter(os.listdir(tests_path), '*.inp'))
+            # run target exam<id> tests, dump output to exam<id>.log
             tests_procs = str(self.cfg['parallel'])
-            for i in range(1, tests_num+1):
-                rungms_cmd = [rungms, 'exam%02d' % i, self.version, tests_procs, tests_procs]
+            for test_exam in target_tests:
+                rungms_cmd = [rungms, test_exam, self.version, tests_procs, tests_procs]
                 test_cmd = ' '.join(test_env_vars + rungms_cmd)
                 (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
-                write_file('exam%02d.log' % i, out)
+                write_file('%s.log' % test_exam, out)
 
-            # verify output of tests
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
             (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
-            success_regex = re.compile("^All %d test results are correct" % tests_num, re.M)
-            if success_regex.search(out):
-                self.log.info("All tests ran successfully!")
+
+            # verify output of tests
+            failed_regex = re.compile(r"^.*!!FAILED\.$", re.M)
+            failed_tests = [exam[0:6] for exam in failed_regex.findall(out)]
+            if set(failed_tests) == set(GAMESS_MPI_TEST_BLACKLIST):
+                blacklisted_msg = "(blacklisted: %s)" % ", ".join(GAMESS_MPI_TEST_BLACKLIST)
+                self.log.info("All target tests ran successfully! %s", blacklisted_msg)
             else:
-                raise EasyBuildError("Not all tests ran successfully...")
+                raise EasyBuildError("ERROR: Not all target tests ran successfully")
 
             change_dir(cwd)
 
