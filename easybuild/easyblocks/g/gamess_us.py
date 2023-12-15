@@ -58,7 +58,6 @@ from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import toolchain
 
 GAMESS_INSTALL_INFO = 'install.info'
-GAMESS_TEST_TASKS = 2
 
 
 class EB_GAMESS_minus_US(EasyBlock):
@@ -420,9 +419,10 @@ class EB_GAMESS_minus_US(EasyBlock):
             # run all exam<id> tests, dump output to exam<id>.log
             # we let Python count the number of *.inp files as that changes
             tests_path = os.path.join(self.installdir, 'tests', 'standard')
-            n_tests = len(fnmatch.filter(os.listdir(tests_path), '*.inp'))
-            for i in range(1, n_tests+1):
-                rungms_cmd = [rungms, 'exam%02d' % i, self.version, str(GAMESS_TEST_TASKS), str(GAMESS_TEST_TASKS)]
+            tests_num = len(fnmatch.filter(os.listdir(tests_path), '*.inp'))
+            tests_procs = str(self.cfg['parallel'])
+            for i in range(1, tests_num+1):
+                rungms_cmd = [rungms, 'exam%02d' % i, self.version, tests_procs, tests_procs]
                 test_cmd = ' '.join(test_env_vars + rungms_cmd)
                 (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
                 write_file('exam%02d.log' % i, out)
@@ -430,7 +430,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             # verify output of tests
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
             (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
-            success_regex = re.compile("^All %d test results are correct" % n_tests, re.M)
+            success_regex = re.compile("^All %d test results are correct" % tests_num, re.M)
             if success_regex.search(out):
                 self.log.info("All tests ran successfully!")
             else:
