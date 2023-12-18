@@ -49,7 +49,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, read_file, write_file, remove_dir
+from easybuild.tools.filetools import change_dir, mkdir, read_file, write_file, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import POWER, X86_64
@@ -87,9 +87,20 @@ class EB_GAMESS_minus_US(EasyBlock):
         """Easyblock constructor, enable building in installation directory."""
         super(EB_GAMESS_minus_US, self).__init__(*args, **kwargs)
         self.build_in_installdir = True
+
+        # resolve path to scratch dir and make it
+        scratch_dir_resolved = os.path.expandvars(self.cfg['scratch_dir'])
+        if "$" in scratch_dir_resolved:
+            error_msg = "Provided scratch directory '%s' does not resolve into a path."
+            raise EasyBuildError(error_msg, self.cfg['scratch_dir'])
+
+        mkdir(scratch_dir_resolved, parents=True)
+
         self.testdir = None
         if self.cfg['runtest']:
-            self.testdir = tempfile.mkdtemp()
+            # run tests in scratch dir
+            self.testdir = tempfile.mkdtemp(dir=scratch_dir_resolved)
+
             # make sure test dir doesn't contain [ or ], rungms csh script doesn't handle that well ("set: No match")
             if re.search(r'[\[\]]', self.testdir):
                 error_msg = "Temporary dir for tests '%s' will cause problems with rungms csh script"
@@ -420,7 +431,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                         target_tests.append(test_name)
 
             rungms = os.path.join(self.installdir, 'rungms')
-            test_env_vars = ['export OMP_NUM_THREADS=1; TMPDIR=%s' % self.testdir]
+            test_env_vars = ['export OMP_NUM_THREADS=1; SCR=%s' % self.testdir]
             if self.toolchain.mpi_family() == toolchain.INTELMPI:
                 test_env_vars.extend([
                     'I_MPI_FALLBACK=enable',  # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
@@ -472,9 +483,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         """Cleanup set."""
         super(EB_GAMESS_minus_US, self).cleanup_step()
 
-        # remove dedicated scratch directory (if any);
-        # we must use a shell command for this, since the path may contain environment variables
-        (scratch_path, _) = run_cmd('printf "%%s" "%s"' % self.cfg['scratch_dir'], simple=False)
-        if os.path.isdir(scratch_path):
-            remove_dir(scratch_path)
-            self.log.info("Removed test scratch: %s", scratch_path)
+        # remove test directory
+        if os.path.isdir(self.testdir):
+            remove_dir(self.testdir)
+            self.log.info("Removed test scratch: %s", self.testdir)
