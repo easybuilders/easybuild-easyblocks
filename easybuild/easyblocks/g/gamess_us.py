@@ -66,6 +66,7 @@ GAMESS_MPI_TEST_BLACKLIST = [
     'exam47',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
 ]
 
+
 class EB_GAMESS_minus_US(EasyBlock):
     """Support for building/installing GAMESS-US."""
 
