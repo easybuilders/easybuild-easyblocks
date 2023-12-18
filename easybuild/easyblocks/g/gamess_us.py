@@ -459,7 +459,12 @@ class EB_GAMESS_minus_US(EasyBlock):
             else:
                 raise EasyBuildError("ERROR: Not all target tests ran successfully")
 
+            # cleanup
             change_dir(cwd)
+            try:
+                remove_dir(self.testdir)
+            except OSError as err:
+                raise EasyBuildError("Failed to remove test directory %s: %s", self.testdir, err)
 
     def install_step(self):
         """Skip install step, since we're building in the install directory."""
@@ -479,12 +484,3 @@ class EB_GAMESS_minus_US(EasyBlock):
         txt += self.module_generator.set_environment('GAMESSUSROOT', self.installdir)
         txt += self.module_generator.prepend_paths("PATH", [''])
         return txt
-
-    def cleanup_step(self):
-        """Cleanup set."""
-        super(EB_GAMESS_minus_US, self).cleanup_step()
-
-        # remove test directory
-        if os.path.isdir(self.testdir):
-            remove_dir(self.testdir)
-            self.log.info("Removed test scratch: %s", self.testdir)
