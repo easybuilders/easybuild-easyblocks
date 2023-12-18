@@ -39,7 +39,6 @@ import fileinput
 import glob
 import os
 import re
-import shutil
 import sys
 import tempfile
 
@@ -49,7 +48,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, mkdir, read_file, write_file, remove_dir
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, read_file, write_file, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import POWER, X86_64
@@ -417,7 +416,11 @@ class EB_GAMESS_minus_US(EasyBlock):
                 self.log.info("Skipping testing of GAMESS-US as MPI tests need at least 2 CPU cores to run")
                 return
 
-            cwd = change_dir(self.testdir)
+            try:
+                cwd = os.getcwd()
+                change_dir(self.testdir)
+            except OSError as err:
+                raise EasyBuildError("Failed to move to temporary directory for running tests: %s", err)
 
             # copy input files for exam<id> standard tests
             target_tests = []
@@ -425,9 +428,9 @@ class EB_GAMESS_minus_US(EasyBlock):
                 test_name = os.path.splitext(os.path.basename(test_input))[0]
                 if test_name not in GAMESS_MPI_TEST_BLACKLIST:
                     try:
-                        shutil.copy2(test_input, os.getcwd())
+                        copy_file(test_input, self.testdir)
                     except OSError as err:
-                        raise EasyBuildError("Failed to copy %s to %s: %s", test_input, os.getcwd(), err)
+                        raise EasyBuildError("Failed to copy %s to %s: %s", test_input, self.testdir, err)
                     else:
                         target_tests.append(test_name)
 
