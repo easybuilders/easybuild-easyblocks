@@ -29,7 +29,7 @@ EasyBuild support for PETSc, implemented as an easyblock
 """
 import os
 import re
-from easybuild.tools import LooseVersion
+from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -255,18 +255,25 @@ class EB_PETSc(ConfigureMake):
                     # More libraries added after version 3.17
                     if LooseVersion(self.version) >= LooseVersion("3.17"):
                         # specified order of libs matters!
+                        # ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
+                        #            "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",
+                        #            "SLIP_LU", "CAMD", "AMD"]
+
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
-                                   "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",
+                                   "COLAMD", "CXSparse", "LDL", "RBio",
                                    "SLIP_LU", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
-                                       for x in ss_libs]
-                    suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
+
+                    # suitesparse_inc = [os.path.join(suitesparse, x, "Include")
+                    #                    for x in ss_libs]
+                    # suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
+                    suitesparse_inc = [os.path.join(suitesparse, "include")]
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
 
-                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.replace("_", "").lower())
-                                        for x in ss_libs]
-                    suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
+                    # suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.replace("_", "").lower())
+                    #                     for x in ss_libs]
+                    # suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
+                    suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower()) for x in ss_libs]
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
                     # CHOLMOD and UMFPACK are part of SuiteSparse (PETSc < 3.5)
