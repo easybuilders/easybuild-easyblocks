@@ -100,6 +100,9 @@ class EB_CMake(ConfigureMake):
         if self.cfg['use_openssl']:
             add_cmake_opts['CMAKE_USE_OPENSSL'] = 'ON'
 
+	#Default policy option for Python_NEWPackages
+        add_cmake_opts['MAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
+
         cmake_prefix_path = os.environ.get('CMAKE_PREFIX_PATH', '').split(':')
         cmake_library_path = os.environ.get('CMAKE_LIBRARY_PATH', '').split(':')
         cmake_include_path = []
