@@ -254,33 +254,21 @@ class EB_PETSc(ConfigureMake):
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
                     # More libraries added after version 3.17
                     if LooseVersion(self.version) >= LooseVersion("3.17"):
-                        # specified order of libs matters!
-                        # ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
-                        #            "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",
-                        #            "SLIP_LU", "CAMD", "AMD"]
-
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
-                                   "COLAMD", "CXSparse", "LDL", "RBio",
-                                   "SLIP_LU", "CAMD", "AMD"]
+                                   "COLAMD", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
 
+                    suitesparse_inc = os.path.join(suitesparse, "include")
+                    inc_spec = "-include=[%s]" % suitesparse_inc
 
-                    # suitesparse_inc = [os.path.join(suitesparse, x, "Include")
-                    #                    for x in ss_libs]
-                    # suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
-                    suitesparse_inc = [os.path.join(suitesparse, "include")]
-                    inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
-
-                    # suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.replace("_", "").lower())
-                    #                     for x in ss_libs]
-                    # suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
-                    suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower()) for x in ss_libs]
+                    suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower())
+                                        for x in ss_libs]
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
                     # CHOLMOD and UMFPACK are part of SuiteSparse (PETSc < 3.5)
                     withdep = "--with-umfpack"
-                    inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
+                    inc_spec = "-include=%s" % os.path.join(suitesparse, "include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                    umfpack_libs = [os.path.join(suitesparse, "lib", "lib%s.a" % x.lower())
                                     for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
