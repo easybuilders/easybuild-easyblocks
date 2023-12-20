@@ -45,10 +45,11 @@ from easybuild.tools import run, LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
-from easybuild.tools.filetools import is_readable, read_file, which, write_file, remove_file
+from easybuild.tools.filetools import is_readable, read_file, symlink, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 CPU_DEVICE = 'cpu'
@@ -445,9 +446,12 @@ class EB_TensorFlow(PythonPackage):
         self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
         self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
+        mkdir(self.wrapper_dir)
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
+
+        self.setup_build_dirs()
 
         # Bazel seems to not be able to handle a large amount of parallel jobs, e.g. 176 on some Power machines,
         # and will hang forever building the TensorFlow package.
@@ -461,6 +465,19 @@ class EB_TensorFlow(PythonPackage):
         # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
         ld_path = which('ld')
         self.binutils_bin_path = os.path.dirname(ld_path)
+        if self.toolchain.is_rpath_wrapper(ld_path):
+            if os.path.basename(os.path.dirname(os.path.dirname(ld_path))) == RPATH_WRAPPERS_SUBDIR:
+                # TF expects all binutils binaries in a single path but newer EB puts each in their own subfolder
+                # Add symlinks to each binutils binary into a single folder
+                new_rpath_wrapper_dir = os.path.join(self.wrapper_dir, RPATH_WRAPPERS_SUBDIR)
+                binutils_bin_path = os.path.join(get_software_root('binutils'), 'bin')
+                self.log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils in %s to %s.",
+                              ld_path, binutils_bin_path, new_rpath_wrapper_dir)
+                mkdir(new_rpath_wrapper_dir)
+                for file in next(os.walk(binutils_bin_path))[2]:
+                    # Note the use of `which` to take rpath wrappers where available
+                    symlink(which(file), os.path.join(new_rpath_wrapper_dir, file))
+                self.binutils_bin_path = new_rpath_wrapper_dir
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
@@ -472,8 +489,6 @@ class EB_TensorFlow(PythonPackage):
                 self.log.info("$%s old value was %s" % (var, path))
                 filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
                 env.setvar(var, filtered_path)
-
-        self.setup_build_dirs()
 
         use_wrapper = False
         if self.toolchain.comp_family() == toolchain.INTELCOMP:
