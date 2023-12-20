@@ -176,11 +176,11 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
         # Python 3.12 removed distutils but has a core sysconfig module which is similar
         pathname = 'platlib' if plat_specific else 'purelib'
         vars = {'platbase': prefix, 'base': prefix}
-        pycode = 'import sysconfig; sysconfig.get_path("%s", vars=%s)' % (pathname, vars)
+        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars)
     else:
         args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
         pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
-    cmd = "%s -c '%s'" % (python_cmd, pycode)
+    cmd = "%s -c '%s'" % (python_cmd, pycode.replace("'", '"'))
 
     log.debug("Determining Python library directory using command '%s'", cmd)
 
