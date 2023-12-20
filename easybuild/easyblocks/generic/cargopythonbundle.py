@@ -50,7 +50,7 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
 
     def __init__(self, *args, **kwargs):
         """Constructor for CargoPythonBundle easyblock."""
-        self.check_for_sources = False
+        self.check_for_sources = False  # make Bundle allow sources (as crates are treated as sources)
         super(CargoPythonBundle, self).__init__(*args, **kwargs)
 
     def extract_step(self):
