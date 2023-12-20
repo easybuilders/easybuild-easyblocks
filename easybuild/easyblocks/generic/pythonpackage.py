@@ -172,8 +172,14 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     # determine Python lib dir via distutils
     # use run_cmd, we can to talk to the active Python, not the system Python running EasyBuild
     prefix = '/tmp/'
-    args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
-    pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
+    if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
+        # Python 3.12 removed distutils but has a core sysconfig module which is similar
+        pathname = 'platlib' if plat_specific else 'purelib'
+        vars = {'platbase': prefix, 'base': prefix}
+        pycode = 'import sysconfig; sysconfig.get_path("%s", vars=%s)' % (pathname, vars)
+    else:
+        args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
+        pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
     cmd = "%s -c '%s'" % (python_cmd, pycode)
 
     log.debug("Determining Python library directory using command '%s'", cmd)
