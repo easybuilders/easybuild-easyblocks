@@ -130,7 +130,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         installinfo_opts["GMS_TARGET"] = machinetype
         installinfo_opts["GMS_HPC_SYSTEM_TARGET"] = "generic"
 
-        # compiler config
+        # Compiler config
         comp_fam = self.toolchain.comp_family()
         fortran_comp, fortran_version = None, None
         if comp_fam == toolchain.INTELCOMP:
@@ -152,7 +152,15 @@ class EB_GAMESS_minus_US(EasyBlock):
         installinfo_opts["GMS_FORTRAN"] = fortran_comp
         installinfo_opts.update(fortran_version)
 
-        # math library config
+        # OpenMP config
+        if self.toolchain.options.get('openmp', None):
+            omp_enabled = "true"
+        else:
+            omp_enabled = "false"
+
+        installinfo_opts["GMS_OPENMP"] = omp_enabled
+
+        # Math library config
         known_mathlibs = ['imkl', 'OpenBLAS', 'ATLAS', 'ACML']
         loaded_mathlib = [mathlib for mathlib in known_mathlibs if get_software_root(mathlib)]
 
@@ -176,6 +184,9 @@ class EB_GAMESS_minus_US(EasyBlock):
                 mathlib_subfolder = 'mkl/latest/lib/intel64'
                 mkl_version = 'oneapi'
             installinfo_opts["GMS_MKL_VERNO"] = mkl_version
+
+            if LooseVersion(self.version) >= LooseVersion('20230601'):
+                installinfo_opts["GMS_THREADED_BLAS"] = omp_enabled
 
         elif mathlib == 'openblas':
             mathlib_flags = "-lopenblas -lgfortran"
@@ -242,14 +253,6 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         installinfo_opts["GMS_MPI_LIB"] = mpilib
         installinfo_opts["GMS_MPI_PATH"] = mpilib_path
-
-        # OpenMP config
-        if self.toolchain.options.get('openmp', None):
-            omp_enabled = "true"
-        else:
-            omp_enabled = "false"
-
-        installinfo_opts["GMS_OPENMP"] = omp_enabled
 
         # Accelerators (disabled)
         # TODO: add support for GPUs
