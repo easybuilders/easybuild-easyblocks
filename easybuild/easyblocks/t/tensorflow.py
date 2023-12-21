@@ -489,7 +489,7 @@ class EB_TensorFlow(PythonPackage):
                 mkdir(new_rpath_wrapper_dir)
                 for file in binutils_files:
                     # use `which` to take rpath wrappers where available
-                    # Ignore missing ones if bintuils was filtered (in which case we used a heuristic)
+                    # Ignore missing ones if binutils was filtered (in which case we used a heuristic)
                     path = which(file, on_error=ERROR if binutils_root else WARN)
                     if path:
                         symlink(path, os.path.join(new_rpath_wrapper_dir, file))
