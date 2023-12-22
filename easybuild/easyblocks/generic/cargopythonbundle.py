@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for installing python bundles with some packages using Rust
+EasyBuild support for installing a bundle of Python packages, where some are built with Rust
 
 @author: Mikael Oehman (Chalmers University of Technology)
 """
