@@ -35,6 +35,7 @@ import os
 import re
 import stat
 import tempfile
+from itertools import chain
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -43,7 +44,7 @@ from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import run, LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.config import build_option, IGNORE, WARN, ERROR
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, symlink, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
@@ -76,6 +77,8 @@ export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' '
 
 %(compiler_path)s "$@"
 """
+
+KNOWN_BINUTILS = ('ar', 'as', 'dwp', 'ld', 'ld.bfd', 'ld.gold', 'nm', 'objcopy', 'objdump', 'strip')
 
 
 def split_tf_libs_txt(valid_libs_txt):
@@ -300,7 +303,7 @@ class EB_TensorFlow(PythonPackage):
     def write_wrapper(self, wrapper_dir, compiler, i_mpi_root):
         """Helper function to write a compiler wrapper."""
         wrapper_txt = INTEL_COMPILER_WRAPPER % {
-            'compiler_path': which(compiler),
+            'compiler_path': which(compiler, on_error=IGNORE if self.dry_run else ERROR),
             'intel_mpi_root': i_mpi_root,
             'cpath': os.getenv('CPATH'),
             'intel_license_file': os.getenv('INTEL_LICENSE_FILE', os.getenv('LM_LICENSE_FILE')),
@@ -463,20 +466,33 @@ class EB_TensorFlow(PythonPackage):
 
         # determine location where binutils' ld command is installed
         # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
-        ld_path = which('ld')
+        ld_path = which('ld', on_error=ERROR)
         self.binutils_bin_path = os.path.dirname(ld_path)
         if self.toolchain.is_rpath_wrapper(ld_path):
-            if os.path.basename(os.path.dirname(os.path.dirname(ld_path))) == RPATH_WRAPPERS_SUBDIR:
-                # TF expects all binutils binaries in a single path but newer EB puts each in their own subfolder
+            # TF expects all binutils binaries in a single path but newer EB puts each in its own subfolder
+            # This new layout is: <prefix>/RPATH_WRAPPERS_SUBDIR/<util>_folder/<util>
+            rpath_wrapper_root = os.path.dirname(os.path.dirname(ld_path))
+            if os.path.basename(rpath_wrapper_root) == RPATH_WRAPPERS_SUBDIR:
                 # Add symlinks to each binutils binary into a single folder
                 new_rpath_wrapper_dir = os.path.join(self.wrapper_dir, RPATH_WRAPPERS_SUBDIR)
-                binutils_bin_path = os.path.join(get_software_root('binutils'), 'bin')
-                self.log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils in %s to %s.",
-                              ld_path, binutils_bin_path, new_rpath_wrapper_dir)
+                binutils_root = get_software_root('binutils')
+                if binutils_root:
+                    self.log.debug("Using binutils dependency at %s to gather binutils files.", binutils_root)
+                    binutils_files = next(os.walk(os.path.join(binutils_root, 'bin')))[2]
+                else:
+                    # binutils might be filtered (--filter-deps), so recursively gather files in the rpath wrapper dir
+                    binutils_files = {f for (_, _, files) in os.walk(rpath_wrapper_root) for f in files}
+                    # And add known ones
+                    binutils_files.update(KNOWN_BINUTILS)
+                self.log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils (%s) to %s.",
+                              ld_path, ', '.join(binutils_files), new_rpath_wrapper_dir)
                 mkdir(new_rpath_wrapper_dir)
-                for file in next(os.walk(binutils_bin_path))[2]:
-                    # Note the use of `which` to take rpath wrappers where available
-                    symlink(which(file), os.path.join(new_rpath_wrapper_dir, file))
+                for file in binutils_files:
+                    # use `which` to take rpath wrappers where available
+                    # Ignore missing ones if binutils was filtered (in which case we used a heuristic)
+                    path = which(file, on_error=ERROR if binutils_root else WARN)
+                    if path:
+                        symlink(path, os.path.join(new_rpath_wrapper_dir, file))
                 self.binutils_bin_path = new_rpath_wrapper_dir
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
@@ -586,9 +602,9 @@ class EB_TensorFlow(PythonPackage):
 
             # $GCC_HOST_COMPILER_PATH should be set to path of the actual compiler (not the MPI compiler wrapper)
             if use_mpi:
-                compiler_path = which(os.getenv('CC_SEQ'))
+                compiler_path = which(os.getenv('CC_SEQ'), on_error=ERROR)
             else:
-                compiler_path = which(os.getenv('CC'))
+                compiler_path = which(os.getenv('CC'), on_error=ERROR)
 
             # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
             # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
@@ -764,12 +780,11 @@ class EB_TensorFlow(PythonPackage):
             (r'(cxx_builtin_include_directory:).*', ''),
             (r'^toolchain {', 'toolchain {\n' + '\n'.join(cxx_inc_dirs)),
         ]
-        for tool in ['ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip']:
-            path = which(tool)
+        required_tools = {'ar', 'cpp', 'dwp', 'gcc', 'gcov', 'ld', 'nm', 'objcopy', 'objdump', 'strip'}
+        for tool in set(chain(required_tools, KNOWN_BINUTILS)):
+            path = which(tool, on_error=ERROR if tool in required_tools else WARN)
             if path:
                 regex_subs.append((os.path.join('/usr', 'bin', tool), path))
-            else:
-                raise EasyBuildError("Failed to determine path to '%s'", tool)
 
         # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE/-pie if -fPIC is used
         if self.toolchain.options.get('pic', None):
