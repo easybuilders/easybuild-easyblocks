@@ -321,10 +321,10 @@ class EB_imkl(IntelBase):
         and libflexiblas_imkl_sequential.so. They can be used as FlexiBLAS backends
         via FLEXIBLAS_LIBRARY_PATH.
         """
-        builderdir = os.path.join('tools', 'builder')
+        builder_subdir = os.path.join('tools', 'builder')
         if LooseVersion(self.version) >= LooseVersion('2024'):
-            builderdir = os.path.join('share', 'mkl', builderdir)
-        change_dir(os.path.join(self.installdir, self.mkl_basedir, builderdir))
+            builder_subdir = os.path.join('share', 'mkl', builder_subdir)
+        change_dir(os.path.join(self.installdir, self.mkl_basedir, builder_subdir))
         mkdir(flexiblasdir, parents=True)
 
         # concatenate lists of all BLAS, CBLAS and LAPACK functions
