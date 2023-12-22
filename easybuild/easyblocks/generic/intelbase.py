@@ -129,6 +129,7 @@ class IntelBase(EasyBlock):
         return self._latest_subdir[subdir]
 
     def set_versioned_subdir(self, subdir, path):
+        """Set version-specific path for specified subdirectory."""
         self._latest_subdir[subdir] = path
 
     def get_guesses_tools(self):
