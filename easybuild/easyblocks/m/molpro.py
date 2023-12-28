@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2022 Ghent University
+# Copyright 2015-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for Molpro, implemented as an easyblock
 import os
 import shutil
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

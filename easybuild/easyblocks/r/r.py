@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2022 Ghent University
+# Copyright 2012-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing R, implemented as an easyblock
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ EasyBuild support for installing the Intel Fortran compiler suite, implemented a
 """
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport

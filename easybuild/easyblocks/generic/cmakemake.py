@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,12 +34,13 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 @author: Maxime Boissonneault (Compute Canada - Universite Laval)
 """
 import glob
+import re
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import print_warning
+from easybuild.framework.easyconfig import BUILD, CUSTOM
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
@@ -50,6 +51,26 @@ from easybuild.tools.utilities import nub
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
+
+
+def det_cmake_version():
+    """
+    Determine active CMake version.
+    """
+    cmake_version = get_software_version('CMake')
+    if cmake_version is None:
+        # also take into account release candidate versions
+        regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
+
+        cmd = "cmake --version"
+        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        res = regex.search(out)
+        if res:
+            cmake_version = res.group('version')
+        else:
+            raise EasyBuildError("Failed to determine CMake version from output of '%s': %s", cmd, out)
+
+    return cmake_version
 
 
 def setup_cmake_env(tc):
@@ -84,6 +105,7 @@ class CMakeMake(ConfigureMake):
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
+            'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -93,6 +115,7 @@ class CMakeMake(ConfigureMake):
         """Constructor for CMakeMake easyblock"""
         super(CMakeMake, self).__init__(*args, **kwargs)
         self._lib_ext = None
+        self._cmake_version = None
         self.separate_build_dir = None
 
     @property
@@ -111,6 +134,14 @@ class CMakeMake(ConfigureMake):
         self._lib_ext = value
 
     @property
+    def cmake_version(self):
+        """Return the used CMake version, caching the value for reuse"""
+        if self._cmake_version is None:
+            self._cmake_version = det_cmake_version()
+            self.log.debug('Determined CMake version: %s', self._cmake_version)
+        return self._cmake_version
+
+    @property
     def build_type(self):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
         build_type = self.cfg.get('build_type')
@@ -120,7 +151,10 @@ class CMakeMake(ConfigureMake):
 
     def prepend_config_opts(self, config_opts):
         """Prepends configure options (-Dkey=value) to configopts ignoring those already set"""
-        cfg_configopts = self.cfg['configopts']
+        # need to disable template resolution or it will remain the same for all runs
+        with self.cfg.disable_templating():
+            cfg_configopts = self.cfg['configopts']
+
         # All options are of the form '-D<key>=<value>'
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
@@ -218,7 +252,7 @@ class CMakeMake(ConfigureMake):
                 setvar('FC', fc)
 
         # Flags are read from environment variables already since at least CMake 2.8.0
-        if LooseVersion(get_software_version('CMake')) < LooseVersion('2.8.0') or cache_exists:
+        if LooseVersion(self.cmake_version) < LooseVersion('2.8.0') or cache_exists:
             env_to_options.update({
                 'CFLAGS': 'CMAKE_C_FLAGS',
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
@@ -233,9 +267,10 @@ class CMakeMake(ConfigureMake):
                     self.log.info("Using absolute path to compiler command: %s", value)
                 options[option] = value
 
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.cmake_version) < LooseVersion('3.5.0'):
             # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
-            # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
+            # this is only required for CMake < 3.5.0, since newer version are more careful w.r.t. RPATH,
+            # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
         # show what CMake is doing by default
@@ -284,4 +319,12 @@ class CMakeMake(ConfigureMake):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
         setvar('CTEST_OUTPUT_ON_FAILURE', 'True')
+        # Handle `runtest = True` if `test_cmd` has not been set
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
+            self.cfg['test_cmd'] = test_cmd
+
         super(CMakeMake, self).test_step()

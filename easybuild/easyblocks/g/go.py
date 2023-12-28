@@ -1,5 +1,5 @@
 ##
-# Copyright 2014-2022 Ghent University
+# Copyright 2014-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing Go, implemented as an easyblock
 import os
 import shutil
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError

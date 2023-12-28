@@ -3,7 +3,244 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 246 software-specific easyblocks and 37 generic easyblocks.
+The latest version of easybuild-easyblocks provides 251 software-specific easyblocks and 42 generic easyblocks.
+
+
+v4.8.2 (29 October 2023)
+------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - allow use of `test_cmd` without `runtest` for `ConfigureMake` (#2837)
+  - enhance `CMakeMake` easyblock to run `ctest` command if `runtest` is `True` (#2838)
+  - enhance `Conda` easyblock: add support for using custom `conda` command (like `mamba`), and clean up after installation (#2996)
+  - update WRF easyblock to correctly determine `WRF*` subdirectory for WRF versions >= 4.5.1 (#2997)
+  - update numpy easyblock to be able to use FlexiBLAS with MKL as dependency (#2999)
+  - add error regexp for PyTorch tests run in subprocess and enhance error message (#3003, #3005)
+  - don't blindly overwrite `-Dccflags` + honour `preconfigopts` in Perl easyblock (#3010)
+  - use more test programs in sanity check step of OpenMPI easyblock (#3016)
+  - fix `CMAKE_PREFIX_PATH` in imkl easyblock (#3021)
+  - update sanity check in wxPython easyblock for version 4.2.0 (#3023)
+- various bug fixes, including:
+  - fix creation of symlink for libraries in TBB easyblock (#2927)
+  - fix `--sanity-check-only` and `--module-only` for UCX plugins (#3007)
+  - replace umlaut in docstring of PerlBundle easyblock (to fix Non-ASCII character error when using Python 2.7) (#3008)
+  - enhance TensorFlow easyblock to avoid use of `-mcpu=native` for XNNPACK component when building on aarch64 (#3011)
+  - only use `-DCMAKE_SKIP_RPATH=ON` for CMake < 3.5.0 (#3012)
+  - fix the blas/lapack name passed to meson when building recent scipy versions (>= 1.9.0) on top of Intel MKL (#3024)
+
+
+v4.8.1 (11 September 2023)
+--------------------------
+
+update/bugfix release
+
+- new custom easyblock for sympy (#2949) and tensorflow-compression (#2990)
+- minor enhancements and updates, including:
+  - drop unnecessary CUDA stub libraries from $LIBRARY_PATH (#2793)
+  - update Score-P easyblock to use `--with-nocross-compiler-suite=nvhpc` for recent software versions (#2928)
+  - unset `$CPPFLAGS`, `$LDFLAGS`, `$LIB` which may interfere with Score-P configure magic (#2928)
+  - update Clang easyblock for versions >= 16 + run tests only for final stage of bootstrap build (#2929)
+  - handle new directory structure for Intel Advisor (#2942)
+  - use `DCPU_BASELINE=DETECT` for OpenCV when default optarch compiler option is used (#2954)
+  - update MXNet easyblock + don't try to install R extension by default for MXNet >= 1.0 (#2955)
+  - use checkMCR.sh to determine if we have the correct MCR for FreeSurfer (#2962)
+  - add options to `MesonNinja` easyblock to customize `build_cmd`, `install_cmd`, `builddir` (#2963, #2993)
+  - add support for building CP2K with libvori support (#2967)
+  - enable system `pybind11` for PyTorch 1.10+ to make sure `pybind11` provided as dependency is used (#2968)
+  - update LLVM easyblock for LLVM v16: symlink `third-party` to `third-party-<version>.src` (#2970, #2994)
+  - update scipy easyblock for scipy >= 1.11.0 (#2971, #2980)
+  - update sanity check for Mesa >= 22.3 (#2973)
+  - update sanity check for OpenFOAM 11 (#2978)
+  - add support to `PerlModule` easyblock to customize prefix option used in installation command (#2979)
+  - update TensorFlow easyblock for v2.13 since LMDB is no longer a dependency (#2982)
+  - enhance PyTorch easyblock to print individual failed tests (#2983)
+  - enhance PETSc easyblock to support using custom `$PETSC_ARCH` (#2987)
+- various bug fixes, including:
+  - correctly determine path to active binutils in TensorFlow easyblock (#2218)
+  - patch Java binaries/libraries when using alternate sysroot to ensure correct glibc & co are picked up + add custom sanity check (#2557, #2995)
+  - update OpenMPI easyblock to fix sanity check for Clang-based compilers (#2774)
+  - improve depot management in `JuliaPackage` easyblock (#2935)
+  - disable disk space check in STAR-CCM+ installer (#2956)
+  - fix type check for `optarch` value in `Cargo` easyblock (#2969)
+  - conditionally add `-Wno-unused-command-line-argument` to `$CFLAGS` to fix error when installing `imkl-FFTW` with RPATH (#2975)
+  - enhance PythonPackage easyblock to deal with `posix_local` installation scheme used by Python in recent Debian/Ubuntu versions (#2977, #2988)
+  - don't add MATLAB libraries to `$LD_LIBRARY_PATH` (#2981)
+  - enhance Mesa easyblock to append EGL vendor library directory path to `$__EGL_VENDOR_LIBRARY_DIRS` (#2985)
+  - fix typo in TensorFlow easyblock when finding libdir of OpenSSL (#2989)
+
+
+v4.8.0 (7 July 2023)
+--------------------
+
+feature release
+
+- add `PerlBundle` generic easyblock for installing a bundle of Perl modules (#2945)
+- add custom easyblock for Rust, which makes sure that all shared libraries use RPATH rather than RUNPATH if --rpath is used (#2952)
+- minor enhancements and updates, including:
+  - add support for NVIDIA Hopper CC 9.0 in LAMMPS (#2941)
+  - add support for `install_cmds` in `Binary` easyblock (#2953)
+- various bug fixes, including:
+  - patch CMake's UnixPaths.cmake script if --sysroot is set (#2248)
+  - fix incorrect sanity_check_step for torchvision (#2938)
+  - update OpenBLAS easyblock since make shared is necessary and sufficient with OpenBLAS 0.3.23 + recent parallel build fixes (#2944)
+  - improve handling of `optarch` in `Cargo` easyblock (#2947)
+  - reset modules loaded by PythonPackage to let ExtensionEasyBlock handle `multi_deps` correctly (#2951)
+- other changes:
+  - stop running tests with Python 2.7 since it is no longer supported in GitHub Actions (#2943)
+
+
+v4.7.2 (27 May 2023)
+--------------------
+
+- new generic easyblock for installing Rust crates with cargo: Cargo and CargoPythonPackage (#2902, #2934)
+- minor enhancements and updates, including:
+  - let MATLAB easyblock raise an error if the MATLAB installation key is not provided (#2905)
+  - print message to inform that GPU package (instead of Kokkos) is used for LAMMPS (#2906)
+  - enhance PyTorch easyblock to use FlexiBLAS for PyTorch >= 1.11.0 (#2915)
+- various bug fixes, including:
+  - use custom RPATH sanity check for Go packages that doesn't actually check for an RPATH section in the binary (#2913)
+  - use string '0' to avoid problems when openssl version is not determined (#2914)
+  - update GCC easyblock to ensure that --sysroot is passed to linker (but only when it needs to be) (#2921)
+  - add output log to MATLAB installs, actually parse for common errors (#2924)
+  - enhance Gurobi easyblock to allow using $EB_GUROBI_LICENSE_FILE environment variable (#2926)
+  - force building torchvision with CUDA support if CUDA is included as dependency by setting `$FORCE_CUDA` (#2931)
+  - fix exec permission on files in arch bindir for COMSOL (#2932)
+
+
+v4.7.1 (March 20th 2023)
+------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - fix TensorFlow easyblock for new versions of Bazel & TensorFlow (#2854)
+  - make NAMD easyblock aware of (pre)testopts (#2856)
+  - update MesonNinja easyblock for Meson >=0.64.0 (#2861)
+  - update scipy easyblock for scipy >= 1.9.0 to use meson/ninja  (#2862, #2903)
+  - modify logic in QScintilla easyblock to find the PyQt5 sipdir in more places (#2868)
+  - add `testinstall` custom easyconfig parameter to PythonPackage easyblock (#2872)
+  - use -x option for "go install" in GoPackage generic easyblock, to print commands as they are executed (#2878)
+  - allow disabling pybind11 tests with `runtest = False` (#2892)
+  - call parent post_install_step in EasyBuildMeta easyblock (so postinstallcmds are taken into account) (#2893)
+  - update and enhance Maple easyblock for recent versions (#2895)
+  - relax glob pattern to find Mathematica install script (#2896)
+  - implement CUDA support in the ELPA EasyBlock & fix CPP configure issue on newer ELPA versions (#2898)
+  - update Trilinos easyblock to allow disabling of building tests and forward deps + support Trilinos v13.x (#2900)
+  - enhance Python easyblock to create non-versioned symlink for python-config + check for bin/python and bin/python-config in sanity check (#2904)
+- various bug fixes, including:
+  - do not use -g77 option when installing NVHPC 22.9+ (#2819)
+  - check that sanity_check_module_loaded attribute exists before querying it in PythonPackage easyblock (#2865)
+  - fix $JULIA_DEPOT_PATH in installation of multiple JuliaPackage extensions (#2869)
+  - fix checking of CUDA/ROCR-Runtime dependencies for Clang to determine default build targets (#2873)
+  - show template values of exts_default_options in PythonBundle (#2874)
+  - fix missing initialization of CMakeMake in CMakePythonPackage (#2876)
+  - fix error when failing pip version check during PythonPackage sanity check (#2877)
+  - handle templating correctly in CMakeMake when playing with configopts (#2882)
+  - avoid crash in test step of PyTorch easyblock if runtest is not a command (#2883)
+  - fix check configure option in FlexiBLAS easyblock (#2886)
+  - use older `ncgen -H` for older netCDF (#2889)
+  - fix linking numexpr with Intel MKL's VML library for imkl >= 2021.x (#2897)
+- other changes:
+  - only give read permissions in GitHub Actions workflows (#2863)
+  - use start dir of extension to install R packages (#2867)
+  - fix website/docs links in README (#2870)
+  - add deprecation notice to RPackage extensions with relative paths in start_dir (#2879)
+
+
+v4.7.0 (January 9th 2023)
+-------------------------
+
+feature release
+
+- add generic easyblocks for installing (bundle of) Julia packages: JuliaPackage (#2816) and JuliaBundle (#2830)
+- minor enhancements and updates, including:
+  - enhance TensorFlow easyblock to take into account provided OpenSSL dependency (#2575)
+  - add fix_shebang to install_step of PythonPackage easyblock so that we can fix shebangs when installing extensions (#2680)
+  - update PETSc easyblock for newer versions (>= 3.17) (#2796)
+  - update Clang easyblock to add support for new directory structure in Clang versions >= 14 + support Flang (#2800)
+  - update Xmipp easyblock since versions >= 3.20.07 use `noAsk` option to configure (#2809)
+  - add include/opencv4 to $CPATH for OpenCV versions >= 4.0 (#2818)
+  - add extra option for disabling LAPACK in ESMF (#2821)
+  - enable building of static libraries for libxml2 >= 2.10 (#2825)
+  - update Xmipp easyblock to handle effects of CUDA at SYSTEM level and newer CUDA version requirements for stdc++ (#2831)
+  - update LLVM easyblock to put 'cmake' symlink in place so separate CMake modules required for LLVM 15+ can be found (#2832)
+  - set $TEMPDIRPATH for testsuite in the BerkeleyGW easyblock, to avoid polluting /tmp (#2836)
+  - add `configure_no_prefix` option to skip addition of prefix to configure command in ConfigureMake easyblock (#2842)
+  - update qscintilla.py to be compatible with EB install of PyQt5 >= 5.15 (#2845)
+  - add UCC to known_dependencies in OpenMPI EasyBlock (#2847)
+  - update Clang-AOMP easyblock to handle version 5.2 and newer (#2851)
+- various bug fixes, including:
+  - fix installing of Clang with RPATH linking (#2799)
+  - fix --module-only for Clang + fix sanity check for Clang 11.x (#2800)
+  - create $XDG_CACHE_HOME for PyTorch tests (#2806)
+  - make PythonPackage easyblock compatible with --sanity-check-only by loading module early during sanity check step (#2828)
+  - fix docstring of PythonBundle generic easyblock (#2833)
+  - fix counting of failures in PyTorch tests (#2834, #2840)
+  - make sure that ANSYS INSTALL script has execute permissions (#2852, #2853)
+- other changes:
+  - remove useless -openmp build option for MRtrix v3.x (#2822)
+  - update HDF5 easyblock to use --enable-threadsafe configure option to make C API thread safe (#2824)
+  - use new EasyBuild logo in README (#2827)
+  - automatically cancel Github Action workflow runs for outdated commits (#2835)
+  - use fixed names for bazel/wrapper subdirectories used when building TensorFlow, to make debugging easier (#2841)
+  - also run unit tests with Python 3.11 (#2844)
+  - tweak docstring in some generic easyblocks so it renders nicely in auto-generated documentation (#2849)
+  - update copyright lines for 2023 (#2850)
+
+
+v4.6.2 (October 21st 2022)
+--------------------------
+
+update/bugfix release
+
+- 2 new software-specific easyblock:
+  - CUDA compatibility libraries (#2764) and mamba (#2808)
+- minor enhancements and updates, including:
+  - update OpenFOAM easyblock to support OpenFOAM 10 + clean up variant/version checks (#2766)
+  - added support for ESMPy in ESMF (#2789)
+  - enhance OpenBLAS easyblock to support running LAPACK test suite + checking how many tests fail (#2801)
+  - make numexpr easyblock aware of toolchain with GCC + imkl (#2810)
+  - add sanity check commands for netCDF (#2811)
+- various bug fixes, including:
+  - handle problems copying symlink that points to CUDA folder that is not created for non CUDA builds of SuiteSparse (#2790)
+  - don't install docs (to avoid trouble with Java) + add Rocky support for ABAQUS (#2792)
+  - correctly count the number of failing tests (not failing test suites) in PyTorch builds (#2794, #2803)
+  - fix docstring for PyTorch easyblock (#2795)
+  - handle iterative builds with MakeCp easyblock (#2798)
+  - accept both None and empty value for optarch to let OpenCV detect host CPU (#2804)
+  - enhance EasyBuildMeta easyblock: auto-enable installing with pip + fix setup.py of easyconfigs package so installation with setuptools >= 61.0 works (#2805)
+  - use `python -m pip` instead of `pip` in PythonPackage easyblock (#2807)
+- other changes:
+  - make the test output from PythonPackage less verbose by disabling default search for error patterns done by run_cmd (2797)
+
+
+v4.6.1 (September 12th 2022)
+----------------------------
+
+update/bugfix release
+
+- minor enhancements and updates, including:
+  - update LAMMPS easyblock for LAMMPS/23Jun22 (#2213)
+  - reduce the number of command line options for 'cmake' command in CMakeMake generic easyblock (#2514)
+  - update libQGLViewer easyblock to take into account changes in the shared library names depending on Qt versions they are compiled with (#2730)
+  - improve PLUMED detection in GROMACS easyblock (#2749)
+  - make `$LD_LIBRARY_PATH` detection more robust for LAMMPS (#2765)
+  - enhance NVHPC easyblock to avoid superfluous warning (#2767)
+  - enhance PyTorch easyblock to also capture tests failing with signal (#2768)
+  - enhance PythonPackage easyblock to make sure all test command output makes it to the EasyBuild log, also when return_output_ec=True (#2770)
+  - set $NVHPC_CUDA_HOME for NVHPC 22.7+ (#2776)
+- various bug fixes, including:
+  - make Amber easyblock aware of FlexiBLAS (#2720)
+  - update PyTorch easyblock to configure without breakpad support on POWER (#2763)
+  - use lib* in post_install step of FFTW.MPI easyblock to fix paths not being found on Linux distros favouring lib64 (like Suse/SLES) (#2771)
+  - use det_cmake_version function to determine CMake version in CMakeMake generic easyblock (#2772)
+  - don't enable building of ld.gold when installing binutils on a RISC-V system + don't configure GCC to use gold as default linker on a RISC-V system (#2780)
+  - tweak Amber(Tools) easyblock to run tests from top-level directory (#2781)
+  - fix version check for NVPTX library in sanity check of Clang easyblock (#2783)
+- other changes:
+  - update CI workflows to use Ubuntu 20.04 (since Ubuntu 18.04 is deprecated) (#2779)
 
 
 v4.6.0 (July 8th 2022)

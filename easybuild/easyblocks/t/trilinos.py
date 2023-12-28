@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ import os
 import random
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -54,6 +54,8 @@ class EB_Trilinos(CMakeMake):
         extra_vars = {
             'shared_libs': [None, "Deprecated. Use build_shared_libs", CUSTOM],
             'openmp': [True, "Enable OpenMP support", CUSTOM],
+            'forward_deps': [True, "Enable all forward dependencies", CUSTOM],
+            'build_tests': [True, "Enable building tests/examples", CUSTOM],
             'all_exts': [True, "Enable all Trilinos packages", CUSTOM],
             'skip_exts': [[], "List of Trilinos packages to skip", CUSTOM],
             'verbose': [False, "Configure for verbose output", CUSTOM],
@@ -106,9 +108,11 @@ class EB_Trilinos(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
 
-        # enable full testing
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
+        if self.cfg['build_tests']:
+            # enable full testing
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
+        if self.cfg['forward_deps']:
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
 
         lib_re = re.compile("^lib(.*).a$")
 
@@ -284,6 +288,15 @@ class EB_Trilinos(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('12.6'):
             libs.remove('Galeri')
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
+        # Mesquite and MOOCHO packages gone in 12.18:
+        if LooseVersion(self.version) >= LooseVersion('12.18'):
+            libs.remove('Mesquite')
+            libs.remove('MOOCHO')
+
+        # GlobiPack package gone in 13.0:
+        if LooseVersion(self.version) >= LooseVersion('13.0'):
+            libs.remove('GlobiPack')
 
         # Get the library extension
         if self.cfg['build_shared_libs']:

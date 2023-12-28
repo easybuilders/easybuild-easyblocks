@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,10 +30,13 @@ implemented as an easyblock.
 @author: Bernd Mohr (Juelich Supercomputing Centre)
 @author: Markus Geimer (Juelich Supercomputing Centre)
 @author: Alexander Grund (TU Dresden)
+@author: Christian Feld (Juelich Supercomputing Centre)
 """
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.modules import get_software_root, get_software_libdir
 
 
@@ -45,6 +48,10 @@ class EB_Score_minus_P(ConfigureMake):
 
     def configure_step(self, *args, **kwargs):
         """Configure the build, set configure options for compiler, MPI and dependencies."""
+        # Remove some settings from the environment, as they interfere with
+        # Score-P's configure magic...
+        unset_env_vars(['CPPFLAGS', 'LDFLAGS', 'LIBS'])
+
         # On non-cross-compile platforms, specify compiler and MPI suite explicitly.  This is much quicker and safer
         # than autodetection.  In Score-P build-system terms, the following platforms are considered cross-compile
         # architectures:
@@ -56,16 +63,27 @@ class EB_Score_minus_P(ConfigureMake):
         # Of those, only Cray is supported right now.
         tc_fam = self.toolchain.toolchain_family()
         if tc_fam != toolchain.CRAYPE:
-            # --with-nocross-compiler-suite=(gcc|ibm|intel|pgi|studio)
+            # since 2022/12 releases: --with-nocross-compiler-suite=(gcc|ibm|intel|oneapi|nvhpc|pgi|clang|aocc|amdclang)
             comp_opts = {
                 # assume that system toolchain uses a system-provided GCC
                 toolchain.SYSTEM: 'gcc',
                 toolchain.GCC: 'gcc',
                 toolchain.IBMCOMP: 'ibm',
                 toolchain.INTELCOMP: 'intel',
-                toolchain.NVHPC: 'pgi',
+                toolchain.NVHPC: 'nvhpc',
                 toolchain.PGI: 'pgi',
             }
+            nvhpc_since = {
+                'Score-P': '8.0',
+                'Scalasca': '2.6.1',
+                'OTF2': '3.0.2',
+                'CubeWriter': '4.8',
+                'CubeLib': '4.8',
+                'CubeGUI': '4.8',
+            }
+            if LooseVersion(self.version) < LooseVersion(nvhpc_since.get(self.name, '0')):
+                comp_opts[toolchain.NVHPC] = 'pgi'
+
             comp_fam = self.toolchain.comp_family()
             if comp_fam in comp_opts:
                 self.cfg.update('configopts', "--with-nocross-compiler-suite=%s" % comp_opts[comp_fam])

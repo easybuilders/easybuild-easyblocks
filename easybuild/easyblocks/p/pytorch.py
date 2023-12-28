@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Ghent University
+# Copyright 2020-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,19 +32,18 @@ import os
 import re
 import tempfile
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import symlink, apply_regex_substitutions
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-from easybuild.tools.utilities import nub
 
 
 class EB_PyTorch(PythonPackage):
-    """Support for building/installing TensorFlow."""
+    """Support for building/installing PyTorch."""
 
     @staticmethod
     def extra_options():
@@ -115,6 +114,7 @@ class EB_PyTorch(PythonPackage):
             ('USE_SYSTEM_FXDIV=1', None, '1.6.0:'),
             ('USE_SYSTEM_BENCHMARK=1', None, '1.6.0:'),  # Google Benchmark
             ('USE_SYSTEM_ONNX=1', None, '1.6.0:'),
+            ('USE_SYSTEM_PYBIND11=1', 'pybind11', '1.10.0:'),
             ('USE_SYSTEM_XNNPACK=1', None, '1.6.0:'),
         )
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
@@ -156,6 +156,9 @@ class EB_PyTorch(PythonPackage):
         if get_software_root('imkl'):
             options.append('BLAS=MKL')
             options.append('INTEL_MKL_DIR=$MKLROOT')
+        elif pytorch_version >= '1.11.0' and get_software_root('FlexiBLAS'):
+            options.append('BLAS=FlexiBLAS')
+            options.append('WITH_BLAS=flexi')
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
@@ -240,10 +243,16 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
+    def _set_cache_dir(self):
+        """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
+        cache_dir = os.path.join(self.tmpdir, '.cache')
+        # The path must exist!
+        mkdir(cache_dir, parents=True)
+        env.setvar('XDG_CACHE_HOME', cache_dir)
+
     def test_step(self):
         """Run unit tests"""
-        # Make PyTorch tests not use the user home
-        env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        self._set_cache_dir()
         # Pretend to be on FB CI which disables some tests, especially those which download stuff
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
@@ -261,22 +270,184 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        (tests_out, tests_ec) = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        if test_result is None:
+            if self.cfg['runtest'] is False:
+                msg = "Do not set 'runtest' to False, use --skip-test-step instead."
+            else:
+                msg = "Tests did not run. Make sure 'runtest' is set to a command."
+            raise EasyBuildError(msg)
 
-        ran_tests_hits = re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M)
-        test_cnt = sum(int(hit) for hit in ran_tests_hits)
+        tests_out, tests_ec = test_result
 
-        failed_tests = nub(re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M))
-        failed_test_cnt = len(failed_tests)
+        # Show failed subtests to aid in debugging failures
+        # I.e. patterns like
+        # === FAIL: test_add_scalar_relu (quantization.core.test_quantized_op.TestQuantizedOps) ===
+        # --- ERROR: test_all_to_all_group_cuda (__main__.TestDistBackendWithSpawn) ---
+        regex = r"^[=-]+\n(FAIL|ERROR): (test_.*?)\s\(.*\n[=-]+\n"
+        failed_test_cases = re.findall(regex, tests_out, re.M)
+        # And patterns like:
+        # FAILED test_ops_gradients.py::TestGradientsCPU::test_fn_grad_linalg_det_singular_cpu_complex128 - [snip]
+        # FAILED [22.8699s] test_sparse_csr.py::TestSparseCompressedCPU::test_invalid_input_csr_large_cpu - [snip]
+        # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
+        regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
+        failed_test_cases.extend(re.findall(regex, tests_out, re.M))
+        if failed_test_cases:
+            errored_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR')
+            failed_test_cases = sorted(m[1] for m in failed_test_cases if m[0] != 'ERROR')
+            msg = []
+            if errored_test_cases:
+                msg.append("Found %d individual tests that exited with an error: %s"
+                           % (len(errored_test_cases), ', '.join(errored_test_cases)))
+            if failed_test_cases:
+                msg.append("Found %d individual tests with failed assertions: %s"
+                           % (len(failed_test_cases), ', '.join(failed_test_cases)))
+            self.log.warning("\n".join(msg))
 
-        if failed_test_cnt:
+        def get_count_for_pattern(regex, text):
+            """Match the regexp containing a single group and return the integer value of the matched group.
+               Return zero if no or more than 1 match was found and warn for the latter case
+            """
+            match = re.findall(regex, text)
+            if len(match) == 1:
+                return int(match[0])
+            elif len(match) > 1:
+                # Shouldn't happen, but means something went wrong with the regular expressions.
+                # Throw warning, as the build might be fine, no need to error on this.
+                warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
+                warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
+                print_warning(warn_msg)
+            return 0
+
+        # Create clear summary report
+        failure_report = []
+        failure_cnt = 0
+        error_cnt = 0
+        failed_test_suites = []
+
+        # Grep for patterns like:
+        # Ran 219 tests in 67.325s
+        #
+        # FAILED (errors=10, skipped=190, expected failures=6)
+        # test_fx failed!
+        regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
+                 r"FAILED \((?P<failure_summary>.*)\)$\n"
+                 r"(?:^(?:(?!failed!).)*$\n){0,5}"
+                 r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+
+        for m in re.finditer(regex, tests_out, re.M):
+            # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
+            failure_summary = m.group('failure_summary')
+            total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
+            failure_report.append("{test_suite} ({total} total tests, {failure_summary})".format(
+                    test_suite=test_suite, total=total, failure_summary=failure_summary
+                ))
+            failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
+            error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+            failed_test_suites.append(test_suite)
+
+        # Grep for patterns like:
+        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
+        # test_quantization failed!
+        # OR:
+        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
+        # FINISHED PRINTING LOG FILE
+        #
+        # test_quantization failed!
+
+        regex = (
+            r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
+            r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
+            r"(?:^\s*\n)*"
+            r"(?P<failed_test_suite_name>.*) failed!$"
+        )
+
+        for m in re.finditer(regex, tests_out, re.M):
+            # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
+            failure_summary = m.group('failure_summary')
+            test_suite = m.group('failed_test_suite_name')
+            failure_report.append("{test_suite} ({failure_summary})".format(
+                    test_suite=test_suite, failure_summary=failure_summary
+                ))
+            failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+            error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
+            failed_test_suites.append(test_suite)
+
+        # Grep for patterns like:
+        # AssertionError: 2 unit test(s) failed:
+        #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_debug_detail
+        #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_grad_is_view_debug_detail
+        #
+        # FINISHED PRINTING LOG FILE of distributed/test_c10d_nccl (<snip>)
+        #
+        # distributed/test_c10d_nccl failed!
+
+        regex = (
+            r"^AssertionError: (?P<failure_summary>[0-9]+ unit test\(s\) failed):\n"
+            r"(\s+.*\n)+"
+            r"(((?!failed!).)*\n){0,5}"
+            r"(?P<failed_test_suite_name>.*) failed!$"
+        )
+
+        for m in re.finditer(regex, tests_out, re.M):
+            # E.g. '2 unit test(s) failed'
+            failure_summary = m.group('failure_summary')
+            test_suite = m.group('failed_test_suite_name')
+            failure_report.append("{test_suite} ({failure_summary})".format(
+                    test_suite=test_suite, failure_summary=failure_summary
+                ))
+            failure_cnt += get_count_for_pattern(r"([0-9]+) unit test\(s\) failed", failure_summary)
+            failed_test_suites.append(test_suite)
+
+        # Make the names unique
+        failed_test_suites = set(failed_test_suites)
+        # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
+        # Also unique to be able to compare the lists below
+        all_failed_test_suites = set(
+            re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
+        )
+        # If we missed any test suites prepend a list of all failed test suites
+        if failed_test_suites != all_failed_test_suites:
+            failure_report = ['Failed tests (suites/files):'] + failure_report
+            # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
+            failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
+            # Test suites not included in the catch-all regexp but counted. Should be empty.
+            failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
+
+        failure_report = '\n'.join(failure_report)
+
+        # Calculate total number of unsuccesful and total tests
+        failed_test_cnt = failure_cnt + error_cnt
+        # Pattern for tests ran with unittest like:
+        # Ran 3 tests in 0.387s
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests in"
+        test_cnt = sum(int(hit) for hit in re.findall(regex, tests_out, re.M))
+        # Pattern for tests ran with pytest like:
+        # ============ 286 passed, 18 skipped, 2 xfailed in 38.71s ============
+        regex = r"=+ (?P<summary>.*) in \d+.* =+\n"
+        count_patterns = [re.compile(r"([0-9]+) " + reason) for reason in [
+            "failed",
+            "passed",
+            "skipped",
+            "deselected",
+            "xfailed",
+            "xpassed",
+        ]]
+        for m in re.finditer(regex, tests_out, re.M):
+            test_cnt += sum(get_count_for_pattern(p, m.group("summary")) for p in count_patterns)
+
+        if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']
 
-            test_or_tests = 'tests' if failed_test_cnt > 1 else 'test'
-            msg = "%d %s (out of %d) failed:\n" % (failed_test_cnt, test_or_tests, test_cnt)
-            msg += '\n'.join('* %s' % t for t in sorted(failed_tests))
+            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
+            error_or_errors = 'error' if error_cnt == 1 else 'errors'
+            msg = "%d test %s, %d test %s (out of %d):\n" % (
+                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
+            )
+            msg += failure_report
 
-            if max_failed_tests == 0:
+            # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
+            if max_failed_tests == 0 or failed_test_suites != all_failed_test_suites:
                 raise EasyBuildError(msg)
             else:
                 msg += '\n\n' + ' '.join([
@@ -287,17 +458,22 @@ class EB_PyTorch(PythonPackage):
                     "are known to be flaky, or do not affect your intended usage of PyTorch.",
                     "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
                 ])
+                # Print to console, the user should really be aware that we are accepting failing tests here...
                 print_warning(msg)
+
+                # Also log this warning in the file log
+                self.log.warning(msg)
 
                 if failed_test_cnt > max_failed_tests:
                     raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
                                          failed_test_cnt, max_failed_tests)
+        elif failure_report:
+            raise EasyBuildError("Test command had non-zero exit code (%s)!\n%s", tests_ec, failure_report)
         elif tests_ec:
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
-        # Make PyTorch tests not use the user home
-        env.setvar('XDG_CACHE_HOME', os.path.join(self.tmpdir, '.cache'))
+        self._set_cache_dir()
         super(EB_PyTorch, self).test_cases_step()
 
     def sanity_check_step(self, *args, **kwargs):

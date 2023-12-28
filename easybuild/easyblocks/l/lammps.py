@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import glob
 import os
 import re
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -86,6 +86,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'TURING75',  # NVIDIA Turing generation CC 7.5 GPU
     'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
     'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
+    'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
@@ -135,6 +136,7 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
+    '9.0': 'HOPPER90',  # NVIDIA Hopper generation CC 9.0
 }
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
@@ -346,7 +348,7 @@ class EB_LAMMPS(CMakeMake):
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
         if self.cfg['kokkos']:
-            print_msg("Using Kokkos arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
+            print_msg("Using Kokkos package with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
 
             if self.toolchain.options.get('openmp', None):
@@ -372,6 +374,7 @@ class EB_LAMMPS(CMakeMake):
 
         # CUDA only
         elif self.cuda:
+            print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
             self.cfg.update('configopts', '-DGPU_API=cuda')
             self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))

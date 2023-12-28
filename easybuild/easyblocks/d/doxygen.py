@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ EasyBuild support for building and installing Doxygen, implemented as an easyblo
 @author: Balazs Hajgato (Free University Brussels (VUB))
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.tools.run import run_cmd
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 

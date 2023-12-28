@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,11 +77,13 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
 
-        # list of sources for bundle itself *must* be empty
-        if self.cfg['sources']:
-            raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
-        if self.cfg['patches']:
-            raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
+        check_for_sources = getattr(self, 'check_for_sources', True)
+        # list of sources for bundle itself *must* be empty (unless overridden by subclass)
+        if check_for_sources:
+            if self.cfg['sources']:
+                raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
+            if self.cfg['patches']:
+                raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False

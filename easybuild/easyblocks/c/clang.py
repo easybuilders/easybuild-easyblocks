@@ -1,6 +1,6 @@
 ##
-# Copyright 2013 Dmitri Gribenko
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2023 Dmitri Gribenko
+# Copyright 2013-2023 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -32,19 +32,21 @@ Support for building and installing Clang, implemented as an easyblock.
 @author: Dmitri Gribenko (National Technical University of Ukraine "KPI")
 @author: Ward Poelmans (Ghent University)
 @author: Alan O'Cais (Juelich Supercomputing Centre)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada, Universite Laval)
 """
 
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -73,6 +75,13 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
 
 
+# When extending the lists below, make sure to add additional sanity checks!
+# List of the known LLVM projects
+KNOWN_LLVM_PROJECTS = ['llvm', 'clang', 'polly', 'lld', 'lldb', 'clang-tools-extra', 'flang']
+# List of the known LLVM runtimes
+KNOWN_LLVM_RUNTIMES = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi', 'openmp']
+
+
 class EB_Clang(CMakeMake):
     """Support for bootstrapping Clang."""
 
@@ -86,6 +95,7 @@ class EB_Clang(CMakeMake):
             'bootstrap': [True, "Bootstrap Clang using GCC", CUSTOM],
             'build_extra_clang_tools': [False, "Build extra Clang tools", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
             'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
@@ -98,6 +108,8 @@ class EB_Clang(CMakeMake):
             # The sanitizer tests often fail on HPC systems due to the 'weird' environment.
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'llvm_projects': [[], "LLVM projects to install", CUSTOM],
+            'llvm_runtimes': [[], "LLVM runtimes to install", CUSTOM],
         })
         # disable regular out-of-source build, too simplistic for Clang to work
         extra_vars['separate_build_dir'][0] = False
@@ -112,6 +124,94 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
         self.make_parallel_opts = ""
+        self.runtime_lib_path = "lib"
+
+        if not self.cfg['llvm_projects']:
+            self.cfg['llvm_projects'] = []
+        if not self.cfg['llvm_runtimes']:
+            self.cfg['llvm_runtimes'] = []
+
+        # Be forgiving if someone places a runtime under projects since it is pretty new
+        for project in [p for p in self.cfg['llvm_projects'] if p in KNOWN_LLVM_RUNTIMES]:
+            msg = "LLVM project %s included but this should be a runtime, moving to runtime list!" % project
+            self.log.warning(msg)
+            self.cfg.update('llvm_runtimes', [project], allow_duplicate=False)
+            # No cleaner way to remove an element from the list
+            self.cfg['llvm_projects'] = [p for p in self.cfg['llvm_projects'] if p != project]
+            print_warning(msg)
+
+        for project in [p for p in self.cfg['llvm_projects'] if p not in KNOWN_LLVM_PROJECTS]:
+            msg = "LLVM project %s included but not recognised, this project will NOT be sanity checked!" % project
+            self.log.warning(msg)
+            print_warning(msg)
+
+        for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in KNOWN_LLVM_RUNTIMES]:
+            msg = "LLVM runtime %s included but not recognised, this runtime will NOT be sanity checked!" % runtime
+            self.log.warning(msg)
+            print_warning(msg)
+
+        # keep compatibility between using llvm_projects/llvm_runtimes vs using flags
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            self.cfg.update('llvm_projects', ['llvm', 'clang'], allow_duplicate=False)
+            self.cfg.update('llvm_runtimes', ['compiler-rt', 'openmp'], allow_duplicate=False)
+            if self.cfg['usepolly']:
+                self.cfg.update('llvm_projects', 'polly', allow_duplicate=False)
+            if self.cfg['build_lld']:
+                self.cfg.update('llvm_projects', ['lld'], allow_duplicate=False)
+                self.cfg.update('llvm_runtimes', ['libunwind'], allow_duplicate=False)
+            if self.cfg['build_lldb']:
+                self.cfg.update('llvm_projects', 'lldb', allow_duplicate=False)
+            if self.cfg['libcxx']:
+                self.cfg.update('llvm_runtimes', ['libcxx', 'libcxxabi'], allow_duplicate=False)
+            if self.cfg['build_extra_clang_tools']:
+                self.cfg.update('llvm_projects', 'clang-tools-extra', allow_duplicate=False)
+
+        # ensure libunwind is there if lld is there
+        if 'lld' in self.cfg['llvm_projects']:
+            self.cfg.update('llvm_runtimes', 'libunwind', allow_duplicate=False)
+
+        # ensure libcxxabi is there if libcxx is there
+        if 'libcxx' in self.cfg['llvm_runtimes']:
+            self.cfg.update('llvm_runtimes', 'libcxxabi', allow_duplicate=False)
+
+        build_targets = self.cfg['build_targets']
+        # define build_targets if not set
+        if build_targets is None:
+            deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
+            arch = get_cpu_architecture()
+            try:
+                default_targets = DEFAULT_TARGETS_MAP[arch][:]
+                # If CUDA is included as a dep, add NVPTX as a target
+                # There are (old) toolchains with CUDA as part of the toolchain
+                cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+                if 'cuda' in deps or cuda_toolchain:
+                    default_targets += ['NVPTX']
+                # For AMDGPU support we need ROCR-Runtime and
+                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
+                # ROCR we only check for the ROCR-Runtime here
+                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
+                if 'rocr-runtime' in deps:
+                    default_targets += ['AMDGPU']
+                self.cfg['build_targets'] = build_targets = default_targets
+                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
+            except KeyError:
+                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+
+        # carry on with empty list from this point forward if no build targets are specified
+        if build_targets is None:
+            self.cfg['build_targets'] = build_targets = []
+
+        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+
+        if unknown_targets:
+            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
+                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+
+        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
+            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
+
+        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
+            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
@@ -123,20 +223,7 @@ class EB_Clang(CMakeMake):
 
     def extract_step(self):
         """
-        Prepare a combined LLVM source tree.  The layout is:
-        llvm/             Unpack llvm-*.tar.gz here
-          projects/
-            compiler-rt/  Unpack compiler-rt-*.tar.gz here
-            openmp/       Unpack openmp-*.tar.xz here
-          tools/
-            clang/        Unpack clang-*.tar.gz here
-              tools/
-                extra/    Unpack clang-tools-extra-*.tar.gz here
-            polly/        Unpack polly-*.tar.gz here
-            libcxx/       Unpack libcxx-*.tar.gz here
-            libcxxabi/    Unpack libcxxabi-*.tar.gz here
-            lld/          Unpack lld-*.tar.gz here
-        libunwind/        Unpack libunwind-*.tar.gz here
+        Prepare a combined LLVM source tree.  The layout is different for versions earlier and later than 14.
         """
 
         # Extract everything into separate directories.
@@ -164,27 +251,52 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        find_source_dir('compiler-rt-*', os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt'))
+        if any([x['name'].startswith('llvm-project') for x in self.src]):
+            # if sources contain 'llvm-project*', we use the full tarball
+            find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
+            self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
+            self.cfg.update('configopts', '-DLLVM_ENABLE_RUNTIMES="%s"' % ';'.join(self.cfg['llvm_runtimes']))
+        else:
+            # Layout for previous versions
+            #        llvm/             Unpack llvm-*.tar.gz here
+            #          projects/
+            #            compiler-rt/  Unpack compiler-rt-*.tar.gz here
+            #            openmp/       Unpack openmp-*.tar.xz here
+            #          tools/
+            #            clang/        Unpack clang-*.tar.gz here
+            #              tools/
+            #                extra/    Unpack clang-tools-extra-*.tar.gz here
+            #            polly/        Unpack polly-*.tar.gz here
+            #            libcxx/       Unpack libcxx-*.tar.gz here
+            #            libcxxabi/    Unpack libcxxabi-*.tar.gz here
+            #            lld/          Unpack lld-*.tar.gz here
+            #            lldb/         Unpack lldb-*.tar.gz here
+            #        libunwind/        Unpack libunwind-*.tar.gz here
+            find_source_dir('compiler-rt-*', os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt'))
 
-        if self.cfg["usepolly"]:
-            find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
+            if 'polly' in self.cfg['llvm_projects']:
+                find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
 
-        if self.cfg["build_lld"]:
-            find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
-            if LooseVersion(self.version) >= LooseVersion('12.0.1'):
-                find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
+            if 'lld' in self.cfg['llvm_projects']:
+                find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
+                if LooseVersion(self.version) >= LooseVersion('12.0.1'):
+                    find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
 
-        if self.cfg["libcxx"]:
-            find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
-            find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
+            if 'lldb' in self.cfg['llvm_projects']:
+                find_source_dir('lldb-*', os.path.join(self.llvm_src_dir, 'tools', 'lldb'))
 
-        find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
+            if 'libcxx' in self.cfg['llvm_runtimes']:
+                find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
+                find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
 
-        if self.cfg["build_extra_clang_tools"]:
-            find_source_dir('clang-tools-extra-*', os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
+            find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
 
-        if LooseVersion(self.version) >= LooseVersion('3.8'):
-            find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
+            if 'clang-tools-extra' in self.cfg['llvm_projects']:
+                find_source_dir('clang-tools-extra-*',
+                                os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
+
+            if LooseVersion(self.version) >= LooseVersion('3.8'):
+                find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
 
         for src in self.src:
             for (dirname, new_path) in src_dirs.items():
@@ -196,45 +308,6 @@ class EB_Clang(CMakeMake):
                         raise EasyBuildError("Failed to move %s to %s: %s", old_path, new_path, err)
                     src['finalpath'] = new_path
                     break
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare build environment."""
-        super(EB_Clang, self).prepare_step(*args, **kwargs)
-
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
-            arch = get_cpu_architecture()
-            try:
-                default_targets = DEFAULT_TARGETS_MAP[arch][:]
-                # If CUDA is included as a dep, add NVPTX as a target
-                if get_software_root("CUDA"):
-                    default_targets += ["NVPTX"]
-                # For AMDGPU support we need ROCR-Runtime and
-                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
-                # ROCR we only check for the ROCR-Runtime here
-                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-                if get_software_root("ROCR-Runtime"):
-                    default_targets += ["AMDGPU"]
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
-            except KeyError:
-                raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
-
-        # carry on with empty list from this point forward if no build targets are specified
-        if build_targets is None:
-            self.cfg['build_targets'] = build_targets = []
-
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
-
-        if unknown_targets:
-            raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
-
-        if LooseVersion(self.version) < LooseVersion('3.4') and "R600" in build_targets:
-            raise EasyBuildError("Build target R600 not supported in < Clang-3.4")
-
-        if LooseVersion(self.version) > LooseVersion('3.3') and "MBlaze" in build_targets:
-            raise EasyBuildError("Build target MBlaze is not supported anymore in > Clang-3.3")
 
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
@@ -306,8 +379,12 @@ class EB_Clang(CMakeMake):
         else:
             self.cfg.update('configopts', "-DLLVM_ENABLE_ASSERTIONS=OFF")
 
-        if self.cfg["usepolly"]:
-            self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
+        if 'polly' in self.cfg['llvm_projects']:
+            # Not exactly sure when this change took place, educated guess
+            if LooseVersion(self.version) >= LooseVersion('14'):
+                self.cfg.update('configopts', "-DLLVM_POLLY_LINK_INTO_TOOLS=ON")
+            else:
+                self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
         # If Z3 is included as a dep, enable support in static analyzer (if enabled)
         if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
@@ -318,7 +395,7 @@ class EB_Clang(CMakeMake):
 
         build_targets = self.cfg['build_targets']
 
-        if self.cfg["usepolly"] and "NVPTX" in build_targets:
+        if 'polly' in self.cfg['llvm_projects'] and "NVPTX" in build_targets:
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
@@ -368,7 +445,12 @@ class EB_Clang(CMakeMake):
             self.cfg.update('configopts', '-DLIBOMPTARGET_AMDGCN_GFXLIST=%s' % ' '.join(ec_amdgfx))
 
         self.log.info("Configuring")
-        super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
+
+        # directory structure has changed in version 14.x, cmake must start in llvm sub directory
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            super(EB_Clang, self).configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
+        else:
+            super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -383,7 +465,7 @@ class EB_Clang(CMakeMake):
                     regex_subs = [(r'.*add_subdirectory\(lit_tests\).*', '')]
                     apply_regex_substitutions(cmakelists, regex_subs)
 
-            # There is a common part seperate for the specific saniters, we disable all the common tests
+            # There is a common part seperate for the specific sanitizers, we disable all the common tests
             cmakelists = os.path.join('projects', 'compiler-rt', 'lib', 'sanitizer_common', 'CMakeLists.txt')
             regex_subs = [(r'.*add_subdirectory\(tests\).*', '')]
             apply_regex_substitutions(cmakelists, regex_subs)
@@ -391,7 +473,10 @@ class EB_Clang(CMakeMake):
         else:
             # In Clang 3.6, the sanitizer tests are grouped together in one CMakeLists
             # We patch out adding the subdirectories with the sanitizer tests
-            cmakelists_tests = os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt', 'test', 'CMakeLists.txt')
+            if LooseVersion(self.version) >= LooseVersion('14'):
+                cmakelists_tests = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
+            else:
+                cmakelists_tests = os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt', 'test', 'CMakeLists.txt')
             regex_subs = []
             if LooseVersion(self.version) >= LooseVersion('5.0'):
                 regex_subs.append((r'compiler_rt_test_runtime.*san.*', ''))
@@ -407,29 +492,63 @@ class EB_Clang(CMakeMake):
         mkdir(next_obj)
         change_dir(next_obj)
 
-        # Configure.
-        CC = os.path.join(prev_obj, 'bin', 'clang')
-        CXX = os.path.join(prev_obj, 'bin', 'clang++')
+        # Make sure clang and clang++ compilers from the previous stage are (temporarily) in PATH
+        # The call to prepare_rpath_wrappers() requires the compilers-to-be-wrapped on the PATH
+        # Also, the call to 'which' in later in this current function also requires that
+        orig_path = os.getenv('PATH')
+        prev_obj_path = os.path.join(prev_obj, 'bin')
+        setvar('PATH', prev_obj_path + ":" + orig_path)
 
-        options = "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir
-        options += "-DCMAKE_C_COMPILER='%s' " % CC
-        options += "-DCMAKE_CXX_COMPILER='%s' " % CXX
-        options += self.cfg['configopts']
-        options += "-DCMAKE_BUILD_TYPE=%s" % self.build_type
+        # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
+        if build_option('rpath'):
+            my_clang_toolchain = Clang(name='Clang', version='1')
+            my_clang_toolchain.prepare_rpath_wrappers()
+            self.log.info("Prepared clang rpath wrappers")
+
+            # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling
+            # Clang by default warns about that, and then some configure tests use -Werror which turns those warnings
+            # into errors. As a result, those configure tests fail, even though the compiler supports the requested
+            # functionality (e.g. the test that checks if -fPIC is supported would fail, and it compiles without
+            # resulting in relocation errors).
+            # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1270621100
+            # Here, we add -Wno-unused-command-line-argument to CXXFLAGS to avoid these warnings alltogether
+            cflags = os.getenv('CFLAGS')
+            cxxflags = os.getenv('CXXFLAGS')
+            setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
+            setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+
+        # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
+        clang = which('clang')
+        clangxx = which('clang++')
+
+        # Configure.
+        options = [
+            "-DCMAKE_INSTALL_PREFIX=%s " % self.installdir,
+            "-DCMAKE_C_COMPILER='%s' " % clang,
+            "-DCMAKE_CXX_COMPILER='%s' " % clangxx,
+            self.cfg['configopts'],
+            "-DCMAKE_BUILD_TYPE=%s " % self.build_type,
+        ]
+
+        # Cmake looks for llvm-link by default in the same directory as the compiler
+        # However, when compiling with rpath, the clang 'compiler' is not actually the compiler, but the wrapper
+        # Clearly, the wrapper directory won't llvm-link. Thus, we pass the linker to be used by full path.
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1275916186
+        if build_option('rpath'):
+            llvm_link = which('llvm-link')
+            options.append("-DLIBOMPTARGET_NVPTX_BC_LINKER=%s" % llvm_link)
 
         self.log.info("Configuring")
-        run_cmd("cmake %s %s" % (options, self.llvm_src_dir), log_all=True)
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            run_cmd("cmake %s %s" % (' '.join(options), os.path.join(self.llvm_src_dir, "llvm")), log_all=True)
+        else:
+            run_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir), log_all=True)
 
         self.log.info("Building")
-        run_cmd("make %s" % self.make_parallel_opts, log_all=True)
+        run_cmd("make %s VERBOSE=1" % self.make_parallel_opts, log_all=True)
 
-    def run_clang_tests(self, obj_dir):
-        """Run Clang tests in specified directory (unless disabled)."""
-        if not self.cfg['skip_all_tests']:
-            change_dir(obj_dir)
-
-            self.log.info("Running tests")
-            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
+        # restore $PATH
+        setvar('PATH', orig_path)
 
     def build_step(self):
         """Build Clang stage 1, 2, 3"""
@@ -440,23 +559,20 @@ class EB_Clang(CMakeMake):
         super(EB_Clang, self).build_step()
 
         if self.cfg['bootstrap']:
-            # Stage 1: run tests.
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
-
             self.log.info("Building stage 2")
             self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            self.run_clang_tests(self.llvm_obj_dir_stage2)
 
             self.log.info("Building stage 3")
             self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
-            # Don't run stage 3 tests here, do it in the test step.
 
     def test_step(self):
-        """Run Clang tests."""
-        if self.cfg['bootstrap']:
-            self.run_clang_tests(self.llvm_obj_dir_stage3)
-        else:
-            self.run_clang_tests(self.llvm_obj_dir_stage1)
+        """Run Clang tests on final stage (unless disabled)."""
+        if not self.cfg['skip_all_tests']:
+            if self.cfg['bootstrap']:
+                change_dir(self.llvm_obj_dir_stage3)
+            else:
+                change_dir(self.llvm_obj_dir_stage1)
+            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
 
     def install_step(self):
         """Install stage 3 binaries."""
@@ -493,41 +609,23 @@ class EB_Clang(CMakeMake):
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
-            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
+            if LooseVersion(self.version) >= LooseVersion('14'):
+                python_bindings_source_dir = os.path.join(self.llvm_src_dir, "clang", "bindings", "python")
+            else:
+                python_bindings_source_dir = os.path.join(self.llvm_src_dir, "tools", "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
 
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
 
     def sanity_check_step(self):
         """Custom sanity check for Clang."""
+        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
-        custom_paths = {
-            'files': [
-                "bin/clang", "bin/clang++", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt", "bin/llvm-link",
-                "bin/llvm-config", "bin/llvm-symbolizer", "include/llvm-c/Core.h", "include/clang-c/Index.h",
-                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % self.version,
-            ],
-            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % self.version],
-        }
-        if self.cfg['static_analyzer']:
-            custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
 
-        if self.cfg['build_extra_clang_tools'] and LooseVersion(self.version) >= LooseVersion('3.4'):
-            custom_paths['files'].extend(["bin/clang-tidy"])
-
-        if self.cfg["usepolly"]:
-            custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
-            custom_paths['dirs'].extend(["include/polly"])
-
-        if self.cfg["build_lld"]:
-            custom_paths['files'].extend(["bin/lld"])
-
-        if self.cfg["libcxx"]:
-            custom_paths['files'].extend(["lib/libc++.%s" % shlib_ext])
-            custom_paths['files'].extend(["lib/libc++abi.%s" % shlib_ext])
-
-        if LooseVersion(self.version) >= LooseVersion('3.8'):
-            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % self.version])
+        # Clang v16+ only use the major version number for the resource dir
+        resdir_version = self.version
+        if LooseVersion(self.version) >= LooseVersion('16'):
+            resdir_version = self.version.split('.')[0]
 
         # Detect OpenMP support for CPU architecture
         arch = get_cpu_architecture()
@@ -540,9 +638,67 @@ class EB_Clang(CMakeMake):
         elif arch == AARCH64:
             arch = 'aarch64'
         else:
-            print_warning("Unknown CPU architecture (%s) for OpenMP library check!" % arch)
-        custom_paths['files'].extend(["lib/libomptarget.%s" % shlib_ext,
-                                      "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)])
+            print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch)
+
+        if LooseVersion(self.version) >= LooseVersion('14'):
+            glob_pattern = os.path.join(self.installdir, 'lib', '%s-*' % arch)
+            matches = glob.glob(glob_pattern)
+            if matches:
+                directory = os.path.basename(matches[0])
+                self.runtime_lib_path = os.path.join("lib", directory)
+            else:
+                print_warning("Could not find runtime library directory")
+                self.runtime_lib_path = "lib"
+        else:
+            self.runtime_lib_path = "lib"
+
+        custom_paths = {
+            'files': [
+                "bin/clang", "bin/clang++", "bin/llvm-ar", "bin/llvm-nm", "bin/llvm-as", "bin/opt", "bin/llvm-link",
+                "bin/llvm-config", "bin/llvm-symbolizer", "include/llvm-c/Core.h", "include/clang-c/Index.h",
+                "lib/libclang.%s" % shlib_ext, "lib/clang/%s/include/stddef.h" % resdir_version,
+            ],
+            'dirs': ["include/clang", "include/llvm", "lib/clang/%s/lib" % resdir_version],
+        }
+        if self.cfg['static_analyzer']:
+            custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
+
+        if 'clang-tools-extra' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+            custom_paths['files'].extend(["bin/clang-tidy"])
+
+        if 'polly' in self.cfg['llvm_projects']:
+            custom_paths['files'].extend(["lib/LLVMPolly.%s" % shlib_ext])
+            custom_paths['dirs'].extend(["include/polly"])
+
+        if 'lld' in self.cfg['llvm_projects']:
+            custom_paths['files'].extend(["bin/lld"])
+
+        if 'lldb' in self.cfg['llvm_projects']:
+            custom_paths['files'].extend(["bin/lldb"])
+
+        if 'libunwind' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libunwind.%s" % shlib_ext)])
+
+        if 'libcxx' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++.%s" % shlib_ext)])
+
+        if 'libcxxabi' in self.cfg['llvm_runtimes']:
+            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++abi.%s" % shlib_ext)])
+
+        if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
+            flang_compiler = 'flang-new'
+            custom_paths['files'].extend(["bin/%s" % flang_compiler])
+            custom_commands.extend(["%s --help" % flang_compiler])
+
+        if LooseVersion(self.version) >= LooseVersion('3.8'):
+            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % resdir_version])
+
+        if LooseVersion(self.version) >= LooseVersion('12'):
+            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
+        else:
+            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext]
+        custom_paths['files'].extend(omp_target_libs)
+
         # If building for CUDA check that OpenMP target library was created
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
@@ -554,7 +710,7 @@ class EB_Clang(CMakeMake):
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             # We need the CUDA capability in the form of '75' and not '7.5'
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            if LooseVersion('11.0') < LooseVersion(self.version) < LooseVersion('13.0'):
+            if LooseVersion('12.0') < LooseVersion(self.version) < LooseVersion('13.0'):
                 custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
                                              for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
             else:
@@ -582,7 +738,6 @@ class EB_Clang(CMakeMake):
                 custom_paths['files'].extend(["lib/libomptarget-new-amdgpu-%s.bc" % gfx
                                               for gfx in self.cfg['amd_gfx_list']])
 
-        custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         if self.cfg['python_bindings']:
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
             custom_commands.extend(["python -c 'import clang'"])
@@ -598,3 +753,15 @@ class EB_Clang(CMakeMake):
         if self.cfg['python_bindings']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
         return txt
+
+    def make_module_req_guess(self):
+        """
+        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
+        """
+        guesses = super(EB_Clang, self).make_module_req_guess()
+        guesses.update({
+            'CPATH': [],
+            'LIBRARY_PATH': [],
+            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
+        })
+        return guesses

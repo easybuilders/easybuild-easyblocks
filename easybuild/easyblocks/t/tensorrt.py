@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2022 Ghent University
+# Copyright 2017-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing TensorRT, implemented as an easybl
 """
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTALL_CMD
@@ -108,6 +108,7 @@ class EB_TensorRT(PythonPackage, Binary):
                     'installopts': self.cfg['installopts'],
                     'loc': whl_paths[0],
                     'prefix': self.installdir,
+                    'python': self.python_cmd,
                 }
 
                 # Use --no-deps to prevent pip from downloading & installing

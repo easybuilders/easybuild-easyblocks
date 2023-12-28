@@ -1,5 +1,5 @@
 ##
-# Copyright 2021 Vrije Universiteit Brussel
+# Copyright 2021-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 import os
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
@@ -162,7 +162,7 @@ class EB_OpenSSL_wrapper(Bundle):
             for solib in solibs:
                 system_solib = find_library_path(solib)
                 if system_solib:
-                    openssl_version = 0
+                    openssl_version = '0'
                     # get version of system library filename
                     try:
                         openssl_version = full_version_regex.search(os.path.realpath(system_solib)).group(0)

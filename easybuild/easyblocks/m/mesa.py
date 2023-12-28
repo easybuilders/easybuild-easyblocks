@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Alexander Grund (TU Dresden)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
@@ -154,7 +154,11 @@ class EB_Mesa(MesonNinja):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) >= LooseVersion('20.0'):
-            header_files = [os.path.join('include', 'EGL', x) for x in ['eglmesaext.h', 'eglextchromium.h']]
+            header_files = [os.path.join('include', 'EGL', 'eglmesaext.h')]
+            if LooseVersion(self.version) >= LooseVersion('22.3'):
+                header_files.extend([os.path.join('include', 'EGL', 'eglext_angle.h')])
+            else:
+                header_files.extend([os.path.join('include', 'EGL', 'eglextchromium.h')])
             header_files.extend([
                 os.path.join('include', 'GL', 'osmesa.h'),
                 os.path.join('include', 'GL', 'internal', 'dri_interface.h'),
@@ -175,3 +179,11 @@ class EB_Mesa(MesonNinja):
             custom_paths['files'].extend(swr_arch_libs)
 
         super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self, *args, **kwargs):
+        """ Append to EGL vendor library path,
+        so that any NVidia libraries take precedence. """
+        txt = super(EB_Mesa, self).make_module_extra(*args, **kwargs)
+        # Append rather than prepend path to ensure that system NVidia drivers have priority.
+        txt += self.module_generator.append_paths('__EGL_VENDOR_LIBRARY_DIRS', 'share/glvnd/egl_vendor.d')
+        return txt

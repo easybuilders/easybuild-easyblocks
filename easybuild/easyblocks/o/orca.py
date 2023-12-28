@@ -1,5 +1,5 @@
 ##
-# Copyright 2021 Vrije Universiteit Brussel
+# Copyright 2021-2023 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for ORCA, implemented as an easyblock
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM

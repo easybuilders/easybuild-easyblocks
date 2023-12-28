@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for installing Intel Inspector, implemented as an easyblock
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 

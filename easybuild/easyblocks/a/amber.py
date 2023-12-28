@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2022 Ghent University
-# Copyright 2015-2022 Stanford University
+# Copyright 2009-2023 Ghent University
+# Copyright 2015-2023 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ Modified by Stephane Thiell (Stanford University) for Amber14
 Enhanced/cleaned up by Kenneth Hoste (HPC-UGent)
 CMake support (Amber 20) added by James Carpenter and Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 import easybuild.tools.environment as env

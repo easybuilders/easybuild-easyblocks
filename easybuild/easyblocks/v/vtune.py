@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2023 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for installing Intel VTune, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Damian Alvarez (Forschungzentrum Juelich GmbH)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
