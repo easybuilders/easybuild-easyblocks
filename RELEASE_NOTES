@@ -3,7 +3,40 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 251 software-specific easyblocks and 42 generic easyblocks.
+The latest version of easybuild-easyblocks provides 254 software-specific easyblocks and 43 generic easyblocks.
+
+
+v4.9.0 (30 December 2023)
+-------------------------
+
+feature release
+
+- add generic `CargoPythonBundle` easyblock (#2964)
+- add new easyblock for HPCC and adapt HPL easyblock (#3009)
+- new easyblock for PALM (#3020)
+- add custom easyblock for flook that includes install step (#3034)
+- minor enhancements and updates, including:
+  - add custom easyconfig parameter `cmake_options` to SuiteSparse easyblock (#3031)
+  - update custom intel-compilers easyblock for versions >= 2024 (#3037)
+  - update custom easyblock for Intel MPI easyblock for v2021.11 (#3039)
+  - update numpy easyblock for v1.26+ (#3041)
+  - update custom easyblock for Intel MKL for v2024.x (#3042)
+  - update Ferret easyblock to be compatible with v7.6.0 (#3052)
+- various bug fixes, including:
+  - add support for allowing version mismatch + consider versionsuffix when creating `.modulerc` in `ModuleRC` easyblock (#3028)
+  - update error detection for PyTorch tests (#3033)
+  - disable LLVM build downloads from CI in Rust (#3038)
+  - add requirement for EULA acceptance to CUDA easyblock (#3045)
+  - make various fixes and enhancements to NWChem easyblock (#3049)
+  - Add binutils symlinks when building TensorFlow with `--rpath` (#3054)
+  - fix specifying path to SuiteSparse header files and libraries in numpy, Trilinos, PETSc easyblocks (#3056)
+  - fix `det_pylibdir` provided by `PythonPackage` easyblock for Python 3.12+ (#3057)
+  - take into account that binutils might be a filtered dependency for TensorFlow (#3058)
+  - fix nvptx sanity check for Clang >= 14.x (#3059)
+- other changes:
+  - update SuiteSparse easyblock to only install SuiteSparse libraries with `make install` (#3004)
+  - also consider `$EB_COMSOL_LICENSE_FILE` environment variable in custom easyblock for COMSOL (#3044)
+  - import `LooseVersion` from `easybuild.tools` instead of `distutils.version` in easyblocks (#3048)
 
 
 v4.8.2 (29 October 2023)
