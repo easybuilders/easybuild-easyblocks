@@ -33,7 +33,7 @@ EasyBuild support for building and installing netCDF, implemented as an easybloc
 """
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain

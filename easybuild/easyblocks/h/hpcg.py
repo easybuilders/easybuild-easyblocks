@@ -37,7 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir
 from easybuild.tools.run import run_cmd
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 
 class EB_HPCG(ConfigureMake):

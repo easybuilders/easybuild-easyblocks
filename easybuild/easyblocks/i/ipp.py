@@ -34,7 +34,7 @@ EasyBuild support for installing the Intel Performance Primitives (IPP) library,
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012

@@ -33,7 +33,7 @@ EasyBuild support for AMD Core Math Library (ACML), implemented as an easyblock
 """
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
