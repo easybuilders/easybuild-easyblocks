@@ -53,7 +53,11 @@ INTEL_PACKAGE_ARCH_LIST = [
     'SNB',  # Intel Sandy/Ivy Bridge CPU (AVX 1)
     'HSW',  # Intel Haswell CPU (AVX 2)
     'BDW',  # Intel Broadwell Xeon E-class CPU (AVX 2 + transactional mem)
+    'SKL',  # Intel Skylake Client CPU
     'SKX',  # Intel Sky Lake Xeon E-class HPC CPU (AVX512 + transactional mem)
+    'ICL',  # Intel Ice Lake Client CPU (AVX512)
+    'ICX',  # Intel Ice Lake Xeon Server CPU (AVX512)
+    'SPR',  # Intel Sapphire Rapids Xeon Server CPU (AVX512)
     'KNC',  # Intel Knights Corner Xeon Phi
     'KNL',  # Intel Knights Landing Xeon Phi
 ]
@@ -86,15 +90,21 @@ KOKKOS_CPU_ARCH_LIST = [
     'TURING75',  # NVIDIA Turing generation CC 7.5 GPU
     'AMPERE80',  # NVIDIA Ampere generation CC 8.0 GPU
     'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
+    'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9 GPU
     'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
+    'VEGA90A',  # AMD GPU MI200 GFX90A
+    'NAVI1030',  # AMD GPU MI200 GFX90A
+    'NAVI1100',  # AMD GPU RX7900XTX
     'INTEL_GEN',  # Intel GPUs Gen9+
+    'INTEL_DG1',  # Intel Iris XeMAX GPU
     'INTEL_GEN9',  # Intel GPU Gen9
     'INTEL_GEN11',  # Intel GPU Gen11
     'INTEL_GEN12LP',  # Intel GPU Gen12LP
     'INTEL_XEHP',  # Intel GPUs Xe-HP
+    'INTEL_PVC',  # Intel GPU Ponte Vecchio
 ] + INTEL_PACKAGE_ARCH_LIST
 
 KOKKOS_LEGACY_ARCH_MAPPING = {
