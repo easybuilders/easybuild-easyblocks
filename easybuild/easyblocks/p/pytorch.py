@@ -243,6 +243,10 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
+        if self.cfg['use_pip']:
+            # Make pip show output of build process
+            self.cfg.update('installopts', '--verbose')
+
     def _set_cache_dir(self):
         """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
         cache_dir = os.path.join(self.tmpdir, '.cache')
