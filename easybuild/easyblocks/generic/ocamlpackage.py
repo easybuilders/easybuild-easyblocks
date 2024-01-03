@@ -39,7 +39,7 @@ class OCamlPackage(ExtensionEasyBlock):
         """Raise error when configure step is run: installing OCaml packages stand-alone is not supported (yet)"""
         raise EasyBuildError("Installing OCaml packages stand-alone is not supported (yet)")
 
-    def run(self):
+    def install_extension(self):
         """Perform OCaml package installation (as extension)."""
         # install using 'opam install'
         run_cmd("eval `opam config env` && opam install -yv %s.%s" % (self.name, self.version))

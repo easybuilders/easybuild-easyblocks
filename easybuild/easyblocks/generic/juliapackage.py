@@ -151,13 +151,13 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return out
 
-    def run(self):
+    def install_extension(self):
         """Install Julia package as an extension."""
 
         if not self.src:
             errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
             raise EasyBuildError(errmsg, self.name, self.src)
-        ExtensionEasyBlock.run(self, unpack_src=True)
+        ExtensionEasyBlock.install_extension(self, unpack_src=True)
 
         self.set_pkg_offline()
         self.set_depot_path()  # all extensions share common depot in installdir

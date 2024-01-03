@@ -333,9 +333,9 @@ class EB_numpy(FortranPythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
 
-    def run(self):
+    def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).run()
+        super(EB_numpy, self).install_extension()
 
         return self.make_module_extra_numpy_include()
 

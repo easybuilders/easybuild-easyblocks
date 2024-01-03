@@ -280,7 +280,7 @@ class RPackage(ExtensionEasyBlock):
             mkdir(lib_install_prefix, parents=True)
 
         if self.src:
-            super(RPackage, self).run(unpack_src=True)
+            super(RPackage, self).install_extension(unpack_src=True)
             self.ext_src = self.src
             self.update_config_guess(self.ext_dir)
             self.log.debug("Installing R package %s version %s." % (self.name, self.version))
@@ -293,14 +293,14 @@ class RPackage(ExtensionEasyBlock):
 
         return cmd, stdin
 
-    def run(self):
+    def install_extension(self):
         """
         Install R package as an extension.
         """
         cmd, stdin = self.prepare_r_ext_install()
         self.install_R_package(cmd, inp=stdin)
 
-    def run_async(self):
+    def install_extension_async(self):
         """
         Start installation of R package as an extension asynchronously.
         """
