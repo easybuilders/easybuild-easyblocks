@@ -35,7 +35,6 @@ EasyBuild support for SuiteSparse, implemented as an easyblock
 import fileinput
 import re
 import os
-import stat
 import sys
 from easybuild.tools import LooseVersion
 
