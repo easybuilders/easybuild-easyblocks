@@ -75,7 +75,7 @@ class EB_DualSPHysics(CMakeMakeCp):
     def configure_step(self):
         """Custom configure procedure for DualSPHysics."""
         srcdir = os.path.join(self.cfg['start_dir'], 'src/source')
-        CMakeMakeCp.configure_step(self, srcdir=srcdir)
+        super(EB_DUALSPHysics, self).configure_step(srcdir=srcdir)
 
     def install_step(self):
         """Custom install procedure for DualSPHysics."""
