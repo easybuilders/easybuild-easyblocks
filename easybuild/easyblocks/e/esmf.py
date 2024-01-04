@@ -49,7 +49,8 @@ class EB_ESMF(ConfigureMake):
     def extra_options():
         """Custom easyconfig parameters for ESMF"""
         extra_vars = {
-            'disable_lapack': [False, 'Disable external LAPACK - True or False', CUSTOM]
+            'disable_lapack': [False, 'Disable external LAPACK - True or False', CUSTOM],
+            'external_pio': [False, 'Use external ParallelIO instead of internal - True or False', CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -125,6 +126,30 @@ class EB_ESMF(ConfigureMake):
                     else:
                         netcdf_libs.append('-lnetcdf_c++')
                 env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
+
+        if self.cfg['external_pio']:
+            if LooseVersion(self.version) >= LooseVersion('8.4.0'):
+                pio = get_software_root('ParallelIO')
+                if pio:
+                    if LooseVersion(get_software_version('ParallelIO')) >= LooseVersion('2.5.9'):
+                        env.setvar('ESMF_PIO', 'external')
+                        env.setvar('ESMF_PIO_INCLUDE', pio + '/include')
+                        env.setvar('ESMF_PIO_LIBPATH', pio + '/lib')
+                        pnetcdf = get_software_root('PnetCDF')
+                        if pnetcdf:
+                            env.setvar('ESMF_PNETCDF', 'pnetcdf-config')
+                        else:
+                            msg = "external_pio is specified but PnetCDF is not found"
+                            raise EasyBuildError(msg)
+                    else:
+                        msg = "ParallelIO version (%s) is less than required (2.5.9) for external_pio option"
+                        raise EasyBuildError(msg, get_software_version('ParallelIO'))
+                else:
+                    msg = "external_pio is specified but no ParallelIO provided"
+                    raise EasyBuildError(msg)
+            else:
+                msg = "External PIO is not supported for EMSF versions < 8.4.0"
+                raise EasyBuildError(msg)
 
         # 'make info' provides useful debug info
         cmd = "make info"
