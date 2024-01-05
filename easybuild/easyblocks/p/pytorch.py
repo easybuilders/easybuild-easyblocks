@@ -56,6 +56,8 @@ class EB_PyTorch(PythonPackage):
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
 
         return extra_vars
 
@@ -242,10 +244,6 @@ class EB_PyTorch(PythonPackage):
 
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
-
-        if self.cfg['use_pip']:
-            # Make pip show output of build process
-            self.cfg.update('installopts', '--verbose')
 
     def _set_cache_dir(self):
         """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
