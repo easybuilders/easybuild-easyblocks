@@ -59,7 +59,7 @@ class EB_DualSPHysics(CMakeMakeCp):
         super(EB_DualSPHysics, self).__init__(*args, **kwargs)
 
         self.dsph_target = None
-        self.shortver = None
+        self.shortver = '.'.join(self.version.split('.')[0:2])
 
     def prepare_step(self, *args, **kwargs):
         """Determine name of binary that will be installed."""
@@ -69,8 +69,6 @@ class EB_DualSPHysics(CMakeMakeCp):
             self.dsph_target = 'GPU'
         else:
             self.dsph_target = 'CPU'
-
-        self.shortver = '.'.join(self.version.split('.')[0:2])
 
     def configure_step(self):
         """Custom configure procedure for DualSPHysics."""
@@ -133,8 +131,6 @@ class EB_DualSPHysics(CMakeMakeCp):
             self.dsph_target = 'GPU'
         else:
             self.dsph_target = 'CPU'
-
-        self.shortver = '.'.join(self.version.split('.')[0:2])
 
         bins = ['GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool', 'GenCase_MkWord', 'DualSPHysics4.0_LiquidGas',
                 'DualSPHysics4.0_LiquidGasCPU', 'DualSPHysics%s' % self.shortver,
