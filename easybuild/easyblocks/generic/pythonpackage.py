@@ -419,7 +419,9 @@ class PythonPackage(ExtensionEasyBlock):
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
             'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
-            'use_pip': [True, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip': [True, "Install using '%s'" % PIP_INSTALL_CMD + " "
+                              "Using 'wheel' will create a wheel file with pip during the build step "
+                              "which is then installed", CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
@@ -509,10 +511,13 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('use_pip', True) or self.cfg.get('use_pip_editable', False):
             self.use_setup_py = False
             self.install_cmd = PIP_INSTALL_CMD
+            use_pip_wheel = self.cfg.get('use_pip') == 'wheel'
 
             pip_verbose = self.cfg.get('pip_verbose', None)
             if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.py_installopts.append('--verbose')
+                if use_pip_wheel:
+                    self.cfg.update('buildopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
             # the default is use_pip_for_deps=False
@@ -521,6 +526,8 @@ class PythonPackage(ExtensionEasyBlock):
             else:
                 self.log.info("Using pip with --no-deps option")
                 self.py_installopts.append('--no-deps')
+                if use_pip_wheel:
+                    self.cfg.update('buildopts', '--no-deps')
 
             if self.cfg.get('pip_ignore_installed', True):
                 # don't (try to) uninstall already availale versions of the package being installed
@@ -621,8 +628,14 @@ class PythonPackage(ExtensionEasyBlock):
         py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
         return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
 
-    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+    def compose_install_command(self, prefix, extrapath=None, installopts=None, preinstallopts=None):
         """Compose full install command."""
+
+        if installopts is None:
+            installopts = self.cfg['installopts']
+
+        if preinstallopts is None:
+            preinstallopts = self.cfg['preinstallopts']
 
         if self.using_pip_install():
 
@@ -678,7 +691,7 @@ class PythonPackage(ExtensionEasyBlock):
             loc = "--requirement %s" % loc
 
         cmd.extend([
-            self.cfg['preinstallopts'],
+            preinstallopts,
             self.install_cmd % {
                 'installopts': installopts,
                 'install_target': self.cfg['install_target'],
@@ -804,12 +817,24 @@ class PythonPackage(ExtensionEasyBlock):
 
         if build_cmd:
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
-            res = run_shell_cmd(cmd)
+        elif self.cfg.get('use_pip') == 'wheel':
+            wheel_dir = tempfile.mkdtemp(prefix=self.name+'_wheel-')
+            cmd = self.compose_install_command(
+                prefix=wheel_dir,
+                preinstallopts=self.cfg['prebuildopts'],
+                installopts=self.cfg['buildopts'])
+            cmd = cmd.replace("install --prefix=", "wheel --wheel-dir=")
 
-            # keep track of all output, so we can check for auto-downloaded dependencies;
-            # take into account that build/install steps may be run multiple times
-            # We consider the build and install output together as downloads likely happen here if this is run
-            self.install_cmd_output += res.output
+            if self.install_cmd == PIP_INSTALL_CMD:
+                self.install_cmd = PIP_INSTALL_CMD.replace('%(loc)s', os.path.join(wheel_dir, '*.whl'))
+        else:
+            return
+        res = run_shell_cmd(cmd)
+
+        # keep track of all output, so we can check for auto-downloaded dependencies;
+        # take into account that build/install steps may be run multiple times
+        # We consider the build and install output together as downloads likely happen here if this is run
+        self.install_cmd_output += res.output
 
     def test_step(self, return_output_ec=False):
         """
