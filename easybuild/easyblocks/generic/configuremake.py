@@ -46,7 +46,7 @@ from easybuild.easyblocks import VERSION as EASYBLOCKS_VERSION
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning, EasyBuildError
-from easybuild.tools.config import source_paths, build_option
+from easybuild.tools.config import source_paths, build_option, ERROR, IGNORE, WARN
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, adjust_permissions, compute_checksum, download_file
 from easybuild.tools.filetools import read_file, remove_file
 from easybuild.tools.run import extract_errors_from_log, run_cmd
@@ -178,10 +178,6 @@ class ConfigureMake(EasyBlock):
         """Extra easyconfig parameters specific to ConfigureMake."""
         extra_vars = EasyBlock.extra_options(extra=extra_vars)
         extra_vars.update({
-            'allow_unrecognized_configure_options': [False,
-                                                     "Allow builds with unrecognized arguments passed to ./configure "
-                                                     "(NOT RECOMMENDED! It might hide actual errors e.g. "
-                                                     "misspelling of intended or changed options)", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'build_cmd_targets': [DEFAULT_BUILD_TARGET, "Target name (string) or list of target names to build",
                                   CUSTOM],
@@ -200,6 +196,11 @@ class ConfigureMake(EasyBlock):
             'tar_config_opts': [False, "Override tar settings as determined by configure.", CUSTOM],
             'test_cmd': [None, "Test command to use ('runtest' value is appended, default: '%s')" % DEFAULT_TEST_CMD,
                          CUSTOM],
+            'unrecognized_configure_options': [ERROR,
+                                               "Action to do when unrecognized arguments passed to ./configure are"
+                                               " detected, defaults to aborting the build. Can be set to " + WARN +
+                                               " or " + IGNORE + " (NOT RECOMMENDED! It might hide actual errors e.g."
+                                               " misspelling of intended or changed options)", CUSTOM],
         })
         return extra_vars
 
@@ -330,16 +331,23 @@ class ConfigureMake(EasyBlock):
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
 
-        unrecognized_options_str = 'configure: WARNING: unrecognized options:'
-        unrecognized_options = extract_errors_from_log(out, unrecognized_options_str)[1]
-        # Keep only unique options (remove the warning string and strip whitespace)
-        unrecognized_options = nub(x.split(unrecognized_options_str)[-1].strip() for x in unrecognized_options)
-        if unrecognized_options:
-            msg = 'Found unrecognized configure options: ' + '; '.join(unrecognized_options)
-            if self.cfg['allow_unrecognized_configure_options']:
-                print_warning(msg)
-            else:
-                raise EasyBuildError(msg)
+        action = self.cfg['unrecognized_configure_options']
+        valid_actions = (ERROR, WARN, IGNORE)
+        # Always verify the EC param
+        if action not in valid_actions:
+            raise EasyBuildError('Invalid value for `unrecognized_configure_options`: %s. Must be one of: ',
+                                 action, ', '.join(valid_actions))
+        if action != IGNORE:
+            unrecognized_options_str = 'configure: WARNING: unrecognized options:'
+            unrecognized_options = extract_errors_from_log(out, unrecognized_options_str)[1]
+            # Keep only unique options (remove the warning string and strip whitespace)
+            unrecognized_options = nub(x.split(unrecognized_options_str)[-1].strip() for x in unrecognized_options)
+            if unrecognized_options:
+                msg = 'Found unrecognized configure options: ' + '; '.join(unrecognized_options)
+                if action == WARN:
+                    print_warning(msg)
+                else:
+                    raise EasyBuildError(msg)
 
         return out
 
