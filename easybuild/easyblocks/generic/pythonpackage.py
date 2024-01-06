@@ -51,7 +51,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd, subprocess_popen_text
+from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
@@ -78,8 +78,8 @@ PY_INSTALL_SCHEMES = [
 def det_python_version(python_cmd):
     """Determine version of specified 'python' command."""
     pycode = 'import sys; print("%s.%s.%s" % sys.version_info[:3])'
-    out, _ = run_cmd("%s -c '%s'" % (python_cmd, pycode), simple=False, trace=False)
-    return out.strip()
+    res = run_shell_cmd("%s -c '%s'" % (python_cmd, pycode), hidden=True)
+    return res.output.strip()
 
 
 def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
@@ -169,7 +169,7 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
         python_cmd = 'python'
 
     # determine Python lib dir via distutils
-    # use run_cmd, we can to talk to the active Python, not the system Python running EasyBuild
+    # use run_shell_cmd, we can to talk to the active Python, not the system Python running EasyBuild
     prefix = '/tmp/'
     if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
         # Python 3.12 removed distutils but has a core sysconfig module which is similar
@@ -183,13 +183,13 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
 
     log.debug("Determining Python library directory using command '%s'", cmd)
 
-    out, ec = run_cmd(cmd, simple=False, force_in_dry_run=True, trace=False)
-    txt = out.strip().split('\n')[-1]
+    res = run_shell_cmd(cmd, in_dry_run=True, hidden=True)
+    txt = res.output.strip().split('\n')[-1]
 
     # value obtained should start with specified prefix, otherwise something is very wrong
     if not txt.startswith(prefix):
         raise EasyBuildError("Last line of output of %s does not start with specified prefix %s: %s (exit code %s)",
-                             cmd, prefix, out, ec)
+                             cmd, prefix, res.output, res.exit_code)
 
     pylibdir = txt[len(prefix):]
     log.debug("Determined pylibdir using '%s': %s", cmd, pylibdir)
@@ -227,7 +227,8 @@ def det_pip_version(python_cmd='python'):
     log = fancylogger.getLogger('det_pip_version', fname=False)
     log.info("Determining pip version...")
 
-    out, _ = run_cmd("%s -m pip --version" % python_cmd, verbose=False, simple=False, trace=False)
+    res = run_shell_cmd("%s -m pip --version" % python_cmd, hidden=True)
+    out = res.output
 
     pip_version_regex = re.compile('^pip ([0-9.]+)')
     res = pip_version_regex.search(out)
@@ -261,8 +262,8 @@ def det_py_install_scheme(python_cmd='python'):
 
     cmd = "%s -c 'import sysconfig; print(sysconfig.%s())'" % (python_cmd, get_default_scheme)
     log.debug("Determining active Python installation scheme with: %s", cmd)
-    out, _ = run_cmd(cmd, verbose=False, simple=False, trace=False)
-    py_install_scheme = out.strip()
+    res = run_shell_cmd(cmd, hidden=True)
+    py_install_scheme = res.output.strip()
 
     if py_install_scheme in PY_INSTALL_SCHEMES:
         log.info("Active Python installation scheme: %s", py_install_scheme)
@@ -754,7 +755,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # creates log entries for python being used, for debugging
         cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
-        run_cmd(cmd % {'python': self.python_cmd}, verbose=False, trace=False)
+        run_shell_cmd(cmd % {'python': self.python_cmd}, hidden=True)
 
     def build_step(self):
         """Build Python package using setup.py"""
@@ -774,12 +775,12 @@ class PythonPackage(ExtensionEasyBlock):
         if build_cmd:
             build_cmd = build_cmd % {'python': self.python_cmd}
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
 
             # keep track of all output, so we can check for auto-downloaded dependencies;
             # take into account that build/install steps may be run multiple times
             # We consider the build and install output together as downloads likely happen here if this is run
-            self.install_cmd_output += out
+            self.install_cmd_output += res.output
 
     def test_step(self, return_output_ec=False):
         """
@@ -817,13 +818,13 @@ class PythonPackage(ExtensionEasyBlock):
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
-                run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
+                run_shell_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, hidden=True)
 
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
                 cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
-                run_cmd(cmd, log_all=True, simple=True, verbose=False)
+                run_shell_cmd(cmd, hidden=True)
 
                 self.py_post_install_shenanigans(test_installdir)
 
@@ -837,11 +838,12 @@ class PythonPackage(ExtensionEasyBlock):
                 ])
 
                 if return_output_ec:
-                    (out, ec) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
-                    # need to log seperately, since log_all and log_ok need to be false to retrieve out and ec
+                    res = run_shell_cmd(cmd, fail_on_error=False)
+                    # need to retrieve ec by not failing on error
+                    (out, ec) = (res.output, res.exit_code)
                     self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
                 else:
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
             if test_installdir:
                 remove_dir(test_installdir)
@@ -879,12 +881,12 @@ class PythonPackage(ExtensionEasyBlock):
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
-        (out, _) = run_cmd(cmd, log_all=True, log_ok=True, simple=False)
+        res = run_shell_cmd(cmd)
 
         # keep track of all output from install command, so we can check for auto-downloaded dependencies;
         # take into account that install step may be run multiple times
         # (for iterated installations over multiply Python versions)
-        self.install_cmd_output += out
+        self.install_cmd_output += res.output
 
         self.py_post_install_shenanigans(self.installdir)
 
@@ -1029,8 +1031,9 @@ class PythonPackage(ExtensionEasyBlock):
 
                     pip_check_errors = []
 
-                    pip_check_msg, ec = run_cmd(pip_check_command, log_ok=False)
-                    if ec:
+                    res = run_shell_cmd(pip_check_command, fail_on_error=False)
+                    pip_check_msg = res.output
+                    if res.exit_code:
                         pip_check_errors.append('`%s` failed:\n%s' % (pip_check_command, pip_check_msg))
                     else:
                         self.log.info('`%s` completed successfully' % pip_check_command)

@@ -37,7 +37,7 @@ import re
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class VersionIndependentPythonPackage(PythonPackage):
@@ -79,7 +79,7 @@ class VersionIndependentPythonPackage(PythonPackage):
             raise EasyBuildError("%s easyblock is not compatible with using easy_install or pip", eb_name)
 
         cmd = self.compose_install_command(self.installdir)
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         # setuptools stubbornly replaces the shebang line in scripts with
         # the full path to the Python interpreter used to install;

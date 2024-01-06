@@ -46,7 +46,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, symlink, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 _log = fancylogger.getLogger('easyblocks.generic.rpm')
@@ -88,7 +88,7 @@ def rebuild_rpm(rpm_path, targetdir):
         targetdir,
         rpm_path,
     ])
-    run_cmd(cmd, log_all=True, simple=True)
+    run_shell_cmd(cmd)
 
 
 class Rpm(Binary):
@@ -142,10 +142,10 @@ class Rpm(Binary):
 
         # determine whether RPMs need to be rebuilt to make relocation work
         cmd = "rpm --version"
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
         rpmver_re = re.compile(r"^RPM\s+version\s+(?P<version>[0-9.]+).*")
-        res = rpmver_re.match(out)
+        res = rpmver_re.match(res.output)
         self.log.debug("RPM version found: %s" % res.group())
 
         if res:
@@ -185,7 +185,7 @@ class Rpm(Binary):
 
         cmd = "rpm --initdb --dbpath /rpm --root %s" % self.installdir
 
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         force = ''
         if self.cfg['force']:
@@ -219,7 +219,7 @@ class Rpm(Binary):
                 'post': postinstall,
                 'installopts': self.cfg['installopts'],
             }
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         for path in self.cfg['makesymlinks']:
             # allow globs, always use first hit.

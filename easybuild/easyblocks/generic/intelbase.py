@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
 from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 # different supported activation types (cfr. Intel documentation)
@@ -428,7 +428,7 @@ class IntelBase(EasyBlock):
             self.cfg['installopts'],
         ])
 
-        return run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
     def install_step_oneapi(self, *args, **kwargs):
         """
@@ -468,16 +468,16 @@ class IntelBase(EasyBlock):
 
         cmd.append(self.cfg['installopts'])
 
-        return run_cmd(' '.join(cmd), log_all=True, simple=True, log_output=True)
+        run_shell_cmd(' '.join(cmd))
 
     def install_step(self, *args, **kwargs):
         """
         Install Intel software
         """
         if LooseVersion(self.version) >= LooseVersion('2021'):
-            return self.install_step_oneapi(*args, **kwargs)
+            self.install_step_oneapi(*args, **kwargs)
         else:
-            return self.install_step_classic(*args, **kwargs)
+            self.install_step_classic(*args, **kwargs)
 
     def move_after_install(self):
         """Move installed files to correct location after installation."""
