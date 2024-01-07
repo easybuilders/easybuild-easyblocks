@@ -345,7 +345,7 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
-                                  "Defaults to 'True' if the EB option --debug is used.", CUSTOM],
+                                  "Enabled by default if the EB option --debug is used.", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
