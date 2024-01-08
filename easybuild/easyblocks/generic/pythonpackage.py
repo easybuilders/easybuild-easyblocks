@@ -344,6 +344,8 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
+            'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
+                                  "Enabled by default if the EB option --debug is used.", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
@@ -427,7 +429,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            if build_option('debug'):
+            pip_verbose = self.cfg.get('pip_verbose', None)
+            if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.cfg.update('installopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
