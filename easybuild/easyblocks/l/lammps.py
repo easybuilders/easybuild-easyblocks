@@ -176,16 +176,6 @@ def translate_lammps_version(version):
     return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
 
 
-def update_kokkos_cpu_mapping(self):
-
-    if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-        self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-        self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-    if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-        self.kokkos_cpu_mapping['a64x'] = 'A64FX'
-
-
 class EB_LAMMPS(CMakeMake):
     """
     Support for building and installing LAMMPS
@@ -220,7 +210,7 @@ class EB_LAMMPS(CMakeMake):
                 KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
-        self.update_kokkos_cpu_mapping()
+        update_kokkos_cpu_mapping()
 
     @staticmethod
     def extra_options(**kwargs):
@@ -234,6 +224,15 @@ class EB_LAMMPS(CMakeMake):
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
+
+    def update_kokkos_cpu_mapping(self):
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64x'] = 'A64FX'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -547,7 +546,7 @@ def get_kokkos_arch(cuda_cc, kokkos_arch, cuda=None):
         warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
         print_warning(warning_msg)
 
-        processor_arch = KOKKOS_CPU_MAPPING.get(get_cpu_arch())
+        processor_arch = self.kokkos_cpu_mapping.get(get_cpu_arch())
 
         if not processor_arch:
             error_msg = "Couldn't determine CPU architecture, you need to set 'kokkos_arch' manually."
