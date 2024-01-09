@@ -331,7 +331,10 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', pkg_opt + 'on')
 
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
-        processor_arch, gpu_arch = get_kokkos_arch(self.kokkos_cpu_mapping, cuda_cc, self.cfg['kokkos_arch'], cuda=self.cuda)
+        processor_arch, gpu_arch = get_kokkos_arch(self.kokkos_cpu_mapping, 
+                                                   cuda_cc, 
+                                                   self.cfg['kokkos_arch'], 
+                                                   cuda=self.cuda)
         # arch names changed between some releases :(
         if LooseVersion(self.cur_version) < LooseVersion(self.ref_version):
             if processor_arch in KOKKOS_LEGACY_ARCH_MAPPING.keys():
@@ -546,7 +549,7 @@ def get_kokkos_arch(mapping, cuda_cc, kokkos_arch, cuda=None):
         warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
         print_warning(warning_msg)
 
-        processor_arch =  mapping.get(get_cpu_arch())
+        processor_arch = mapping.get(get_cpu_arch())
 
         if not processor_arch:
             error_msg = "Couldn't determine CPU architecture, you need to set 'kokkos_arch' manually."
