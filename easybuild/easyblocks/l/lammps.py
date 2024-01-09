@@ -331,9 +331,9 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', pkg_opt + 'on')
 
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
-        processor_arch, gpu_arch = get_kokkos_arch(self.kokkos_cpu_mapping, 
-                                                   cuda_cc, 
-                                                   self.cfg['kokkos_arch'], 
+        processor_arch, gpu_arch = get_kokkos_arch(self.kokkos_cpu_mapping,
+                                                   cuda_cc,
+                                                   self.cfg['kokkos_arch'],
                                                    cuda=self.cuda)
         # arch names changed between some releases :(
         if LooseVersion(self.cur_version) < LooseVersion(self.ref_version):
