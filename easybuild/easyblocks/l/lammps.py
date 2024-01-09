@@ -130,7 +130,7 @@ KOKKOS_CPU_MAPPING = {
     'power9le': 'POWER9',
 }
 
- 
+
 KOKKOS_GPU_ARCH_TABLE = {
     '3.0': 'KEPLER30',  # NVIDIA Kepler generation CC 3.0
     '3.2': 'KEPLER32',  # NVIDIA Kepler generation CC 3.2
@@ -174,14 +174,16 @@ def translate_lammps_version(version):
     }
     return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
 
+
 def update_kokkos_cpu_mapping(self):
 
     if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
         self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
         self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
 
-    if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_versi    on('21sep2021')):
+    if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
         self.kokkos_cpu_mapping['a64x'] = 'A64FX'
+
 
 class EB_LAMMPS(CMakeMake):
     """
