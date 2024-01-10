@@ -30,7 +30,7 @@ EasyBuild support for building and installing Bowtie, implemented as an easybloc
 @author: Kenneth Hoste (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import shutil

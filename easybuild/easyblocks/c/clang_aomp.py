@@ -31,7 +31,7 @@ EasyBuild support for building and installing AOMP version of LLVM/Clang
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.clang import DEFAULT_TARGETS_MAP as LLVM_ARCH_MAP
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyblock import EasyBlock

@@ -27,7 +27,7 @@ EasyBuild support for UFC, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 from easybuild.tools.build_log import EasyBuildError

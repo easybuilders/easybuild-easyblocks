@@ -39,7 +39,7 @@ import itertools
 import os
 import shutil
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -79,14 +79,26 @@ class EB_imkl(IntelBase):
         self.cdftlibs = []
         self.mpi_spec = None
 
-        if LooseVersion(self.version) >= LooseVersion('2021'):
-            self.mkl_basedir = os.path.join('mkl', self.version)
-            if self.cfg['flexiblas'] is None:
-                self.cfg['flexiblas'] = True
+        if self.cfg['flexiblas'] is None:
+            self.cfg['flexiblas'] = LooseVersion(self.version) >= LooseVersion('2021')
+
+        if LooseVersion(self.version) >= LooseVersion('2024'):
+            self.examples_subdir = os.path.join('share', 'doc', 'mkl', 'examples')
+            self.compiler_libdir = 'lib'
         else:
-            self.mkl_basedir = 'mkl'
-            if self.cfg['flexiblas'] is None:
-                self.cfg['flexiblas'] = False
+            self.examples_subdir = 'examples'
+            self.compiler_libdir = os.path.join('linux', 'compiler', 'lib', 'intel64_lin')
+
+    @property
+    def mkl_basedir(self):
+        if LooseVersion(self.version) >= LooseVersion('2021'):
+            return self.get_versioned_subdir('mkl')
+        else:
+            return 'mkl'
+
+    @mkl_basedir.setter
+    def mkl_basedir(self, path):
+        self.set_versioned_subdir('mkl', path)
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
@@ -162,7 +174,10 @@ class EB_imkl(IntelBase):
         loosever = LooseVersion(self.version)
 
         if loosever >= LooseVersion('10.3'):
-            intsubdir = os.path.join(self.mkl_basedir, 'interfaces')
+            intsubdir = self.mkl_basedir
+            if loosever >= LooseVersion('2024'):
+                intsubdir = os.path.join(intsubdir, 'share', 'mkl')
+            intsubdir = os.path.join(intsubdir, 'interfaces')
             inttarget = 'libintel64'
         else:
             intsubdir = 'interfaces'
@@ -306,8 +321,10 @@ class EB_imkl(IntelBase):
         and libflexiblas_imkl_sequential.so. They can be used as FlexiBLAS backends
         via FLEXIBLAS_LIBRARY_PATH.
         """
-        builderdir = os.path.join(self.installdir, self.mkl_basedir, 'tools', 'builder')
-        change_dir(builderdir)
+        builder_subdir = os.path.join('tools', 'builder')
+        if LooseVersion(self.version) >= LooseVersion('2024'):
+            builder_subdir = os.path.join('share', 'mkl', builder_subdir)
+        change_dir(os.path.join(self.installdir, self.mkl_basedir, builder_subdir))
         mkdir(flexiblasdir, parents=True)
 
         # concatenate lists of all BLAS, CBLAS and LAPACK functions
@@ -318,8 +335,7 @@ class EB_imkl(IntelBase):
                 with open(lst + "_example_list") as src:
                     shutil.copyfileobj(src, dst)
 
-        compilerdir = os.path.join('..', '..', '..', '..', 'compiler', self.version,
-                                   'linux', 'compiler', 'lib', 'intel64_lin')
+        compilerdir = os.path.join(self.installdir, self.get_versioned_subdir('compiler'), self.compiler_libdir)
         # IFACE_COMP_PART=gf gives the gfortran calling convention that FlexiBLAS expects
         cmds = ["make libintel64 IFACE_COMP_PART=gf export=%s name=%s" % (
             listfilename, os.path.join(flexiblasdir, 'libflexiblas_imkl_')) +
@@ -339,7 +355,7 @@ class EB_imkl(IntelBase):
         super(EB_imkl, self).post_install_step()
 
         # extract examples
-        examples_subdir = os.path.join(self.installdir, self.mkl_basedir, 'examples')
+        examples_subdir = os.path.join(self.installdir, self.mkl_basedir, self.examples_subdir)
         if os.path.exists(examples_subdir):
             cwd = change_dir(examples_subdir)
             for examples_tarball in glob.glob('examples_*.tgz'):
@@ -515,7 +531,7 @@ class EB_imkl(IntelBase):
                 raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
             else:
                 if LooseVersion(self.version) >= LooseVersion('2021'):
-                    compiler_subdir = os.path.join('compiler', self.version, 'linux', 'compiler', 'lib', 'intel64_lin')
+                    compiler_subdir = os.path.join(self.get_versioned_subdir('compiler'), self.compiler_libdir)
                     pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
                                        os.path.join(self.mkl_basedir, 'lib', 'pkgconfig')]
                 else:
@@ -580,16 +596,12 @@ class EB_imkl(IntelBase):
 
         if 'MKL_EXAMPLES' not in self.cfg['modextravars']:
             self.cfg.update('modextravars', {
-                'MKL_EXAMPLES': os.path.join(self.installdir, self.mkl_basedir, 'examples'),
+                'MKL_EXAMPLES': os.path.join(self.installdir, self.mkl_basedir, self.examples_subdir),
             })
 
         txt = super(EB_imkl, self).make_module_extra()
 
-        if LooseVersion(self.version) >= LooseVersion('2021'):
-            mklroot = os.path.join(self.installdir, 'mkl', self.version)
-        else:
-            mklroot = os.path.join(self.installdir, 'mkl')
-
+        mklroot = os.path.join(self.installdir, self.mkl_basedir)
         txt += self.module_generator.set_environment('MKLROOT', mklroot)
 
         return txt

@@ -32,7 +32,7 @@ import os
 import re
 import tempfile
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -56,6 +56,8 @@ class EB_PyTorch(PythonPackage):
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
 
         return extra_vars
 
@@ -288,7 +290,9 @@ class EB_PyTorch(PythonPackage):
         failed_test_cases = re.findall(regex, tests_out, re.M)
         # And patterns like:
         # FAILED test_ops_gradients.py::TestGradientsCPU::test_fn_grad_linalg_det_singular_cpu_complex128 - [snip]
-        regex = r"^(FAILED) \w+\.py.*::(test_.*?) - "
+        # FAILED [22.8699s] test_sparse_csr.py::TestSparseCompressedCPU::test_invalid_input_csr_large_cpu - [snip]
+        # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
+        regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
         failed_test_cases.extend(re.findall(regex, tests_out, re.M))
         if failed_test_cases:
             errored_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR')
@@ -350,11 +354,13 @@ class EB_PyTorch(PythonPackage):
         # OR:
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
         # FINISHED PRINTING LOG FILE
+        #
         # test_quantization failed!
 
         regex = (
             r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
-            r"(?:^(?:(?!failed!).)*$\n){0,5}"
+            r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
+            r"(?:^\s*\n)*"
             r"(?P<failed_test_suite_name>.*) failed!$"
         )
 
@@ -414,7 +420,23 @@ class EB_PyTorch(PythonPackage):
 
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = failure_cnt + error_cnt
-        test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+        # Pattern for tests ran with unittest like:
+        # Ran 3 tests in 0.387s
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests in"
+        test_cnt = sum(int(hit) for hit in re.findall(regex, tests_out, re.M))
+        # Pattern for tests ran with pytest like:
+        # ============ 286 passed, 18 skipped, 2 xfailed in 38.71s ============
+        regex = r"=+ (?P<summary>.*) in \d+.* =+\n"
+        count_patterns = [re.compile(r"([0-9]+) " + reason) for reason in [
+            "failed",
+            "passed",
+            "skipped",
+            "deselected",
+            "xfailed",
+            "xpassed",
+        ]]
+        for m in re.finditer(regex, tests_out, re.M):
+            test_cnt += sum(get_count_for_pattern(p, m.group("summary")) for p in count_patterns)
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']

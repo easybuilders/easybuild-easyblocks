@@ -33,7 +33,7 @@ import os
 import re
 import shutil
 import sys
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -133,9 +133,22 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 raise EasyBuildError("ELPA requires ScaLAPACK but 'with_scalapack' is set to False")
 
             elpa_v = get_software_version("ELPA")
-            if LooseVersion(self.version) >= LooseVersion("6"):
+            if LooseVersion(self.version) >= LooseVersion("7"):
+                # NOTE: from version 7, there are only three __ELPA flags,
+                # - __ELPA for ELPA releases 2018.11 and beyond;
+                # - __ELPA_2016 for ELPA releases 2016.11, 2017.x and 2018.05;
+                # - __ELPA_2015 for ELPA releases 2015.x and 2016.05;
+                # see https://github.com/QEF/q-e/commit/351f4871fee3c8045d75592dde606b2279b08e02
+                if LooseVersion(elpa_v) >= LooseVersion("2018.11"):
+                    dflags.append('-D__ELPA')
+                elif LooseVersion(elpa_v) >= LooseVersion("2016.11"):
+                    dflags.append('-D__ELPA_2016')
+                else:
+                    dflags.append('-D__ELPA_2015')
 
-                # NOTE: Quantum Espresso should use -D__ELPA_<year> for corresponding ELPA version
+                elpa_min_ver = "2015"
+            elif LooseVersion(self.version) >= LooseVersion("6"):
+                # NOTE: Quantum Espresso 6.x should use -D__ELPA_<year> for corresponding ELPA version
                 # However for ELPA VERSION >= 2017.11 Quantum Espresso needs to use ELPA_2018
                 # because of outdated bindings. See: https://xconfigure.readthedocs.io/en/latest/elpa/
                 if LooseVersion("2018") > LooseVersion(elpa_v) >= LooseVersion("2017.11"):

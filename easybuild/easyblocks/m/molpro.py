@@ -30,7 +30,7 @@ EasyBuild support for Molpro, implemented as an easyblock
 import os
 import shutil
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

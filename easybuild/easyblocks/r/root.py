@@ -28,7 +28,7 @@ EasyBuild support for ROOT, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.framework.easyconfig import CUSTOM

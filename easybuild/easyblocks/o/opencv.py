@@ -30,7 +30,7 @@ EasyBuild support for building and installing OpenCV, implemented as an easybloc
 """
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir

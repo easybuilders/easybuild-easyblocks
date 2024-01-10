@@ -7,7 +7,7 @@ EasyBuild support for building and installing OpenBLAS, implemented as an easybl
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
