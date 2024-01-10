@@ -35,6 +35,7 @@ from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
 import easybuild.tools.environment as env
 from easybuild.tools.filetools import symlink
+from easybuild.tools import LooseVersion
 
 
 class EB_CMake(ConfigureMake):
@@ -99,11 +100,10 @@ class EB_CMake(ConfigureMake):
         add_cmake_opts = {}
         if self.cfg['use_openssl']:
             add_cmake_opts['CMAKE_USE_OPENSSL'] = 'ON'
-
+        
+        # Use CMP0094 policy for python resolution. This is only available for CMake versions newer than 3.15 included
         cmake_version = get_software_version('CMake')
-
-        if version.parse(cmake_version) >= version.parse('3.15'):
-        # Default policy option for Python_NEWPackages
+        if LooseVersion(cmake_version) >= LooseVersion('3.15'):
             add_cmake_opts['MAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
 
         cmake_prefix_path = os.environ.get('CMAKE_PREFIX_PATH', '').split(':')
