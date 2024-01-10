@@ -172,9 +172,15 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     # determine Python lib dir via distutils
     # use run_cmd, we can to talk to the active Python, not the system Python running EasyBuild
     prefix = '/tmp/'
-    args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
-    pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
-    cmd = "%s -c '%s'" % (python_cmd, pycode)
+    if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
+        # Python 3.12 removed distutils but has a core sysconfig module which is similar
+        pathname = 'platlib' if plat_specific else 'purelib'
+        vars = {'platbase': prefix, 'base': prefix}
+        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars)
+    else:
+        args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
+        pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
+    cmd = "%s -c '%s'" % (python_cmd, pycode.replace("'", '"'))
 
     log.debug("Determining Python library directory using command '%s'", cmd)
 
@@ -338,6 +344,8 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
+            'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
+                                  "Enabled by default if the EB option --debug is used.", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
@@ -421,7 +429,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            if build_option('debug'):
+            pip_verbose = self.cfg.get('pip_verbose', None)
+            if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.cfg.update('installopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
