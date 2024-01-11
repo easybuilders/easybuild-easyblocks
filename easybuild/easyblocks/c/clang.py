@@ -126,6 +126,9 @@ class EB_Clang(CMakeMake):
         self.make_parallel_opts = ""
         self.runtime_lib_path = "lib"
 
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
+
         if not self.cfg['llvm_projects']:
             self.cfg['llvm_projects'] = []
         if not self.cfg['llvm_runtimes']:
