@@ -233,9 +233,9 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching compiler variables in %s", fullpath)
             regex_subs = []
             for comp_var, newval in comp_vars.items():
-                regex_subs.append((r"^(%s\s*=\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
+                regex_subs.append((r"^(%s\s*(=|:=)\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
             # replace /lib/cpp by cpp, but keep the arguments
-            regex_subs.append((r"^(CPP\s*=\s*)/lib/cpp(.*)$", r"\1cpp\2"))
+            regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # enable verbose build for debug purposes
