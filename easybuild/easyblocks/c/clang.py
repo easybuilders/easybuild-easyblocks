@@ -46,7 +46,7 @@ from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, which
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -505,6 +505,11 @@ class EB_Clang(CMakeMake):
             my_clang_toolchain.prepare_rpath_wrappers()
             self.log.info("Prepared clang rpath wrappers")
 
+            # add symlink for 'opt' to wrapper dir, since Clang expects it in the same directory
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/3075
+            clang_wrapper_dir = os.path.dirname(which('clang'))
+            symlink(os.path.join(prev_obj_path, 'opt'), os.path.join(clang_wrapper_dir, 'opt'))
+
             # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling
             # Clang by default warns about that, and then some configure tests use -Werror which turns those warnings
             # into errors. As a result, those configure tests fail, even though the compiler supports the requested
@@ -652,7 +657,7 @@ class EB_Clang(CMakeMake):
                 print_warning("Could not find runtime library directory")
                 self.runtime_lib_path = "lib"
         else:
-            self.runtime_lib_path = "lib"
+            self.runtime_lib_path = "lib",
 
         custom_paths = {
             'files': [
