@@ -827,7 +827,7 @@ class PythonPackage(ExtensionEasyBlock):
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
                 cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
-                run_shell_cmd(cmd, hidden=True)
+                run_shell_cmd(cmd)
 
                 self.py_post_install_shenanigans(test_installdir)
 
