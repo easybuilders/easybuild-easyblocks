@@ -34,7 +34,7 @@ import tempfile
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class OctavePackage(ExtensionEasyBlock):
@@ -56,7 +56,7 @@ class OctavePackage(ExtensionEasyBlock):
             # create temporary tarball from unpacked & patched source
             src = os.path.join(tempfile.gettempdir(), '%s-%s-patched.tar.gz' % (self.name, self.version))
             cwd = change_dir(os.path.dirname(self.ext_dir))
-            run_cmd("tar cfvz %s %s" % (src, os.path.basename(self.ext_dir)))
+            run_shell_cmd("tar cfvz %s %s" % (src, os.path.basename(self.ext_dir)))
             change_dir(cwd)
         else:
             src = self.src
@@ -69,4 +69,4 @@ class OctavePackage(ExtensionEasyBlock):
 
         octave_cmd += "pkg install -global %s" % src
 
-        run_cmd("octave --eval '%s'" % octave_cmd)
+        run_shell_cmd("octave --eval '%s'" % octave_cmd)

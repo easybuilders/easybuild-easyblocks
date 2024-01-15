@@ -32,7 +32,7 @@ import re
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class CmdCp(MakeCp):
@@ -80,4 +80,4 @@ class CmdCp(MakeCp):
                 raise EasyBuildError("No match for %s in %s, don't know which command to use.",
                                      src, self.cfg['cmds_map'])
 
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)

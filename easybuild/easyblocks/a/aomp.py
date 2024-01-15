@@ -68,6 +68,8 @@ class EB_AOMP(Binary):
         super(EB_AOMP, self).__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
         self.cfg['dontcreateinstalldir'] = True
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
 
     def configure_step(self):
         """Configure AOMP build and let 'Binary' install"""

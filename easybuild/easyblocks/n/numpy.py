@@ -183,23 +183,17 @@ class EB_numpy(FortranPythonPackage):
 
         suitesparseroot = get_software_root('SuiteSparse')
         if suitesparseroot:
-            amddir = os.path.join(suitesparseroot, 'AMD')
-            umfpackdir = os.path.join(suitesparseroot, 'UMFPACK')
 
-            if not os.path.exists(amddir) or not os.path.exists(umfpackdir):
-                raise EasyBuildError("Expected SuiteSparse subdirectories are not both there: %s, %s",
-                                     amddir, umfpackdir)
-            else:
-                extrasiteconfig += '\n'.join([
-                    "[amd]",
-                    "library_dirs = %s" % os.path.join(amddir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(amddir, 'Include'),
-                    "amd_libs = amd",
-                    "[umfpack]",
-                    "library_dirs = %s" % os.path.join(umfpackdir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(umfpackdir, 'Include'),
-                    "umfpack_libs = umfpack",
-                ])
+            extrasiteconfig += '\n'.join([
+                "[amd]",
+                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                "amd_libs = amd",
+                "[umfpack]",
+                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                "umfpack_libs = umfpack",
+            ])
 
         self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
 
@@ -216,6 +210,31 @@ class EB_numpy(FortranPythonPackage):
             # check configuration (for debugging purposes)
             cmd = "%s setup.py config" % self.python_cmd
             run_cmd(cmd, log_all=True, simple=True)
+
+        if LooseVersion(self.version) >= LooseVersion('1.26'):
+            # control BLAS/LAPACK library being used
+            # see https://github.com/numpy/numpy/blob/v1.26.2/doc/source/release/1.26.1-notes.rst#build-system-changes
+            # and 'blas-order' in https://github.com/numpy/numpy/blob/v1.26.2/meson_options.txt
+            blas_lapack_names = {
+                toolchain.BLIS: 'blis',
+                toolchain.FLEXIBLAS: 'flexiblas',
+                toolchain.LAPACK: 'lapack',
+                toolchain.INTELMKL: 'mkl',
+                toolchain.OPENBLAS: 'openblas',
+            }
+            blas_family = self.toolchain.blas_family()
+            if blas_family in blas_lapack_names:
+                self.cfg.update('installopts', "-Csetup-args=-Dblas=" + blas_lapack_names[blas_family])
+            else:
+                raise EasyBuildError("Unknown BLAS library for numpy %s: %s", self.version, blas_family)
+
+            lapack_family = self.toolchain.lapack_family()
+            if lapack_family in blas_lapack_names:
+                self.cfg.update('installopts', "-Csetup-args=-Dlapack=" + blas_lapack_names[lapack_family])
+            else:
+                raise EasyBuildError("Unknown LAPACK library for numpy %s: %s", self.version, lapack_family)
+
+            self.cfg.update('installopts', "-Csetup-args=-Dallow-noblas=false")
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
@@ -332,7 +351,30 @@ class EB_numpy(FortranPythonPackage):
 
         custom_commands = []
 
-        if LooseVersion(self.version) >= LooseVersion("1.10"):
+        if LooseVersion(self.version) >= LooseVersion('1.26'):
+            # make sure BLAS library was found
+            blas_check_pytxt = '; '.join([
+                "import numpy",
+                "numpy_config = numpy.show_config(mode='dicts')",
+                "numpy_build_deps = numpy_config['Build Dependencies']",
+                "blas_found = numpy_build_deps['blas']['found']",
+                "assert blas_found",
+            ])
+            custom_commands.append('python -c "%s"' % blas_check_pytxt)
+
+            # if FlexiBLAS is used, make sure we are linking to it
+            # (rather than directly to a backend library like OpenBLAS or Intel MKL)
+            if self.toolchain.blas_family() == toolchain.FLEXIBLAS:
+                blas_check_pytxt = '; '.join([
+                    "import numpy",
+                    "numpy_config = numpy.show_config(mode='dicts')",
+                    "numpy_build_deps = numpy_config['Build Dependencies']",
+                    "blas_name = numpy_build_deps['blas']['name']",
+                    "assert blas_name == 'flexiblas', 'BLAS library should be flexiblas, found %s' % blas_name",
+                ])
+                custom_commands.append('python -c "%s"' % blas_check_pytxt)
+
+        elif LooseVersion(self.version) >= LooseVersion('1.10'):
             # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
             # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
             blas_check_pytxt = '; '.join([

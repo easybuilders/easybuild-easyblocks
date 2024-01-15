@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class SystemMPI(Bundle, ConfigureMake, EB_impi):
@@ -124,7 +124,8 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         # Determine MPI version, installation prefix and underlying compiler
         if mpi_name in ('openmpi', 'spectrummpi'):
             # Spectrum MPI is based on Open MPI so is also covered by this logic
-            output_of_ompi_info, _ = run_cmd("ompi_info", simple=False)
+            res = run_shell_cmd("ompi_info")
+            output_of_ompi_info = res.output
 
             # Extract the version of the MPI implementation
             if mpi_name == 'spectrummpi':
@@ -183,8 +184,9 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                     self.mpi_env_vars[key] = value
 
             # Extract the C compiler used underneath Intel MPI
-            compile_info, exit_code = run_cmd("%s -compile-info" % mpi_c_wrapper, simple=False)
-            if exit_code == 0:
+            res == run_shell_cmd("%s -compile-info" % mpi_c_wrapper)
+            compile_info = res.output
+            if res.exit_code == 0:
                 self.mpi_c_compiler = compile_info.split(' ', 1)[0]
             else:
                 raise EasyBuildError("Could not determine C compiler underneath Intel MPI, '%s -compiler-info' "

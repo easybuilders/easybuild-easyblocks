@@ -35,7 +35,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.environment import unset_env_vars
 
 
@@ -79,7 +79,7 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
                 '%s=%s' % (prefix_opt, self.installdir),
                 self.cfg['configopts'],
             ])
-            run_cmd(install_cmd)
+            run_shell_cmd(install_cmd)
 
             ConfigureMake.build_step(self)
             ConfigureMake.test_step(self)
@@ -98,13 +98,13 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
                 self.installdir,
                 self.cfg['configopts'],
             ])
-            run_cmd(install_cmd)
+            run_shell_cmd(install_cmd)
 
-            run_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
+            run_shell_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
             if self.cfg['runtest']:
-                run_cmd('perl Build %s' % self.cfg['runtest'])
-            run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
+                run_shell_cmd('perl Build %s' % self.cfg['runtest'])
+            run_shell_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):
         """Perform the actual Perl module build/installation procedure"""

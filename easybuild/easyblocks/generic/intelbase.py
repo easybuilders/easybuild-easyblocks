@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
 from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 # different supported activation types (cfr. Intel documentation)
@@ -111,6 +111,26 @@ class IntelBase(EasyBlock):
         self.home_subdir_local = os.path.join(common_tmp_dir, os.environ.get('USER', 'nouser'), 'easybuild_intel')
 
         self.install_components = None
+        # dictionary to keep track of "latest" directory symlinks
+        # the target may only have major.minor, and tbb may have a lower version number than the compiler
+        # for example compiler 2021.1.2 has tbb 2021.1.1, 2024.0.0 has directory name 2024.0
+        self._latest_subdir = {}
+
+    def get_versioned_subdir(self, subdir):
+        """Return versioned directory that the 'latest' symlink points to in subdir"""
+        if subdir not in self._latest_subdir:
+            if os.path.islink(os.path.join(self.installdir, subdir, 'latest')):
+                version = os.readlink(os.path.join(self.installdir, subdir, 'latest'))
+            else:
+                version = 'latest'
+            latest_subdir = os.path.join(subdir, version)
+            self._latest_subdir[subdir] = latest_subdir
+            self.log.debug('Determined versioned directory for %s: %s', subdir, version)
+        return self._latest_subdir[subdir]
+
+    def set_versioned_subdir(self, subdir, path):
+        """Set version-specific path for specified subdirectory."""
+        self._latest_subdir[subdir] = path
 
     def get_guesses_tools(self):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
@@ -408,7 +428,7 @@ class IntelBase(EasyBlock):
             self.cfg['installopts'],
         ])
 
-        return run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
     def install_step_oneapi(self, *args, **kwargs):
         """
@@ -448,16 +468,16 @@ class IntelBase(EasyBlock):
 
         cmd.append(self.cfg['installopts'])
 
-        return run_cmd(' '.join(cmd), log_all=True, simple=True, log_output=True)
+        run_shell_cmd(' '.join(cmd))
 
     def install_step(self, *args, **kwargs):
         """
         Install Intel software
         """
         if LooseVersion(self.version) >= LooseVersion('2021'):
-            return self.install_step_oneapi(*args, **kwargs)
+            self.install_step_oneapi(*args, **kwargs)
         else:
-            return self.install_step_classic(*args, **kwargs)
+            self.install_step_classic(*args, **kwargs)
 
     def move_after_install(self):
         """Move installed files to correct location after installation."""

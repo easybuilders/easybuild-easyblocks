@@ -31,12 +31,12 @@ import os
 import random
 import re
 
-from easybuild.tools import LooseVersion
 from string import ascii_letters
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
@@ -144,14 +144,12 @@ class EB_Trilinos(CMakeMake):
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
             self.cfg.update('configopts', "-DTPL_ENABLE_Cholmod:BOOL=ON")
-            incdirs, libdirs, libnames = [], [], []
-            for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
-                incdirs.append(os.path.join(suitesparse, lib, "Include"))
-                libdirs.append(os.path.join(suitesparse, lib, "Lib"))
-                libnames.append(lib.lower())
+            incdir = os.path.join(suitesparse, "include")
+            libdir = os.path.join(suitesparse, "lib")
+            libs = ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]
+            libnames = [lib.lower() for lib in libs]
 
             # add SuiteSparse config lib, it is in recent versions of suitesparse
-            libdirs.append(os.path.join(suitesparse, 'SuiteSparse_config'))
             libnames.append('suitesparseconfig')
             # because of "SuiteSparse_config.c:function SuiteSparse_tic: error: undefined reference to 'clock_gettime'"
             libnames.append('rt')
@@ -162,11 +160,11 @@ class EB_Trilinos(CMakeMake):
             # see https://answers.launchpad.net/dorsal/+question/223167
             libnames.append('libmetis.a')
 
-            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
-            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DCholmod_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
 
         # BLACS

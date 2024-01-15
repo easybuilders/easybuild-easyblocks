@@ -34,7 +34,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 DEFAULT_CONFIGURE_CMD = 'meson'
 DEFAULT_BUILD_CMD = 'ninja'
@@ -99,8 +99,8 @@ class MesonNinja(EasyBlock):
             'preconfigopts': self.cfg['preconfigopts'],
             'source_dir': build_dir,
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output
 
     def build_step(self, verbose=False, path=None):
         """
@@ -118,8 +118,8 @@ class MesonNinja(EasyBlock):
             'parallel': parallel,
             'prebuildopts': self.cfg['prebuildopts'],
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output
 
     def test_step(self):
         """
@@ -127,8 +127,8 @@ class MesonNinja(EasyBlock):
         """
         if self.cfg['runtest']:
             cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
-            return out
+            res = run_shell_cmd(cmd)
+            return res.output
 
     def install_step(self):
         """
@@ -146,5 +146,5 @@ class MesonNinja(EasyBlock):
             'install_cmd': install_cmd,
             'preinstallopts': self.cfg['preinstallopts'],
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output

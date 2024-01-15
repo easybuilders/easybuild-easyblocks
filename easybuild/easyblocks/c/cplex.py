@@ -60,6 +60,9 @@ class EB_CPLEX(Binary):
         self.with_python = False
         self.multi_python = 'Python' in self.cfg['multi_deps']
 
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
+
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
         super(EB_CPLEX, self).prepare_step(*args, **kwargs)
