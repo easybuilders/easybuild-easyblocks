@@ -56,6 +56,8 @@ class EB_PyTorch(PythonPackage):
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
 
         return extra_vars
 
