@@ -657,7 +657,7 @@ class EB_Clang(CMakeMake):
                 print_warning("Could not find runtime library directory")
                 self.runtime_lib_path = "lib"
         else:
-            self.runtime_lib_path = "lib",
+            self.runtime_lib_path = "lib"
 
         custom_paths = {
             'files': [
