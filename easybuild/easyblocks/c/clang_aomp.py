@@ -230,7 +230,8 @@ class EB_Clang_minus_AOMP(Bundle):
 
         # Setup configuration options for LLVM
         component['configopts'] = ' '.join([
-            "-DLLVM_ENABLE_PROJECTS='clang;lld;compiler-rt'",
+            "-DLLVM_ENABLE_PROJECTS='clang;lld;clang-tools-extra'",
+            "-DLLVM_ENABLE_RUNTIMES='compiler-rt;libcxx;libcxxabi'",
             "-DCLANG_DEFAULT_LINKER=lld",
             "-DGCC_INSTALL_PREFIX=$EBROOTGCCCORE",
             "-DLLVM_ENABLE_ASSERTIONS=ON",
