@@ -67,23 +67,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         PythonPackage.__init__(self, *args, **kwargs)
         self.testinstall = True
 
-        if LooseVersion(self.version) >= LooseVersion('1.9'):
-            self.use_meson = True
+        # use Meson/Ninja install procedure for scipy >= 1.9
+        self.use_meson = LooseVersion(self.version) >= LooseVersion('1.9')
 
-            # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
-            # strip inherited PythonPackage installopts
-            installopts = self.cfg['installopts']
-            pythonpackage_installopts = ['--no-deps', '--ignore-installed', '--no-index', '--egg',
-                                         '--zip-ok', '--no-index']
-            self.log.info("Stripping inherited PythonPackage installopts %s from installopts %s",
-                          pythonpackage_installopts, installopts)
-            for i in pythonpackage_installopts:
-                installopts = installopts.replace(i, '')
-            self.cfg['installopts'] = installopts
-
-        else:
-            self.use_meson = False
-
+        # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
         if self.cfg['ignore_test_result'] is None:
             # automatically ignore scipy test suite results for scipy < 1.9, as we did in older easyconfigs
             self.cfg['ignore_test_result'] = LooseVersion(self.version) < '1.9'

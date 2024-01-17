@@ -89,7 +89,9 @@ class EB_wxPython(PythonPackage):
             pyver = det_python_version(self.python_cmd)
             pyver = pyver[0] + pyver[2]
 
-            cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+            installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+            cmd = "pip install %(installopts)s --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+                'installopts': installopts,
                 'prefix': self.installdir,
                 'version': self.version,
                 'pyver': pyver
