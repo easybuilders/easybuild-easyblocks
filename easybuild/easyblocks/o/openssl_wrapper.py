@@ -71,13 +71,16 @@ class EB_OpenSSL_wrapper(Bundle):
         """Locate the installation files of OpenSSL in the host system"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
-        # Wrapper should have at least a major minor version numbers
-        try:
-            subversions = self.version.split('.')
-            self.majmin_version = '%s.%s' % (subversions[0], subversions[1])
-        except (AttributeError, IndexError):
-            err_msg = "Wrapper OpenSSL version does not have any subversion: %s"
-            raise EasyBuildError(err_msg, self.version)
+        # Wrapper should have at least a major minor version numbers for OpenSSL before version 3+
+        if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
+            self.majmin_version = self.version
+        else:
+            try:
+                subversions = self.version.split('.')
+                self.majmin_version = '%s.%s' % (subversions[0], subversions[1])
+            except (AttributeError, IndexError):
+                err_msg = "Wrapper OpenSSL version does not have any subversion: %s"
+                raise EasyBuildError(err_msg, self.version)
 
         # Set minimum OpenSSL version
         min_openssl_version = self.cfg.get('minimum_openssl_version')
@@ -116,6 +119,10 @@ class EB_OpenSSL_wrapper(Bundle):
                 LINUX: ('so.3', ),
                 DARWIN: ('3.dylib', ),
             },
+            '3': {
+                LINUX: ('so.3', ),
+                DARWIN: ('3.dylib', ),
+            },
         }
 
         os_type = get_os_type()
@@ -140,6 +147,7 @@ class EB_OpenSSL_wrapper(Bundle):
             '1.0': 'engines',
             '1.1': 'engines-1.1',
             '3.0': 'engines-3',
+            '3': 'engines-3',
         }
         self.target_ssl_engine = openssl_engines[self.majmin_version]
 
@@ -368,9 +376,14 @@ class EB_OpenSSL_wrapper(Bundle):
             'dirs': ssl_dirs,
         }
 
+        if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
+            ssl_ver_compare_characters = 1
+        else:
+            ssl_ver_compare_characters = 3
+        
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
-            "ssl_ver=$(openssl version); [ ${ssl_ver:8:3} == '%s' ]" % self.majmin_version,
+            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_compare_characters, self.majmin_version),
             "echo | openssl s_client -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'",
         ]
 
