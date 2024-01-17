@@ -377,13 +377,13 @@ class EB_OpenSSL_wrapper(Bundle):
         }
 
         if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
-            ssl_ver_compare_characters = 1
+            ssl_ver_comp_chars = 1
         else:
-            ssl_ver_compare_characters = 3
-        
+            ssl_ver_comp_chars = 3
+
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
-            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_compare_characters, self.majmin_version),
+            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_comp_chars, self.majmin_version),
             "echo | openssl s_client -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'",
         ]
 
