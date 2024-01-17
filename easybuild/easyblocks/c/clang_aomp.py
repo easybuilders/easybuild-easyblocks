@@ -233,7 +233,7 @@ class EB_Clang_minus_AOMP(Bundle):
             "-DLLVM_ENABLE_PROJECTS='clang;lld;clang-tools-extra'",
             "-DLLVM_ENABLE_RUNTIMES='compiler-rt;libcxx;libcxxabi'",
             "-DCLANG_DEFAULT_LINKER=lld",
-            "-DGCC_INSTALL_PREFIX=%s" % os.getenv('EBROOTGCCCORE'),
+            "-DGCC_INSTALL_PREFIX=%s" % os.getenv('EBROOTGCC', os.getenv('EBROOTGCCCORE')),
             "-DLLVM_ENABLE_ASSERTIONS=ON",
             "-DLLVM_ENABLE_BINDINGS=OFF",
             "-DLLVM_INCLUDE_BENCHMARKS=OFF",
