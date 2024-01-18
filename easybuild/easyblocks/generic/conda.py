@@ -33,7 +33,7 @@ import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
 
@@ -74,7 +74,7 @@ class Conda(Binary):
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = "%s config --add create_default_packages setuptools" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
 
@@ -86,7 +86,7 @@ class Conda(Binary):
             # use --force to ignore existing installation directory
             cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
                                                          env_spec, self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         else:
 
@@ -100,11 +100,11 @@ class Conda(Binary):
 
             cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
                                                         self.installdir, install_args)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         # clean up
         cmd = "%s clean -ya" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""

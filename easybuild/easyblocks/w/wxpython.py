@@ -89,7 +89,9 @@ class EB_wxPython(PythonPackage):
             pyver = det_python_version(self.python_cmd)
             pyver = pyver[0] + pyver[2]
 
-            cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+            installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+            cmd = "pip install %(installopts)s --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+                'installopts': installopts,
                 'prefix': self.installdir,
                 'version': self.version,
                 'pyver': pyver
@@ -127,6 +129,9 @@ class EB_wxPython(PythonPackage):
             files.extend([os.path.join('bin', 'wxrc')])
             dirs.extend(['include', 'share'])
             py_bins.extend(['alacarte', 'alamode', 'wrap'])
+        elif LooseVersion(self.version) >= LooseVersion("4.2"):
+            majver = '3.2'  # this is 3.2 in ver 4.2.x
+            py_bins.extend(['slices', 'slicesshell'])
         elif LooseVersion(self.version) >= LooseVersion("4.1"):
             majver = '3.1'  # this is 3.1 in ver 4.1.x
             py_bins.extend(['slices', 'slicesshell'])

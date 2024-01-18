@@ -55,6 +55,9 @@ class EB_PyTorch(PythonPackage):
             'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
 
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
+
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -286,7 +289,9 @@ class EB_PyTorch(PythonPackage):
         failed_test_cases = re.findall(regex, tests_out, re.M)
         # And patterns like:
         # FAILED test_ops_gradients.py::TestGradientsCPU::test_fn_grad_linalg_det_singular_cpu_complex128 - [snip]
-        regex = r"^(FAILED) \w+\.py.*::(test_.*?) - "
+        # FAILED [22.8699s] test_sparse_csr.py::TestSparseCompressedCPU::test_invalid_input_csr_large_cpu - [snip]
+        # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
+        regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
         failed_test_cases.extend(re.findall(regex, tests_out, re.M))
         if failed_test_cases:
             errored_test_cases = sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR')
@@ -316,7 +321,7 @@ class EB_PyTorch(PythonPackage):
             return 0
 
         # Create clear summary report
-        failure_report = ""
+        failure_report = []
         failure_cnt = 0
         error_cnt = 0
         failed_test_suites = []
@@ -335,9 +340,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
             failure_summary = m.group('failure_summary')
             total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
+            failure_report.append("{test_suite} ({total} total tests, {failure_summary})".format(
                     test_suite=test_suite, total=total, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
             error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
             failed_test_suites.append(test_suite)
@@ -348,11 +353,13 @@ class EB_PyTorch(PythonPackage):
         # OR:
         # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
         # FINISHED PRINTING LOG FILE
+        #
         # test_quantization failed!
 
         regex = (
             r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
-            r"(?:^(?:(?!failed!).)*$\n){0,5}"
+            r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
+            r"(?:^\s*\n)*"
             r"(?P<failed_test_suite_name>.*) failed!$"
         )
 
@@ -360,9 +367,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
             failure_summary = m.group('failure_summary')
             test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
+            failure_report.append("{test_suite} ({failure_summary})".format(
                     test_suite=test_suite, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
             error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
             failed_test_suites.append(test_suite)
@@ -387,9 +394,9 @@ class EB_PyTorch(PythonPackage):
             # E.g. '2 unit test(s) failed'
             failure_summary = m.group('failure_summary')
             test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
+            failure_report.append("{test_suite} ({failure_summary})".format(
                     test_suite=test_suite, failure_summary=failure_summary
-                )
+                ))
             failure_cnt += get_count_for_pattern(r"([0-9]+) unit test\(s\) failed", failure_summary)
             failed_test_suites.append(test_suite)
 
@@ -402,16 +409,33 @@ class EB_PyTorch(PythonPackage):
         )
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
-            failure_report = ['Failed tests (suites/files):'] + ([failure_report] if failure_report else [])
+            failure_report = ['Failed tests (suites/files):'] + failure_report
             # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
             failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
-            failure_report = '\n'.join(failure_report)
+
+        failure_report = '\n'.join(failure_report)
 
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = failure_cnt + error_cnt
-        test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+        # Pattern for tests ran with unittest like:
+        # Ran 3 tests in 0.387s
+        regex = r"^Ran (?P<test_cnt>[0-9]+) tests in"
+        test_cnt = sum(int(hit) for hit in re.findall(regex, tests_out, re.M))
+        # Pattern for tests ran with pytest like:
+        # ============ 286 passed, 18 skipped, 2 xfailed in 38.71s ============
+        regex = r"=+ (?P<summary>.*) in \d+.* =+\n"
+        count_patterns = [re.compile(r"([0-9]+) " + reason) for reason in [
+            "failed",
+            "passed",
+            "skipped",
+            "deselected",
+            "xfailed",
+            "xpassed",
+        ]]
+        for m in re.finditer(regex, tests_out, re.M):
+            test_cnt += sum(get_count_for_pattern(p, m.group("summary")) for p in count_patterns)
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']

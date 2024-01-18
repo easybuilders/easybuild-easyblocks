@@ -59,6 +59,9 @@ class EB_Rust(ConfigureMake):
 
         self.cfg.update('configopts', "--sysconfdir=%s" % os.path.join(self.installdir, 'etc'))
 
+        # old llvm builds from CI get deleted after a certain time
+        self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
+
         # don't use Ninja if it is not listed as a build dependency;
         # may be because Ninja requires Python, and Rust is a build dependency for cryptography
         # which may be included as an extension with Python

@@ -96,11 +96,14 @@ class EB_TensorRT(PythonPackage, Binary):
             os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
             os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)),
         ]
+
+        installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+
         for whl in whls:
             whl_paths = glob.glob(os.path.join(self.installdir, whl))
             if len(whl_paths) == 1:
                 cmd = PIP_INSTALL_CMD % {
-                    'installopts': self.cfg['installopts'],
+                    'installopts': installopts,
                     'loc': whl_paths[0],
                     'prefix': self.installdir,
                     'python': self.python_cmd,

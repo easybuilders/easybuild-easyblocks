@@ -67,6 +67,9 @@ class EB_AOCC(PackedBinary):
 
         self.clangversion = self.cfg['clangversion']
 
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
+
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',

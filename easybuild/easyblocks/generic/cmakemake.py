@@ -45,7 +45,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -63,7 +63,8 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        cmd_res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
+        out = cmd_res.output
         res = regex.search(out)
         if res:
             cmake_version = res.group('version')
@@ -267,9 +268,10 @@ class CMakeMake(ConfigureMake):
                     self.log.info("Using absolute path to compiler command: %s", value)
                 options[option] = value
 
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.cmake_version) < LooseVersion('3.5.0'):
             # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
-            # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
+            # this is only required for CMake < 3.5.0, since newer version are more careful w.r.t. RPATH,
+            # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
         # show what CMake is doing by default
@@ -310,9 +312,9 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        res = run_shell_cmd(command)
 
-        return out
+        return res.output
 
     def test_step(self):
         """CMake specific test setup"""

@@ -71,8 +71,6 @@ class EB_pybind11(CMakePythonPackage):
         build_dir = change_dir(self.cfg['start_dir'])
         PythonPackage.install_step(self)
 
-        # Reset installopts (set by PythonPackage)
-        self.cfg['installopts'] = ''
         change_dir(build_dir)
         CMakeMake.install_step(self)
 
