@@ -91,7 +91,7 @@ class Conda(Binary):
             else:
                 env_spec = self.cfg['remote_environment']
 
-            # use --force to ignore existing installation directory            
+            # use --force to ignore existing installation directory
             cmd = "%s %s env create %s %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
                                                     force, env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
