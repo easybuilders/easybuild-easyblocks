@@ -394,6 +394,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
+        self.py_installopts = []
         self.install_cmd_output = ''
 
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
@@ -431,7 +432,7 @@ class PythonPackage(ExtensionEasyBlock):
 
             pip_verbose = self.cfg.get('pip_verbose', None)
             if pip_verbose or (pip_verbose is None and build_option('debug')):
-                self.cfg.update('installopts', '--verbose')
+                self.py_installopts.append('--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
             # the default is use_pip_for_deps=False
@@ -439,18 +440,18 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info("Using pip to also install the dependencies")
             else:
                 self.log.info("Using pip with --no-deps option")
-                self.cfg.update('installopts', '--no-deps')
+                self.py_installopts.append('--no-deps')
 
             if self.cfg.get('pip_ignore_installed', True):
                 # don't (try to) uninstall already availale versions of the package being installed
-                self.cfg.update('installopts', '--ignore-installed')
+                self.py_installopts.append('--ignore-installed')
 
             if self.cfg.get('zipped_egg', False):
-                self.cfg.update('installopts', '--egg')
+                self.py_installopts.append('--egg')
 
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
-                self.cfg.update('installopts', '--no-index')
+                self.py_installopts.append('--no-index')
 
             # avoid that pip (ab)uses $HOME/.cache/pip
             # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
@@ -463,10 +464,10 @@ class PythonPackage(ExtensionEasyBlock):
 
             if self.cfg['install_target'] == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
-                self.cfg.update('installopts', '--no-deps')
+                self.py_installopts.append('--no-deps')
             if self.cfg.get('zipped_egg', False):
                 if self.cfg['install_target'] == EASY_INSTALL_TARGET:
-                    self.cfg.update('installopts', '--zip-ok')
+                    self.py_installopts.append('--zip-ok')
                 else:
                     raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
 
@@ -612,7 +613,7 @@ class PythonPackage(ExtensionEasyBlock):
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
                     if '--no-build-isolation' not in self.cfg['installopts']:
-                        self.cfg.update('installopts', '--no-build-isolation')
+                        self.py_installopts.append('--no-build-isolation')
 
             elif not self.dry_run:
                 raise EasyBuildError("Failed to determine pip version!")
@@ -639,7 +640,7 @@ class PythonPackage(ExtensionEasyBlock):
                 loc += '[%s]' % extras
 
         if installopts is None:
-            installopts = self.cfg['installopts']
+            installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
 
         if self.cfg.get('use_pip_editable', False):
             # add --editable option when requested, in the right place (i.e. right before the location specification)

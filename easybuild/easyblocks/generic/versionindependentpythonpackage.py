@@ -72,7 +72,7 @@ class VersionIndependentPythonPackage(PythonPackage):
                 '--record %s' % os.path.join(self.builddir, 'record'),
                 '--no-compile',
             ]
-            self.cfg.update('installopts', ' '.join(extra_installopts))
+            self.py_installopts.extend(extra_installopts)
         else:
             # using easy_install or pip always results in installation that is specific to Python version
             eb_name = self.__class__.__name__
