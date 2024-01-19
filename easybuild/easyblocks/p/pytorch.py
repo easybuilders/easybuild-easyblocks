@@ -75,11 +75,11 @@ class EB_PyTorch(PythonPackage):
         self.testinstall = True
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
 
-        # opt-in to using pip to install PyTorch for sufficiently recent version (>= 2.1),
+        # opt-in to using pip to install PyTorch for sufficiently recent version (>= 2.0),
         # unless it's otherwise specified
         pytorch_version = LooseVersion(self.version)
-        if self.cfg['use_pip'] is None and pytorch_version >= '2.1':
-            self.log.info("Auto-enabling use of pip to install PyTorch, since 'use_pip' is not set")
+        if self.cfg['use_pip'] is None and pytorch_version >= '2.0':
+            self.log.info("Auto-enabling use of pip to install PyTorch >= 2.0, since 'use_pip' is not set")
             self.cfg['use_pip'] = True
 
     def fetch_step(self, skip_checksums=False):
