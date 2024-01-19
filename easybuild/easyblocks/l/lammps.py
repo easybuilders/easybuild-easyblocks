@@ -157,7 +157,7 @@ ref_version = '29Sep2021'
 def translate_lammps_version(version):
     """Translate the LAMMPS version into something that can be used in a comparison"""
     items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) != 3:
+    if len(items) < 3:
         raise ValueError("Version %s does not have 3 elements" % version)
     month_map = {
        "JAN": '01',
