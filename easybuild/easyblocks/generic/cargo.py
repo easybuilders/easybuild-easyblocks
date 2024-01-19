@@ -103,13 +103,14 @@ class Cargo(ExtensionEasyBlock):
 
         # Populate sources from "crates" list of tuples (only once)
         if self.cfg['crates']:
-            # copy list of crates, so we can wipe 'crates' easyconfig parameter,
+            # Move 'crates' list from easyconfig parameter to property,
             # to avoid that creates are processed into 'sources' easyconfig parameter again
-            # when easyblock is initialized again using same parsed easyconfig
+            # when easyblock is initialized again using the same parsed easyconfig
             # (for example when check_sha256_checksums function is called, like in easyconfigs test suite)
-            self.crates = self.cfg['crates'][:]
+            self.crates = self.cfg['crates']
+            self.cfg['crates'] = []
             sources = []
-            for crate_info in self.cfg['crates']:
+            for crate_info in self.crates:
                 if len(crate_info) == 2:
                     crate, version = crate_info
                     sources.append({
@@ -120,17 +121,15 @@ class Cargo(ExtensionEasyBlock):
                     })
                 else:
                     crate, version, repo, rev = crate_info
-                    url, repo_name_git = repo.rsplit('/', maxsplit=1)
+                    url, repo_name = repo.rsplit('/', maxsplit=1)
+                    if repo_name.endswith('.git'):
+                        repo_name = repo_name[:-4]
                     sources.append({
-                        'git_config': {'url': url, 'repo_name': repo_name_git[:-4], 'commit': rev},
+                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
                         'filename': crate + '-' + version + '.tar.gz',
-                        'source_urls': [CRATESIO_SOURCE],
                     })
 
             self.cfg.update('sources', sources)
-
-            # set 'crates' easyconfig parameter to empty list to prevent re-processing into sources
-            self.cfg['crates'] = []
 
     def extract_step(self):
         """
