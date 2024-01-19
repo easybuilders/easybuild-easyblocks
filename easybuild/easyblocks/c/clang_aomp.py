@@ -228,10 +228,12 @@ class EB_Clang_minus_AOMP(Bundle):
         # dependency and interrupts building of LLVM
         component['prebuildopts'] = "unset CPATH && "
 
+        projects = ['clang', 'lld', 'clang-tools-extra', 'compiler-rt']
+        runtimes = ['libcxx', 'libcxxabi']
         # Setup configuration options for LLVM
         component['configopts'] = ' '.join([
-            "-DLLVM_ENABLE_PROJECTS='clang;lld;clang-tools-extra'",
-            "-DLLVM_ENABLE_RUNTIMES='compiler-rt;libcxx;libcxxabi'",
+            "-DLLVM_ENABLE_PROJECTS='%s'" % ';'.join(projects),
+            "-DLLVM_ENABLE_RUNTIMES='%s'" % ';'.join(runtimes),
             "-DCLANG_DEFAULT_LINKER=lld",
             "-DGCC_INSTALL_PREFIX=%s" % os.getenv('EBROOTGCC', os.getenv('EBROOTGCCCORE')),
             "-DLLVM_ENABLE_ASSERTIONS=ON",
