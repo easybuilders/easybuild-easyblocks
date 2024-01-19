@@ -29,10 +29,11 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 """
 
 import os
+import re
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.filetools import extract_file, change_dir
@@ -242,7 +243,11 @@ def generate_crate_list(sourcedir):
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
     cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
 
-    app_name = cargo_toml['package']['name']
+    try:
+        app_name = cargo_toml['package']['name']
+    except KeyError:
+        app_name = os.path.basename(os.path.abspath(sourcedir))
+        print_warning('Did not find a [package] name= entry. Assuming it is the folder name: ' + app_name)
     deps = cargo_lock['package']
 
     app_in_cratesio = False
@@ -258,8 +263,14 @@ def generate_crate_list(sourcedir):
                 if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
                     crates.append((name, version))
                 else:
-                    # Lock file has revision#revision in the url for some reason.
-                    crates.append((name, version, dep['source'].rsplit('#', maxsplit=1)[0]))
+                    # Lock file has revision#revision in the url
+                    url, rev = dep['source'].rsplit('#', maxsplit=1)
+                    for prefix in ('registry+', 'git+'):
+                        if url.startswith(prefix):
+                            url = url[len(prefix):]
+                    # Remove branch name if present
+                    url = re.sub(r'\?branch=\w+$', '', url)
+                    crates.append((name, version, url, rev))
         else:
             other_crates.append((name, version))
     return app_in_cratesio, crates, other_crates
@@ -274,5 +285,5 @@ if __name__ == '__main__':
         if app_in_cratesio:
             print('    (name, version),')
         for crate_info in crates:
-            print("    ('" + "', '".join(crate_info) + "'),")
+            print("    %s," % str(crate_info))
         print(']')
