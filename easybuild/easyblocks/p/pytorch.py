@@ -531,3 +531,21 @@ class EB_PyTorch(PythonPackage):
         # Required to dynamically load libcaffe2_nvrtc.so
         guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
         return guesses
+
+
+if __name__ == '__main__':
+    arg = sys.argv[1]
+    if not os.path.isfile(arg):
+        raise RuntimeError('Expected a test result file to parse, got: ' + arg)
+    with open(arg, 'r') as f:
+        content = f.read()
+    m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
+    if m:
+        content = content[m.end():]
+        # Heuristic for next possible text added by EasyBuild
+        m = re.search(r'^== \d+-\d+-\d+ .* (pytorch\.py|EasyBuild)', content)
+        if m:
+            content = content[:m.start()]
+
+    print("Failed test names: ", find_failed_test_names(content))
+    print("Test result: ", parse_test_log(content))
