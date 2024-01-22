@@ -100,12 +100,15 @@ def parse_test_log(tests_out):
     error_cnt = 0
     failed_suites = []
 
+    # Remove empty lines to make RegExs below simpler
+    tests_out = re.sub(r'^[ \t]*\n', '', tests_out, flags=re.MULTILINE)
+
     # Grep for patterns like:
     # Ran 219 tests in 67.325s
     #
     # FAILED (errors=10, skipped=190, expected failures=6)
     # test_fx failed!
-    regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
+    regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n"
              r"FAILED \((?P<failure_summary>.*)\)$\n"
              r"(?:^(?:(?!failed!).)*$\n){0,5}"
              r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
@@ -133,7 +136,6 @@ def parse_test_log(tests_out):
     regex = (
         r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
         r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
-        r"(?:^\s*\n)*"
         r"(?P<failed_test_suite_name>.*) failed!$"
     )
 
