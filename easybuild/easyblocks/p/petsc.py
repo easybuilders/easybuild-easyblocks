@@ -275,8 +275,9 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
 
             # set PETSC_DIR for configure (env) and build_step
-            env.setvar('PETSC_DIR', self.cfg['start_dir'])
-            self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
+            petsc_dir = os.path.abspath(self.cfg['start_dir'])
+            env.setvar('PETSC_DIR', petsc_dir)
+            self.cfg.update('buildopts', 'PETSC_DIR=%s' % petsc_dir)
 
             if self.cfg['sourceinstall']:
                 if self.petsc_arch:
