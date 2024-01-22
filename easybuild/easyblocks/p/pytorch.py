@@ -129,12 +129,20 @@ def parse_test_log(tests_out):
     # test_quantization failed!
     # OR:
     # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
+    #
     # FINISHED PRINTING LOG FILE
+    # test_quantization failed!
+    # OR:
+    # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
+    # If in CI, skip info is located in the xml test reports, please either go to s3 or the hud to download them
+    #
+    # FINISHED PRINTING LOG FILE of test_ops_gradients (/tmp/vsc40023/easybuil...)
     #
     # test_quantization failed!
 
     regex = (
         r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
+        r"(?:.*skip info is located in the xml test reports.*\n)?"
         r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
         r"(?P<failed_test_suite_name>.*) failed!$"
     )
