@@ -59,9 +59,6 @@ class EB_PyTorch(PythonPackage):
         # see also https://github.com/easybuilders/easybuild-easyblocks/pull/3022
         extra_vars['use_pip'][0] = None
 
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-
         # Make pip show output of build process as that may often contain errors or important warnings
         extra_vars['pip_verbose'][0] = True
 

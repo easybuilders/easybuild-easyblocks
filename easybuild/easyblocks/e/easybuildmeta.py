@@ -33,7 +33,7 @@ import re
 import sys
 from collections import OrderedDict
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
@@ -65,27 +65,6 @@ class EB_EasyBuildMeta(PythonPackage):
             self.easybuild_pkgs.extend(['vsc-base', 'vsc-install'])
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
-
-        # opt-in to using pip for recent version of EasyBuild, if:
-        # - EasyBuild is being installed for Python >= 3.6;
-        # - pip is available, and recent enough (>= 21.0);
-        # - use_pip is not specified;
-        pyver = sys.version.split(' ')[0]
-        self.log.info("Python version: %s", pyver)
-        if sys.version_info >= (3, 6) and self.cfg['use_pip'] is None:
-            # try to determine pip version, ignore any failures that occur while doing so;
-            # problems may occur due changes in environment ($PYTHONPATH, etc.)
-            pip_version = None
-            try:
-                pip_version = det_pip_version(python_cmd=sys.executable)
-                self.log.info("Found Python v%s + pip: %s", pyver, pip_version)
-            except Exception as err:
-                self.log.warning("Failed to determine pip version: %s", err)
-
-            if pip_version and LooseVersion(pip_version) >= LooseVersion('21.0'):
-                self.log.info("Auto-enabling use of pip to install EasyBuild!")
-                self.cfg['use_pip'] = True
-                self.determine_install_command()
 
     # Override this function since we want to respect the user choice for the python installation to use
     # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
