@@ -34,7 +34,7 @@ import stat
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.filetools import adjust_permissions, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Anaconda(Binary):
@@ -51,7 +51,7 @@ class EB_Anaconda(Binary):
         # Anacondas own install instructions specify "bash [script]" despite using different shebangs
         cmd = "%s bash ./%s -p %s -b -f" % (self.cfg['preinstallopts'], install_script, self.installdir)
         self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def make_module_req_guess(self):
         """
