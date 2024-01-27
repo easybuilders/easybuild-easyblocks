@@ -257,6 +257,10 @@ class EB_PETSc(ConfigureMake):
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
                                    "COLAMD", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
 
+                    # SLIP_LU was replaced by SPEX in SuiteSparse >= 6.0
+                    if LooseVersion(get_software_version('SuiteSparse')) >= LooseVersion("6.0"):
+                        ss_libs = [x if x != "SLIP_LU" else "SPEX" for x in ss_libs]
+
                     suitesparse_inc = os.path.join(suitesparse, "include")
                     inc_spec = "-include=[%s]" % suitesparse_inc
 
