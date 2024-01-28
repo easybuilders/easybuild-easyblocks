@@ -42,7 +42,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AMD, INTEL, get_cpu_speed, get_cpu_vendor, get_shared_lib_ext
 
 
@@ -142,9 +142,10 @@ class EB_ATLAS(ConfigureMake):
         # call configure in parent dir
         cmd = "%s %s/configure --prefix=%s %s" % (self.cfg['preconfigopts'], self.cfg['start_dir'],
                                                   self.installdir, self.cfg['configopts'])
-        (out, exitcode) = run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+        res = run_shell_cmd(cmd, fail_on_error=False)
 
-        if exitcode != 0:
+        if res.code != 0:
+            out = res.output
             throttling_regexp = re.compile("cpu throttling [a-zA-Z]* enabled", re.IGNORECASE)
             if throttling_regexp.search(out):
                 errormsg = (
@@ -175,7 +176,7 @@ class EB_ATLAS(ConfigureMake):
 
             self.log.debug("Building shared libraries")
             cmd = "make shared cshared ptshared cptshared"
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             try:
                 os.chdir('..')
