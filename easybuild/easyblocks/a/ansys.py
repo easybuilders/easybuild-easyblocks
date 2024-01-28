@@ -36,7 +36,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ANSYS(PackedBinary):
@@ -59,7 +59,7 @@ class EB_ANSYS(PackedBinary):
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
         cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
 
