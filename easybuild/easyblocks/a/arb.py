@@ -32,7 +32,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.environment import setvar
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ARB(ConfigureMake):
@@ -70,8 +70,9 @@ class EB_ARB(ConfigureMake):
         self.cfg.update('buildopts', 'all OPENGL=0 V=1 ARB_64=1')
 
         # run 'make' without arguments to configure build, ignore non-zero exit code
-        (out, ec) = run_cmd("make", simple=False, log_all=False, log_ok=False)
-        self.log.debug("Command 'make' used to configure exited with exitcode %s (ignored) and output:\n%s" % (ec, out))
+        res = run_shell_cmd("make", fail_on_error=False)
+        self.log.debug("Command 'make' used to configure exited with exitcode %s (ignored) and output:\n%s" %
+                       (res.code, res.output))
 
         super(EB_ARB, self).build_step()
 
