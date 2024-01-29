@@ -335,21 +335,21 @@ class EB_Amber(CMakeMake):
             run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
                 res = run_shell_cmd("%s && make test.cuda_serial" % pretestcommands)
-                if res.code > 0:
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
                 res = run_shell_cmd("%s && make test.parallel" % pretestcommands)
-                if res.code > 0:
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
                 res = run_shell_cmd("%s && make test.cuda_parallel" % pretestcommands)
-                if res.code > 0:
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
     def sanity_check_step(self):
