@@ -789,7 +789,7 @@ class EB_CP2K(EasyBlock):
             # run regression test
             regtest = run_shell_cmd(regtest_cmd)
 
-            if res.exit_code == 0:
+            if regtest.exit_code == 0:
                 self.log.info("Regression test output:\n%s" % regtest.output)
             else:
                 raise EasyBuildError("Regression test failed (non-zero exit code): %s", regtest.output)
