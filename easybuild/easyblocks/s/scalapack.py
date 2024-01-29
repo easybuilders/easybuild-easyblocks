@@ -49,7 +49,7 @@ from easybuild.toolchains.linalg.intelmkl import IntelMKL
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, remove_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ScaLAPACK(CMakeMake):
