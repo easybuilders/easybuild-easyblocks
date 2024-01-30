@@ -39,7 +39,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.filetools import extract_file, change_dir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import write_file, compute_checksum
+from easybuild.tools.filetools import compute_checksum, mkdir, write_file
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
@@ -103,6 +103,7 @@ class Cargo(ExtensionEasyBlock):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
+        self.vendor_dir = os.path.join(self.builddir, 'vendor')
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
@@ -144,12 +145,13 @@ class Cargo(ExtensionEasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
+        mkdir(self.vendor_dir)
         if self.cfg['offline']:
-            self.log.info("Setting vendored crates dir")
+            self.log.info("Setting vendored crates dir for offline operation")
             # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
             # because the rust source subdirectories might differ with python packages
             config_toml = os.path.join(self.cargo_home, 'config.toml')
-            write_file(config_toml, '[source.vendored-sources]\ndirectory = "%s"\n\n' % self.builddir, append=True)
+            write_file(config_toml, '[source.vendored-sources]\ndirectory = "%s"\n\n' % self.vendor_dir, append=True)
             write_file(config_toml, '[source.crates-io]\nreplace-with = "vendored-sources"\n\n', append=True)
 
             # also vendor sources from other git sources (could be many crates for one git source)
@@ -166,10 +168,16 @@ class Cargo(ExtensionEasyBlock):
             env.setvar('CARGO_NET_OFFLINE', 'true')
 
         # More work is needed here for git sources to work, especially those repos with multiple packages.
+        vendor_crates = [self.crate_src_filename(*crate) for crate in self.crates]
         for src in self.src:
-            existing_dirs = set(os.listdir(self.builddir))
+            extraction_dir = self.builddir
+            # Extract dependency crates into vendor subdirectory, separate from sources of main package
+            if src['name'] in vendor_crates:
+                extraction_dir = self.vendor_dir
+
+            existing_dirs = set(os.listdir(extraction_dir))
             self.log.info("Unpacking source %s" % src['name'])
-            srcdir = extract_file(src['path'], self.builddir, cmd=src['cmd'],
+            srcdir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
             change_dir(srcdir)
             if srcdir:
@@ -178,12 +186,12 @@ class Cargo(ExtensionEasyBlock):
                 raise EasyBuildError("Unpacking source %s failed", src['name'])
 
             # Create checksum file for all sources required by vendored crates.io sources
-            new_dirs = set(os.listdir(self.builddir)) - existing_dirs
+            new_dirs = set(os.listdir(extraction_dir)) - existing_dirs
             if self.cfg['offline'] and len(new_dirs) == 1:
                 cratedir = new_dirs.pop()
                 self.log.info('creating .cargo-checksums.json file for : %s', cratedir)
                 chksum = compute_checksum(src['path'], checksum_type='sha256')
-                chkfile = os.path.join(self.builddir, cratedir, '.cargo-checksum.json')
+                chkfile = os.path.join(extraction_dir, cratedir, '.cargo-checksum.json')
                 write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
 
     def configure_step(self):
