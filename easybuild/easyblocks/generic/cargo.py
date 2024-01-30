@@ -175,23 +175,31 @@ class Cargo(ExtensionEasyBlock):
             if src['name'] in vendor_crates:
                 extraction_dir = self.vendor_dir
 
+            self.log.info("Unpacking source of %s" % src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
-            self.log.info("Unpacking source %s" % src['name'])
-            srcdir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
-                                  extra_options=self.cfg['unpack_options'], change_into_dir=False)
-            change_dir(srcdir)
-            if srcdir:
-                self.src[self.src.index(src)]['finalpath'] = srcdir
-            else:
-                raise EasyBuildError("Unpacking source %s failed", src['name'])
+            crate_dir = None
+            src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
+                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
+            new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
+
+            if len(new_extracted_dirs) == 1:
+                # Expected crate tarball with 1 folder
+                crate_dir = new_extracted_dirs.pop()
+                src_dir = os.path.join(extraction_dir, crate_dir)
+            elif len(new_extracted_dirs) == 0:
+                # Extraction went wrong
+                raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
+            # TODO: properly handle case with multiple extracted folders
+            # this is currently in a grey area, might still be used by cargo
+
+            change_dir(src_dir)
+            self.src[self.src.index(src)]['finalpath'] = src_dir
 
             # Create checksum file for all sources required by vendored crates.io sources
-            new_dirs = set(os.listdir(extraction_dir)) - existing_dirs
-            if self.cfg['offline'] and len(new_dirs) == 1:
-                cratedir = new_dirs.pop()
-                self.log.info('creating .cargo-checksums.json file for : %s', cratedir)
+            if self.cfg['offline'] and crate_dir:
+                self.log.info('creating .cargo-checksums.json file for : %s', crate_dir)
                 chksum = compute_checksum(src['path'], checksum_type='sha256')
-                chkfile = os.path.join(extraction_dir, cratedir, '.cargo-checksum.json')
+                chkfile = os.path.join(extraction_dir, crate_dir, '.cargo-checksum.json')
                 write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
 
     def configure_step(self):
