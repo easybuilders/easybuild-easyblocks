@@ -61,6 +61,16 @@ class Cargo(ExtensionEasyBlock):
 
         return extra_vars
 
+    @staticmethod
+    def crate_src_filename(pkg_name, pkg_version):
+        """Crate tarball filename based on package name and version"""
+        return "{0}-{1}.tar.gz".format(pkg_name, pkg_version)
+
+    @staticmethod
+    def crate_download_filename(pkg_name, pkg_version):
+        """Crate download filename based on package name and version"""
+        return "{0}/{1}/download".format(pkg_name, pkg_version)
+
     def rustc_optarch(self):
         """Determines what architecture to target.
         Translates GENERIC optarch, and respects rustc specific optarch.
@@ -112,10 +122,9 @@ class Cargo(ExtensionEasyBlock):
             sources = []
             for crate_info in self.crates:
                 if len(crate_info) == 2:
-                    crate, version = crate_info
                     sources.append({
-                        'download_filename': crate + '/' + version + '/download',
-                        'filename': crate + '-' + version + '.tar.gz',
+                        'download_filename': self.crate_download_filename(*crate_info),
+                        'filename': self.crate_src_filename(*crate_info),
                         'source_urls': [CRATESIO_SOURCE],
                         'alt_location': 'crates.io',
                     })
