@@ -145,7 +145,7 @@ class EB_ESMF(ConfigureMake):
 
             cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
             cmd += " && python setup.py install --prefix=%s" % self.installdir
-            run_cmd(cmd)
+            run_shell_cmd(cmd)
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
