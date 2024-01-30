@@ -32,6 +32,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Alexander Grund (TU Dresden)
 """
+import glob
 import json
 import os
 import re
@@ -358,7 +359,9 @@ class PythonPackage(ExtensionEasyBlock):
             # version. Those would fail the (extended) sanity_pip_check. So as a last resort they can be added here
             # and will be excluded from that check. Note that the display name is required, i.e. from `pip list`.
             'unversioned_packages': [[], "List of packages that don't have a version at all, i.e. show 0.0.0", CUSTOM],
-            'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD, CUSTOM],
+            'use_pip': [None, "Install using '%s'" % PIP_INSTALL_CMD + " "
+                              "Using 'wheel' will create a wheel file with pip during the build step "
+                              "which is then installed", CUSTOM],
             'use_pip_editable': [False, "Install using 'pip install --editable'", CUSTOM],
             # see https://packaging.python.org/tutorials/installing-packages/#installing-setuptools-extras
             'use_pip_extras': [None, "String with comma-separated list of 'extras' to install via pip", CUSTOM],
@@ -428,10 +431,13 @@ class PythonPackage(ExtensionEasyBlock):
         """
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
+            use_pip_wheel = self.cfg.get('use_pip') == 'wheel'
 
             pip_verbose = self.cfg.get('pip_verbose', None)
             if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.cfg.update('installopts', '--verbose')
+                if use_pip_wheel:
+                    self.cfg.update('buildopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
             # the default is use_pip_for_deps=False
@@ -440,6 +446,8 @@ class PythonPackage(ExtensionEasyBlock):
             else:
                 self.log.info("Using pip with --no-deps option")
                 self.cfg.update('installopts', '--no-deps')
+                if use_pip_wheel:
+                    self.cfg.update('buildopts', '--no-deps')
 
             if self.cfg.get('pip_ignore_installed', True):
                 # don't (try to) uninstall already availale versions of the package being installed
@@ -451,6 +459,8 @@ class PythonPackage(ExtensionEasyBlock):
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
                 self.cfg.update('installopts', '--no-index')
+                if use_pip_wheel:
+                    self.cfg.update('buildopts', '--no-index')
 
             # avoid that pip (ab)uses $HOME/.cache/pip
             # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
@@ -593,8 +603,14 @@ class PythonPackage(ExtensionEasyBlock):
         py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
         return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
 
-    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+    def compose_install_command(self, prefix, extrapath=None, installopts=None, preinstallopts=None):
         """Compose full install command."""
+
+        if installopts is None:
+            installopts = self.cfg['installopts']
+
+        if preinstallopts is None:
+            preinstallopts = self.cfg['preinstallopts']
 
         if self.using_pip_install():
 
@@ -611,8 +627,8 @@ class PythonPackage(ExtensionEasyBlock):
                 # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
-                    if '--no-build-isolation' not in self.cfg['installopts']:
-                        self.cfg.update('installopts', '--no-build-isolation')
+                    if '--no-build-isolation' not in installopts:
+                        installopts += ' --no-build-isolation'
 
             elif not self.dry_run:
                 raise EasyBuildError("Failed to determine pip version!")
@@ -638,9 +654,6 @@ class PythonPackage(ExtensionEasyBlock):
             if extras:
                 loc += '[%s]' % extras
 
-        if installopts is None:
-            installopts = self.cfg['installopts']
-
         if self.cfg.get('use_pip_editable', False):
             # add --editable option when requested, in the right place (i.e. right before the location specification)
             loc = "--editable %s" % loc
@@ -650,7 +663,7 @@ class PythonPackage(ExtensionEasyBlock):
             loc = "--requirement %s" % loc
 
         cmd.extend([
-            self.cfg['preinstallopts'],
+            preinstallopts,
             self.install_cmd % {
                 'installopts': installopts,
                 'install_target': self.cfg['install_target'],
@@ -775,15 +788,39 @@ class PythonPackage(ExtensionEasyBlock):
                 build_cmd = 'build'  # Default value for setup.py
             build_cmd = '%(python)s setup.py ' + build_cmd
 
+        out = ''
         if build_cmd:
             build_cmd = build_cmd % {'python': self.python_cmd}
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        elif self.cfg.get('use_pip') == 'wheel':
+            wheel_dir = tempfile.mkdtemp(prefix=self.name+'_wheel-')
+            cmd = self.compose_install_command(
+                prefix=wheel_dir,
+                preinstallopts=self.cfg['prebuildopts'],
+                installopts=self.cfg['buildopts'])
+            orig_cmd = cmd
+            for src, repl in ((' install ', ' wheel '), (' --prefix=', ' --wheel-dir=')):
+                if src not in cmd:
+                    raise EasyBuildError("Error adjusting install command `%s` for building wheel: '%s' not found!",
+                                         orig_cmd, cmd)
+                cmd = cmd.replace(src, repl)
+            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            wheels = glob.glob(os.path.join(wheel_dir, '*.whl'))
+            if not wheels:
+                raise EasyBuildError('Build failed: No wheel files found in %s after running %s', wheel_dir, cmd)
+            self.log.info('Build created wheel file(s) ' + ', '.join(wheels))
+            # Prepare config values for real installation
+            # Source is the wheels
+            self.cfg['install_src'] = ' '.join(wheels)
+            # Those options no longer apply for installing wheels, unset them to be safe
+            for opt in ('use_pip_extras', 'use_pip_requirement'):
+                self.cfg[opt] = False
 
-            # keep track of all output, so we can check for auto-downloaded dependencies;
-            # take into account that build/install steps may be run multiple times
-            # We consider the build and install output together as downloads likely happen here if this is run
-            self.install_cmd_output += out
+        # keep track of all output, so we can check for auto-downloaded dependencies;
+        # take into account that build/install steps may be run multiple times
+        # We consider the build and install output together as downloads likely happen here if this is run
+        self.install_cmd_output += out
 
     def test_step(self, return_output_ec=False):
         """
