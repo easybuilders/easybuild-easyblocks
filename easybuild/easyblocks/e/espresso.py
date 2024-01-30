@@ -20,7 +20,7 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ESPResSo(ConfigureMake):
@@ -45,7 +45,7 @@ class EB_ESPResSo(ConfigureMake):
 
         if self.cfg['runtest']:
             cmd = './runtest.sh -p 2 *.tcl'
-            (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, path="testsuite")
+            (out, ec) = run_shell_cmd(cmd, fail_on_error=False, work_dir="testsuite")
 
             if ec:
                 # ESPResSo fails many of its tests in version 3.1.1, and the test script itself is buggy
