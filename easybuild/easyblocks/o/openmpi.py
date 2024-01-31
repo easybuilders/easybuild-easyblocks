@@ -127,7 +127,7 @@ class EB_OpenMPI(ConfigureMake):
                 verbs = any(check_os_dependency(osdep) for osdep in os_packages)
             # for OpenMPI v5.x, the verbs support is removed, only UCX is available
             # see https://github.com/open-mpi/ompi/pull/6270
-            if LooseVersion(self.version) <= LooseVersion('5.0.0'):
+            if LooseVersion(self.version) < LooseVersion('5.0.0'):
                 if verbs:
                     self.cfg.update('configopts', '--with-verbs')
                 else:
@@ -160,11 +160,12 @@ class EB_OpenMPI(ConfigureMake):
     def sanity_check_step(self):
         """Custom sanity check for OpenMPI."""
 
-        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper']
+        bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'ompi_info', 'opal_wrapper']
         if LooseVersion(self.version) >= LooseVersion('5.0.0'):
             bin_names.append('prterun')
         else:
-            bin_names.append('orterun')
+            if '--with-orte=no' not in self.cfg['configopts'] and '--without-orte' not in self.cfg['configopts']:
+                bin_names.extend(['orterun', 'mpirun'])
         bin_files = [os.path.join('bin', x) for x in bin_names]
 
         shlib_ext = get_shared_lib_ext()
