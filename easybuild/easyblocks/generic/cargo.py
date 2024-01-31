@@ -26,6 +26,7 @@
 EasyBuild support for installing Cargo packages (Rust lang package system)
 
 @author: Mikael Oehman (Chalmers University of Technology)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 import os
