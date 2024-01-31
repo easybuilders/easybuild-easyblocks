@@ -103,7 +103,7 @@ class Cargo(ExtensionEasyBlock):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
-        self.vendor_dir = os.path.join(self.builddir, 'vendor')
+        self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
