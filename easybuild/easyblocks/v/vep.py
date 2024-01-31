@@ -97,8 +97,8 @@ class EB_VEP(EasyBlock):
             # l: Bio::DB::HTS, should be provided via EasyBuild
             # p: plugins
             '--AUTO af',
-            # install all species
-            '--SPECIES all',
+            # install selected species
+            '--SPECIES cyprinus_carpio_carpio',
             # don't update VEP during installation
             '--NO_UPDATE',
             # location to install Perl API modules into
