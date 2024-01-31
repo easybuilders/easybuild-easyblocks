@@ -30,7 +30,7 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 """
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, symlink

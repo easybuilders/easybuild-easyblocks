@@ -31,7 +31,7 @@ EasyBuild support for installing Mesa, implemented as an easyblock
 @author: Alexander Grund (TU Dresden)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
@@ -179,3 +179,11 @@ class EB_Mesa(MesonNinja):
             custom_paths['files'].extend(swr_arch_libs)
 
         super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self, *args, **kwargs):
+        """ Append to EGL vendor library path,
+        so that any NVidia libraries take precedence. """
+        txt = super(EB_Mesa, self).make_module_extra(*args, **kwargs)
+        # Append rather than prepend path to ensure that system NVidia drivers have priority.
+        txt += self.module_generator.append_paths('__EGL_VENDOR_LIBRARY_DIRS', 'share/glvnd/egl_vendor.d')
+        return txt

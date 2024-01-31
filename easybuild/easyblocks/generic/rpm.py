@@ -37,7 +37,7 @@ import glob
 import os
 import re
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from os.path import expanduser
 
 import easybuild.tools.environment as env

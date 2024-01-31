@@ -30,7 +30,7 @@ EasyBuild support for building and installing ESMF, implemented as an easyblock
 @author: Maxime Boissonneault (Digital Research Alliance of Canada)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain

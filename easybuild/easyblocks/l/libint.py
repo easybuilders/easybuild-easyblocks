@@ -30,7 +30,7 @@ EasyBuild support for building and installing Libint, implemented as an easybloc
 """
 
 import os.path
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import DEFAULT_CONFIGURE_CMD, ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake

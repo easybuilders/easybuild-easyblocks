@@ -30,7 +30,7 @@ EasyBuild support for Julia Packages, implemented as an easyblock
 import os
 import re
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM

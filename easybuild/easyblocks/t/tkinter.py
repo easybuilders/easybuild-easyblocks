@@ -33,7 +33,7 @@ module to use Tcl/Tk.
 import glob
 import os
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir

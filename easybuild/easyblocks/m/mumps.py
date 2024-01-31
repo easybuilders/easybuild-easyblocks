@@ -34,7 +34,7 @@ EasyBuild support for building and installing MUMPS, implemented as an easyblock
 
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import toolchain

@@ -25,7 +25,7 @@
 """
 EasyBuild support for building and installing Bazel, implemented as an easyblock
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import tempfile

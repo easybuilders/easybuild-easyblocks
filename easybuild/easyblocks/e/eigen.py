@@ -19,7 +19,7 @@ EasyBuild support for building and installing Eigen, implemented as an easyblock
 
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir, apply_regex_substitutions

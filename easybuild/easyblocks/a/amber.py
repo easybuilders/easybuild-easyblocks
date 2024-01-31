@@ -31,7 +31,7 @@ Modified by Stephane Thiell (Stanford University) for Amber14
 Enhanced/cleaned up by Kenneth Hoste (HPC-UGent)
 CMake support (Amber 20) added by James Carpenter and Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 import easybuild.tools.environment as env

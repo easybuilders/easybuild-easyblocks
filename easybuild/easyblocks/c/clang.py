@@ -38,7 +38,7 @@ Support for building and installing Clang, implemented as an easyblock.
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -46,7 +46,7 @@ from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import run
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, which
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
@@ -505,6 +505,11 @@ class EB_Clang(CMakeMake):
             my_clang_toolchain.prepare_rpath_wrappers()
             self.log.info("Prepared clang rpath wrappers")
 
+            # add symlink for 'opt' to wrapper dir, since Clang expects it in the same directory
+            # see https://github.com/easybuilders/easybuild-easyblocks/issues/3075
+            clang_wrapper_dir = os.path.dirname(which('clang'))
+            symlink(os.path.join(prev_obj_path, 'opt'), os.path.join(clang_wrapper_dir, 'opt'))
+
             # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling
             # Clang by default warns about that, and then some configure tests use -Werror which turns those warnings
             # into errors. As a result, those configure tests fail, even though the compiler supports the requested
@@ -622,9 +627,11 @@ class EB_Clang(CMakeMake):
         custom_commands = ['clang --help', 'clang++ --help', 'llvm-config --cxxflags']
         shlib_ext = get_shared_lib_ext()
 
+        version = LooseVersion(self.version)
+
         # Clang v16+ only use the major version number for the resource dir
         resdir_version = self.version
-        if LooseVersion(self.version) >= LooseVersion('16'):
+        if version >= '16':
             resdir_version = self.version.split('.')[0]
 
         # Detect OpenMP support for CPU architecture
@@ -640,7 +647,7 @@ class EB_Clang(CMakeMake):
         else:
             print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch)
 
-        if LooseVersion(self.version) >= LooseVersion('14'):
+        if version >= '14':
             glob_pattern = os.path.join(self.installdir, 'lib', '%s-*' % arch)
             matches = glob.glob(glob_pattern)
             if matches:
@@ -663,7 +670,7 @@ class EB_Clang(CMakeMake):
         if self.cfg['static_analyzer']:
             custom_paths['files'].extend(["bin/scan-build", "bin/scan-view"])
 
-        if 'clang-tools-extra' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('3.4'):
+        if 'clang-tools-extra' in self.cfg['llvm_projects'] and version >= '3.4':
             custom_paths['files'].extend(["bin/clang-tidy"])
 
         if 'polly' in self.cfg['llvm_projects']:
@@ -685,15 +692,15 @@ class EB_Clang(CMakeMake):
         if 'libcxxabi' in self.cfg['llvm_runtimes']:
             custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++abi.%s" % shlib_ext)])
 
-        if 'flang' in self.cfg['llvm_projects'] and LooseVersion(self.version) >= LooseVersion('15'):
+        if 'flang' in self.cfg['llvm_projects'] and version >= '15':
             flang_compiler = 'flang-new'
             custom_paths['files'].extend(["bin/%s" % flang_compiler])
             custom_commands.extend(["%s --help" % flang_compiler])
 
-        if LooseVersion(self.version) >= LooseVersion('3.8'):
+        if version >= '3.8':
             custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % resdir_version])
 
-        if LooseVersion(self.version) >= LooseVersion('12'):
+        if version >= '12':
             omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
         else:
             omp_target_libs = ["lib/libomptarget.%s" % shlib_ext]
@@ -703,24 +710,26 @@ class EB_Clang(CMakeMake):
         if 'NVPTX' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
             # The static 'nvptx.a' library is not built from version 12 onwards
-            if LooseVersion(self.version) < LooseVersion('12.0'):
+            if version < '12.0':
                 custom_paths['files'].append("lib/libomptarget-nvptx.a")
             ec_cuda_cc = self.cfg['cuda_compute_capabilities']
             cfg_cuda_cc = build_option('cuda_compute_capabilities')
             cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
             # We need the CUDA capability in the form of '75' and not '7.5'
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            if LooseVersion('12.0') < LooseVersion(self.version) < LooseVersion('13.0'):
+            if '12.0' < version < '13.0':
                 custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
                                              for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
-            else:
+            # libomptarget-nvptx-sm*.bc is not there for Clang 14.x;
+            elif version < '14.0' or version >= '15.0':
                 custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
                                              for cc in cuda_cc])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
-            # easier to check for the bitcode files we expect
-            if LooseVersion(self.version) >= LooseVersion('13.0'):
+            # easier to check for the bitcode files we expect;
+            # libomptarget-new-nvptx-sm*.bc is only there in Clang 13.x and 14.x;
+            if version >= '13.0' and version < '15.0':
                 custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
                                               for cc in cuda_cc])
         # If building for AMDGPU check that OpenMP target library was created
@@ -729,12 +738,12 @@ class EB_Clang(CMakeMake):
             # OpenMP offloading support to AMDGPU was not added until version
             # 13, however, building for the AMDGPU target predates this and so
             # doesn't necessarily mean that the AMDGPU target failed
-            if LooseVersion(self.version) >= LooseVersion('13.0'):
+            if version >= '13.0':
                 custom_paths['files'].append("lib/libomptarget.rtl.amdgpu.%s" % shlib_ext)
                 custom_paths['files'].extend(["lib/libomptarget-amdgcn-%s.bc" % gfx
                                               for gfx in self.cfg['amd_gfx_list']])
                 custom_paths['files'].append("bin/amdgpu-arch")
-            if LooseVersion(self.version) >= LooseVersion('14.0'):
+            if version >= '14.0':
                 custom_paths['files'].extend(["lib/libomptarget-new-amdgpu-%s.bc" % gfx
                                               for gfx in self.cfg['amd_gfx_list']])
 

@@ -26,7 +26,7 @@
 EasyBuild support for building and installing numexpr, implemented as an easyblock
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.filetools import write_file

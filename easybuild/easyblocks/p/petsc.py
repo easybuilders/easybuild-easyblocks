@@ -29,12 +29,12 @@ EasyBuild support for PETSc, implemented as an easyblock
 """
 import os
 import re
-from distutils.version import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -52,7 +52,7 @@ class EB_PETSc(ConfigureMake):
         """Initialize PETSc specific variables."""
         super(EB_PETSc, self).__init__(*args, **kwargs)
 
-        self.petsc_arch = ""
+        self.petsc_arch = self.cfg['petsc_arch']
         self.petsc_subdir = ""
         self.prefix_inc = ''
         self.prefix_lib = ''
@@ -61,8 +61,6 @@ class EB_PETSc(ConfigureMake):
         self.with_python = False
 
         if self.cfg['sourceinstall']:
-            self.prefix_inc = self.petsc_subdir
-            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
             self.build_in_installdir = True
 
         if LooseVersion(self.version) >= LooseVersion("3.9"):
@@ -73,6 +71,7 @@ class EB_PETSc(ConfigureMake):
         """Add extra config options specific to PETSc."""
         extra_vars = {
             'sourceinstall': [False, "Indicates whether a source installation should be performed", CUSTOM],
+            'petsc_arch': ['', "Custom PETSC_ARCH for sourceinstall", CUSTOM],
             'shared_libs': [False, "Build shared libraries", CUSTOM],
             'with_papi': [False, "Enable PAPI support", CUSTOM],
             'papi_inc': ['/usr/include', "Path for PAPI include files", CUSTOM],
@@ -238,10 +237,10 @@ class EB_PETSc(ConfigureMake):
                 inc_spec = "-include=[%s]" % ','.join(scotch_inc)
 
                 # For some reason there is a v3 suffix added to libptscotchparmetis
-                # which is the reason for this new code.
-                req_scotch_libs = ['libesmumps.a', 'libptesmumps.a', 'libptscotch.a',
-                                   'libptscotcherr.a', 'libptscotchparmetisv3.a', 'libscotch.a',
-                                   'libscotcherr.a']
+                # which is the reason for this new code;
+                # note: order matters here, don't sort these alphabetically!
+                req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', 'libptscotch.a',
+                                   'libptscotcherr.a', 'libesmumps.a', 'libscotch.a', 'libscotcherr.a']
                 scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
                 lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
@@ -255,36 +254,39 @@ class EB_PETSc(ConfigureMake):
                     ss_libs = ["UMFPACK", "KLU", "CHOLMOD", "BTF", "CCOLAMD", "COLAMD", "CAMD", "AMD"]
                     # More libraries added after version 3.17
                     if LooseVersion(self.version) >= LooseVersion("3.17"):
-                        # specified order of libs matters!
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
-                                   "COLAMD", "CSparse", "CXSparse", "LDL", "RBio",
-                                   "SLIP_LU", "CAMD", "AMD"]
+                                   "COLAMD", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
 
-                    suitesparse_inc = [os.path.join(suitesparse, x, "Include")
-                                       for x in ss_libs]
-                    suitesparse_inc.append(os.path.join(suitesparse, "SuiteSparse_config"))
-                    inc_spec = "-include=[%s]" % ','.join(suitesparse_inc)
+                    # SLIP_LU was replaced by SPEX in SuiteSparse >= 6.0
+                    if LooseVersion(get_software_version('SuiteSparse')) >= LooseVersion("6.0"):
+                        ss_libs = [x if x != "SLIP_LU" else "SPEX" for x in ss_libs]
 
-                    suitesparse_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.replace("_", "").lower())
+                    suitesparse_inc = os.path.join(suitesparse, "include")
+                    inc_spec = "-include=[%s]" % suitesparse_inc
+
+                    suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower())
                                         for x in ss_libs]
-                    suitesparse_libs.append(os.path.join(suitesparse, "SuiteSparse_config", "libsuitesparseconfig.a"))
                     lib_spec = "-lib=[%s]" % ','.join(suitesparse_libs)
                 else:
                     # CHOLMOD and UMFPACK are part of SuiteSparse (PETSc < 3.5)
                     withdep = "--with-umfpack"
-                    inc_spec = "-include=%s" % os.path.join(suitesparse, "UMFPACK", "Include")
+                    inc_spec = "-include=%s" % os.path.join(suitesparse, "include")
                     # specified order of libs matters!
-                    umfpack_libs = [os.path.join(suitesparse, x, "Lib", "lib%s.a" % x.lower())
+                    umfpack_libs = [os.path.join(suitesparse, "lib", "lib%s.a" % x.lower())
                                     for x in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD"]]
                     lib_spec = "-lib=[%s]" % ','.join(umfpack_libs)
 
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
 
             # set PETSC_DIR for configure (env) and build_step
-            env.setvar('PETSC_DIR', self.cfg['start_dir'])
-            self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
+            petsc_dir = self.cfg['start_dir'].rstrip(os.path.sep)
+            env.setvar('PETSC_DIR', petsc_dir)
+            self.cfg.update('buildopts', 'PETSC_DIR=%s' % petsc_dir)
 
             if self.cfg['sourceinstall']:
+                if self.petsc_arch:
+                    env.setvar('PETSC_ARCH', self.cfg['petsc_arch'])
+
                 # run configure without --prefix (required)
                 cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
                 (out, _) = run_cmd(cmd, log_all=True, simple=False)
@@ -306,7 +308,12 @@ class EB_PETSc(ConfigureMake):
                 else:
                     raise EasyBuildError("Failed to determine PETSC_ARCH setting.")
 
-            self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
+                self.petsc_subdir = self.name.lower()
+                self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
+                self.prefix_inc = os.path.join(self.petsc_subdir, self.petsc_arch)
+                self.prefix_bin = os.path.join(self.petsc_subdir, self.petsc_arch)
+            else:
+                self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
 
         else:  # old versions (< 3.x)
 

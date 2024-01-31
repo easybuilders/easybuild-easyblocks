@@ -37,13 +37,13 @@ EasyBuild support for installing the Intel Threading Building Blocks (TBB) libra
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.intelbase import INSTALL_MODE_NAME_2015, INSTALL_MODE_2015
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import move_file, symlink
+from easybuild.tools.filetools import find_glob_pattern, move_file, symlink
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
@@ -173,39 +173,37 @@ class EB_tbb(IntelBase, ConfigureMake):
             IntelBase.install_step(self, silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
 
             # determine libdir
-            os.chdir(self.installdir)
-            libpath = os.path.join('tbb', 'libs', 'intel64')
+            libpath = os.path.join(self.installdir, 'tbb', 'libs', 'intel64')
             if LooseVersion(self.version) < LooseVersion('4.1.0'):
-                libglob = 'tbb/lib/intel64/cc*libc*_kernel*'
+                libglob = os.path.join(libpath, 'cc*libc*_kernel*')
                 libs = sorted(glob.glob(libglob), key=LooseVersion)
                 if libs:
                     # take the last one, should be ordered by cc version
                     # we're only interested in the last bit
-                    libdir = os.path.basename(libs[-1])
+                    libpath = libs[-1]
                 else:
                     raise EasyBuildError("No libs found using %s in %s", libglob, self.installdir)
             else:
-                libdir = get_tbb_gccprefix(libpath)
+                libpath = os.path.join(libpath, get_tbb_gccprefix(libpath))
 
-            libpath = os.path.join(libpath, libdir)
             # applications go looking into tbb/lib so we move what's in there to tbb/libs
             shutil.move(install_tbb_lib_path, os.path.join(self.installdir, 'tbb', 'libs'))
             # And add a symlink of the library folder to tbb/lib
-            symlink(os.path.join(self.installdir, libpath), install_tbb_lib_path)
+            symlink(libpath, install_tbb_lib_path)
         else:
             # no custom install step when building from source (building is done in install directory)
-            cand_lib_paths = glob.glob(os.path.join(self.installdir, 'build', '*_release'))
-            if len(cand_lib_paths) == 1:
-                libpath = os.path.join('build', os.path.basename(cand_lib_paths[0]))
-            else:
-                raise EasyBuildError("Failed to isolate location of libraries: %s", cand_lib_paths)
+            libpath = find_glob_pattern(os.path.join(self.installdir, 'build', '*_release'))
 
-        self.log.debug("libpath: %s" % libpath)
-        # applications usually look into /lib, so we move the folder there and symlink the original one to it
+        real_libpath = os.path.realpath(libpath)
+        self.log.debug("libpath: %s, resolved: %s" % (libpath, real_libpath))
+        libpath = real_libpath
+        # applications usually look into /lib, so we move the folder there
         # This is also important so that /lib and /lib64 are actually on the same level
         root_lib_path = os.path.join(self.installdir, 'lib')
         move_file(libpath, root_lib_path)
-        symlink(os.path.relpath(root_lib_path, os.path.join(libpath)), libpath, use_abspath_source=False)
+        # Create a relative symlink at the original location as-if we didn't move it.
+        # Note that the path must be relative from the folder where the symlink will be!
+        symlink(os.path.relpath(root_lib_path, os.path.dirname(libpath)), libpath, use_abspath_source=False)
 
         # Install CMake config files if possible
         if self._has_cmake() and LooseVersion(self.version) >= LooseVersion('2020.0'):
