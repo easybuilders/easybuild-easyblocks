@@ -63,12 +63,12 @@ class Cargo(ExtensionEasyBlock):
         return extra_vars
 
     @staticmethod
-    def crate_src_filename(pkg_name, pkg_version):
+    def crate_src_filename(pkg_name, pkg_version, *args):
         """Crate tarball filename based on package name and version"""
         return "{0}-{1}.tar.gz".format(pkg_name, pkg_version)
 
     @staticmethod
-    def crate_download_filename(pkg_name, pkg_version):
+    def crate_download_filename(pkg_name, pkg_version, *args):
         """Crate download filename based on package name and version"""
         return "{0}/{1}/download".format(pkg_name, pkg_version)
 
@@ -137,7 +137,7 @@ class Cargo(ExtensionEasyBlock):
                         repo_name = repo_name[:-4]
                     sources.append({
                         'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
-                        'filename': crate + '-' + version + '.tar.gz',
+                        'filename': self.crate_src_filename(crate, version),
                     })
 
             self.cfg.update('sources', sources)
