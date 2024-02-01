@@ -50,7 +50,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
 from easybuild.tools.filetools import which, read_file, write_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -195,10 +195,11 @@ class EB_GCC(ConfigureMake):
 
                 # check whether GCC actually supports LTO (it may be configured with --disable-lto),
                 # by compiling a simple C program using -flto
-                out, ec = run_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", simple=False, log_ok=False)
+                res = run_shell_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", fail_on_error=False)
                 gcc_path = which('gcc')
-                if ec:
-                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path, out)
+                if res.exit_code:
+                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path,
+                                  res.output)
                     disable_mpfr_lto = True
                 else:
                     self.log.info("GCC command %s provides LTO support, so using it when building MPFR", gcc_path)
@@ -315,16 +316,16 @@ class EB_GCC(ConfigureMake):
         if host_type:
             cmd += ' --host=' + host_type
 
-        (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
+        res = run_shell_cmd("%s %s" % (self.cfg['preconfigopts'], cmd))
 
-        if ec != 0:
-            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, ec)
+        if res.exit_code != 0:
+            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, res.exit_code)
 
         # configure scripts tend to simply ignore unrecognized options
         # we should be more strict here, because GCC is very much a moving target
         unknown_re = re.compile("WARNING: unrecognized options")
 
-        unknown_options = unknown_re.findall(out)
+        unknown_options = unknown_re.findall(res.output)
         if unknown_options:
             raise EasyBuildError("Unrecognized options found during configure: %s", unknown_options)
 
@@ -464,7 +465,7 @@ class EB_GCC(ConfigureMake):
                         "-DCMAKE_BUILD_TYPE=Release",
                         self.llvm_dir,
                     ])
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
@@ -605,10 +606,10 @@ class EB_GCC(ConfigureMake):
                 paracmd = "-j %s" % self.cfg['parallel']
 
             cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             cmd = "make install %s" % (self.cfg['installopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # register built GCC as compiler to use for stage 2/3
             path = "%s/bin:%s" % (self.stage1installdir, os.getenv('PATH'))
@@ -723,10 +724,10 @@ class EB_GCC(ConfigureMake):
 
                     # build and 'install'
                     cmd = "make %s" % paracmd
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     cmd = "make install"
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     if lib == "gmp":
                         # make sure correct GMP is found
