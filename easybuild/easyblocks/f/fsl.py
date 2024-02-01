@@ -36,7 +36,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import read_file, copy_dir
 from easybuild.tools.utilities import nub
 
@@ -61,8 +61,8 @@ class EB_FSL(EasyBlock):
 
         # determine FSL machine type
         cmd = ". %s/etc/fslconf/fslmachtype.sh" % self.fsldir
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        fslmachtype = out.strip()
+        res = run_shell_cmd(cmd)
+        fslmachtype = res.output.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
         best_cfg = None
@@ -117,7 +117,7 @@ class EB_FSL(EasyBlock):
         """Build FSL using supplied script."""
 
         cmd = ". %s/etc/fslconf/fsl.sh && ./build" % self.fsldir
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # check build.log file for success
         buildlog = os.path.join(self.installdir, "fsl", "build.log")
