@@ -45,6 +45,24 @@ from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
 
+CONFIG_TOML_SOURCE_VENDOR = """
+[source.vendored-sources]
+directory = "{vendor_dir}"
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+"""
+
+CONFIG_TOML_PATCH_GIT = """
+[patch."{repo}"]
+{crates}
+"""
+CONFIG_TOML_PATCH_GIT_CRATES = """{0} = {{ path = "{1}" }}
+"""
+
+CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{chksum}"}}'
+
 
 class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
@@ -147,36 +165,17 @@ class Cargo(ExtensionEasyBlock):
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
         mkdir(self.vendor_dir)
-        if self.cfg['offline']:
-            self.log.info("Setting vendored crates dir for offline operation")
-            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-            # because the rust source subdirectories might differ with python packages
-            config_toml = os.path.join(self.cargo_home, 'config.toml')
-            write_file(config_toml, '[source.vendored-sources]\ndirectory = "%s"\n\n' % self.vendor_dir, append=True)
-            write_file(config_toml, '[source.crates-io]\nreplace-with = "vendored-sources"\n\n', append=True)
 
-            # also vendor sources from other git sources (could be many crates for one git source)
-            git_sources = set()
-            for crate_info in self.crates:
-                if len(crate_info) == 4:
-                    _, _, repo, rev = crate_info
-                    git_sources.add((repo, rev))
-            for repo, rev in git_sources:
-                write_file(config_toml, '[source."%s"]\ngit = "%s"\nrev = "%s"\n'
-                                        'replace-with = "vendored-sources"\n\n' % (repo, repo, rev), append=True)
+        vendor_crates = {self.crate_src_filename(*crate): crate for crate in self.crates}
+        git_sources = {crate[2]: [] for crate in self.crates if len(crate) == 4}
 
-            # Use environment variable since it would also be passed along to builds triggered via python packages
-            env.setvar('CARGO_NET_OFFLINE', 'true')
-
-        # More work is needed here for git sources to work, especially those repos with multiple packages.
-        vendor_crates = [self.crate_src_filename(*crate) for crate in self.crates]
         for src in self.src:
             extraction_dir = self.builddir
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
             if src['name'] in vendor_crates:
                 extraction_dir = self.vendor_dir
 
-            self.log.info("Unpacking source of %s" % src['name'])
+            self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
             crate_dir = None
             src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
@@ -187,6 +186,7 @@ class Cargo(ExtensionEasyBlock):
                 # Expected crate tarball with 1 folder
                 crate_dir = new_extracted_dirs.pop()
                 src_dir = os.path.join(extraction_dir, crate_dir)
+                self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
             elif len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
@@ -196,12 +196,38 @@ class Cargo(ExtensionEasyBlock):
             change_dir(src_dir)
             self.src[self.src.index(src)]['finalpath'] = src_dir
 
-            # Create checksum file for all sources required by vendored crates.io sources
             if self.cfg['offline'] and crate_dir:
+                # Create checksum file for extracted sources required by vendored crates.io sources
                 self.log.info('creating .cargo-checksums.json file for : %s', crate_dir)
                 chksum = compute_checksum(src['path'], checksum_type='sha256')
                 chkfile = os.path.join(extraction_dir, crate_dir, '.cargo-checksum.json')
-                write_file(chkfile, '{"files":{},"package":"%s"}' % chksum)
+                write_file(chkfile, CARGO_CHECKSUM_JSON.format(chksum=chksum))
+                # Add path to extracted sources for any crate from a git repo
+                try:
+                    crate_name, _, crate_repo, _ = vendor_crates[src['name']]
+                except (ValueError, KeyError):
+                    pass
+                else:
+                    self.log.debug("Sources of %s belong to git repo: %s", src['name'], crate_repo)
+                    git_src_dir = (crate_name, src_dir)
+                    git_sources[crate_repo].append(git_src_dir)
+
+        if self.cfg['offline']:
+            self.log.info("Setting vendored crates dir for offline operation")
+            config_toml = os.path.join(self.cargo_home, 'config.toml')
+            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
+            # because the rust source subdirectories might differ with python packages
+            self.log.debug("Writting config.toml entry for vendored crates from crate.io")
+            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir), append=True)
+
+            # also vendor sources from other git sources (could be many crates for one git source)
+            for git_repo, repo_crates in git_sources.items():
+                self.log.debug("Writting config.toml entry for git repo: %s", git_repo)
+                config_crates = ''.join([CONFIG_TOML_PATCH_GIT_CRATES.format(*crate) for crate in repo_crates])
+                write_file(config_toml, CONFIG_TOML_PATCH_GIT.format(repo=git_repo, crates=config_crates), append=True)
+
+            # Use environment variable since it would also be passed along to builds triggered via python packages
+            env.setvar('CARGO_NET_OFFLINE', 'true')
 
     def configure_step(self):
         """Empty configuration step."""
