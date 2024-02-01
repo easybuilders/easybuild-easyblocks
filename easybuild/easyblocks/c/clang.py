@@ -335,7 +335,7 @@ class EB_Clang(CMakeMake):
                               "memory unless --strict=error is used." % res.output.strip())
 
             # the same goes for unlimited stacksize
-            res = run_shell_cmd("ulimit -s", fail_on_error==False)
+            res = run_shell_cmd("ulimit -s", fail_on_error=False)
             if res.output.startswith("unlimited"):
                 disable_san_tests = True
                 self.log.warn("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
