@@ -144,8 +144,8 @@ class EB_GATE(CMakeMake):
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
 
             cmd = "source %s &> /dev/null && echo $G4SYSTEM" % os.path.join(self.cfg['start_dir'], 'env_gate.sh')
-            out, _ = run_shell_cmd(cmd)
-            self.g4system = out.strip()
+            res = run_shell_cmd(cmd)
+            self.g4system = res.output.strip()
             if self.g4system:
                 self.log.debug("Value obtained for $G4SYSTEM: %s" % self.g4system)
             else:
