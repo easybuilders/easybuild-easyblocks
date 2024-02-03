@@ -214,7 +214,7 @@ class EB_tbb(IntelBase, ConfigureMake):
                 '-DSYSTEM_NAME=Linux',
                 '-P tbb_config_installer.cmake',
             ]
-            run_shell_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
+            run_shell_cmd(' '.join(cmd), work_dir=os.path.join(self.builddir, 'cmake'))
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
