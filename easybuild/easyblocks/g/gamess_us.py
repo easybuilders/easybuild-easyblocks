@@ -421,7 +421,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             if self.cfg['ddi_comm'] == 'mpi':
                 if not build_option('mpi_tests'):
                     self.log.info("Skipping tests of MPI build of GAMESS-US by user request ('mpi_tests' is disabled)")
-                    retur
+                    return
 
                 # MPI builds can only run tests that support parallel execution
                 if int(self.cfg['parallel']) < 2:
@@ -433,8 +433,10 @@ class EB_GAMESS_minus_US(EasyBlock):
 
                 if self.toolchain.mpi_family() == toolchain.INTELMPI:
                     test_env_vars.extend([
-                        'export I_MPI_FALLBACK=enable',  # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
-                        'export I_MPI_HYDRA_BOOTSTRAP=fork',  # tests are only run locally (2 processes), so no SSH required
+                        # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
+                        'export I_MPI_FALLBACK=enable',
+                        # tests are only run locally (single node), so no SSH required
+                        'export I_MPI_HYDRA_BOOTSTRAP=fork',
                     ])
 
             # Prepare test directory to run tests
