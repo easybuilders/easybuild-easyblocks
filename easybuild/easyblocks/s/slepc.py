@@ -86,6 +86,7 @@ class EB_SLEPc(ConfigureMake):
             # run configure without --prefix (required)
             cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
             res = run_shell_cmd(cmd)
+            out = res.output
         else:
             # regular './configure --prefix=X' for non-source install
 
@@ -96,7 +97,7 @@ class EB_SLEPc(ConfigureMake):
 
         # check for errors in configure
         error_regexp = re.compile("ERROR")
-        if error_regexp.search(res.output):
+        if error_regexp.search(out):
             raise EasyBuildError("Error(s) detected in configure output!")
 
         # define $PETSC_ARCH
