@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, write_file, find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -86,7 +86,7 @@ class EB_QScintilla(ConfigureMake):
         ]
         apply_regex_substitutions('qscintilla.pro', regex_subs)
 
-        run_cmd("qmake qscintilla.pro")
+        run_shell_cmd("qmake qscintilla.pro")
 
     def build_step(self):
         """Custom build procedure for QScintilla."""
@@ -155,7 +155,7 @@ class EB_QScintilla(ConfigureMake):
             if LooseVersion(self.version) >= LooseVersion('2.11'):
                 cfgopts.append("--pyqt=%s" % self.pyqt_pkg_name)
 
-            run_cmd("python configure.py %s" % ' '.join(cfgopts))
+            run_shell_cmd("python configure.py %s" % ' '.join(cfgopts))
 
             super(EB_QScintilla, self).build_step()
             super(EB_QScintilla, self).install_step()
