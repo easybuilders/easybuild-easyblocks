@@ -47,7 +47,7 @@ from easybuild.tools.filetools import find_glob_pattern, move_file, symlink
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_gcc_version, get_platform_name
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 def get_tbb_gccprefix(libpath):
@@ -214,7 +214,7 @@ class EB_tbb(IntelBase, ConfigureMake):
                 '-DSYSTEM_NAME=Linux',
                 '-P tbb_config_installer.cmake',
             ]
-            run_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
+            run_shell_cmd(' '.join(cmd), path=os.path.join(self.builddir, 'cmake'))
 
     def sanity_check_step(self):
         """Custom sanity check for TBB"""
