@@ -37,7 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ROOT(CMakeMake):
@@ -116,7 +116,7 @@ class EB_ROOT(CMakeMake):
                                                         self.installdir,
                                                         self.cfg['configopts'])
 
-            run_cmd(cmd, log_all=True, log_ok=True, simple=True)
+            run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for ROOT."""
