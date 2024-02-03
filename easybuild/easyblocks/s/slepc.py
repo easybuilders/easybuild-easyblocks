@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SLEPc(ConfigureMake):
@@ -85,7 +85,7 @@ class EB_SLEPc(ConfigureMake):
         if self.cfg['sourceinstall']:
             # run configure without --prefix (required)
             cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
         else:
             # regular './configure --prefix=X' for non-source install
 
@@ -96,7 +96,7 @@ class EB_SLEPc(ConfigureMake):
 
         # check for errors in configure
         error_regexp = re.compile("ERROR")
-        if error_regexp.search(out):
+        if error_regexp.search(res.output):
             raise EasyBuildError("Error(s) detected in configure output!")
 
         # define $PETSC_ARCH
