@@ -42,7 +42,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, extract_file, mkdir, write_file
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -186,7 +186,7 @@ class EB_Rosetta(EasyBlock):
         if self.cfg['parallel']:
             par = "-j %s" % self.cfg['parallel']
         cmd = "python ./scons.py %s %s bin" % (self.cfg['buildopts'], par)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """
