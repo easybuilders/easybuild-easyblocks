@@ -54,7 +54,7 @@ from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import LooseVersion, toolchain
 
 GAMESS_INSTALL_INFO = 'install.info'
-GAMESS_MPI_TEST_BLACKLIST = [
+GAMESS_SERIAL_TESTS = [
     'exam05',  # only the gradients for CITYP=CIS run in parallel
     'exam32',  # only CCTYP=CCSD or CCTYP=CCSD(T) can run in parallel
     'exam42',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
@@ -406,60 +406,72 @@ class EB_GAMESS_minus_US(EasyBlock):
 
     def test_step(self):
         """Run GAMESS-US tests (if 'runtest' easyconfig parameter is set to True)."""
-        # don't use provided 'runall' script for tests, since that only runs the tests single-core
         if self.cfg['runtest']:
+            # Avoid provided 'runall' script for tests, since that only runs the tests in serial
+            # Tests must be run in parallel for MPI builds and can be run serial for other build types
 
-            if not build_option('mpi_tests'):
-                self.log.info("Skipping testing of GAMESS-US since MPI testing is disabled")
-                return
+            target_tests = [
+                # (test name, path to test input)
+                (os.path.splitext(os.path.basename(exam_file))[0], exam_file)
+                for exam_file in glob.glob(os.path.join(self.installdir, 'tests', 'standard', 'exam*.inp'))
+            ]
+            test_procs = "1"
+            test_env_vars = ['export OMP_NUM_THREADS=1']
 
-            if int(self.cfg['parallel']) < 2:
-                self.log.info("Skipping testing of GAMESS-US as MPI tests need at least 2 CPU cores to run")
-                return
+            if self.cfg['ddi_comm'] == 'mpi':
+                if not build_option('mpi_tests'):
+                    self.log.info("Skipping tests of MPI build of GAMESS-US by user request ('mpi_tests' is disabled)")
+                    retur
 
+                # MPI builds can only run tests that support parallel execution
+                if int(self.cfg['parallel']) < 2:
+                    self.log.info("Skipping testing of GAMESS-US as MPI tests need at least 2 CPU cores to run")
+                    return
+
+                test_procs = str(self.cfg['parallel'])
+                target_tests = [exam for exam in target_tests if exam[0] not in GAMESS_SERIAL_TESTS]
+
+                if self.toolchain.mpi_family() == toolchain.INTELMPI:
+                    test_env_vars.extend([
+                        'export I_MPI_FALLBACK=enable',  # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
+                        'export I_MPI_HYDRA_BOOTSTRAP=fork',  # tests are only run locally (2 processes), so no SSH required
+                    ])
+
+            # Prepare test directory to run tests
             try:
                 cwd = os.getcwd()
                 change_dir(self.testdir)
             except OSError as err:
                 raise EasyBuildError("Failed to move to temporary directory for running tests: %s", err)
 
-            # copy input files for exam<id> standard tests
-            target_tests = []
-            for test_input in glob.glob(os.path.join(self.installdir, 'tests', 'standard', 'exam*.inp')):
-                test_name = os.path.splitext(os.path.basename(test_input))[0]
-                if test_name not in GAMESS_MPI_TEST_BLACKLIST:
-                    try:
-                        copy_file(test_input, self.testdir)
-                    except OSError as err:
-                        raise EasyBuildError("Failed to copy %s to %s: %s", test_input, self.testdir, err)
-                    else:
-                        target_tests.append(test_name)
+            for exam, exam_file in target_tests:
+                try:
+                    copy_file(exam_file, self.testdir)
+                except OSError as err:
+                    raise EasyBuildError("Failed to copy test '%s' to %s: %s", exam, self.testdir, err)
 
-            rungms = os.path.join(self.installdir, 'rungms')
-            test_env_vars = ['export OMP_NUM_THREADS=1; SCR=%s' % self.testdir]
-            if self.toolchain.mpi_family() == toolchain.INTELMPI:
-                test_env_vars.extend([
-                    'I_MPI_FALLBACK=enable',  # enable fallback in case first fabric fails (see $I_MPI_FABRICS_LIST)
-                    'I_MPI_HYDRA_BOOTSTRAP=fork',  # tests are only run locally (2 processes), so no SSH required
-                ])
+            test_env_vars.append('SCR=%s' % self.testdir)
 
             # run target exam<id> tests, dump output to exam<id>.log
-            tests_procs = str(self.cfg['parallel'])
-            for test_exam in target_tests:
-                rungms_cmd = [rungms, test_exam, self.version, tests_procs, tests_procs]
-                test_cmd = ' '.join(test_env_vars + rungms_cmd)
-                (out, _) = run_cmd(test_cmd, log_all=True, simple=False)
-                write_file('%s.log' % test_exam, out)
+            rungms = os.path.join(self.installdir, 'rungms')
+            for exam, exam_file in target_tests:
+                rungms_prefix = ' && '.join(test_env_vars)
+                test_cmd = [rungms_prefix, rungms, exam_file, self.version, test_procs, test_procs]
+                (out, _) = run_cmd(' '.join(test_cmd), log_all=True, simple=False)
+                write_file('%s.log' % exam, out)
 
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
             (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
 
             # verify output of tests
             failed_regex = re.compile(r"^.*!!FAILED\.$", re.M)
-            failed_tests = [exam[0:6] for exam in failed_regex.findall(out)]
-            if set(failed_tests) == set(GAMESS_MPI_TEST_BLACKLIST):
-                blacklisted_msg = "(blacklisted: %s)" % ", ".join(GAMESS_MPI_TEST_BLACKLIST)
-                self.log.info("All target tests ran successfully! %s", blacklisted_msg)
+            failed_tests = set([exam[0:6] for exam in failed_regex.findall(out)])
+            done_tests = set([exam[0] for exam in target_tests])
+            if done_tests - failed_tests == done_tests:
+                info_msg = "All target tests ran successfully!"
+                if self.cfg['ddi_comm'] == 'mpi':
+                    info_msg += " (serial tests ignored: %s)" % ", ".join(GAMESS_SERIAL_TESTS)
+                self.log.info(info_msg)
             else:
                 raise EasyBuildError("ERROR: Not all target tests ran successfully")
 
