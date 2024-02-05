@@ -39,7 +39,8 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.environment import setvar, unset_env_vars
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.py2vs3 import string_type
+from easybuild.tools.run import run_shell_cmd
 
 # perldoc -lm seems to be the safest way to test if a module is available, based on exit code
 EXTS_FILTER_PERL_MODULES = ("perldoc -lm %(ext_name)s ", "")
@@ -116,14 +117,14 @@ class EB_Perl(ConfigureMake):
             unset_env_vars(['COLUMNS'])
 
         cmd = '%s ./Configure -de %s' % (self.cfg['preconfigopts'], configopts)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Test Perl build via 'make test'."""
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
             parallel = self.cfg['parallel']
-            if isinstance(self.cfg['runtest'], str):
+            if isinstance(self.cfg['runtest'], string_type):
                 cmd = "make %s" % self.cfg['runtest']
             elif parallel and LooseVersion(self.version) >= LooseVersion('5.30.0'):
                 # run tests in parallel, see https://perldoc.perl.org/perlhack#Parallel-tests;
@@ -139,7 +140,7 @@ class EB_Perl(ConfigureMake):
             # specify locale to be used, to avoid that a handful of tests fail
             cmd = "export LC_ALL=C && %s" % cmd
 
-            run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+            run_shell_cmd(cmd, fail_on_error=False)
 
     def prepare_for_extensions(self):
         """
@@ -198,8 +199,8 @@ def get_major_perl_version():
     Returns the major verson of the perl binary in the current path
     """
     cmd = "perl -MConfig -e 'print $Config::Config{PERL_API_REVISION}'"
-    (perlmajver, _) = run_cmd(cmd, log_all=True, log_output=True, simple=False)
-    return perlmajver
+    res = run_shell_cmd(cmd)
+    return res.output
 
 
 def get_site_suffix(tag):
@@ -212,6 +213,7 @@ def get_site_suffix(tag):
     """
     perl_cmd = 'my $a = $Config::Config{"%s"}; $a =~ s/($Config::Config{"siteprefix"})//; print $a' % tag
     cmd = "perl -MConfig -e '%s'" % perl_cmd
-    (sitesuffix, _) = run_cmd(cmd, log_all=True, log_output=True, simple=False)
+    res = run_shell_cmd(cmd)
+    sitesuffix = res.output
     # obtained value usually contains leading '/', so strip it off
     return sitesuffix.lstrip(os.path.sep)
