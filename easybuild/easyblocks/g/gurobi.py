@@ -38,6 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
+from easybuild.tools import LooseVersion
 
 
 class EB_Gurobi(Tarball):
@@ -76,7 +77,11 @@ class EB_Gurobi(Tarball):
             copy_file(self.orig_license_file, self.license_file)
 
         if get_software_root('Python'):
-            run_cmd("python setup.py install --prefix=%s" % self.installdir)
+            # Python component installation method changed in v11.0.0 to use pip install
+            if LooseVersion(self.version) < LooseVersion("11.0.0"):
+                run_cmd("python setup.py install --prefix=%s" % self.installdir)
+            else:
+                run_cmd("python -m pip install --find-links=%s --no-index --target=%s gurobipy" % (self.builddir, self.installdir))
 
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
