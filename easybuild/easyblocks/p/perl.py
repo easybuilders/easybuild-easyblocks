@@ -39,7 +39,6 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.environment import setvar, unset_env_vars
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.run import run_shell_cmd
 
 # perldoc -lm seems to be the safest way to test if a module is available, based on exit code
@@ -124,7 +123,7 @@ class EB_Perl(ConfigureMake):
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
             parallel = self.cfg['parallel']
-            if isinstance(self.cfg['runtest'], string_type):
+            if isinstance(self.cfg['runtest'], str):
                 cmd = "make %s" % self.cfg['runtest']
             elif parallel and LooseVersion(self.version) >= LooseVersion('5.30.0'):
                 # run tests in parallel, see https://perldoc.perl.org/perlhack#Parallel-tests;
