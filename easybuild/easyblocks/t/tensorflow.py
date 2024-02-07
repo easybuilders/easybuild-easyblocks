@@ -48,7 +48,7 @@ from easybuild.tools.config import build_option, IGNORE, WARN, ERROR
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
 from easybuild.tools.filetools import is_readable, read_file, symlink, which, write_file, remove_file
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
@@ -273,9 +273,9 @@ class EB_TensorFlow(PythonPackage):
     def python_pkg_exists(self, name):
         """Check if the given python package exists/can be imported"""
         cmd = self.python_cmd + " -c 'import %s'" % name
-        out, ec = run_cmd(cmd, log_ok=False)
-        self.log.debug('Existence check for %s returned %s with output: %s', name, ec, out)
-        return ec == 0
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        self.log.debug('Existence check for %s returned %s with output: %s', name, res.exit_code, res.output)
+        return res.exit_code == 0
 
     def handle_jemalloc(self):
         """Figure out whether jemalloc support should be enabled or not."""
@@ -714,7 +714,7 @@ class EB_TensorFlow(PythonPackage):
             apply_regex_substitutions('configure.py', regex_subs)
 
         cmd = self.cfg['preconfigopts'] + './configure ' + self.cfg['configopts']
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # when building on Arm 64-bit we can't just use --copt=-mcpu=native (or likewise for any -mcpu=...),
         # because it breaks the build of XNNPACK;
@@ -938,11 +938,11 @@ class EB_TensorFlow(PythonPackage):
             + ['//tensorflow/tools/pip_package:build_pip_package']
         )
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(' '.join(cmd))
 
         # run generated 'build_pip_package' script to build the .whl
         cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Run TensorFlow unit tests"""
@@ -971,14 +971,15 @@ class EB_TensorFlow(PythonPackage):
                 num_gpus_to_use = 0
             else:
                 # determine number of available GPUs via nvidia-smi command, fall back to just 1 GPU
-                # Note: Disable logging to also disable the error handling in run_cmd and do it explicitly below
-                (out, ec) = run_cmd("nvidia-smi --list-gpus", log_ok=False, log_all=False, regexp=False)
+                # Note: Disable logging to also disable the error handling in run_shell_cmd and do it explicitly below
+                res = run_shell_cmd("nvidia-smi --list-gpus", fail_on_error=False)
                 try:
-                    if ec != 0:
-                        raise RuntimeError("nvidia-smi returned exit code %s with output:\n%s" % (ec, out))
+                    if res.exit_code != 0:
+                        raise RuntimeError("nvidia-smi returned exit code %s with output:\n%s" % (res.exit_code,
+                                                                                                  res.output))
                     else:
-                        self.log.info('nvidia-smi succeeded with output:\n%s' % out)
-                        gpu_ct = sum(line.startswith('GPU ') for line in out.strip().split('\n'))
+                        self.log.info('nvidia-smi succeeded with output:\n%s' % res.output)
+                        gpu_ct = sum(line.startswith('GPU ') for line in res.output.strip().split('\n'))
                 except (RuntimeError, ValueError) as err:
                     self.log.warning("Failed to get the number of GPUs on this system: %s", err)
                     gpu_ct = 0
@@ -1065,16 +1066,16 @@ class EB_TensorFlow(PythonPackage):
                 + test_targets
             )
 
-            stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
-            if ec:
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            if res.exit_code:
                 fail_msg = 'Tests on %s (cmd: %s) failed with exit code %s and output:\n%s' % (
-                    device, cmd, ec, stdouterr)
+                    device, cmd, res.exit_code, res.output)
                 self.log.warning(fail_msg)
                 # Try to enhance error message
                 failed_tests = []
                 failed_test_logs = dict()
                 # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
-                for match in re.finditer(r'^(//[a-zA-Z_/:]+)\s+FAILED', stdouterr, re.MULTILINE):
+                for match in re.finditer(r'^(//[a-zA-Z_/:]+)\s+FAILED', res.output, re.MULTILINE):
                     test_name = match.group(1)
                     failed_tests.append(test_name)
                     # Logs are in a folder named after the test, e.g. tensorflow/c/kernels_test
@@ -1083,7 +1084,7 @@ class EB_TensorFlow(PythonPackage):
                     # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/test.log
                     # <prefix>/k8-opt/testlogs/tensorflow/c/kernels_test/shard_1_of_4/test_attempts/attempt_1.log
                     test_log_re = re.compile(r'.*\n(.*\n)?\s*(/.*/testlogs/%s/(/[^/]*)?test.log)' % test_folder)
-                    log_match = test_log_re.match(stdouterr, match.end())
+                    log_match = test_log_re.match(res.output, match.end())
                     if log_match:
                         failed_test_logs[test_name] = log_match.group(2)
                 # When TF logs are found enhance the below error by additionally logging the details about failed tests
@@ -1097,7 +1098,7 @@ class EB_TensorFlow(PythonPackage):
                         len(failed_tests), device, ', '.join(failed_tests))
                 self.report_test_failure(fail_msg)
             else:
-                self.log.info('Tests on %s succeeded with output:\n%s', device, stdouterr)
+                self.log.info('Tests on %s succeeded with output:\n%s', device, res.output)
 
     def install_step(self):
         """Custom install procedure for TensorFlow."""
@@ -1119,7 +1120,7 @@ class EB_TensorFlow(PythonPackage):
             if self.cfg['exts_list']:
                 cmd += ' --no-deps'
 
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            run_shell_cmd(cmd)
         else:
             raise EasyBuildError("Failed to isolate built .whl in %s: %s", whl_paths, self.builddir)
 
@@ -1186,7 +1187,7 @@ class EB_TensorFlow(PythonPackage):
                 logdir = tempfile.mkdtemp(suffix='-tf-%s-logs' % os.path.splitext(mnist_py)[0])
                 mnist_py = os.path.join(self.start_dir, 'tensorflow', 'examples', 'tutorials', 'mnist', mnist_py)
                 cmd = "%s %s --data_dir %s --log_dir %s" % (self.python_cmd, mnist_py, datadir, logdir)
-                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+                run_shell_cmd(cmd)
 
             # run test script (if any)
             if self.test_script:
@@ -1195,6 +1196,6 @@ class EB_TensorFlow(PythonPackage):
                 test_script = os.path.join(self.builddir, os.path.basename(self.test_script))
                 copy_file(self.test_script, test_script)
 
-                run_cmd("python %s" % test_script, log_all=True, simple=True, log_ok=True)
+                run_shell_cmd("python %s" % test_script)
 
         return res
