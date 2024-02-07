@@ -274,6 +274,11 @@ class CMakeMake(ConfigureMake):
             # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
+        # make sure that newer CMAKE picks python based on location, not just the newest python
+        # Avoids issues like e.g. https://github.com/EESSI/software-layer/pull/370#issuecomment-1785594932
+        if LooseVersion(self.cmake_version) >= '3.15':
+            options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
+
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 

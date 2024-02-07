@@ -30,6 +30,7 @@ import os
 import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_version, get_software_root
@@ -47,6 +48,15 @@ class EB_VEP(EasyBlock):
         self.cfg['unpack_options'] = "--strip-components=1"
 
         self.api_mods_subdir = os.path.join('modules', 'api')
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to VEP easyblock."""
+        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars.update({
+            'species': ['all', "Comma-separated list of species to pass to INSTALL.pl", CUSTOM],
+        })
+        return extra_vars
 
     def configure_step(self):
         """No custom configuration procedure for VEP."""
@@ -97,8 +107,8 @@ class EB_VEP(EasyBlock):
             # l: Bio::DB::HTS, should be provided via EasyBuild
             # p: plugins
             '--AUTO af',
-            # install all species
-            '--SPECIES all',
+            # install selected species
+            '--SPECIES %s' % self.cfg['species'],
             # don't update VEP during installation
             '--NO_UPDATE',
             # location to install Perl API modules into
