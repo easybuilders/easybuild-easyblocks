@@ -118,8 +118,10 @@ class EB_dm_minus_reverb(PythonPackage):
         whl_file = '%s-%s-cp%s*.whl' % (self.name.replace('-', '_'), self.version, pymajmin)
         whl_path = os.path.join(self.builddir, whl_file)
 
+        installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+
         self.install_cmd = PIP_INSTALL_CMD % {
-            'installopts': self.cfg['installopts'],
+            'installopts': installopts,
             'loc': whl_path,
             'prefix': self.installdir,
             'python': self.python_cmd,

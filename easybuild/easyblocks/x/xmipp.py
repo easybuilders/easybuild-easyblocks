@@ -40,7 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import copy_file, mkdir, remove_file, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -112,7 +112,7 @@ class EB_Xmipp(SCons):
             noask,
             self.cfg['configopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Parameters to be set in the config file
         params = {
@@ -237,7 +237,7 @@ class EB_Xmipp(SCons):
                 'all',
                 self.cfg['buildopts'],
             ])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
             change_dir(cwd)
             xmipp_lib = os.path.join(self.srcdir, 'xmipp', 'lib')
             mkdir(xmipp_lib)
@@ -265,7 +265,7 @@ class EB_Xmipp(SCons):
             self.installdir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Remove the bash and fish files. Everything should be in the module
         remove_file(os.path.join(self.installdir, 'xmipp.bashrc'))

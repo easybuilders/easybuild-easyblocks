@@ -54,8 +54,13 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
             'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
+
+        # disable use of pip to install PyTorch by default, overwriting the default set in PythonPackage;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/pull/3022
+        extra_vars['use_pip'][0] = None
+
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
 
         return extra_vars
 
@@ -66,6 +71,13 @@ class EB_PyTorch(PythonPackage):
         # Test as-if pytorch was installed
         self.testinstall = True
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
+
+        # opt-in to using pip to install PyTorch for sufficiently recent version (>= 2.0),
+        # unless it's otherwise specified
+        pytorch_version = LooseVersion(self.version)
+        if self.cfg['use_pip'] is None and pytorch_version >= '2.0':
+            self.log.info("Auto-enabling use of pip to install PyTorch >= 2.0, since 'use_pip' is not set")
+            self.cfg['use_pip'] = True
 
     def fetch_step(self, skip_checksums=False):
         """Fetch sources for installing PyTorch, including those for tests."""

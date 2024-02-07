@@ -45,15 +45,6 @@ class EB_pybind11(CMakePythonPackage):
     Python packages using `import pybind11`
     Hence we need to install PyBind11 twice: Once with CMake and once with pip
     """
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Easyconfig parameters specific to PyBind11: Set defaults"""
-        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
-        extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
-        extra_vars['use_pip'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        return extra_vars
 
     def configure_step(self):
         """Avoid that a system Python is picked up when a Python module is loaded"""
@@ -80,8 +71,6 @@ class EB_pybind11(CMakePythonPackage):
         build_dir = change_dir(self.cfg['start_dir'])
         PythonPackage.install_step(self)
 
-        # Reset installopts (set by PythonPackage)
-        self.cfg['installopts'] = ''
         change_dir(build_dir)
         CMakeMake.install_step(self)
 

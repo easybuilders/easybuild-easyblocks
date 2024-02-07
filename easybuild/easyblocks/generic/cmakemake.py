@@ -45,7 +45,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -63,7 +63,8 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        cmd_res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
+        out = cmd_res.output
         res = regex.search(out)
         if res:
             cmake_version = res.group('version')
@@ -273,6 +274,11 @@ class CMakeMake(ConfigureMake):
             # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
+        # make sure that newer CMAKE picks python based on location, not just the newest python
+        # Avoids issues like e.g. https://github.com/EESSI/software-layer/pull/370#issuecomment-1785594932
+        if LooseVersion(self.cmake_version) >= '3.15':
+            options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
+
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 
@@ -311,9 +317,9 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        res = run_shell_cmd(command)
 
-        return out
+        return res.output
 
     def test_step(self):
         """CMake specific test setup"""

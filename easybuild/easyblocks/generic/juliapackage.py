@@ -38,7 +38,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.filetools import copy_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 EXTS_FILTER_JULIA_PACKAGES = ("julia -e 'using %(ext_name)s'", "")
 USER_DEPOT_PATTERN = re.compile(r"\/\.julia\/?$")
@@ -147,9 +147,9 @@ class JuliaPackage(ExtensionEasyBlock):
             "julia -e '%s'" % julia_pkg_cmd,
             self.cfg['installopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def install_extension(self):
         """Install Julia package as an extension."""
