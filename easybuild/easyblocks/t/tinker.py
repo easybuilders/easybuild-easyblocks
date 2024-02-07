@@ -38,7 +38,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type
 
 
@@ -97,9 +97,8 @@ class EB_TINKER(EasyBlock):
 
         change_dir(os.path.join(self.cfg['start_dir'], 'source'))
 
-        run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'compile.make'))
-        run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'library.make'))
-        run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'link.make'))
+        for make in ['compile', 'library', 'link']:
+            run_shell_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, f'{make}.make'))
 
     def test_step(self):
         """Custom built-in test procedure for TINKER."""
@@ -132,7 +131,7 @@ class EB_TINKER(EasyBlock):
             tests = [t for t in tests if not any([t.endswith('%s.run' % x) for x in skip_tests])]
 
             for test in tests:
-                run_cmd(test)
+                run_shell_cmd(test)
 
     def install_step(self):
         """Custom install procedure for TINKER."""
@@ -140,7 +139,7 @@ class EB_TINKER(EasyBlock):
         change_dir(os.path.join(self.cfg['start_dir'], 'source'))
 
         mkdir(os.path.join(self.cfg['start_dir'], 'bin'))
-        run_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'rename.make'))
+        run_shell_cmd(os.path.join(self.cfg['start_dir'], self.build_subdir, 'rename.make'))
 
     def sanity_check_step(self):
         """Custom sanity check for TINKER."""
