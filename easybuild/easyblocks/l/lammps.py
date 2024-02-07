@@ -42,7 +42,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir
+from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -454,6 +454,23 @@ class EB_LAMMPS(CMakeMake):
         copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
         potentials_dir = os.path.join(self.start_dir, 'potentials')
         copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            site_packages = os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages')
+
+            mkdir(site_packages, parents=True)
+
+            self.lammpsdir = os.path.join(self.builddir, '%s-stable_%s' % (self.name.lower(), self.version))
+            self.python_dir = os.path.join(self.lammpsdir, 'python')
+
+            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps -l %(builddir)s/easybuild_obj/liblammps.so -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
+                'python_dir': self.python_dir,
+                'builddir': self.builddir,
+                'lammpsdir': self.lammpsdir,
+                'site_packages': site_packages,
+            }
+
+            run_cmd(cmd, log_all=True, simple=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
