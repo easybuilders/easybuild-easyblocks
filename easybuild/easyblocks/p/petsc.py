@@ -38,7 +38,7 @@ from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
@@ -167,13 +167,13 @@ class EB_PETSc(ConfigureMake):
             if self.with_python:
 
                 # enable numpy support, but only if numpy is available
-                (_, ec) = run_cmd("python -c 'import numpy'", log_all=True, simple=False)
-                if ec == 0:
+                res = run_shell_cmd("python -c 'import numpy'", fail_on_error=False)
+                if res.exit_code == 0:
                     self.cfg.update('configopts', '--with-numpy=1')
 
                 # enable mpi4py support, but only if mpi4py is available
-                (_, ec) = run_cmd("python -c 'import mpi4py'", log_all=True, simple=False)
-                if ec == 0:
+                res = run_shell_cmd("python -c 'import mpi4py'", fail_on_error=False)
+                if res.exit_code == 0:
                     with_mpi4py_opt = '--with-mpi4py'
                     if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
                         self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
@@ -256,10 +256,6 @@ class EB_PETSc(ConfigureMake):
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
                                    "COLAMD", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
 
-                    # SLIP_LU was replaced by SPEX in SuiteSparse >= 6.0
-                    if LooseVersion(get_software_version('SuiteSparse')) >= LooseVersion("6.0"):
-                        ss_libs = [x if x != "SLIP_LU" else "SPEX" for x in ss_libs]
-
                     suitesparse_inc = os.path.join(suitesparse, "include")
                     inc_spec = "-include=[%s]" % suitesparse_inc
 
@@ -278,9 +274,8 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
 
             # set PETSC_DIR for configure (env) and build_step
-            petsc_dir = self.cfg['start_dir'].rstrip(os.path.sep)
-            env.setvar('PETSC_DIR', petsc_dir)
-            self.cfg.update('buildopts', 'PETSC_DIR=%s' % petsc_dir)
+            env.setvar('PETSC_DIR', self.cfg['start_dir'])
+            self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
 
             if self.cfg['sourceinstall']:
                 if self.petsc_arch:
@@ -288,7 +283,8 @@ class EB_PETSc(ConfigureMake):
 
                 # run configure without --prefix (required)
                 cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
-                (out, _) = run_cmd(cmd, log_all=True, simple=False)
+                res = run_shell_cmd(cmd)
+                out = res.output
             else:
                 out = super(EB_PETSc, self).configure_step()
 
@@ -327,7 +323,7 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
 
             cmd = "./config/configure.py %s" % self.get_cfg('configopts')
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         # Make sure to set test_parallel before self.cfg['parallel'] is set to None
         if self.cfg['test_parallel'] is None and self.cfg['parallel']:
@@ -356,7 +352,8 @@ class EB_PETSc(ConfigureMake):
 
         if self.cfg['runtest']:
             cmd = "%s make %s %s %s" % (self.cfg['pretestopts'], paracmd, self.cfg['runtest'], self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
+            out = res.output
 
             return out
 
