@@ -31,7 +31,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import find_glob_pattern
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_PALM(EasyBlock):
@@ -65,7 +65,7 @@ class EB_PALM(EasyBlock):
             "-p %s" % self.installdir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for PALM."""
