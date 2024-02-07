@@ -463,7 +463,8 @@ class EB_LAMMPS(CMakeMake):
             self.lammpsdir = os.path.join(self.builddir, '%s-stable_%s' % (self.name.lower(), self.version))
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
-            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps -l %(builddir)s/easybuild_obj/liblammps.so -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
+            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps -l %(builddir)s/easybuild_obj/liblammps.so \
+                   -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
                 'python_dir': self.python_dir,
                 'builddir': self.builddir,
                 'lammpsdir': self.lammpsdir,
