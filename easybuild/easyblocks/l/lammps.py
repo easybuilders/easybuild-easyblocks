@@ -469,7 +469,7 @@ class EB_LAMMPS(CMakeMake):
 
             # The -i flag is added through a patch to the lammps source file python/install.py
             # This patch is neccesary because the current lammps only allows
-            # the lammps python package to be installed system or user syte-packages
+            # the lammps python package to be installed system-wide or in user site-packages
             cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps -l %(builddir)s/easybuild_obj/liblammps.so \
                    -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
                 'python_dir': self.python_dir,
@@ -551,7 +551,7 @@ def get_cuda_gpu_arch(cuda_cc):
     return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
 
 
-def get_kokkos_arch(mapping, cuda_cc, kokkos_arch, cuda=None):
+def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
     """
     Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
 
@@ -574,7 +574,7 @@ def get_kokkos_arch(mapping, cuda_cc, kokkos_arch, cuda=None):
         warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
         print_warning(warning_msg)
 
-        processor_arch = mapping.get(get_cpu_arch())
+        processor_arch = kokkos_cpu_mapping.get(get_cpu_arch())
 
         if not processor_arch:
             error_msg = "Couldn't determine CPU architecture, you need to set 'kokkos_arch' manually."
