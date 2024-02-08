@@ -33,7 +33,7 @@ import shutil
 import easybuild.tools.environment as env
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.ocaml import mk_opam_init_cmd
@@ -58,14 +58,14 @@ class EB_pplacer(ConfigureMake):
         env.setvar('OPAMROOT', self.installdir)
 
         opam_init_cmd = mk_opam_init_cmd()
-        run_cmd(opam_init_cmd)
+        run_shell_cmd(opam_init_cmd)
 
-        run_cmd("opam repo add pplacer-deps %s/pplacer-opam-repository*/" % self.builddir)
-        run_cmd("opam update pplacer-deps")
+        run_shell_cmd("opam repo add pplacer-deps %s/pplacer-opam-repository*/" % self.builddir)
+        run_shell_cmd("opam update pplacer-deps")
 
         env.setvar('OCAML_BACKEND', 'gcc')
 
-        run_cmd("eval `opam config env` && cat opam-requirements.txt | xargs -t opam install -y")
+        run_shell_cmd("eval `opam config env` && cat opam-requirements.txt | xargs -t opam install -y")
 
         txt = "let version = \"v%s\"\n" % self.version
         write_file(os.path.join(self.builddir, 'pplacer-%s' % self.version, 'common_src', 'version.ml'), txt)
