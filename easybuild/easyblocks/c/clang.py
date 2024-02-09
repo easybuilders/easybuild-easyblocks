@@ -48,7 +48,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 from easybuild.tools.environment import setvar
@@ -327,16 +327,16 @@ class EB_Clang(CMakeMake):
             disable_san_tests = False
             # all sanitizer tests will fail when there's a limit on the vmem
             # this is ugly but I haven't found a cleaner way so far
-            (vmemlim, ec) = run_cmd("ulimit -v", regexp=False)
-            if not vmemlim.startswith("unlimited"):
+            res = run_shell_cmd("ulimit -v", fail_on_error=False)
+            if not res.output.startswith("unlimited"):
                 disable_san_tests = True
                 self.log.warn("There is a virtual memory limit set of %s KB. The tests of the "
                               "sanitizers will be disabled as they need unlimited virtual "
-                              "memory unless --strict=error is used." % vmemlim.strip())
+                              "memory unless --strict=error is used." % res.output.strip())
 
             # the same goes for unlimited stacksize
-            (stacklim, ec) = run_cmd("ulimit -s", regexp=False)
-            if stacklim.startswith("unlimited"):
+            res = run_shell_cmd("ulimit -s", fail_on_error=False)
+            if res.output.startswith("unlimited"):
                 disable_san_tests = True
                 self.log.warn("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
                               "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
@@ -548,12 +548,12 @@ class EB_Clang(CMakeMake):
 
         self.log.info("Configuring")
         if LooseVersion(self.version) >= LooseVersion('14'):
-            run_cmd("cmake %s %s" % (' '.join(options), os.path.join(self.llvm_src_dir, "llvm")), log_all=True)
+            run_shell_cmd("cmake %s %s" % (' '.join(options), os.path.join(self.llvm_src_dir, "llvm")))
         else:
-            run_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir), log_all=True)
+            run_shell_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir))
 
         self.log.info("Building")
-        run_cmd("make %s VERBOSE=1" % self.make_parallel_opts, log_all=True)
+        run_shell_cmd("make %s VERBOSE=1" % self.make_parallel_opts)
 
         # restore $PATH
         setvar('PATH', orig_path)
@@ -580,7 +580,7 @@ class EB_Clang(CMakeMake):
                 change_dir(self.llvm_obj_dir_stage3)
             else:
                 change_dir(self.llvm_obj_dir_stage1)
-            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
+            run_shell_cmd("make %s check-all" % self.make_parallel_opts)
 
     def install_step(self):
         """Install stage 3 binaries."""
