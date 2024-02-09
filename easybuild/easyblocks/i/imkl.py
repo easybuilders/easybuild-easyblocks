@@ -49,7 +49,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, move_file, remove_dir, write_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -298,8 +298,8 @@ class EB_imkl(IntelBase):
                 self.log.info("Changed to interface %s directory %s", lib, intdir)
 
                 fullcmd = "%s %s" % (cmd, ' '.join(buildopts + extraopts))
-                res = run_cmd(fullcmd, log_all=True, simple=True)
-                if not res:
+                res = run_shell_cmd(fullcmd)
+                if res.exit_code:
                     raise EasyBuildError("Building %s (flags: %s, fullcmd: %s) failed", lib, flags, fullcmd)
 
                 for fn in os.listdir(tmpbuild):
@@ -344,8 +344,8 @@ class EB_imkl(IntelBase):
                             'intel_thread parallel=intel SYSTEM_LIBS="-lm -ldl -L%s"' % compilerdir]]
 
         for cmd in cmds:
-            res = run_cmd(cmd, log_all=True, simple=True)
-            if not res:
+            res = run_shell_cmd(cmd)
+            if res.exit_code:
                 raise EasyBuildError("Building FlexiBLAS-compatible library (cmd: %s) failed", cmd)
 
     def post_install_step(self):
@@ -359,7 +359,7 @@ class EB_imkl(IntelBase):
         if os.path.exists(examples_subdir):
             cwd = change_dir(examples_subdir)
             for examples_tarball in glob.glob('examples_*.tgz'):
-                run_cmd("tar xvzf %s -C ." % examples_tarball)
+                run_shell_cmd("tar xvzf %s -C ." % examples_tarball)
             change_dir(cwd)
 
         # reload the dependencies
