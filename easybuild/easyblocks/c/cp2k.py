@@ -393,7 +393,7 @@ class EB_CP2K(EasyBlock):
                 # build libint wrapper
                 cmd = "%s -c libint_cpp_wrapper.cpp -I%s/include" % (libintcompiler, libint)
                 res = run_shell_cmd(cmd)
-                if not res.exit_code:
+                if res.exit_code:
                     raise EasyBuildError("Building the libint wrapper failed")
                 libint_wrapper = '%s/libint_cpp_wrapper.o' % libinttools_path
 
