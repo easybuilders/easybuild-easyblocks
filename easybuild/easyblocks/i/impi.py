@@ -43,7 +43,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 
@@ -132,7 +132,7 @@ EULA=accept
             mkdir(tmpdir, parents=True)
 
             cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         # recompile libfabric (if requested)
         # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
@@ -156,7 +156,7 @@ EULA=accept
                         'make install'
                     ]
                     for cmd in cmds:
-                        run_cmd(cmd, log_all=True, simple=True)
+                        run_shell_cmd(cmd)
                 else:
                     self.log.info("Rebuild of libfabric is requested, but %s does not exist, so skipping...",
                                   libfabric_src_tgz_fn)
