@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import copy_file, find_glob_pattern, mkdir, symlink, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_CUDAcompat(Binary):
@@ -85,12 +85,12 @@ class EB_CUDAcompat(Binary):
         if not self.has_nvidia_smi:
             raise RuntimeError('Could not find nvidia-smi.')
         cmd = 'nvidia-smi ' + args
-        out, ec = run_cmd(cmd, log_ok=False, log_all=False, regexp=False)
-        if ec != 0:
-            raise RuntimeError("`%s` returned exit code %s with output:\n%s" % (cmd, ec, out))
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        if res.exit_code != 0:
+            raise RuntimeError("`%s` returned exit code %s with output:\n%s" % (cmd, res.exit_code, res.output))
         else:
-            self.log.info('`%s` succeeded with output:\n%s' % (cmd, out))
-            return out.strip().split('\n')
+            self.log.info('`%s` succeeded with output:\n%s' % (cmd, res.output))
+            return res.output.strip().split('\n')
 
     def prepare_step(self, *args, **kwargs):
         """Parse and check the compatible_driver_versions value of the EasyConfig"""
@@ -127,7 +127,7 @@ class EB_CUDAcompat(Binary):
         execpath = self.src[0]['path']
         tmpdir = os.path.join(self.builddir, 'tmp')
         targetdir = os.path.join(self.builddir, 'extracted')
-        run_cmd("/bin/sh " + execpath + " --extract-only --tmpdir='%s' --target '%s'" % (tmpdir, targetdir))
+        run_shell_cmd("/bin/sh " + execpath + " --extract-only --tmpdir='%s' --target '%s'" % (tmpdir, targetdir))
         self.src[0]['finalpath'] = targetdir
 
     def test_step(self):
