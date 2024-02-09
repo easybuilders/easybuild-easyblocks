@@ -13,7 +13,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import ERROR
-from easybuild.tools.run import run_cmd, check_log_for_errors
+from easybuild.tools.run import run_shell_cmd, check_log_for_errors
 
 LAPACK_TEST_TARGET = 'lapack-test'
 TARGET = 'TARGET'
@@ -91,7 +91,7 @@ class EB_OpenBLAS(ConfigureMake):
             makecmd += ' -j %s' % self.cfg['parallel']
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
@@ -139,14 +139,14 @@ class EB_OpenBLAS(ConfigureMake):
 
         for runtest in run_tests:
             cmd = "%s make %s %s" % (self.cfg['pretestopts'], runtest, self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False, regexp=False)
+            res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            check_log_for_errors(out, [('FATAL ERROR', ERROR)])
+            check_log_for_errors(res.output, [('FATAL ERROR', ERROR)])
 
             # check number of failing LAPACK tests more closely
             if runtest == LAPACK_TEST_TARGET:
-                self.check_lapack_test_results(out)
+                self.check_lapack_test_results(res.output)
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
