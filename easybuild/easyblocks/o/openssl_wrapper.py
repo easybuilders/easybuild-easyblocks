@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
 
 
@@ -226,10 +226,10 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Check system include paths for OpenSSL headers
         cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
-        (out, ec) = run_cmd(cmd, log_all=True, simple=False, trace=False)
+        res = run_shell_cmd(cmd, hidden=True)
 
         sys_include_dirs = []
-        for match in re.finditer(r'^\s(/[^\0\n]*)+', out, re.MULTILINE):
+        for match in re.finditer(r'^\s(/[^\0\n]*)+', res.output, re.MULTILINE):
             sys_include_dirs.extend(match.groups())
         self.log.debug("Found the following include directories in host system: %s", ', '.join(sys_include_dirs))
 
@@ -437,7 +437,8 @@ Version: %(version)s
                 # check suffixed names with v1.1
                 pc_name_suffix = pc_name + '11'
                 pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
-                if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False):
+                res = run_shell_cmd(pc_exists_cmd, fail_on_error=False)
+                if not res.exit_code:
                     self.log.info("%s exists", pc_name_suffix)
                     pc_name = pc_name_suffix
 
@@ -446,11 +447,11 @@ Version: %(version)s
             for require_type in ['Requires', 'Requires.private']:
                 require_print = require_type.lower().replace('.', '-')
                 pc_print_cmd = "pkg-config --print-%s %s" % (require_print, pc_name)
-                out, _ = run_cmd(pc_print_cmd, simple=False, log_ok=False)
-                self.log.info("Output of '%s': %s", pc_print_cmd, out)
+                res = run_shell_cmd(pc_print_cmd, fail_on_error=False)
+                self.log.info("Output of '%s': %s", pc_print_cmd, res.output)
 
-                if out:
-                    requires = out
+                if res.output:
+                    requires = res.output
                     # use unsuffixed names for components provided by this wrapper
                     for wrap_comp in openssl_components:
                         requires = re.sub(r'^%s[0-9]+$' % wrap_comp, wrap_comp, requires, flags=re.M)
@@ -467,15 +468,15 @@ Version: %(version)s
                 pc_file['cflags'] = "Cflags: -I${includedir}"
                 # infer private libs through pkg-config
                 pc_libs_cmd = "pkg-config --libs %s" % pc_name
-                out, _ = run_cmd(pc_libs_cmd, simple=False, log_ok=False)
-                self.log.info("Output of '%s': %s", pc_libs_cmd, out)
-                linker_libs = out
+                res = run_shell_cmd(pc_libs_cmd, fail_on_error=False)
+                self.log.info("Output of '%s': %s", pc_libs_cmd, res.output)
+                linker_libs = res.output
 
                 pc_libs_static_cmd = "pkg-config --libs --static %s" % pc_name
-                out, _ = run_cmd(pc_libs_static_cmd, simple=False, log_ok=False)
-                self.log.info("Output of '%s': %s", pc_libs_static_cmd, out)
+                res = run_shell_cmd(pc_libs_static_cmd, fail_on_error=False)
+                self.log.info("Output of '%s': %s", pc_libs_static_cmd, res.output)
 
-                libs_priv = "%s " % out.rstrip()
+                libs_priv = "%s " % res.output.rstrip()
                 for flag in linker_libs.rstrip().split(' '):
                     libs_priv = libs_priv.replace("%s " % flag, '')
                 pc_file['libs'] += "\nLibs.private: %s" % libs_priv
