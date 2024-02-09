@@ -392,7 +392,7 @@ class EB_CP2K(EasyBlock):
 
                 # build libint wrapper
                 cmd = "%s -c libint_cpp_wrapper.cpp -I%s/include" % (libintcompiler, libint)
-                res = run_shell_cmd(cmd)
+                res = run_shell_cmd(cmd, fail_on_error=False)
                 if res.exit_code:
                     raise EasyBuildError("Building the libint wrapper failed")
                 libint_wrapper = '%s/libint_cpp_wrapper.o' % libinttools_path
@@ -788,7 +788,7 @@ class EB_CP2K(EasyBlock):
             self.log.debug("Contents of %s: %s" % (cfg_fn, cfg_txt))
 
             # run regression test
-            regtest = run_shell_cmd(regtest_cmd)
+            regtest = run_shell_cmd(regtest_cmd, fail_on_error=False)
 
             if regtest.exit_code == 0:
                 self.log.info("Regression test output:\n%s" % regtest.output)
