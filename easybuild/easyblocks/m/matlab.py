@@ -43,7 +43,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_file, read_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MATLAB(PackedBinary):
@@ -185,7 +185,7 @@ class EB_MATLAB(PackedBinary):
             except IOError as err:
                 raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
 
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
 
             # check installer output for known signs of trouble
             patterns = [
@@ -200,9 +200,9 @@ class EB_MATLAB(PackedBinary):
 
             for pattern in patterns:
                 regex = re.compile(pattern, re.I)
-                if regex.search(out):
+                if regex.search(res.output):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
-                                         regex.pattern, cmd, out)
+                                         regex.pattern, cmd, res.output)
                 with open(self.outputfile) as f:
                     if regex.search(f.read()):
                         raise EasyBuildError("Found error pattern '%s' in output file of installer",
