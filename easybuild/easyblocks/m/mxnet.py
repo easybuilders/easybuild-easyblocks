@@ -40,7 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 # the namespace file for the R extension
@@ -219,7 +219,7 @@ class EB_MXNet(MakeCp):
         #   correctly filled and some mappings are done
         # - Reinstal the exported version
         self.r_ext.run()
-        run_cmd("R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\"" % self.installdir)
+        run_shell_cmd("R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\"" % self.installdir)
         change_dir(self.r_ext.src)
         self.r_ext.run()
         self.r_ext.postrun()
