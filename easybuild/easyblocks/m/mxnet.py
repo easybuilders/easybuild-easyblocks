@@ -219,7 +219,8 @@ class EB_MXNet(MakeCp):
         #   correctly filled and some mappings are done
         # - Reinstal the exported version
         self.r_ext.run()
-        run_shell_cmd("R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\"" % self.installdir)
+        cmd = "R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\""
+        run_shell_cmd(cmd % self.installdir)
         change_dir(self.r_ext.src)
         self.r_ext.run()
         self.r_ext.postrun()
