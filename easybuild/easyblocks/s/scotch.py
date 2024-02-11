@@ -40,7 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
 from easybuild.tools.filetools import remove_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SCOTCH(EasyBlock):
@@ -117,7 +117,7 @@ class EB_SCOTCH(EasyBlock):
 
         for app in apps:
             cmd = 'make CCS="%s" CCP="%s" CCD="%s" CFLAGS="%s" %s' % (ccs, ccp, ccd, cflags, app)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Install by copying files and creating group library file."""
