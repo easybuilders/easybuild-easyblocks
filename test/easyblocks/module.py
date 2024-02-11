@@ -48,7 +48,6 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.generic.cargopythonbundle import CargoPythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
-from easybuild.easyblocks.imod import EB_IMOD
 from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
 from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
@@ -275,10 +274,6 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         if app_class == IntelBase or IntelBase in bases:
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
-
-        elif app_class == EB_IMOD:
-            # $JAVA_HOME must be set for IMOD
-            os.environ['JAVA_HOME'] = tmpdir
 
         elif app_class == PythonBundle or app_class == CargoPythonBundle:
             # $EBROOTPYTHON must be set for PythonBundle easyblock
