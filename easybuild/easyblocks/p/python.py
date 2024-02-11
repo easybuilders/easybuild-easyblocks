@@ -49,7 +49,7 @@ from easybuild.tools.config import build_option, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
 
@@ -158,6 +158,8 @@ class EB_Python(ConfigureMake):
             'pip_ignore_installed': False,
             # Python installations must be clean. Requires pip >= 9
             'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0.0') >= LooseVersion('9.0'),
+            # EasyBuild 5
+            'use_pip': True,
         }
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
@@ -414,13 +416,13 @@ class EB_Python(ConfigureMake):
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
-            (out, _) = run_cmd("ulimit -s")
-            curr_ulimit_s = out.strip()
+            res = run_shell_cmd("ulimit -s")
+            curr_ulimit_s = res.output.strip()
 
             # figure out hard limit for stack size limit;
             # this determines whether or not we can use "ulimit -s unlimited"
-            (out, _) = run_cmd("ulimit -s -H")
-            max_ulimit_s = out.strip()
+            res = run_shell_cmd("ulimit -s -H")
+            max_ulimit_s = res.output.strip()
 
             if curr_ulimit_s == UNLIMITED:
                 self.log.info("Current stack size limit is %s: OK", curr_ulimit_s)
@@ -484,8 +486,8 @@ class EB_Python(ConfigureMake):
         site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
         temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
         mkdir(temp_site_packages_path, parents=True)  # Must exist
-        (out, _) = run_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
-        out = out.strip()
+        res = run_shell_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        out = res.output.strip()
         # Output should be a list which we can evaluate directly
         if not out.startswith('[') or not out.endswith(']'):
             raise EasyBuildError("Unexpected output for sys.path: %s", out)
@@ -516,9 +518,10 @@ class EB_Python(ConfigureMake):
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("command -v python", log_all=True, simple=False, trace=False)
+            run_shell_cmd("command -v python", hidden=True)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
-            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
+            res = run_shell_cmd(cmd, hidden=True)
+            abiflags = res.output
             if not abiflags:
                 raise EasyBuildError("Failed to determine abiflags: %s", abiflags)
             else:
@@ -528,7 +531,8 @@ class EB_Python(ConfigureMake):
         # (python will exit with 0 regardless of whether or not errors are printed...)
         # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6484
         cmd = "python -c 'import hashlib'"
-        (out, _) = run_cmd(cmd)
+        res = run_shell_cmd(cmd)
+        out = res.output
         regex = re.compile('error', re.I)
         if regex.search(out):
             raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
