@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SLEPc(ConfigureMake):
@@ -85,7 +85,8 @@ class EB_SLEPc(ConfigureMake):
         if self.cfg['sourceinstall']:
             # run configure without --prefix (required)
             cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
+            out = res.output
         else:
             # regular './configure --prefix=X' for non-source install
 
