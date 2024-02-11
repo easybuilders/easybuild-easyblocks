@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTAL
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_TensorRT(PythonPackage, Binary):
@@ -115,7 +115,7 @@ class EB_TensorRT(PythonPackage, Binary):
                 # --ignore-installed is required to ensure *this* wheel is installed
                 cmd += " --ignore-installed --no-deps"
 
-                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+                run_shell_cmd(cmd)
             else:
                 raise EasyBuildError("Failed to isolate .whl in %s: %s", whl_paths, self.installdir)
 
