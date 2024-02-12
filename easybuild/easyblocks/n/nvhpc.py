@@ -44,7 +44,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.config import build_option
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -154,7 +154,7 @@ class EB_NVHPC(PackedBinary):
             'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single value, no list!
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # make sure localrc uses GCC in PATH, not always the system GCC, and does not use a system g77 but gfortran
         install_abs_subdir = os.path.join(self.installdir, self.nvhpc_install_subdir)
@@ -168,7 +168,7 @@ class EB_NVHPC(PackedBinary):
             cmd = "%s -x %s" % (makelocalrc_filename, compilers_subdir)
         else:
             cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
         # If we use the EB libnuma, delete those symbolic links to ensure they are not used
