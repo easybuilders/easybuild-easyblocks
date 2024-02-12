@@ -158,6 +158,8 @@ class EB_Python(ConfigureMake):
             'pip_ignore_installed': False,
             # Python installations must be clean. Requires pip >= 9
             'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0.0') >= LooseVersion('9.0'),
+            # EasyBuild 5
+            'use_pip': True,
         }
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
