@@ -494,12 +494,18 @@ class EB_LAMMPS(CMakeMake):
 
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
-            """python -c 'from lammps import lammps; l=lammps(); l.file("%s"); l.finalize();'""" %
+            'from lammps import lammps; l=lammps(); l.file("%s")' %
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
             for check_file in check_files
         ]
+
+        # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
+            custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
+
+        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
@@ -555,7 +561,7 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
     """
     Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
 
-    see: https://lammps.sandia.gov/doc/Build_extras.html#kokkos
+    see: https://docs.lammps.org/Build_extras.html#kokkos
     """
     if cuda is None or not isinstance(cuda, bool):
         cuda = get_software_root('CUDA')
