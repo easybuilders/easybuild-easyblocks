@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import remove_dir, symlink
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import RunShellCmdError, run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 GENERIC_SSL_CERTS_DIR = "/etc/ssl/certs"
@@ -80,14 +80,14 @@ class EB_OpenSSL(ConfigureMake):
             openssldir_cmd = "openssl version -d"
 
             try:
-                (out, _) = run_cmd(openssldir_cmd, log_all=True, simple=False, trace=False)
-                openssldir = openssldir_regex.search(out).group(1)
-            except EasyBuildError:
+                res = run_shell_cmd(openssldir_cmd, hidden=True)
+                openssldir = openssldir_regex.search(res.output).group(1)
+            except RunShellCmdError:
                 self.log.info("OPENSSLDIR not found in system (openssl command failed), "
                               "continuing with generic OPENSSLDIR path...")
             except AttributeError:
                 self.log.debug("OPENSSLDIR not found in system (openssl reported '%s'), "
-                               "continuing with generic OPENSSLDIR path...", out)
+                               "continuing with generic OPENSSLDIR path...", res.output)
             else:
                 self.log.info("OPENSSLDIR determined from system openssl: %s", openssldir)
 
@@ -111,9 +111,9 @@ class EB_OpenSSL(ConfigureMake):
         cmd = "%s %s./config --prefix=%s threads shared %s" % (self.cfg['preconfigopts'], cmd_prefix,
                                                                self.installdir, self.cfg['configopts'])
 
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def install_step(self):
         """Installation of OpenSSL and SSL certificates"""
