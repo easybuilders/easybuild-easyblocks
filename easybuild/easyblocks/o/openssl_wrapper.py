@@ -438,7 +438,7 @@ Version: %(version)s
                 pc_name_suffix = pc_name + '11'
                 pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
                 res = run_shell_cmd(pc_exists_cmd, fail_on_error=False)
-                if not res.exit_code:
+                if res.exit_code == 0:
                     self.log.info("%s exists", pc_name_suffix)
                     pc_name = pc_name_suffix
 

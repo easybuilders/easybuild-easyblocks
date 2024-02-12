@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import remove_dir, symlink
-from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.run import RunShellCmdError, run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 GENERIC_SSL_CERTS_DIR = "/etc/ssl/certs"
@@ -82,7 +82,7 @@ class EB_OpenSSL(ConfigureMake):
             try:
                 res = run_shell_cmd(openssldir_cmd, hidden=True)
                 openssldir = openssldir_regex.search(res.output).group(1)
-            except EasyBuildError:
+            except RunShellCmdError:
                 self.log.info("OPENSSLDIR not found in system (openssl command failed), "
                               "continuing with generic OPENSSLDIR path...")
             except AttributeError:
