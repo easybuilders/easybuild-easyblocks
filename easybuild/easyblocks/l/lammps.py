@@ -470,7 +470,8 @@ class EB_LAMMPS(CMakeMake):
             # The -i flag is added through a patch to the lammps source file python/install.py
             # This patch is neccesary because the current lammps only allows
             # the lammps python package to be installed system-wide or in user site-packages
-            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps -l %(builddir)s/easybuild_obj/liblammps.so \
+            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps \
+                   -l %(builddir)s/easybuild_obj/liblammps.so \
                    -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
                 'python_dir': self.python_dir,
                 'builddir': self.builddir,
