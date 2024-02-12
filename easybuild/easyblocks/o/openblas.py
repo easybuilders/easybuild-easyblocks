@@ -12,7 +12,6 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import ERROR
 from easybuild.tools.run import run_shell_cmd
 
 LAPACK_TEST_TARGET = 'lapack-test'
