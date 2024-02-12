@@ -13,7 +13,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import ERROR
-from easybuild.tools.run import run_shell_cmd, check_log_for_errors
+from easybuild.tools.run import run_shell_cmd
 
 LAPACK_TEST_TARGET = 'lapack-test'
 TARGET = 'TARGET'
@@ -142,7 +142,10 @@ class EB_OpenBLAS(ConfigureMake):
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            check_log_for_errors(res.output, [('FATAL ERROR', ERROR)])
+            regex = re.compile("FATAL ERROR", re.M)
+            errors = regex.findall(res.output)
+            if errors:
+                raise EasyBuildError("Found %d fatal errors in test output!", len(errors))
 
             # check number of failing LAPACK tests more closely
             if runtest == LAPACK_TEST_TARGET:
