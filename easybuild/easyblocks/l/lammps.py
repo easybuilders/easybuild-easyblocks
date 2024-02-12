@@ -158,7 +158,7 @@ def translate_lammps_version(version):
     """Translate the LAMMPS version into something that can be used in a comparison"""
     items = [x for x in re.split('(\\d+)', version) if x]
     if len(items) < 3:
-        raise ValueError("Version %s does not have 3 elements" % version)
+        raise ValueError("Version %s does not have (at least) 3 elements" % version)
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -232,7 +232,7 @@ class EB_LAMMPS(CMakeMake):
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64x'] = 'A64FX'
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -468,7 +468,7 @@ class EB_LAMMPS(CMakeMake):
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
-            # This patch is neccesary because the current lammps only allows
+            # This patch is necessary because the current lammps only allows
             # the lammps python package to be installed system-wide or in user site-packages
             cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps \
                    -l %(builddir)s/easybuild_obj/liblammps.so \
