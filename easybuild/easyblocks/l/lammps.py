@@ -301,6 +301,11 @@ class EB_LAMMPS(CMakeMake):
                 else:
                     self.cfg.update('configopts', with_opt + 'no')
 
+        if get_software_root('MDI'):
+            # Disable auto-downloading/building MDI dependency:
+            if '-DDOWNLOAD_MDI_DEFAULT=' not in self.cfg['configopts']:
+                self.cfg.update('configopts', '-DDOWNLOAD_MDI_DEFAULT=OFF')
+
         # Disable auto-downloading/building Eigen dependency:
         if '-DDOWNLOAD_EIGEN3=' not in self.cfg['configopts']:
             self.cfg.update('configopts', '-DDOWNLOAD_EIGEN3=no')
