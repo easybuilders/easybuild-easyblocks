@@ -237,10 +237,10 @@ class EB_PETSc(ConfigureMake):
                 inc_spec = "-include=[%s]" % ','.join(scotch_inc)
 
                 # For some reason there is a v3 suffix added to libptscotchparmetis
-                # which is the reason for this new code.
-                req_scotch_libs = ['libesmumps.a', 'libptesmumps.a', 'libptscotch.a',
-                                   'libptscotcherr.a', 'libptscotchparmetisv3.a', 'libscotch.a',
-                                   'libscotcherr.a']
+                # which is the reason for this new code;
+                # note: order matters here, don't sort these alphabetically!
+                req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', 'libptscotch.a',
+                                   'libptscotcherr.a', 'libesmumps.a', 'libscotch.a', 'libscotcherr.a']
                 scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
                 lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
@@ -256,6 +256,10 @@ class EB_PETSc(ConfigureMake):
                     if LooseVersion(self.version) >= LooseVersion("3.17"):
                         ss_libs = ["UMFPACK", "KLU", "SPQR", "CHOLMOD", "BTF", "CCOLAMD",
                                    "COLAMD", "CXSparse", "LDL", "RBio", "SLIP_LU", "CAMD", "AMD"]
+
+                    # SLIP_LU was replaced by SPEX in SuiteSparse >= 6.0
+                    if LooseVersion(get_software_version('SuiteSparse')) >= LooseVersion("6.0"):
+                        ss_libs = [x if x != "SLIP_LU" else "SPEX" for x in ss_libs]
 
                     suitesparse_inc = os.path.join(suitesparse, "include")
                     inc_spec = "-include=[%s]" % suitesparse_inc
@@ -275,8 +279,9 @@ class EB_PETSc(ConfigureMake):
                 self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
 
             # set PETSC_DIR for configure (env) and build_step
-            env.setvar('PETSC_DIR', self.cfg['start_dir'])
-            self.cfg.update('buildopts', 'PETSC_DIR=%s' % self.cfg['start_dir'])
+            petsc_dir = self.cfg['start_dir'].rstrip(os.path.sep)
+            env.setvar('PETSC_DIR', petsc_dir)
+            self.cfg.update('buildopts', 'PETSC_DIR=%s' % petsc_dir)
 
             if self.cfg['sourceinstall']:
                 if self.petsc_arch:

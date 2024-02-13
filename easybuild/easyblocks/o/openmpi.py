@@ -69,7 +69,10 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
         # List of EasyBuild dependencies for which OMPI has known options
-        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX', 'UCC')
+        known_dependencies = ['CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX']
+        if LooseVersion(self.version) >= '4.1.4':
+            known_dependencies.append('UCC')
+
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
