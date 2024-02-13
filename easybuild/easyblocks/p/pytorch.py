@@ -306,9 +306,12 @@ class EB_PyTorch(PythonPackage):
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
+        def add_enable_option(name, enabled):
+            """Add `name=0` or `name=1` depending on enabled"""
+            options.append('%s=%s' % (name, '1' if enabled else '0'))
+
         # enable verbose mode when --debug is used (to show compiler commands)
-        if build_option('debug'):
-            options.append('VERBOSE=1')
+        add_enable_option('VERBOSE', build_option('debug'))
 
         # Restrict parallelism
         options.append('MAX_JOBS=%s' % self.cfg['parallel'])
@@ -385,12 +388,20 @@ class EB_PyTorch(PythonPackage):
             # Disable CUDA
             options.append('USE_CUDA=0')
 
+        if pytorch_version >= '2.0':
+            add_enable_option('USE_ROCM', get_software_root('ROCm'))
+        elif pytorch_version >= 'v1.10.0':
+            add_enable_option('USE_MAGMA', get_software_root('magma'))
+
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
             # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
             if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
                 options.append('USE_BREAKPAD=0')
+            # FBGEMM requires AVX512, so not available on PPC
+            if pytorch_version >= 'v1.10.0':
+                options.append('USE_FBGEMM=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
