@@ -31,6 +31,7 @@ implemented as an easyblock.
 @author: Markus Geimer (Juelich Supercomputing Centre)
 @author: Alexander Grund (TU Dresden)
 @author: Christian Feld (Juelich Supercomputing Centre)
+@author: Bert Wesarg (TUD Dresden University of Technology)
 """
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -85,6 +86,29 @@ class EB_Score_minus_P(ConfigureMake):
                 comp_opts[toolchain.NVHPC] = 'pgi'
 
             comp_fam = self.toolchain.comp_family()
+
+            # Since intel-compilers 2022.2.0 it uses the icx/icpx compilers, AfS projects support them
+            # since these version
+            oneapi_since = {
+                'Score-P': '8.0',
+                'Scalasca': '2.6.1',
+                'OTF2': '3.0.2',
+                'CubeWriter': '4.8',
+                'CubeLib': '4.8',
+                'CubeGUI': '4.8',
+            }
+            if comp_fam is toolchain.INTELCOMP \
+               and (self.toolchain.options.get('oneapi', False) or self.toolchain.options.get('oneapi_c_cxx', False)):
+                if LooseVersion(self.version) < LooseVersion(oneapi_since.get(self.name, '0')):
+                    # AfS packages do not yet support oneAPI compilers
+                    raise EasyBuildError("Support to build with Intel oneAPI family started with " +
+                                         f"{self.name} {oneapi_since.get(self.name, '0')} but not {self.version}")
+                if not self.toolchain.options.get('oneapi_fortran', False):
+                    # AfS packages do not support mixed new icx/icpx and classic ifort compilers
+                    raise EasyBuildError("Building with mixed Intel oneAPI and classic Fortran family not " +
+                                         f"supported by {self.name}")
+                comp_opts[toolchain.INTELCOMP] = 'oneapi'
+
             if comp_fam in comp_opts:
                 self.cfg.update('configopts', "--with-nocross-compiler-suite=%s" % comp_opts[comp_fam])
             else:
