@@ -495,7 +495,10 @@ class EB_OpenFOAM(EasyBlock):
         # only for recent (>= v6.0) versions of openfoam.org variant
         if self.is_dot_org and self.looseversion >= LooseVersion('6'):
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
-            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if self.looseversion <= LooseVersion('10'):
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            else:
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressibleFluid', 'motorBike')
             if os.path.exists(motorbike_path):
                 test_dir = tempfile.mkdtemp()
 
