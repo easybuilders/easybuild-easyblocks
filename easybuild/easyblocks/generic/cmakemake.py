@@ -72,6 +72,22 @@ def det_cmake_version():
 
     return cmake_version
 
+    ####Sanity check to verify which Python executable is picked up by CMake 
+    cmake_python_check_cmd = ' cmake -E env python --version'
+    python_version_output, _ = run_cmd(cmake_python_check_cmd, log_all=True, simple=False)
+
+    ####Extract Python from the output
+    python_version = None
+    if 'Python ' in python_version_output:
+        python_version = python_version_output.split('Python ')[1].strip()
+
+    #####Log the Python version detected by CMake 
+    if python_version:
+        self.log.info("Python version detected by CMake: %s", python_version)
+    else:
+        self.log.warning("Failed to determine Python version detected by CMake.")
+
+
 
 def setup_cmake_env(tc):
     """Setup env variables that cmake needs in an EasyBuild context."""
@@ -277,6 +293,29 @@ class CMakeMake(ConfigureMake):
         # Avoids issues like e.g. https://github.com/EESSI/software-layer/pull/370#issuecomment-1785594932
         if LooseVersion(self.cmake_version) >= '3.15':
             options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
+
+        #####Set Python_FIND_STRATEGY and Python_ROOT_DIR based on CMake and Python versions
+        if LooseVersion(self.cmake_version) >= '3.12':
+        # For CMake version 3.12 and above, use the new variables
+            options['Python_FIND_STRATEGY'] = 'LOCATION'
+
+        # Check if Python version is detected by CMake and update Python_ROOT_DIR accordingly
+            if python_version is not None:
+                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', f'python{python_version}')
+            else:
+                # Use the default Python version
+                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', 'python')
+
+        elif LooseVersion(self.cmake_version) < '3.12':
+             options['Python_FIND_STRATEGY'] = 'LOCATION'
+
+        # Check if Python version is detected by CMake and update Python_ROOT_DIR accordingly
+             if python_version is not None:
+                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', f'python{python_version}')
+             else:
+            # Use the default Python version
+                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROPYTHON', ''), 'bin', 'python')
+        #########
 
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
