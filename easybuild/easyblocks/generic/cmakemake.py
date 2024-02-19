@@ -52,7 +52,6 @@ from easybuild.tools.utilities import nub
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
-
 def det_cmake_version():
     """
     Determine active CMake version.
@@ -161,6 +160,7 @@ class CMakeMake(ConfigureMake):
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
+
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -332,6 +332,56 @@ class CMakeMake(ConfigureMake):
 
         res = run_shell_cmd(command)
 
+        self.log.info("Checking Python paths")
+
+        if LooseVersion(self.cmake_version) >= '3.16':
+            try:
+                with open('CMakeCache.txt', 'r') as file:
+                    lines = file.readlines()
+            except FileNotFoundError:
+                self.log.warning("CMakeCache.txt not found. Python paths checks skipped.")
+
+            if not os.getenv('EBROOTPYTHON'):
+                self.log.warning("EBROOTPYTHON is not set.")
+        else:
+            self.log.info("Skipping Python path checks as CMake version might be lower than 3.16.")
+
+        python_paths = {
+            "executable": [],
+            "include": [],
+            "library": [],
+        }
+        errors = []
+
+        for line in lines:
+            match = re.match(r"(?i)_Python(\d+)_((?:EXECUTABLE|INCLUDE_DIR|LIBRARY)):.*?=(.*)", line)
+            if match:
+                prefix, path_type, path = match.groups()
+                if path_type == "INCLUDE_DIR":
+                    python_paths["include"].append(path.strip())
+                    self.log.info(f"Python {path_type} path: {path}")
+                elif path_type == "EXECUTABLE":
+                    python_paths["executable"].append(path.strip())
+                    self.log.info(f"Python {path_type} path: {path}")
+                elif path_type == "LIBRARY":
+                    python_paths["library"].append(path.strip())
+                    self.log.info(f"Python {path_type} path: {path}")
+
+        # Validate path and handle EBROOTHPYTHON
+        ebrootpython_path = get_software_root("Python")
+        for path_type, paths in python_paths.items():
+            for path in paths:
+                if not os.path.exists(path):
+                    errors.append(f"Python does not exist: {path}")
+
+                if ebrootpython_path and not path.startswith(ebrootpython_path):
+                    errors.append(f"Python {path_type} path '{path}' is outside EBROOTPYTHON ({ebrootpython_path})")
+
+        if errors:
+            # Combine all errors into a single message
+            error_message = "\n".join(errors)
+            raise EasyBuildError(f"Python path errors:\n{error_message}")
+        self.log.info("Python check successful")
         return res.output
 
     def test_step(self):
