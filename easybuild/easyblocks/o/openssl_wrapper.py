@@ -376,7 +376,7 @@ class EB_OpenSSL_wrapper(Bundle):
             # any protocol prefix and trailing slashes
             proxy_parsed = urlparse(os.environ.get('https_proxy'))
             if proxy_parsed.netloc:
-                proxy_arg = f' -proxy {proxy_parsed.netloc}'
+                proxy_arg = ' -proxy %s' % proxy_parsed.netloc
 
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
