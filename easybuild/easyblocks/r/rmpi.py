@@ -74,10 +74,10 @@ class EB_Rmpi(RPackage):
         # it might be needed to get the R cmd and run it with mympirun...
         super(EB_Rmpi, self).run()
 
-    def run_async(self):
+    def run_async(self, *args, **kwargs):
         """
         Asynchronously install Rmpi as extension, after seting various configure arguments.
         """
         self.prepare_rmpi_configureargs()
         # it might be needed to get the R cmd and run it with mympirun...
-        super(EB_Rmpi, self).run_async()
+        return super(EB_Rmpi, self).run_async(*args, **kwargs)

@@ -42,7 +42,7 @@ class EB_Rserve(RPackage):
         self.configurevars = ['LIBS="$LIBS -lpthread"']
         super(EB_Rserve, self).run()
 
-    def run_async(self):
+    def run_async(self, *args, **kwargs):
         """Set LIBS environment variable correctly prior to building."""
         self.configurevars = ['LIBS="$LIBS -lpthread"']
-        super(EB_Rserve, self).run_async()
+        return super(EB_Rserve, self).run_async(*args, **kwargs)
