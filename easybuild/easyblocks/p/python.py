@@ -38,7 +38,7 @@ import re
 import fileinput
 import sys
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -376,8 +376,6 @@ class EB_Python(ConfigureMake):
             if tcltk_maj_min_ver != '.'.join(tkver.split('.')[:2]):
                 raise EasyBuildError("Tcl and Tk major/minor versions don't match: %s vs %s", tclver, tkver)
 
-            self.cfg.update('configopts', "--with-tcltk-includes='-I%s/include -I%s/include'" % (tcl, tk))
-
             tcl_libdir = os.path.join(tcl, get_software_libdir('Tcl'))
             tk_libdir = os.path.join(tk, get_software_libdir('Tk'))
             tcltk_libs = "-L%(tcl_libdir)s -L%(tk_libdir)s -ltcl%(maj_min_ver)s -ltk%(maj_min_ver)s" % {
@@ -385,7 +383,12 @@ class EB_Python(ConfigureMake):
                 'tk_libdir': tk_libdir,
                 'maj_min_ver': tcltk_maj_min_ver,
             }
-            self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
+            if LooseVersion(self.version) < '3.11':
+                self.cfg.update('configopts', "--with-tcltk-includes='-I%s/include -I%s/include'" % (tcl, tk))
+                self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
+            else:
+                env.setvar('TCLTK_CFLAGS', '-I%s/include -I%s/include' % (tcl, tk))
+                env.setvar('TCLTK_LIBS', tcltk_libs)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)

@@ -30,7 +30,7 @@ EasyBuild support for building and installing R, implemented as an easyblock
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -70,8 +70,11 @@ class EB_R(ConfigureMake):
         for dep in ['Tcl', 'Tk']:
             root = get_software_root(dep)
             if root:
-                dep_config = os.path.join(root, 'lib', '%sConfig.sh' % dep.lower())
-                self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
+                for libdir in ['lib', 'lib64']:
+                    dep_config = os.path.join(root, libdir, '%sConfig.sh' % dep.lower())
+                    if os.path.exists(dep_config):
+                        self.cfg.update('configopts', '--with-%s-config=%s' % (dep.lower(), dep_config))
+                        break
 
         if "--with-x=" not in self.cfg['configopts'].lower():
             if get_software_root('X11'):

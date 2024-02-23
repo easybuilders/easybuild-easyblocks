@@ -27,7 +27,7 @@ EasyBuild support for building and installing MRtrix, implemented as an easybloc
 """
 import glob
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock

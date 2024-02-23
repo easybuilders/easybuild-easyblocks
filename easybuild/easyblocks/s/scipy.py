@@ -31,10 +31,11 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Jasper Grimm (University of York)
+@author: Sebastian Achilles (Juelich Supercomputing Centre)
 """
 import os
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -95,11 +96,21 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/2237
             self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
         else:
-            self.testcmd = " && ".join([
-                "cd ..",
-                "touch %(srcdir)s/.coveragerc",
-                "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
-            ])
+            if LooseVersion(self.version) >= LooseVersion('1.11'):
+                self.testcmd = " && ".join([
+                    "cd ..",
+                    # note: beware of adding --parallel here to speed up running the tests:
+                    # in some contexts the test suite could hang because pytest-xdist doesn't deal well with cgroups
+                    # cfr. https://github.com/pytest-dev/pytest-xdist/issues/658
+                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v ",
+                ])
+            else:
+                self.testcmd = " && ".join([
+                    "cd ..",
+                    "touch %(srcdir)s/.coveragerc",
+                    "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
+                ])
+
             if self.cfg['enable_slow_tests']:
                 self.testcmd += " -m full "
 
@@ -113,7 +124,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             if lapack_lib == toolchain.FLEXIBLAS:
                 blas_lapack = 'flexiblas'
             elif lapack_lib == toolchain.INTELMKL:
-                blas_lapack = 'mkl'
+                blas_lapack = 'mkl-dynamic-lp64-seq'
             elif lapack_lib == toolchain.OPENBLAS:
                 blas_lapack = 'openblas'
             else:
@@ -165,10 +176,17 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             change_dir(tmp_builddir)
 
             # reconfigure (to update prefix), and install to tmpdir
-            MesonNinja.configure_step(self, cmd_prefix=tmp_installdir)
+            orig_builddir = self.builddir
+            orig_installdir = self.installdir
+            self.builddir = tmp_builddir
+            self.installdir = tmp_installdir
+            MesonNinja.configure_step(self)
             MesonNinja.install_step(self)
+            self.builddir = orig_builddir
+            self.installdir = orig_installdir
+            MesonNinja.configure_step(self)
 
-            tmp_pylibdir = [os.path.join(tmp_installdir, det_pylibdir())]
+            tmp_pylibdir = os.path.join(tmp_installdir, det_pylibdir())
             self.prepare_python()
 
             self.cfg['pretestopts'] = " && ".join([
@@ -181,6 +199,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.cfg['runtest'] = self.testcmd % {
                 'python': self.python_cmd,
                 'srcdir': self.cfg['start_dir'],
+                'installdir': tmp_installdir,
                 'parallel': self.cfg['parallel'],
             }
 
@@ -190,6 +209,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.testcmd = self.testcmd % {
                 'python': '%(python)s',
                 'srcdir': self.cfg['start_dir'],
+                'installdir': '',
                 'parallel': self.cfg['parallel'],
             }
             FortranPythonPackage.test_step(self)

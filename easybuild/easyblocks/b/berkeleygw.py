@@ -28,7 +28,7 @@ EasyBuild support for BerkeleyGW, implemented as an easyblock
 @author: Miguel Dias Costa (National University of Singapore)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -177,7 +177,8 @@ class EB_BerkeleyGW(ConfigureMake):
         """Custom test step for BerkeleyGW."""
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
-            setvar('OMP_NUM_THREADS', '4')
+            setvar('BGW_TEST_MPI_NPROCS', '2')
+            setvar('OMP_NUM_THREADS', '2')
             setvar('TEMPDIRPATH', os.path.join(self.builddir, 'tmp'))
         super(EB_BerkeleyGW, self).test_step()
 

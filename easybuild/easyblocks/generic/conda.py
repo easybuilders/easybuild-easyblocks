@@ -34,6 +34,8 @@ import os
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import get_software_root
+from easybuild.tools.build_log import EasyBuildError
 
 
 class Conda(Binary):
@@ -57,11 +59,21 @@ class Conda(Binary):
             super(Conda, self).extract_step()
 
     def install_step(self):
-        """Install software using 'conda env create' or 'conda create' & 'conda install'."""
+        """Install software using 'conda env create' or 'conda create' & 'conda install'
+        (or the 'mamba', etc., equivalent)."""
+        if (get_software_root('anaconda2') or get_software_root('miniconda2') or
+                get_software_root('anaconda3') or get_software_root('miniconda3')):
+            conda_cmd = 'conda'
+        elif get_software_root('mamba'):
+            conda_cmd = 'mamba'
+        elif get_software_root('micromamba'):
+            conda_cmd = 'micromamba'
+        else:
+            raise EasyBuildError("No conda/mamba/micromamba available.")
 
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "conda config --add create_default_packages setuptools"
+        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
         run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
@@ -72,7 +84,8 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s conda env create --force %s -p %s" % (self.cfg['preinstallopts'], env_spec, self.installdir)
+            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                         env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
@@ -85,8 +98,13 @@ class Conda(Binary):
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s conda create --force -y -p %s %s" % (self.cfg['preinstallopts'], self.installdir, install_args)
+            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                        self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
+
+        # clean up
+        cmd = "%s clean -ya" % conda_cmd
+        run_cmd(cmd, log_all=True, simple=True)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""

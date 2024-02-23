@@ -40,7 +40,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 
 class EB_g2clib(ConfigureMake):

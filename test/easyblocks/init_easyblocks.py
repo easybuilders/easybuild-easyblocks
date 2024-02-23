@@ -96,7 +96,7 @@ class InitTest(TestCase):
             self.log.error("Failed to remove %s: %s" % (self.eb_file, err))
 
 
-def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=None):
+def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=None, deps=None):
     """Test whether all easyblocks can be initialized."""
 
     def check_extra_options_format(extra_options):
@@ -164,6 +164,9 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
                     test_param = 'foo'
                 extra_txt += '%s = "%s"\n' % (key, test_param)
 
+        if deps:
+            extra_txt += 'dependencies = %s' % str(deps)
+
         # write easyconfig file
         self.write_ec(ebname, name=name, version=version, toolchain=toolchain, extratxt=extra_txt)
 
@@ -224,6 +227,9 @@ def suite():
         elif easyblock_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, version='1.1')
+        elif easyblock_fn == 'torchvision.py':
+            # torchvision easyblock requires that PyTorch is listed as dependency
+            innertest = make_inner_test(easyblock, name='torchvision', deps=[('PyTorch', '1.12.1')])
         else:
             innertest = make_inner_test(easyblock)
 

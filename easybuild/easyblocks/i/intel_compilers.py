@@ -28,7 +28,7 @@ EasyBuild support for installing Intel compilers, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
@@ -51,10 +51,16 @@ class EB_intel_minus_compilers(IntelBase):
         if LooseVersion(self.version) < LooseVersion('2021'):
             raise EasyBuildError("Invalid version %s, should be >= 2021.x" % self.version)
 
-        self.compilers_subdir = os.path.join('compiler', self.version, 'linux')
-        # note that tbb may have a lower version number than the compiler, so use 'latest' symlink
-        # for example compiler 2021.1.2 has tbb 2021.1.1.
-        self.tbb_subdir = os.path.join('tbb', 'latest')
+    @property
+    def compilers_subdir(self):
+        compilers_subdir = self.get_versioned_subdir('compiler')
+        if LooseVersion(self.version) < LooseVersion('2024'):
+            compilers_subdir = os.path.join(compilers_subdir, 'linux')
+        return compilers_subdir
+
+    @property
+    def tbb_subdir(self):
+        return self.get_versioned_subdir('tbb')
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -92,7 +98,6 @@ class EB_intel_minus_compilers(IntelBase):
         Custom sanity check for Intel compilers.
         """
 
-        classic_compiler_cmds = ['icc', 'icpc', 'ifort']
         oneapi_compiler_cmds = [
             'dpcpp',  # Intel oneAPI Data Parallel C++ compiler
             'icx',  # oneAPI Intel C compiler
@@ -100,8 +105,14 @@ class EB_intel_minus_compilers(IntelBase):
             'ifx',  # oneAPI Intel Fortran compiler
         ]
         bindir = os.path.join(self.compilers_subdir, 'bin')
-        classic_compiler_paths = [os.path.join(bindir, x) for x in oneapi_compiler_cmds]
-        oneapi_compiler_paths = [os.path.join(bindir, 'intel64', x) for x in classic_compiler_cmds]
+        oneapi_compiler_paths = [os.path.join(bindir, x) for x in oneapi_compiler_cmds]
+        if LooseVersion(self.version) >= LooseVersion('2024'):
+            classic_compiler_cmds = ['ifort']
+            classic_bindir = bindir
+        else:
+            classic_compiler_cmds = ['icc', 'icpc', 'ifort']
+            classic_bindir = os.path.join(bindir, 'intel64')
+        classic_compiler_paths = [os.path.join(classic_bindir, x) for x in classic_compiler_cmds]
 
         custom_paths = {
             'files': classic_compiler_paths + oneapi_compiler_paths,
@@ -131,12 +142,7 @@ class EB_intel_minus_compilers(IntelBase):
             os.path.join('compiler', 'lib', 'intel64_lin'),
         ]
         libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
-        # resolve 'latest' symlink for tbb (if module guess is run with install in place)
-        if os.path.islink(os.path.join(self.installdir, self.tbb_subdir)):
-            tbb_version = os.readlink(os.path.join(self.installdir, self.tbb_subdir))
-        else:
-            tbb_version = 'latest'
-        tbb_subdir = os.path.join('tbb', tbb_version)
+        tbb_subdir = self.tbb_subdir
         tbb_libsubdir = os.path.join(tbb_subdir, 'lib', 'intel64')
         libdirs.append(os.path.join(tbb_libsubdir,
                                     get_tbb_gccprefix(os.path.join(self.installdir, tbb_libsubdir))))
@@ -148,10 +154,12 @@ class EB_intel_minus_compilers(IntelBase):
             'LD_LIBRARY_PATH': libdirs,
             'LIBRARY_PATH': libdirs,
             'MANPATH': [
-                os.path.join('compiler', self.version, 'documentation', 'en', 'man', 'common'),
+                os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
+                os.path.join(self.compilers_subdir, 'share', 'man'),
             ],
             'OCL_ICD_FILENAMES': [
                 os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
+                os.path.join(self.compilers_subdir, 'lib', 'libintelocl.so'),
             ],
             'CPATH': [
                 os.path.join(tbb_subdir, 'include'),

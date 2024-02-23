@@ -28,7 +28,7 @@ EasyBuild support for Go packages, implemented as an EasyBlock
 @author: Pavel Grochal (INUITS)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -149,3 +149,6 @@ class GoPackage(EasyBlock):
         custom_commands = ['%s --help' % self.name.lower()]
 
         super(GoPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def sanity_check_rpath(self, rpath_dirs=None):
+        super(GoPackage, self).sanity_check_rpath(rpath_dirs=rpath_dirs, check_readelf_rpath=False)

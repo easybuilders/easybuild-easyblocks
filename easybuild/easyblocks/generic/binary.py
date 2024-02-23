@@ -59,6 +59,7 @@ class Binary(EasyBlock):
         extra_vars.update({
             'extract_sources': [False, "Whether or not to extract sources", CUSTOM],
             'install_cmd': [None, "Install command to be used.", CUSTOM],
+            'install_cmds': [None, "List of install commands to be used.", CUSTOM],
             # staged installation can help with the hard (potentially faulty) check on available disk space
             'staged_install': [False, "Perform staged installation via subdirectory of build directory", CUSTOM],
             'prepend_to_path': [PREPEND_TO_PATH_DEFAULT, "Prepend the given directories (relative to install-dir) to "
@@ -104,7 +105,9 @@ class Binary(EasyBlock):
     def install_step(self):
         """Copy all files in build directory to the install directory"""
         install_cmd = self.cfg.get('install_cmd', None)
-        if install_cmd is None:
+        install_cmds = self.cfg.get('install_cmds', [])
+
+        if install_cmd is None and install_cmds is None:
             try:
                 # shutil.copytree doesn't allow the target directory to exist already
                 remove_dir(self.installdir)
@@ -112,9 +115,21 @@ class Binary(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
         else:
-            cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
-            self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
-            run_cmd(cmd, log_all=True, simple=True)
+            if install_cmd:
+                if not install_cmds:
+                    install_cmds = [install_cmd]
+                    install_cmd = None
+                else:
+                    raise EasyBuildError("Don't use both install_cmds and install_cmd, pick one!")
+
+            if isinstance(install_cmds, (list, tuple)):
+                for install_cmd in install_cmds:
+                    cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
+                    self.log.info("Running install command for %s: '%s'..." % (self.name, cmd))
+                    run_cmd(cmd, log_all=True, simple=True)
+            else:
+                raise EasyBuildError("Incorrect value type for install_cmds, should be list or tuple: ",
+                                     install_cmds)
 
     def post_install_step(self):
         """Copy installation to actual installation directory in case of a staged installation."""

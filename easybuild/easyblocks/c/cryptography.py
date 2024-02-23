@@ -27,7 +27,7 @@ EasyBuild support for building and installing cryptography, implemented as an ea
 
 @author: Alexander Grund
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.run import run_cmd

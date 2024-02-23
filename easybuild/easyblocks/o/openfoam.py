@@ -41,7 +41,7 @@ import re
 import shutil
 import stat
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -232,9 +232,9 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching compiler variables in %s", fullpath)
             regex_subs = []
             for comp_var, newval in comp_vars.items():
-                regex_subs.append((r"^(%s\s*=\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
+                regex_subs.append((r"^(%s\s*(=|:=)\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
             # replace /lib/cpp by cpp, but keep the arguments
-            regex_subs.append((r"^(CPP\s*=\s*)/lib/cpp(.*)$", r"\1cpp\2"))
+            regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # enable verbose build for debug purposes
@@ -438,14 +438,14 @@ class EB_OpenFOAM(EasyBlock):
         if self.is_dot_org and self.looseversion >= LooseVersion('7'):
             tools.remove("buoyantBoussinesqSimpleFoam")
             tools.remove("sonicFoam")
-        # buoyantSimpleFoam replaced by buoyantFoam in versions 10+
-        if self.is_dot_org and self.looseversion >= LooseVersion("10"):
+        # engineFoam replaced by reactingFoam and buoyantSimpleFoam replaced by buoyantFoam in version 10
+        if self.is_dot_org and LooseVersion("10") <= self.looseversion:
             tools.remove("buoyantSimpleFoam")
-            tools.append("buoyantFoam")
-        # engineFoam replaced by reactingFoam in versions 10+
-        if self.is_dot_org and self.looseversion >= LooseVersion("10"):
             tools.remove("engineFoam")
-            tools.append("reactingFoam")
+            # both removed in version 11
+            if self.looseversion < LooseVersion("11"):
+                tools.append("buoyantFoam")
+                tools.append("reactingFoam")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]

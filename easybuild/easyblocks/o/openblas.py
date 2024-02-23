@@ -7,7 +7,7 @@ EasyBuild support for building and installing OpenBLAS, implemented as an easybl
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
@@ -70,10 +70,13 @@ class EB_OpenBLAS(ConfigureMake):
         """ Custom build step excluding the tests """
 
         # Equivalent to `make all` without the tests
-        build_parts = ['libs', 'netlib']
-        for buildopt in self.cfg['buildopts'].split():
-            if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
-                build_parts += ['re_lapack']
+        build_parts = []
+        if LooseVersion(self.version) < LooseVersion('0.3.23'):
+            build_parts += ['libs', 'netlib']
+            for buildopt in self.cfg['buildopts'].split():
+                if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
+                    build_parts += ['re_lapack']
+        # just shared is necessary and sufficient with 0.3.23 + xianyi/OpenBLAS#3983
         build_parts += ['shared']
 
         # Pass CFLAGS through command line to avoid redefinitions (issue xianyi/OpenBLAS#818)

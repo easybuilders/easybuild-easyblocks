@@ -34,6 +34,7 @@ import os
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
@@ -55,24 +56,27 @@ class EB_Gurobi(Tarball):
         """Easyblock constructor, define custom class variables specific to Gurobi."""
         super(EB_Gurobi, self).__init__(*args, **kwargs)
 
-        self.license_file = self.cfg['license_file']
+        # make sure license file is available
+        self.orig_license_file = self.cfg['license_file']
+        if self.orig_license_file is None:
+            self.orig_license_file = os.getenv('EB_GUROBI_LICENSE_FILE', None)
 
         if self.cfg['copy_license_file']:
             self.license_file = os.path.join(self.installdir, 'gurobi.lic')
+        else:
+            self.license_file = self.orig_license_file
 
     def install_step(self):
         """Install Gurobi and license file."""
-
-        # make sure license file is available
-        if self.cfg['license_file'] is None or not os.path.exists(self.cfg['license_file']):
-            raise EasyBuildError("No existing license file specified: %s", self.cfg['license_file'])
-
         super(EB_Gurobi, self).install_step()
 
         if self.cfg['copy_license_file']:
-            copy_file(self.cfg['license_file'], self.license_file)
+            if self.orig_license_file is None or not os.path.exists(self.orig_license_file):
+                raise EasyBuildError("No existing license file specified: %s", self.orig_license_file)
 
-        if get_software_root('Python'):
+            copy_file(self.orig_license_file, self.license_file)
+
+        if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('11'):
             run_cmd("python setup.py install --prefix=%s" % self.installdir)
 
     def sanity_check_step(self):
