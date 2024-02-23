@@ -30,6 +30,8 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 import os
 import re
 
+from urllib.parse import urlparse
+
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
