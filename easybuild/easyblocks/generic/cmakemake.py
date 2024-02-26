@@ -357,8 +357,31 @@ class CMakeMake(ConfigureMake):
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
-        return out
+def check_python_paths(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
 
+    # Search for Python paths in each line
+    for line in lines:
+        if line.startswith('Python3_EXECUTABLE:FILEPATH='):
+            exec_path = line.split('=')[1].strip()
+        elif line.startswith('Python3_INCLUDE_DIR:FILEPATH='):
+            include_path = line.split('=')[1].strip()
+        elif line.startswith('Python3_LIBRARY:FILEPATH='):
+            library_path = line.split('=')[1].strip()
+
+    # Check if paths include EBROOTPYTHON
+    ebrootpython_path = "/cvmfs/software.eessi.io/versions/2023.06/software/linux/x86_64/intel/skylake_avx512/software/Python/3.11.3-GCCcore-12.3.0"
+    if all(path and ebrootpython_path in path for path in [exec_path, include_path, library_path]):
+        print("Paths include EBROOTPYTHON.")
+    else:
+        print("Paths do not include EBROOTPYTHON.")
+
+    cmake_cache_path = 'CMakeCache.txt'
+    check_python_paths(cmake_cache_path)
+
+    return out
+ 
     def test_step(self):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
