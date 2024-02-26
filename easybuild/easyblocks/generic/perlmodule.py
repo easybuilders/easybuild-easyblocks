@@ -102,8 +102,9 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             run_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
-            if self.cfg['runtest']:
-                run_cmd('%s perl Build %s' % (self.cfg['pretestopts'], self.cfg['runtest']))
+            runtest = self.cfg['runtest']
+            if runtest:
+                run_cmd('%s perl Build %s %s' % (self.cfg['pretestopts'], runtest, self.cfg['testopts']))
             run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):
