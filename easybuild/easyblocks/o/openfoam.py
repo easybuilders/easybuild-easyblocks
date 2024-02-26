@@ -500,7 +500,8 @@ class EB_OpenFOAM(EasyBlock):
                     openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike'
                 )
             else:
-                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressibleFluid', 'motorBike', 'motorBike')
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressibleFluid',
+                                              'motorBike', 'motorBike')
             if os.path.exists(motorbike_path):
                 test_dir = tempfile.mkdtemp()
 
@@ -542,7 +543,7 @@ class EB_OpenFOAM(EasyBlock):
                         "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
                         "runApplication blockMesh",
                         "runApplication decomposePar -copyZero",
-                        "find . -type f -iname '*level*' -exec rm {} \;",
+                        "find . -type f -iname '*level*' -exec rm {} \\;",
                         "runParallel renumberMesh -overwrite",
                         "runParallel potentialFoam -initialiseUBCs",
                         "runParallel simpleFoam",
@@ -585,4 +586,3 @@ class EB_OpenFOAM(EasyBlock):
                 txt += self.module_generator.set_environment(env_var, val)
 
         return txt
-    
