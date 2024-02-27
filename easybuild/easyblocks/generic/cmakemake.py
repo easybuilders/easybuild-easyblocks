@@ -331,18 +331,16 @@ class CMakeMake(ConfigureMake):
                 pythonIncludePath = line.split('=')[1].strip()
             elif line.startswith('Python3_LIBRARY:FILEPATH='):
                 pythonLibraryPath = line.split('=')[1].strip()
-        self.log.info("Python executable path: %s",pythonExecPath)
-        self.log.info("Python include path: %s",pythonIncludePath)
-        self.log.info("Python library path: %s",pythonLibraryPath)
- 
+        self.log.info("Python executable path: %s", pythonExecPath)
+        self.log.info("Python include path: %s", pythonIncludePath)
+        self.log.info("Python library path: %s", pythonLibraryPath)
         # Check if paths include EBROOTPYTHON
         ebrootpython_path = os.getenv('EBROOTPYTHON')
-        if all(path and ebrootpython_path in path for path in [pythonExecPath,pythonIncludePath,pythonLibraryPath]):
+        if all(path and ebrootpython_path in path for path in [pythonExecPath, pythonIncludePath, pythonLibraryPath]):
             self.log.info("Python related paths configured correctly.")
             return out
         else:
             raise EasyBuildError("Python related paths do not include EBROOTPYTHON, check log")
-            
     def test_step(self):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
