@@ -72,22 +72,6 @@ def det_cmake_version():
 
     return cmake_version
 
-    ####Sanity check to verify which Python executable is picked up by CMake 
-    cmake_python_check_cmd = ' cmake -E env python --version'
-    python_version_output, _ = run_cmd(cmake_python_check_cmd, log_all=True, simple=False)
-
-    ####Extract Python from the output
-    python_version = None
-    if 'Python ' in python_version_output:
-        python_version = python_version_output.split('Python ')[1].strip()
-
-    #####Log the Python version detected by CMake 
-    if python_version:
-        self.log.info("Python version detected by CMake: %s", python_version)
-    else:
-        self.log.warning("Failed to determine Python version detected by CMake.")
-
-
 
 def setup_cmake_env(tc):
     """Setup env variables that cmake needs in an EasyBuild context."""
@@ -294,29 +278,6 @@ class CMakeMake(ConfigureMake):
         if LooseVersion(self.cmake_version) >= '3.15':
             options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
 
-        #####Set Python_FIND_STRATEGY and Python_ROOT_DIR based on CMake and Python versions
-        if LooseVersion(self.cmake_version) >= '3.12':
-        # For CMake version 3.12 and above, use the new variables
-            options['Python_FIND_STRATEGY'] = 'LOCATION'
-
-        # Check if Python version is detected by CMake and update Python_ROOT_DIR accordingly
-            if python_version is not None:
-                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', f'python{python_version}')
-            else:
-                # Use the default Python version
-                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', 'python')
-
-        elif LooseVersion(self.cmake_version) < '3.12':
-             options['Python_FIND_STRATEGY'] = 'LOCATION'
-
-        # Check if Python version is detected by CMake and update Python_ROOT_DIR accordingly
-             if python_version is not None:
-                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROTPYTHON', ''), 'bin', f'python{python_version}')
-             else:
-            # Use the default Python version
-                options['Python_ROOT_DIR'] = os.path.join(os.environ.get('EBROPYTHON', ''), 'bin', 'python')
-        #########
-
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 
@@ -357,31 +318,31 @@ class CMakeMake(ConfigureMake):
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
-def check_python_paths(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+        # sanitycheck for the configuration step
+        self.log.info("Checking python paths")
+        with open('CMakeCache.txt', 'r') as file:
+            lines = file.readlines()
 
-    # Search for Python paths in each line
-    for line in lines:
-        if line.startswith('Python3_EXECUTABLE:FILEPATH='):
-            exec_path = line.split('=')[1].strip()
-        elif line.startswith('Python3_INCLUDE_DIR:FILEPATH='):
-            include_path = line.split('=')[1].strip()
-        elif line.startswith('Python3_LIBRARY:FILEPATH='):
-            library_path = line.split('=')[1].strip()
-
-    # Check if paths include EBROOTPYTHON
-    ebrootpython_path = "/cvmfs/software.eessi.io/versions/2023.06/software/linux/x86_64/intel/skylake_avx512/software/Python/3.11.3-GCCcore-12.3.0"
-    if all(path and ebrootpython_path in path for path in [exec_path, include_path, library_path]):
-        print("Paths include EBROOTPYTHON.")
-    else:
-        print("Paths do not include EBROOTPYTHON.")
-
-    cmake_cache_path = 'CMakeCache.txt'
-    check_python_paths(cmake_cache_path)
-
-    return out
+        # Search for Python paths in each line
+        for line in lines:
+            if line.startswith('Python3_EXECUTABLE:FILEPATH='):
+                pythonExecPath = line.split('=')[1].strip()
+            elif line.startswith('Python3_INCLUDE_DIR:FILEPATH='):
+                pythonIncludePath = line.split('=')[1].strip()
+            elif line.startswith('Python3_LIBRARY:FILEPATH='):
+                pythonLibraryPath = line.split('=')[1].strip()
+        self.log.info("Python executable path: %s",pythonExecPath)
+        self.log.info("Python include path: %s",pythonIncludePath)
+        self.log.info("Python library path: %s",pythonLibraryPath)
  
+        # Check if paths include EBROOTPYTHON
+        ebrootpython_path = os.getenv('EBROOTPYTHON')
+        if all(path and ebrootpython_path in path for path in [pythonExecPath,pythonIncludePath,pythonLibraryPath]):
+            self.log.info("Python related paths configured correctly.")
+            return out
+        else:
+            raise EasyBuildError("Python related paths do not include EBROOTPYTHON, check log")
+            
     def test_step(self):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
