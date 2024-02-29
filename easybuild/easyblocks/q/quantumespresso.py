@@ -27,21 +27,23 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
+@author: Davide Grassano (CECAM, EPFL)
 """
 import fileinput
 import os
 import re
 import shutil
 import sys
-from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
+
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
 
 class EB_QuantumESPRESSO(ConfigureMake):
@@ -70,123 +72,263 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Patch files from build dir (not start dir)."""
         super(EB_QuantumESPRESSO, self).patch_step(beginpath=self.builddir)
 
+    def _add_compiler_flags(self, comp_fam):
+        """Add compiler flags to the build."""
+        allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC]
+        if comp_fam not in allowed_toolchains:
+            raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
+            
+        if LooseVersion(self.version) >= LooseVersion("6.1"):
+            if comp_fam == toolchain.INTELCOMP:
+                self._dflags += ["-D__INTEL_COMPILER"]
+            elif comp_fam == toolchain.GCC:
+                self._dflags += ["-D__GFORTRAN__"]
+        elif LooseVersion(self.version) >= LooseVersion("5.2.1"):
+            if comp_fam == toolchain.INTELCOMP:
+                self._dflags += ["-D__INTEL"]
+            elif comp_fam == toolchain.GCC:
+                self._dflags += ["-D__GFORTRAN"]
+        elif LooseVersion(self.version) >= LooseVersion("5.0"):
+            if comp_fam == toolchain.INTELCOMP:
+                self._dflags += ["-D__INTEL"]
+            elif comp_fam == toolchain.GCC:
+                self._dflags += ["-D__GFORTRAN", "-D__STD_F95"]
+
+    def _add_openmp(self):
+        """Add OpenMP support to the build."""
+        if not self.toolchain.options.get('openmp', False) and not self.cfg['hybrid']:
+            return
+        self.cfg.update('configopts', '--enable-openmp')
+        if LooseVersion(self.version) >= LooseVersion("6.2.1"):
+            self._dflags += ["-D_OPENMP"]
+        elif LooseVersion(self.version) >= LooseVersion("5.0"):
+            self._dflags += ["-D__OPENMP"]
+
+    def _add_mpi(self):
+        """Add MPI support to the build."""
+        if not self.toolchain.options.get('usempi', False):
+            self.cfg.update('configopts', '--disable-parallel')
+            return
+        self.cfg.update('configopts', '--enable-parallel')
+        if LooseVersion(self.version) >= LooseVersion("6.0"):
+            self._dflags += ["-D__MPI"]
+        elif LooseVersion(self.version) >= LooseVersion("5.0"):
+            self._dflags += ["-D__MPI", "-D__PARA"]
+
+    def _add_scalapack(self, comp_fam):
+        """Add ScaLAPACK support to the build."""
+        if not self.cfg['with_scalapack']:
+            self.cfg.update('configopts', '--without-scalapack')
+            return
+            
+        if comp_fam == toolchain.INTELCOMP:
+            if get_software_root("impi") and get_software_root("imkl"):
+                if LooseVersion(self.version) >= LooseVersion("6.2"):
+                    self.cfg.update('configopts', '--with-scalapack=intel')
+                elif LooseVersion(self.version) >= LooseVersion("5.1.1"):
+                    self.cfg.update('configopts', '--with-scalapack=intel')
+                    self._repls += [
+                        ('SCALAPACK_LIBS', os.getenv('LIBSCALAPACK'), False)
+                    ]
+                elif LooseVersion(self.version) >= LooseVersion("5.0"):
+                    self.cfg.update('configopts', '--with-scalapack=yes')
+                self._dflags += ["-D__SCALAPACK"]
+        elif comp_fam == toolchain.GCC:
+            if get_software_root("OpenMPI") and get_software_root("ScaLAPACK"):
+                self.cfg.update('configopts', '--with-scalapack=yes')
+                self._dflags += ["-D__SCALAPACK"]
+        else:
+            self.cfg.update('configopts', '--without-scalapack')
+
+    def _add_libxc(self):
+        """Add libxc support to the build."""
+        libxc = get_software_root("libxc")
+        if not libxc:
+            return
+        
+        libxc_v = get_software_version("libxc")
+        if LooseVersion(libxc_v) < LooseVersion("3.0.1"):
+            raise EasyBuildError("Must use libxc >= 3.0.1")
+        if LooseVersion(self.version) >= LooseVersion("7.0"):
+            if LooseVersion(libxc_v) < LooseVersion("6.0.0"):
+                raise EasyBuildError("libxc support for QuantumESPRESSO 7.0 only available for libxc >= 6.0.0")
+            self.cfg.update('configopts', '--with-libxc=yes')
+            self.cfg.update('configopts', f'--with-libxc-prefix={libxc}')
+        elif LooseVersion(self.version) >= LooseVersion("6.4"):
+            if LooseVersion(libxc_v) >= LooseVersion("5.0"):
+                raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc <= 4.3.4")
+            self.cfg.update('configopts', '--with-libxc=yes')
+            self.cfg.update('configopts', f'--with-libxc-prefix={libxc}')
+        else:
+            self.extra_libs.append(" -lxcf90 -lxc")
+            
+
+        self._dflags += ["-D__LIBXC"]
+
+    def _add_hdf5(self):
+        """Add HDF5 support to the build."""
+        hdf5 = get_software_root("HDF5")
+        if not hdf5:
+            return
+        self.cfg.update('configopts', '--with-hdf5=%s' % hdf5)
+        self._dflags += ["-D__HDF5"]
+        hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
+        self._repls += [('HDF5_LIB', hdf5_lib_repl, False)]
+
+    def _add_elpa(self):
+        """Add ELPA support to the build."""
+        elpa = get_software_root("ELPA")
+        if not elpa:
+            return
+        
+        elpa_v = get_software_version("ELPA")
+
+        if LooseVersion(elpa_v) < LooseVersion("2015"):
+            raise EasyBuildError("ELPA versions lower than 2015 are not supported")
+        
+        if LooseVersion(self.version) >= LooseVersion("6.8"):
+            if LooseVersion(elpa_v) >= LooseVersion("2018.11"):
+                self._dflags += ["-D__ELPA"]
+            elif LooseVersion(elpa_v) >= LooseVersion("2016.11"):
+                self._dflags += [f"-D__ELPA_2016"]
+            elif LooseVersion(elpa_v) >= LooseVersion("2015"):
+                self._dflags += [f"-D__ELPA_2015"]
+        elif LooseVersion(self.version) >= LooseVersion("6.6"):
+            if LooseVersion(elpa_v) >= LooseVersion("2020"):
+                raise EasyBuildError("ELPA support for QuantumESPRESSO 6.6 only available up to v2019.xx")
+            elif LooseVersion(elpa_v) >= LooseVersion("2018"):
+                self._dflags += ["-D__ELPA"]
+            elif LooseVersion(elpa_v) >= LooseVersion("2015"):
+                elpa_year_v = elpa_v.split('.')[0]
+                self._dflags += [f"-D__ELPA_{elpa_year_v}"]
+        elif LooseVersion(self.version) >= LooseVersion("6.0"):
+            if LooseVersion(elpa_v) >= LooseVersion("2017"):
+                raise EasyBuildError("ELPA support for QuantumESPRESSO 6.x only available up to v2016.xx")
+            elif LooseVersion(elpa_v) >= LooseVersion("2016"):
+                self._dflags += ["-D__ELPA_2016"]
+            elif LooseVersion(elpa_v) >= LooseVersion("2015"):
+                self._dflags += ["-D__ELPA_2015"]
+        elif LooseVersion(self.version) >= LooseVersion("5.4"):
+            self._dflags += ["-D__ELPA"]
+            self.cfg.update('configopts', f'--with-elpa={elpa}')
+            return
+        elif LooseVersion(self.version) >= LooseVersion("5.1.1"):
+            self.cfg.update('configopts', f'--with-elpa={elpa}')
+            return
+        else:
+            raise EasyBuildError("ELPA support is only available in QuantumESPRESSO 5.1.1 and later")
+        
+        if self.toolchain.options.get('openmp', False):
+            elpa_include = f'elpa_openmp-{elpa_v}'
+            elpa_lib = 'libelpa_openmp.a'
+        else:
+            elpa_include = f'elpa-{elpa_v}'
+            elpa_lib = 'libelpa.a'
+        elpa_include = os.path.join(elpa, 'include', elpa_include, 'modules')
+        elpa_lib = os.path.join(elpa, 'lib', elpa_lib)
+        self._repls += [
+            ('IFLAGS', f'-I{elpa_include}', True)
+            ]
+        self.cfg.update('configopts', f'--with-elpa-include={elpa_include}')
+        self.cfg.update('configopts', f'--with-elpa-lib={elpa_lib}')
+        if LooseVersion(self.version) < LooseVersion("7.0"):
+            self._repls += [
+                ('SCALAPACK_LIBS', f'{elpa_lib} {os.getenv("LIBSCALAPACK")}', False)
+                ]
+
+    def _add_fftw(self, comp_fam):
+        """Add FFTW support to the build."""
+        if self.toolchain.options.get('openmp', False):
+            libfft = os.getenv('LIBFFT_MT')
+        else:
+            libfft = os.getenv('LIBFFT')
+
+        if LooseVersion(self.version) >= LooseVersion("5.2.1"):
+            if comp_fam == toolchain.INTELCOMP and get_software_root("imkl"):
+                self._dflags += ["-D__DFTI"]
+            elif libfft:
+                self._dflags += ["-D__FFTW"] if "fftw3" not in libfft else ["-D__FFTW3"]
+                env.setvar('FFTW_LIBS', libfft)
+        elif LooseVersion(self.version) >= LooseVersion("5.0"):
+            if libfft:
+                self._dflags += ["-D__FFTW"] if "fftw3" not in libfft else ["-D__FFTW3"]
+                env.setvar('FFTW_LIBS', libfft)
+
+    def _add_ace(self):
+        """Add ACE support to the build."""
+        if not self.cfg['with_ace']:
+            return
+        
+        if LooseVersion(self.version) >= LooseVersion("6.2"):
+            self.log.warning("ACE support is not available in QuantumESPRESSO >= 6.2")
+        elif LooseVersion(self.version) >= LooseVersion("6.0"):
+            self._dflags += ["-D__EXX_ACE"]
+        else:
+            self.log.warning("ACE support is not available in QuantumESPRESSO < 6.0")
+
+    def _add_beef(self):
+        """Add BEEF support to the build."""
+        if LooseVersion(self.version) == LooseVersion("6.6"):
+            libbeef = get_software_root("libbeef")
+            if libbeef:
+                self._dflags += ["-Duse_beef"]
+                libbeef_lib = os.path.join(libbeef, 'lib')
+                self.cfg.update('configopts', f'--with-libbeef-prefix={libbeef_lib}')
+                self._repls += [
+                    ('BEEF_LIBS_SWITCH', 'external', False),
+                    ('BEEF_LIBS', f'{os.path.join(libbeef_lib, "libbeef.a")}', False)
+                ]
+
+    def _adjust_compiler_flags(self, comp_fam):
+        """Adjust compiler flags based on the compiler family and code version."""
+        if comp_fam == toolchain.INTELCOMP:
+            if LooseVersion("6.0") <= LooseVersion(self.version) <= LooseVersion("6.4"):
+                i_mpi_cc = os.getenv('I_MPI_CC', '')
+                if i_mpi_cc == 'icx':
+                    env.setvar('I_MPI_CC', 'icc') # Needed cor clib/qmmm_aux.c using <math.h> implicitly
+                # self._repls += [
+                #     ('CFLAGS', '--std=c90', True), # Needed cor clib/qmmm_aux.c using <math.h> implicitly
+                # ]
+            pass
+            # self.cfg.update('configopts', '--with-scalapack=intel')
+            # self._dflags += ["-D__INTEL"]
+        elif comp_fam == toolchain.GCC:
+            # self._dflags += ["-D__GFORTRAN"]
+            pass
+
+
+        
+
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
 
         # compose list of DFLAGS (flag, value, keep_stuff)
         # for guidelines, see include/defs.h.README in sources
-        dflags = []
+        self._dflags = dflags = []
+        self._repls = repls = []
+        self.extra_libs = extra_libs = []
 
-        repls = []
-
-        extra_libs = []
-
-        comp_fam_dflags = {
-            toolchain.INTELCOMP: '-D__INTEL',
-            toolchain.GCC: '-D__GFORTRAN -D__STD_F95',
-        }
         comp_fam = self.toolchain.comp_family()
-        if comp_fam in comp_fam_dflags:
-            dflags.append(comp_fam_dflags[comp_fam])
-        else:
-            raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
 
-        if self.toolchain.options.get('openmp', False) or self.cfg['hybrid']:
-            self.cfg.update('configopts', '--enable-openmp')
-            dflags.append(" -D__OPENMP")
+        self._add_compiler_flags(comp_fam)
+        self._add_openmp()
+        self._add_mpi()
+        self._add_scalapack(comp_fam)
+        self._add_libxc()
+        self._add_hdf5()
+        self._add_elpa()
+        self._add_fftw(comp_fam)
+        self._add_ace()
+        self._add_beef()
 
-        if self.toolchain.options.get('usempi', None):
-            dflags.append('-D__MPI -D__PARA')
-        else:
-            self.cfg.update('configopts', '--disable-parallel')
+        # if comp_fam == toolchain.INTELCOMP:
+        #     # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
+        #     cpp = "%s -E -C" % os.getenv('CC')
+        #     repls.append(('CPP', cpp, False))
+        #     env.setvar('CPP', cpp)
 
-        if self.cfg['with_scalapack']:
-            dflags.append(" -D__SCALAPACK")
-            if self.toolchain.options.get('usempi', None):
-                if get_software_root("impi") and get_software_root("imkl"):
-                    self.cfg.update('configopts', '--with-scalapack=intel')
-        else:
-            self.cfg.update('configopts', '--without-scalapack')
-
-        libxc = get_software_root("libxc")
-        if libxc:
-            libxc_v = get_software_version("libxc")
-            if LooseVersion(libxc_v) < LooseVersion("3.0.1"):
-                raise EasyBuildError("Must use libxc >= 3.0.1")
-            dflags.append(" -D__LIBXC")
-            repls.append(('IFLAGS', '-I%s' % os.path.join(libxc, 'include'), True))
-            if LooseVersion(self.version) < LooseVersion("6.5"):
-                extra_libs.append(" -lxcf90 -lxc")
-            else:
-                extra_libs.append(" -lxcf90 -lxcf03 -lxc")
-
-        hdf5 = get_software_root("HDF5")
-        if hdf5:
-            self.cfg.update('configopts', '--with-hdf5=%s' % hdf5)
-            dflags.append(" -D__HDF5")
-            hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
-            repls.append(('HDF5_LIB', hdf5_lib_repl, False))
-
-        elpa = get_software_root("ELPA")
-        if elpa:
-            if not self.cfg['with_scalapack']:
-                raise EasyBuildError("ELPA requires ScaLAPACK but 'with_scalapack' is set to False")
-
-            elpa_v = get_software_version("ELPA")
-            if LooseVersion(self.version) >= LooseVersion("7"):
-                # NOTE: from version 7, there are only three __ELPA flags,
-                # - __ELPA for ELPA releases 2018.11 and beyond;
-                # - __ELPA_2016 for ELPA releases 2016.11, 2017.x and 2018.05;
-                # - __ELPA_2015 for ELPA releases 2015.x and 2016.05;
-                # see https://github.com/QEF/q-e/commit/351f4871fee3c8045d75592dde606b2279b08e02
-                if LooseVersion(elpa_v) >= LooseVersion("2018.11"):
-                    dflags.append('-D__ELPA')
-                elif LooseVersion(elpa_v) >= LooseVersion("2016.11"):
-                    dflags.append('-D__ELPA_2016')
-                else:
-                    dflags.append('-D__ELPA_2015')
-
-                elpa_min_ver = "2015"
-            elif LooseVersion(self.version) >= LooseVersion("6"):
-                # NOTE: Quantum Espresso 6.x should use -D__ELPA_<year> for corresponding ELPA version
-                # However for ELPA VERSION >= 2017.11 Quantum Espresso needs to use ELPA_2018
-                # because of outdated bindings. See: https://xconfigure.readthedocs.io/en/latest/elpa/
-                if LooseVersion("2018") > LooseVersion(elpa_v) >= LooseVersion("2017.11"):
-                    dflags.append('-D__ELPA_2018')
-                else:
-                    # get year from LooseVersion
-                    elpa_year_v = elpa_v.split('.')[0]
-                    dflags.append('-D__ELPA_%s' % elpa_year_v)
-
-                elpa_min_ver = "2016.11.001.pre"
-            else:
-                elpa_min_ver = "2015"
-                dflags.append('-D__ELPA_2015 -D__ELPA')
-
-            if LooseVersion(elpa_v) < LooseVersion(elpa_min_ver):
-                raise EasyBuildError("QuantumESPRESSO %s needs ELPA to be " +
-                                     "version %s or newer", self.version, elpa_min_ver)
-
-            if self.toolchain.options.get('openmp', False):
-                elpa_include = 'elpa_openmp-%s' % elpa_v
-                elpa_lib = 'libelpa_openmp.a'
-            else:
-                elpa_include = 'elpa-%s' % elpa_v
-                elpa_lib = 'libelpa.a'
-            elpa_include = os.path.join(elpa, 'include', elpa_include)
-            repls.append(('IFLAGS', '-I%s' % os.path.join(elpa_include, 'modules'), True))
-            self.cfg.update('configopts', '--with-elpa-include=%s' % elpa_include)
-            elpa_lib = os.path.join(elpa, 'lib', elpa_lib)
-            self.cfg.update('configopts', '--with-elpa-lib=%s' % elpa_lib)
-
-        if comp_fam == toolchain.INTELCOMP:
-            # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
-            cpp = "%s -E -C" % os.getenv('CC')
-            repls.append(('CPP', cpp, False))
-            env.setvar('CPP', cpp)
-
-        # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
-        env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
+        # # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
+        # env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
@@ -198,34 +340,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 f90_flags.append('-fallow-argument-mismatch')
             repls.append(('F90FLAGS', ' '.join(f90_flags), True))
 
+        self._adjust_compiler_flags(comp_fam)
+
         super(EB_QuantumESPRESSO, self).configure_step()
-
-        if self.toolchain.options.get('openmp', False):
-            libfft = os.getenv('LIBFFT_MT')
-        else:
-            libfft = os.getenv('LIBFFT')
-        if libfft:
-            if "fftw3" in libfft:
-                dflags.append('-D__FFTW3')
-            else:
-                dflags.append('-D__FFTW')
-            env.setvar('FFTW_LIBS', libfft)
-
-        if get_software_root('ACML'):
-            dflags.append('-D__ACML')
-
-        if self.cfg['with_ace']:
-            dflags.append(" -D__EXX_ACE")
 
         # always include -w to supress warnings
         dflags.append('-w')
-
-        if LooseVersion(self.version) >= LooseVersion("6.6"):
-            dflags.append(" -Duse_beef")
-            libbeef = get_software_root("libbeef")
-            if libbeef:
-                repls.append(('BEEF_LIBS_SWITCH', 'external', False))
-                repls.append(('BEEF_LIBS', '%s/lib/libbeef.a' % libbeef, False))
 
         repls.append(('DFLAGS', ' '.join(dflags), False))
 
@@ -236,19 +356,22 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # obtain library settings
         libs = []
-        num_libs = ['BLAS', 'LAPACK', 'FFT']
-        if self.cfg['with_scalapack']:
-            num_libs.extend(['SCALAPACK'])
-        for lib in num_libs:
-            if self.toolchain.options.get('openmp', False):
-                val = os.getenv('LIB%s_MT' % lib)
-            else:
-                val = os.getenv('LIB%s' % lib)
-            if lib == 'SCALAPACK' and elpa:
-                val = ' '.join([elpa_lib, val])
-            repls.append(('%s_LIBS' % lib, val, False))
-            libs.append(val)
-        libs = ' '.join(libs)
+        if comp_fam == toolchain.GCC:
+            num_libs = ['BLAS', 'LAPACK', 'FFT']
+            if self.cfg['with_scalapack']:
+                num_libs.extend(['SCALAPACK'])
+            elpa = get_software_root('ELPA')
+            elpa_lib = os.path.join(elpa or '', 'lib', 'libelpa.a' if self.toolchain.options.get('openmp', False) else 'libelpa_openmp.a')
+            for lib in num_libs:
+                if self.toolchain.options.get('openmp', False):
+                    val = os.getenv('LIB%s_MT' % lib)
+                else:
+                    val = os.getenv('LIB%s' % lib)
+                if lib == 'SCALAPACK' and elpa:
+                    val = ' '.join([elpa_lib, val])
+                repls.append(('%s_LIBS' % lib, val, False))
+                libs.append(val)
+            libs = ' '.join(libs)
 
         repls.append(('BLAS_LIBS_SWITCH', 'external', False))
         repls.append(('LAPACK_LIBS_SWITCH', 'external', False))
@@ -289,7 +412,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                                       "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
                                       line)
 
-                if LooseVersion(self.version) >= LooseVersion("6.6"):
+                if LooseVersion(self.version) == LooseVersion("6.6"):
                     # fix order of BEEF_LIBS in QE_LIBS
                     line = re.sub(r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
                                   r"QELIBS = $(BEEF_LIBS) \2 \3", line)
