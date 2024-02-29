@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 from easybuild.tools import LooseVersion
@@ -91,9 +91,9 @@ class EB_NEURON(CMakeMake):
 
             # determine host CPU type
             cmd = "./config.guess"
-            (out, ec) = run_cmd(cmd, simple=False)
+            res = run_shell_cmd(cmd)
 
-            self.hostcpu = out.split('\n')[0].split('-')[0]
+            self.hostcpu = res.output.split('\n')[0].split('-')[0]
             self.log.debug("Determined host CPU type as %s" % self.hostcpu)
 
             # determine Python lib dir
@@ -150,7 +150,7 @@ class EB_NEURON(CMakeMake):
                     raise EasyBuildError("Failed to change to %s: %s", pypath, err)
 
                 cmd = "python setup.py install --prefix=%s" % self.installdir
-                run_cmd(cmd, simple=True, log_all=True, log_ok=True)
+                run_shell_cmd(cmd)
 
                 try:
                     os.chdir(pwd)
@@ -216,10 +216,10 @@ class EB_NEURON(CMakeMake):
             "soma.v  // will print a value other than -65, indicating that the simulation was executed",
             "quit()",
         ])
-        (out, ec) = run_cmd("neurondemo", simple=False, log_all=True, log_output=True, inp=inp)
+        res = run_shell_cmd("neurondemo", stdin=inp, fail_on_error=False)
 
         validate_regexp = re.compile(r"^\s+-65\s*\n\s+5\s*\n\s+-68.134337", re.M)
-        if ec or not validate_regexp.search(out):
+        if res.exit_code or not validate_regexp.search(res.output):
             raise EasyBuildError("Validation of NEURON demo run failed.")
         else:
             self.log.info("Validation of NEURON demo OK!")
@@ -231,7 +231,7 @@ class EB_NEURON(CMakeMake):
                 os.chdir(os.path.join(self.cfg['start_dir'], 'src', 'parallel'))
 
                 cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
-                (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
+                res = run_shell_cmd(cmd, fail_on_error=False)
 
                 os.chdir(cwd)
             except OSError as err:
@@ -240,10 +240,10 @@ class EB_NEURON(CMakeMake):
             valid = True
             for i in range(0, nproc):
                 validate_regexp = re.compile("I am %d of %d" % (i, nproc))
-                if not validate_regexp.search(out):
+                if not validate_regexp.search(res.output):
                     valid = False
                     break
-            if ec or not valid:
+            if res.exit_code or not valid:
                 raise EasyBuildError("Validation of parallel hello world run failed.")
             else:
                 self.log.info("Parallel hello world OK!")
@@ -252,7 +252,7 @@ class EB_NEURON(CMakeMake):
 
         if self.with_python:
             cmd = "python -c 'import neuron; neuron.test()'"
-            (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
+            run_shell_cmd(cmd)
 
         # cleanup
         self.clean_up_fake_module(fake_mod_data)
