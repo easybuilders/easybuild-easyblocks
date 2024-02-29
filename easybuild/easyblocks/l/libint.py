@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.filetools import change_dir, extract_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -66,7 +66,7 @@ class EB_Libint(CMakeMake):
             print_msg("configuring Libint compiler...")
 
             # first run autogen.sh script to generate initial configure script
-            run_cmd("./autogen.sh")
+            run_shell_cmd("./autogen.sh")
 
             cmd = ' '.join([
                 self.cfg['preconfigopts'],
@@ -74,10 +74,10 @@ class EB_Libint(CMakeMake):
                 self.cfg['configopts'],
                 self.cfg['libint_compiler_configopts'],
             ])
-            run_cmd(cmd)
+            run_shell_cmd(cmd)
 
             print_msg("generating Libint library...")
-            run_cmd("make export")
+            run_shell_cmd("make export")
 
             source_fn = 'libint-%s.tgz' % self.version
             if os.path.exists(source_fn):
