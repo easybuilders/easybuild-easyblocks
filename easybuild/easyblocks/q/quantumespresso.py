@@ -63,10 +63,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Add extra config options specific to Quantum ESPRESSO."""
         super(EB_QuantumESPRESSO, self).__init__(*args, **kwargs)
 
-        if LooseVersion(self.version) >= LooseVersion("6"):
-            self.install_subdir = "qe-%s" % self.version
-        else:
-            self.install_subdir = "espresso-%s" % self.version
+        self.install_subdir = f"qe-{self.version}"
+        # if LooseVersion(self.version) >= LooseVersion("6"):
+        #     self.install_subdir = f"qe-{self.version}"
+        # else:
+        #     self.install_subdir = f"espresso-{self.version}"
 
     def patch_step(self):
         """Patch files from build dir (not start dir)."""
@@ -76,7 +77,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Add compiler flags to the build."""
         allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC]
         if comp_fam not in allowed_toolchains:
-            raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
+            raise EasyBuildError(f"EasyBuild does not yet have support for QuantumESPRESSO with toolchain {comp_fam}")
             
         if LooseVersion(self.version) >= LooseVersion("6.1"):
             if comp_fam == toolchain.INTELCOMP:
@@ -170,10 +171,16 @@ class EB_QuantumESPRESSO(ConfigureMake):
         hdf5 = get_software_root("HDF5")
         if not hdf5:
             return
-        self.cfg.update('configopts', '--with-hdf5=%s' % hdf5)
+        self.cfg.update('configopts', f'--with-hdf5={hdf5}')
         self._dflags += ["-D__HDF5"]
-        hdf5_lib_repl = '-L%s/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm' % hdf5
+        hdf5_lib_repl = f'-L{hdf5}/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lsz -lz -ldl -lm'
         self._repls += [('HDF5_LIB', hdf5_lib_repl, False)]
+
+        if LooseVersion(self.version) >= LooseVersion("6.2.1"):
+            pass
+        else:
+            # Should be experimental in 6.0 but gives segfaults when used
+            raise EasyBuildError("HDF5 support is only available in QuantumESPRESSO 6.2.1 and later")
 
     def _add_elpa(self):
         """Add ELPA support to the build."""
@@ -321,15 +328,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self._add_ace()
         self._add_beef()
 
-        # if comp_fam == toolchain.INTELCOMP:
-        #     # set preprocessor command (-E to stop after preprocessing, -C to preserve comments)
-        #     cpp = "%s -E -C" % os.getenv('CC')
-        #     repls.append(('CPP', cpp, False))
-        #     env.setvar('CPP', cpp)
-
-        # # also define $FCCPP, but do *not* include -C (comments should not be preserved when preprocessing Fortran)
-        # env.setvar('FCCPP', "%s -E" % os.getenv('CC'))
-
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
             repls.append(('F90FLAGS', '-fpp -assume byterecl', True))
@@ -364,12 +362,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
             elpa_lib = os.path.join(elpa or '', 'lib', 'libelpa.a' if self.toolchain.options.get('openmp', False) else 'libelpa_openmp.a')
             for lib in num_libs:
                 if self.toolchain.options.get('openmp', False):
-                    val = os.getenv('LIB%s_MT' % lib)
+                    val = os.getenv(f'LIB{lib}_MT')
                 else:
-                    val = os.getenv('LIB%s' % lib)
+                    val = os.getenv(f'LIB{lib}')
                 if lib == 'SCALAPACK' and elpa:
                     val = ' '.join([elpa_lib, val])
-                repls.append(('%s_LIBS' % lib, val, False))
+                repls.append((f'{lib}_LIBS', val, False))
                 libs.append(val)
             libs = ' '.join(libs)
 
@@ -385,7 +383,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             raise EasyBuildError("Found FoX external module, QuantumESPRESSO" +
                                  "must use the version they include with the source.")
 
-        self.log.debug("List of replacements to perform: %s" % repls)
+        self.log.debug(f"List of replacements to perform: {repls}")
 
         if LooseVersion(self.version) >= LooseVersion("6"):
             make_ext = '.inc'
@@ -400,9 +398,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     # need to use [ \t]* instead of \s*, because vars may be undefined as empty,
                     # and we don't want to include newlines
                     if keep:
-                        line = re.sub(r"^(%s\s*=[ \t]*)(.*)$" % k, r"\1\2 %s" % v, line)
+                        line = re.sub(fr"^({k}\s*=[ \t]*)(.*)$", fr"\1\2 {v}", line)
                     else:
-                        line = re.sub(r"^(%s\s*=[ \t]*).*$" % k, r"\1%s" % v, line)
+                        line = re.sub(fr"^({k}\s*=[ \t]*).*$", fr"\1{v}", line)
 
                 # fix preprocessing directives for .f90 files in make.sys if required
                 if LooseVersion(self.version) < LooseVersion("6.0"):
@@ -425,7 +423,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
-        self.log.debug("Contents of patched %s: %s" % (fn, open(fn, "r").read()))
+        self.log.debug(f"Contents of patched {fn}: {open(fn, 'r').read()}")
 
         # patch default make.sys for wannier
         if LooseVersion(self.version) >= LooseVersion("5"):
@@ -434,14 +432,14 @@ class EB_QuantumESPRESSO(ConfigureMake):
             fn = os.path.join(self.cfg['start_dir'], 'plugins', 'install', 'make_wannier90.sys')
         try:
             for line in fileinput.input(fn, inplace=1, backup='.orig.eb'):
-                line = re.sub(r"^(LIBS\s*=\s*).*", r"\1%s" % libs, line)
+                line = re.sub(r"^(LIBS\s*=\s*).*", fr"\1{libs}", line)
 
                 sys.stdout.write(line)
 
         except IOError as err:
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
-        self.log.debug("Contents of patched %s: %s" % (fn, open(fn, "r").read()))
+        self.log.debug(f"Contents of patched {fn}: {open(fn, 'r').read()}")
 
         # patch Makefile of want plugin
         wantprefix = 'want-'
@@ -482,7 +480,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             targetdir = os.path.join(self.builddir, self.install_subdir)
             for dirname in dirnames:
                 shutil.move(os.path.join(self.builddir, dirname), os.path.join(targetdir, dirname))
-                self.log.info("Moved %s into %s" % (dirname, targetdir))
+                self.log.info(f"Moved {dirname} into {targetdir}")
 
                 dirname_head = dirname.split('-')[0]
                 # Handle the case where the directory is preceded by 'qe-'
@@ -514,7 +512,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # Pick up files not installed in bin
         def copy_binaries(path):
             full_dir = os.path.join(self.cfg['start_dir'], path)
-            self.log.info("Looking for binaries in %s" % full_dir)
+            self.log.info(f"Looking for binaries in {full_dir}")
             for filename in os.listdir(full_dir):
                 full_path = os.path.join(full_dir, filename)
                 if os.path.isfile(full_path):
@@ -595,7 +593,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     bins.extend(["generate_vdW_kernel_table.x"])
             if LooseVersion(self.version) <= LooseVersion("5"):
                 bins.extend(["path_int.x"])
-            if LooseVersion(self.version) < LooseVersion("5.3.0"):
+            if LooseVersion(self.version) < LooseVersion("5.3"):
                 bins.extend(["band_plot.x", "bands_FS.x", "kvecs_FS.x"])
 
         if 'pwcond' in targets or 'pwall' in targets or 'all' in targets:
