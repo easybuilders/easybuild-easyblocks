@@ -218,9 +218,6 @@ class JuliaPackage(ExtensionEasyBlock):
         # Location of project environment files in install dir
         mkdir(self.julia_env_path(), parents=True)
 
-        self.set_pkg_offline()
-        self.prepare_julia_env(self.installdir)
-
     def configure_step(self):
         """No separate configuration for JuliaPackage."""
         pass
@@ -235,6 +232,10 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def install_step(self):
         """Install Julia package and add all its dependencies to project environment"""
+
+        # prepare the installation environment
+        self.set_pkg_offline()
+        self.prepare_julia_env(self.installdir)
 
         # add packages found in dependencies to this installation environment
         for dep in self.cfg.dependencies():
@@ -260,8 +261,6 @@ class JuliaPackage(ExtensionEasyBlock):
             raise EasyBuildError(errmsg, self.name, self.src)
         ExtensionEasyBlock.run(self, unpack_src=True)
 
-        self.set_pkg_offline()
-        self.prepare_julia_env(self.installdir)  # all extensions share common depot in install dir
         self.install_step()
 
     def sanity_check_step(self, *args, **kwargs):
