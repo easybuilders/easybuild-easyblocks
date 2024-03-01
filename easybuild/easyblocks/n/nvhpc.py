@@ -165,7 +165,8 @@ class EB_NVHPC(PackedBinary):
             sys.stdout.write(line)
 
         if LooseVersion(self.version) >= LooseVersion('22.9'):
-            cmd = "%s -x %s" % (makelocalrc_filename, compilers_subdir)
+            bin_subdir = os.path.join(compilers_subdir, "bin")
+            cmd = "%s -x %s" % (makelocalrc_filename, bin_subdir)
         else:
             cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
