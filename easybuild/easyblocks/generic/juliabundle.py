@@ -30,9 +30,10 @@ EasyBuild support for bundles of Julia packages, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
+from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JULIA_PATHS_SOFT_INIT, JuliaPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import mkdir
+from easybuild.tools.modules import get_software_root, get_software_version
 
 
 class JuliaBundle(Bundle):
@@ -85,14 +86,29 @@ class JuliaBundle(Bundle):
         if get_software_root('Julia') is None:
             raise EasyBuildError("Julia not included as dependency!")
 
-    def make_module_extra(self, *args, **kwargs):
+        # Location of project environments in install dir
+        julia_version = get_software_version('Julia').split('.')
+        julia_env_dir = "v{}.{}".format(*julia_version[:2])
+        self.julia_project_toml = os.path.join("environments", julia_env_dir, "Project.toml")
+        self.julia_project_env = os.path.dirname(os.path.join(self.installdir, self.julia_project_toml))
+        mkdir(self.julia_project_env, parents=True)
+
+    def make_module_extra(self):
         """
-        Module has to append installation directory to JULIA_DEPOT_PATH to keep
-        the user depot in the top entry. See issue easybuilders/easybuild-easyconfigs#17455
+        Module load initializes JULIA_DEPOT_PATH and JULIA_LOAD_PATH with default values if they are not set.
+        Path to installation directory is appended to JULIA_DEPOT_PATH.
+        Path to the environment file of this installation is appended to JULIA_LOAD_PATH.
+        This configuration fulfils the rule that user depot has to be the first path in JULIA_DEPOT_PATH, allows users
+        to use custom Julia environments and makes packages in installation dir available in Julia.
+        See issue easybuilders/easybuild-easyconfigs#17455
         """
-        txt = super(JuliaBundle, self).make_module_extra()
-        txt += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
-        return txt
+        mod = super(JuliaBundle, self).make_module_extra()
+        if self.module_generator.SYNTAX:
+            mod += JULIA_PATHS_SOFT_INIT[self.module_generator.SYNTAX]
+        mod += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
+        mod += self.module_generator.append_paths('JULIA_LOAD_PATH', [self.julia_project_toml])
+
+        return mod
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Julia packages"""
