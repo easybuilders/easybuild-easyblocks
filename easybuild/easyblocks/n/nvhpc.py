@@ -36,8 +36,10 @@ EasyBuild support for installing NVIDIA HPC SDK compilers, based on the easybloc
 import os
 import fileinput
 import re
+import shutil
 import stat
 import sys
+import tempfile
 import platform
 
 from easybuild.tools import LooseVersion
@@ -66,6 +68,14 @@ append LDLIBARGS=$library_path;
 # also include the location where libm & co live on Debian-based systems
 # cfr. https://github.com/easybuilders/easybuild-easyblocks/pull/919
 append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
+"""
+
+# contents for minimal example compiled in sanity check, used to catch issue
+# seen in: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+NVHPC_MINIMAL_EXAMPLE = """
+#include <ranges>
+
+int main(){ return 0; }
 """
 
 
@@ -205,6 +215,19 @@ class EB_NVHPC(PackedBinary):
         }
         custom_commands = ["%s -v" % compiler for compiler in compiler_names]
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+        # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
+        # (as long as system gcc is < 9.0)
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+        tmpdir = tempfile.mkdtemp()
+        write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
+        os.chdir(tmpdir)
+        cmd = "nvc++ -std=c++20 minimal.cpp -o minimal"
+        run_cmd(cmd, log_all=True, simple=True)
+        try:
+            shutil.rmtree(tmpdir)
+        except OSError as err:
+            raise EasyBuildError("Failed to remove temporary sanity check directory %s: %s", tmpdir, err)
 
     def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
         """
