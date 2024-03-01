@@ -209,13 +209,12 @@ class EB_NAMD(MakeCp):
                 'testopts': self.cfg['testopts'],
             }
             res = run_shell_cmd(cmd)
-            if res.exit_code == 0:
-                test_ok_regex = re.compile(r"(^Program finished.$|End of program\s*$)", re.M)
-                if test_ok_regex.search(res.output):
-                    self.log.debug("Test '%s' ran fine." % cmd)
-                else:
-                    raise EasyBuildError("Test '%s' failed ('%s' not found), output: %s",
-                                         cmd, test_ok_regex.pattern, res.output)
+            test_ok_regex = re.compile(r"(^Program finished.$|End of program\s*$)", re.M)
+            if test_ok_regex.search(res.output):
+                self.log.debug("Test '%s' ran fine." % cmd)
+            else:
+                raise EasyBuildError("Test '%s' failed ('%s' not found), output: %s", cmd, test_ok_regex.pattern,
+                                     res.output)
         else:
             self.log.debug("Skipping running NAMD test case after building")
 
