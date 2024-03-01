@@ -36,7 +36,6 @@ EasyBuild support for installing NVIDIA HPC SDK compilers, based on the easybloc
 import os
 import fileinput
 import re
-import shutil
 import stat
 import sys
 import tempfile
