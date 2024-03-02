@@ -702,7 +702,7 @@ class EB_TensorFlow(PythonPackage):
         configure_py_contents = read_file('configure.py')
         for key, val in sorted(config_env_vars.items()):
             if key.startswith('TF_') and key not in configure_py_contents:
-                self.log.warn('Did not find %s option in configure.py. Setting might not have any effect', key)
+                self.log.warning('Did not find %s option in configure.py. Setting might not have any effect', key)
             env.setvar(key, val)
 
         # configure.py (called by configure script) already calls bazel to determine the bazel version

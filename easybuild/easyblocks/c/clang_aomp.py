@@ -153,7 +153,7 @@ class EB_Clang_minus_AOMP(Bundle):
                 self.cfg_method[name](comp)
                 self.log.info(msg)
             else:
-                self.log.warn("Component %s has no configure method!" % name)
+                self.log.warning("Component %s has no configure method!" % name)
 
     def sanity_check_step(self):
         """
