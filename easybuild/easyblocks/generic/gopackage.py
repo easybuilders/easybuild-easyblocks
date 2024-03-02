@@ -116,7 +116,7 @@ class GoPackage(EasyBlock):
             run_shell_cmd('go test ./...')
 
             self.log.warning('Include generated go.mod and go.sum via patch to ensure locked dependencies '
-                          'and run this easyconfig again.')
+                             'and run this easyconfig again.')
             run_shell_cmd('cat go.mod')
             run_shell_cmd('cat go.sum')
 
