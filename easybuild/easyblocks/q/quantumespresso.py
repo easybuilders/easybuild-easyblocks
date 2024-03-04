@@ -93,49 +93,47 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
     def _add_openmp(self):
         """Add OpenMP support to the build."""
-        if not self.toolchain.options.get('openmp', False) and not self.cfg['hybrid']:
-            return
-        self.cfg.update('configopts', '--enable-openmp')
-        if LooseVersion(self.version) >= LooseVersion("6.2.1"):
-            self.dflags += ["-D_OPENMP"]
-        elif LooseVersion(self.version) >= LooseVersion("5.0"):
-            self.dflags += ["-D__OPENMP"]
+        if self.toolchain.options.get('openmp', False) or self.cfg['hybrid']:
+            self.cfg.update('configopts', '--enable-openmp')
+            if LooseVersion(self.version) >= LooseVersion("6.2.1"):
+                self.dflags += ["-D_OPENMP"]
+            elif LooseVersion(self.version) >= LooseVersion("5.0"):
+                self.dflags += ["-D__OPENMP"]
 
     def _add_mpi(self):
         """Add MPI support to the build."""
         if not self.toolchain.options.get('usempi', False):
             self.cfg.update('configopts', '--disable-parallel')
-            return
-        self.cfg.update('configopts', '--enable-parallel')
-        if LooseVersion(self.version) >= LooseVersion("6.0"):
-            self.dflags += ["-D__MPI"]
-        elif LooseVersion(self.version) >= LooseVersion("5.0"):
-            self.dflags += ["-D__MPI", "-D__PARA"]
+        else:
+            self.cfg.update('configopts', '--enable-parallel')
+            if LooseVersion(self.version) >= LooseVersion("6.0"):
+                self.dflags += ["-D__MPI"]
+            elif LooseVersion(self.version) >= LooseVersion("5.0"):
+                self.dflags += ["-D__MPI", "-D__PARA"]
 
     def _add_scalapack(self, comp_fam):
         """Add ScaLAPACK support to the build."""
         if not self.cfg['with_scalapack']:
             self.cfg.update('configopts', '--without-scalapack')
-            return
-
-        if comp_fam == toolchain.INTELCOMP:
-            if get_software_root("impi") and get_software_root("imkl"):
-                if LooseVersion(self.version) >= LooseVersion("6.2"):
-                    self.cfg.update('configopts', '--with-scalapack=intel')
-                elif LooseVersion(self.version) >= LooseVersion("5.1.1"):
-                    self.cfg.update('configopts', '--with-scalapack=intel')
-                    self.repls += [
-                        ('SCALAPACK_LIBS', os.getenv('LIBSCALAPACK'), False)
-                    ]
-                elif LooseVersion(self.version) >= LooseVersion("5.0"):
-                    self.cfg.update('configopts', '--with-scalapack=yes')
-                self.dflags += ["-D__SCALAPACK"]
-        elif comp_fam == toolchain.GCC:
-            if get_software_root("OpenMPI") and get_software_root("ScaLAPACK"):
-                self.cfg.update('configopts', '--with-scalapack=yes')
-                self.dflags += ["-D__SCALAPACK"]
         else:
-            self.cfg.update('configopts', '--without-scalapack')
+            if comp_fam == toolchain.INTELCOMP:
+                if get_software_root("impi") and get_software_root("imkl"):
+                    if LooseVersion(self.version) >= LooseVersion("6.2"):
+                        self.cfg.update('configopts', '--with-scalapack=intel')
+                    elif LooseVersion(self.version) >= LooseVersion("5.1.1"):
+                        self.cfg.update('configopts', '--with-scalapack=intel')
+                        self.repls += [
+                            ('SCALAPACK_LIBS', os.getenv('LIBSCALAPACK'), False)
+                        ]
+                    elif LooseVersion(self.version) >= LooseVersion("5.0"):
+                        self.cfg.update('configopts', '--with-scalapack=yes')
+                    self.dflags += ["-D__SCALAPACK"]
+            elif comp_fam == toolchain.GCC:
+                if get_software_root("OpenMPI") and get_software_root("ScaLAPACK"):
+                    self.cfg.update('configopts', '--with-scalapack=yes')
+                    self.dflags += ["-D__SCALAPACK"]
+            else:
+                self.cfg.update('configopts', '--without-scalapack')
 
     def _add_libxc(self):
         """Add libxc support to the build."""
