@@ -198,7 +198,6 @@ class JuliaPackage(ExtensionEasyBlock):
                 # install package from local path preserving existing dependencies
                 'Pkg.develop(PackageSpec(path="%s"); preserve=PRESERVE_ALL)' % pkg_source,
                 'Pkg.build("%s")' % os.path.basename(pkg_source),
-                'Pkg.precompile("%s")' % os.path.basename(pkg_source),
             ])
 
         julia_pkg_cmd = '; '.join(julia_pkg_cmd)
@@ -236,6 +235,7 @@ class JuliaPackage(ExtensionEasyBlock):
         # prepare the installation environment
         self.set_pkg_offline()
         self.prepare_julia_env(self.installdir)
+        env.setvar('JULIA_PKG_PRECOMPILE_AUTO', 'true')  # precompile installed packages
 
         # add packages found in dependencies to this installation environment
         for dep in self.cfg.dependencies():
