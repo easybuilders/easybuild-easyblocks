@@ -17,7 +17,7 @@ import glob
 import os
 import re
 import shutil
-from easybuild.tools import LooseVersion
+from distutils.version import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.makecp import MakeCp
@@ -88,18 +88,20 @@ class EB_NAMD(MakeCp):
         change_dir(srcdir)
 
     def patch_step(self, *args, **kwargs):
-        """Patch scripts to avoid using hardcoded /bin/csh."""
-        super(EB_NAMD, self).patch_step(*args, **kwargs)
+         # From version 3.0 this is no longer needed.        
+         if LooseVersion(self.version) < LooseVersion('3.0'):
+            """Patch scripts to avoid using hardcoded /bin/csh."""
+            super(EB_NAMD, self).patch_step(*args, **kwargs)
 
-        self.charm_dir = self.charm_tarballs[0][:-4]
+            self.charm_dir = self.charm_tarballs[0][:-4]
 
-        charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
-        apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
+            charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
+            apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
 
-        for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
+            for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
                            os.path.join(self.charm_dir, 'src', 'QuickThreads', 'time', 'raw')]:
-            if os.path.exists(csh_script):
-                apply_regex_substitutions(csh_script, [(r'^#!\s*/bin/csh\s*$', '#!/usr/bin/env csh')])
+                if os.path.exists(csh_script):
+                   apply_regex_substitutions(csh_script, [(r'^#!\s*/bin/csh\s*$', '#!/usr/bin/env csh')])
 
     def configure_step(self):
         """Custom configure step for NAMD, we build charm++ first (if required)."""
@@ -141,6 +143,9 @@ class EB_NAMD(MakeCp):
             'parallel': self.cfg['parallel'],
         }
         charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
+        # From version 3.0 naming schema changed
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+           charm_subdir = charm_subdir.replace("7.0.0", "v7.0.0")
         self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
         run_cmd(cmd, path=charm_subdir)
 
