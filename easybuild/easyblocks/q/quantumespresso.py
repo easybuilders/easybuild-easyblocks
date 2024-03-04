@@ -296,7 +296,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # for guidelines, see include/defs.h.README in sources
         self.dflags = []
         self.repls = []
-        self.extra_libs = self.extra_libs = []
+        self.extra_libs = []
 
         comp_fam = self.toolchain.comp_family()
 
