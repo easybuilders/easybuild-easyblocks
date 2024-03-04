@@ -180,12 +180,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
         elpa = get_software_root("ELPA")
         if not elpa:
             return
-        
+
         elpa_v = get_software_version("ELPA")
 
         if LooseVersion(elpa_v) < LooseVersion("2015"):
             raise EasyBuildError("ELPA versions lower than 2015 are not supported")
-        
+
         if LooseVersion(self.version) >= LooseVersion("6.8"):
             if LooseVersion(elpa_v) >= LooseVersion("2018.11"):
                 self.dflags += ["-D__ELPA"]
@@ -217,7 +217,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             return
         else:
             raise EasyBuildError("ELPA support is only available in QuantumESPRESSO 5.1.1 and later")
-        
+
         if self.toolchain.options.get('openmp', False):
             elpa_include = 'elpa_openmp-%s' % elpa_v
             elpa_lib = 'libelpa_openmp.a'
@@ -258,7 +258,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         """Add ACE support to the build."""
         if not self.cfg['with_ace']:
             return
-        
+
         if LooseVersion(self.version) >= LooseVersion("6.2"):
             self.log.warning("ACE support is not available in QuantumESPRESSO >= 6.2")
         elif LooseVersion(self.version) >= LooseVersion("6.0"):
@@ -286,18 +286,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 i_mpi_cc = os.getenv('I_MPI_CC', '')
                 if i_mpi_cc == 'icx':
                     env.setvar('I_MPI_CC', 'icc') # Needed cor clib/qmmm_aux.c using <math.h> implicitly
-                # self._repls += [
-                #     ('CFLAGS', '--std=c90', True), # Needed cor clib/qmmm_aux.c using <math.h> implicitly
-                # ]
-            pass
-            # self.cfg.update('configopts', '--with-scalapack=intel')
-            # self._dflags += ["-D__INTEL"]
         elif comp_fam == toolchain.GCC:
-            # self._dflags += ["-D__GFORTRAN"]
             pass
-
-
-        
 
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
