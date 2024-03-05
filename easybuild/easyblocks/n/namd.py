@@ -251,4 +251,3 @@ class EB_NAMD(MakeCp):
             'dirs': ['inc'],
         }
         super(EB_NAMD, self).sanity_check_step(custom_paths=custom_paths)
-
