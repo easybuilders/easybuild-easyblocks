@@ -284,7 +284,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if LooseVersion("6.0") <= LooseVersion(self.version) <= LooseVersion("6.4"):
                 i_mpi_cc = os.getenv('I_MPI_CC', '')
                 if i_mpi_cc == 'icx':
-                    env.setvar('I_MPI_CC', 'icc') # Needed cor clib/qmmm_aux.c using <math.h> implicitly
+                    env.setvar('I_MPI_CC', 'icc')  # Needed as clib/qmmm_aux.c using <math.h> implicitly
+        elif comp_fam == toolchain.GCC:
+            pass
 
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
