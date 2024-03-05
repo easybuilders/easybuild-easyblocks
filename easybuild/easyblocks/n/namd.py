@@ -63,7 +63,8 @@ class EB_NAMD(MakeCp):
         super(EB_NAMD, self).prepare_step(*args, **kwargs)
 
         if self.cfg['namd_basearch'] is None:
-            self.log.info("namd_basearch not specified, so determining it based on CPU architecture...")
+
+            self.log.info("namd_basearch not specified, so determining it based a CPU arch...")
 
             arch = get_cpu_architecture()
             if arch == X86_64:
@@ -250,3 +251,4 @@ class EB_NAMD(MakeCp):
             'dirs': ['inc'],
         }
         super(EB_NAMD, self).sanity_check_step(custom_paths=custom_paths)
+
