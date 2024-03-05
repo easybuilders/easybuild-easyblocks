@@ -90,11 +90,12 @@ class EB_torchvision(PythonPackage):
         #      the-cuda-backend-this-could-be-because-the-operator-doesnt-exist-for-this-backend/132352/4
         if self.with_cuda:
             custom_commands = []
-            python_code = '; '.join([
+            python_code = '\n'.join([
                 "import torch, torchvision",
-                "boxes = torch.tensor([[0., 1., 2., 3.]]).to('cuda')",
-                "scores = torch.randn(1).to('cuda')",
-                "print(torchvision.ops.nms(boxes, scores, 0.5))",
+                "if torch.cuda.device_count():",
+                "    boxes = torch.tensor([[0., 1., 2., 3.]]).to('cuda')",
+                "    scores = torch.randn(1).to('cuda')",
+                "    print(torchvision.ops.nms(boxes, scores, 0.5))",
             ])
             custom_commands.append('python -c "%s"' % python_code)
             custom_paths = {
