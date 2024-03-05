@@ -381,9 +381,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     # need to use [ \t]* instead of \s*, because vars may be undefined as empty,
                     # and we don't want to include newlines
                     if keep:
-                        line = re.sub(fr"^({k}\s*=[ \t]*)(.*)$", fr"\1\2 {v}", line)
+                        line = re.sub(r"^(%s\s*=[ \t]*)(.*)$" % k, r"\1\2 %s" % v, line)
                     else:
-                        line = re.sub(fr"^({k}\s*=[ \t]*).*$", fr"\1{v}", line)
+                        line = re.sub(r"^(%s\s*=[ \t]*).*$" % k, r"\1%s" % v, line)
 
                 # fix preprocessing directives for .f90 files in make.sys if required
                 if LooseVersion(self.version) < LooseVersion("6.0"):
@@ -416,7 +416,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             fn = os.path.join(self.cfg['start_dir'], 'plugins', 'install', 'make_wannier90.sys')
         try:
             for line in fileinput.input(fn, inplace=1, backup='.orig.eb'):
-                line = re.sub(r"^(LIBS\s*=\s*).*", fr"\1{libs}", line)
+                line = re.sub(r"^(LIBS\s*=\s*).*", r"\1%s" % libs, line)
 
                 sys.stdout.write(line)
 
