@@ -172,7 +172,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 self.cfg.update('configopts', '--with-libxc-prefix=%s' % libxc)
             elif LooseVersion(self.version) >= LooseVersion("6.0"):
                 if LooseVersion(libxc_v) >= LooseVersion("5.0"):
-                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.0 to 6.5 only available for libxc <= 4.3.4")
+                    raise EasyBuildError(
+                        "libxc support for QuantumESPRESSO 6.0 to 6.5 only available for libxc <= 4.3.4"
+                        )
                 if LooseVersion(libxc_v) < LooseVersion("4"):
                     raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc >= 4")
                 self.cfg.update('configopts', '--with-libxc=yes')
@@ -379,7 +381,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     val = ' '.join([elpa_lib, val])
                 self.repls.append(('%s_LIBS' % lib, val, False))
                 libs.append(val)
-            libs = ' '.join(libs)
+        libs = ' '.join(libs)
 
         self.repls.append(('BLAS_LIBS_SWITCH', 'external', False))
         self.repls.append(('LAPACK_LIBS_SWITCH', 'external', False))
@@ -443,7 +445,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
             fn = os.path.join(self.cfg['start_dir'], 'plugins', 'install', 'make_wannier90.sys')
         try:
             for line in fileinput.input(fn, inplace=1, backup='.orig.eb'):
-                line = re.sub(r"^(LIBS\s*=\s*).*", r"\1%s" % libs, line)
+                if libs:
+                    line = re.sub(r"^(LIBS\s*=\s*).*", r"\1%s" % libs, line)
 
                 sys.stdout.write(line)
 
@@ -451,7 +454,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
         with open(fn, "r") as f:
-            self.log.debug("Contents of patched %s: %s" % (fn, f.read()))
+            self.log.info("Contents of patched %s: %s" % (fn, f.read()))
 
         # patch Makefile of want plugin
         wantprefix = 'want-'
