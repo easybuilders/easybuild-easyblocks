@@ -44,7 +44,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -424,18 +424,18 @@ class EB_LAMMPS(CMakeMake):
         if python_dir:
             # Find the Python .so lib
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
-            (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_lib:
-                raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
-            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib.strip()))[0]
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python .so library: %s", res.output)
+            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', res.output.strip()))[0]
             if not python_lib_path:
-                raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
+                raise EasyBuildError("Could not find path to Python .so library: %s", res.output)
             # and the path to the Python include folder
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
-            (python_include_dir, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_include_dir:
-                raise EasyBuildError("Failed to determine Python include dir: %s", python_include_dir)
-            python_include_dir = python_include_dir.strip()
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python include dir: %s", res.output)
+            python_include_dir = res.output.strip()
 
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
@@ -484,7 +484,7 @@ class EB_LAMMPS(CMakeMake):
                 'site_packages': site_packages,
             }
 
-            run_cmd(cmd, log_all=True, simple=False)
+            run_shell_cmd(cmd)
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
@@ -661,7 +661,7 @@ def get_cpu_arch():
 
     :return: returns detected cpu architecture
     """
-    out, ec = run_cmd("python -c 'from archspec.cpu import host; print(host())'", simple=False)
-    if ec:
-        raise EasyBuildError("Failed to determine CPU architecture: %s", out)
-    return out.strip()
+    res = run_shell_cmd("python -c 'from archspec.cpu import host; print(host())'")
+    if res.exit_code:
+        raise EasyBuildError("Failed to determine CPU architecture: %s", res.output)
+    return res.output.strip()
