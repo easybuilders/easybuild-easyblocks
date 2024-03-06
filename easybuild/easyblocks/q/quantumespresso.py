@@ -524,13 +524,28 @@ class EB_QuantumESPRESSO(ConfigureMake):
         stot = 0
         spass = 0
         parallel = min(4, self.cfg.get('parallel', 1))
+        test_dir = os.path.join(self.start_dir, self.TEST_SUITE_DIR)
+
+        pseudo_loc = "https://pseudopotentials.quantum-espresso.org/upf_files/"
+        if LooseVersion(self.version) < LooseVersion("7.0"):
+            cmd = ' && '.join([
+                "cd %s" % test_dir,
+                "sed -i 's|export NETWORK_PSEUDO=.*|export NETWORK_PSEUDO=%s|g' ENVIRONMENT" % pseudo_loc
+            ])
+            run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
 
         full_out = ''
         for target in self.TEST_SUITE_TARGETS:
-            cmd = (
-                'cd %s && ' % os.path.join(self.start_dir, self.TEST_SUITE_DIR) +
-                'NPROCS=%d make %s' % (parallel, target)
-                )
+            pcmd = ''
+            if LooseVersion(self.version) < LooseVersion("7.0"):
+                if parallel > 1:
+                    target = target + "-parallel"
+                else:
+                    target = target + "-serial"
+            else:
+                pcmd = 'NPROCS=%d' % parallel
+
+            cmd = 'cd %s && %s make %s' % (test_dir, pcmd, target)
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
 
             # Example output:
