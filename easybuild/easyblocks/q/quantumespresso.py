@@ -425,7 +425,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             raise EasyBuildError("Failed to patch %s: %s", fn, err)
 
         with open(fn, "r") as f:
-            self.log.debug("Contents of patched %s: %s" % (fn, f.read()))
+            self.log.info("Contents of patched %s: %s" % (fn, f.read()))
 
         # patch default make.sys for wannier
         if LooseVersion(self.version) >= LooseVersion("5"):
