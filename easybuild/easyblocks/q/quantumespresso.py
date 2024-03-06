@@ -49,7 +49,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
 class EB_QuantumESPRESSO(ConfigureMake):
     """Support for building and installing Quantum ESPRESSO."""
-    
+
     TEST_SUITE_DIR = "test-suite"
     TEST_SUITE_TARGETS = [
         "run-tests-pw",
