@@ -207,7 +207,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     self.dflags += ["-D__ELPA_2015"]
             elif LooseVersion(self.version) >= LooseVersion("6.6"):
                 if LooseVersion(elpa_v) >= LooseVersion("2020"):
-                    raise EasyBuildError("ELPA support for QuantumESPRESSO 6.6 only available up to v2019.xx")
+                    raise EasyBuildError("ELPA support for QuantumESPRESSO 6.6/6.7 only available up to v2019.xx")
                 elif LooseVersion(elpa_v) >= LooseVersion("2018"):
                     self.dflags += ["-D__ELPA"]
                 elif LooseVersion(elpa_v) >= LooseVersion("2015"):
