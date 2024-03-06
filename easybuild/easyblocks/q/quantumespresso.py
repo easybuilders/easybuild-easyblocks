@@ -42,12 +42,27 @@ from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 
 
 class EB_QuantumESPRESSO(ConfigureMake):
     """Support for building and installing Quantum ESPRESSO."""
+    
+    TEST_SUITE_DIR = "test-suite"
+    TEST_SUITE_TARGETS = [
+        "run-tests-pw",
+        "run-tests-pp",
+        "run-tests-ph",
+        "run-tests-cp",
+        "run-tests-hp",
+        "run-tests-tddfpt",
+        "run-tests-epw",
+        "run-tests-kcw",
+        "run-tests-xsd",
+        "run-tests-zg",
+    ]
 
     @staticmethod
     def extra_options():
@@ -56,6 +71,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'hybrid': [False, "Enable hybrid build (with OpenMP)", CUSTOM],
             'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
+            'test_threshold': [0.9, "Threshold for test suite success rate", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -334,8 +350,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
             self.repls.append(('LDFLAGS', self.toolchain.get_flag('openmp'), True))
             self.repls.append(('(?:C|F90|F)FLAGS', self.toolchain.get_flag('openmp'), True))
 
-        # obtain library settings
+        # libs is being used for the replacement in the wannier90 files
         libs = []
+        # Only overriding for fcc as the intel flags are already ebing properly
+        # set.
         if comp_fam == toolchain.GCC:
             num_libs = ['BLAS', 'LAPACK', 'FFT']
             if self.cfg['with_scalapack']:
@@ -483,6 +501,72 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         except OSError as err:
             raise EasyBuildError("Failed to move non-espresso directories: %s", err)
+
+    def test_step(self):
+        """
+        Test the compilation using Quantum ESPRESSO's test suite.
+        cd test-suite && make run-tests NPROCS=XXX (XXX <= 4)
+        """
+
+        thr = self.cfg.get('test_threshold', 0.9)
+        stot = 0
+        spass = 0
+        parallel = min(4, self.cfg.get('parallel', 1))
+
+        full_out = ''
+        for target in self.TEST_SUITE_TARGETS:
+            cmd = (
+                'cd %s && ' % os.path.join(self.start_dir, self.TEST_SUITE_DIR) +
+                'NPROCS=%d make %s' % (parallel, target)
+                )
+            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+
+            # Example output:
+            # All done. 2 out of 2 tests passed.
+            # All done. ERROR: only 6 out of 9 tests passed
+            _tot = 0
+            _pass = 0
+            rgx = r'All done. (ERROR: only )?(?P<succeded>\d+) out of (?P<total>\d+) tests passed.'
+            for mch in re.finditer(rgx, out):
+                succeded = int(mch.group('succeded'))
+                total = int(mch.group('total'))
+                _tot += total
+                _pass += succeded
+
+            perc = _pass / max(_tot, 1)
+            self.log.info("%s: Passed %d out of %d  (%.2f%%)" % (target, _pass, _tot, perc * 100))
+
+            # Log test-suite errors if present
+            if _pass < _tot:
+                # Example output for reported faliures:
+                # pw_plugins - plugin-pw2casino_1.in (arg(s): 1): **FAILED**.
+                # Different sets of data extracted from benchmark and test.
+                #     Data only in benchmark: p1.
+                # (empty line)
+                flag = False
+                for line in out.splitlines():
+                    if '**FAILED**' in line:
+                        flag = True
+                        self.log.warning(line)
+                        continue
+                    elif line.strip() == '':
+                        flag = False
+                    if flag:
+                        self.log.warning('|   ' + line)
+
+            stot += _tot
+            spass += _pass
+            full_out += out
+
+        # Allow for flaky tests (eg too strict thresholds on results for structure relaxation)
+        perc = spass / max(stot, 1)
+        self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
+        if perc < thr:
+            raise EasyBuildError(
+                "Test suite failed with less than %.2f %% (%.2f) success rate" % (thr * 100, perc * 100)
+                )
+
+        return full_out
 
     def install_step(self):
         """Custom install step for Quantum ESPRESSO."""
