@@ -159,17 +159,26 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if LooseVersion(libxc_v) < LooseVersion("3.0.1"):
                 raise EasyBuildError("Must use libxc >= 3.0.1")
             if LooseVersion(self.version) >= LooseVersion("7.0"):
-                if LooseVersion(libxc_v) < LooseVersion("6.0.0"):
-                    raise EasyBuildError("libxc support for QuantumESPRESSO 7.0 only available for libxc >= 6.0.0")
+                if LooseVersion(libxc_v) < LooseVersion("4"):
+                    raise EasyBuildError("libxc support for QuantumESPRESSO 7.x only available for libxc >= 4")
                 self.cfg.update('configopts', '--with-libxc=yes')
                 self.cfg.update('configopts', '--with-libxc-prefix=%s' % libxc)
-            elif LooseVersion(self.version) >= LooseVersion("6.4"):
+            elif LooseVersion(self.version) >= LooseVersion("6.6"):
+                if LooseVersion(libxc_v) >= LooseVersion("6.0"):
+                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.6 to 6.8 only available for libxc < 6.0")
+                if LooseVersion(libxc_v) < LooseVersion("4"):
+                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc >= 4")
+                self.cfg.update('configopts', '--with-libxc=yes')
+                self.cfg.update('configopts', '--with-libxc-prefix=%s' % libxc)
+            elif LooseVersion(self.version) >= LooseVersion("6.0"):
                 if LooseVersion(libxc_v) >= LooseVersion("5.0"):
-                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc <= 4.3.4")
+                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.0 to 6.5 only available for libxc <= 4.3.4")
+                if LooseVersion(libxc_v) < LooseVersion("4"):
+                    raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc >= 4")
                 self.cfg.update('configopts', '--with-libxc=yes')
                 self.cfg.update('configopts', '--with-libxc-prefix=%s' % libxc)
             else:
-                self.extra_libs += ['-lxcf90', '-lxc']
+                self.extra_libs += ['-L%s/lib' % libxc, '-lxcf90', '-lxc']
 
             self.dflags += ["-D__LIBXC"]
 
