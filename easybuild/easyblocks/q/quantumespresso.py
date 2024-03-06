@@ -384,7 +384,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             raise EasyBuildError("Found FoX external module, QuantumESPRESSO" +
                                  "must use the version they include with the source.")
 
-        self.log.debug("List of replacements to perform: %s" % str(self.repls))
+        self.log.info("List of replacements to perform: %s" % str(self.repls))
 
         if LooseVersion(self.version) >= LooseVersion("6"):
             make_ext = '.inc'
