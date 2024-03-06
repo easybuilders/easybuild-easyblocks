@@ -330,16 +330,16 @@ class EB_Clang(CMakeMake):
             res = run_shell_cmd("ulimit -v", fail_on_error=False)
             if not res.output.startswith("unlimited"):
                 disable_san_tests = True
-                self.log.warn("There is a virtual memory limit set of %s KB. The tests of the "
-                              "sanitizers will be disabled as they need unlimited virtual "
-                              "memory unless --strict=error is used." % res.output.strip())
+                self.log.warning("There is a virtual memory limit set of %s KB. The tests of the "
+                                 "sanitizers will be disabled as they need unlimited virtual "
+                                 "memory unless --strict=error is used." % res.output.strip())
 
             # the same goes for unlimited stacksize
             res = run_shell_cmd("ulimit -s", fail_on_error=False)
             if res.output.startswith("unlimited"):
                 disable_san_tests = True
-                self.log.warn("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
-                              "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
+                self.log.warning("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
+                                 "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
 
             if (disable_san_tests or self.cfg['skip_sanitizer_tests']) and build_option('strict') != run.ERROR:
                 self.log.debug("Disabling the sanitizer tests")

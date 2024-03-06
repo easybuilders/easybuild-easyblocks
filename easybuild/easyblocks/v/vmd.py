@@ -150,9 +150,9 @@ class EB_VMD(ConfigureMake):
             if deps['OptiX']:
                 self.log.info("Building with Nvidia OptiX %s support", get_software_version('OptiX'))
             else:
-                self.log.warn("Not building with Nvidia OptiX support!")
+                self.log.warning("Not building with Nvidia OptiX support!")
         else:
-            self.log.warn("Not building with CUDA nor OptiX support!")
+            self.log.warning("Not building with CUDA nor OptiX support!")
 
         # see http://www.ks.uiuc.edu/Research/vmd/doxygen/configure.html
         # LINUXAMD64: Linux 64-bit
