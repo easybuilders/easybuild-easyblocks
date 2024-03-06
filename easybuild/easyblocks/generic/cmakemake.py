@@ -240,7 +240,7 @@ class CMakeMake(ConfigureMake):
             # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
             # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
             if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
-                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+                print_warning('Ignoring BUILD_SHARED_LIBS setting in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         # If the cache does not exist CMake reads the environment variables
