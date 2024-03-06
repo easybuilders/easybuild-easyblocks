@@ -526,12 +526,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
             # All done. ERROR: only 6 out of 9 tests passed
             _tot = 0
             _pass = 0
-            rgx = r'All done. (ERROR: only )?(?P<succeded>\d+) out of (?P<total>\d+) tests passed.'
+            rgx = r'All done. (ERROR: only )?(?P<succeeded>\d+) out of (?P<total>\d+) tests passed.'
             for mch in re.finditer(rgx, out):
-                succeded = int(mch.group('succeded'))
+                succeeded = int(mch.group('succeeded'))
                 total = int(mch.group('total'))
                 _tot += total
-                _pass += succeded
+                _pass += succeeded
 
             perc = _pass / max(_tot, 1)
             self.log.info("%s: Passed %d out of %d  (%.2f%%)" % (target, _pass, _tot, perc * 100))
