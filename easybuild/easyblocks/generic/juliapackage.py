@@ -114,32 +114,6 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return parsed_var
 
-    def prepare_julia_env(self, target_path):
-        """
-        Remove user depot and prepend installation directory to DEPOT_PATH.
-        Top directory in Julia DEPOT_PATH is the target installation directory.
-        see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
-
-        We also need the installation environment in LOAD_PATH to be able to populate it with all packages from
-        current installation and its dependencies, as well as be able to precompile newly installed packages.
-        This is automatically done by Julia once DEPOT_PATH is changed through JULIA_DEPOT_PATH
-        see https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_LOAD_PATH
-        """
-        env_var = "DEPOT_PATH"
-        env_dirty = self.get_julia_env(env_var)
-        self.log.debug('%s read from Julia environment: %s', env_var, os.pathsep.join(env_dirty))
-
-        env_clean = [path for path in env_dirty if not USER_DEPOT_PATTERN.search(path) and path != target_path]
-        env_install_ready = [target_path] + env_clean
-        self.log.debug("Preparing Julia '%s' for installation: %s", env_var, os.pathsep.join(env_install_ready))
-
-        export_var = "JULIA_" + env_var
-        env.setvar(export_var, os.pathsep.join(env_install_ready))
-
-        if self.julia_env_path(base=False) not in self.get_julia_env("LOAD_PATH"):
-            errmsg = "Failed to prepare Julia environment for installation of: %s"
-            raise EasyBuildError(errmsg, self.name)
-
     def julia_env_path(self, absolute=True, base=True):
         """
         Return path to installation environment file.
@@ -173,6 +147,51 @@ class JuliaPackage(ExtensionEasyBlock):
                     "with any extra downloaded dependencies."
                 )
                 raise EasyBuildError(errmsg, julia_version)
+
+    def prepare_julia_env(self):
+        """
+        1. Remove user depot and prepend installation directory to DEPOT_PATH.
+        Top directory in Julia DEPOT_PATH is the target installation directory.
+        See https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_DEPOT_PATH
+
+        2. We also need the installation environment in LOAD_PATH to be able to populate it with all packages from
+        current installation and its dependencies, as well as be able to precompile newly installed packages.
+        This is automatically done by Julia once DEPOT_PATH is changed through JULIA_DEPOT_PATH. However, that
+        only happens if JULIA_LOAD_PATH is not already set, which is the case for our modules of JuliaPackages.
+        See https://docs.julialang.org/en/v1/manual/environment-variables/#JULIA_LOAD_PATH
+
+        3. Enable offline mode in Julia to avoid automatic downloads of packages.
+
+        4. Enable automatic precompilation of packages after each build.
+        """
+        # Grab both DEPOT_PATH and LOAD_PATH before any changes are made
+        # given that Julia might automatically update LOAD_PATH from a change on DEPOT_PATH
+        dirty_depot = self.get_julia_env("DEPOT_PATH")
+        self.log.debug('DEPOT_PATH read from Julia environment: %s', os.pathsep.join(dirty_depot))
+        dirty_load = self.get_julia_env("LOAD_PATH")
+        self.log.debug('LOAD_PATH read from Julia environment: %s', os.pathsep.join(dirty_load))
+
+        # First set DEPOT_PATH and then LOAD_PATH to avoid any automatic changes made by Julia
+        clean_depot = [path for path in dirty_depot if not USER_DEPOT_PATTERN.search(path) and path != self.installdir]
+        install_depot = os.pathsep.join([self.installdir] + clean_depot)
+        self.log.debug("Preparing Julia 'DEPOT_PATH' for installation: %s", install_depot)
+        env.setvar("JULIA_DEPOT_PATH", install_depot)
+
+        project_toml = self.julia_env_path(base=False)
+        clean_load = [path for path in dirty_load if not USER_DEPOT_PATTERN.search(path) and path != project_toml]
+        install_load = os.pathsep.join([project_toml] + clean_load)
+        self.log.debug("Preparing Julia 'LOAD_PATH' for installation: %s", install_load)
+        env.setvar("JULIA_LOAD_PATH", install_load)
+
+        if self.julia_env_path(base=False) not in self.get_julia_env("LOAD_PATH"):
+            errmsg = "Failed to prepare Julia environment for installation of: %s"
+            raise EasyBuildError(errmsg, self.name)
+
+        # Enable offline mode
+        self.set_pkg_offline()
+
+        # Enable automatic precompilation
+        env.setvar('JULIA_PKG_PRECOMPILE_AUTO', 'true')
 
     def pkg_source_install(self, pkg_source, environment):
         """Execute Julia.Pkg command to install package from its sources"""
@@ -233,9 +252,7 @@ class JuliaPackage(ExtensionEasyBlock):
         """Install Julia package and add all its dependencies to project environment"""
 
         # prepare the installation environment
-        self.set_pkg_offline()
-        self.prepare_julia_env(self.installdir)
-        env.setvar('JULIA_PKG_PRECOMPILE_AUTO', 'true')  # precompile installed packages
+        self.prepare_julia_env()
 
         # add packages found in dependencies to this installation environment
         for dep in self.cfg.dependencies():
