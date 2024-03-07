@@ -325,7 +325,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 self.log.warning("EPW support is not available in QuantumESPRESSO < 6.0")
         else:
             if 'epw' in self.cfg['buildopts']:
-                self.cfg['buildopts'].replace('epw', '')
+                self.cfg['buildopts'] = self.cfg['buildopts'].replace('epw', '')
             if 'epw' in self.cfg['test_suite_targets']:
                 self.cfg['test_suite_targets'].remove('epw')
 
@@ -338,7 +338,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             self.cfg.update('buildopts', 'gipaw', allow_duplicate=False)
         else:
             if 'gipaw' in self.cfg['buildopts']:
-                self.cfg['buildopts'].replace('gipaw', '')
+                self.cfg['buildopts'] = self.cfg['buildopts'].replace('gipaw', '')
                 
     def _add_wannier90(self):
         """Add Wannier90 support to the build."""
@@ -346,7 +346,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             self.cfg.update('buildopts', 'w90', allow_duplicate=False)
         else:
             if 'w90' in self.cfg['buildopts']:
-                self.cfg['buildopts'].replace('w90', '')
+                self.cfg['buildopts'] = self.cfg['buildopts'].replace('w90', '')
 
     def _adjust_compiler_flags(self, comp_fam):
         """Adjust compiler flags based on the compiler family and code version."""
@@ -626,9 +626,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     if '**FAILED**' in line:
                         for allowed in allow_fail:
                             if allowed in line:
+                                self.log.info('Ignoring failure: %s' % line)
                                 break
                         else:
-                            failures.append(line.split('-')[0].strip())
+                            failures.append(line)
                         flag = True
                         self.log.warning(line)
                         continue
@@ -645,8 +646,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
         perc = spass / max(stot, 1)
         self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
         if failures:
-            failed_msg = ', '.join(failures)
-            self.log.error("The following tests failed: %s" % failed_msg)
+            self.log.error("The following tests failed:")
+            for failure in failures:
+                self.log.error('|   ' + failure)
             raise EasyBuildError("Test suite failed")
         if perc < thr:
             raise EasyBuildError(
