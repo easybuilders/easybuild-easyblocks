@@ -72,6 +72,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
             'with_fox': [False, "Enable FoX support", CUSTOM],
+            'with_epw': [True, "Enable EPW support", CUSTOM],
             'with_gipaw': [True, "Enable GIPAW support", CUSTOM],
             'with_wannier90': [False, "Enable Wannier90 support", CUSTOM], 
             'test_threshold': [0.9, "Threshold for test suite success rate", CUSTOM],
@@ -315,6 +316,17 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if LooseVersion(self.version) >= LooseVersion("7.2"):
                 self.cfg.update('configopts', '--with-fox=yes')
 
+    def _add_epw(self):
+        """Add EPW support to the build."""
+        if self.cfg['with_epw']:
+            if LooseVersion(self.version) >= LooseVersion("6.0"):
+                self.cfg.update('buildopts', 'epw', allow_duplicate=False)
+            else:
+                self.log.warning("EPW support is not available in QuantumESPRESSO < 6.0")
+        else:
+            if 'epw' in self.cfg['buildopts']:
+                self.cfg['buildopts'].replace('epw', '')
+
     def _add_gipaw(self):
         """Add GIPAW support to the build."""
         if self.cfg['with_gipaw']:
@@ -366,6 +378,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self._add_ace()
         self._add_beef()
         self._add_fox()
+        self._add_epw()
         self._add_gipaw()
         self._add_wannier90()
 
