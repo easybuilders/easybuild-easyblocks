@@ -71,6 +71,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'hybrid': [False, "Enable hybrid build (with OpenMP)", CUSTOM],
             'with_scalapack': [True, "Enable ScaLAPACK support", CUSTOM],
             'with_ace': [False, "Enable Adaptively Compressed Exchange support", CUSTOM],
+            'with_fox': [False, "Enable FoX support", CUSTOM],
+            'with_gipaw': [True, "Enable GIPAW support", CUSTOM],
+            'with_wannier90': [False, "Enable Wannier90 support", CUSTOM], 
             'test_threshold': [0.9, "Threshold for test suite success rate", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
@@ -305,6 +308,32 @@ class EB_QuantumESPRESSO(ConfigureMake):
                     ('BEEF_LIBS', str(os.path.join(libbeef_lib, "libbeef.a")), False)
                 ]
 
+    def _add_fox(self):
+        """Add FoX support to the build."""
+        if self.cfg['with_fox']:
+            # Needed for using gipaw with QuantumESPRESSO 7.2 and later
+            if LooseVersion(self.version) >= LooseVersion("7.2"):
+                self.cfg.update('configopts', '--with-fox=yes')
+
+    def _add_gipaw(self):
+        """Add GIPAW support to the build."""
+        if self.cfg['with_gipaw']:
+            if LooseVersion(self.version) >= LooseVersion("7.2"):
+                if not self.cfg['with_fox']:
+                    raise EasyBuildError("GIPAW requires FoX enabled in QuantumESPRESSO 7.2 and later")
+            self.cfg.update('buildopts', 'gipaw', allow_duplicate=False)
+        else:
+            if 'gipaw' in self.cfg['buildopts']:
+                self.cfg['buildopts'].replace('gipaw', '')
+                
+    def _add_wannier90(self):
+        """Add Wannier90 support to the build."""
+        if self.cfg['with_wannier90']:
+            self.cfg.update('buildopts', 'w90', allow_duplicate=False)
+        else:
+            if 'w90' in self.cfg['buildopts']:
+                self.cfg['buildopts'].replace('w90', '')
+
     def _adjust_compiler_flags(self, comp_fam):
         """Adjust compiler flags based on the compiler family and code version."""
         if comp_fam == toolchain.INTELCOMP:
@@ -336,6 +365,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self._add_fftw(comp_fam)
         self._add_ace()
         self._add_beef()
+        self._add_fox()
+        self._add_gipaw()
+        self._add_wannier90()
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
