@@ -67,12 +67,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 "pw", "pp", "ph", "cp", "hp", "tddfpt", "epw",
                 ], "List of test suite targets to run", CUSTOM],
             'test_suite_allow_failures': [[
-                'relax',
-                'epw_polar',
-                'cp_h2o_scan_libxc',
-                'hp_metal_us_magn',
-                'ph_ahc_diam',
-                'tddfpt_magnons_fe',
+                'relax',  # Too strict thresholds
+                'epw_polar',  # Too strict thresholds
+                'cp_h2o_scan_libxc',  # Too strict thresholds
+                'hp_metal_us_magn',  # Too strict thresholds
+                'hp_soc_UV_paw_magn',  # In 7.3 test has more params than the baseline
+                'ph_ahc_diam',  # Test detects a ! as an energy in baseline
+                'tddfpt_magnons_fe',  # Too strict thresholds
             ], "List of test suite targets that are allowed to fail (name can partially match)", CUSTOM],
             'test_suite_threshold': [0.97, "Threshold for test suite success rate", CUSTOM],
         }
@@ -383,6 +384,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self._add_epw()
         self._add_gipaw()
         self._add_wannier90()
+        
+        run_cmd("module list", log_all=True, log_ok=True, simple=False, regexp=False)
 
         if comp_fam == toolchain.INTELCOMP:
             # Intel compiler must have -assume byterecl (see install/configure)
