@@ -51,18 +51,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
     """Support for building and installing Quantum ESPRESSO."""
 
     TEST_SUITE_DIR = "test-suite"
-    TEST_SUITE_TARGETS = [
-        "run-tests-pw",
-        "run-tests-pp",
-        "run-tests-ph",
-        "run-tests-cp",
-        "run-tests-hp",
-        "run-tests-tddfpt",
-        "run-tests-epw",
-        "run-tests-kcw",
-        "run-tests-xsd",
-        "run-tests-zg",
-    ]
 
     @staticmethod
     def extra_options():
@@ -74,8 +62,19 @@ class EB_QuantumESPRESSO(ConfigureMake):
             'with_fox': [False, "Enable FoX support", CUSTOM],
             'with_epw': [True, "Enable EPW support", CUSTOM],
             'with_gipaw': [True, "Enable GIPAW support", CUSTOM],
-            'with_wannier90': [False, "Enable Wannier90 support", CUSTOM], 
-            'test_threshold': [0.9, "Threshold for test suite success rate", CUSTOM],
+            'with_wannier90': [False, "Enable Wannier90 support", CUSTOM],
+            'test_suite_targets': [[
+                "pw", "pp", "ph", "cp", "hp", "tddfpt", "epw",
+                ], "List of test suite targets to run", CUSTOM],
+            'test_suite_allow_failures': [[
+                'relax',
+                'epw_polar',
+                'cp_h2o_scan_libxc',
+                'hp_metal_us_magn',
+                'ph_ahc_diam',
+                'tddfpt_magnons_fe',
+            ], "List of test suite targets that are allowed to fail (name can partially match)", CUSTOM],
+            'test_suite_threshold': [0.97, "Threshold for test suite success rate", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -321,11 +320,14 @@ class EB_QuantumESPRESSO(ConfigureMake):
         if self.cfg['with_epw']:
             if LooseVersion(self.version) >= LooseVersion("6.0"):
                 self.cfg.update('buildopts', 'epw', allow_duplicate=False)
+                self.cfg.update('test_suite_targets', ['epw'], allow_duplicate=False)
             else:
                 self.log.warning("EPW support is not available in QuantumESPRESSO < 6.0")
         else:
             if 'epw' in self.cfg['buildopts']:
                 self.cfg['buildopts'].replace('epw', '')
+            if 'epw' in self.cfg['test_suite_targets']:
+                self.cfg['test_suite_targets'].remove('epw')
 
     def _add_gipaw(self):
         """Add GIPAW support to the build."""
@@ -565,7 +567,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         cd test-suite && make run-tests NPROCS=XXX (XXX <= 4)
         """
 
-        thr = self.cfg.get('test_threshold', 0.9)
+        thr = self.cfg.get('test_suite_threshold', 0.9)
         stot = 0
         spass = 0
         parallel = min(4, self.cfg.get('parallel', 1))
@@ -579,8 +581,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
             ])
             run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
 
+        targets = self.cfg.get('test_suite_targets', [])
+        allow_fail = self.cfg.get('test_suite_allow_failures', [])
+
         full_out = ''
-        for target in self.TEST_SUITE_TARGETS:
+        failures = []
+        for target in targets:
             pcmd = ''
             if LooseVersion(self.version) < LooseVersion("7.0"):
                 if parallel > 1:
@@ -590,7 +596,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             else:
                 pcmd = 'NPROCS=%d' % parallel
 
-            cmd = 'cd %s && %s make %s' % (test_dir, pcmd, target)
+            cmd = 'cd %s && %s make run-tests-%s' % (test_dir, pcmd, target)
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
 
             # Example output:
@@ -618,6 +624,11 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 flag = False
                 for line in out.splitlines():
                     if '**FAILED**' in line:
+                        for allowed in allow_fail:
+                            if allowed in line:
+                                break
+                        else:
+                            failures.append(line.split('-')[0].strip())
                         flag = True
                         self.log.warning(line)
                         continue
@@ -633,6 +644,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # Allow for flaky tests (eg too strict thresholds on results for structure relaxation)
         perc = spass / max(stot, 1)
         self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
+        if failures:
+            failed_msg = ', '.join(failures)
+            self.log.error("The following tests failed: %s" % failed_msg)
+            raise EasyBuildError("Test suite failed")
         if perc < thr:
             raise EasyBuildError(
                 "Test suite failed with less than %.2f %% (%.2f) success rate" % (thr * 100, perc * 100)
