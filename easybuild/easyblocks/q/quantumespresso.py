@@ -663,6 +663,13 @@ class EB_QuantumESPRESSO(ConfigureMake):
     def install_step(self):
         """Custom install step for Quantum ESPRESSO."""
 
+        # In QE 7.3 the w90 target is always invoked (even if only used as a library), and the symlink to the
+        # `wannier90.x` executable is generated, but the actual binary is not built. We need to remove the symlink
+        if LooseVersion(self.version) == LooseVersion("7.3.0"):
+            w90_path = os.path.join(self.start_dir, 'bin', 'wannier90.x')
+            if not os.path.exists(os.readlink(w90_path)):
+                os.unlink(w90_path)
+
         # extract build targets as list
         targets = self.cfg['buildopts'].split()
 
