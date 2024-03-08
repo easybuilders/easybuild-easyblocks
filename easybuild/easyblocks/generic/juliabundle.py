@@ -30,13 +30,10 @@ EasyBuild support for bundles of Julia packages, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JULIA_PATHS_SOFT_INIT, JuliaPackage
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import mkdir
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
 
 
-class JuliaBundle(Bundle,JuliaPackage):
+class JuliaBundle(Bundle, JuliaPackage):
     """
     Bundle of JuliaPackages: install Julia packages as extensions in a bundle
     Defines custom sanity checks and module environment
