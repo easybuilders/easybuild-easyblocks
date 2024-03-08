@@ -41,6 +41,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.run import run_cmd
+from easybuild.tools.utilities import trace_msg
 
 EXTS_FILTER_JULIA_PACKAGES = ("julia -e 'using %(ext_name)s'", "")
 USER_DEPOT_PATTERN = re.compile(r"\/\.julia\/?(.*\.toml)*$")
@@ -131,8 +132,6 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def set_pkg_offline(self):
         """Enable offline mode of Julia Pkg"""
-        if get_software_root('Julia') is None:
-            raise EasyBuildError("Julia not included as dependency!")
 
         if not self.cfg['download_pkg_deps']:
             julia_version = get_software_version('Julia')
@@ -193,7 +192,7 @@ class JuliaPackage(ExtensionEasyBlock):
         # Enable automatic precompilation
         env.setvar('JULIA_PKG_PRECOMPILE_AUTO', 'true')
 
-    def pkg_source_install(self, pkg_source, environment):
+    def install_pkg_source(self, pkg_source, environment, trace=True):
         """Execute Julia.Pkg command to install package from its sources"""
 
         julia_pkg_cmd = [
@@ -225,16 +224,41 @@ class JuliaPackage(ExtensionEasyBlock):
             "julia -e '%s'" % julia_pkg_cmd,
             self.cfg['installopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        (out, _) = run_cmd(cmd, log_all=True, simple=False, trace=trace)
 
         return out
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for installing Julia package."""
-        super(JuliaPackage, self).prepare_step(*args, **kwargs)
-
+    def include_pkg_dependencies(self):
+        """Add to installation environment all Julia packages already present in its dependencies"""
         # Location of project environment files in install dir
         mkdir(self.julia_env_path(), parents=True)
+
+        # add packages found in dependencies to this installation environment
+        for dep in self.cfg.dependencies():
+            dep_root = get_software_root(dep['name'])
+            for pkg in glob.glob(os.path.join(dep_root, 'packages/*')):
+                trace_msg("incorporating Julia package from dependencies: %s" % os.path.basename(pkg))
+                self.install_pkg_source(pkg, self.julia_env_path(), trace=False)
+
+    def install_pkg(self):
+        """Install Julia package"""
+
+        # determine source type of current installation
+        if os.path.isdir(os.path.join(self.start_dir, '.git')):
+            pkg_source = self.start_dir
+        else:
+            # copy non-git sources to install directory
+            pkg_source = os.path.join(self.installdir, 'packages', self.name)
+            copy_dir(self.start_dir, pkg_source)
+
+        return self.install_pkg_source(pkg_source, self.julia_env_path())
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare for Julia package installation."""
+        super(JuliaPackage, self).prepare_step(*args, **kwargs)
+
+        if get_software_root('Julia') is None:
+            raise EasyBuildError("Julia not included as dependency!")
 
     def configure_step(self):
         """No separate configuration for JuliaPackage."""
@@ -249,26 +273,12 @@ class JuliaPackage(ExtensionEasyBlock):
         pass
 
     def install_step(self):
-        """Install Julia package and add all its dependencies to project environment"""
+        """Prepare installation environment and install Julia package."""
 
-        # prepare the installation environment
         self.prepare_julia_env()
+        self.include_pkg_dependencies()
 
-        # add packages found in dependencies to this installation environment
-        for dep in self.cfg.dependencies():
-            dep_root = get_software_root(dep['name'])
-            for pkg in glob.glob(os.path.join(dep_root, 'packages/*')):
-                self.pkg_source_install(pkg, self.julia_env_path())
-
-        # determine source type of current installation
-        if os.path.isdir(os.path.join(self.start_dir, '.git')):
-            pkg_source = self.start_dir
-        else:
-            # copy non-git sources to install directory
-            pkg_source = os.path.join(self.installdir, 'packages', self.name)
-            copy_dir(self.start_dir, pkg_source)
-
-        return self.pkg_source_install(pkg_source, self.julia_env_path())
+        return self.install_pkg()
 
     def run(self):
         """Install Julia package as an extension."""
@@ -278,7 +288,7 @@ class JuliaPackage(ExtensionEasyBlock):
             raise EasyBuildError(errmsg, self.name, self.src)
         ExtensionEasyBlock.run(self, unpack_src=True)
 
-        self.install_step()
+        self.install_pkg()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for JuliaPackage"""
@@ -293,7 +303,7 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """
         Module load initializes JULIA_DEPOT_PATH and JULIA_LOAD_PATH with default values if they are not set.
         Path to installation directory is appended to JULIA_DEPOT_PATH.
