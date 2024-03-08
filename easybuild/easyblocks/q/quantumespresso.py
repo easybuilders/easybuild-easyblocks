@@ -340,7 +340,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         else:
             if 'gipaw' in self.cfg['buildopts']:
                 self.cfg['buildopts'] = self.cfg['buildopts'].replace('gipaw', '')
-                
+
     def _add_wannier90(self):
         """Add Wannier90 support to the build."""
         if self.cfg['with_wannier90']:
@@ -384,7 +384,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         self._add_epw()
         self._add_gipaw()
         self._add_wannier90()
-        
+
         run_cmd("module list", log_all=True, log_ok=True, simple=False, regexp=False)
 
         if comp_fam == toolchain.INTELCOMP:
@@ -667,7 +667,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
         # `wannier90.x` executable is generated, but the actual binary is not built. We need to remove the symlink
         if LooseVersion(self.version) == LooseVersion("7.3"):
             w90_path = os.path.join(self.start_dir, 'bin', 'wannier90.x')
-            if not os.path.exists(os.readlink(w90_path)):
+            if os.path.islink(w90_path) and not os.path.exists(os.readlink(w90_path)):
                 os.unlink(w90_path)
 
         # extract build targets as list
