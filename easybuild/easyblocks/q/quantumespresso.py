@@ -413,7 +413,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # libs is being used for the replacement in the wannier90 files
         libs = []
-        # Only overriding for fcc as the intel flags are already ebing properly
+        # Only overriding for gcc as the intel flags are already being properly
         # set.
         if comp_fam == toolchain.GCC:
             num_libs = ['BLAS', 'LAPACK', 'FFT']
