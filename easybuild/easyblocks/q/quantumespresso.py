@@ -649,9 +649,9 @@ class EB_QuantumESPRESSO(ConfigureMake):
         perc = spass / max(stot, 1)
         self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
         if failures:
-            self.log.error("The following tests failed:")
+            self.log.warning("The following tests failed:")
             for failure in failures:
-                self.log.error('|   ' + failure)
+                self.log.warning('|   ' + failure)
             raise EasyBuildError("Test suite failed")
         if perc < thr:
             raise EasyBuildError(
