@@ -69,16 +69,19 @@ class JuliaPackage(ExtensionEasyBlock):
     Julia environement setup during installation:
         - initialize new Julia environment in 'environments' subdir in installation directory
         - remove paths in user depot '~/.julia' from DEPOT_PATH and LOAD_PATH
-        - put installation directory as top DEPOT_PATH, which is the target depot for installations with Pkg
-        - put installation environment as top LOAD_PATH, which is needed to precompile installed packages
-        - add Julia packages found in dependencies of the easyconfig to installation environment, this is needed
+        - put installation directory as top DEPOT_PATH, the target depot for installations with Pkg
+        - put installation environment as top LOAD_PATH, needed to precompile installed packages
+        - add Julia packages found in dependencies of the easyconfig to installation environment, needed
           for Pkg to be aware of those packages and not install them again
-        - add newly installed Julia packages to installation environment, this is automatically done by Pkg
+        - add newly installed Julia packages to installation environment (automatically done by Pkg)
 
     Julia environment setup on module load:
-        - append installation directory to list of DEPOT_PATH, which is needed to load artifacts (JLL packages)
-        - append installation environment to list of LOAD_PATH, which is needed to load packages with `using`
-          command and make them known to Pkg
+        User depot and its shared environment for this version of Julia are kept as top paths of DEPOT_PATH and
+        LOAD_PATH respectively. This ensures that the user can keep using its own environment after loading
+        JuliaPackage modules, installing additional software on its personal depot while still using packages
+        provided by the module. Effectively, this translates to:
+        - append installation directory to list of DEPOT_PATH, only really needed to load artifacts (JLL packages)
+        - append installation Project.toml file to list of LOAD_PATH, needed to load packages with `using` command
     """
 
     @staticmethod
@@ -306,10 +309,11 @@ class JuliaPackage(ExtensionEasyBlock):
     def make_module_extra(self, *args, **kwargs):
         """
         Module load initializes JULIA_DEPOT_PATH and JULIA_LOAD_PATH with default values if they are not set.
+
         Path to installation directory is appended to JULIA_DEPOT_PATH.
-        Path to the environment file of this installation is appended to JULIA_LOAD_PATH.
-        This configuration fulfils the rule that user depot has to be the first path in JULIA_DEPOT_PATH, allows users
-        to use custom Julia environments and makes packages in installation dir available in Julia.
+        Path to the environment file of this installation is prepended to JULIA_LOAD_PATH.
+        This configuration fulfils the rule that user depot has to be the first path in JULIA_DEPOT_PATH,
+        allowing user to add custom Julia packages while having packages in this installation available.
         See issue easybuilders/easybuild-easyconfigs#17455
         """
         mod = super(JuliaPackage, self).make_module_extra()
