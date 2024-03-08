@@ -652,7 +652,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
             self.log.warning("The following tests failed:")
             for failure in failures:
                 self.log.warning('|   ' + failure)
-            raise EasyBuildError("Test suite failed")
         if perc < thr:
             raise EasyBuildError(
                 "Test suite failed with less than %.2f %% (%.2f) success rate" % (thr * 100, perc * 100)
