@@ -619,7 +619,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
             # Log test-suite errors if present
             if _pass < _tot:
-                # Example output for reported faliures:
+                # Example output for reported failures:
                 # pw_plugins - plugin-pw2casino_1.in (arg(s): 1): **FAILED**.
                 # Different sets of data extracted from benchmark and test.
                 #     Data only in benchmark: p1.
