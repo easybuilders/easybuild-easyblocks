@@ -324,12 +324,7 @@ class ConfigureMake(EasyBlock):
         )
 
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        try:
-            check_log_for_errors(out, ['configure: WARNING: unrecognized options:'])
-        except EasyBuildError as err:
-            self.log.deprecated("Unknown arguments for configure used: %s" % err, '5.0')
-            print_warning("Unknown arguments for configure detected: %s" % err)
-
+        check_log_for_errors(out, ['configure: WARNING: unrecognized options:'])
         return out
 
     def build_step(self, verbose=False, path=None):
