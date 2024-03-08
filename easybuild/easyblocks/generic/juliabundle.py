@@ -36,7 +36,7 @@ from easybuild.tools.filetools import mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 
 
-class JuliaBundle(Bundle):
+class JuliaBundle(Bundle,JuliaPackage):
     """
     Bundle of JuliaPackages: install Julia packages as extensions in a bundle
     Defines custom sanity checks and module environment
@@ -83,32 +83,10 @@ class JuliaBundle(Bundle):
         """Prepare for installing bundle of Julia packages."""
         super(JuliaBundle, self).prepare_step(*args, **kwargs)
 
-        if get_software_root('Julia') is None:
-            raise EasyBuildError("Julia not included as dependency!")
-
-        # Location of project environments in install dir
-        julia_version = get_software_version('Julia').split('.')
-        julia_env_dir = "v{}.{}".format(*julia_version[:2])
-        self.julia_project_toml = os.path.join("environments", julia_env_dir, "Project.toml")
-        self.julia_project_env = os.path.dirname(os.path.join(self.installdir, self.julia_project_toml))
-        mkdir(self.julia_project_env, parents=True)
-
-    def make_module_extra(self):
-        """
-        Module load initializes JULIA_DEPOT_PATH and JULIA_LOAD_PATH with default values if they are not set.
-        Path to installation directory is appended to JULIA_DEPOT_PATH.
-        Path to the environment file of this installation is appended to JULIA_LOAD_PATH.
-        This configuration fulfils the rule that user depot has to be the first path in JULIA_DEPOT_PATH, allows users
-        to use custom Julia environments and makes packages in installation dir available in Julia.
-        See issue easybuilders/easybuild-easyconfigs#17455
-        """
-        mod = super(JuliaBundle, self).make_module_extra()
-        if self.module_generator.SYNTAX:
-            mod += JULIA_PATHS_SOFT_INIT[self.module_generator.SYNTAX]
-        mod += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
-        mod += self.module_generator.append_paths('JULIA_LOAD_PATH', [self.julia_project_toml])
-
-        return mod
+    def install_step(self):
+        """Prepare installation environment and dd all dependencies to project environment."""
+        self.prepare_julia_env()
+        self.include_pkg_dependencies()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Julia packages"""
@@ -117,3 +95,8 @@ class JuliaBundle(Bundle):
             'dirs': [os.path.join('packages', self.name)],
         }
         super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self, *args, **kwargs):
+        """Custom module environement from JuliaPackage"""
+        mod = super(JuliaBundle, self).make_module_extra(*args, **kwargs)
+        return mod
