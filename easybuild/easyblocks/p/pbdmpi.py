@@ -53,7 +53,7 @@ class EB_pbdMPI(RPackage):
 
         super(EB_pbdMPI, self).configure_step()
 
-    def run(self):
+    def install_extension(self):
         """Configure before installing pbdMPI as an extension."""
         self.configure_step()
-        super(EB_pbdMPI, self).run()
+        super(EB_pbdMPI, self).install_extension()

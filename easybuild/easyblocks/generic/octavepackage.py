@@ -44,14 +44,14 @@ class OctavePackage(ExtensionEasyBlock):
         """Raise error when configure step is run: installing Octave toolboxes stand-alone is not supported (yet)"""
         raise EasyBuildError("Installing Octave toolboxes stand-alone is not supported (yet)")
 
-    def run(self):
+    def install_extension(self):
         """Perform Octave package installation (as extension)."""
 
         # if patches are specified, we need to unpack the source tarball, apply the patch,
         # and create a temporary tarball to use for installation
         if self.patches:
             # call out to ExtensionEasyBlock to unpack & apply patches
-            super(OctavePackage, self).run(unpack_src=True)
+            super(OctavePackage, self).install_extension(unpack_src=True)
 
             # create temporary tarball from unpacked & patched source
             src = os.path.join(tempfile.gettempdir(), '%s-%s-patched.tar.gz' % (self.name, self.version))

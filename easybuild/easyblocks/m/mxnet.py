@@ -187,9 +187,9 @@ class EB_MXNet(MakeCp):
         self.py_ext.src = os.path.join(self.mxnet_src_dir, "python")
         change_dir(self.py_ext.src)
 
-        self.py_ext.prerun()
-        self.py_ext.run(unpack_src=False)
-        self.py_ext.postrun()
+        self.py_ext.pre_install_extension()
+        self.py_ext.install_extension(unpack_src=False)
+        self.py_ext.post_install_extension()
 
         if self.cfg['install_r_ext']:
             # This is off by default, because it's been working in the old version of MXNet and now it's not.
@@ -212,18 +212,18 @@ class EB_MXNet(MakeCp):
         # MXNet doesn't provide a list of its R dependencies by default
         write_file("NAMESPACE", R_NAMESPACE)
         change_dir(self.mxnet_src_dir)
-        self.r_ext.prerun()
+        self.r_ext.pre_install_extension()
         # MXNet is just weird. To install the R extension, we have to:
         # - First install the extension like it is
         # - Let R export the extension again. By doing this, all the dependencies get
         #   correctly filled and some mappings are done
         # - Reinstal the exported version
-        self.r_ext.run()
+        self.r_ext.install_extension()
         cmd = "R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\""
         run_shell_cmd(cmd % self.installdir)
         change_dir(self.r_ext.src)
-        self.r_ext.run()
-        self.r_ext.postrun()
+        self.r_ext.install_extension()
+        self.r_ext.post_install_extension()
 
     def sanity_check_step(self):
         """Check for main library files for MXNet"""
