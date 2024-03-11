@@ -106,6 +106,7 @@ class CMakeMake(ConfigureMake):
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
+            'install_libdir': ['lib', "Subdirectory to use for library installation files", CUSTOM],
             'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
@@ -201,9 +202,16 @@ class CMakeMake(ConfigureMake):
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
-                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+                self.log.info("CMAKE_BUILD_TYPE is set in configopts. Ignoring 'build_type' easyconfig parameter.")
         else:
             options['CMAKE_BUILD_TYPE'] = self.build_type
+
+        if '-DCMAKE_INSTALL_LIBDIR=' in self.cfg['configopts']:
+            self.log.info(
+                "CMAKE_INSTALL_LIBDIR is set in configopts. Ignoring 'install_libdir' easyconfig parameter."
+            )
+        else:
+            options['CMAKE_INSTALL_LIBDIR'] = self.cfg['install_libdir']
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
@@ -232,7 +240,7 @@ class CMakeMake(ConfigureMake):
             # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
             # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
             if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
-                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+                print_warning('Ignoring BUILD_SHARED_LIBS setting in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         # If the cache does not exist CMake reads the environment variables
