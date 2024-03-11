@@ -34,7 +34,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_FLUENT(PackedBinary):
@@ -64,7 +64,7 @@ class EB_FLUENT(PackedBinary):
             extra_args += '-noroot'
 
         cmd = "./INSTALL %s -debug -silent -install_dir %s %s" % (extra_args, self.installdir, self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
 

@@ -48,7 +48,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
 from easybuild.tools.version import VERBOSE_VERSION as EASYBUILD_VERSION
@@ -220,10 +220,11 @@ class EB_GROMACS(CMakeMake):
             # Need to check if PLUMED has an engine for this version
             engine = 'gromacs-%s' % self.version
 
-            (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
-            if not re.search(engine, out):
+            res = run_shell_cmd("plumed-patch -l")
+            if not re.search(engine, res.output):
                 plumed_ver = get_software_version('PLUMED')
-                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version, out)
+                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
+                                                                                       res.output)
                 if self.cfg['ignore_plumed_version_check']:
                     self.log.warning(msg)
                 else:
@@ -280,7 +281,7 @@ class EB_GROMACS(CMakeMake):
 
             # Now patch GROMACS for PLUMED between configure and build
             if plumed_root:
-                run_cmd(plumed_cmd, log_all=True, simple=True)
+                run_shell_cmd(plumed_cmd)
 
         else:
             if '-DGMX_MPI=ON' in self.cfg['configopts']:
@@ -336,7 +337,7 @@ class EB_GROMACS(CMakeMake):
                         mode = 'static'
                     plumed_cmd = plumed_cmd + ' -m %s' % mode
 
-                run_cmd(plumed_cmd, log_all=True, simple=True)
+                run_shell_cmd(plumed_cmd)
 
             # prefer static libraries, if available
             if self.cfg['build_shared_libs']:

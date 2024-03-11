@@ -34,7 +34,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 EXTS_FILTER_OCAML_PACKAGES = ("eval `opam config env` && opam list --installed %(ext_name)s.%(ext_version)s", '')
@@ -47,11 +47,11 @@ def det_opam_version():
     opam_ver = None
 
     opam_version_cmd = 'opam --version'
-    (out, ec) = run_cmd(opam_version_cmd)
-    if ec == 0:
-        res = re.search('^[0-9.]+$', out.strip())
-        if res:
-            opam_ver = res.group(0)
+    res = run_shell_cmd(opam_version_cmd, fail_on_error=False)
+    if res.exit_code == 0:
+        ver_search = re.search('^[0-9.]+$', res.output.strip())
+        if ver_search:
+            opam_ver = ver_search.group(0)
 
     if opam_ver is None:
         raise EasyBuildError("Failed to determine OPAM version using '%s'!", opam_version_cmd)
@@ -86,7 +86,8 @@ class EB_OCaml(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for OCaml."""
         self.cfg['prefix_opt'] = '-prefix '
-        self.cfg.update('configopts', '-cc "%s %s"' % (os.environ['CC'], os.environ['CFLAGS']))
+        if LooseVersion(self.version) < LooseVersion("4.12"):
+            self.cfg.update('configopts', '-cc "%s %s"' % (os.environ['CC'], os.environ['CFLAGS']))
 
         if 'world.opt' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'world.opt')
@@ -114,13 +115,13 @@ class EB_OCaml(ConfigureMake):
             self.with_opam = True
             change_dir(opam_dir)
 
-            run_cmd("./configure --prefix=%s" % self.installdir)
-            run_cmd("make lib-ext")  # locally build/install required dependencies
-            run_cmd("make")
-            run_cmd("make install")
+            run_shell_cmd("./configure --prefix=%s" % self.installdir)
+            run_shell_cmd("make lib-ext")  # locally build/install required dependencies
+            run_shell_cmd("make")
+            run_shell_cmd("make install")
 
             opam_init_cmd = mk_opam_init_cmd(root=os.path.join(self.installdir, OPAM_SUBDIR))
-            run_cmd(opam_init_cmd)
+            run_shell_cmd(opam_init_cmd)
         else:
             self.log.warning("OPAM sources not found in %s: %s", self.builddir, all_dirs)
 

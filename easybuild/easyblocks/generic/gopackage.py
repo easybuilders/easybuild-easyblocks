@@ -81,7 +81,7 @@ class GoPackage(EasyBlock):
         go_sum_file = 'go.sum'
 
         if not os.path.exists(go_mod_file) or not os.path.isfile(go_mod_file):
-            self.log.warn("go.mod not found! This is not natively supported go module. Trying to init module.")
+            self.log.warning("go.mod not found! This is not natively supported go module. Trying to init module.")
 
             if self.cfg['modulename'] is None:
                 raise EasyBuildError("Installing non-native go module. You need to specify 'modulename' in easyconfig")
@@ -115,8 +115,8 @@ class GoPackage(EasyBlock):
             run_shell_cmd('go build ./...')
             run_shell_cmd('go test ./...')
 
-            self.log.warn('Include generated go.mod and go.sum via patch to ensure locked dependencies '
-                          'and run this easyconfig again.')
+            self.log.warning('Include generated go.mod and go.sum via patch to ensure locked dependencies '
+                             'and run this easyconfig again.')
             run_shell_cmd('cat go.mod')
             run_shell_cmd('cat go.sum')
 

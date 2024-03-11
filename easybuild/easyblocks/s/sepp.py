@@ -30,7 +30,7 @@ import os
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SEPP(PythonPackage):
@@ -41,7 +41,7 @@ class EB_SEPP(PythonPackage):
         super(EB_SEPP, self).configure_step(*args, **kwargs)
 
         # Configure sepp
-        run_cmd("python setup.py config -c")
+        run_shell_cmd("python setup.py config -c")
 
     def install_step(self, *args, **kwargs):
         """

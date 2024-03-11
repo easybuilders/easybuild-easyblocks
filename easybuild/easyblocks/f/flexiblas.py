@@ -36,7 +36,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 IMKL_CONF_TEMPLATE = """[IMKL]
@@ -182,7 +182,7 @@ class EB_FlexiBLAS(CMakeMake):
             "make test",
             self.cfg['testopts'],
         ])
-        run_cmd(test_cmd)
+        run_shell_cmd(test_cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""

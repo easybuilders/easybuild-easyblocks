@@ -139,7 +139,7 @@ class EB_Perl(ConfigureMake):
             # specify locale to be used, to avoid that a handful of tests fail
             cmd = "export LC_ALL=C && %s" % cmd
 
-            run_shell_cmd(cmd, fail_on_error=False)
+            run_shell_cmd(cmd)
 
     def prepare_for_extensions(self):
         """

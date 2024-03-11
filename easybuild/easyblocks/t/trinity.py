@@ -45,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Trinity(EasyBlock):
@@ -80,8 +80,7 @@ class EB_Trinity(EasyBlock):
         except OSError as err:
             raise EasyBuildError("Butterfly: failed to change to dst dir %s: %s", dst, err)
 
-        cmd = "ant"
-        run_cmd(cmd)
+        run_shell_cmd("ant")
 
         self.log.info("End Butterfly")
 
@@ -105,8 +104,8 @@ class EB_Trinity(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Chrysalis: failed to change to dst dir %s: %s", dst, err)
 
-            run_cmd("make clean")
-            run_cmd("make %s" % make_flags)
+            run_shell_cmd("make clean")
+            run_shell_cmd("make %s" % make_flags)
 
             self.log.info("End Chrysalis")
 
@@ -130,8 +129,8 @@ class EB_Trinity(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("Inchworm: failed to change to dst dir %s: %s", dst, err)
 
-            run_cmd('./configure --prefix=%s' % dst)
-            run_cmd("make install %s" % make_flags)
+            run_shell_cmd('./configure --prefix=%s' % dst)
+            run_shell_cmd("make install %s" % make_flags)
 
             self.log.info("End Inchworm")
 
@@ -163,12 +162,12 @@ class EB_Trinity(EasyBlock):
             except OSError as err:
                 raise EasyBuildError("jellyfish plugin: failed to change dir %s: %s", orig_jellyfishdir, err)
 
-            run_cmd('./configure --prefix=%s' % orig_jellyfishdir)
+            run_shell_cmd('./configure --prefix=%s' % orig_jellyfishdir)
             cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (os.getenv('CC'), os.getenv('CXX'), os.getenv('CFLAGS'))
-            run_cmd(cmd)
+            run_shell_cmd(cmd)
 
             # the installstep is running the jellyfish script, this is a wrapper that will compile .lib/jellyfish
-            run_cmd("bin/jellyfish cite")
+            run_shell_cmd("bin/jellyfish cite")
 
             # return to original dir
             try:
@@ -194,13 +193,13 @@ class EB_Trinity(EasyBlock):
             raise EasyBuildError("Meryl: failed to change to dst dir %s: %s", dst, err)
 
         cmd = "./configure.sh"
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         cmd = 'make -j 1 CCDEP="%s -MM -MG" CXXDEP="%s -MM -MG"' % (os.getenv('CC'), os.getenv('CXX'))
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         cmd = 'make install'
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         self.log.info("End Meryl")
 
@@ -219,7 +218,7 @@ class EB_Trinity(EasyBlock):
             cc = os.getenv('CC')
 
         cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (cc, os.getenv('CXX'), os.getenv('CFLAGS'))
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         self.log.info("End %s plugin" % plugindir)
 
@@ -296,7 +295,7 @@ class EB_Trinity(EasyBlock):
                 explicit_make_args = 'all plugins'
 
             cmd = "make TRINITY_COMPILER=%s %s" % (trinity_compiler, explicit_make_args)
-            run_cmd(cmd)
+            run_shell_cmd(cmd)
 
             # butterfly is not included in standard build before v2.9.0
             if version < LooseVersion('2.9'):

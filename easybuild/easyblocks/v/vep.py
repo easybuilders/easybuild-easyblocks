@@ -34,7 +34,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_version, get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_VEP(EasyBlock):
@@ -115,7 +115,7 @@ class EB_VEP(EasyBlock):
             '--DESTDIR ' + api_mods_dir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""

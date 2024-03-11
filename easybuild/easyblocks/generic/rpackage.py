@@ -300,12 +300,14 @@ class RPackage(ExtensionEasyBlock):
         cmd, stdin = self.prepare_r_ext_install()
         self.install_R_package(cmd, inp=stdin)
 
-    def install_extension_async(self):
+    def install_extension_async(self, thread_pool):
         """
         Start installation of R package as an extension asynchronously.
         """
         cmd, stdin = self.prepare_r_ext_install()
-        self.async_cmd_start(cmd, inp=stdin)
+        task_id = f'ext_{self.name}_{self.version}'
+        return thread_pool.submit(run_shell_cmd, cmd, stdin=stdin, asynchronous=True, env=os.environ.copy(),
+                                  fail_on_error=False, task_id=task_id, work_dir=os.getcwd())
 
     def async_cmd_check(self):
         """

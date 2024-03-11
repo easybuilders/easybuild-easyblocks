@@ -41,17 +41,17 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, COMP_ALL
 from easybuild.easyblocks.generic.intelbase import LICENSE_FILE_NAME_2012
 from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 def get_icc_version():
     """Obtain icc version string via 'icc --version'."""
     cmd = "icc --version"
-    (out, _) = run_cmd(cmd, log_all=True, simple=False)
+    res = run_shell_cmd(cmd)
 
     ver_re = re.compile(r"^icc \(ICC\) (?P<version>[0-9.]+) [0-9]+$", re.M)
-    version = ver_re.search(out).group('version')
+    version = ver_re.search(res.output).group('version')
 
     return version
 
@@ -255,9 +255,9 @@ class EB_icc(IntelBase):
                 txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
 
         # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
-        out, ec = run_cmd("gcc -print-multiarch", simple=False, log_all=False, log_ok=False)
-        multiarch_inc_subdir = out.strip()
-        if ec == 0 and multiarch_inc_subdir:
+        res = run_shell_cmd("gcc -print-multiarch", fail_on_error=False)
+        multiarch_inc_subdir = res.output.strip()
+        if res.exit_code == 0 and multiarch_inc_subdir:
             multiarch_inc_dir = os.path.join('/usr', 'include', multiarch_inc_subdir)
             self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
             # system location must be appended at the end, so use append_paths

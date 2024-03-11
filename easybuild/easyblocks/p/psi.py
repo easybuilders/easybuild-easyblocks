@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_PSI(CMakeMake):
@@ -224,7 +224,7 @@ class EB_PSI(CMakeMake):
                     else:
                         paracmd = "-j %s" % self.cfg['parallel']
                 cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
-                run_cmd(cmd, log_all=True, simple=False)
+                run_shell_cmd(cmd)
         else:
             super(EB_PSI, self).test_step()
 

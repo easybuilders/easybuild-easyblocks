@@ -34,10 +34,11 @@ import os
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Gurobi(Tarball):
@@ -75,8 +76,8 @@ class EB_Gurobi(Tarball):
 
             copy_file(self.orig_license_file, self.license_file)
 
-        if get_software_root('Python'):
-            run_cmd("python setup.py install --prefix=%s" % self.installdir)
+        if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('11'):
+            run_shell_cmd("python setup.py install --prefix=%s" % self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""

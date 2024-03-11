@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_file, extract_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root, get_software_version
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -96,29 +96,29 @@ class EB_VMD(ConfigureMake):
         # Python locations
         pyver = get_software_version('Python')
         pymajver = pyver.split('.')[0]
-        out, ec = run_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", simple=False)
-        if ec:
-            raise EasyBuildError("Failed to determine Python include path: %s", out)
+        res = run_shell_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", fail_on_error=False)
+        if res.exit_code:
+            raise EasyBuildError("Failed to determine Python include path: %s", res.output)
         else:
-            env.setvar('PYTHON_INCLUDE_DIR', out.strip())
+            env.setvar('PYTHON_INCLUDE_DIR', res.output.strip())
         pylibdir = det_pylibdir()
         python_libdir = os.path.join(deps['Python'], os.path.dirname(pylibdir))
         env.setvar('PYTHON_LIBRARY_DIR', python_libdir)
         if LooseVersion(pyver) >= LooseVersion('3.8'):
-            out, ec = run_cmd("python%s-config --libs --embed" % pymajver, simple=False)
+            res = run_shell_cmd("python%s-config --libs --embed" % pymajver, fail_on_error=False)
         else:
-            out, ec = run_cmd("python%s-config --libs" % pymajver, simple=False)
-        if ec:
-            raise EasyBuildError("Failed to determine Python library name: %s", out)
+            res = run_shell_cmd("python%s-config --libs" % pymajver, fail_on_error=False)
+        if res.exit_code:
+            raise EasyBuildError("Failed to determine Python library name: %s", res.output)
         else:
-            env.setvar('PYTHON_LIBRARIES', out.strip())
+            env.setvar('PYTHON_LIBRARIES', res.output.strip())
 
         # numpy include location, easiest way to determine it is via numpy.get_include()
-        out, ec = run_cmd("python -c 'import numpy; print(numpy.get_include())'", simple=False)
-        if ec:
-            raise EasyBuildError("Failed to determine numpy include directory: %s", out)
+        res = run_shell_cmd("python -c 'import numpy; print(numpy.get_include())'", fail_on_error=False)
+        if res.exit_code:
+            raise EasyBuildError("Failed to determine numpy include directory: %s", res.output)
         else:
-            env.setvar('NUMPY_INCLUDE_DIR', out.strip())
+            env.setvar('NUMPY_INCLUDE_DIR', res.output.strip())
 
         # compiler commands
         self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
@@ -136,13 +136,13 @@ class EB_VMD(ConfigureMake):
             "NETCDFLIB='-L%s'" % netcdflib,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=False)
+        run_shell_cmd(cmd)
 
         # create plugins distribution
         plugindir = os.path.join(self.vmddir, 'plugins')
         env.setvar('PLUGINDIR', plugindir)
         self.log.info("Generating VMD plugins in %s", plugindir)
-        run_cmd("make distrib %s" % self.cfg['buildopts'], log_all=True, simple=False)
+        run_shell_cmd("make distrib %s" % self.cfg['buildopts'])
 
         # explicitely mention whether or not we're building with CUDA/OptiX support
         if deps['CUDA']:
@@ -150,9 +150,9 @@ class EB_VMD(ConfigureMake):
             if deps['OptiX']:
                 self.log.info("Building with Nvidia OptiX %s support", get_software_version('OptiX'))
             else:
-                self.log.warn("Not building with Nvidia OptiX support!")
+                self.log.warning("Not building with Nvidia OptiX support!")
         else:
-            self.log.warn("Not building with CUDA nor OptiX support!")
+            self.log.warning("Not building with CUDA nor OptiX support!")
 
         # see http://www.ks.uiuc.edu/Research/vmd/doxygen/configure.html
         # LINUXAMD64: Linux 64-bit
@@ -189,7 +189,7 @@ class EB_VMD(ConfigureMake):
 
         # configure in vmd-<version> directory
         change_dir(self.vmddir)
-        run_cmd("%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts']))
+        run_shell_cmd("%s ./configure %s" % (self.cfg['preconfigopts'], self.cfg['configopts']))
 
         # change to 'src' subdirectory, ready for building
         change_dir(os.path.join(self.vmddir, 'src'))
@@ -203,13 +203,13 @@ class EB_VMD(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             change_dir(self.surf_dir)
             surf_build_cmd = 'make CC="%s" OPT="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
-            run_cmd(surf_build_cmd)
+            run_shell_cmd(surf_build_cmd)
             # Build Stride if it was downloaded
             if os.path.exists(os.path.join(self.stride_dir, 'Makefile')):
                 change_dir(self.stride_dir)
                 self.have_stride = True
                 stride_build_cmd = 'make CC="%s" CFLAGS="%s"' % (os.environ['CC'], os.environ['CFLAGS'])
-                run_cmd(stride_build_cmd)
+                run_shell_cmd(stride_build_cmd)
             else:
                 self.log.info("Stride has not been downloaded and/or unpacked.")
 

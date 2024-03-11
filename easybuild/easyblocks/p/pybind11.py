@@ -34,7 +34,7 @@ from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 import easybuild.tools.environment as env
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root
 
 
@@ -86,10 +86,10 @@ class EB_pybind11(CMakePythonPackage):
             # since for extension the necessary modules should already be loaded at this point
             fake_mod_data = self.load_fake_module(purge=True)
         cmd = "%s -c 'import pybind11; print(pybind11.get_include())'" % self.python_cmd
-        out, ec = run_cmd(cmd, simple=False)
-        if ec:
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        if res.exit_code:
             raise EasyBuildError("Failed to get pybind11 includes!")
-        python_include = out.strip()
+        python_include = res.output.strip()
         if not self.is_extension:
             self.clean_up_fake_module(fake_mod_data)
 
