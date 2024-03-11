@@ -291,6 +291,7 @@ class JuliaPackage(ExtensionEasyBlock):
             raise EasyBuildError(errmsg, self.name, self.src)
         ExtensionEasyBlock.run(self, unpack_src=True)
 
+        self.prepare_julia_env()
         self.install_pkg()
 
     def sanity_check_step(self, *args, **kwargs):
