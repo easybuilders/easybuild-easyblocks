@@ -420,7 +420,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
             if self.cfg['with_scalapack']:
                 num_libs.extend(['SCALAPACK'])
             elpa = get_software_root('ELPA')
-            elpa_lib = 'libelpa.a' if self.toolchain.options.get('openmp', False) else 'libelpa_openmp.a'
+            elpa_lib = 'libelpa_openmp.a' if self.toolchain.options.get('openmp', False) else 'libelpa.a'
             elpa_lib = os.path.join(elpa or '', 'lib', elpa_lib)
             for lib in num_libs:
                 if self.toolchain.options.get('openmp', False):
