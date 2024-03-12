@@ -75,7 +75,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 'ph_ahc_diam',  # Test detects a ! as an energy in baseline
                 'tddfpt_magnons_fe',  # Too strict thresholds
             ], "List of test suite targets that are allowed to fail (name can partially match)", CUSTOM],
-            'test_suite_threshold': [0.97, "Threshold for test suite success rate", CUSTOM],
+            'test_suite_threshold': [
+                0.97,
+                "Threshold for test suite success rate (does count also allowed failures)",
+                CUSTOM
+                ],
+            'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -647,6 +652,8 @@ class EB_QuantumESPRESSO(ConfigureMake):
             full_out += out
 
         # Allow for flaky tests (eg too strict thresholds on results for structure relaxation)
+        num_fail = len(failures)
+        num_fail_thr = self.cfg.get('test_suite_max_failures', 0)
         perc = spass / max(stot, 1)
         self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
         if failures:
@@ -656,6 +663,10 @@ class EB_QuantumESPRESSO(ConfigureMake):
         if perc < thr:
             raise EasyBuildError(
                 "Test suite failed with less than %.2f %% (%.2f) success rate" % (thr * 100, perc * 100)
+                )
+        if num_fail > num_fail_thr:
+            raise EasyBuildError(
+                "Test suite failed with more than %d failures %d" % (num_fail_thr, num_fail)
                 )
 
         return full_out
