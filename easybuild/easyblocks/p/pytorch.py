@@ -497,9 +497,16 @@ class EB_PyTorch(PythonPackage):
         if failed_test_suites != all_failed_test_suites:
             failure_report = ['Failed tests (suites/files):'] + failure_report
             # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
-            failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
+            uncounted_test_suites = all_failed_test_suites - failed_test_suites
+            if uncounted_test_suites:
+                failure_report.append('Could not count failed tests for the following test suites/files:')
+                failure_report.extend(sorted(uncounted_test_suites))
             # Test suites not included in the catch-all regexp but counted. Should be empty.
-            failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
+            unexpected_test_suites = failed_test_suites - all_failed_test_suites
+            if unexpected_test_suites:
+                failure_report.append('Counted failures of tests from the following test suites/files that are not '
+                                      'contained in the summary output of PyTorch:')
+                failure_report.extend(sorted(unexpected_test_suites))
 
         failure_report = '\n'.join(failure_report)
 
@@ -519,7 +526,9 @@ class EB_PyTorch(PythonPackage):
             msg += failure_report
 
             # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
-            if max_failed_tests == 0 or failed_test_suites != all_failed_test_suites:
+            if failed_test_suites != all_failed_test_suites:
+                raise EasyBuildError('Failing because the PyTorch EasyBlock needs updating!\n' + msg)
+            elif max_failed_tests == 0:
                 raise EasyBuildError(msg)
             else:
                 msg += '\n\n' + ' '.join([
