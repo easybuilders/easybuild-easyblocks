@@ -88,7 +88,7 @@ class EB_NAMD(MakeCp):
         change_dir(srcdir)
 
     def patch_step(self, *args, **kwargs):
-        # From version 3.0 this is no longer needed.        
+        """From version 3.0 this is no longer needed."""        
         if LooseVersion(self.version) < LooseVersion('3.0'):
             """Patch scripts to avoid using hardcoded /bin/csh."""
             super(EB_NAMD, self).patch_step(*args, **kwargs)
