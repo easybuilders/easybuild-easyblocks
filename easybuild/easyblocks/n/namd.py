@@ -145,7 +145,7 @@ class EB_NAMD(MakeCp):
         charm_subdir = '.'.join(os.path.basename(self.charm_tarballs[0]).split('.')[:-1])
         # From version 3.0 naming schema changed
         if LooseVersion(self.version) >= LooseVersion('3.0'):
-            charm_subdir = charm_subdir.replace("7.0.0", "v7.0.0")
+            charm_subdir = charm_subdir.replace("-", "-v")
         self.log.debug("Building Charm++ using cmd '%s' in '%s'" % (cmd, charm_subdir))
         run_cmd(cmd, path=charm_subdir)
 
