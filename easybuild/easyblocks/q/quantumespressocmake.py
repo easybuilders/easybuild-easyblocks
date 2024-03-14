@@ -331,21 +331,6 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         if all_cond or 'xspectra' in targets:
             self.check_bins += ["molecularnexafs.x", "spectra_correction.x", "xspectra.x"]
 
-        # Plugins binaries
-        if (all_cond and self.cfg.get('with_gipaw', False)) or 'gipaw' in targets:
-            self.check_bins += ["gipaw.x"]
-
-        if (all_cond and self.cfg.get('d3q', False)) or 'd3q' in targets:
-            self.check_bins += [
-                'd3_asr3.x', 'd3_lw.x', 'd3_q2r.x', 'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
-                'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x'
-                ]
-            
-        if (all_cond and self.cfg.get('with_qmcpack', False)) or 'pw2qmcpack' in targets:
-            self.check_bins += ['pw2qmcpack.x']
-
-        self.log.debug("Checking for binaries: %s" % ', '.join(self.check_bins))
-
         custom_paths = {
             'files': [os.path.join('bin', x) for x in self.check_bins],
             'dirs': []
