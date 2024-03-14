@@ -653,7 +653,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
         # Allow for flaky tests (eg too strict thresholds on results for structure relaxation)
         num_fail = len(failures)
-        num_fail_thr = self.cfg.get('test_suite_max_failures', 0)
+        num_fail_thr = self.cfg.get('test_suite_max_failed', 0)
         perc = spass / max(stot, 1)
         self.log.info("Total tests passed %d out of %d  (%.2f%%)" % (spass, stot, perc * 100))
         if failures:
