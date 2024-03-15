@@ -30,6 +30,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 import os
 import re
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
@@ -189,6 +190,8 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
 
         if LooseVersion(self.version) < LooseVersion('7.3'):
             raise EasyBuildError("EB QuantumEspresso cmake is implemented for versions >= 7.3")
+        
+        comp_fam = self.toolchain.comp_family()
 
         self._add_toolchains_opts()
         self._add_libraries()
@@ -202,6 +205,13 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         # Change format of timings to seconds only (from d/h/m/s)
         self.cfg.update('configopts', '-DQE_CLOCK_SECONDS=ON')
 
+        # Needed to avoid a DSO missing from command line linking error with the Intel toolchain
+        # https://gitlab.com/QEF/q-e/-/issues/667
+        if self.cfg.get('build_shared_libs', False) and comp_fam == toolchain.INTELCOMP:
+            ldflags = os.environ.get('LDFLAGS', '')
+            ldflags += ' -Wl,--copy-dt-needed-entries '
+            os.environ['LDFLAGS'] = ldflags
+ 
         super(EB_QuantumESPRESSOcmake, self).configure_step()
 
     def test_step(self):
@@ -323,7 +333,9 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             self.check_bins += ["pwcond.x"]
 
         if all_cond or 'tddfpt' in targets:
-            self.check_bins += ["turbo_davidson.x", "turbo_eels.x", "turbo_lanczos.x", "turbo_magnon.x", "turbo_spectrum.x"]
+            self.check_bins += [
+                "turbo_davidson.x", "turbo_eels.x", "turbo_lanczos.x", "turbo_magnon.x", "turbo_spectrum.x"
+                ]
 
         if all_cond or 'upf' in targets:
             self.check_bins += ["upfconv.x", "virtual_v2.x"]
