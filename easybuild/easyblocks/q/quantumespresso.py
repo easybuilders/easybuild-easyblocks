@@ -666,7 +666,7 @@ class EB_QuantumESPRESSO(ConfigureMake):
                 )
         if num_fail > num_fail_thr:
             raise EasyBuildError(
-                "Test suite failed with more than %d failures %d" % (num_fail_thr, num_fail)
+                "Test suite failed with %d failures (%d failures permitted)" % (num_fail, num_fail_thr)
                 )
 
         return full_out
