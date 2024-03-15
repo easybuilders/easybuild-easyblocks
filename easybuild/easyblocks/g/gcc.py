@@ -619,6 +619,10 @@ class EB_GCC(ConfigureMake):
                 'val': os.getenv('LD_LIBRARY_PATH')
             }
             env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+            if get_cpu_family() == RISCV:
+                # on RISC-V the compilers built in stage 1 fail to find some libraries from the lib dir,
+                # so let's also set $LIBRARY_PATH to work around it
+                env.setvar('LIBRARY_PATH', ld_lib_path)
 
             #
             # STAGE 2: build GMP/PPL/CLooG for stage 3
@@ -1057,7 +1061,7 @@ class EB_GCC(ConfigureMake):
         guesses.update({
             'PATH': ['bin'],
             'CPATH': [],
-            'LIBRARY_PATH': [],
+            'LIBRARY_PATH': ['lib', 'lib64'] if get_cpu_family() == RISCV else [],
             'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
