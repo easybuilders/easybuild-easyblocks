@@ -39,7 +39,6 @@ import os
 import re
 import shutil
 import stat
-import textwrap
 from copy import copy
 from easybuild.tools import LooseVersion
 
@@ -49,8 +48,8 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
-from easybuild.tools.filetools import which, read_file, write_file, makedirs, adjust_permissions
+from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
+from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
@@ -73,6 +72,58 @@ COMP_CMD_SYMLINKS = {
     'f95': 'gfortran',
 }
 
+RECREATE_INCLUDE_FIXED_SCRIPT_TMPL = """#!/bin/bash
+
+# Script to (re)generate fixed headers in include-fixed subdirectory of GCC installation
+
+set -u
+
+gccInstallDir=$(dirname "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")")
+mkheadersPath="$gccInstallDir/%(relative_mkheaders)s"
+includesFixedDir="$gccInstallDir/%(relative_include_fixed)s"
+
+if [[ ! -f "$mkheadersPath" ]]; then
+    echo "mkheaders not found in '$(dirname "$mkheadersPath")'" >&2
+    exit 1
+fi
+
+if [[ -d "$includesFixedDir" && ! -w "$includesFixedDir" ]]; then
+    resetReadOnly=1
+    echo "Found READONLY $includesFixedDir. Adding write permissions"
+    if ! chmod -R u+w "$includesFixedDir"; then
+        echo "$includesFixedDir is readonly and failed to change that automatically." >&2
+        echo "Add write permissions manually and rerun this script." >&2
+        exit 1
+    fi
+else
+    resetReadOnly=0
+fi
+
+readmePath="$includesFixedDir/README"
+if [[ -f $readmePath ]]; then
+    tmpReadmePath=$(mktemp)
+    cp "$readmePath" "$tmpReadmePath"
+else
+    tmpReadmePath=""
+fi
+
+echo "Starting $mkheadersPath $*"
+"$mkheadersPath" "$@"
+ec=$?
+
+if [[ -n "$tmpReadmePath" && -f "$tmpReadmePath" ]]; then
+    mv -f "$tmpReadmePath" "$readmePath"
+fi
+
+if [[ $resetReadOnly -eq 1 ]] && ! chmod -R u-w "$includesFixedDir"; then
+    echo "Failed to set $includesFixedDir as readonly again after adding write permissions." >&2
+    echo "Ensure the permissions are set as required!" >&2
+    exit 1
+fi
+
+exit $ec
+"""
+
 
 class EB_GCC(ConfigureMake):
     """
@@ -86,7 +137,7 @@ class EB_GCC(ConfigureMake):
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
                               "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
-            'rename_include-fixed': [False, "Rename the 'include-fixed such that it is not used when using GCC. "
+            'rename_include_fixed': [False, "Rename the 'include-fixed' directory to avoid that it is used by GCC. "
                                             "This avoids issues when upgrading the OS but might limit the "
                                             "functionality of GCC, especially if the OS GLIBC is older than GCC. "
                                             "A script to (re-)generate the include-fixed folder is created in the "
@@ -153,8 +204,8 @@ class EB_GCC(ConfigureMake):
         """
         dirpath = os.path.join(self.cfg['start_dir'], dirname)
         try:
-            os.mkdir(dirpath)
-            os.chdir(dirpath)
+            mkdir(dirpath)
+            change_dir(dirpath)
             self.log.debug("Created dir at %s" % dirpath)
             return dirpath
         except OSError as err:
@@ -874,14 +925,14 @@ class EB_GCC(ConfigureMake):
                                      len(include_fixed_paths), include_fixed_paths)
             include_fixed_path = include_fixed_paths[0]
 
-            if self.cfg['rename_include-fixed']:
+            if self.cfg['rename_include_fixed']:
                 self.log.info("Found include-fixed subdirectory at %s", include_fixed_path)
                 include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
                 move_file(include_fixed_path, include_fixed_renamed)
                 self.log.info("%s renamed to %s to avoid using the header files in it",
                               include_fixed_path, include_fixed_renamed)
                 # We need to retain some files, e.g. syslimits.h is required by /usr/include/limits.h
-                os.mkdir(include_fixed_path)
+                mkdir(include_fixed_path)
                 retained_header_files = ['limits.h', 'syslimits.h']
                 for fn in retained_header_files:
                     from_path = os.path.join(include_fixed_renamed, fn)
@@ -917,61 +968,10 @@ class EB_GCC(ConfigureMake):
                               include_fixed_path, recreate_include_fixed_script)
                 relative_mkheaders = os.path.relpath(mkheaders_path, self.installdir)
                 relative_include_fixed = os.path.relpath(include_fixed_path, self.installdir)
-                makedirs(os.path.dirname(recreate_include_fixed_script))
-                write_file(recreate_include_fixed_script, textwrap.dedent("""\
-                    #!/bin/bash
-
-                    set -u
-
-                    gccInstallDir=$(dirname "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")")
-                    mkheadersPath="$gccInstallDir/%(relative_mkheaders)s"
-                    includesFixedDir="$gccInstallDir/%(relative_include_fixed)s"
-
-                    if [[ ! -f "$mkheadersPath" ]]; then
-                        echo "mkheaders not found in '$(dirname "$mkheadersPath")'" >&2
-                        exit 1
-                    fi
-
-                    if [[ -d "$includesFixedDir" && ! -w "$includesFixedDir" ]]; then
-                        resetReadOnly=1
-                        echo "Found READONLY $includesFixedDir. Adding write permissions"
-                        if ! chmod -R u+w "$includesFixedDir"; then
-                            echo "$includesFixedDir is readonly and failed to change that automatically." >&2
-                            echo "Add write permissions manually and rerun this script." >&2
-                            exit 1
-                        fi
-                    else
-                        resetReadOnly=0
-                    fi
-
-                    readmePath="$includesFixedDir/README"
-                    if [[ -f $readmePath ]]; then
-                        tmpReadmePath=$(mktemp)
-                        cp "$readmePath" "$tmpReadmePath"
-                    else
-                        tmpReadmePath=""
-                    fi
-
-                    echo "Starting $mkheadersPath $*"
-                    "$mkheadersPath" "$@"
-                    ec=$?
-
-                    if [[ -n "$tmpReadmePath" && -f "$tmpReadmePath" ]]; then
-                        mv -f "$tmpReadmePath" "$readmePath"
-                    fi
-
-                    if [[ $resetReadOnly -eq 1 ]] && ! chmod -R u-w "$includesFixedDir"; then
-                        echo "Failed to set $includesFixedDir as readonly again after adding write permissions." >&2
-                        echo "Ensure the permissions are set as required!" >&2
-                        exit 1
-                    fi
-
-                    exit $ec
-                    """ % {
-                        "relative_mkheaders": relative_mkheaders,
-                        "relative_include_fixed": relative_include_fixed
-                    }
-                ))
+                write_file(recreate_include_fixed_script, RECREATE_INCLUDE_FIXED_SCRIPT_TMPL % {
+                    "relative_mkheaders": relative_mkheaders,
+                    "relative_include_fixed": relative_include_fixed
+                })
                 adjust_permissions(recreate_include_fixed_script, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
