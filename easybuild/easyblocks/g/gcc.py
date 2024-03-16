@@ -140,6 +140,11 @@ class EB_GCC(ConfigureMake):
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
 
+        # disable NVPTX on RISC-V
+        if get_cpu_family() == RISCV:
+            self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
+            self.cfg['withnvptx'] = False
+
     def create_dir(self, dirname):
         """
         Create a dir to build in.
