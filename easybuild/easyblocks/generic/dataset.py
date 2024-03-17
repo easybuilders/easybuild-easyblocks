@@ -41,15 +41,15 @@ class Dataset(Binary):
         """Extra easyconfig parameters specific to Data easyblock."""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
-            'extract_sources': [True, "Whether or not to extract sources", CUSTOM],
+            'extract_sources': [True, "Whether or not to extract data sources", CUSTOM],
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
-            'cleanup_sources': [True, "Whether or not to delete the sources after installation", CUSTOM]
+            'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM]
         })
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize Dataset-specific variables."""
-        self.is_data = True
+        self.easyblock_type = 'data'
         super(Dataset, self).__init__(*args, **kwargs)
 
         if self.cfg['data_install_path']:
@@ -66,6 +66,6 @@ class Dataset(Binary):
         """Cleanup sources after installation"""
         if self.cfg['cleanup_sources']:
             for src in self.src:
-                self.log.info("Removing source %s" % src['name'])
+                self.log.info("Removing data source %s" % src['name'])
                 remove_file(src['path'])
         super(Dataset, self).cleanup_step()
