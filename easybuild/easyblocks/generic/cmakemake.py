@@ -160,6 +160,7 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
+
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
@@ -258,7 +259,7 @@ class CMakeMake(ConfigureMake):
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
                 'FFLAGS': 'CMAKE_Fortran_FLAGS',
             })
-#teste
+
         for env_name, option in env_to_options.items():
             value = os.getenv(env_name)
             if value is not None:
@@ -318,29 +319,71 @@ class CMakeMake(ConfigureMake):
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
-        # sanitycheck for the configuration step
-        self.log.info("Checking python paths")
+def sanitycheck_for_configuration(self, out):
+    self.log.info("Checking Python paths")
+    
+    if LooseVersion(self.cmake_version) >= '3.16'
+      try:
         with open('CMakeCache.txt', 'r') as file:
             lines = file.readlines()
+        # The case where CMakeCache.txt is not found 
+        except FileNotFoundError:
+            self.log.warning("CMakeCache.txt not founf. Python paths checks skipped.")
+            return 
+        # EBROOTPYTHON check 
+        if not os.getenv('EBROOTPYTHON'):
+            self.log.warning("EBROOTPYTHON is not set.")
+            return 
+    else: 
+        self.log.info ("Skipping Python path checks as CMake version might be lower than 3.16.")
+        return
 
-        # Search for Python paths in each line
-        for line in lines:
-            if line.startswith('Python3_EXECUTABLE:FILEPATH='):
-                pythonExecPath = line.split('=')[1].strip()
-            elif line.startswith('Python3_INCLUDE_DIR:FILEPATH='):
-                pythonIncludePath = line.split('=')[1].strip()
-            elif line.startswith('Python3_LIBRARY:FILEPATH='):
-                pythonLibraryPath = line.split('=')[1].strip()
-        self.log.info("Python executable path: %s", pythonExecPath)
-        self.log.info("Python include path: %s", pythonIncludePath)
-        self.log.info("Python library path: %s", pythonLibraryPath)
-        # Check if paths include EBROOTPYTHON
-        ebrootpython_path = os.getenv('EBROOTPYTHON')
-        if all(path and ebrootpython_path in path for path in [pythonExecPath, pythonIncludePath, pythonLibraryPath]):
-            self.log.info("Python related paths configured correctly.")
-            return out
-        else:
-            raise EasyBuildError("Python related paths do not include EBROOTPYTHON, check log")
+    # Initialize empty lists to store paths 
+    python_exec_path = []
+    python_include_path = []
+    python_library_path = []
+
+    # Define a regular expression to match all relevant prefixes
+    python_prefixes = r"(Python|Python2|Python3)_"
+
+    for line in lines:
+        if line.startswith(python_prefixes + r"EXECUTABLE:FILEPATH="):
+          python_exec_paths.append(line.split('=')[1].strip())
+          self.log.info("Python executable path: %s", python_exec_path[-1])
+        elif line.startswith(python_prefixes + r"INCLUDE_DIR:FILEPATH="):
+          python_include_paths.append(line.split('=')[1].strip())
+          self.log.info("Python include path: %s", python_include_path[-1])
+        elif line.startswith(python_prefixes + r"LIBRARY:FILEPATH="):
+          python_library_paths.append(line.split('=')[1].strip())
+          self.log.info("Python library path: %s", python_library_path[-1])
+    
+    # Check if paths are found and validate paths for symlinks
+    for path_list in [python_exec_path, python_include_path, python_library_path]: 
+      for path in path_list:
+        if path and not os.path.exists(path): 
+          raise EasyBuildError(f"Path does not exist: {path}")
+
+    # Check if paths are found and handle EBROOTPYTHON cases
+    if any(path for path in [python_exec_path, python_include_path, python_library_path]):
+      if not os.getenv('EBROOTPYTHON'):
+        self.log.error("EBROOTPYTHON is not set and Python related paths are found.")
+      elif not all(path and os.getenv('EBROOTPYTHON') in path for path in [python_exec_path, python_include_path, python_library_path]):
+        self.log.error("Python related paths do not include EBROOTPYTHON.")
+      else:
+        self.log.info("Python related paths configured correctly.")
+    else:
+      # Handle cases where no Python paths are found
+      self.log.error("No Python related paths found in CMakeCache.txt.")
+      raise EasyBuildError("Python related paths not configured correctly.") 
+
+    ebrootpython_path = get_software_root("Python")
+
+    # Validate that Python paths are consistent with EBROOTPYTHON
+    if python_exec_path and not ebrootpython_path:
+      raise EasyBuildError(f"Python executable path found ({python_exec_path}) but no Python dependency included. Check log.")
+
+    return out
+
     def test_step(self):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
