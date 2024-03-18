@@ -258,7 +258,7 @@ class CMakeMake(ConfigureMake):
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
                 'FFLAGS': 'CMAKE_Fortran_FLAGS',
             })
-
+#teste
         for env_name, option in env_to_options.items():
             value = os.getenv(env_name)
             if value is not None:
