@@ -79,115 +79,112 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
 
     def _add_toolchains_opts(self):
         """Enable toolchain options for Quantum ESPRESSO."""
-        self._add_mpi()
-        self._add_openmp()
-        self._add_cuda()
+        if self.toolchain.options.get('usempi', False):
+            self._add_mpi()
+        if self.toolchain.options.get('openmp', False):
+            self._add_openmp()
+        if self.cfg.get('with_cuda', False):
+            self._add_cuda()
 
     def _add_libraries(self):
         """Enable external libraries for Quantum ESPRESSO."""
-        self._add_scalapack()
-        self._add_fox()
-        self._add_libxc()
-        self._add_elpa()
-        self._add_hdf5()
+        if self.cfg.get('with_scalapack', False):
+            self._add_scalapack()
+        if self.cfg.get('with_fox', False):
+            self._add_fox()
+        if get_software_root('libxc'):
+            self._add_libxc()
+        if get_software_root('ELPA'):
+            self._add_elpa()
+        if get_software_root('HDF5'):
+            self._add_hdf5()
 
     def _add_plugins(self):
         """Enable plugins for Quantum ESPRESSO."""
         plugins = []
-        plugins += self._add_gipaw()
-        plugins += self._add_d3q()
-        plugins += self._add_qmcpack()
+        if self.cfg.get('with_gipaw', False):
+            plugins += self._add_gipaw()
+        if self.cfg.get('with_d3q', False):
+            plugins += self._add_d3q()
+        if self.cfg.get('with_qmcpack', False):
+            plugins += self._add_qmcpack()
         if plugins:
             self.cfg.update('configopts', '-DQE_ENABLE_PLUGINS="%s"' % ';'.join(plugins))
 
     def _add_mpi(self):
         """Enable MPI for Quantum ESPRESSO."""
-        if self.toolchain.options.get('usempi', False):
-            self.cfg.update('configopts', '-DENABLE_MPI=ON')
+        self.cfg.update('configopts', '-DENABLE_MPI=ON')
 
     def _add_openmp(self):
         """Enable OpenMP for Quantum ESPRESSO."""
-        if self.toolchain.options.get('openmp', False):
-            self.cfg.update('configopts', '-DENABLE_OPENMP=ON')
+        self.cfg.update('configopts', '-DENABLE_OPENMP=ON')
 
     def _add_cuda(self):
         """Enable CUDA for Quantum ESPRESSO."""
-        if self.cfg.get('with_cuda', False):
-            self.cfg.update('configopts', '-DQE_ENABLE_CUDA=ON')
-            self.cfg.update('configopts', '-DQE_ENABLE_OPENACC=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_CUDA=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_OPENACC=ON')
 
     def _add_scalapack(self):
         """Enable ScaLAPACK for Quantum ESPRESSO."""
-        if self.cfg.get('with_scalapack', False):
-            if not self.toolchain.options.get('usempi', False):
-                raise EasyBuildError('ScaLAPACK support requires MPI')
-            self.cfg.update('configopts', '-DQE_ENABLE_SCALAPACK=ON')
+        if not self.toolchain.options.get('usempi', False):
+            raise EasyBuildError('ScaLAPACK support requires MPI')
+        self.cfg.update('configopts', '-DQE_ENABLE_SCALAPACK=ON')
 
     def _add_fox(self):
         """Enable FoX for Quantum ESPRESSO."""
-        if self.cfg.get('with_fox', False):
-            self.cfg.update('configopts', '-DQE_ENABLE_FOX=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_FOX=ON')
 
     def _add_hdf5(self):
         """Enable HDF5 for Quantum ESPRESSO."""
-        if get_software_root('HDF5'):
-            self.cfg.update('configopts', '-DQE_ENABLE_HDF5=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_HDF5=ON')
 
     def _add_libxc(self):
         """Enable LibXC for Quantum ESPRESSO."""
-        if get_software_root('libxc'):
-            self.cfg.update('configopts', '-DQE_ENABLE_LIBXC=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_LIBXC=ON')
 
     def _add_elpa(self):
         """Enable ELPA for Quantum ESPRESSO."""
-        if get_software_root('ELPA'):
-            if not self.cfg.get('with_scalapack', False):
-                raise EasyBuildError('ELPA support requires ScaLAPACK')
-            if LooseVersion(self.version) == LooseVersion('7.3') and self.toolchain.options.get('openmp', False):
-                raise EasyBuildError('QE 7.3 with cmake does not support ELPA with OpenMP')
-            self.cfg.update('configopts', '-DQE_ENABLE_ELPA=ON')
+        if not self.cfg.get('with_scalapack', False):
+            raise EasyBuildError('ELPA support requires ScaLAPACK')
+        if LooseVersion(self.version) == LooseVersion('7.3') and self.toolchain.options.get('openmp', False):
+            raise EasyBuildError('QE 7.3 with cmake does not support ELPA with OpenMP')
+        self.cfg.update('configopts', '-DQE_ENABLE_ELPA=ON')
 
     def _add_gipaw(self):
         """Enable GIPAW for Quantum ESPRESSO."""
-        res = []
-        if self.cfg.get('with_gipaw', False):
-            if LooseVersion(self.version) == LooseVersion('7.3.1'):
-                # See issue: https://github.com/dceresoli/qe-gipaw/issues/19
-                raise EasyBuildError('GIPAW will fail to compile in QE 7.3.1')
-            res = ['gipaw']
-            self.check_bins += ['gipaw.x']
+        if LooseVersion(self.version) == LooseVersion('7.3.1'):
+            # See issue: https://github.com/dceresoli/qe-gipaw/issues/19
+            raise EasyBuildError('GIPAW will fail to compile in QE 7.3.1')
+        res = ['gipaw']
+        self.check_bins += ['gipaw.x']
         return res
 
     def _add_d3q(self):
         """Enable D3Q for Quantum ESPRESSO."""
-        res = []
-        if self.cfg.get('with_d3q', False):
-            if LooseVersion(self.version) <= LooseVersion('7.3.1'):
-                # See issues:
-                # https://gitlab.com/QEF/q-e/-/issues/666
-                # https://github.com/anharmonic/d3q/issues/13
-                raise EasyBuildError('D3Q compilation will fail for QE 7.3 and 7.3.1')
-            res = ['d3q']
-            self.check_bins += [
-                'd3_asr3.x', 'd3_db.x', 'd3_import_shengbte.x', 'd3_interpolate2.x', 'd3_lw.x', 'd3_q2r.x',
-                'd3_qha.x','d3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x', 'd3_rmzeu.x', 'd3_sparse.x',
-                'd3_sqom.x', 'd3_tk.x',
-                ]
+        if LooseVersion(self.version) <= LooseVersion('7.3.1'):
+            # See issues:
+            # https://gitlab.com/QEF/q-e/-/issues/666
+            # https://github.com/anharmonic/d3q/issues/13
+            raise EasyBuildError('D3Q compilation will fail for QE 7.3 and 7.3.1')
+        res = ['d3q']
+        self.check_bins += [
+            'd3_asr3.x', 'd3_db.x', 'd3_import_shengbte.x', 'd3_interpolate2.x', 'd3_lw.x', 'd3_q2r.x',
+            'd3_qha.x','d3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x', 'd3_rmzeu.x', 'd3_sparse.x',
+            'd3_sqom.x', 'd3_tk.x',
+            ]
         return res
 
     def _add_qmcpack(self):
         """Enable QMCPACK for Quantum ESPRESSO."""
-        res = []
-        if self.cfg.get('with_qmcpack', False):
-            res = ['pw2qmcpack']
-            self.check_bins += ['pw2qmcpack.x']
+        res = ['pw2qmcpack']
+        self.check_bins += ['pw2qmcpack.x']
         return res
 
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
 
         if LooseVersion(self.version) < LooseVersion('7.3'):
-            raise EasyBuildError('EB QuantumEspresso cmake is implemented for versions >= 7.3')
+            raise EasyBuildError('EB QuantumEspresso with cmake is implemented for versions >= 7.3')
 
         self._add_toolchains_opts()
         self._add_libraries()
@@ -268,7 +265,7 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
                 )
         if num_fail > num_fail_thr:
             raise EasyBuildError(
-                'Test suite failed with more than %d failures %d' % (num_fail_thr, num_fail)
+                'Test suite failed with %d failures (%d failures permitted)' % (num_fail, num_fail_thr)
                 )
 
         return out
