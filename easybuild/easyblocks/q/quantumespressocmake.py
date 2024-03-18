@@ -30,7 +30,6 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 import os
 import re
 
-import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
@@ -56,13 +55,11 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             'with_d3q': [False, 'Enable D3Q support', CUSTOM],
             'with_qmcpack': [False, 'Enable QMCPACK support', CUSTOM],
             'test_suite_nprocs': [1, 'Number of processors to use for the test suite', CUSTOM],
-            'test_suite_allow_failures': [[
-                'test_qe_xclib_',  # 7.3.1:  https://gitlab.com/QEF/q-e/-/issues/640
-                '--hp_',  # 7.3.1:  Broken testsuite (https://gitlab.com/QEF/q-e/-/issues/665)
-                '--ph_',  # 7.3.1:  Broken testsuite (https://gitlab.com/QEF/q-e/-/issues/665)
-                '--epw_',  # 7.3.1:  Broken testsuite (https://gitlab.com/QEF/q-e/-/issues/665)
-                '--tddfpt_',  # 7.3.1:  Broken testsuite (https://gitlab.com/QEF/q-e/-/issues/665)
-            ], 'List of test suite targets that are allowed to fail (name can partially match)', CUSTOM],
+            'test_suite_allow_failures': [
+                [],
+                'List of test suite targets that are allowed to fail (name can partially match)',
+                CUSTOM
+                ],
             'test_suite_threshold': [
                 0.97,
                 'Threshold for test suite success rate (does count also allowed failures)',
@@ -165,15 +162,16 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         """Enable D3Q for Quantum ESPRESSO."""
         res = []
         if self.cfg.get('with_d3q', False):
-            if LooseVersion(self.version) > LooseVersion('7.0'):
+            if LooseVersion(self.version) <= LooseVersion('7.3.1'):
                 # See issues:
                 # https://gitlab.com/QEF/q-e/-/issues/666
                 # https://github.com/anharmonic/d3q/issues/13
-                raise EasyBuildError('D3Q is not supported in QE 7.0+')
+                raise EasyBuildError('D3Q compilation will fail for QE 7.3 and 7.3.1')
             res = ['d3q']
             self.check_bins += [
-                'd3_asr3.x', 'd3_lw.x', 'd3_q2r.x', 'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
-                'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x'
+                'd3_asr3.x', 'd3_db.x', 'd3_import_shengbte.x', 'd3_interpolate2.x', 'd3_lw.x', 'd3_q2r.x',
+                'd3_qha.x','d3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x', 'd3_rmzeu.x', 'd3_sparse.x',
+                'd3_sqom.x', 'd3_tk.x',
                 ]
         return res
 
@@ -191,8 +189,6 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         if LooseVersion(self.version) < LooseVersion('7.3'):
             raise EasyBuildError('EB QuantumEspresso cmake is implemented for versions >= 7.3')
 
-        comp_fam = self.toolchain.comp_family()
-
         self._add_toolchains_opts()
         self._add_libraries()
         self._add_plugins()
@@ -205,9 +201,9 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         # Change format of timings to seconds only (from d/h/m/s)
         self.cfg.update('configopts', '-DQE_CLOCK_SECONDS=ON')
 
-        # Needed to avoid a DSO missing from command line linking error with the Intel toolchain
+        # Needed to avoid a DSO missing from command line linking error
         # https://gitlab.com/QEF/q-e/-/issues/667
-        if self.cfg.get('build_shared_libs', False) and comp_fam == toolchain.INTELCOMP:
+        if self.cfg.get('build_shared_libs', False) :
             ldflags = os.environ.get('LDFLAGS', '')
             ldflags += ' -Wl,--copy-dt-needed-entries '
             os.environ['LDFLAGS'] = ldflags
