@@ -169,7 +169,7 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         res = ['d3q']
         self.check_bins += [
             'd3_asr3.x', 'd3_db.x', 'd3_import_shengbte.x', 'd3_interpolate2.x', 'd3_lw.x', 'd3_q2r.x',
-            'd3_qha.x','d3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x', 'd3_rmzeu.x', 'd3_sparse.x',
+            'd3_qha.x', 'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x', 'd3_rmzeu.x', 'd3_sparse.x',
             'd3_sqom.x', 'd3_tk.x',
             ]
         return res
@@ -200,7 +200,7 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
 
         # Needed to avoid a DSO missing from command line linking error
         # https://gitlab.com/QEF/q-e/-/issues/667
-        if self.cfg.get('build_shared_libs', False) :
+        if self.cfg.get('build_shared_libs', False):
             ldflags = os.environ.get('LDFLAGS', '')
             ldflags += ' -Wl,--copy-dt-needed-entries '
             os.environ['LDFLAGS'] = ldflags
@@ -238,7 +238,6 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         total = int(mch.group('total'))
         passed = total - num_fail
         failures = []  # list of tests that failed, to be logged at the end
-
 
         # Example output for reported failures:
         # 635/635 Test #570: system--epw_wfpt-correctness ......................................***Failed    3.52 sec
@@ -279,9 +278,8 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         all_cond = len(targets) == 0 or 'all_currents' in targets
         pwall_cond = 'pwall' in targets
 
-
         # Standard binaries
-        if all_cond or 'cp' in targets :
+        if all_cond or 'cp' in targets:
             self.check_bins += ['cp.x', 'cppp.x', 'manycp.x', 'wfdd.x']
 
         if all_cond or 'epw' in targets:
