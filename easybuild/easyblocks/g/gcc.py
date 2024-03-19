@@ -38,6 +38,7 @@ import glob
 import os
 import re
 import shutil
+import stat
 from copy import copy
 from easybuild.tools import LooseVersion
 
@@ -47,8 +48,8 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
-from easybuild.tools.filetools import which, read_file, write_file
+from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
+from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
@@ -71,6 +72,58 @@ COMP_CMD_SYMLINKS = {
     'f95': 'gfortran',
 }
 
+RECREATE_INCLUDE_FIXED_SCRIPT_TMPL = """#!/bin/bash
+
+# Script to (re)generate fixed headers in include-fixed subdirectory of GCC installation
+
+set -u
+
+gccInstallDir=$(dirname "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")")
+mkheadersPath="$gccInstallDir/%(relative_mkheaders)s"
+includesFixedDir="$gccInstallDir/%(relative_include_fixed)s"
+
+if [[ ! -f "$mkheadersPath" ]]; then
+    echo "mkheaders not found in '$(dirname "$mkheadersPath")'" >&2
+    exit 1
+fi
+
+if [[ -d "$includesFixedDir" && ! -w "$includesFixedDir" ]]; then
+    resetReadOnly=1
+    echo "Found READONLY $includesFixedDir. Adding write permissions"
+    if ! chmod -R u+w "$includesFixedDir"; then
+        echo "$includesFixedDir is readonly and failed to change that automatically." >&2
+        echo "Add write permissions manually and rerun this script." >&2
+        exit 1
+    fi
+else
+    resetReadOnly=0
+fi
+
+readmePath="$includesFixedDir/README"
+if [[ -f $readmePath ]]; then
+    tmpReadmePath=$(mktemp)
+    cp "$readmePath" "$tmpReadmePath"
+else
+    tmpReadmePath=""
+fi
+
+echo "Starting $mkheadersPath $*"
+"$mkheadersPath" "$@"
+ec=$?
+
+if [[ -n "$tmpReadmePath" && -f "$tmpReadmePath" ]]; then
+    mv -f "$tmpReadmePath" "$readmePath"
+fi
+
+if [[ $resetReadOnly -eq 1 ]] && ! chmod -R u-w "$includesFixedDir"; then
+    echo "Failed to set $includesFixedDir as readonly again after adding write permissions." >&2
+    echo "Ensure the permissions are set as required!" >&2
+    exit 1
+fi
+
+exit $ec
+"""
+
 
 class EB_GCC(ConfigureMake):
     """
@@ -84,6 +137,11 @@ class EB_GCC(ConfigureMake):
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
                               "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
+            'rename_include_fixed': [False, "Rename the 'include-fixed' directory to avoid that it is used by GCC. "
+                                            "This avoids issues when upgrading the OS but might limit the "
+                                            "functionality of GCC, especially if the OS GLIBC is older than GCC. "
+                                            "A script to (re-)generate the include-fixed folder is created in the "
+                                            "'easybuild' subfolder inside the installation directory.", CUSTOM],
             'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
@@ -140,14 +198,19 @@ class EB_GCC(ConfigureMake):
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
 
+        # disable NVPTX on RISC-V
+        if get_cpu_family() == RISCV:
+            self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
+            self.cfg['withnvptx'] = False
+
     def create_dir(self, dirname):
         """
         Create a dir to build in.
         """
         dirpath = os.path.join(self.cfg['start_dir'], dirname)
         try:
-            os.mkdir(dirpath)
-            os.chdir(dirpath)
+            mkdir(dirpath)
+            change_dir(dirpath)
             self.log.debug("Created dir at %s" % dirpath)
             return dirpath
         except OSError as err:
@@ -619,6 +682,10 @@ class EB_GCC(ConfigureMake):
                 'val': os.getenv('LD_LIBRARY_PATH')
             }
             env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+            if get_cpu_family() == RISCV:
+                # on RISC-V the compilers built in stage 1 fail to find some libraries from the lib dir,
+                # so let's also set $LIBRARY_PATH to work around it
+                env.setvar('LIBRARY_PATH', ld_lib_path)
 
             #
             # STAGE 2: build GMP/PPL/CLooG for stage 3
@@ -849,9 +916,9 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
-        # Rename include-fixed directory which includes system header files that were processed by fixincludes,
-        # since these may cause problems when upgrading to newer OS version.
-        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
+        # The include-fixed directory includes system header files that were processed by fixincludes.
+        # These may cause problems when upgrading to newer OS version,
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666
         glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
         paths = glob.glob(glob_pattern)
         if paths:
@@ -862,26 +929,26 @@ class EB_GCC(ConfigureMake):
                 if not any(os.path.samefile(path, x) for x in include_fixed_paths):
                     include_fixed_paths.append(path)
 
-            if len(include_fixed_paths) == 1:
-                include_fixed_path = include_fixed_paths[0]
+            if len(include_fixed_paths) != 1:
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
+                                     len(include_fixed_paths), include_fixed_paths)
+            include_fixed_path = include_fixed_paths[0]
 
-                msg = "Found include-fixed subdirectory at %s, "
-                msg += "renaming it to avoid using system header files patched by fixincludes..."
-                self.log.info(msg, include_fixed_path)
-
-                # limits.h and syslimits.h need to be copied to include/ first,
-                # these are strictly required (by /usr/include/limits.h for example)
-                include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
+            if self.cfg['rename_include_fixed']:
+                self.log.info("Found include-fixed subdirectory at %s", include_fixed_path)
+                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
+                move_file(include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s to avoid using the header files in it",
+                              include_fixed_path, include_fixed_renamed)
+                # We need to retain some files, e.g. syslimits.h is required by /usr/include/limits.h
+                mkdir(include_fixed_path)
                 retained_header_files = ['limits.h', 'syslimits.h']
                 for fn in retained_header_files:
-                    from_path = os.path.join(include_fixed_path, fn)
-                    to_path = os.path.join(include_path, fn)
+                    from_path = os.path.join(include_fixed_renamed, fn)
+                    to_path = os.path.join(include_fixed_path, fn)
                     if os.path.exists(from_path):
-                        if os.path.exists(to_path):
-                            raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
-                        else:
-                            copy_file(from_path, to_path)
-                            self.log.info("%s copied to %s before renaming %s", from_path, to_path, include_fixed_path)
+                        copy_file(from_path, to_path)
+                        self.log.info("%s copied to %s after renaming %s", from_path, to_path, include_fixed_path)
                     else:
                         self.log.warning("Can't copy non-existing file %s to %s, since it doesn't exist!",
                                          from_path, to_path)
@@ -891,20 +958,30 @@ class EB_GCC(ConfigureMake):
                     "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
                     "since they may cause problems when the OS is upgraded to a new (minor) version.",
                     '',
-                    "These files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    "These files were copied to %s first: %s" % (include_fixed_path, ', '.join(retained_header_files)),
                     '',
                     "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
                     '',
                 ])
                 write_file(readme, readme_txt)
 
-                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
-                move_file(include_fixed_path, include_fixed_renamed)
-                self.log.info("%s renamed to %s to avoid using the header files in it",
-                              include_fixed_path, include_fixed_renamed)
-            else:
-                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
-                                     len(include_fixed_paths), include_fixed_paths)
+            # If the mkheaders utility exists we create a wrapper script to (re)generate the fixed headers manually,
+            # e.g. after OS upgrades.
+            # Get the '*-linux-gnu' part
+            target_machine = os.path.basename(os.path.dirname(os.path.dirname(include_fixed_path)))
+            mkheaders_path = os.path.join(self.installdir, 'libexec', 'gcc', target_machine, self.version,
+                                          'install-tools', 'mkheaders')
+            if os.path.isfile(mkheaders_path):
+                recreate_include_fixed_script = os.path.join(self.installdir, 'easybuild', 'recreate_includes.sh')
+                self.log.info("Creating script to regenerate %s on OS upgrades at %s",
+                              include_fixed_path, recreate_include_fixed_script)
+                relative_mkheaders = os.path.relpath(mkheaders_path, self.installdir)
+                relative_include_fixed = os.path.relpath(include_fixed_path, self.installdir)
+                write_file(recreate_include_fixed_script, RECREATE_INCLUDE_FIXED_SCRIPT_TMPL % {
+                    "relative_mkheaders": relative_mkheaders,
+                    "relative_include_fixed": relative_include_fixed
+                })
+                adjust_permissions(recreate_include_fixed_script, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
@@ -1057,7 +1134,7 @@ class EB_GCC(ConfigureMake):
         guesses.update({
             'PATH': ['bin'],
             'CPATH': [],
-            'LIBRARY_PATH': [],
+            'LIBRARY_PATH': ['lib', 'lib64'] if get_cpu_family() == RISCV else [],
             'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
