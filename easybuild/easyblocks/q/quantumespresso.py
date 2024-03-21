@@ -317,7 +317,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
     def _add_fox(self):
         """Add FoX support to the build."""
         if self.cfg['with_fox']:
-            # Needed for using gipaw with QuantumESPRESSO 7.2 and later
             if LooseVersion(self.version) >= LooseVersion("7.2"):
                 self.cfg.update('configopts', '--with-fox=yes')
 
@@ -338,9 +337,6 @@ class EB_QuantumESPRESSO(ConfigureMake):
     def _add_gipaw(self):
         """Add GIPAW support to the build."""
         if self.cfg['with_gipaw']:
-            if LooseVersion(self.version) >= LooseVersion("7.2"):
-                if not self.cfg['with_fox']:
-                    raise EasyBuildError("GIPAW requires FoX enabled in QuantumESPRESSO 7.2 and later")
             self.cfg.update('buildopts', 'gipaw', allow_duplicate=False)
         else:
             if 'gipaw' in self.cfg['buildopts']:
