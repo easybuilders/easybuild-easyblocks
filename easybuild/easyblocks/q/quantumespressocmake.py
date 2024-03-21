@@ -30,6 +30,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 import os
 import re
 
+import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
@@ -201,9 +202,9 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         # Needed to avoid a DSO missing from command line linking error
         # https://gitlab.com/QEF/q-e/-/issues/667
         if self.cfg.get('build_shared_libs', False):
-            ldflags = os.environ.get('LDFLAGS', '')
+            ldflags = os.getenv('LDFLAGS', '')
             ldflags += ' -Wl,--copy-dt-needed-entries '
-            os.environ['LDFLAGS'] = ldflags
+            env.setvar('LDFLAGS', ldflags)
 
         super(EB_QuantumESPRESSOcmake, self).configure_step()
 
