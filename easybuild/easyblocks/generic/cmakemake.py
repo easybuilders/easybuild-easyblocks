@@ -319,12 +319,12 @@ class CMakeMake(ConfigureMake):
 
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
-def sanitycheck_for_configuration(self, out):
-    self.log.info("Checking Python paths")
+    def sanitycheck_for_configuration(self, out):
+        self.log.info("Checking Python paths")
     
-    if LooseVersion(self.cmake_version) >= '3.16'
-      try:
-        with open('CMakeCache.txt', 'r') as file:
+        if LooseVersion(self.cmake_version) >= '3.16'
+        try:
+         with open('CMakeCache.txt', 'r') as file:
             lines = file.readlines()
         # The case where CMakeCache.txt is not found 
         except FileNotFoundError:
@@ -334,9 +334,9 @@ def sanitycheck_for_configuration(self, out):
         if not os.getenv('EBROOTPYTHON'):
             self.log.warning("EBROOTPYTHON is not set.")
             return 
-    else: 
-        self.log.info ("Skipping Python path checks as CMake version might be lower than 3.16.")
-        return
+        else: 
+            self.log.info ("Skipping Python path checks as CMake version might be lower than 3.16.")
+            return
 
     # Initialize empty lists to store paths 
     python_exec_path = []
@@ -359,29 +359,29 @@ def sanitycheck_for_configuration(self, out):
     
     # Check if paths are found and validate paths for symlinks
     for path_list in [python_exec_path, python_include_path, python_library_path]: 
-      for path in path_list:
-        if path and not os.path.exists(path): 
-          raise EasyBuildError(f"Path does not exist: {path}")
+        for path in path_list:
+            if path and not os.path.exists(path): 
+                raise EasyBuildError(f"Path does not exist: {path}")
 
     # Check if paths are found and handle EBROOTPYTHON cases
     if any(path for path in [python_exec_path, python_include_path, python_library_path]):
-      if not os.getenv('EBROOTPYTHON'):
-        self.log.error("EBROOTPYTHON is not set and Python related paths are found.")
-      elif not all(path and os.getenv('EBROOTPYTHON') in path for path in [python_exec_path, python_include_path, python_library_path]):
-        self.log.error("Python related paths do not include EBROOTPYTHON.")
-      else:
-        self.log.info("Python related paths configured correctly.")
+        if not os.getenv('EBROOTPYTHON'):
+            self.log.error("EBROOTPYTHON is not set and Python related paths are found.")
+        elif not all(path and os.getenv('EBROOTPYTHON') in path for path in [python_exec_path, python_include_path, python_library_path]):
+            self.log.error("Python related paths do not include EBROOTPYTHON.")
+        else:
+            self.log.info("Python related paths configured correctly.")
     else:
       # Handle cases where no Python paths are found
-      self.log.error("No Python related paths found in CMakeCache.txt.")
-      raise EasyBuildError("Python related paths not configured correctly.") 
+        self.log.error("No Python related paths found in CMakeCache.txt.")
+        raise EasyBuildError("Python related paths not configured correctly.") 
 
     ebrootpython_path = get_software_root("Python")
 
     # Validate that Python paths are consistent with EBROOTPYTHON
     if python_exec_path and not ebrootpython_path:
-      raise EasyBuildError(f"Python executable path found ({python_exec_path}) but no Python dependency included. Check log.")
-
+        raise EasyBuildError(f"Python executable path found ({python_exec_path}) but no Python dependency included. Check log.")
+    
     return out
 
     def test_step(self):
