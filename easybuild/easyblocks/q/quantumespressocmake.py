@@ -29,6 +29,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 """
 import os
 import re
+import shutil
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
@@ -44,6 +45,16 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
     """Support for building and installing Quantum ESPRESSO."""
 
     TEST_SUITE_DIR = 'test-suite'
+    SUBMODULES = [
+        'lapack',
+        'mbd',
+        'devxlib',
+        'fox',
+        'd3q',
+        'qe-gipaw',
+        'pw2qmcpack',
+        'wannier90'
+    ]
 
     @staticmethod
     def extra_options():
@@ -166,7 +177,10 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             # See issues:
             # https://gitlab.com/QEF/q-e/-/issues/666
             # https://github.com/anharmonic/d3q/issues/13
-            raise EasyBuildError('D3Q compilation will fail for QE 7.3 and 7.3.1')
+            if not os.path.exists(os.path.join(self.builddir, self.install_subdir, 'external', 'd3q', '.git')):
+                raise EasyBuildError(
+                    'D3Q compilation will fail for QE 7.3 and 7.3.1 without submodule downloaded from easyconfig.'
+                    )
         res = ['d3q']
         self.check_bins += [
             'd3_asr3.x', 'd3_db.x', 'd3_import_shengbte.x', 'd3_interpolate2.x', 'd3_lw.x', 'd3_q2r.x',
@@ -181,11 +195,35 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         self.check_bins += ['pw2qmcpack.x']
         return res
 
+    def _copy_submodule_dirs(self):
+        """Copy submodule dirs downloaded by EB into XXX/external"""
+        for submod in self.SUBMODULES:
+            src = os.path.join(self.builddir, submod)
+            dst = os.path.join(self.builddir, self.install_subdir, 'external', submod)
+            if os.path.exists(src):
+                self.log.info('Copying submodule %s into %s' % (submod, dst))
+                # Remove empty directories and replace them with the downloaded submodule
+                if os.path.exists(dst):
+                    shutil.rmtree(dst)
+                shutil.move(src, dst)
+            else:
+                self.log.warning('Submodule %s not found at %s' % (submod, src))
+
+            # Trick QE to think that the submodule is already installed in case `keep_git_dir` is not used in
+            # the easyconfig file
+            gitf = os.path.join(dst, '.git')
+            if not os.path.exists(gitf):
+                os.mkdir(gitf)
+
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
 
         if LooseVersion(self.version) < LooseVersion('7.3'):
             raise EasyBuildError('EB QuantumEspresso with cmake is implemented for versions >= 7.3')
+
+        # Needs to be before other functions that could check existance of .git for submodules to
+        # make compatibility checks
+        self._copy_submodule_dirs()
 
         self._add_toolchains_opts()
         self._add_libraries()
@@ -257,15 +295,18 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         # Allow for flaky tests (eg too strict thresholds on results for structure relaxation)
         num_fail = len(failures)
         num_fail_thr = self.cfg.get('test_suite_max_failed', 0)
-        # perc = spass / max(stot, 1)
         self.log.info('Total tests passed %d out of %d  (%.2f%%)' % (passed, total, perc * 100))
+        if failures:
+            self.log.warning('The following tests failed (and are not ignored):')
+            for failure in failures:
+                self.log.warning('|   ' + failure)
         if perc < thr:
             raise EasyBuildError(
                 'Test suite failed with less than %.2f %% (%.2f) success rate' % (thr * 100, perc * 100)
                 )
         if num_fail > num_fail_thr:
             raise EasyBuildError(
-                'Test suite failed with %d failures (%d failures permitted)' % (num_fail, num_fail_thr)
+                'Test suite failed with %d non-ignored failures (%d failures permitted)' % (num_fail, num_fail_thr)
                 )
 
         return out
