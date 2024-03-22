@@ -125,11 +125,11 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
 
     def _add_mpi(self):
         """Enable MPI for Quantum ESPRESSO."""
-        self.cfg.update('configopts', '-DENABLE_MPI=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_MPI=ON')
 
     def _add_openmp(self):
         """Enable OpenMP for Quantum ESPRESSO."""
-        self.cfg.update('configopts', '-DENABLE_OPENMP=ON')
+        self.cfg.update('configopts', '-DQE_ENABLE_OPENMP=ON')
 
     def _add_cuda(self):
         """Enable CUDA for Quantum ESPRESSO."""
