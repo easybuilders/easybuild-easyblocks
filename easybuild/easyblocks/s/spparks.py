@@ -177,6 +177,12 @@ class EB_spparks(MakeCp):
     def _copy_files_and_create_symlink(self, src, target, link_path=None):
         """
         Custom helper function to copy a source file to a destination directory and create a symbolic link if specified.
+
+        This custom function is necessary due to the specific requirements of the SPPARKS installation process,
+        which involves conditional renaming and linking of binaries and libraries based on the build configuration
+        (e.g., MPI vs. serial). These requirements are not adequately met by the generic 'files_to_copy' mechanism provided by MakeCp,
+        necessitating a more tailored approach to ensure correct installation structure and usability.
+
         - src: Source file path
         - target: Destination directory path
         - link_path: (Optional) Path of the symbolic link to create. If None, no symlink is created.
