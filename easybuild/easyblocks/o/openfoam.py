@@ -514,7 +514,7 @@ class EB_OpenFOAM(EasyBlock):
                 cmds = [
                         "cp -a %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
-                        "chmod +w  %s" % test_dir,
+                        "chmod -R +w %s" % test_dir,
                         "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                         "source $FOAM_BASH",
                         ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
