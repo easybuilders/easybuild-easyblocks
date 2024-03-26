@@ -188,7 +188,7 @@ class EB_spparks(MakeCp):
         else:
             self.log.debug(f"Skipped copying {src}, target already exists.")
 
-        if link_path: 
+        if link_path:
             if not os.path.islink(link_path) and not os.path.exists(link_path):
                 symlink(target, link_path)
                 self.log.debug(f"Created symlink: {link_path} -> {target}")
