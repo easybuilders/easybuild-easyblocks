@@ -64,7 +64,7 @@ class Dataset(Binary):
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
-        if self.cfg['cleanup_sources']:
+        if self.cfg['cleanup_data_sources']:
             for src in self.src:
                 self.log.info("Removing data source %s" % src['name'])
                 remove_file(src['path'])
