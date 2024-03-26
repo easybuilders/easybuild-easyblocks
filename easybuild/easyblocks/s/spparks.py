@@ -180,8 +180,7 @@ class EB_spparks(MakeCp):
 
         This custom function is necessary due to the specific requirements of the SPPARKS installation process,
         which involves conditional renaming and linking of binaries and libraries based on the build configuration
-        (e.g., MPI vs. serial). These requirements are not adequately met by the generic 'files_to_copy' mechanism provided by MakeCp,
-        necessitating a more tailored approach to ensure correct installation structure and usability.
+        (e.g., MPI vs. serial).
 
         - src: Source file path
         - target: Destination directory path
