@@ -510,7 +510,7 @@ class EB_OpenFOAM(EasyBlock):
                 else:
                     geom_target_dir = 'triSurface'
 
-            if self.looseversion < LooseVersion('11'):
+            if self.looseversion <= LooseVersion('10'):
                 cmds = [
                         "cp -a %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
