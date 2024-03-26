@@ -31,7 +31,7 @@ EasyBuild support for spparks, implemented as an easyblock
 import os
 import glob
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, symlink
 from easybuild.tools.modules import get_software_root
@@ -41,13 +41,13 @@ DEFAULT_BUILD_CMD = 'make'
 DEFAULT_TEST_CMD = 'make'
 
 
-class EB_spparks(EasyBlock):
+class EB_spparks(MakeCp):
     """Support for building/installing spparks."""
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """Extra easyconfig parameters specific to ConfigureMake."""
-        extra_vars = EasyBlock.extra_options(extra=extra_vars)
+        """Extra easyconfig parameters specific to EB_spparks."""
+        extra_vars = MakeCp.extra_options(extra=extra_vars)
         extra_vars.update({
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
@@ -174,8 +174,31 @@ class EB_spparks(EasyBlock):
 
         return out
 
+    def _copy_files_and_create_symlink(self, src, target, link_path=None):
+        """
+        Custom helper function to copy a source file to a destination directory and create a symbolic link if specified.
+        - src: Source file path
+        - target: Destination directory path
+        - link_path: (Optional) Path of the symbolic link to create. If None, no symlink is created.
+        """
+
+        if not os.path.exists(target):
+            copy_file(src, target)
+            self.log.debug(f"Copied: {src} to {target}")
+        else:
+            self.log.debug(f"Skipped copying {src}, target already exists.")
+
+        if link_path: 
+            if not os.path.islink(link_path) and not os.path.exists(link_path):
+                symlink(target, link_path)
+                self.log.debug(f"Created symlink: {link_path} -> {target}")
+            else:
+                self.log.debug(f"Skipped creating symlink for {src}, already exists.")
+
     def install_step(self):
         """Install by copying files and creating group library file."""
+
+        super(EB_spparks, self).install_step()
 
         self.log.debug("Installing spparks by copying files")
 
@@ -188,9 +211,10 @@ class EB_spparks(EasyBlock):
             binary_name = '%s_%s' % (binary, self.machine)
             src = os.path.join(self.spparks_srcdir, binary_name)
             target = os.path.join(self.installdir, 'bin', binary_name)
-            copy_file(src, target)
-            # Create link spk => spk.<self.machine>
-            symlink(target, os.path.join(self.installdir, 'bin', binary))
+            link = os.path.join(self.installdir, 'bin', binary)
+            # copy files and create link spk => spk.<self.machine>
+            self._copy_files_and_create_symlink(src, target, link)
 
         for header in headers:
-            copy_file(header, os.path.join(self.installdir, 'include', os.path.basename(header)))
+            target = os.path.join(self.installdir, 'include', os.path.basename(header))
+            self._copy_files_and_create_symlink(header, target)
