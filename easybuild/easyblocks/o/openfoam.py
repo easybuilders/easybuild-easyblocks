@@ -509,6 +509,8 @@ class EB_OpenFOAM(EasyBlock):
                     geom_target_dir = 'geometry'
                 else:
                     geom_target_dir = 'triSurface'
+            else:
+                raise EasyBuildError("motorBike tutorial not found at %s", motorbike_path)
 
             if self.looseversion <= LooseVersion('10'):
                 cmds = [
