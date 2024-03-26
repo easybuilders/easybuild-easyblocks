@@ -47,7 +47,7 @@ class EB_spparks(MakeCp):
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to EB_spparks."""
-        extra_vars = MakeCp.extra_options(extra=extra_vars)
+        extra_vars = MakeCp.extra_options(extra_vars)
         extra_vars.update({
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
