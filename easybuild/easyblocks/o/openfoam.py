@@ -80,7 +80,7 @@ class EB_OpenFOAM(EasyBlock):
 
         self.is_extend = 'extend' in self.name.lower()
         self.is_dot_com = self.looseversion >= LooseVersion('1606')
-        self.is_dot_org = self.looseversion < LooseVersion('1606')
+        self.is_dot_org = self.looseversion <= LooseVersion('100')
 
         if self.is_extend:
             if self.looseversion >= LooseVersion('3.0'):
