@@ -65,6 +65,8 @@ class GoPackage(EasyBlock):
     def configure_step(self):
         """Configure Go package build/install."""
 
+        # Move compiled .a files into builddir, else they pollute $HOME/go
+        env.setvar('GOPATH', self.builddir, verbose=False)
         # enforce use of go modules
         env.setvar('GO111MODULE', 'on', verbose=False)
         # set bin folder
