@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python: [3.6, 3.7, 3.8, 3.9, '3.10', '3.11']
+        python: [3.6, 3.7, 3.8, 3.9, '3.10', '3.11', '3.12']
         modules_tool: [Lmod-8.1.14, modules-tcl-1.147, modules-3.2.10, modules-4.1.4]
         module_syntax: [Lua, Tcl]
         # exclude some configuration for non-Lmod modules tool:
@@ -36,6 +36,8 @@ jobs:
             python: '3.10'
           - modules_tool: modules-tcl-1.147
             python: '3.11'
+          - modules_tool: modules-tcl-1.147
+            python: '3.12'
           - modules_tool: modules-3.2.10
             python: 3.7
           - modules_tool: modules-3.2.10
@@ -46,6 +48,8 @@ jobs:
             python: '3.10'
           - modules_tool: modules-3.2.10
             python: '3.11'
+          - modules_tool: modules-3.2.10
+            python: '3.12'
           - modules_tool: modules-4.1.4
             python: 3.7
           - modules_tool: modules-4.1.4
@@ -56,6 +60,8 @@ jobs:
             python: '3.10'
           - modules_tool: modules-4.1.4
             python: '3.11'
+          - modules_tool: modules-4.1.4
+            python: '3.12'
       fail-fast: false
     steps:
     - uses: actions/checkout@v2
