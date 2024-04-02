@@ -38,7 +38,7 @@ import re
 import sys
 import tempfile
 from easybuild.tools import LooseVersion
-from distutils.sysconfig import get_config_vars
+from sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
