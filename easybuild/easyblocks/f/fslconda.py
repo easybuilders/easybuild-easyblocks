@@ -28,18 +28,11 @@ EasyBuild support for building and installing FSL 6.0.7+, implemented as an easy
 @author: Duncan Mortimer (University of Oxford)
 """
 
-import difflib
 import os
-import re
-from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.conda import Conda
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
-from easybuild.tools.filetools import read_file, copy_dir
-from easybuild.tools.utilities import nub
 from easybuild.tools.module_generator import ModuleGeneratorTcl, ModuleGeneratorLua
 
 
@@ -101,11 +94,11 @@ class EB_FSLCONDA(Conda):
         txt += self.module_generator.set_environment("FSLWISH", os.path.join(fsldir_bin, 'fslwish'))
 
         for env_var in [
-            ('FSLOUTPUTTYPE', 'NIFTI_GZ', ),
-            ('FSLMULTIFILEQUIT', 'TRUE', ),
-            ('FSL_LOAD_NIFTI_EXTENSIONS', '0', ),
-            ('FSL_SKIP_GLOBAL', '0', ),
-            ]:
+                ('FSLOUTPUTTYPE', 'NIFTI_GZ', ),
+                ('FSLMULTIFILEQUIT', 'TRUE', ),
+                ('FSL_LOAD_NIFTI_EXTENSIONS', '0', ),
+                ('FSL_SKIP_GLOBAL', '0', ),
+                ]:
 
             if isinstance(self.module_generator, ModuleGeneratorTcl):
                 txt += self.module_generator.conditional_statement(
