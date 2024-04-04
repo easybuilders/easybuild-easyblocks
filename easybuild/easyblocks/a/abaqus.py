@@ -369,7 +369,7 @@ class EB_ABAQUS(Binary):
 
     def make_module_extra(self):
         """Add LM_LICENSE_FILE path if specified"""
-        txt =  super(EB_ABAQUS, self).make_module_extra()
+        txt = super(EB_ABAQUS, self).make_module_extra()
         license_file = os.getenv('EB_ABAQUS_LICENSE_FILE', None)
         if license_file is not None:
             txt += self.module_generator.prepend_paths('LM_LICENSE_FILE', [license_file], allow_abs=True)
