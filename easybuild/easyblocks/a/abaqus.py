@@ -88,6 +88,7 @@ class EB_ABAQUS(Binary):
             setvar('NOLICENSECHECK', 'true')
         else:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
+            licensefile = os.getenv('EB_ABAQUS_LICENSE_FILE', '@abaqusfea')
             txt = '\n'.join([
                 "INSTALLER_UI=SILENT",
                 "USER_INSTALL_DIR=%s" % self.installdir,
@@ -95,7 +96,7 @@ class EB_ABAQUS(Binary):
                 "DOC_ROOT=UNDEFINED",
                 "DOC_ROOT_TYPE=false",
                 "DOC_ROOT_ESCAPED=UNDEFINED",
-                "ABAQUSLM_LICENSE_FILE=@abaqusfea",
+                "ABAQUSLM_LICENSE_FILE=" + license_file,
                 "LICENSE_SERVER_TYPE=FLEXNET",
                 "PRODUCT_NAME=Abaqus %s" % self.version,
                 "TMPDIR=%s" % self.builddir,
