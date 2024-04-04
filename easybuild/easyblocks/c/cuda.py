@@ -46,7 +46,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 import easybuild.tools.environment as env
 
@@ -105,7 +105,7 @@ class EB_CUDA(Binary):
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
         execpath = self.src[0]['path']
-        run_cmd("/bin/sh " + execpath + " --noexec --nox11 --target " + self.builddir)
+        run_shell_cmd("/bin/sh " + execpath + " --noexec --nox11 --target " + self.builddir)
         self.src[0]['finalpath'] = self.builddir
 
     def install_step(self):
@@ -164,12 +164,11 @@ class EB_CUDA(Binary):
         }
 
         # prepare for running install script autonomously
-        qanda = {}
-        stdqa = {
+        qa = [
             # this question is only asked if CUDA tools are already available system-wide
-            r"Would you like to remove all CUDA files under .*? (yes/no/abort): ": "no",
-        }
-        noqanda = [
+            (r"Would you like to remove all CUDA files under .*? (yes/no/abort): ", "no"),
+        ]
+        no_qa = [
             r"^Configuring",
             r"Installation Complete",
             r"Verifying archive integrity.*",
@@ -198,9 +197,9 @@ class EB_CUDA(Binary):
         # instead of segfaulting in the cuda-installer.
         remove_file('/tmp/cuda-installer.log')
 
-        # overriding maxhits default value to 1000 (seconds to wait for nothing to change in the output
+        # overriding qa_timeout default value to 1000 (seconds to wait for nothing to change in the output
         # without seeing a known question)
-        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=1000)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
 
         # Remove the cuda-installer log file
         remove_file('/tmp/cuda-installer.log')
@@ -209,7 +208,7 @@ class EB_CUDA(Binary):
         if len(self.src) > 1:
             for patch in self.src[1:]:
                 self.log.debug("Running patch %s", patch['name'])
-                run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
+                run_shell_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
     def post_install_step(self):
         """
@@ -257,7 +256,7 @@ class EB_CUDA(Binary):
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = ' '.join([ldconfig, '-N', stubs_dir])
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         # GCC searches paths in LIBRARY_PATH and the system paths suffixed with ../lib64 or ../lib first
         # This means stubs/../lib64 is searched before the system /lib64 folder containing a potentially older libcuda.
