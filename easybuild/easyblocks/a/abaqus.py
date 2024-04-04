@@ -194,8 +194,14 @@ class EB_ABAQUS(Binary):
             std_qa[r"working directory to be used by Tosca Fluid\s*(\n.*)*Default \[/usr/temp\]:\s*"] = '/tmp'
 
             # License server
-            std_qa[r"License Server [0-9]+\s*(\n.*){3}:"] = 'abaqusfea'  # bypass value for license server
-            std_qa[r"License Server . \(redundant\)\s*(\n.*){3}:"] = ''
+            # std_qa[r"License Server [0-9]+\s*(\n.*){3}:"] = 'abaqusfea'  # bypass value for license server
+            # std_qa[r"License Server . \(redundant\)\s*(\n.*){3}:"] = ''
+            license_server = os.getenv('EB_ABAQUS_LICENSE_SERVER', 'abaqusfea')  # abaqusfea == bypass value
+            license_servers = license_server.split(',') + [''] * 3  # pad to at least 3
+            self.log.info("Using license servers: %s", ','.join(license_servers[:3]))
+            std_qa[r"License Server 1\s*(\n.*){3}:"] = license_server[0]
+            std_qa[r"License Server 2\s*(\(redundant\))?\s*(\n.*){3}:"] = license_server[1]
+            std_qa[r"License Server 3\s*(\(redundant\))?\s*(\n.*){3}:"] = license_server[2]
             std_qa[r"License Server Configuration((?!___).*\n)*" + nextstr] = ''
 
             std_qa[r"Please choose an action:"] = '1'
