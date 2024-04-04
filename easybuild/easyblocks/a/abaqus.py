@@ -88,7 +88,7 @@ class EB_ABAQUS(Binary):
             setvar('NOLICENSECHECK', 'true')
         else:
             self.replayfile = os.path.join(self.builddir, "installer.properties")
-            licensefile = os.getenv('EB_ABAQUS_LICENSE_FILE', '@abaqusfea')
+            license_file = os.getenv('EB_ABAQUS_LICENSE_FILE', '@abaqusfea')
             txt = '\n'.join([
                 "INSTALLER_UI=SILENT",
                 "USER_INSTALL_DIR=%s" % self.installdir,
