@@ -220,20 +220,22 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         for submod in self.SUBMODULES:
             src = os.path.join(self.builddir, submod)
             dst = os.path.join(self.builddir, self.install_subdir, 'external', submod)
+
             if os.path.exists(src):
                 self.log.info('Copying submodule %s into %s' % (submod, dst))
                 # Remove empty directories and replace them with the downloaded submodule
                 if os.path.exists(dst):
                     shutil.rmtree(dst)
                 shutil.move(src, dst)
+
+                # Trick QE to think that the submodule is already installed in case `keep_git_dir` is not used in
+                # the easyconfig file
+                gitf = os.path.join(dst, '.git')
+                if not os.path.exists(gitf):
+                    os.mkdir(gitf)
             else:
                 self.log.warning('Submodule %s not found at %s' % (submod, src))
 
-            # Trick QE to think that the submodule is already installed in case `keep_git_dir` is not used in
-            # the easyconfig file
-            gitf = os.path.join(dst, '.git')
-            if not os.path.exists(gitf):
-                os.mkdir(gitf)
 
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
