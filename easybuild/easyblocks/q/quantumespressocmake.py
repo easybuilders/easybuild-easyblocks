@@ -251,9 +251,9 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         self._add_plugins()
 
         # Enable/configure test suite
-        nprocs = self.cfg.get('test_suite_nprocs', 1)
+        self._test_nprocs = self.cfg.get('test_suite_nprocs', 1)
         self.cfg.update('configopts', '-DQE_ENABLE_TEST=ON')
-        self.cfg.update('configopts', '-DTESTCODE_NPROCS=%d' % nprocs)
+        self.cfg.update('configopts', '-DTESTCODE_NPROCS=%d' % self._test_nprocs)
 
         # Change format of timings to seconds only (from d/h/m/s)
         self.cfg.update('configopts', '-DQE_CLOCK_SECONDS=ON')
@@ -275,8 +275,7 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         """
 
         thr = self.cfg.get('test_suite_threshold', 0.97)
-        nprocs = self.cfg.get('test_suite_nprocs', 1)
-        concurrent = max(1, self.cfg.get('parallel', 1) // nprocs)
+        concurrent = max(1, self.cfg.get('parallel', 1) // self._test_nprocs)
         allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
         cmd = ' '.join([
