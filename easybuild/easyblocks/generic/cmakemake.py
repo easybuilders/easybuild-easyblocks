@@ -302,6 +302,24 @@ class CMakeMake(ConfigureMake):
                 options['BOOST_ROOT'] = boost_root
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
 
+        # Make sure CMake finds our Python when it is a dependency
+        if any(dep['name'] == 'Python' for dep in self.cfg.dependencies()):
+            # CMake 3.12 introduced FindPython/FindPython2/FindPython3
+            # Below only FindPythonInterp existed in core CMake which don't has such hints.
+            # However PYTHON_EXECUTABLE could be used.
+            if LooseVersion(self.cmake_version) >= '3.12':
+                python_root = get_software_root('Python')
+                python_version = LooseVersion(get_software_version('Python'))
+                # For find_package(Python)
+                options['Python_ROOT_DIR'] = python_root
+                if python_version >= '3':
+                    # For find_package(Python3)
+                    options['Python3_ROOT_DIR'] = python_root
+                else:
+                    # For find_package(Python2)
+                    options['Python2_ROOT_DIR'] = python_root
+
+
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             self.prepend_config_opts(options)
             command = ' '.join([
