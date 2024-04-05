@@ -196,7 +196,8 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             # https://github.com/anharmonic/d3q/issues/13
             if not os.path.exists(os.path.join(self.builddir, self.install_subdir, 'external', 'd3q', '.git')):
                 raise EasyBuildError(
-                    'D3Q compilation will fail for QE 7.3 and 7.3.1 without submodule downloaded via sources in easyconfig.'
+                    'D3Q compilation will fail for QE 7.3 and 7.3.1 without submodule downloaded via' +
+                    'sources in easyconfig.'
                     )
         if not self.toolchain.options.get('usempi', False):
             raise EasyBuildError('D3Q support requires MPI enabled')
@@ -256,12 +257,13 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         # Change format of timings to seconds only (from d/h/m/s)
         self.cfg.update('configopts', '-DQE_CLOCK_SECONDS=ON')
 
-        # Needed to avoid a DSO missing from command line linking error
-        # https://gitlab.com/QEF/q-e/-/issues/667
-        if self.cfg.get('build_shared_libs', False):
-            ldflags = os.getenv('LDFLAGS', '')
-            ldflags += ' -Wl,--copy-dt-needed-entries '
-            env.setvar('LDFLAGS', ldflags)
+        if LooseVersion(self.version) <= LooseVersion('7.3.1'):
+            # Needed to avoid a `DSO missing from command line` linking error
+            # https://gitlab.com/QEF/q-e/-/issues/667
+            if self.cfg.get('build_shared_libs', False):
+                ldflags = os.getenv('LDFLAGS', '')
+                ldflags += ' -Wl,--copy-dt-needed-entries '
+                env.setvar('LDFLAGS', ldflags)
 
         super(EB_QuantumESPRESSOcmake, self).configure_step()
 
