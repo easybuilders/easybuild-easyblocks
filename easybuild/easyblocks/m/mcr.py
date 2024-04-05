@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -158,8 +158,13 @@ class EB_MCR(PackedBinary):
         """Determine subdirectory in installation directory"""
         # no-op is self.subdir is already set
         if self.subdir is None:
-            # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-            subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
+            # determine subdirectory
+            if LooseVersion(self.version) < LooseVersion('R2022b'):
+                # (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
+                subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
+            else:
+                # (e.g. R2023a, R2023b, ...)
+                subdirs = glob.glob(os.path.join(self.installdir, 'R[0-9][0-9][0-9][0-9]*'))
             if len(subdirs) == 1:
                 self.subdir = os.path.basename(subdirs[0])
             else:

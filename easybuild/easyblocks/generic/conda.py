@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -62,7 +62,8 @@ class Conda(Binary):
         """Install software using 'conda env create' or 'conda create' & 'conda install'
         (or the 'mamba', etc., equivalent)."""
         if (get_software_root('anaconda2') or get_software_root('miniconda2') or
-                get_software_root('anaconda3') or get_software_root('miniconda3')):
+                get_software_root('anaconda3') or get_software_root('miniconda3') or
+                get_software_root('miniforge3')):
             conda_cmd = 'conda'
         elif get_software_root('mamba'):
             conda_cmd = 'mamba'

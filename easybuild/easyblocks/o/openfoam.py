@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -232,9 +232,9 @@ class EB_OpenFOAM(EasyBlock):
             self.log.debug("Patching compiler variables in %s", fullpath)
             regex_subs = []
             for comp_var, newval in comp_vars.items():
-                regex_subs.append((r"^(%s\s*=\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
+                regex_subs.append((r"^(%s\s*(=|:=)\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
             # replace /lib/cpp by cpp, but keep the arguments
-            regex_subs.append((r"^(CPP\s*=\s*)/lib/cpp(.*)$", r"\1cpp\2"))
+            regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # enable verbose build for debug purposes
@@ -495,7 +495,13 @@ class EB_OpenFOAM(EasyBlock):
         # only for recent (>= v6.0) versions of openfoam.org variant
         if self.is_dot_org and self.looseversion >= LooseVersion('6'):
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
-            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if self.looseversion <= LooseVersion('10'):
+                motorbike_path = os.path.join(
+                    openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike'
+                )
+            else:
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressibleFluid',
+                                              'motorBike', 'motorBike')
             if os.path.exists(motorbike_path):
                 test_dir = tempfile.mkdtemp()
 
@@ -503,28 +509,52 @@ class EB_OpenFOAM(EasyBlock):
                     geom_target_dir = 'geometry'
                 else:
                     geom_target_dir = 'triSurface'
+            else:
+                raise EasyBuildError("motorBike tutorial not found at %s", motorbike_path)
 
+            if self.looseversion <= LooseVersion('10'):
                 cmds = [
-                    "cp -a %s %s" % (motorbike_path, test_dir),
-                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                    "source $FOAM_BASH",
-                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
-                    "runApplication surfaceFeatures",
-                    "runApplication blockMesh",
-                    "runApplication decomposePar -copyZero",
-                    "runParallel snappyHexMesh -overwrite",
-                    "runParallel patchSummary",
-                    "runParallel potentialFoam",
-                    "runParallel simpleFoam",
-                    "runApplication reconstructParMesh -constant",
-                    "runApplication reconstructPar -latestTime",
-                    "cd %s" % self.builddir,
-                    "rm -r %s" % test_dir,
+                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                        "chmod -R +w %s" % test_dir,
+                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "source $FOAM_BASH",
+                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                        "runApplication surfaceFeatures",
+                        "runApplication blockMesh",
+                        "runApplication decomposePar -copyZero",
+                        "runParallel snappyHexMesh -overwrite",
+                        "runParallel patchSummary",
+                        "runParallel potentialFoam",
+                        "runParallel simpleFoam",
+                        "runApplication reconstructParMesh -constant",
+                        "runApplication reconstructPar -latestTime",
+                        "cd %s" % self.builddir,
+                        "rm -r %s" % test_dir,
                 ]
-                # all commands need to be run in a single shell command,
-                # because sourcing $FOAM_BASH sets up environment
-                custom_commands.append(' && '.join(cmds))
+            # v11 and above run the motorBike example differently
+            else:
+                cmds = [
+                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                        "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "source $FOAM_BASH",
+                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                        "runApplication blockMesh",
+                        "runApplication decomposePar -copyZero",
+                        "find . -type f -iname '*level*' -exec rm {} \\;",
+                        "runParallel renumberMesh -overwrite",
+                        "runParallel potentialFoam -initialiseUBCs",
+                        "runParallel simpleFoam",
+                        "cd %s" % self.builddir,
+                        "rm -r %s" % test_dir,
+                ]
+            # all commands need to be run in a single shell command,
+            # because sourcing $FOAM_BASH sets up environment
+            custom_commands.append(' && '.join(cmds))
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

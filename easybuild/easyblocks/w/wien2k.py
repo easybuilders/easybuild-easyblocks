@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -248,6 +248,9 @@ class EB_WIEN2k(EasyBlock):
             libxcquestion4 = 'Please enter the lib-directory of your LIBXC-installation (usually lib or lib64)!:'
             libxcquestion5 = 'LIBXC (usually not needed, ONLY for experts who want to play with different DFT options. '
             libxcquestion5 += 'It must have been installed before)? (y,N):'
+            libxcquestion6 = 'Would you like to use LIBXC (needed ONLY for self-consistent gKS mGGA calculations, '
+            libxcquestion6 += 'for the stress tensor and experts who want to play with different DFT options. '
+            libxcquestion6 += 'It must have been installed before)? (y,N):'
 
             if libxcroot:
                 qanda.update({
@@ -256,11 +259,13 @@ class EB_WIEN2k(EasyBlock):
                     libxcquestion3: libxcroot,
                     libxcquestion4: 'lib',
                     libxcquestion5: 'y',
+                    libxcquestion6: 'y',
                 })
             else:
                 qanda.update({
                     libxcquestion1: 'N',
                     libxcquestion5: 'N',
+                    libxcquestion6: 'N',
                 })
 
             if LooseVersion(self.version) >= LooseVersion("17"):

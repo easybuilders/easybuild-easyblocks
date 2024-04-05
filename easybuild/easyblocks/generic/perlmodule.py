@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -102,8 +102,9 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             run_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
-            if self.cfg['runtest']:
-                run_cmd('perl Build %s' % self.cfg['runtest'])
+            runtest = self.cfg['runtest']
+            if runtest:
+                run_cmd('%s perl Build %s %s' % (self.cfg['pretestopts'], runtest, self.cfg['testopts']))
             run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):
