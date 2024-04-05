@@ -330,7 +330,6 @@ class EB_GROMACS(CMakeMake):
                             # For find_package(Python3) - Ignore virtual envs
                             self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
-
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
                 if gromacs_version >= '5.1':
