@@ -319,7 +319,6 @@ class CMakeMake(ConfigureMake):
                     # For find_package(Python2)
                     options['Python2_ROOT_DIR'] = python_root
 
-
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             self.prepend_config_opts(options)
             command = ' '.join([
