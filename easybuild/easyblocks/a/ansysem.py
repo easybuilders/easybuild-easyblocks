@@ -93,6 +93,8 @@ class EB_ANSYSEM(PackedBinary):
             'dirs': [subdir],
         }
 
-        custom_commands = ['%s -ng' % os.path.join(subdir, 'ansysedt')]
+        executable = os.path.join(subdir, 'ansysedt')
+        inpfile = os.path.join(subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
+        custom_commands = ['./%s -ng -BatchSolve -Distributed %s' % (executable, inpfile)]
 
-        super(EB_ANSYSEM, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_ANSYSEM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
