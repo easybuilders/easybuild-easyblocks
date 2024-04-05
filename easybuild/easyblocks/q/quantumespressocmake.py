@@ -236,7 +236,6 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             else:
                 self.log.warning('Submodule %s not found at %s' % (submod, src))
 
-
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
 
