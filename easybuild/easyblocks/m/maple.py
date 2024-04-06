@@ -58,15 +58,15 @@ class EB_Maple(Binary):
         qa = [
             (r'PRESS <ENTER> TO CONTINUE:', ''),
             (r"Press \[Enter\] to continue:", ''),
-            (r'DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT? (Y/N):', 'Y'),
-            (r"Do you accept this license? [y/n]:", 'y'),
+            (r'DO YOU ACCEPT THE TERMS OF THIS LICENSE AGREEMENT\? \(Y/N\):', 'Y'),
+            (r"Do you accept this license\? \[y/n\]:", 'y'),
             (r'ENTER AN ABSOLUTE PATH, OR PRESS <ENTER> TO ACCEPT THE DEFAULT :', self.installdir),
-            (r'IS THIS CORRECT? \(Y/N\):', 'Y'),
+            (r'IS THIS CORRECT\? \(Y/N\):', 'Y'),
             (r'Language Selection\n\nPlease select the installation language\n\[1\] English - English\n'
-             r'\[2\] Japanese - \nPlease choose an option \[1\] : ', '1'),
-            (r'Do you wish to have a shortcut installed on your desktop? ->1- Yes 2- No ENTER THE NUMBER ' +
+             r'\[2\] Japanese.*\nPlease choose an option \[1\] : ', '1'),
+(r'Do you wish to have a shortcut installed on your desktop\? ->1- Yes 2- No ENTER THE NUMBER ' +
              r'FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::', '2'),
-            (r"Do you wish to have a shortcut installed on your desktop? \[Y/n\]:", 'n'),
+            (r"Do you wish to have a shortcut installed on your desktop\? \[Y/n\]:", 'n'),
             (r'->1- Single User License 2- Network License ENTER THE NUMBER FOR YOUR CHOICE, ' +
              'OR PRESS <ENTER> TO ACCEPT THE DEFAULT::', '2'),
             (r'PRESS <ENTER> TO EXIT THE INSTALLER:', ''),
@@ -104,7 +104,7 @@ class EB_Maple(Binary):
                 cmd = upgrade_installers[0]
                 qa = [
                     (r"Press \[Enter\] to continue:", ''),
-                    (r"Do you accept this license? \[y/n\]:", 'y'),
+                    (r"Do you accept this license\? \[y/n\]:", 'y'),
                     (r"Please specify the path to your existing Maple .* Installation.\s*\n\s*\[.*\]:",
                      self.installdir),
                 ]
