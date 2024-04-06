@@ -83,15 +83,14 @@ class EB_RepeatMasker(Tarball):
                 'HMMER': '3',
                 'WUBlast': '4',
             }
-            qa = {}
-            std_qa = {
-                r'\*\*TRF PROGRAM\*\*\n\n.*\n.*\n+Enter path.*': trf,
-                r'.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n'
-                r'.*\[ Un\-configured \]\n\n.*\n\n\nEnter Selection:\s*': search_engine_map[search_engine],
-                r'\*\*.* INSTALLATION PATH\*\*\n\n.*\n.*\n+Enter path.*': search_engine_bindir,
-                r'search engine for Repeatmasker.*': 'Y',
-                r'.*\[ Configured, Default \](.*\n)*\n\nEnter Selection:\s*': '5',  # 'Done'
-            }
+            qa = [
+                (r'\*\*TRF PROGRAM\*\*\n\n.*\n.*\n+Enter path.*', trf),
+                (r'.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n'
+                 r'.*\[ Un\-configured \]\n\n.*\n\n\nEnter Selection:\s*', search_engine_map[search_engine]),
+                (r'\*\*.* INSTALLATION PATH\*\*\n\n.*\n.*\n+Enter path.*', search_engine_bindir),
+                (r'search engine for Repeatmasker.*', 'Y'),
+                (r'.*\[ Configured, Default \](.*\n)*\n\nEnter Selection:\s*', '5'),  # 'Done'
+            ]
         else:
             search_engine_map = {
                 'CrossMatch': '1',
