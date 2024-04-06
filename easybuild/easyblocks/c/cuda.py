@@ -166,7 +166,7 @@ class EB_CUDA(Binary):
         # prepare for running install script autonomously
         qa = [
             # this question is only asked if CUDA tools are already available system-wide
-            (r"Would you like to remove all CUDA files under .*? (yes/no/abort): ", "no"),
+            (r"Would you like to remove all CUDA files under .*\? \(yes/no/abort\): ", "no"),
         ]
         no_qa = [
             r"^Configuring",
