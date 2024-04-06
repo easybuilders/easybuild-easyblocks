@@ -33,16 +33,9 @@ Geant4 support, implemented as an easyblock.
 """
 
 import os
-import shutil
-import re
-from easybuild.tools import LooseVersion
 
-import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.filetools import copy_file, read_file, write_file
 
 
 class EB_Geant4(CMakeMake):
@@ -98,7 +91,6 @@ class EB_Geant4(CMakeMake):
         txt += self.module_generator.set_environment('G4VERSION', g4version)
 
         incdir = os.path.join(self.installdir, 'include')
-        libdir = os.path.join(self.installdir, 'lib')
         txt += self.module_generator.set_environment('G4INCLUDE', os.path.join(incdir, 'Geant4'))
         txt += self.module_generator.set_environment('G4LIB', os.path.join(self.installdir, 'lib64', 'Geant4'))
 
