@@ -48,7 +48,7 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 def det_wrf_subdir(wrf_version):
@@ -137,7 +137,7 @@ class EB_WRF(EasyBlock):
         # enable support for large file support in netCDF
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
-        # patch arch/Config_new.pl script, so that run_cmd_qa receives all output to answer questions
+        # patch arch/Config_new.pl script, so that run_shell_cmd receives all output to answer questions
         if LooseVersion(self.version) < LooseVersion('4.0'):
             patch_perl_script_autoflush(os.path.join(wrfdir, "arch", "Config_new.pl"))
 
@@ -190,21 +190,19 @@ class EB_WRF(EasyBlock):
 
         # run configure script
         cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
-        qa = {
+        qa = [
             # named group in match will be used to construct answer
-            "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
-            "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
-        }
+            (r"Compile for nesting\? \(1=basic, .*\) \[default 1\]:", '1'),
+            (r"Compile for nesting\? \(0=no nesting, .*\) \[default 0\]:", '0'),
+            # named group in match will be used to construct answer
+            (r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question, "%(nr)s"),
+        ]
         no_qa = [
             "testing for fseeko and fseeko64",
             r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
         ]
-        std_qa = {
-            # named group in match will be used to construct answer
-            r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-        }
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         cfgfile = 'configure.wrf'
 
@@ -279,12 +277,12 @@ class EB_WRF(EasyBlock):
 
         # build wrf
         cmd = "%s %s wrf" % (cmpscript, self.par)
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         # build two testcases to produce ideal.exe and real.exe
         for test in ["em_real", "em_b_wave"]:
             cmd = "%s %s %s" % (cmpscript, self.par, test)
-            run_cmd(cmd, log_all=True, simple=True, log_output=True)
+            run_shell_cmd(cmd)
 
     def test_step(self):
         """Build and run tests included in the WRF distribution."""
@@ -344,7 +342,7 @@ class EB_WRF(EasyBlock):
                 """Run a single test and check for success."""
 
                 # run test
-                (_, ec) = run_cmd(test_cmd, log_all=False, log_ok=False, simple=False)
+                res = run_shell_cmd(test_cmd, fail_on_error=False)
 
                 # read output file
                 out_fn = 'rsl.error.0000'
@@ -353,7 +351,7 @@ class EB_WRF(EasyBlock):
                 else:
                     out_txt = 'FILE NOT FOUND'
 
-                if ec == 0:
+                if res.exit_code == 0:
                     # exit code zero suggests success, but let's make sure...
                     if re_success.search(out_txt):
                         self.log.info("Test %s ran successfully (found '%s' in %s)", test, re_success.pattern, out_fn)
@@ -362,7 +360,7 @@ class EB_WRF(EasyBlock):
                                              test, re_success.pattern, out_fn, out_txt)
                 else:
                     # non-zero exit code means trouble, show command output
-                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, ec, out_txt)
+                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, res.exit_code, out_txt)
 
                 # clean up stuff that gets in the way
                 fn_prefs = ["wrfinput_", "namelist.output", "wrfout_", "rsl.out.", "rsl.error."]
@@ -379,7 +377,7 @@ class EB_WRF(EasyBlock):
 
                 # build and install
                 cmd = "./compile %s %s" % (self.par, test)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
 
                 # run test
                 try:
