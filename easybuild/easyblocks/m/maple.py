@@ -64,7 +64,7 @@ class EB_Maple(Binary):
             (r'IS THIS CORRECT\? \(Y/N\):', 'Y'),
             (r'Language Selection\n\nPlease select the installation language\n\[1\] English - English\n'
              r'\[2\] Japanese.*\nPlease choose an option \[1\] : ', '1'),
-(r'Do you wish to have a shortcut installed on your desktop\? ->1- Yes 2- No ENTER THE NUMBER ' +
+            (r'Do you wish to have a shortcut installed on your desktop\? ->1- Yes 2- No ENTER THE NUMBER ' +
              r'FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::', '2'),
             (r"Do you wish to have a shortcut installed on your desktop\? \[Y/n\]:", 'n'),
             (r'->1- Single User License 2- Network License ENTER THE NUMBER FOR YOUR CHOICE, ' +
