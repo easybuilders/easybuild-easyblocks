@@ -36,7 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -284,7 +284,8 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
             '--output-on-failure',
         ])
 
-        (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        out = res.output
 
         # Example output:
         # 74% tests passed, 124 tests failed out of 481
