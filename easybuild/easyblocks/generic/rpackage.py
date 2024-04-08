@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,13 +33,14 @@ EasyBuild support for building and installing R packages, implemented as an easy
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 """
 import os
+import pathlib
 import re
 
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.easyblocks.generic.configuremake import check_config_guess, obtain_config_guess
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_shell_cmd, parse_log_for_error
 
@@ -87,6 +88,12 @@ class RPackage(ExtensionEasyBlock):
         self.configureargs = []
         self.ext_src = None
         self._required_deps = None
+
+        Renviron = pathlib.Path.home() / '.Renviron'
+        if Renviron.exists():
+            msg = f".Renviron file detected ({Renviron}). This file may impact the building of R packages. "
+            msg += "If you did not expect this file to exist then you should remove it."
+            print_warning(msg)
 
     def make_r_cmd(self, prefix=None):
         """Create a command to run in R to install an R package."""
