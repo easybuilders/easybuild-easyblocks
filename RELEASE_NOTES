@@ -3,7 +3,57 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 254 software-specific easyblocks and 43 generic easyblocks.
+The latest version of easybuild-easyblocks provides 255 software-specific easyblocks and 43 generic easyblocks.
+
+
+v4.9.1 (5 April 2024)
+---------------------
+
+update/bugfix release
+
+- 1 new software-specific easyblock: DualSPHysics (#3050)
+- minor enhancements and updates, including:
+  - use proxy in sanity check of custom easyblock to install OpenSSL wrapper (#2922)
+  - update Clang-AOMP easyblock for ROCm 5.6 (#2958)
+  - consider both `$EBROOTGCC` and `$EBROOTGCCCORE` in Clang-AOMP easyblock to specify `-DGCC_INSTALL_PREFIX` (#2958)
+  - update WIEN2k easyblock for v23.2 (#3035)
+  - enhance LAMMPS easyblock dynamically add `ARMV81` and `A64FX` to Kokkos CPU mapping based on LAMMPS version (#3036)
+  - add `pip_verbose` option to PythonPackage and set it to True in PyTorch easyblock, to show build output when using pip (#3065)
+  - also support OpenSSL 3 in OpenSSL wrapper easyblock (#3081)
+  - improve error checking in PyTorch easyblock (#3085)
+  - update MCR easyblock for compatibility with versions >= R2022b (#3119)
+  - add `species` easyconfig parameter to VEP easyblock (#3121)
+  - only install Gurobi Python bindings via `setup.py` for Gurobi v10.x and older (#3225)
+  - consistently honor `pretestopts` & `testopts` in `PerlModule` (#3231)
+  - fix OCaml easyblock for recent versions (#3235)
+  - improve QuantumESPRESSO easyblock by cleaning up and extending configure step + running test suite (#3241, #3258)
+  - allow overriding `testinstall` in PyTorch easyconfigs (#3250)
+  - enhance GCC easyblock to set `$LIBRARY_PATH` and disable building of NVPTX offload support on RISC-V systems (#3256)
+  - add support for conda provided by Miniforge (#3260)
+  - set `$GOPATH` in configure step of `GoPackage` easyblock to avoid polluting `$HOME/go` (#3262)
+- various bug fixes, including:
+  - set `$BGW_TEST_MPI_NPROCS` in BerkeleyGW test step (#2950)
+  - fix installation of Python bindings for LAMMPS >= 2Aug2023 + fix sanity check by doing MPI_Finalize (#3036)
+  - fix ELPA preprocessor flag for QuantumESPRESSO >= 7 (#3063)
+  - fix link order in PETSc easyblock for SCOTCH >= 7.x (#3069)
+  - update PyTorch easyblock to avoid configure warnings by disabling some options (#3070)
+  - pick Tcl/Tk lib directory correctly in R easyblock, may be either `lib` or `lib64` (#3072)
+  - use `(=|:=)` in regex because OpenFOAM rule files use `:=` instead of `=` since v2212 (#3073)
+  - add Clang `opt` binary to RPATH wrapper dir (#3076)
+  - improve `generate_crate_list` + parsing of crates in `Cargo` easyblock (#3084)
+  - remove trailing slash in `PETSC_DIR` set by custom easyblock for PETSc (#3086)
+  - use correct TCL configure options for Python 3.11+ (#3087)
+  - tweak `CMakeMake` easyblock to apply CMake policy to select `python` based on `$PATH` order, instead of highest version (#3088)
+  - update `Cargo` easyblock to extract crates into a vendor subdir and overwrite git repo URLs with local paths (#3118)
+  - only add `--with-ucc` for OpenMPI 4.1.4+ (#3223)
+  - remove trailing slash in `SLEPC_DIR` in configure step of custom easyblock for SLEPc (#3229)
+  - fix OpenFOAM easyblock to fix `motorBike` example in sanity check for versions >=11 (#3232)
+  - only run CUDA sanity check command for torchvision if GPU is present (#3236)
+  - ensure localrc is created in the correct subdir for NVHPC v22.9+ (#3240)
+  - remove wrong configure option for LibInt 2.6.x (#3249)
+  - do not rename GCC's include-fixed directory by default + add script to regenerate it (#3254)
+- other changes:
+  - update copyright lines to 2024 (#3268)
 
 
 v4.9.0 (30 December 2023)

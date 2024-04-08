@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -362,6 +362,12 @@ class EB_QuantumESPRESSO(ConfigureMake):
 
     def configure_step(self):
         """Custom configuration procedure for Quantum ESPRESSO."""
+
+        if LooseVersion(self.version) >= LooseVersion("7.3.1"):
+            raise EasyBuildError(
+                "QuantumESPRESSO 7.3.1 and later are not supported with the this easyblock (ConfigureMake), " +
+                "use the EB_QuantumESPRESSOcmake (CMakeMake) easyblock instead."
+                )
 
         # compose list of DFLAGS (flag, value, keep_stuff)
         # for guidelines, see include/defs.h.README in sources
