@@ -31,7 +31,6 @@ import os
 import re
 import stat
 import tempfile
-from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
