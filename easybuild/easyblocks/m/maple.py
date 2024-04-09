@@ -66,7 +66,7 @@ class EB_Maple(Binary):
              r'\[2\] Japanese.*\nPlease choose an option \[1\] : ', '1'),
             (r'Do you wish to have a shortcut installed on your desktop\? ->1- Yes 2- No ENTER THE NUMBER ' +
              r'FOR YOUR CHOICE, OR PRESS <ENTER> TO ACCEPT THE DEFAULT::', '2'),
-            (r"Do you wish to have a shortcut installed on your desktop\? \[Y/n\]:", 'n'),
+            (r"Do you wish to have a shortcut installed on your desktop\?[\s\n]*\[Y/n\]:", 'n'),
             (r'->1- Single User License 2- Network License ENTER THE NUMBER FOR YOUR CHOICE, ' +
              'OR PRESS <ENTER> TO ACCEPT THE DEFAULT::', '2'),
             (r'PRESS <ENTER> TO EXIT THE INSTALLER:', ''),
