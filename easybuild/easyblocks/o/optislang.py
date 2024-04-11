@@ -27,6 +27,7 @@ EasyBuild support for installing ANSYS optiSLang, implemented as an easyblock
 
 @author: Chia-Jung Hsu (Chalmers University for Technology)
 """
+import glob
 import os
 import re
 import stat
@@ -44,7 +45,6 @@ class EB_optiSLang(PackedBinary):
     def __init__(self, *args, **kwargs):
         """Initialize optiSLang-specific variables."""
         super(EB_optiSLang, self).__init__(*args, **kwargs)
-        self.ansysver = None
 
     def install_step(self):
         """Custom install procedure for ANSYS optiSLang."""
@@ -67,41 +67,40 @@ class EB_optiSLang(PackedBinary):
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
 
-    def set_ansysver(self):
-        """Determine name of version subdirectory in installation directory."""
-        entries = os.listdir(self.installdir)
-        version_dir_regex = re.compile('^v[0-9]+')
-        version_dirs = [e for e in entries if version_dir_regex.match(e)]
-        if len(version_dirs) == 1:
-            self.ansysver = version_dirs[0]
-        else:
-            raise EasyBuildError("Failed to isolate version subdirectory in %s: %s", self.installdir, entries)
-
     def make_module_req_guess(self):
         """Custom extra module file entries for ANSYS optiSLang."""
 
-        if self.ansysver is None:
-            self.set_ansysver()
-
         guesses = super(EB_optiSLang, self).make_module_req_guess()
-        dirs = [
-            'aisol/bin/linx64',
-            'dpf/bin/linux64',
-            'optiSLang',
-        ]
 
-        guesses['PATH'] = [os.path.join(self.ansysver, d) for d in dirs]
+        idirs = glob.glob(os.path.join(self.installdir, 'v*/'))
+        if len(idirs) == 1:
+            subdir = os.path.relpath(idirs[0], self.installdir)
+            bindirs = [
+                'aisol/bin/linx64',
+                'dpf/bin/linux64',
+                'optiSLang',
+            ]
+            guesses['PATH'] = [os.path.join(subdir, d) for d in bindirs]
 
         return guesses
 
     def sanity_check_step(self):
         """Custom sanity check for ANSYS optiSLang."""
 
-        if self.ansysver is None:
-            self.set_ansysver()
+        idirs = glob.glob(os.path.join(self.installdir, 'v*/'))
+        if len(idirs) == 1:
+            subdir = os.path.relpath(idirs[0], self.installdir)
+        else:
+            raise EasyBuildError("Failed to locate single install subdirectory v*/")
+
+        errorlogfile = os.path.join(self.installdir, "install.err")
+        if os.path.isfile(errorlogfile):
+            raise EasyBuildError("Found error log from optiSLang installer %s" % errorlogfile)
 
         custom_paths = {
-            'files': [os.path.join(self.ansysver, 'optiSLang', x) for x in ['optislang', 'optislang-python']],
-            'dirs': [os.path.join(self.ansysver, x) for x in ['aisol', 'dpf']]
+            'files': [os.path.join(subdir, 'optiSLang', x) for x in ['optislang', 'optislang-python']],
+            'dirs': [os.path.join(subdir, x) for x in ['aisol', 'dpf']]
         }
+        custom_commands = ['./optislang --help'] 
+
         super(EB_optiSLang, self).sanity_check_step(custom_paths=custom_paths)
