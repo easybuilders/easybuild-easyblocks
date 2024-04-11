@@ -77,10 +77,10 @@ class EB_Mathematica(Binary):
             shortver = '.'.join(self.version.split('.')[:2])
             qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
             qa = [
-                (r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path,
+                (r"Enter the installation directory, or press ENTER to select %s:[\s\n]*>" % qa_install_path,
                  self.installdir),
-                (r"Create directory \(y/n\)\? >", 'y'),
-                (r"Should the installer attempt to make this change \(y/n\)\? >", 'n'),
+                (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
+                (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
                 (r"or press ENTER to select[\s\n]*/usr/local/.*:[\s\n]*>", os.path.join(self.installdir, "bin")),
             ]
             no_qa = [
