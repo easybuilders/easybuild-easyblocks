@@ -100,6 +100,6 @@ class EB_optiSLang(PackedBinary):
             'files': [os.path.join(subdir, 'optiSLang', x) for x in ['optislang', 'optislang-python']],
             'dirs': [os.path.join(subdir, x) for x in ['aisol', 'dpf']]
         }
-        custom_commands = ['optislang --help'] 
+        custom_commands = ['optislang --help']
 
         super(EB_optiSLang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
