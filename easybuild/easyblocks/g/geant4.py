@@ -60,30 +60,13 @@ class EB_Geant4(CMakeMake):
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Initialisation of custom class variables for Geant4."""
-        super(EB_Geant4, self).__init__(*args, **kwargs)
-        self.datadst = 'UNKNOWN'
-
-    def configure_step(self):
-        """Configure Geant4."""
-        super(EB_Geant4, self).configure_step()
-
-    def build_step(self):
-        """Build Geant4."""
-        super(EB_Geant4, self).build_step()
-
-    def install_step(self):
-        """Install Geant4."""
-
-        super(EB_Geant4, self).install_step()
-        # '10.01.p03' -> '10.1.3'
-        shortver = self.version.replace('.0', '.').replace('.p0', '.')
-        self.datadst = os.path.join(self.installdir, 'share', '%s-%s' % (self.name, shortver), 'data')
-
     def make_module_extra(self):
         """Define Geant4-specific environment variables in module file."""
         g4version = '.'.join(self.version.split('.')[:2])
+
+        # '10.01.p03' -> '10.1.3'
+        shortver = self.version.replace('.0', '.').replace('.p0', '.')
+        datadst = os.path.join(self.installdir, 'share', '%s-%s' % (self.name, shortver), 'data')
 
         txt = super(EB_Geant4, self).make_module_extra()
         txt += self.module_generator.set_environment('G4INSTALL', self.installdir)
@@ -95,19 +78,19 @@ class EB_Geant4(CMakeMake):
         txt += self.module_generator.set_environment('G4LIB', os.path.join(self.installdir, 'lib64', 'Geant4'))
 
         if self.cfg['PhotonEvaporationVersion']:
-            g4levelgammadata = os.path.join(self.datadst, 'PhotonEvaporation%s' % self.cfg['PhotonEvaporationVersion'])
+            g4levelgammadata = os.path.join(datadst, 'PhotonEvaporation%s' % self.cfg['PhotonEvaporationVersion'])
             txt += self.module_generator.set_environment('G4LEVELGAMMADATA', g4levelgammadata)
 
         if self.cfg['G4RadioactiveDecayVersion']:
-            g4radioactivedata = os.path.join(self.datadst, 'RadioactiveDecay%s' % self.cfg['G4RadioactiveDecayVersion'])
+            g4radioactivedata = os.path.join(datadst, 'RadioactiveDecay%s' % self.cfg['G4RadioactiveDecayVersion'])
             txt += self.module_generator.set_environment('G4RADIOACTIVEDATA', g4radioactivedata)
 
         if self.cfg['G4EMLOWVersion']:
-            g4ledata = os.path.join(self.datadst, 'G4EMLOW%s' % self.cfg['G4EMLOWVersion'])
+            g4ledata = os.path.join(datadst, 'G4EMLOW%s' % self.cfg['G4EMLOWVersion'])
             txt += self.module_generator.set_environment('G4LEDATA', g4ledata)
 
         if self.cfg['G4NDLVersion']:
-            g4neutronhpdata = os.path.join(self.datadst, 'G4NDL%s' % self.cfg['G4NDLVersion'])
+            g4neutronhpdata = os.path.join(datadst, 'G4NDL%s' % self.cfg['G4NDLVersion'])
             txt += self.module_generator.set_environment('G4NEUTRONHPDATA', g4neutronhpdata)
 
         return txt
