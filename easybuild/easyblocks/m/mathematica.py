@@ -35,7 +35,7 @@ import os
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Mathematica(Binary):
@@ -76,16 +76,17 @@ class EB_Mathematica(Binary):
             cmd = self.cfg['preinstallopts'] + './' + install_script
             shortver = '.'.join(self.version.split('.')[:2])
             qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
-            qa = {
-                r"Enter the installation directory, or press ENTER to select %s: >" % qa_install_path: self.installdir,
-                r"Create directory (y/n)? >": 'y',
-                r"Should the installer attempt to make this change (y/n)? >": 'n',
-                r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
-            }
+            qa = [
+                (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
+                 self.installdir),
+                (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
+                (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
+                (r"or press ENTER to select[\s\n]*/usr/local/bin:[\s\n]*>", os.path.join(self.installdir, "bin")),
+            ]
             no_qa = [
                 r"Now installing.*\n\n.*\[.*\].*",
             ]
-            run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=200)
+            run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
         else:
             raise EasyBuildError("Failed to isolate install script using '%s': %s", install_script_glob, matches)
 
@@ -113,15 +114,15 @@ class EB_Mathematica(Binary):
         if self.cfg['activation_key']:
             # activation key is printed by using '$ActivationKey' in Mathematica, so no reason to keep it 'secret'
             self.log.info("Activating installation using provided activation key '%s'." % self.cfg['activation_key'])
-            qa = {
-                r"(enter return to skip Web Activation):": self.cfg['activation_key'],
-                r"In[1]:= ": 'Quit[]',
-            }
-            noqa = [
+            qa = [
+                (r"\(enter return to skip Web Activation\):", self.cfg['activation_key']),
+                (r"In\[1\]:= ", 'Quit[]'),
+            ]
+            no_qa = [
                 '^%s %s .*' % (self.name, self.version),
                 '^Copyright.*',
             ]
-            run_cmd_qa(os.path.join(self.installdir, 'bin', 'math'), qa, no_qa=noqa)
+            run_shell_cmd(os.path.join(self.installdir, 'bin', 'math'), qa_patterns=qa, qa_wait_patterns=no_qa)
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
