@@ -44,6 +44,14 @@ class EB_AEDT(PackedBinary):
     def __init__(self, *args, **kwargs):
         """Initialize Ansys Electronics Desktop specific variables."""
         super(EB_AEDT, self).__init__(*args, **kwargs)
+        self.subdir = None
+
+    def _set_subdir(self):
+        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
+        if len(idirs) == 1:
+            self.subdir = os.path.relpath(idirs[0], self.installdir)
+        else:
+            raise EasyBuildError("Failed to locate single install subdirectory v*/Linux*/")
 
     def install_step(self):
         """Install Ansys Electronics Desktop using its setup tool."""
@@ -66,35 +74,47 @@ class EB_AEDT(PackedBinary):
         cmd = "./Linux/AnsysEM/Disk1/InstData/setup.exe %s" % options
         run_cmd(cmd, log_all=True, simple=True)
 
+    def post_install_step(self):
+        """Disable OS check and set LC_ALL/LANG for runtime"""
+        if not self.subdir:
+            self._set_subdir()
+
+        # Clean script file to disable over restrict OS checking
+        with open(os.path.join(self.installdir, self.subdir, "VerifyOS.bash"), "w") as f:
+            f.write("")
+
+        # Set LC_ALL and LANG for runtime
+        for fname in [".setup_runtime", ".setup_runtime_mpi"]:
+            with open(os.path.join(self.installdir, self.subdir, fname), "r") as f:
+                orig = f.read()
+            with open(os.path.join(self.installdir, self.subdir, fname), "w") as f:
+                f.write("export LC_ALL=C\n")
+                f.write("export LANG=C\n")
+                f.write(orig)
+
     def make_module_extra(self):
         """Extra module entries for Ansys Electronics Desktop."""
-        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
-        if len(idirs) == 1:
-            subdir = os.path.relpath(idirs[0], self.installdir)
-        else:
-            raise EasyBuildError("Failed to locate single install subdirectory v*/Linux*/")
+        if not self.subdir:
+            self._set_subdir()
 
         txt = super(EB_AEDT, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PATH', subdir)
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', subdir)
-        txt += self.module_generator.prepend_paths('LIBRARY_PATH', subdir)
+        txt += self.module_generator.prepend_paths('PATH', self.subdir)
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', self.subdir)
+        txt += self.module_generator.prepend_paths('LIBRARY_PATH', self.subdir)
         return txt
 
     def sanity_check_step(self):
         """Custom sanity check for Ansys Electronics Desktop."""
-        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
-        if len(idirs) == 1:
-            subdir = os.path.relpath(idirs[0], self.installdir)
-        else:
-            raise EasyBuildError("Failed to locate single install subdirectory v*/Linux*/")
+        if not self.subdir:
+            self._set_subdir()
 
         custom_paths = {
-            'files': [os.path.join(subdir, 'ansysedt')],
-            'dirs': [subdir],
+            'files': [os.path.join(self.subdir, 'ansysedt')],
+            'dirs': [self.subdir],
         }
 
-        executable = os.path.join(subdir, 'ansysedt')
-        inpfile = os.path.join(subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
+        executable = os.path.join(self.subdir, 'ansysedt')
+        inpfile = os.path.join(self.subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
         custom_commands = ['./%s -ng -BatchSolve -Distributed %s' % (executable, inpfile)]
 
         super(EB_AEDT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
