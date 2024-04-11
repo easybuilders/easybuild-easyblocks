@@ -81,7 +81,7 @@ class EB_Mathematica(Binary):
                  self.installdir),
                 (r"Create directory \(y/n\)\? >", 'y'),
                 (r"Should the installer attempt to make this change \(y/n\)\? >", 'n'),
-                (r"or press ENTER to select /usr/local/bin: >", os.path.join(self.installdir, "bin")),
+               (r"or press ENTER to select[\s\n]*/usr/local/.*:[\s\n]*>", os.path.join(self.installdir, "bin")),
             ]
             no_qa = [
                 r"Now installing.*\n\n.*\[.*\].*",
