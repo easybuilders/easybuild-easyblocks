@@ -94,13 +94,21 @@ class EB_AEDT(PackedBinary):
 
     def make_module_extra(self):
         """Extra module entries for Ansys Electronics Desktop."""
-        if not self.subdir:
-            self._set_subdir()
 
         txt = super(EB_AEDT, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PATH', self.subdir)
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', self.subdir)
-        txt += self.module_generator.prepend_paths('LIBRARY_PATH', self.subdir)
+        version = self.version[2:].replace('R', '')
+
+        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
+        if len(idirs) == 1:
+            subdir = os.path.relpath(idirs[0], self.installdir)
+            # PyAEDT and other tools use the variable to find available AEDT versions
+            txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version, 
+                                                         os.path.join(self.installdir, self.subdir))
+
+            txt += self.module_generator.prepend_paths('PATH', subdir)
+            txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', subdir)
+            txt += self.module_generator.prepend_paths('LIBRARY_PATH', subdir)
+
         return txt
 
     def sanity_check_step(self):
@@ -113,8 +121,7 @@ class EB_AEDT(PackedBinary):
             'dirs': [self.subdir],
         }
 
-        executable = os.path.join(self.subdir, 'ansysedt')
         inpfile = os.path.join(self.subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
-        custom_commands = ['./%s -ng -BatchSolve -Distributed %s' % (executable, inpfile)]
+        custom_commands = ['ansysedt -ng -BatchSolve -Distributed %s' % inpfile]
 
         super(EB_AEDT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
