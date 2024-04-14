@@ -86,7 +86,7 @@ class EB_QuantumESPRESSO_autotools(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Quantum ESPRESSO."""
-        super(EB_QuantumESPRESSO, self).__init__(*args, **kwargs)
+        super(EB_QuantumESPRESSO_autotools, self).__init__(*args, **kwargs)
 
         self.install_subdir = "qe-%s" % self.version
 
@@ -99,7 +99,7 @@ class EB_QuantumESPRESSO_autotools(ConfigureMake):
 
     def patch_step(self):
         """Patch files from build dir (not start dir)."""
-        super(EB_QuantumESPRESSO, self).patch_step(beginpath=self.builddir)
+        super(EB_QuantumESPRESSO_autotools, self).patch_step(beginpath=self.builddir)
 
     def _add_compiler_flags(self, comp_fam):
         """Add compiler flags to the build."""
@@ -407,7 +407,7 @@ class EB_QuantumESPRESSO_autotools(ConfigureMake):
 
         self._adjust_compiler_flags(comp_fam)
 
-        super(EB_QuantumESPRESSO, self).configure_step()
+        super(EB_QuantumESPRESSO_autotools, self).configure_step()
 
         # always include -w to supress warnings
         self.dflags.append('-w')
@@ -839,4 +839,4 @@ class EB_QuantumESPRESSO_autotools(ConfigureMake):
             'dirs': []
         }
 
-        super(EB_QuantumESPRESSO, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_QuantumESPRESSO_autotools, self).sanity_check_step(custom_paths=custom_paths)

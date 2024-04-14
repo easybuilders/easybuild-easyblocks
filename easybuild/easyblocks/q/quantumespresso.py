@@ -83,7 +83,7 @@ class EB_QuantumESPRESSO(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Quantum ESPRESSO."""
-        super(EB_QuantumESPRESSOcmake, self).__init__(*args, **kwargs)
+        super(EB_QuantumESPRESSO, self).__init__(*args, **kwargs)
 
         self.install_subdir = 'qe-%s' % self.version
 
@@ -95,7 +95,6 @@ class EB_QuantumESPRESSO(CMakeMake):
                 'EB QuantumESPRESSO with cmake is implemented for versions > 7.3, if you wish to install an older '
                 'version please use the "EB_QuantumESPRESSO_autotools" easyblock. You can do this by adding '
                 '\'easyblock = "EB_QuantumESPRESSO_autotools"\' as the first line in the relevant easyconfig.')
-
 
     def _add_toolchains_opts(self):
         """Enable toolchain options for Quantum ESPRESSO."""
@@ -271,7 +270,7 @@ class EB_QuantumESPRESSO(CMakeMake):
                 ldflags += ' -Wl,--copy-dt-needed-entries '
                 env.setvar('LDFLAGS', ldflags)
 
-        super(EB_QuantumESPRESSOcmake, self).configure_step()
+        super(EB_QuantumESPRESSO, self).configure_step()
 
     def test_step(self):
         """
@@ -407,4 +406,4 @@ class EB_QuantumESPRESSO(CMakeMake):
             'dirs': []
         }
 
-        super(EB_QuantumESPRESSOcmake, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_QuantumESPRESSO, self).sanity_check_step(custom_paths=custom_paths)
