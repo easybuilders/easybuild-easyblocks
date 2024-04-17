@@ -62,7 +62,10 @@ def det_path_for_import(module, pythonpath=None):
 
     cmd = cmd_tmpl % {'mod': module}
 
-    res = run_shell_cmd(cmd)
+    res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
+
+    if res.exit_code:
+        raise EasyBuildError(res.output)
 
     # only return last line that should contain path to imported module
     # warning messages may precede it
@@ -134,7 +137,7 @@ class GeneralEasyblockTest(TestCase):
             self.assertTrue(os.path.samefile(easyblocks_path, parent_path), msg)
 
         # importing EB_R class from easybuild.easyblocks.r works fine
-        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'")
+        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'", hidden=True)
 
         # importing a non-existing module fails
         err_msg = "No module named .*"
@@ -163,7 +166,7 @@ class GeneralEasyblockTest(TestCase):
             self.assertTrue(os.path.samefile(repo_path, parent_path), msg)
 
         # importing EB_R class from easybuild.easyblocks.r still works fine
-        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'")
+        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'", hidden=True)
 
         # custom easyblocks override existing easyblocks (with custom easyblocks repo first in $PYTHONPATH)
         for software in ['GCC', 'R']:
@@ -175,7 +178,7 @@ class GeneralEasyblockTest(TestCase):
             self.assertTrue(os.path.samefile(custom_easyblocks_repo_path, parent_path), msg)
 
         # importing EB_R class from easybuild.easyblocks.r still works fine
-        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'")
+        run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'", hidden=True)
 
 
 def suite():
