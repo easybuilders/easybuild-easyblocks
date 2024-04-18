@@ -623,7 +623,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         loc = self.cfg.get('install_src')
         if not loc:
-            if self._should_unpack_source():
+            if self._should_unpack_source() or not self.src:
                 # specify current directory
                 loc = '.'
             elif isinstance(self.src, string_type):
@@ -904,9 +904,6 @@ class PythonPackage(ExtensionEasyBlock):
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
 
-        if not self.src:
-            raise EasyBuildError("No source found for Python package %s, required for installation. (src: %s)",
-                                 self.name, self.src)
         # we unpack unless explicitly told otherwise
         kwargs.setdefault('unpack_src', self._should_unpack_source())
         super(PythonPackage, self).run(*args, **kwargs)
