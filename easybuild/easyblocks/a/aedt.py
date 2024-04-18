@@ -81,7 +81,9 @@ class EB_AEDT(PackedBinary):
         with open(os.path.join(self.installdir, self.subdir, "VerifyOS.bash"), "w") as f:
             f.write("")
 
-        # Set LC_ALL and LANG for runtime
+        # Follow the settings in .setup_runtime and .setup_runtime_mpi to set LC_ALL and LANG
+        # If LC_ALL is not set properly, AEDT throws the following runtime error:
+        # what():  locale::facet::_S_create_c_locale name not valid
         for fname in [".setup_runtime", ".setup_runtime_mpi"]:
             with open(os.path.join(self.installdir, self.subdir, fname), "r") as f:
                 orig = f.read()
