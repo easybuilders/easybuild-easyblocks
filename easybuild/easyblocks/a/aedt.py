@@ -25,8 +25,6 @@
 """
 EasyBuild support for installing Ansys Electronics Desktop
 
-@author: Alexi Rivera (Chalmers University of Technology)
-@author: Mikael OEhman (Chalmers University of Technology)
 @author: Chia-Jung Hsu (Chalmers University of Technology)
 """
 import os
@@ -102,7 +100,7 @@ class EB_AEDT(PackedBinary):
         if len(idirs) == 1:
             subdir = os.path.relpath(idirs[0], self.installdir)
             # PyAEDT and other tools use the variable to find available AEDT versions
-            txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version,
+            txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version, 
                                                          os.path.join(self.installdir, self.subdir))
 
             txt += self.module_generator.prepend_paths('PATH', subdir)
