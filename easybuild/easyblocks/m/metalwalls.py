@@ -46,7 +46,7 @@ class EB_MetalWalls(MakeCp):
         super(EB_MetalWalls, self).__init__(*args, **kwargs)
 
         self._build_python_interface = False
-
+        self._extra_schecks = []
 
     def configure_step(self):
         """Custom configuration procedure for `metalwalls`."""
@@ -72,7 +72,7 @@ class EB_MetalWalls(MakeCp):
         plumed = get_software_root('PLUMED')
         f90wrap = get_software_root('f90wrap')
 
-        tpl_rgx = 'alltests\.append(suite_%s)'
+        tpl_rgx = 'alltests\\.append(suite_%s)'
         if plumed:
             f90flags += ['-fallow-argument-mismatch'] # Code inside ifdef causes mismatch errors
             fppflags += ['-DMW_USE_PLUMED']
@@ -83,7 +83,7 @@ class EB_MetalWalls(MakeCp):
         else:
             self.log.info('PLUMED not found, excluding from test-suite')
             rgx = tpl_rgx % 'plumed'
-            cmd = ['sed', '-i', "'s/^\( \+\)%s$/\\1pass # %s/'" % (rgx, rgx), 'tests/regression_tests.py']
+            cmd = ['sed', '-i', "'s/^\\( \\+\\)%s$/\\1pass # %s/'" % (rgx, rgx), 'tests/regression_tests.py']
             cmd = ['sed', '-i', "'s/%s/pass/'" % rgx, 'tests/regression_tests.py']
             run_cmd(' '.join(cmd), log_all=True, simple=False)
 
@@ -96,6 +96,9 @@ class EB_MetalWalls(MakeCp):
             fcompiler = os.getenv('F90_SEQ')
             f90flags += ['-fPIC']
             self.cfg.update('build_cmd_targets', 'python')
+            self.cfg.update('files_to_copy', 'build/python')
+            self._extra_schecks += ['python/mw.py', 'python/metalwalls.py']
+
         else:
             self.log.info('f90wrap not found, excluding python interface from test-suite')
             rgx = tpl_rgx % 'python_interface'
@@ -146,3 +149,15 @@ class EB_MetalWalls(MakeCp):
             txt += self.module_generator.prepend_paths('PYTHONPATH', 'python')
 
         return txt
+
+    def sanity_check_step(self):
+        """Custom sanity check for Quantum ESPRESSO."""
+
+        bins = ['mw']
+
+        custom_paths = {
+            'files': [os.path.join('bin', x) for x in bins] + self._extra_schecks,
+            'dirs': []
+        }
+
+        super(EB_MetalWalls, self).sanity_check_step(custom_paths=custom_paths)
