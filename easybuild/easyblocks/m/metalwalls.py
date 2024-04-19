@@ -74,7 +74,7 @@ class EB_MetalWalls(MakeCp):
 
         tpl_rgx = 'alltests\\.append(suite_%s)'
         if plumed:
-            f90flags += ['-fallow-argument-mismatch'] # Code inside ifdef causes mismatch errors
+            f90flags += ['-fallow-argument-mismatch']  # Code inside ifdef causes mismatch errors
             fppflags += ['-DMW_USE_PLUMED']
             cmd = ['plumed', 'patch', '--new', 'mw2']
             run_cmd(' '.join(cmd), log_all=False, log_ok=False, simple=False, regexp=False)
