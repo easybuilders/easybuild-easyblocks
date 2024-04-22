@@ -195,8 +195,9 @@ class EB_Python(ConfigureMake):
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
+        # Python 3.12 doesn't have setup.py any more
         sysroot = build_option('sysroot')
-        if sysroot:
+        if sysroot and LooseVersion(self.version) < LooseVersion('3.12'):
             sysroot_inc_dirs, sysroot_lib_dirs = [], []
 
             for pattern in ['include*', os.path.join('usr', 'include*')]:
