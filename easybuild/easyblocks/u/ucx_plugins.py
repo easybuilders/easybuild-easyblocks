@@ -82,6 +82,8 @@ class EB_UCX_Plugins(ConfigureMake):
         configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
         # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
+        # include the configure options from contrib/configure-release
+        configopts += '--disable-logging --disable-debug --disable-assertions --disable-params-check '
 
         cudaroot = get_software_root('CUDAcore') or get_software_root('CUDA')
         if cudaroot:
