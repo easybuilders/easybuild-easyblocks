@@ -77,7 +77,6 @@ class EB_UCX_Plugins(ConfigureMake):
         if not get_software_root('UCX'):
             raise EasyBuildError("UCX is a required dependency")
 
-        self.cfg['configure_cmd'] = 'contrib/configure-release'
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
 
         configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
