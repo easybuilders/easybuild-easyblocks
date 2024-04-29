@@ -241,7 +241,7 @@ def suite():
         elif easyblock_fn == 'quantumespresso.py':
             # easyblock for Quantum Espresso expects a minimum version
             innertest = make_inner_test(easyblock, version='7.3.1')
-    else:
+        else:
             innertest = make_inner_test(easyblock)
 
         innertest.__doc__ = "Test for initialisation of easyblock %s" % easyblock
