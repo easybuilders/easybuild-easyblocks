@@ -471,6 +471,9 @@ def suite():
             tmpdir = tempfile.mkdtemp()
             install_fake_command('ucx_info', FAKE_UCX_INFO, tmpdir)
             innertest = make_inner_test(easyblock, name='UCX-CUDA', tmpdir=tmpdir)
+        elif eb_fn == 'quantumespresso.py':
+            # easyblock for Quantum Espresso expects a minimum version
+            innertest = make_inner_test(easyblock, name='QuantumESPRESSO', version='7.3.1')
         else:
             # Make up some unique name
             innertest = make_inner_test(easyblock, name=eb_fn.replace('.', '-') + '-sw')
