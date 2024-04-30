@@ -42,15 +42,17 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, read_file, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
+import easybuild.tools.toolchain as toolchain
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
+
 
 def det_cmake_version():
     """
@@ -160,7 +162,6 @@ class CMakeMake(ConfigureMake):
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
-
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -331,58 +332,59 @@ class CMakeMake(ConfigureMake):
                 self.cfg['configopts']])
 
         res = run_shell_cmd(command)
+        self.check_python_paths()
+        return res.output
+
+    def check_python_paths(self):
+        """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""
+        if not os.path.exists('CMakeCache.txt'):
+            self.log.warning("CMakeCache.txt not found. Python paths checks skipped.")
+            return
+        cmake_cache = read_file('CMakeCache.txt')
+        if not cmake_cache:
+            self.log.warning("CMake Cache could not be read. Python paths checks skipped.")
+            return
 
         self.log.info("Checking Python paths")
 
-        if LooseVersion(self.cmake_version) >= '3.16':
-            try:
-                with open('CMakeCache.txt', 'r') as file:
-                    lines = file.readlines()
-            except FileNotFoundError:
-                self.log.warning("CMakeCache.txt not found. Python paths checks skipped.")
-
-            if not os.getenv('EBROOTPYTHON'):
-                self.log.warning("EBROOTPYTHON is not set.")
-        else:
-            self.log.info("Skipping Python path checks as CMake version might be lower than 3.16.")
-
         python_paths = {
             "executable": [],
-            "include": [],
+            "include_dir": [],
             "library": [],
         }
-        errors = []
-
-        for line in lines:
-            match = re.match(r"(?i)_Python(\d+)_((?:EXECUTABLE|INCLUDE_DIR|LIBRARY)):.*?=(.*)", line)
+        python_regex = re.compile(r"_?(?:Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)[^=]*=(.*)")
+        for line in cmake_cache.splitlines():
+            match = python_regex.match(line)
             if match:
-                prefix, path_type, path = match.groups()
-                if path_type == "INCLUDE_DIR":
-                    python_paths["include"].append(path.strip())
-                    self.log.info(f"Python {path_type} path: {path}")
-                elif path_type == "EXECUTABLE":
-                    python_paths["executable"].append(path.strip())
-                    self.log.info(f"Python {path_type} path: {path}")
-                elif path_type == "LIBRARY":
-                    python_paths["library"].append(path.strip())
-                    self.log.info(f"Python {path_type} path: {path}")
+                path_type = match[1].lower()
+                path = match[2].strip()
+                self.log.info("Python %s path: %s", path_type, path)
+                python_paths[path_type].append(path)
 
-        # Validate path and handle EBROOTHPYTHON
         ebrootpython_path = get_software_root("Python")
+        if not ebrootpython_path:
+            if any(python_paths.values()) and not self.toolchain.comp_family() == toolchain.SYSTEM:
+                self.log.warning("Found Python paths in CMake cache but Python is not a dependency")
+            # Can't do the check
+            return
+        ebrootpython_path = os.path.realpath(ebrootpython_path)
+
+        errors = []
         for path_type, paths in python_paths.items():
             for path in paths:
+                if path.endswith('-NOTFOUND'):
+                    continue
                 if not os.path.exists(path):
-                    errors.append(f"Python does not exist: {path}")
-
-                if ebrootpython_path and not path.startswith(ebrootpython_path):
-                    errors.append(f"Python {path_type} path '{path}' is outside EBROOTPYTHON ({ebrootpython_path})")
+                    errors.append("Python %s does not exist: %s" % (path_type, path))
+                elif not os.path.realpath(path).startswith(ebrootpython_path):
+                    errors.append("Python %s path '%s' is outside EBROOTPYTHON (%s)" %
+                                  (path_type, path, ebrootpython_path))
 
         if errors:
             # Combine all errors into a single message
             error_message = "\n".join(errors)
-            raise EasyBuildError(f"Python path errors:\n{error_message}")
+            raise EasyBuildError("Python path errors:\n" + error_message)
         self.log.info("Python check successful")
-        return res.output
 
     def test_step(self):
         """CMake specific test setup"""
