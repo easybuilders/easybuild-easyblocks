@@ -49,7 +49,6 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
-print ("Using Nadia EasyBlock") 
 DEFAULT_CONFIGURE_CMD = 'cmake'
 
 def det_cmake_version():
@@ -337,7 +336,7 @@ class CMakeMake(ConfigureMake):
             "include": [],
             "library": [],
         }
-        errors = [] # List to store all encountered errors
+        errors = []
 
         for line in lines:
             match = re.match(r"(?i)_Python(\d+)_((?:EXECUTABLE|INCLUDE_DIR|LIBRARY)):.*?=(.*)", line)
