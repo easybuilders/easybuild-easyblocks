@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2023 Vrije Universiteit Brussel
+# Copyright 2022-2024 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -151,13 +151,13 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return res.output
 
-    def run(self):
+    def install_extension(self):
         """Install Julia package as an extension."""
 
         if not self.src:
             errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
             raise EasyBuildError(errmsg, self.name, self.src)
-        ExtensionEasyBlock.run(self, unpack_src=True)
+        ExtensionEasyBlock.install_extension(self, unpack_src=True)
 
         self.set_pkg_offline()
         self.set_depot_path()  # all extensions share common depot in installdir

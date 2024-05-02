@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,6 +43,6 @@ class EB_PyQuante(PythonPackage):
             self.log.info("Building Libint extension")
             self.cfg.update('installopts', "--enable-libint")
         else:
-            self.log.warn("Not building Libint extension")
+            self.log.warning("Not building Libint extension")
 
         super(EB_PyQuante, self).configure_step()

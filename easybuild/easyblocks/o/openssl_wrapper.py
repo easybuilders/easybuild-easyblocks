@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2023 Vrije Universiteit Brussel
+# Copyright 2021-2024 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,6 +29,8 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 """
 import os
 import re
+
+from urllib.parse import urlparse
 
 from easybuild.tools import LooseVersion
 
@@ -375,6 +377,15 @@ class EB_OpenSSL_wrapper(Bundle):
             'dirs': ssl_dirs,
         }
 
+        # use proxy to connect if https_proxy environment variable is defined
+        proxy_arg = ''
+        if os.environ.get('https_proxy'):
+            # only use host & port from https_proxy env var, that is, strip
+            # any protocol prefix and trailing slashes
+            proxy_parsed = urlparse(os.environ.get('https_proxy'))
+            if proxy_parsed.netloc:
+                proxy_arg = ' -proxy %s' % proxy_parsed.netloc
+
         if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
             ssl_ver_comp_chars = 1
         else:
@@ -383,7 +394,8 @@ class EB_OpenSSL_wrapper(Bundle):
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
             "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_comp_chars, self.majmin_version),
-            "echo | openssl s_client -connect github.com:443 -verify 9 | grep 'Verify return code: 0 (ok)'",
+            ("echo | openssl s_client%s -connect github.com:443 -verify 9 "
+             "| grep 'Verify return code: 0 (ok)'" % proxy_arg),
         ]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

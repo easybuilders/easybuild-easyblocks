@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2023 Ghent University
+# Copyright 2015-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -56,12 +56,12 @@ class RubyGem(ExtensionEasyBlock):
         super(RubyGem, self).__init__(*args, **kwargs)
         self.ext_src = None
 
-    def run(self):
+    def install_extension(self):
         """Perform the actual Ruby gem build/install"""
         if not self.src:
             raise EasyBuildError("No source found for Ruby Gem %s, required for installation.", self.name)
 
-        super(RubyGem, self).run()
+        super(RubyGem, self).install_extension()
 
         self.ext_src = self.src
         self.log.debug("Installing Ruby gem %s version %s." % (self.name, self.version))

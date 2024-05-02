@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -109,6 +109,14 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
         for key in extra_options.keys():
             self.assertTrue(isinstance(extra_options[key], list))
             self.assertTrue(len(extra_options[key]), 3)
+            # make sure that easyconfig parameter names do not include characters that are not allowed,
+            # like dashes, to ensure that they can be defined as variables in the easyconfig file
+            try:
+                res = compile("%s = 1" % key, '<string>', 'exec')
+            except SyntaxError:
+                raise SyntaxError("Invalid easyconfig parameter name: %s" % key)
+
+            self.assertTrue(res.co_names, (key, ))
 
     class_regex = re.compile(r"^class (.*)\(.*", re.M)
 

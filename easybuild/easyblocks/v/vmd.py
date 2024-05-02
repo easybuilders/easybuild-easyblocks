@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2023 Ghent University
-# Copyright 2015-2023 Stanford University
+# Copyright 2009-2024 Ghent University
+# Copyright 2015-2024 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -150,9 +150,9 @@ class EB_VMD(ConfigureMake):
             if deps['OptiX']:
                 self.log.info("Building with Nvidia OptiX %s support", get_software_version('OptiX'))
             else:
-                self.log.warn("Not building with Nvidia OptiX support!")
+                self.log.warning("Not building with Nvidia OptiX support!")
         else:
-            self.log.warn("Not building with CUDA nor OptiX support!")
+            self.log.warning("Not building with CUDA nor OptiX support!")
 
         # see http://www.ks.uiuc.edu/Research/vmd/doxygen/configure.html
         # LINUXAMD64: Linux 64-bit

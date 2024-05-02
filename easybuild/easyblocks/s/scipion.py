@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2023 Ghent University
+# Copyright 2019-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -181,11 +181,11 @@ class EB_Scipion(ExtensionEasyBlock):
         linktarget = os.path.join(self.installdir, 'bin', 'scipion')
         symlink(os.path.join('..', 'scipion'), linktarget, use_abspath_source=False)
 
-    def run(self, *args, **kwargs):
+    def install_extension(self, *args, **kwargs):
         """Perform the actual Scipion package configure/installation procedure"""
 
         # The ExtensionEasyBlock run does unpack and patch
-        super(EB_Scipion, self).run(unpack_src=True)
+        super(EB_Scipion, self).install_extension(unpack_src=True)
         self.builddir = self.ext_dir
 
         # configure, build, install

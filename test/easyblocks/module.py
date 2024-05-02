@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2023 Ghent University
+# Copyright 2015-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -181,7 +181,8 @@ class ModuleOnlyTest(TestCase):
         print(which('python'))
 
         # create module file
-        app.make_module_step()
+        with self.mocked_stdout_stderr():
+            app.make_module_step()
 
         remove_file(python)
 
@@ -227,8 +228,8 @@ class ModuleOnlyTest(TestCase):
         """Test pick_python_cmd function from pythonpackage.py."""
         from easybuild.easyblocks.generic.pythonpackage import pick_python_cmd
         self.assertTrue(pick_python_cmd() is not None)
-        self.assertTrue(pick_python_cmd(2) is not None)
-        self.assertTrue(pick_python_cmd(2, 6) is not None)
+        self.assertTrue(pick_python_cmd(3) is not None)
+        self.assertTrue(pick_python_cmd(3, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
 
 
@@ -356,7 +357,8 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         # run all steps, most should be skipped
         orig_workdir = os.getcwd()
         try:
-            app.run_all_steps(run_test_cases=False)
+            with self.mocked_stdout_stderr():
+                app.run_all_steps(run_test_cases=False)
         finally:
             change_dir(orig_workdir)
 

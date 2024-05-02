@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import copy, symlink
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -65,7 +65,7 @@ class EB_MRtrix(EasyBlock):
             env.setvar('QMAKE_CXX', os.getenv('CXX'))
             cmd = "python configure -verbose"
 
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            run_shell_cmd(cmd)
 
     def build_step(self):
         """Custom build procedure for MRtrix."""
@@ -73,13 +73,13 @@ class EB_MRtrix(EasyBlock):
         env.setvar('NUMBER_OF_PROCESSORS', str(parallel))
 
         cmd = "python build -verbose"
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """Custom install procedure for MRtrix."""
         if LooseVersion(self.version) < LooseVersion('0.3'):
             cmd = "python build -verbose install=%s linkto=" % self.installdir
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            run_shell_cmd(cmd)
 
         elif LooseVersion(self.version) >= LooseVersion('3.0'):
             copy(os.path.join(self.builddir, 'bin'), self.installdir)

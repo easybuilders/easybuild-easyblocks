@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2023 Ghent University
+# Copyright 2015-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,7 +53,7 @@ class EB_pbdMPI(RPackage):
 
         super(EB_pbdMPI, self).configure_step()
 
-    def run(self):
+    def install_extension(self):
         """Configure before installing pbdMPI as an extension."""
         self.configure_step()
-        super(EB_pbdMPI, self).run()
+        super(EB_pbdMPI, self).install_extension()

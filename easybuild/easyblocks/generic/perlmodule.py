@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -102,17 +102,18 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             run_shell_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
-            if self.cfg['runtest']:
-                run_shell_cmd('perl Build %s' % self.cfg['runtest'])
+            runtest = self.cfg['runtest']
+            if runtest:
+                run_shell_cmd('%s perl Build %s %s' % (self.cfg['pretestopts'], runtest, self.cfg['testopts']))
             run_shell_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
-    def run(self):
+    def install_extension(self):
         """Perform the actual Perl module build/installation procedure"""
 
         if not self.src:
             raise EasyBuildError("No source found for Perl module %s, required for installation. (src: %s)",
                                  self.name, self.src)
-        ExtensionEasyBlock.run(self, unpack_src=True)
+        ExtensionEasyBlock.install_extension(self, unpack_src=True)
 
         self.install_perl_module()
 

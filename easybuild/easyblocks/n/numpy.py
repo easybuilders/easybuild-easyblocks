@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -333,9 +333,9 @@ class EB_numpy(FortranPythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
 
-    def run(self):
+    def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).run()
+        super(EB_numpy, self).install_extension()
 
         return self.make_module_extra_numpy_include()
 
