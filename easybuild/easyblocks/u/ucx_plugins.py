@@ -77,12 +77,13 @@ class EB_UCX_Plugins(ConfigureMake):
         if not get_software_root('UCX'):
             raise EasyBuildError("UCX is a required dependency")
 
-        self.cfg['configure_cmd'] = 'contrib/configure-release'
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
 
         configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
         # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
+        # include the configure options from contrib/configure-release
+        configopts += '--disable-logging --disable-debug --disable-assertions --disable-params-check '
 
         cudaroot = get_software_root('CUDAcore') or get_software_root('CUDA')
         if cudaroot:
