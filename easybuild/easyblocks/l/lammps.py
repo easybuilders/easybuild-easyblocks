@@ -123,7 +123,7 @@ KOKKOS_CPU_MAPPING = {
     'broadwell': 'BDW',
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
-    'icelake': 'SKX',
+    'icelake': 'ICX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
