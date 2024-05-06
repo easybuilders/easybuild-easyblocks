@@ -42,7 +42,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import run, LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE, WARN, ERROR
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_file, mkdir, resolve_path
@@ -342,7 +342,7 @@ class EB_TensorFlow(PythonPackage):
                     # Libs listed in this EasyBlock but not present in the TF sources -> Removed?
                     msg += 'Unrecognized entries for $TF_SYSTEM_LIBS: %s\n' % sorted(unknown_libs)
                 msg += 'The EasyBlock needs to be updated to fully work with TensorFlow version %s' % self.version
-            if build_option('strict') == run.ERROR:
+            if build_option('strict') == ERROR:
                 raise EasyBuildError(msg)
             else:
                 print_warning(msg)
