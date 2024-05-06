@@ -43,7 +43,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
-from easybuild.tools import run
+from easybuild.tools.config import ERROR
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
@@ -341,7 +341,7 @@ class EB_Clang(CMakeMake):
                 self.log.warning("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
                                  "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
 
-            if (disable_san_tests or self.cfg['skip_sanitizer_tests']) and build_option('strict') != run.ERROR:
+            if (disable_san_tests or self.cfg['skip_sanitizer_tests']) and build_option('strict') != ERROR:
                 self.log.debug("Disabling the sanitizer tests")
                 self.disable_sanitizer_tests()
 
