@@ -35,7 +35,7 @@ import tempfile
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_optiSLang(PackedBinary):
@@ -61,8 +61,7 @@ class EB_optiSLang(PackedBinary):
 
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
-        cmd = "./INSTALL -silent -install_dir %s -usetempdir %s %s" % (self.installdir, tmpdir, licoptsstr)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd("./INSTALL -silent -install_dir %s -usetempdir %s %s" % (self.installdir, tmpdir, licoptsstr))
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
 
