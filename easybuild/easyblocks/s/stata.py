@@ -75,9 +75,3 @@ class EB_Stata(PackedBinary):
         regex = re.compile('libpng.*not found', re.M)
         if regex.search(res.output):
             raise EasyBuildError("Required libpng library for 'stata' is not available")
-
-    def make_module_req_guess(self):
-        """Add top install directory to $PATH for Stata"""
-        guesses = super(EB_Stata, self).make_module_req_guess()
-        guesses['PATH'] = ['']
-        return guesses
