@@ -65,6 +65,12 @@ class EB_MetalWalls(MakeCp):
         elif comp_fam == toolchain.GCC:
             jflag = '-J'
             fppflags = ['-cpp']
+        elif comp_fam == toolchain.NVHPC:
+            if self.toolchain.options.get('usempi', False):
+                raise EasyBuildError('NVHPC compilation does not support MPI')
+            jflag = '-module '  # Space is needed
+            fppflags = ['-DMW_SERIAL', '-Mpreprocess']
+            f90flags += ['-Minline', '-acc', '-gpu=managed']
         else:
             raise EasyBuildError('Unsupported compiler family: %s' % comp_fam)
 
