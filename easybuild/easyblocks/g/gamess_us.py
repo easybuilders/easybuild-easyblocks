@@ -104,6 +104,13 @@ class EB_GAMESS_minus_US(EasyBlock):
                 error_msg = "Temporary dir for tests '%s' will cause problems with rungms csh script"
                 raise EasyBuildError(error_msg, self.testdir)
 
+        # OpenMP cannot be enabled across the board, activate it only through
+        # GMS_OPENMP so that it gets enabled by the build where needed
+        self.omp_enabled = False
+        if self.toolchain.options.get('openmp', None):
+            self.omp_enabled = True
+            self.toolchain.options['openmp'] = False
+
     def extract_step(self):
         """Extract sources."""
         # strip off 'gamess' part to avoid having everything in a 'gamess' subdirectory
@@ -153,12 +160,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         installinfo_opts.update(fortran_version)
 
         # OpenMP config
-        if self.toolchain.options.get('openmp', None):
-            omp_enabled = "true"
-        else:
-            omp_enabled = "false"
-
-        installinfo_opts["GMS_OPENMP"] = omp_enabled
+        installinfo_opts["GMS_OPENMP"] = self.omp_enabled
 
         # Math library config
         known_mathlibs = ['imkl', 'OpenBLAS', 'ATLAS', 'ACML']
@@ -186,7 +188,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             installinfo_opts["GMS_MKL_VERNO"] = mkl_version
 
             if LooseVersion(self.version) >= LooseVersion('20230601'):
-                installinfo_opts["GMS_THREADED_BLAS"] = omp_enabled
+                installinfo_opts["GMS_THREADED_BLAS"] = self.omp_enabled
 
         elif mathlib == 'openblas':
             mathlib_flags = "-lopenblas -lgfortran"
