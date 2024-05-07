@@ -31,7 +31,7 @@ EasyBuild support for building and installing torchvision, implemented as an eas
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.modules import get_software_version
+from easybuild.tools.modules import get_software_version, get_software_root
 import easybuild.tools.environment as env
 
 
@@ -77,6 +77,11 @@ class EB_torchvision(PythonPackage):
             cuda_cc = self.cfg['cuda_compute_capabilities'] or build_option('cuda_compute_capabilities')
             if cuda_cc:
                 env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
+
+        libjpeg = get_software_root('libjpeg-turbo')
+        if libjpeg and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
+            vision_include = 'TORCHVISION_INCLUDE="$EBROOTLIBJPEGMINTURBO/include:$TORCHVISION_INCLUDE"'
+            self.cfg.update('preinstallopts', vision_include)
 
         super(EB_torchvision, self).configure_step()
 
