@@ -260,26 +260,26 @@ class EB_GAMESS_minus_US(EasyBlock):
         # TODO: add support for GPUs
         if LooseVersion(self.version) >= LooseVersion('20230601'):
             # offloading onto Intel GPUs
-            installinfo_opts["GMS_OPENMP_OFFLOAD"] = "false"
+            installinfo_opts["GMS_OPENMP_OFFLOAD"] = False
 
         # These are extra programs which for now we simply set all to FALSE
-        installinfo_opts["GMS_MSUCC"] = "false"
+        installinfo_opts["GMS_MSUCC"] = False
         installinfo_opts["GMS_PHI"] = "none"
         installinfo_opts["GMS_SHMTYPE"] = "sysv"
-        installinfo_opts["GMS_LIBCCHEM"] = "false"  # libcchem
+        installinfo_opts["GMS_LIBCCHEM"] = False  # libcchem
         if LooseVersion(self.version) >= LooseVersion('20230601'):
             # install options for libcchem2
-            installinfo_opts["GMS_HPCCHEM"] = "false"
-            installinfo_opts["GMS_HPCCHEM_USE_DATA_SERVERS"] = "false"
+            installinfo_opts["GMS_HPCCHEM"] = False
+            installinfo_opts["GMS_HPCCHEM_USE_DATA_SERVERS"] = False
             # build Michigan State University code
-            installinfo_opts["GMS_MSUAUTO"] = "false"
+            installinfo_opts["GMS_MSUAUTO"] = False
 
         # Optional plug-ins and interfaces
         # libXC
         if LooseVersion(self.version) >= LooseVersion('20200101'):
-            installinfo_opts['GMS_LIBXC'] = "false"
+            installinfo_opts['GMS_LIBXC'] = False
             if get_software_root('libxc'):
-                installinfo_opts['GMS_LIBXC'] = "true"
+                installinfo_opts['GMS_LIBXC'] = True
                 # the linker needs to be patched to use external libXC
                 lixc_libs = [os.path.join(os.environ['EBROOTLIBXC'], 'lib', lib) for lib in ['libxcf03.a', 'libxc.a']]
                 libxc_linker_flags = ' '.join(lixc_libs)
@@ -292,26 +292,26 @@ class EB_GAMESS_minus_US(EasyBlock):
                     raise EasyBuildError("Failed to patch %s: %s", lked, err)
         # MDI
         # needs https://github.com/MolSSI-MDI/MDI_Library
-        installinfo_opts['GMS_MDI'] = "false"
+        installinfo_opts['GMS_MDI'] = False
         # NBO
-        installinfo_opts['NBO'] = "false"
+        installinfo_opts['NBO'] = False
         if get_software_root('NBO'):
-            installinfo_opts['NBO'] = "true"
+            installinfo_opts['NBO'] = True
         # NEO
-        installinfo_opts['NEO'] = "false"
+        installinfo_opts['NEO'] = False
         # RISM
         if LooseVersion(self.version) >= LooseVersion('20230601'):
-            installinfo_opts['RISM'] = "false"
+            installinfo_opts['RISM'] = False
         # TINKER
-        installinfo_opts['TINKER'] = "false"
+        installinfo_opts['TINKER'] = False
         if get_software_root('TINKER'):
-            installinfo_opts['TINKER'] = "true"
+            installinfo_opts['TINKER'] = True
         # VB2000
-        installinfo_opts['VB2000'] = "false"
+        installinfo_opts['VB2000'] = False
         # VM2
-        installinfo_opts['GMS_VM2'] = "false"
+        installinfo_opts['GMS_VM2'] = False
         # XMVB
-        installinfo_opts['XMVB'] = "false"
+        installinfo_opts['XMVB'] = False
 
         # add include paths from dependencies
         installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS']
@@ -319,10 +319,13 @@ class EB_GAMESS_minus_US(EasyBlock):
         # installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS'] + "-ffpe-trap=invalid,zero,overflow"
 
         # write install.info file with configuration settings
-        # format: setenv KEY VALUE
         installinfo_file = os.path.join(self.builddir, GAMESS_INSTALL_INFO)
-        txt = '\n'.join(["setenv %s %s" % (k, installinfo_opts[k]) for k in installinfo_opts])
-        write_file(installinfo_file, txt)
+        # replace boolean options with their string representation
+        boolean_opts = {opt: str(val).lower() for opt, val in installinfo_opts.items() if val in [True, False]}
+        installinfo_opts.update(boolean_opts)
+        # format: setenv KEY VALUE
+        installinfo_txt = '\n'.join(["setenv %s %s" % (k, installinfo_opts[k]) for k in installinfo_opts])
+        write_file(installinfo_file, installinfo_txt)
         self.log.debug("Contents of %s:\n%s" % (installinfo_file, read_file(installinfo_file)))
 
         # patch hardcoded settings in rungms to use values specified in easyconfig file
