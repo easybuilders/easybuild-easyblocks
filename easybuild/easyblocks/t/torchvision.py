@@ -82,8 +82,6 @@ class EB_torchvision(PythonPackage):
 
         libjpeg = get_software_root('libjpeg-turbo')
         if libjpeg and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
-            # vision_include = 'TORCHVISION_INCLUDE="$EBROOTLIBJPEGMINTURBO/include:$TORCHVISION_INCLUDE"'
-            # self.cfg.update('preinstallopts', vision_include)
             env.setvar('TORCHVISION_INCLUDE', os.path.join(os.getenv('EBROOTLIBJPEGMINTURBO'), 'include'))
 
         super(EB_torchvision, self).configure_step()
