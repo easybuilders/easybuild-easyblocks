@@ -80,9 +80,9 @@ class EB_torchvision(PythonPackage):
             if cuda_cc:
                 env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
 
-        libjpeg = get_software_root('libjpeg-turbo')
-        if libjpeg and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
-            env.setvar('TORCHVISION_INCLUDE', os.path.join(os.getenv('EBROOTLIBJPEGMINTURBO'), 'include'))
+        libjpeg_root = get_software_root('libjpeg-turbo')
+        if libjpeg_root and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
+            env.setvar('TORCHVISION_INCLUDE', os.path.join(libjpeg_root, 'include'))
 
         super(EB_torchvision, self).configure_step()
 
@@ -109,7 +109,7 @@ class EB_torchvision(PythonPackage):
             }
 
         if get_software_root('libjpeg-turbo'):
-            # check wither torchvision was built with libjpeg support
+            # check if torchvision was built with libjpeg support
             # if not, will show error "RuntimeError: encode_jpeg: torchvision not compiled with libjpeg support"
             python_code = '\n'.join([
                 "import torch, torchvision",
