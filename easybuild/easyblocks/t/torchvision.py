@@ -28,6 +28,8 @@ EasyBuild support for building and installing torchvision, implemented as an eas
 @author: Alexander Grund (TU Dresden)
 @author: Kenneth Hoste (HPC-UGent)
 """
+import os
+
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
@@ -80,21 +82,21 @@ class EB_torchvision(PythonPackage):
 
         libjpeg = get_software_root('libjpeg-turbo')
         if libjpeg and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
-            vision_include = 'TORCHVISION_INCLUDE="$EBROOTLIBJPEGMINTURBO/include:$TORCHVISION_INCLUDE"'
-            self.cfg.update('preinstallopts', vision_include)
+            # vision_include = 'TORCHVISION_INCLUDE="$EBROOTLIBJPEGMINTURBO/include:$TORCHVISION_INCLUDE"'
+            # self.cfg.update('preinstallopts', vision_include)
+            env.setvar('TORCHVISION_INCLUDE', os.path.join(os.getenv('EBROOTLIBJPEGMINTURBO'), 'include'))
 
         super(EB_torchvision, self).configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
-        custom_commands = None
+        custom_commands = []
         custom_paths = None
 
         # check whether torchvision was indeed built with CUDA support,
         # cfr. https://discuss.pytorch.org/t/notimplementederror-could-not-run-torchvision-nms-with-arguments-from-\
         #      the-cuda-backend-this-could-be-because-the-operator-doesnt-exist-for-this-backend/132352/4
         if self.with_cuda:
-            custom_commands = []
             python_code = '\n'.join([
                 "import torch, torchvision",
                 "if torch.cuda.device_count():",
@@ -107,5 +109,15 @@ class EB_torchvision(PythonPackage):
                 'files': [],
                 'dirs': [det_pylibdir()],
             }
+
+        if get_software_root('libjpeg-turbo'):
+            # check wither torchvision was built with libjpeg support
+            # if not, will show error "RuntimeError: encode_jpeg: torchvision not compiled with libjpeg support"
+            python_code = '\n'.join([
+                "import torch, torchvision",
+                "image_tensor = torch.zeros(1, 1, 1, dtype=torch.uint8)",
+                "print(torchvision.io.image.encode_jpeg(image_tensor))",
+            ])
+            custom_commands.append('python -c "%s"' % python_code)
 
         return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
