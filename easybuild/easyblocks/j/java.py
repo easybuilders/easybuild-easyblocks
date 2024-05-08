@@ -38,7 +38,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir, which
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -54,6 +54,8 @@ class EB_Java(PackedBinary):
             jdkarch = 'aarch64'
         elif myarch == POWER:
             jdkarch = 'ppc64le'
+        elif myarch == RISCV64:
+            jdkarch = 'riscv64'
         elif myarch == X86_64:
             jdkarch = 'x64'
         else:
