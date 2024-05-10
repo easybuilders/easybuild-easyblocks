@@ -190,7 +190,11 @@ class EB_QuantumESPRESSO(CMakeMake):
         """Enable GIPAW for Quantum ESPRESSO."""
         if LooseVersion(self.version) == LooseVersion('7.3.1'):
             # See issue: https://github.com/dceresoli/qe-gipaw/issues/19
-            raise EasyBuildError('GIPAW will fail to compile in QE 7.3.1')
+            if not os.path.exists(os.path.join(self.builddir, self.install_subdir, 'external', 'qe-gipaw', '.git')):
+                raise EasyBuildError(
+                    'GIPAW compilation will fail for QE 7.3.1 without submodule downloaded via' +
+                    'sources in easyconfig.'
+                    )
         res = ['gipaw']
         self.check_bins += ['gipaw.x']
         return res
