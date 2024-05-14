@@ -164,7 +164,6 @@ class EB_CUDA(Binary):
         # fail.
         self.cfg.update('installopts', "--override")
 
-
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
             'interpreter': install_interpreter,
