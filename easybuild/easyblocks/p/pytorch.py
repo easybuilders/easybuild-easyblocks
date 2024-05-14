@@ -486,7 +486,8 @@ class EB_PyTorch(PythonPackage):
 
         # Create clear summary report
         test_result = parse_test_log(tests_out)
-        failure_report = ['%s (%s)' % (suite.name, suite.summary) for suite in test_result.failed_suites]
+        # Use a list of messages we can later join together
+        failure_msgs = ['%s (%s)' % (suite.name, suite.summary) for suite in test_result.failed_suites]
         failed_test_suites = set(suite.name for suite in test_result.failed_suites)
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
         # Also unique to be able to compare the lists below
@@ -495,20 +496,20 @@ class EB_PyTorch(PythonPackage):
         )
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
-            failure_report = ['Failed tests (suites/files):'] + failure_report
+            failure_msgs = ['Failed tests (suites/files):'] + failure_msgs
             # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
             uncounted_test_suites = all_failed_test_suites - failed_test_suites
             if uncounted_test_suites:
-                failure_report.append('Could not count failed tests for the following test suites/files:')
-                failure_report.extend(sorted(uncounted_test_suites))
+                failure_msgs.append('Could not count failed tests for the following test suites/files:')
+                failure_msgs.extend(sorted(uncounted_test_suites))
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             unexpected_test_suites = failed_test_suites - all_failed_test_suites
             if unexpected_test_suites:
-                failure_report.append('Counted failures of tests from the following test suites/files that are not '
-                                      'contained in the summary output of PyTorch:')
-                failure_report.extend(sorted(unexpected_test_suites))
+                failure_msgs.append('Counted failures of tests from the following test suites/files that are not '
+                                    'contained in the summary output of PyTorch:')
+                failure_msgs.extend(sorted(unexpected_test_suites))
 
-        failure_report = '\n'.join(failure_report)
+        failure_report = '\n'.join(failure_msgs)
 
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = test_result.failure_cnt + test_result.error_cnt
