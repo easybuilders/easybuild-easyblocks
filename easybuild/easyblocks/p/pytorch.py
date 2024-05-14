@@ -583,11 +583,11 @@ class EB_PyTorch(PythonPackage):
         return guesses
 
 
-if __name__ == '__main__':
-    arg = sys.argv[1]
-    if not os.path.isfile(arg):
-        raise RuntimeError('Expected a test result file to parse, got: ' + arg)
-    with open(arg, 'r') as f:
+def parse_logfile(file):
+    """Parse the EB logfile and print the failed tests"""
+    if not os.path.isfile(file):
+        raise RuntimeError('Expected a test result file to parse, got: ' + file)
+    with open(file, 'r') as f:
         content = f.read()
     m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
     if m:
@@ -599,3 +599,7 @@ if __name__ == '__main__':
 
     print("Failed test names: ", find_failed_test_names(content))
     print("Test result: ", parse_test_log(content))
+
+
+if __name__ == '__main__':
+    parse_logfile(sys.argv[1])
