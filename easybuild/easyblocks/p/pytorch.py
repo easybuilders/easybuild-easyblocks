@@ -45,17 +45,31 @@ from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 if sys.version_info >= (3, 9):
     from typing import NamedTuple
+    # Lists of tests that were marked as ERROR and FAIL respectively
     FailedTestNames = NamedTuple('FailedTestNames', [('error', list[str]), ('fail', list[str])])
+    # Name of test suite and summary of the tests run/failed/...
     TestSuiteResult = NamedTuple('TestSuiteResult', [('name', str), ('summary', str)])
+    # Test suite that was terminated with a signal
+    TerminatedTestSuite = NamedTuple('TerminatedTestSuite', [('name', str), ('signal', str)])
     TestResult = NamedTuple('TestResult', [('test_cnt', int),
                                            ('error_cnt', int),
                                            ('failure_cnt', int),
-                                           ('failed_suites', list[TestSuiteResult])])
+                                           ('failed_suites', list[TestSuiteResult]),
+                                           ('terminated_suites', list[TerminatedTestSuite]),
+                                           ('all_failed_suites', set[str]),
+                                           ])
 else:
     from collections import namedtuple
     FailedTestNames = namedtuple('FailedTestNames', ('error', 'fail'))
     TestSuiteResult = namedtuple('TestSuiteResult', ('name', 'summary'))
-    TestResult = namedtuple('TestResult', ('test_cnt', 'error_cnt', 'failure_cnt', 'failed_suites'))
+    TerminatedTestSuite = namedtuple('TerminatedTestSuite', ('name', 'signal'))
+    TestResult = namedtuple('TestResult', ('test_cnt',
+                                           'error_cnt',
+                                           'failure_cnt',
+                                           'failed_suites',
+                                           'terminated_suites',
+                                           'all_failed_suites'
+                                           ))
 
 
 def find_failed_test_names(tests_out):
@@ -198,7 +212,17 @@ def parse_test_log(tests_out):
     for m in re.finditer(regex, tests_out, re.M):
         test_cnt += sum(get_count_for_pattern(p, m.group("summary")) for p in count_patterns)
 
-    return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt, failed_suites=failed_suites)
+    # Gather all failed tests suites in case we missed any,
+    # e.g. when it exited due to syntax errors or with a signal such as SIGSEGV
+    failed_suites_and_signal = set(
+        re.findall(r"^(?P<test_name>.*) failed!( Received signal: (\w+))?\s*$", tests_out, re.M)
+    )
+
+    return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt,
+                      failed_suites=failed_suites,
+                      terminated_suites=[TerminatedTestSuite(name, signal)
+                                         for name, _, signal in failed_suites_and_signal if signal],
+                      all_failed_suites={i[0] for i in failed_suites_and_signal})
 
 
 class EB_PyTorch(PythonPackage):
@@ -489,11 +513,7 @@ class EB_PyTorch(PythonPackage):
         # Use a list of messages we can later join together
         failure_msgs = ['%s (%s)' % (suite.name, suite.summary) for suite in test_result.failed_suites]
         failed_test_suites = set(suite.name for suite in test_result.failed_suites)
-        # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        # Also unique to be able to compare the lists below
-        all_failed_test_suites = set(
-            re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
-        )
+        all_failed_test_suites = test_result.all_failed_suites
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
             failure_msgs = ['Failed tests (suites/files):'] + failure_msgs
@@ -509,46 +529,55 @@ class EB_PyTorch(PythonPackage):
                                     'contained in the summary output of PyTorch:')
                 failure_msgs.extend(sorted(unexpected_test_suites))
 
+        # Assemble final report
         failure_report = '\n'.join(failure_msgs)
-
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = test_result.failure_cnt + test_result.error_cnt
+        # Only add count if we detected any failed tests
+        if failed_test_cnt > 0:
+            failure_or_failures = 'failure' if test_result.failure_cnt == 1 else 'failures'
+            error_or_errors = 'error' if test_result.error_cnt == 1 else 'errors'
+            failure_report = "%d test %s, %d test %s (out of %d):\n" % (
+                test_result.failure_cnt, failure_or_failures,
+                test_result.error_cnt, error_or_errors,
+                test_result.test_cnt
+            ) + failure_report
+
+        if failed_test_suites != all_failed_test_suites:
+            # Fail because we can't be sure how many tests failed
+            # so comparing to max_failed_tests cannot reasonably be done
+            terminated_suite_names = set(name for name, _ in test_result.terminated_suites)
+            if failed_test_suites | terminated_suite_names == all_failed_test_suites:
+                suites = ", ".join("%s(%s)" % name_signal for name_signal in test_result.terminated_suites)
+                msg = ('Failing because these test suites were terminated which makes it impossible'
+                       'to accurately count the failed tests: ' + suites + '!')
+            else:
+                msg = 'Failing because the test accounting in the PyTorch EasyBlock needs updating!'
+            raise EasyBuildError(msg + '\n' +
+                                 'You can check the test failures (in the log) manually and if they are harmless, '
+                                 'use --ignore-test-failures to make the test step pass.\n' + failure_report)
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']
 
-            failure_or_failures = 'failure' if test_result.failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if test_result.error_cnt == 1 else 'errors'
-            msg = "%d test %s, %d test %s (out of %d):\n" % (
-                test_result.failure_cnt, failure_or_failures,
-                test_result.error_cnt, error_or_errors,
-                test_result.test_cnt
-            )
-            msg += failure_report
+            # If no tests are supposed to fail don't print the explanation, just fail
+            if max_failed_tests == 0:
+                raise EasyBuildError(failure_report)
+            msg = failure_report + '\n\n' + ' '.join([
+                "The PyTorch test suite is known to include some flaky tests,",
+                "which may fail depending on the specifics of the system or the context in which they are run.",
+                "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
+                "We recommend to double check that the failing tests listed above ",
+                "are known to be flaky, or do not affect your intended usage of PyTorch.",
+                "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
+            ])
+            # Print to console in addition to file,
+            # the user should really be aware that we are accepting failing tests here...
+            print_warning(msg, log=self.log)
 
-            # If no tests are supposed to fail or some failed for which we were not able to count errors fail now
-            if failed_test_suites != all_failed_test_suites:
-                raise EasyBuildError('Failing because the PyTorch EasyBlock needs updating!\n' + msg)
-            elif max_failed_tests == 0:
-                raise EasyBuildError(msg)
-            else:
-                msg += '\n\n' + ' '.join([
-                    "The PyTorch test suite is known to include some flaky tests,",
-                    "which may fail depending on the specifics of the system or the context in which they are run.",
-                    "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
-                    "We recommend to double check that the failing tests listed above ",
-                    "are known to be flaky, or do not affect your intended usage of PyTorch.",
-                    "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
-                ])
-                # Print to console, the user should really be aware that we are accepting failing tests here...
-                print_warning(msg)
-
-                # Also log this warning in the file log
-                self.log.warning(msg)
-
-                if failed_test_cnt > max_failed_tests:
-                    raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
-                                         failed_test_cnt, max_failed_tests)
+            if failed_test_cnt > max_failed_tests:
+                raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
+                                     failed_test_cnt, max_failed_tests)
         elif failure_report:
             raise EasyBuildError("Test ended with failures! Exit code: %s\n%s", tests_ec, failure_report)
         elif tests_ec:
