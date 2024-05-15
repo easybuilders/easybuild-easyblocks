@@ -82,9 +82,9 @@ class EB_MetalWalls(MakeCp):
         if plumed:
             f90flags += ['-fallow-argument-mismatch']  # Code inside ifdef causes mismatch errors
             fppflags += ['-DMW_USE_PLUMED']
-            cmd = ['plumed', 'patch', '--new', 'mw2']
+            cmd = ['touch', 'mw2.diff']
             run_cmd(' '.join(cmd), log_all=False, log_ok=False, simple=False, regexp=False)
-            cmd = ['plumed', 'patch', '--patch', '--shared', '--engine', 'mw2']
+            cmd = ['plumed', 'patch', '-d mw2.diff', '--patch', '--shared', '--engine', 'mw2']
             run_cmd(' '.join(cmd), log_all=True, simple=False)
         else:
             self.log.info('PLUMED not found, excluding from test-suite')
