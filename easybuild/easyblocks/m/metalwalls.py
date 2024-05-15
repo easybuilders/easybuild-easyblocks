@@ -31,8 +31,9 @@ import os
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 
 from easybuild.easyblocks.generic.makecp import MakeCp
@@ -77,6 +78,11 @@ class EB_MetalWalls(MakeCp):
         # https://gitlab.com/ampere2/metalwalls/-/wikis/install#plumed
         plumed = get_software_root('PLUMED')
         f90wrap = get_software_root('f90wrap')
+        f90wrap_version = get_software_version('f90wrap')
+
+        if LooseVersion(self.version) <= LooseVersion('21.06.1'):
+            if LooseVersion(f90wrap_version) > LooseVersion('0.2.13'):
+                raise EasyBuildError('MetalWalls version %s requires f90wrap <= 0.2.13' % self.version)
 
         tpl_rgx = 'alltests\\.append(suite_%s)'
         if plumed:
