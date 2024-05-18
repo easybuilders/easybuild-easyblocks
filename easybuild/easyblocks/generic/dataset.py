@@ -27,10 +27,15 @@ EasyBuild support for installing datasets
 
 @author: Samuel Moors (Vrije Universiteit Brussel)
 """
+import os
+
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig.default import CUSTOM
-from easybuild.tools.filetools import remove_file
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import compute_checksum, create_index, is_readable, mkdir, move_file, remove_file
+from easybuild.tools.filetools import symlink
+from easybuild.tools.utilities import trace_msg
 
 
 class Dataset(Binary):
@@ -49,18 +54,41 @@ class Dataset(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize Dataset-specific variables."""
-        self.easyblock_type = 'data'
         super(Dataset, self).__init__(*args, **kwargs)
+
+        if self.cfg['sources']:
+            raise EasyBuildError(
+                "Easyconfig parameter 'sources' is not supported for this EasyBlock. Use 'data_sources' instead.")
 
         if self.cfg['data_install_path']:
             self.installdir = self.cfg['data_install_path']
 
-        # extract sources directly into installation directory
+        # extract/copy sources directly into installation directory
         self.build_in_installdir = True
 
     def install_step(self):
         """No install step, datasets are extracted directly into installdir"""
         pass
+
+    def post_install_step(self):
+        """Add files to object_storage, remove duplicates, add symlinks"""
+
+        # creating object storage at root of software name to reuse identical files in different versions
+        object_storage = os.path.join(os.pardir, 'object_storage')
+        mkdir(object_storage)
+        datafiles = create_index(os.curdir)
+
+        trace_msg('adding files to object_storage...')
+        for datafile in datafiles:
+            checksum = compute_checksum(datafile, checksum_type='sha256')
+            print(datafile, checksum)
+            object_storage_file = os.path.join(object_storage, checksum)
+            if is_readable(object_storage_file):
+                remove_file(datafile)
+            else:
+                move_file(datafile, object_storage_file)
+            # use relative paths for symlinks to easily relocate data installations later on if needed
+            symlink(object_storage_file, datafile, use_abspath_source=False)
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
