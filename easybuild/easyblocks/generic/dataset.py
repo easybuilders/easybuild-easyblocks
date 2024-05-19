@@ -72,23 +72,24 @@ class Dataset(Binary):
 
     def post_install_step(self):
         """Add files to object_storage, remove duplicates, add symlinks"""
+        trace_msg('adding files to object_storage...')
 
         # creating object storage at root of software name to reuse identical files in different versions
         object_storage = os.path.join(os.pardir, 'object_storage')
         mkdir(object_storage)
         datafiles = create_index(os.curdir)
 
-        trace_msg('adding files to object_storage...')
         for datafile in datafiles:
             checksum = compute_checksum(datafile, checksum_type='sha256')
             print(datafile, checksum)
-            object_storage_file = os.path.join(object_storage, checksum)
-            if is_readable(object_storage_file):
+            objstor_file = os.path.join(object_storage, checksum)
+            if is_readable(objstor_file):
                 remove_file(datafile)
             else:
-                move_file(datafile, object_storage_file)
+                move_file(datafile, objstor_file)
             # use relative paths for symlinks to easily relocate data installations later on if needed
-            symlink(object_storage_file, datafile, use_abspath_source=False)
+            symlink(objstor_file, datafile, use_abspath_source=False)
+            self.log.debug("Created symlink %s to %s" % (datafile, objstor_file))
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
