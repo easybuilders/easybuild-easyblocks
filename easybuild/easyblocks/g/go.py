@@ -59,10 +59,6 @@ class EB_Go(ConfigureMake):
         specifying the final installation prefix by setting $GOROOT_FINAL.
         """
         srcdir = os.path.join(self.cfg['start_dir'], 'src')
-        try:
-            os.chdir(srcdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to move to %s: %s", srcdir, err)
 
         # $GOROOT_FINAL only specifies the location of the final installation, which gets baked into the binaries
         # the installation itself is *not* done by the all.bash script, that needs to be done manually
@@ -77,7 +73,7 @@ class EB_Go(ConfigureMake):
         else:
             cmd = "GOROOT_FINAL=%s ./all.bash" % self.installdir
 
-        run_shell_cmd(cmd)
+        run_shell_cmd(cmd, work_dir=srcdir)
 
         try:
             remove_dir(self.installdir)
