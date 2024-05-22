@@ -64,6 +64,8 @@ AMD_NEWLIB = 'AMD_GCN_NEWLIB'
 HOST_COMPILER = 'HOST_COMPILER'
 NVIDIA_NEWLIB = 'NVIDIA_NEWLIB'
 NVPTX_TOOLS = 'NVIDIA_NVPTX_TOOLS'
+# Default languages
+DEFAULT_LANGUAGES = ['c', 'c++', 'fortran']
 # Additional symlinks to create for compiler commands
 COMP_CMD_SYMLINKS = {
     'cc': 'gcc',
@@ -1055,7 +1057,7 @@ class EB_GCC(ConfigureMake):
         libexec_files = []
         dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
+        languages = self.cfg['languages'] or DEFAULT_LANGUAGES
 
         if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
