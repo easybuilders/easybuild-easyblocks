@@ -38,8 +38,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, read_file, symlink
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, read_file, symlink
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Molpro(ConfigureMake, Binary):
@@ -123,7 +123,7 @@ class EB_Molpro(ConfigureMake, Binary):
             else:
                 self.cfg.update('configopts', '-i8')
 
-            run_cmd("./configure -batch %s" % self.cfg['configopts'])
+            run_shell_cmd("./configure -batch %s" % self.cfg['configopts'])
 
             cfgfile = os.path.join(self.cfg['start_dir'], 'CONFIG')
             cfgtxt = read_file(cfgfile)
@@ -173,11 +173,11 @@ class EB_Molpro(ConfigureMake, Binary):
         if os.path.isfile(self.license_token) and not self.cfg['precompiled_binaries']:
 
             # check 'main routes' only
-            run_cmd("make quicktest")
+            run_shell_cmd("make quicktest")
 
             if build_option('mpi_tests'):
                 # extensive test
-                run_cmd("make MOLPRO_OPTIONS='-n%s' test" % self.cfg['parallel'])
+                run_shell_cmd("make MOLPRO_OPTIONS='-n%s' test" % self.cfg['parallel'])
             else:
                 self.log.info("Skipping extensive testing of Molpro since MPI testing is disabled")
 
@@ -194,10 +194,8 @@ class EB_Molpro(ConfigureMake, Binary):
 
         if self.cfg['precompiled_binaries']:
             """Build by running the command with the inputfiles"""
-            try:
-                os.chdir(self.cfg['start_dir'])
-            except OSError as err:
-                raise EasyBuildError("Failed to move (back) to %s: %s", self.cfg['start_dir'], err)
+
+            change_dir(self.cfg['start_dir'])
 
             for src in self.src:
                 if LooseVersion(self.version) >= LooseVersion('2015'):
@@ -207,21 +205,20 @@ class EB_Molpro(ConfigureMake, Binary):
                 else:
                     cmd = "./{0} -batch -instbin {1}/bin -instlib {1}/lib".format(src['name'], self.installdir)
 
-                # questions whose text must match exactly as asked
-                qa = {
-                    "Please give your username for accessing molpro\n": '',
-                    "Please give your password for accessing molpro\n": '',
-                }
-                # questions whose text may be matched as a regular expression
-                stdqa = {
-                    r"Enter installation directory for executable files \[.*\]\n": os.path.join(self.installdir, 'bin'),
-                    r"Enter installation directory for library files \[.*\]\n": os.path.join(self.installdir, 'lib'),
-                    r"directory .* does not exist, try to create [Y]/n\n": '',
-                }
-                run_cmd_qa(cmd, qa=qa, std_qa=stdqa, log_all=True, simple=True)
+                bindir = os.path.join(self.installdir, 'bin')
+                libdir = os.path.join(self.installdir, 'lib')
+
+                qa = [
+                    (r"Please give your username for accessing molpro\n", ''),
+                    (r"Please give your password for accessing molpro\n", ''),
+                    (r"Enter installation directory for executable files \[.*\]\n", bindir),
+                    (r"Enter installation directory for library files \[.*\]\n", libdir),
+                    (r"directory .* does not exist, try to create [Y]/n\n", ''),
+                ]
+                run_shell_cmd(cmd, qa_patterns=qa)
         else:
             if os.path.isfile(self.license_token):
-                run_cmd("make tuning")
+                run_shell_cmd("make tuning")
 
             super(EB_Molpro, self).install_step()
 
