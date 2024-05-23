@@ -34,6 +34,7 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, pick_python_cmd
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
@@ -147,7 +148,9 @@ class PythonBundle(Bundle):
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions
-        if self.multi_python:
+        # or if we prefer it
+        prefer_ebpythonprefixes = build_option('prefer_ebpythonprefixes') and self.cfg['prefer_ebpythonprefixes']
+        if self.multi_python or prefer_ebpythonprefixes:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
 
