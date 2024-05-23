@@ -221,6 +221,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'check_files': [None, "List of tests for sanity-check.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -492,11 +493,14 @@ class EB_LAMMPS(CMakeMake):
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
-        check_files = [
-            'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-            'hugoniostat', 'indent', 'melt', 'min', 'msst',
-            'nemd', 'obstacle', 'pour', 'voronoi',
-        ]
+        if self.cfg['check_files']:
+            check_files = self.cfg['check_files']
+        else:
+            check_files = [
+                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
+                'hugoniostat', 'indent', 'melt', 'min', 'msst',
+                'nemd', 'obstacle', 'pour', 'voronoi',
+            ]
 
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
