@@ -60,7 +60,3 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
-
-    # def sanity_check_step(self, *args, **kwargs):
-    #     self.cfg['sources'] = None
-    #     super(CargoPythonBundle, self).sanity_check_step(*args, **kwargs)
