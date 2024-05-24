@@ -101,7 +101,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Regex pattern to find version strings in OpenSSL libraries and headers
         full_version_regex = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+[a-z]?')
-        openssl_version_regex = re.compile(r'OpenSSL\s+([0-9]+\.[0-9]+(\.[0-9]+[a-z]?)*)', re.M)
+        openssl_version_regex = re.compile(r'(?i)OpenSSL[\s_]+([0-9]+\.[0-9]+(\.[0-9]+[a-z]?)*)', re.M)
 
         # Libraries packaged in OpenSSL
         openssl_libs = ['libssl', 'libcrypto']
@@ -259,13 +259,23 @@ class EB_OpenSSL_wrapper(Bundle):
                     err_msg = "System OpenSSL header '%s' does not contain any recognizable version string"
                     raise EasyBuildError(err_msg, opensslv_path)
 
-                if header_version == self.system_ssl['version']:
+                header_version_major = header_version.split('.')[0]
+                system_ssl_version_major = self.system_ssl['version'].split('.')[0]
+
+                # Compare only major version of header for OpenSSL 3+
+                # This is needed on Debian-based distros
+                if LooseVersion(self.version) >= LooseVersion('3'):
+                    header_found = (header_version_major == system_ssl_version_major)
+                else:
+                    header_found = (header_version == self.system_ssl['version'])
+
+                if header_found:
                     self.system_ssl['include'] = include_dir
                     info_msg = "Found OpenSSL headers v%s in host system: %s"
                     self.log.info(info_msg, header_version, self.system_ssl['include'])
                     break
                 else:
-                    dbg_msg = "System OpenSSL header version '%s' doesn not match library version '%s'"
+                    dbg_msg = "System OpenSSL header version '%s' does not match library version '%s'"
                     self.log.debug(dbg_msg, header_version, self.system_ssl['version'])
             else:
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
