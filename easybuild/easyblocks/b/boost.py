@@ -326,6 +326,8 @@ class EB_Boost(EasyBlock):
                     lib_mt_suffix += '-a64'
                 elif get_cpu_architecture() == POWER:
                     lib_mt_suffix += '-p64'
+                elif get_cpu_architecture() == RISCV64:
+                    lib_mt_suffix += '-r64'
                 else:
                     lib_mt_suffix += '-x64'
 
