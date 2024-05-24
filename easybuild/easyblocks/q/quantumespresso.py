@@ -54,10 +54,10 @@ class EB_QuantumESPRESSO(EasyBlock):
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters for Quantum ESPRESSO."""
-        config_extra_vars = EB_QuantumESPRESSOconfig.extra_options()
-        cmake_extra_vars = EB_QuantumESPRESSOcmake.extra_options()
+        extra_opts  = EB_QuantumESPRESSOconfig.extra_options()
+        extra_opts.update(EB_QuantumESPRESSOcmake.extra_options())
 
-        return {**config_extra_vars, **cmake_extra_vars}
+        return extra_opts
 
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
