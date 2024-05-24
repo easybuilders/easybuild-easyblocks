@@ -62,6 +62,7 @@ class EB_QuantumESPRESSO(EasyBlock):
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
         super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
+
         def new_getattribute(cls, name):
             """Forward all calls to the selected easyblock."""
             if name == 'ebclass':
@@ -76,6 +77,7 @@ class EB_QuantumESPRESSO(EasyBlock):
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
         self.ebclass = eb(new_ec, *args, **kwargs)
         self.__class__.__getattribute__ = new_getattribute
+
 
 class EB_QuantumESPRESSOcmake(CMakeMake):
     """Support for building and installing Quantum ESPRESSO."""
