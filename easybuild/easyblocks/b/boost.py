@@ -53,7 +53,7 @@ from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
+from easybuild.tools.systemtools import RISCV64, AARCH64, POWER, UNKNOWN
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
