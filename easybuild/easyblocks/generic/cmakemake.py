@@ -207,15 +207,16 @@ class CMakeMake(ConfigureMake):
             options['CMAKE_BUILD_TYPE'] = self.build_type
 
         # Set installation directory for libraries
-        # any CMAKE_INSTALL_DIR[:PATH] setting defined in easyconfig has precedence
-        cmake_install_dir_pattern = re.compile(r"-DCMAKE_INSTALL_LIBDIR(:PATH)?=[^\s]")
-        if cmake_install_dir_pattern.search(self.cfg['configopts']):
-            self.log.info(
-                "CMAKE_INSTALL_LIBDIR is set in configopts. Ignoring 'install_libdir' easyconfig parameter."
-            )
-        else:
-            # set CMAKE_INSTALL_LIBDIR including its type to PATH, otherwise CMake can silently ignore it
-            options['CMAKE_INSTALL_LIBDIR:PATH'] = self.cfg['install_libdir']
+        # any CMAKE_INSTALL_DIR[:PATH] setting defined in 'configopts' has precedence over 'install_libdir'
+        if self.cfg['install_libdir'] is not None:
+            cmake_install_dir_pattern = re.compile(r"-DCMAKE_INSTALL_LIBDIR(:PATH)?=[^\s]")
+            if cmake_install_dir_pattern.search(self.cfg['configopts']):
+                self.log.info(
+                    "CMAKE_INSTALL_LIBDIR is set in configopts. Ignoring 'install_libdir' easyconfig parameter."
+                )
+            else:
+                # set CMAKE_INSTALL_LIBDIR including its type to PATH, otherwise CMake can silently ignore it
+                options['CMAKE_INSTALL_LIBDIR:PATH'] = self.cfg['install_libdir']
 
         # Add -fPIC flag if necessary
         if self.toolchain.options['pic']:
