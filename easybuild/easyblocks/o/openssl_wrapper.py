@@ -180,8 +180,14 @@ class EB_OpenSSL_wrapper(Bundle):
                         # filename lacks the full version, fallback to version strings within the library
                         solib_strings = read_file(system_solib, mode="rb").decode('utf-8', 'replace')
                         try:
-                            openssl_version = openssl_version_regex.search(solib_strings).group(1)
-                        except AttributeError:
+                            openssl_support_versions = openssl_version_regex.findall(solib_strings)
+                            openssl_support_versions.sort()
+                            dbg_msg = "System OpenSSL library '%s' supports versions: %s"
+                            dbg_msg_support_versions = ', '.join([''.join(v) for v in openssl_support_versions])
+                            self.log.debug(dbg_msg, system_solib, dbg_msg_support_versions)
+                            # pick highest supported version
+                            openssl_version = openssl_support_versions[-1][0]
+                        except IndexError:
                             dbg_msg = "Could not detect the full version of system OpenSSL library: %s"
                             self.log.debug(dbg_msg, system_solib)
                     # check that system version fulfills requirements
