@@ -242,6 +242,10 @@ class EB_OpenSSL_wrapper(Bundle):
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
+        elif LooseVersion(self.version) >= LooseVersion('3'):
+            # but version 3.x can be installed in 'include/openssl3/openssl' as well, for example in RHEL 8 derivatives
+            # prefer 'include/openssl' as long as the version of headers matches
+            ssl_include_subdirs.append(os.path.join('openssl3', self.name.lower()))
 
         ssl_include_dirs = [os.path.join(incd, subd) for incd in sys_include_dirs for subd in ssl_include_subdirs]
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
