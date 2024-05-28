@@ -294,6 +294,9 @@ class EB_OpenSSL_wrapper(Bundle):
         if self.majmin_version == '1.1':
             # prefer 'openssl11' over 'openssl' with v1.1
             self.system_ssl['bin'] = which('openssl11')
+        elif LooseVersion(self.version) >= LooseVersion('3'):
+            # prefer 'openssl3' over 'openssl' with v3.x
+            self.system_ssl['bin'] = which('openssl3')
 
         if not self.system_ssl['bin']:
             self.system_ssl['bin'] = which('openssl')
