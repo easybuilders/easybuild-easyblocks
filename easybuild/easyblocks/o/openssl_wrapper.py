@@ -101,7 +101,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Regex pattern to find version strings in OpenSSL libraries and headers
         full_version_regex = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+[a-z]?')
-        openssl_version_regex = re.compile(r'(?i)OpenSSL[\s_]+([0-9]+\.[0-9]+(\.[0-9]+[a-z]?)*)', re.M)
+        openssl_version_regex = re.compile(r'OpenSSL[\s_]+([0-9]+\.[0-9]+(\.[0-9]+[a-z]?)*)', re.M | re.I)
 
         # Libraries packaged in OpenSSL
         openssl_libs = ['libssl', 'libcrypto']
@@ -168,11 +168,13 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Check the system libraries of OpenSSL
         # Find library file and compare its version string
+        target_system_ssl = {}
         for idx, solibs in enumerate(system_versioned_libs):
+            target_system_ssl['version'] = '0'
+            target_system_ssl['libs'] = []
             for solib in solibs:
                 system_solib = find_library_path(solib)
                 if system_solib:
-                    openssl_version = '0'
                     # get version of system library filename
                     try:
                         openssl_version = full_version_regex.search(os.path.realpath(system_solib)).group(0)
@@ -180,30 +182,35 @@ class EB_OpenSSL_wrapper(Bundle):
                         # filename lacks the full version, fallback to version strings within the library
                         solib_strings = read_file(system_solib, mode="rb").decode('utf-8', 'replace')
                         try:
-                            openssl_version = openssl_version_regex.search(solib_strings).group(1)
-                        except AttributeError:
+                            openssl_support_versions = openssl_version_regex.findall(solib_strings)
+                            openssl_support_versions.sort()
+                            dbg_msg = "System OpenSSL library '%s' supports versions: %s"
+                            dbg_msg_support_versions = ', '.join([''.join(v) for v in openssl_support_versions])
+                            self.log.debug(dbg_msg, system_solib, dbg_msg_support_versions)
+                            # pick highest supported version
+                            openssl_version = openssl_support_versions[-1][0]
+                        except IndexError:
                             dbg_msg = "Could not detect the full version of system OpenSSL library: %s"
                             self.log.debug(dbg_msg, system_solib)
                     # check that system version fulfills requirements
                     if LooseVersion(openssl_version) >= LooseVersion(min_openssl_version):
                         dbg_msg = "System OpenSSL library '%s' with version %s fulfills requested version %s"
                         self.log.debug(dbg_msg, system_solib, openssl_version, min_openssl_version)
-                        self.system_ssl['libs'].append(system_solib)
+                        target_system_ssl['version'] = openssl_version
+                        target_system_ssl['libs'].append(system_solib)
                     else:
                         dbg_msg = "System OpenSSL library '%s' with version %s is older than requested version %s"
                         self.log.debug(dbg_msg, system_solib, openssl_version, min_openssl_version)
                 else:
                     # one of the OpenSSL libraries is missing, switch to next group of versioned libs
-                    self.system_ssl['libs'] = []
                     break
 
-            if len(self.system_ssl['libs']) == len(openssl_libs):
-                # keep these libraries as possible targets for this installation
-                target_system_ssl_libs = system_versioned_libs[idx]
+            if len(target_system_ssl['libs']) == len(openssl_libs):
+                # target libraries found, ignore further options
                 break
 
-        if len(self.system_ssl['libs']) == len(openssl_libs):
-            self.system_ssl['version'] = openssl_version
+        if len(target_system_ssl['libs']) == len(openssl_libs):
+            self.system_ssl.update(target_system_ssl)
             info_msg = "Found OpenSSL library version %s in host system: %s"
             self.log.info(info_msg, self.system_ssl['version'], os.path.dirname(self.system_ssl['libs'][0]))
         else:
@@ -242,6 +249,10 @@ class EB_OpenSSL_wrapper(Bundle):
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
+        elif LooseVersion(self.version) >= LooseVersion('3'):
+            # but version 3.x can be installed in 'include/openssl3/openssl' as well, for example in RHEL 8 derivatives
+            # prefer 'include/openssl' as long as the version of headers matches
+            ssl_include_subdirs.append(os.path.join('openssl3', self.name.lower()))
 
         ssl_include_dirs = [os.path.join(incd, subd) for incd in sys_include_dirs for subd in ssl_include_subdirs]
         ssl_include_dirs = [include for include in ssl_include_dirs if os.path.isdir(include)]
@@ -259,17 +270,7 @@ class EB_OpenSSL_wrapper(Bundle):
                     err_msg = "System OpenSSL header '%s' does not contain any recognizable version string"
                     raise EasyBuildError(err_msg, opensslv_path)
 
-                header_version_major = header_version.split('.')[0]
-                system_ssl_version_major = self.system_ssl['version'].split('.')[0]
-
-                # Compare only major version of header for OpenSSL 3+
-                # This is needed on Debian-based distros
-                if LooseVersion(self.version) >= LooseVersion('3'):
-                    header_found = (header_version_major == system_ssl_version_major)
-                else:
-                    header_found = (header_version == self.system_ssl['version'])
-
-                if header_found:
+                if LooseVersion(header_version) >= LooseVersion(min_openssl_version):
                     self.system_ssl['include'] = include_dir
                     info_msg = "Found OpenSSL headers v%s in host system: %s"
                     self.log.info(info_msg, header_version, self.system_ssl['include'])
@@ -290,6 +291,9 @@ class EB_OpenSSL_wrapper(Bundle):
         if self.majmin_version == '1.1':
             # prefer 'openssl11' over 'openssl' with v1.1
             self.system_ssl['bin'] = which('openssl11')
+        elif LooseVersion(self.version) >= LooseVersion('3'):
+            # prefer 'openssl3' over 'openssl' with v3.x
+            self.system_ssl['bin'] = which('openssl3')
 
         if not self.system_ssl['bin']:
             self.system_ssl['bin'] = which('openssl')
@@ -301,7 +305,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return
 
         # system OpenSSL is fine, change target libraries to the ones found in it
-        self.target_ssl_libs = target_system_ssl_libs
+        self.target_ssl_libs = [os.path.basename(solib) for solib in target_system_ssl["libs"]]
         self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
 
     def fetch_step(self, *args, **kwargs):
