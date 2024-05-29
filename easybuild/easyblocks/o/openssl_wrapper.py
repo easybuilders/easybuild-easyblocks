@@ -145,6 +145,14 @@ class EB_OpenSSL_wrapper(Bundle):
             '3': 'engines-3',
         }
 
+        # Define targets for this generation
+        # They are used to sanity check both installations from source or wrappers
+        self.generation_targets = {
+            'bin': 'openssl',
+            'engines': openssl_engines[self.generation],
+            'libs': system_versioned_libs[0],  # first set of libs match source installs
+        }
+
         # Paths to system components of OpenSSL
         self.system_ssl = {
             'bin': None,
@@ -159,7 +167,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return
 
         # Check system OpenSSL binary
-        target_ssl_bins = ['openssl']
+        target_ssl_bins = [self.generation_targets['bin']]
         if self.generation == '1.1':
             target_ssl_bins.insert(0, 'openssl11')  # prefer 'openssl11' over 'openssl' with v1.1
         elif self.generation == '3':
@@ -224,6 +232,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         if len(target_ssl_libs) == len(openssl_libs):
             self.system_ssl['libs'] = target_ssl_libs
+            self.generation_targets['libs'] = [os.path.basename(solib) for solib in target_ssl_libs]
             info_msg = "Found OpenSSL library version %s in host system: %s"
             self.log.info(info_msg, ssl_lib_version, os.path.dirname(self.system_ssl['libs'][0]))
         else:
@@ -371,15 +380,15 @@ class EB_OpenSSL_wrapper(Bundle):
         """Custom sanity check for OpenSSL wrapper."""
         shlib_ext = get_shared_lib_ext()
 
-        ssl_libs = [os.path.basename(solib) for solib in self.system_ssl["libs"]]
-        ssl_libs.extend(['%s.%s' % (solib.split('.')[0], shlib_ext) for solib in ssl_libs])
+        ssl_libs = ['%s.%s' % (solib.split('.')[0], shlib_ext) for solib in self.generation_targets['libs']]
+        ssl_libs.extend(self.generation_targets['libs'])
 
-        ssl_files = [os.path.join('bin', self.name.lower())]
+        ssl_files = [os.path.join('bin', self.generation_targets['bin'])]
         ssl_files.extend(os.path.join('lib', libso) for libso in ssl_libs)
 
         ssl_dirs = [
             os.path.join('include', self.name.lower()),
-            os.path.join('lib', os.path.basename(self.system_ssl["engines"])),
+            os.path.join('lib', self.generation_targets["engines"]),
             os.path.join('lib', 'pkgconfig'),
         ]
 
@@ -445,7 +454,7 @@ Version: %(version)s
             'libcrypto': {
                 'name': 'OpenSSL-libcrypto',
                 'description': 'OpenSSL cryptography library',
-                'enginesdir': os.path.basename(self.system_ssl["engines"]),
+                'enginesdir': self.generation_targets["engines"],
             },
             'libssl': {
                 'name': 'OpenSSL-libssl',
