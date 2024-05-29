@@ -203,7 +203,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         installinfo_opts["GMS_MATHLIB"] = mathlib
         installinfo_opts["GMS_MATHLIB_PATH"] = mathlib_path
-        installinfo_opts["GMS_LAPACK_LINK_LINE"] = '"%s"' % mathlib_flags
+        installinfo_opts["GMS_LAPACK_LINK_LINE"] = f'"{mathlib_flags}"'
 
         # verify selected DDI communication layer
         known_ddi_comms = ['mpi', 'mixed', 'shmem', 'sockets']
@@ -286,7 +286,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                 try:
                     lked = os.path.join(self.builddir, 'lked')
                     for line in fileinput.input(lked, inplace=1, backup='.orig'):
-                        line = re.sub(r"^(\s*set\sLIBXC_FLAGS)=.*GMS_PATH.*", r'\1="%s"' % libxc_linker_flags, line)
+                        line = re.sub(r"^(\s*set\sLIBXC_FLAGS)=.*GMS_PATH.*", rf'\1="{libxc_linker_flags}"', line)
                         sys.stdout.write(line)
                 except IOError as err:
                     raise EasyBuildError("Failed to patch %s: %s", lked, err)
@@ -314,7 +314,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         installinfo_opts['XMVB'] = False
 
         # add include paths from dependencies
-        installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS']
+        installinfo_opts["GMS_FPE_FLAGS"] = f"\"{os.environ['CPPFLAGS']}\""
         # might be useful for debugging
         # installinfo_opts["GMS_FPE_FLAGS"] = '"%s"' % os.environ['CPPFLAGS'] + "-ffpe-trap=invalid,zero,overflow"
 
@@ -324,27 +324,27 @@ class EB_GAMESS_minus_US(EasyBlock):
         boolean_opts = {opt: str(val).lower() for opt, val in installinfo_opts.items() if val in [True, False]}
         installinfo_opts.update(boolean_opts)
         # format: setenv KEY VALUE
-        installinfo_txt = '\n'.join(["setenv %s %s" % (k, installinfo_opts[k]) for k in installinfo_opts])
+        installinfo_txt = '\n'.join([f"setenv {k} {installinfo_opts[k]}" for k in installinfo_opts])
         write_file(installinfo_file, installinfo_txt)
-        self.log.debug("Contents of %s:\n%s" % (installinfo_file, read_file(installinfo_file)))
+        self.log.debug(f"Contents of {installinfo_file}:\n{read_file(installinfo_file)}")
 
         # patch hardcoded settings in rungms to use values specified in easyconfig file
         rungms = os.path.join(self.builddir, 'rungms')
         extra_gmspath_lines = "set ERICFMT=$GMSPATH/auxdata/ericfmt.dat\nset MCPPATH=$GMSPATH/auxdata/MCP\n"
         try:
             for line in fileinput.input(rungms, inplace=1, backup='.orig'):
-                line = re.sub(r"^(\s*set\s*TARGET)=.*", r"\1=%s" % self.cfg['ddi_comm'], line)
-                line = re.sub(r"^(\s*set\s*GMSPATH)=.*", r"\1=%s\n%s" % (self.installdir, extra_gmspath_lines), line)
-                line = re.sub(r"(null\) set VERNO)=.*", r"\1=%s" % self.version, line)
-                line = re.sub(r"^(\s*set DDI_MPI_CHOICE)=.*", r"\1=%s" % mpilib, line)
-                line = re.sub(r"^(\s*set DDI_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path, line)
-                line = re.sub(r"^(\s*set GA_MPI_ROOT)=.*%s.*" % mpilib.lower(), r"\1=%s" % mpilib_path, line)
+                line = re.sub(r"^(\s*set\s*TARGET)=.*", rf"\1={self.cfg['ddi_comm']}", line)
+                line = re.sub(r"^(\s*set\s*GMSPATH)=.*", rf"\1={self.installdir}\n{extra_gmspath_lines}", line)
+                line = re.sub(r"(null\) set VERNO)=.*", rf"\1={self.version}", line)
+                line = re.sub(r"^(\s*set DDI_MPI_CHOICE)=.*", rf"\1={mpilib}", line)
+                line = re.sub(rf"^(\s*set DDI_MPI_ROOT)=.*{mpilib.lower()}.*", rf"\1={mpilib_path}", line)
+                line = re.sub(rf"^(\s*set GA_MPI_ROOT)=.*{mpilib.lower()}.*", rf"\1={mpilib_path}", line)
                 # comment out all adjustments to $LD_LIBRARY_PATH that involves hardcoded paths
                 line = re.sub(r"^(\s*)(setenv\s*LD_LIBRARY_PATH\s*/.*)", r"\1#\2", line)
                 # scratch directory paths
-                line = re.sub(r"^(\s*set\s*SCR)=.*", r"if ( ! $?SCR ) \1=%s" % self.cfg['scratch_dir'], line)
+                line = re.sub(r"^(\s*set\s*SCR)=.*", rf"if ( ! $?SCR ) \1={self.cfg['scratch_dir']}", line)
                 line = re.sub(
-                    r"^(\s*set\s*USERSCR)=.*", r"if ( ! $?USERSCR ) \1=%s" % self.cfg['user_scratch_dir'], line
+                    r"^(\s*set\s*USERSCR)=.*", rf"if ( ! $?USERSCR ) \1={self.cfg['user_scratch_dir']}", line
                 )
                 line = re.sub(r"^(df -k \$SCR)$", r"mkdir -p $SCR && mkdir -p $USERSCR && \1", line)
                 if self.cfg['hyperthreading'] is False:
@@ -359,8 +359,8 @@ class EB_GAMESS_minus_US(EasyBlock):
         compddi = os.path.join(self.builddir, 'ddi/compddi')
         try:
             for line in fileinput.input(compddi, inplace=1, backup='.orig'):
-                line = re.sub(r"^(\s*set MAXCPUS)=.*", r"\1=%s" % self.cfg['maxcpus'], line, 1)
-                line = re.sub(r"^(\s*set MAXNODES)=.*", r"\1=%s" % self.cfg['maxnodes'], line, 1)
+                line = re.sub(r"^(\s*set MAXCPUS)=.*", rf"\1={self.cfg['maxcpus']}", line, 1)
+                line = re.sub(r"^(\s*set MAXNODES)=.*", rf"\1={self.cfg['maxnodes']}", line, 1)
                 sys.stdout.write(line)
         except IOError as err:
             raise EasyBuildError("Failed to patch compddi", compddi, err)
@@ -388,23 +388,23 @@ class EB_GAMESS_minus_US(EasyBlock):
         if not os.path.isfile(libddi):
             raise EasyBuildError("The libddi.a library (%s) was never built", libddi)
         else:
-            self.log.info("The libddi.a library (%s) was successfully built." % libddi)
+            self.log.info("The libddi.a library (%s) was successfully built.", libddi)
 
         ddikick = os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
         if os.path.isfile(ddikick):
-            self.log.info("The ddikick.x executable (%s) was successfully built." % ddikick)
+            self.log.info("The ddikick.x executable (%s) was successfully built.", ddikick)
 
             if self.cfg['ddi_comm'] == 'sockets':
                 src = ddikick
                 dst = os.path.join(self.cfg['start_dir'], 'ddikick.x')
-                self.log.info("Moving ddikick.x executable from %s to %s." % (src, dst))
+                self.log.info("Moving ddikick.x executable from %s to %s.", src, dst)
                 os.rename(src, dst)
 
         compall_cmd = os.path.join(self.cfg['start_dir'], 'compall')
-        compall = "%s %s %s" % (self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts'])
+        compall = " ".join([self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts']])
         run_shell_cmd(compall)
 
-        gamess_cmd = "%s gamess %s" % (os.path.join(self.cfg['start_dir'], 'lked'), self.version)
+        gamess_cmd = f"{os.path.join(self.cfg['start_dir'], 'lked')} gamess {self.version}"
         run_shell_cmd(gamess_cmd)
 
     def test_step(self):
@@ -455,7 +455,7 @@ class EB_GAMESS_minus_US(EasyBlock):
                 except OSError as err:
                     raise EasyBuildError("Failed to copy test '%s' to %s: %s", exam, self.testdir, err)
 
-            test_env_vars.append('SCR=%s' % self.testdir)
+            test_env_vars.append(f"SCR={self.testdir}")
 
             # run target exam<id> tests, dump output to exam<id>.log
             rungms = os.path.join(self.installdir, 'rungms')
@@ -475,7 +475,7 @@ class EB_GAMESS_minus_US(EasyBlock):
             if done_tests - failed_tests == done_tests:
                 info_msg = "All target tests ran successfully!"
                 if self.cfg['ddi_comm'] == 'mpi':
-                    info_msg += " (serial tests ignored: %s)" % ", ".join(GAMESS_SERIAL_TESTS)
+                    info_msg += f" (serial tests ignored: {', '.join(GAMESS_SERIAL_TESTS)})"
                 self.log.info(info_msg)
             else:
                 raise EasyBuildError("ERROR: Not all target tests ran successfully")
@@ -494,7 +494,7 @@ class EB_GAMESS_minus_US(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for GAMESS-US."""
         custom_paths = {
-            'files': ['gamess.%s.x' % self.version, 'rungms'],
+            'files': [f'gamess.{self.version}.x', 'rungms'],
             'dirs': [],
         }
         super(EB_GAMESS_minus_US, self).sanity_check_step(custom_paths=custom_paths)
