@@ -270,8 +270,8 @@ class EB_OpenSSL_wrapper(Bundle):
                     self.log.info(info_msg, header_version, self.system_ssl['include'])
                     break
                 else:
-                    dbg_msg = "System OpenSSL header version '%s' does not match library version '%s'"
-                    self.log.debug(dbg_msg, header_version, self.system_ssl['version'])
+                    dbg_msg = "System OpenSSL header version '%s' does not fulfill minimum version requirement '%s'"
+                    self.log.debug(dbg_msg, header_version, min_openssl_version)
             else:
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
