@@ -81,7 +81,7 @@ class EB_OpenSSL_wrapper(Bundle):
                 err_msg = "Wrapper for OpenSSL v1 version is missing a minor version: %s"
                 raise EasyBuildError(err_msg, self.version)
         elif LooseVersion(self.version) < LooseVersion('4'):
-                self.generation = "3"
+            self.generation = "3"
 
         # Set minimum OpenSSL version
         min_openssl_version = self.cfg.get('minimum_openssl_version')
@@ -295,7 +295,8 @@ class EB_OpenSSL_wrapper(Bundle):
                 break
 
         if self.system_ssl['bin']:
-            self.log.info("System OpenSSL binary for version %s found: %s", self.system_ssl['version'], self.system_ssl['bin'])
+            log_msg = "System OpenSSL binary for version %s found: %s"
+            self.log.info(log_msg, self.system_ssl['version'], self.system_ssl['bin'])
         else:
             self.log.info("System OpenSSL binary for version %s not found!", self.system_ssl['version'])
             return
