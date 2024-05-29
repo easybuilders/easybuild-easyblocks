@@ -73,16 +73,15 @@ class EB_OpenSSL_wrapper(Bundle):
         """Locate the installation files of OpenSSL in the host system"""
         super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
 
-        # Wrapper should have at least a major minor version numbers for OpenSSL before version 3+
-        if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
-            self.majmin_version = self.version
-        else:
+        if LooseVersion(self.version) < LooseVersion('2'):
             try:
                 subversions = self.version.split('.')
-                self.majmin_version = '%s.%s' % (subversions[0], subversions[1])
+                self.generation = '%s.%s' % (subversions[0], subversions[1])
             except (AttributeError, IndexError):
-                err_msg = "Wrapper OpenSSL version does not have any subversion: %s"
+                err_msg = "Wrapper for OpenSSL v1 version is missing a minor version: %s"
                 raise EasyBuildError(err_msg, self.version)
+        elif LooseVersion(self.version) < LooseVersion('4'):
+                self.generation = "3"
 
         # Set minimum OpenSSL version
         min_openssl_version = self.cfg.get('minimum_openssl_version')
@@ -117,10 +116,6 @@ class EB_OpenSSL_wrapper(Bundle):
                 LINUX: ('so.1.1', ),
                 DARWIN: ('1.1.dylib', ),
             },
-            '3.0': {
-                LINUX: ('so.3', ),
-                DARWIN: ('3.dylib', ),
-            },
             '3': {
                 LINUX: ('so.3', ),
                 DARWIN: ('3.dylib', ),
@@ -128,16 +123,16 @@ class EB_OpenSSL_wrapper(Bundle):
         }
 
         os_type = get_os_type()
-        if self.majmin_version in openssl_libext and os_type in openssl_libext[self.majmin_version]:
+        if self.generation in openssl_libext and os_type in openssl_libext[self.generation]:
             # generate matrix of versioned .so filenames
             system_versioned_libs = [
                 ['%s.%s' % (lib, ext) for lib in openssl_libs]
-                for ext in openssl_libext[self.majmin_version][os_type]
+                for ext in openssl_libext[self.generation][os_type]
             ]
             self.log.info("Matrix of version library names: %s", system_versioned_libs)
         else:
-            err_msg = "Don't know name of OpenSSL system library for version %s and OS type %s"
-            raise EasyBuildError(err_msg, self.majmin_version, os_type)
+            err_msg = "OpenSSL system library for version %s and OS type %s is unsupported"
+            raise EasyBuildError(err_msg, self.generation, os_type)
 
         # by default target the first option of each OpenSSL library,
         # which corresponds to installation from source
@@ -148,10 +143,9 @@ class EB_OpenSSL_wrapper(Bundle):
         openssl_engines = {
             '1.0': 'engines',
             '1.1': 'engines-1.1',
-            '3.0': 'engines-3',
             '3': 'engines-3',
         }
-        self.target_ssl_engine = openssl_engines[self.majmin_version]
+        self.target_ssl_engine = openssl_engines[self.generation]
 
         # Paths to system libraries and headers of OpenSSL
         self.system_ssl = {
@@ -245,11 +239,11 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # headers are located in 'include/openssl' by default
         ssl_include_subdirs = ['openssl']
-        if self.majmin_version == '1.1':
+        if self.generation == '1.1':
             # but version 1.1 can be installed in 'include/openssl11/openssl' as well, for example in CentOS 7
             # prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl11', self.name.lower()))
-        elif LooseVersion(self.version) >= LooseVersion('3'):
+        elif self.generation == '3':
             # but version 3.x can be installed in 'include/openssl3/openssl' as well, for example in RHEL 8 derivatives
             # prefer 'include/openssl' as long as the version of headers matches
             ssl_include_subdirs.append(os.path.join('openssl3', self.name.lower()))
@@ -408,7 +402,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
-            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_comp_chars, self.majmin_version),
+            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_comp_chars, self.generation),
             ("echo | openssl s_client%s -connect github.com:443 -verify 9 "
              "| grep 'Verify return code: 0 (ok)'" % proxy_arg),
         ]
@@ -460,7 +454,7 @@ Version: %(version)s
 
             # component name in system pkg-config
             pc_name = pc_comp
-            if self.majmin_version == '1.1':
+            if self.generation == '1.1':
                 # check suffixed names with v1.1
                 pc_name_suffix = pc_name + '11'
                 pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
