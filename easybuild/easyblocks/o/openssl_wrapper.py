@@ -169,7 +169,7 @@ class EB_OpenSSL_wrapper(Bundle):
         # Check the system libraries of OpenSSL
         # Find library file and compare its version string
         target_system_ssl = {}
-        for idx, solibs in enumerate(system_versioned_libs):
+        for solibs in system_versioned_libs:
             target_system_ssl['version'] = '0'
             target_system_ssl['libs'] = []
             for solib in solibs:
