@@ -397,14 +397,9 @@ class EB_OpenSSL_wrapper(Bundle):
             if proxy_parsed.netloc:
                 proxy_arg = ' -proxy %s' % proxy_parsed.netloc
 
-        if LooseVersion(self.version) >= LooseVersion('3') and self.version.count('.') == 0:
-            ssl_ver_comp_chars = 1
-        else:
-            ssl_ver_comp_chars = 3
-
         custom_commands = [
             # make sure that version mentioned in output of 'openssl version' matches version we are using
-            "ssl_ver=$(openssl version); [ ${ssl_ver:8:%s} == '%s' ]" % (ssl_ver_comp_chars, self.generation),
+            '[[ "$(openssl version)" =~ ^OpenSSL.%s ]]' % self.generation,
             ("echo | openssl s_client%s -connect github.com:443 -verify 9 "
              "| grep 'Verify return code: 0 (ok)'" % proxy_arg),
         ]
