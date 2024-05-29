@@ -464,7 +464,7 @@ Version: %(version)s
                 # check suffixed names with v1.1
                 pc_name_suffix = pc_name + '11'
                 pc_exists_cmd = "pkg-config --exists %s" % pc_name_suffix
-                if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False):
+                if run_cmd(pc_exists_cmd, simple=True, log_ok=False, log_all=False, trace=False):
                     self.log.info("%s exists", pc_name_suffix)
                     pc_name = pc_name_suffix
 
@@ -473,7 +473,7 @@ Version: %(version)s
             for require_type in ['Requires', 'Requires.private']:
                 require_print = require_type.lower().replace('.', '-')
                 pc_print_cmd = "pkg-config --print-%s %s" % (require_print, pc_name)
-                out, _ = run_cmd(pc_print_cmd, simple=False, log_ok=False)
+                out, _ = run_cmd(pc_print_cmd, simple=False, log_ok=False, trace=False)
                 self.log.info("Output of '%s': %s", pc_print_cmd, out)
 
                 if out:
@@ -494,12 +494,12 @@ Version: %(version)s
                 pc_file['cflags'] = "Cflags: -I${includedir}"
                 # infer private libs through pkg-config
                 pc_libs_cmd = "pkg-config --libs %s" % pc_name
-                out, _ = run_cmd(pc_libs_cmd, simple=False, log_ok=False)
+                out, _ = run_cmd(pc_libs_cmd, simple=False, log_ok=False, trace=False)
                 self.log.info("Output of '%s': %s", pc_libs_cmd, out)
                 linker_libs = out
 
                 pc_libs_static_cmd = "pkg-config --libs --static %s" % pc_name
-                out, _ = run_cmd(pc_libs_static_cmd, simple=False, log_ok=False)
+                out, _ = run_cmd(pc_libs_static_cmd, simple=False, log_ok=False, trace=False)
                 self.log.info("Output of '%s': %s", pc_libs_static_cmd, out)
 
                 libs_priv = "%s " % out.rstrip()
