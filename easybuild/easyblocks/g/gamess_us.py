@@ -48,7 +48,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, copy_file, mkdir, read_file, write_file, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import POWER, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture
 from easybuild.tools import LooseVersion, toolchain
@@ -142,10 +142,10 @@ class EB_GAMESS_minus_US(EasyBlock):
         fortran_comp, fortran_version = None, None
         if comp_fam == toolchain.INTELCOMP:
             fortran_comp = 'ifort'
-            (out, _) = run_cmd("ifort -v", simple=False)
-            res = re.search(r"^ifort version ([0-9]+)\.[0-9.]+$", out)
+            res = run_shell_cmd("ifort -v")
+            regex = re.compile(r"^ifort version ([0-9]+)\.[0-9.]+$")
             try:
-                version_num = res.group(1)
+                version_num = re.search(regex, res.output).group(1)
             except (AttributeError, IndexError):
                 raise EasyBuildError("Failed to determine ifort major version number")
             fortran_version = {"GMS_IFORT_VERNO": version_num}
@@ -375,15 +375,13 @@ class EB_GAMESS_minus_US(EasyBlock):
             except IOError as err:
                 raise EasyBuildError("Failed to patch actvte.code", actvte, err)
             # compiling
-            run_cmd("mv %s/tools/actvte.code" % self.builddir + " %s/tools/actvte.f" % self.builddir)
-            run_cmd(
-                "%s -o " % fortran_comp + " %s/tools/actvte.x" % self.builddir + " %s/tools/actvte.f" % self.builddir
-            )
+            run_shell_cmd(f"mv {self.builddir}/tools/actvte.code {self.builddir}/tools/actvte.f")
+            run_shell_cmd(f"{fortran_comp} -o {self.builddir}/tools/actvte.x {self.builddir}/tools/actvte.f")
 
     def build_step(self):
         """Custom build procedure for GAMESS-US: using compddi, compall and lked scripts."""
         compddi = os.path.join(self.cfg['start_dir'], 'ddi', 'compddi')
-        run_cmd(compddi, log_all=True, simple=True)
+        run_shell_cmd(compddi)
 
         # make sure the libddi.a library is present
         libddi = os.path.join(self.cfg['start_dir'], 'ddi', 'libddi.a')
@@ -404,10 +402,10 @@ class EB_GAMESS_minus_US(EasyBlock):
 
         compall_cmd = os.path.join(self.cfg['start_dir'], 'compall')
         compall = "%s %s %s" % (self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts'])
-        run_cmd(compall, log_all=True, simple=True)
+        run_shell_cmd(compall)
 
-        cmd = "%s gamess %s" % (os.path.join(self.cfg['start_dir'], 'lked'), self.version)
-        run_cmd(cmd, log_all=True, simple=True)
+        gamess_cmd = "%s gamess %s" % (os.path.join(self.cfg['start_dir'], 'lked'), self.version)
+        run_shell_cmd(gamess_cmd)
 
     def test_step(self):
         """Run GAMESS-US tests (if 'runtest' easyconfig parameter is set to True)."""
@@ -464,15 +462,15 @@ class EB_GAMESS_minus_US(EasyBlock):
             for exam, exam_file in target_tests:
                 rungms_prefix = ' && '.join(test_env_vars)
                 test_cmd = [rungms_prefix, rungms, exam_file, self.version, test_procs, test_procs]
-                (out, _) = run_cmd(' '.join(test_cmd), log_all=True, simple=False)
-                write_file('%s.log' % exam, out)
+                res = run_shell_cmd(' '.join(test_cmd))
+                write_file(f"{exam}.log", res.output)
 
             check_cmd = os.path.join(self.installdir, 'tests', 'standard', 'checktst')
-            (out, _) = run_cmd(check_cmd, log_all=True, simple=False)
+            res = run_shell_cmd(check_cmd)
 
             # verify output of tests
             failed_regex = re.compile(r"^.*!!FAILED\.$", re.M)
-            failed_tests = set([exam[0:6] for exam in failed_regex.findall(out)])
+            failed_tests = set([exam[0:6] for exam in failed_regex.findall(res.output)])
             done_tests = set([exam[0] for exam in target_tests])
             if done_tests - failed_tests == done_tests:
                 info_msg = "All target tests ran successfully!"
