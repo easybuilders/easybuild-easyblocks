@@ -282,20 +282,22 @@ class EB_OpenSSL_wrapper(Bundle):
             raise EasyBuildError(err_msg, self.version, self.system_ssl['version'])
 
         # Check system OpenSSL binary
-        if self.majmin_version == '1.1':
-            # prefer 'openssl11' over 'openssl' with v1.1
-            self.system_ssl['bin'] = which('openssl11')
-        elif LooseVersion(self.version) >= LooseVersion('3'):
-            # prefer 'openssl3' over 'openssl' with v3.x
-            self.system_ssl['bin'] = which('openssl3')
+        target_ssl_bins = ['openssl']
+        if self.generation == '1.1':
+            target_ssl_bins.insert(0, 'openssl11')  # prefer 'openssl11' over 'openssl' with v1.1
+        elif self.generation == '3':
+            target_ssl_bins.insert(0, 'openssl3')  # prefer 'openssl3' over 'openssl' with v3
 
-        if not self.system_ssl['bin']:
-            self.system_ssl['bin'] = which('openssl')
+        for target_bin in target_ssl_bins:
+            target_bin_path, target_bin_version = self.get_openssl_bin_version(target_bin)
+            if target_bin_version == self.system_ssl['version']:
+                self.system_ssl['bin'] = target_bin_path
+                break
 
         if self.system_ssl['bin']:
-            self.log.info("System OpenSSL binary found: %s", self.system_ssl['bin'])
+            self.log.info("System OpenSSL binary for version %s found: %s", self.system_ssl['version'], self.system_ssl['bin'])
         else:
-            self.log.info("System OpenSSL binary not found!")
+            self.log.info("System OpenSSL binary for version %s not found!", self.system_ssl['version'])
             return
 
         # system OpenSSL is fine, change target libraries to the ones found in it
@@ -408,6 +410,25 @@ class EB_OpenSSL_wrapper(Bundle):
         ]
 
         super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def get_openssl_bin_version(self, bin_name):
+        """Check OpenSSL executable version"""
+        bin_path = which(bin_name)
+        if not bin_path:
+            self.log.debug("OpenSSL executable '%s' not found", bin_name)
+            return None, None
+
+        cmd = "%s version" % bin_path
+        out, _ = run_cmd(cmd, simple=False, log_ok=False, trace=False)
+
+        try:
+            bin_version = out.split(' ')[1]
+        except (AttributeError, IndexError):
+            raise EasyBuildError("Failed to check version of OpenSSL executable: %s", bin_path)
+        else:
+            self.log.debug("Version of OpenSSL executable '%s': %s", bin_path, bin_version)
+
+        return bin_path, bin_version
 
     def install_pc_files(self):
         """Install pkg-config files for the wrapper"""
