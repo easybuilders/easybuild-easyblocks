@@ -167,7 +167,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return
 
         # Check system OpenSSL binary
-        target_ssl_bins = ['openssl']
+        target_ssl_bins = [self.generation_targets['bin']]
         if self.generation == '1.1':
             target_ssl_bins.insert(0, 'openssl11')  # prefer 'openssl11' over 'openssl' with v1.1
         elif self.generation == '3':
@@ -383,7 +383,7 @@ class EB_OpenSSL_wrapper(Bundle):
         ssl_libs = ['%s.%s' % (solib.split('.')[0], shlib_ext) for solib in self.generation_targets['libs']]
         ssl_libs.extend(self.generation_targets['libs'])
 
-        ssl_files = [os.path.join('bin', self.name.lower())]
+        ssl_files = [os.path.join('bin', self.generation_targets['bin'])]
         ssl_files.extend(os.path.join('lib', libso) for libso in ssl_libs)
 
         ssl_dirs = [
