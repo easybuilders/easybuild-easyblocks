@@ -84,19 +84,23 @@ class EB_OpenSSL_wrapper(Bundle):
             self.generation = "3"
 
         # Set minimum OpenSSL version
-        min_openssl_version = self.cfg.get('minimum_openssl_version')
-
-        if not min_openssl_version:
-            min_openssl_version = self.version
-        elif not isinstance(min_openssl_version, string_type):
-            min_openssl_version = str(min_openssl_version)
-
+        self.min_version = self.cfg.get('minimum_openssl_version')
+        if not self.min_version:
+            self.min_version = self.version
+        elif not isinstance(self.min_version, string_type):
+            self.min_version = str(self.min_version)
         # Minimum OpenSSL version can only increase depth of wrapper version
-        if min_openssl_version.startswith(self.version):
-            self.log.debug("Requiring minimum OpenSSL version: %s", min_openssl_version)
+        if self.min_version.startswith(self.version):
+            self.log.debug("Requiring minimum OpenSSL version: %s", self.min_version)
         else:
             err_msg = "Requested minimum OpenSSL version '%s' does not fit in wrapper easyconfig version '%s'"
-            raise EasyBuildError(err_msg, min_openssl_version, self.version)
+            raise EasyBuildError(err_msg, self.min_version, self.version)
+
+        # Set maximum OpenSSL version (increase smallest revision by 1)
+        max_version_parts = [int(subv) for subv in self.version.split('.')]
+        max_version_parts[-1] += 1
+        self.max_version = '.'.join([str(subv) for subv in max_version_parts])
+        self.log.debug("Restricting maximum OpenSSL version: %s", self.max_version)
 
         # Regex pattern to find version strings in OpenSSL libraries and headers
         full_version_regex = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+[a-z]?')
@@ -134,20 +138,14 @@ class EB_OpenSSL_wrapper(Bundle):
             err_msg = "OpenSSL system library for version %s and OS type %s is unsupported"
             raise EasyBuildError(err_msg, self.generation, os_type)
 
-        # by default target the first option of each OpenSSL library,
-        # which corresponds to installation from source
-        self.target_ssl_libs = system_versioned_libs[0]
-        self.log.info("Target OpenSSL libraries: %s", self.target_ssl_libs)
-
         # folders containing engines libraries
         openssl_engines = {
             '1.0': 'engines',
             '1.1': 'engines-1.1',
             '3': 'engines-3',
         }
-        self.target_ssl_engine = openssl_engines[self.generation]
 
-        # Paths to system libraries and headers of OpenSSL
+        # Paths to system components of OpenSSL
         self.system_ssl = {
             'bin': None,
             'engines': None,
@@ -158,6 +156,30 @@ class EB_OpenSSL_wrapper(Bundle):
         # early return when we're not wrapping the system OpenSSL installation
         if not self.cfg.get('wrap_system_openssl'):
             self.log.info("Not wrapping system OpenSSL installation by user request")
+            return
+
+        # Check system OpenSSL binary
+        target_ssl_bins = ['openssl']
+        if self.generation == '1.1':
+            target_ssl_bins.insert(0, 'openssl11')  # prefer 'openssl11' over 'openssl' with v1.1
+        elif self.generation == '3':
+            target_ssl_bins.insert(0, 'openssl3')  # prefer 'openssl3' over 'openssl' with v3
+
+        for ssl_bin in target_ssl_bins:
+            ssl_bin_path, ssl_bin_version = self.get_openssl_bin_version(ssl_bin)
+            if ssl_bin_path:
+                if LooseVersion(self.min_version) <= LooseVersion(ssl_bin_version) < LooseVersion(self.max_version):
+                    self.system_ssl['version'] = ssl_bin_version
+                    self.system_ssl['bin'] = ssl_bin_path
+                    break
+
+        if self.system_ssl['bin'] and self.system_ssl['version']:
+            log_msg = "System OpenSSL binary for version %s found: %s"
+            self.log.info(log_msg, self.system_ssl['version'], self.system_ssl['bin'])
+        else:
+            log_msg = "OpenSSL binary for version %s not found in host system! "
+            log_msg += "Falling back to building OpenSSL from source"
+            self.log.info(log_msg, self.version)
             return
 
         # Check the system libraries of OpenSSL
@@ -188,13 +210,13 @@ class EB_OpenSSL_wrapper(Bundle):
                         dbg_msg = "Could not detect the full version of system OpenSSL library: %s"
                         self.log.debug(dbg_msg, system_solib)
                 # check that system library version fulfills requirements
-                if LooseVersion(ssl_lib_version) >= LooseVersion(min_openssl_version):
+                if LooseVersion(self.min_version) <= LooseVersion(ssl_lib_version) < LooseVersion(self.max_version):
                     dbg_msg = "System OpenSSL library '%s' with version %s fulfills requested version %s"
-                    self.log.debug(dbg_msg, system_solib, ssl_lib_version, min_openssl_version)
+                    self.log.debug(dbg_msg, system_solib, ssl_lib_version, self.min_version)
                     target_ssl_libs.append(system_solib)
                 else:
                     dbg_msg = "System OpenSSL library '%s' with version %s is older than requested version %s"
-                    self.log.debug(dbg_msg, system_solib, ssl_lib_version, min_openssl_version)
+                    self.log.debug(dbg_msg, system_solib, ssl_lib_version, self.min_version)
 
             if len(target_ssl_libs) == len(openssl_libs):
                 # target libraries found, ignore further options
@@ -205,14 +227,16 @@ class EB_OpenSSL_wrapper(Bundle):
             info_msg = "Found OpenSSL library version %s in host system: %s"
             self.log.info(info_msg, ssl_lib_version, os.path.dirname(self.system_ssl['libs'][0]))
         else:
-            self.log.info("OpenSSL library not found in host system, falling back to OpenSSL in EasyBuild")
+            log_msg = "OpenSSL library for version %s not found in host system! "
+            log_msg += "Falling back to building OpenSSL from source"
+            self.log.info(log_msg, self.system_ssl['version'])
             return
 
         # Directory with engine libraries
         lib_dir = os.path.dirname(self.system_ssl['libs'][0])
         lib_engines_dir = [
-            os.path.join(lib_dir, 'openssl', self.target_ssl_engine),
-            os.path.join(lib_dir, self.target_ssl_engine),
+            os.path.join(lib_dir, 'openssl', openssl_engines[self.generation]),
+            os.path.join(lib_dir, openssl_engines[self.generation]),
         ]
 
         for engines_path in lib_engines_dir:
@@ -222,7 +246,9 @@ class EB_OpenSSL_wrapper(Bundle):
                 break
 
         if not self.system_ssl['engines']:
-            self.log.info("OpenSSL engines not found in host system, falling back to OpenSSL in EasyBuild")
+            log_msg = "OpenSSL engines for version %s not found in host system! "
+            log_msg += "Falling back to building OpenSSL from source"
+            self.log.info(log_msg, self.system_ssl['version'])
             return
 
         # Check system include paths for OpenSSL headers
@@ -256,19 +282,19 @@ class EB_OpenSSL_wrapper(Bundle):
                 # check version reported by opensslv.h
                 opensslv = read_file(opensslv_path)
                 try:
-                    header_version = openssl_version_regex.search(opensslv).group(1)
+                    ssl_head_version = openssl_version_regex.search(opensslv).group(1)
                 except AttributeError:
                     err_msg = "System OpenSSL header '%s' does not contain any recognizable version string"
                     raise EasyBuildError(err_msg, opensslv_path)
 
-                if LooseVersion(header_version) >= LooseVersion(min_openssl_version):
+                if LooseVersion(self.min_version) <= LooseVersion(ssl_head_version) < LooseVersion(self.max_version):
                     self.system_ssl['include'] = include_dir
                     info_msg = "Found OpenSSL headers v%s in host system: %s"
-                    self.log.info(info_msg, header_version, self.system_ssl['include'])
+                    self.log.info(info_msg, ssl_head_version, self.system_ssl['include'])
                     break
                 else:
                     dbg_msg = "System OpenSSL header version '%s' does not fulfill minimum version requirement '%s'"
-                    self.log.debug(dbg_msg, header_version, min_openssl_version)
+                    self.log.debug(dbg_msg, ssl_head_version, self.min_version)
             else:
                 self.log.info("System OpenSSL header file %s not found", opensslv_path)
 
@@ -277,31 +303,6 @@ class EB_OpenSSL_wrapper(Bundle):
                        "Install the development package of OpenSSL for your system or force building OpenSSL from "
                        "source in EasyBuild by setting 'wrap_system_openssl = False' in the OpenSSL easyconfig.")
             raise EasyBuildError(err_msg, self.version, self.system_ssl['version'])
-
-        # Check system OpenSSL binary
-        target_ssl_bins = ['openssl']
-        if self.generation == '1.1':
-            target_ssl_bins.insert(0, 'openssl11')  # prefer 'openssl11' over 'openssl' with v1.1
-        elif self.generation == '3':
-            target_ssl_bins.insert(0, 'openssl3')  # prefer 'openssl3' over 'openssl' with v3
-
-        for target_bin in target_ssl_bins:
-            target_bin_path, target_bin_version = self.get_openssl_bin_version(target_bin)
-            if LooseVersion(target_bin_version) >= LooseVersion(min_openssl_version):
-                self.system_ssl['version'] = target_bin_version
-                self.system_ssl['bin'] = target_bin_path
-                break
-
-        if self.system_ssl['bin']:
-            log_msg = "System OpenSSL binary for version %s found: %s"
-            self.log.info(log_msg, self.system_ssl['version'], self.system_ssl['bin'])
-        else:
-            self.log.info("System OpenSSL binary for version %s not found!", self.system_ssl['version'])
-            return
-
-        # system OpenSSL is fine, change target libraries to the ones found in it
-        self.target_ssl_libs = [os.path.basename(solib) for solib in target_system_ssl["libs"]]
-        self.log.info("Target system OpenSSL libraries: %s", self.target_ssl_libs)
 
     def fetch_step(self, *args, **kwargs):
         """Fetch sources if OpenSSL component is needed"""
@@ -370,15 +371,15 @@ class EB_OpenSSL_wrapper(Bundle):
         """Custom sanity check for OpenSSL wrapper."""
         shlib_ext = get_shared_lib_ext()
 
-        ssl_libs = ['%s.%s' % (libso.split('.')[0], shlib_ext) for libso in self.target_ssl_libs]
-        ssl_libs.extend(self.target_ssl_libs)
+        ssl_libs = [os.path.basename(solib) for solib in self.system_ssl["libs"]]
+        ssl_libs.extend(['%s.%s' % (solib.split('.')[0], shlib_ext) for solib in ssl_libs])
 
         ssl_files = [os.path.join('bin', self.name.lower())]
         ssl_files.extend(os.path.join('lib', libso) for libso in ssl_libs)
 
         ssl_dirs = [
             os.path.join('include', self.name.lower()),
-            os.path.join('lib', self.target_ssl_engine),
+            os.path.join('lib', os.path.basename(self.system_ssl["engines"])),
             os.path.join('lib', 'pkgconfig'),
         ]
 
@@ -444,7 +445,7 @@ Version: %(version)s
             'libcrypto': {
                 'name': 'OpenSSL-libcrypto',
                 'description': 'OpenSSL cryptography library',
-                'enginesdir': self.target_ssl_engine,
+                'enginesdir': os.path.basename(self.system_ssl["engines"]),
             },
             'libssl': {
                 'name': 'OpenSSL-libssl',
