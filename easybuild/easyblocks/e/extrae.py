@@ -47,7 +47,7 @@ class EB_Extrae(ConfigureMake):
             'Boost': ('', '--with-boost=%s', ''),
             'libdwarf': ('', '--with-dwarf=%s', '--without-dwarf'),
             'libunwind': ('', '--with-unwind=%s', ''),
-            'libxml2': (' --enable-xml --enable-merge-in-trace', '', ''),
+            'libxml2': (' --enable-xml --enable-merge-in-trace', '--with-xml=%s', ''),
             'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
         }
         for (dep_name, (with_opts, with_root_opt, without_opt)) in deps.items():
