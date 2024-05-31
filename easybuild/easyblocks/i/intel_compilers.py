@@ -177,7 +177,7 @@ class EB_intel_minus_compilers(IntelBase):
         multiarch_out, ec = run_cmd("gcc -print-multiarch", simple=False)
         multiarch_out = multiarch_out.strip()
         if ec == 0 and multiarch_out:
-            multiarch_inc_dir, ec = run_cmd("gcc -E -Wp,-v -xc /dev/null 2>&1 | grep %s$" % multiarch_out)
+            multiarch_inc_dir, ec = run_cmd("gcc -E -Wp,-v -xc /dev/null 2>&1 | grep %s$ | grep -v GCCcore" % multiarch_out)
             if ec == 0 and multiarch_inc_dir:
                 multiarch_inc_dir = multiarch_inc_dir.strip()
                 self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
