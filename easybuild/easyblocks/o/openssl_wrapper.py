@@ -423,10 +423,10 @@ class EB_OpenSSL_wrapper(Bundle):
             return None, None
 
         cmd = "%s version" % bin_path
-        out, _ = run_cmd(cmd, simple=False, log_ok=False, trace=False)
+        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
 
         try:
-            bin_version = out.split(' ')[1]
+            bin_version = res.output.split(' ')[1]
         except (AttributeError, IndexError):
             raise EasyBuildError("Failed to check version of OpenSSL executable: %s", bin_path)
         else:
