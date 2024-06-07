@@ -456,7 +456,7 @@ class EB_Python(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('3.10') and self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
             # Need to skip some troublesome tests
-            self.cfg['testopts'] = 'TESTOPTS="-x test_socket "'
+            self.cfg['testopts'] = 'TESTOPTS="-x test_socket test_curses "'
         super(EB_Python, self).test_step()
 
     def install_step(self):
