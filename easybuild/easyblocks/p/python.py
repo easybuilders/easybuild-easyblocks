@@ -453,7 +453,8 @@ class EB_Python(ConfigureMake):
     def test_step(self):
         """Test Python build via 'make test'."""
         # Turn on testing by default for recent Python versions
-        if LooseVersion(self.version) >= LooseVersion('3.10') and self.cfg['runtest'] is None:
+        relevant_python = (self.name.lower() == 'python' and LooseVersion(self.version) >= LooseVersion('3.10'))
+        if relevant_python and self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
             # Need to skip some troublesome tests
             # (socket tests give a permission denied error, may be due to SELinux)
