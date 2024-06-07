@@ -450,6 +450,15 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).build_step(*args, **kwargs)
 
+    def test_step(self):
+        """Test Python build via 'make test'."""
+        # Turn on testing by default for recent Python versions
+        if LooseVersion(self.version) >= LooseVersion('3.10') and self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'test'
+            # Need to skip some troublesome tests
+            self.cfg['testopts'] = 'TESTOPTS="-x test_socket "'
+        super(EB_Python, self).test_step()
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
 
