@@ -192,6 +192,19 @@ class EB_Python(ConfigureMake):
             # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
             apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
 
+        # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
+        # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
+        # Allow ctypes to also use LIBRARY_PATH in this scenario (preferring the standard LD_LIBRARY_PATH)
+        filtered_env_vars = build_option('filter_env_vars') or []
+        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            orig_ld_libs = "libpath = os.environ.get('LD_LIBRARY_PATH')"
+            orig_ld_libs_regex = r'(\s*)' + re.escape(orig_ld_libs) + r'(\s*)'
+            updated_ld_libs = ("libpath = ':'.join(filter(None, "
+                               "os.environ.get('LD_LIBRARY_PATH', '').split(':') + "
+                               "os.environ.get('LIBRARY_PATH', '').split(':')))")
+            apply_regex_substitutions(ctypes_util_py, [(orig_ld_libs_regex, r'\1' + updated_ld_libs + r'\2')])
+
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
