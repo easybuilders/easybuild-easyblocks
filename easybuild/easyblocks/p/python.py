@@ -456,6 +456,8 @@ class EB_Python(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('3.10') and self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
             # Need to skip some troublesome tests
+            # (socket tests give a permission denied error, may be due to SELinux)
+            # (curses error is from test_background, just ignoring)
             self.cfg['testopts'] = 'TESTOPTS="-x test_socket test_curses "'
         super(EB_Python, self).test_step()
 
