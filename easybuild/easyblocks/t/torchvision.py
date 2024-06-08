@@ -88,6 +88,12 @@ class EB_torchvision(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
+
+        # load module early ourselves rather than letting parent sanity_check_step method do so,
+        # so the correct 'python' command is used to by det_pylibdir() below;
+        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
+            self.fake_mod_data = self.sanity_check_load_module(extension=self.is_extension)
+
         custom_commands = []
         custom_paths = {
             'files': [],
