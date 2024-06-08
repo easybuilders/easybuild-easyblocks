@@ -89,7 +89,10 @@ class EB_torchvision(PythonPackage):
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
         custom_commands = []
-        custom_paths = None
+        custom_paths = {
+            'files': [],
+            'dirs': [det_pylibdir()],
+        }
 
         # check whether torchvision was indeed built with CUDA support,
         # cfr. https://discuss.pytorch.org/t/notimplementederror-could-not-run-torchvision-nms-with-arguments-from-\
@@ -103,10 +106,6 @@ class EB_torchvision(PythonPackage):
                 "    print(torchvision.ops.nms(boxes, scores, 0.5))",
             ])
             custom_commands.append('python -c "%s"' % python_code)
-            custom_paths = {
-                'files': [],
-                'dirs': [det_pylibdir()],
-            }
 
         if get_software_root('libjpeg-turbo'):
             # check if torchvision was built with libjpeg support
