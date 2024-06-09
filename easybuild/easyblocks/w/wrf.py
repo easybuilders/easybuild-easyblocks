@@ -56,7 +56,8 @@ def det_wrf_subdir(wrf_version):
 
     if LooseVersion(wrf_version) < LooseVersion('4.0'):
         wrf_subdir = 'WRFV%s' % wrf_version.split('.')[0]
-    elif LooseVersion(wrf_version) == LooseVersion('4.5.1'): # WRF 4.5.2 actually use "WRF-4.5.2" subdirectory naming scheme
+    elif LooseVersion(wrf_version) == LooseVersion('4.5.1'):
+        # WRF 4.5.2 actually use "WRF-4.5.2" subdirectory naming scheme
         wrf_subdir = 'WRFV%s' % wrf_version
     else:
         wrf_subdir = 'WRF-%s' % wrf_version
