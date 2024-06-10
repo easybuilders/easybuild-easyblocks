@@ -136,22 +136,36 @@ class EB_ESMF(ConfigureMake):
 
         python = get_software_version('Python')
         if python:
-            # then, install the python bindings
-            py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')),
-                                     'src', 'addon', 'ESMPy')
+            if LooseVersion(self.version) < LooseVersion('8.4.0'):
+                # then, install the python bindings
+                py_subdir = os.path.join(self.builddir, 'esmf-ESMF_%s' % '_'.join(self.version.split('.')),
+                                         'src', 'addon', 'ESMPy')
+            else:
+                # then, install the python bindings
+                py_subdir = os.path.join(self.builddir, 'esmf-%s' % self.version,
+                                         'src', 'addon', 'esmpy')
             try:
                 os.chdir(py_subdir)
             except OSError as err:
                 raise EasyBuildError("Failed to move to: %s", err)
 
-            cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
-            cmd += " && python setup.py install --prefix=%s" % self.installdir
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            if LooseVersion(self.version) < LooseVersion('8.4.0'):
+                cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
+                cmd += " && python setup.py install --prefix=%s" % self.installdir
+                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            else:
+                cmd = "ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
+                cmd += "python -m pip install . --no-deps --prefix=%s" % self.installdir
+                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def make_module_extra(self):
         """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
         txt = super(EB_ESMF, self).make_module_extra()
 
+        # this is at least needed for ESMF 8.4.0's python bindings, but there is probably no harm
+        # in setting it in general
+        txt += self.module_generator.set_environment("ESMFMKFILE",
+                                                     os.path.join(self.installdir, "lib", "esmf.mk"))
         if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
             txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
         else:
@@ -181,6 +195,9 @@ class EB_ESMF(ConfigureMake):
 
         custom_commands = []
         if get_software_root('Python'):
-            custom_commands += ["python -c 'import ESMF'"]
+            if LooseVersion(self.version) < LooseVersion('8.4.0'):
+                custom_commands += ["python -c 'import ESMF'"]
+            else:
+                custom_commands += ["python -c 'import esmpy'"]
 
         super(EB_ESMF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
