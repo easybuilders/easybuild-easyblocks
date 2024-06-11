@@ -59,18 +59,21 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         return extra_opts
 
+    def __getattribute__(self, name):
+        try:
+            ebclass = object.__getattribute__(self, 'ebclass')
+        except AttributeError:
+            ebclass = None
+        if name == 'ebclass':
+            return ebclass
+        if ebclass is None:
+            return object.__getattribute__(self, name)
+        return ebclass.__getattribute__(name)
+
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
         # Required for instantiating multiple easyblocks at the same time
-        EB_QuantumESPRESSO.__getattribute__ = object.__getattribute__
-
         super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
-
-        def new_getattribute(cls, name):
-            """Forward all calls to the selected easyblock."""
-            if name == 'ebclass':
-                return object.__getattribute__(cls, 'ebclass')
-            return cls.ebclass.__getattribute__(name)
 
         if LooseVersion(self.version) < LooseVersion('7.3.1'):
             self.log.info('Using legacy easyblock for Quantum ESPRESSO')
@@ -82,8 +85,6 @@ class EB_QuantumESPRESSO(EasyBlock):
         # Required to avoid CMakeMake default extra_opts to override the ConfigMake ones
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
         self.ebclass = eb(new_ec, *args, **kwargs)
-        self.__class__.__getattribute__ = new_getattribute
-
 
 class EB_QuantumESPRESSOcmake(CMakeMake):
     """Support for building and installing Quantum ESPRESSO."""
