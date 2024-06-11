@@ -11,7 +11,7 @@ v4.9.2 (12 June 2024)
 
 update/bugfix release
 
-- 4 new software-specific easyblocks: QuantumESPRESSO with CMake (#3257), aedt (#3281), optiSLang (#3300), MetalWalls (#3311, #3331)
+- 4 new software-specific easyblocks: QuantumESPRESSO with CMake (#3257), AEDT (#3281), optiSLang (#3300), MetalWalls (#3311, #3331)
 - minor enhancements and updates, including:
   - refactor GAMESS-US easyblock to directly write install.info (#3047)
   - add ABAQUS license server to generated module (#3277)
