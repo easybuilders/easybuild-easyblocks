@@ -486,6 +486,11 @@ class EB_OpenFOAM(EasyBlock):
             test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
             custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
 
+        if self.is_dot_com and self.looseversion >= LooseVersion("2012"):
+            # Make sure that wmake can see the compilers
+            test_wmake_compilers = ["command -V $(wmake -show-cxx)", "command -V $(wmake -show-c)"]
+            custom_commands.append(' && '.join([load_openfoam_env] + test_wmake_compilers))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
