@@ -86,6 +86,7 @@ class EB_QuantumESPRESSO(EasyBlock):
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
         self.ebclass = eb(new_ec, *args, **kwargs)
 
+
 class EB_QuantumESPRESSOcmake(CMakeMake):
     """Support for building and installing Quantum ESPRESSO."""
 
