@@ -72,7 +72,6 @@ class EB_QuantumESPRESSO(EasyBlock):
 
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
-        # Required for instantiating multiple easyblocks at the same time
         super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('7.3.1'):
