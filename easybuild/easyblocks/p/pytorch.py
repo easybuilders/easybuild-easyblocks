@@ -419,7 +419,7 @@ class EB_PyTorch(PythonPackage):
                     build_type = None
         if build_type:
             if pytorch_version >= '1.2.0':
-                options.append('CMAKE_BUILD_TYPE', build_type)
+                options.append('CMAKE_BUILD_TYPE=' + build_type)
             else:
                 # Older versions use 2 env variables defaulting to "Release" if none are set
                 build_type = build_type.lower()
