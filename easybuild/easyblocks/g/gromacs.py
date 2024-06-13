@@ -62,7 +62,7 @@ class EB_GROMACS(CMakeMake):
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " +
-                                 "default is to build double precision unless CUDA is enabled", CUSTOM],
+                                 "default is to build double precision unless GPU support is enabled", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -140,10 +140,16 @@ class EB_GROMACS(CMakeMake):
 
         return res
 
-    def is_double_precision_cuda_build(self):
-        """Check if the current build step involves double precision and CUDA"""
+    def is_double_precision_gpu_build(self):
+        """Check if the current build step involves double precision and GPU acceleration"""
+        gpu_enabled = self.is_gpu_enabled_build()
+        return gpu_enabled and self.double_prec_pattern in self.cfg['configopts']
+
+    def is_gpu_enabled_build(self):
+        """Returns whether this is a GPU-enabled build"""
         cuda = get_software_root('CUDA')
-        return cuda and self.double_prec_pattern in self.cfg['configopts']
+        acpp = get_software_root('AdaptiveCpp')
+        return cuda or acpp
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
@@ -168,9 +174,8 @@ class EB_GROMACS(CMakeMake):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
 
         if LooseVersion(self.version) >= LooseVersion('4.6'):
-            cuda = get_software_root('CUDA')
-            if cuda:
-                # CUDA with double precision is currently not supported in GROMACS yet
+            if self.is_gpu_enabled_build():
+                # GPU acceleration with double precision is currently not supported in GROMACS yet
                 # If easyconfig explicitly have double_precision=True error out,
                 # otherwise warn about it and skip the double precision build
                 if self.cfg.get('double_precision'):
@@ -188,6 +193,10 @@ class EB_GROMACS(CMakeMake):
                     self.log.info("skipping configure step")
                     return
 
+            cuda = get_software_root('CUDA')
+            acpp = get_software_root('AdaptiveCpp')
+
+            if cuda:
                 if LooseVersion(self.version) >= LooseVersion('2021'):
                     self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
                 else:
@@ -198,9 +207,15 @@ class EB_GROMACS(CMakeMake):
                     cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
                         "cuda_cc_semicolon_sep").replace('.', '')
                     self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
+
+            elif acpp:
+                assert LooseVersion(self.version) >= LooseVersion('2023'), \
+                       'SYCL support is not available for this GROMACS version'
+                self.cfg.update('configopts', "-DGMX_GPU=SYCL -DGMX_SYCL_HIPSYCL=ON")
+
             else:
-                # explicitly disable GPU support if CUDA is not available,
-                # to avoid that GROMACS finds and uses a system-wide CUDA compiler
+                # explicitly disable GPU support if no backend is available,
+                # to avoid that GROMACS finds and uses a system-wide GPU compilers
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
         # PLUMED detection
@@ -446,11 +461,11 @@ class EB_GROMACS(CMakeMake):
 
     def build_step(self):
         """
-        Custom build step for GROMACS; Skip if CUDA is enabled and the current
+        Custom build step for GROMACS; Skip if GPU support is enabled and the current
         iteration is for double precision
         """
 
-        if self.is_double_precision_cuda_build():
+        if self.is_double_precision_gpu_build():
             self.log.info("skipping build step")
         else:
             super(EB_GROMACS, self).build_step()
@@ -458,7 +473,7 @@ class EB_GROMACS(CMakeMake):
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
 
-        if self.is_double_precision_cuda_build():
+        if self.is_double_precision_gpu_build():
             self.log.info("skipping test step")
         else:
             # allow to escape testing by setting runtest to False
@@ -513,8 +528,8 @@ class EB_GROMACS(CMakeMake):
         """
         Custom install step for GROMACS; figure out where libraries were installed to.
         """
-        # Skipping if CUDA is enabled and the current iteration is double precision
-        if self.is_double_precision_cuda_build():
+        # Skipping if GPU support is enabled and the current iteration is double precision
+        if self.is_double_precision_gpu_build():
             self.log.info("skipping install step")
         else:
             # run 'make install' in parallel since it involves more compilation
@@ -640,7 +655,7 @@ class EB_GROMACS(CMakeMake):
         bin_files = []
 
         dsuff = None
-        if not get_software_root('CUDA'):
+        if not self.is_gpu_enabled_build():
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precision
                 if self.double_prec_pattern in configopts:
