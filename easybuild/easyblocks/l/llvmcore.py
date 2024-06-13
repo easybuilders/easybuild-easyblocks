@@ -49,7 +49,7 @@ from easybuild.tools.systemtools import (get_cpu_architecture,
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
-cmake_opt_post3 = {
+cmake_opt_post2 = {
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
@@ -128,6 +128,7 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg["enable_rtti"]:
             self._cmakeopts['LLVM_REQUIRES_RTTI'] = 'ON'
             self._cmakeopts['LLVM_ENABLE_RTTI'] = 'ON'
+            # Does not work with Flang
             # self._cmakeopts['LLVM_ENABLE_EH'] = 'ON'
 
     def configure_step(self):
@@ -224,6 +225,7 @@ class EB_LLVMcore(CMakeMake):
         self._general_configure_step()
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;clang"'
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
+        self._cmakeopts.update(cmake_opt_post2)
 
     # def configure_step3(self):
     #     """Configure the second stage of the bootstrap."""
@@ -239,7 +241,7 @@ class EB_LLVMcore(CMakeMake):
         self._general_configure_step()
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;lldb;mlir;polly;clang;flang"'
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
-        self._cmakeopts.update(cmake_opt_post3)
+        self._cmakeopts.update(cmake_opt_post2)
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
@@ -250,7 +252,8 @@ class EB_LLVMcore(CMakeMake):
 
         self._cmakeopts['CMAKE_C_COMPILER'] = os.path.join(prev_dir, 'bin/clang')
         self._cmakeopts['CMAKE_CXX_COMPILER'] = os.path.join(prev_dir, 'bin/clang++')
-        # self._cmakeopts['CMAKE_ASM_COMPILER'] = os.path.join(prev_dir, 'bin/clang')
+        self._cmakeopts['CMAKE_ASM_COMPILER'] = os.path.join(prev_dir, 'bin/clang')
+        self._cmakeopts['CMAKE_ASM_COMPILER_ID'] = 'Clang'
 
         self.add_cmake_opts()
 
@@ -268,10 +271,13 @@ class EB_LLVMcore(CMakeMake):
             os.path.join(prev_dir, lib_dir_runtime),
         ])
 
-        # setvar('PATH', bin_dir + ":" + orig_path)
-        # setvar('LIBRARY_PATH', lib_path + ":" + orig_library_path)
-        # setvar('LD_LIBRARY_PATH', lib_path + ":" + orig_ld_library_path)
+        # Needed for passing the variables to the build command
+        setvar('PATH', bin_dir + ":" + orig_path)
+        setvar('LIBRARY_PATH', lib_path + ":" + orig_library_path)
+        setvar('LD_LIBRARY_PATH', lib_path + ":" + orig_ld_library_path)
 
+        # Needed for passing the variables to the configure command (the environment of configure step is isolated
+        # so the previous `setvar` does not affect it)
         self.cfg.update('preconfigopts', ' '.join([
             'PATH=%s:%s' % (bin_dir, orig_path),
             'LIBRARY_PATH=%s:%s' % (lib_path, orig_library_path),
@@ -291,30 +297,30 @@ class EB_LLVMcore(CMakeMake):
         run_cmd(cmd, log_all=True)
 
         change_dir(curdir)
-        # setvar('PATH', orig_path)
-        # setvar('LIBRARY_PATH', orig_library_path)
-        # setvar('LD_LIBRARY_PATH', orig_ld_library_path)
+        setvar('PATH', orig_path)
+        setvar('LIBRARY_PATH', orig_library_path)
+        setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
     def build_step(self, verbose=False, path=None):
         """Build LLVM, and optionally build it using itself."""
         self.log.info("Building stage 1")
-        print_msg("Building stage 1")
-        # change_dir(self.llvm_obj_dir_stage1)
-        # super(EB_LLVMcore, self).build_step(verbose, path)
-        change_dir(self.builddir)
-        shutil.rmtree('llvm.obj.1', ignore_errors=True)
-        shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
+        print_msg("Building stage 1/3")
+        change_dir(self.llvm_obj_dir_stage1)
+        super(EB_LLVMcore, self).build_step(verbose, path)
+        # change_dir(self.builddir)
+        # shutil.rmtree('llvm.obj.1', ignore_errors=True)
+        # shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
-            print_msg("Building stage 2")
-            # self.configure_step2()
-            # self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            change_dir(self.builddir)
-            shutil.rmtree('llvm.obj.2', ignore_errors=True)
-            shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
+            print_msg("Building stage 2/3")
+            self.configure_step2()
+            self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
+            # change_dir(self.builddir)
+            # shutil.rmtree('llvm.obj.2', ignore_errors=True)
+            # shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
 
             self.log.info("Building stage 3")
-            print_msg("Building stage 3")
+            print_msg("Building stage 3/3")
             self.configure_step3()
             self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
             # change_dir(self.builddir)
@@ -348,15 +354,21 @@ class EB_LLVMcore(CMakeMake):
 
             cmd = "make %s check-all" % self.make_parallel_opts
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            self.log.debug(out)
 
             setvar('PATH', orig_path)
             setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
-            rgx = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
-            mch = rgx.search(out)
+            rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
+            mch = rgx_failed.search(out)
             if mch is None:
-                raise EasyBuildError("Failed to extract number of failed tests from output: %s", out)
-            num_failed = int(mch.group(1))
+                rgx_passed = re.compile(r'^ +Passed +: +([0-9]+)', flags=re.MULTILINE)
+                mch = rgx_passed.search(out)
+                if mch is None:
+                    raise EasyBuildError("Failed to extract test results from output")
+                num_failed = 0
+            else:
+                num_failed = int(mch.group(1))
             if num_failed > self.cfg['test_suite_max_failed']:
                 raise EasyBuildError("Too many failed tests: %s", num_failed)
 
