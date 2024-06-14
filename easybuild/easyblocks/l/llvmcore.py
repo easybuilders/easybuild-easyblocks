@@ -49,7 +49,7 @@ from easybuild.tools.systemtools import (get_cpu_architecture,
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
-cmake_opt_post2 = {
+remove_gcc_opts = {
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
@@ -58,8 +58,6 @@ cmake_opt_post2 = {
     'LIBUNWIND_USE_COMPILER_RT': 'On',
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
-    'CLANG_DEFAULT_LINKER': 'lld',
-    'LLVM_POLLY_LINK_INTO_TOOLS': 'ON',
 }
 
 class EB_LLVMcore(CMakeMake):
@@ -74,11 +72,16 @@ class EB_LLVMcore(CMakeMake):
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(CLANG_TARGETS), CUSTOM],
-            'bootstrap': [True, "Build LLVM using itself", CUSTOM],
+            'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
+            'full_llvm': [True, "Build LLVM without any dependency", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
+            'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
+            'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
+            'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
+            'usepolly': [False, "Build Clang with polly", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
         })
 
@@ -93,9 +96,19 @@ class EB_LLVMcore(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         # self.llvm_obj_dir_stage4 = None
         self.make_parallel_opts = ""
+        self.intermediate_projects = ['llvm', 'clang']
+        self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
+        self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
+        self.final_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
 
         if LooseVersion(self.version) < LooseVersion('18.1.6'):
             raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
+
+        if self.cfg['full_llvm']:
+            if not self.cfg['bootstrap']:
+                raise EasyBuildError("Full LLVM build is only supported for bootstrap builds")
+            if not self.cfg['build_lld']:
+                raise EasyBuildError("Full LLVM build requires building lld")
 
         self.build_shared = self.cfg.get('build_shared_libs', False)
         # self.cfg['start_dir'] = 'llvm'
@@ -104,13 +117,10 @@ class EB_LLVMcore(CMakeMake):
 
         # self._projects = ['llvm']
         # self._runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
-        self._cmakeopts = {
-            'LLVM_ENABLE_PROJECTS': 'llvm;lld;lldb;polly;mlir',
-            'LLVM_ENABLE_RUNTIMES': 'compiler-rt;libunwind;libcxx;libcxxabi',
-        }
+        self._cmakeopts = {}
         self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
 
-    def _general_configure_step(self):
+    def _configure_general_build(self):
         """General configuration step for LLVM."""
         self._cmakeopts['CMAKE_BUILD_TYPE'] = self.build_type
         # If EB is launched from a venv, avoid giving priority to the venv's python
@@ -119,17 +129,45 @@ class EB_LLVMcore(CMakeMake):
         self._cmakeopts['LLVM_INCLUDE_BENCHMARKS'] = 'OFF'
         self._cmakeopts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
 
+        # Required for building the standalone libatomic (not depending on GCCcore)
+        # if self.cfg['full_llvm']:
+        #     self._cmakeopts['COMPILER_RT_BUILD_STANDALONE_LIBATOMIC'] = 'ON'
+
         if self.build_shared:
             self.cfg.update('configopts', '-DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON')
 
         if get_software_root('zlib'):
             self._cmakeopts['LLVM_ENABLE_ZLIB'] = 'ON'
 
+        z3_root = get_software_root("Z3")
+        if z3_root:
+            self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
+            self.cfg.update('configopts', "-DLLVM_Z3_INSTALL_DIR=%s" % z3_root)
+
         if self.cfg["enable_rtti"]:
             self._cmakeopts['LLVM_REQUIRES_RTTI'] = 'ON'
             self._cmakeopts['LLVM_ENABLE_RTTI'] = 'ON'
             # Does not work with Flang
             # self._cmakeopts['LLVM_ENABLE_EH'] = 'ON'
+
+    def _configure_intermediate_build(self):
+        """Configure the intermediate stages of the build."""
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.intermediate_runtimes)
+        if self.cfg['build_lld']:
+            self._cmakeopts['CLANG_DEFAULT_LINKER'] = 'lld'
+
+    def _configure_final_build(self):
+        """Configure the final stage of the build."""
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
+        if self.cfg['build_lld']:
+            self._cmakeopts['CLANG_DEFAULT_LINKER'] = 'lld'
+
+        # Make sure tests are not running with more than `--parallel` tasks
+        self._cmakeopts['LLVM_LIT_ARGS'] = '-j %s' % self.cfg['parallel']
+        if self.cfg['usepolly']:
+            self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
 
     def configure_step(self):
         """
@@ -147,16 +185,28 @@ class EB_LLVMcore(CMakeMake):
             self.log.info("Initialising for bootstrap build.")
             self.llvm_obj_dir_stage2 = os.path.join(self.builddir, 'llvm.obj.2')
             self.llvm_obj_dir_stage3 = os.path.join(self.builddir, 'llvm.obj.3')
-            # self.llvm_obj_dir_stage4 = os.path.join(self.builddir, 'llvm.obj.4')
+            self.final_dir = self.llvm_obj_dir_stage3
             mkdir(self.llvm_obj_dir_stage2)
             mkdir(self.llvm_obj_dir_stage3)
-            # mkdir(self.llvm_obj_dir_stage4)
-            self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;clang"'
-            self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
+            self._configure_intermediate_build()
+        else:
+            self.log.info("Initialising for single stage build.")
+            self._configure_final_build()
+            self.final_dir = self.llvm_obj_dir_stage1
 
         if self.cfg['skip_sanitizer_tests'] and build_option('strict') != run.ERROR:
             self.log.debug("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
+
+        if self.cfg['usepolly']:
+            self.final_projects.append('polly')
+        if self.cfg['build_lld']:
+            self.intermediate_projects.append('lld')
+            self.final_projects.append('lld')
+        if self.cfg['build_lldb']:
+            self.final_projects.append('lldb')
+        if self.cfg['build_bolt']:
+            self.final_projects.append('bolt')
 
         gcc_prefix = get_software_root('GCCcore')
         # If that doesn't work, try with GCC
@@ -168,7 +218,7 @@ class EB_LLVMcore(CMakeMake):
         self._cmakeopts['GCC_INSTALL_PREFIX'] = gcc_prefix
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
-        self._general_configure_step()
+        self._configure_general_build()
 
         build_targets = self.cfg['build_targets']
         if build_targets is None:
@@ -214,34 +264,26 @@ class EB_LLVMcore(CMakeMake):
             base_opts.append('-D%s=%s' % (k, v))
         self.cfg['configopts'] = ' '.join(base_opts)
 
-        self.log.debug("-%"*50)
-        self.log.debug("Using %s as configopts", self._cfgopts)
-        self.log.debug("Using %s as cmakeopts", self._cmakeopts)
-        self.log.debug("-%"*50)
+        # self.log.debug("-%"*50)
+        # self.log.debug("Using %s as configopts", self._cfgopts)
+        # self.log.debug("Using %s as cmakeopts", self._cmakeopts)
+        # self.log.debug("-%"*50)
 
     def configure_step2(self):
         """Configure the second stage of the bootstrap."""
         self._cmakeopts = {}
-        self._general_configure_step()
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;clang"'
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
-        self._cmakeopts.update(cmake_opt_post2)
-
-    # def configure_step3(self):
-    #     """Configure the second stage of the bootstrap."""
-    #     self._cmakeopts = {}
-    #     self._general_configure_step()
-    #     self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;clang"'
-    #     self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
-    #     self._cmakeopts.update(cmake_opt_post3)
+        self._configure_general_build()
+        self._configure_intermediate_build()
+        if self.cfg['full_llvm']:
+            self._cmakeopts.update(remove_gcc_opts)
 
     def configure_step3(self):
         """Configure the third stage of the bootstrap."""
         self._cmakeopts = {}
-        self._general_configure_step()
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"llvm;lld;lldb;mlir;polly;clang;flang"'
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"compiler-rt;libunwind;libcxx;libcxxabi"'
-        self._cmakeopts.update(cmake_opt_post2)
+        self._configure_general_build()
+        self._configure_final_build()
+        if self.cfg['full_llvm']:
+            self._cmakeopts.update(remove_gcc_opts)
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
@@ -278,6 +320,7 @@ class EB_LLVMcore(CMakeMake):
 
         # Needed for passing the variables to the configure command (the environment of configure step is isolated
         # so the previous `setvar` does not affect it)
+        _preconfigopts = self.cfg.get('preconfigopts', '')
         self.cfg.update('preconfigopts', ' '.join([
             'PATH=%s:%s' % (bin_dir, orig_path),
             'LIBRARY_PATH=%s:%s' % (lib_path, orig_library_path),
@@ -287,6 +330,7 @@ class EB_LLVMcore(CMakeMake):
             builddir=stage_dir,
             srcdir=os.path.join(self.llvm_src_dir, "llvm")
             )
+        self.cfg.update('preconfigopts', _preconfigopts)
 
         # change_dir(stage_dir)
         # self.log.debug("Configuring %s", stage_dir)
@@ -303,8 +347,9 @@ class EB_LLVMcore(CMakeMake):
 
     def build_step(self, verbose=False, path=None):
         """Build LLVM, and optionally build it using itself."""
-        self.log.info("Building stage 1")
-        print_msg("Building stage 1/3")
+        if self.cfg['bootstrap']:
+            self.log.info("Building stage 1")
+            print_msg("Building stage 1/3")
         change_dir(self.llvm_obj_dir_stage1)
         super(EB_LLVMcore, self).build_step(verbose, path)
         # change_dir(self.builddir)
@@ -327,21 +372,10 @@ class EB_LLVMcore(CMakeMake):
             # shutil.rmtree('llvm.obj.3', ignore_errors=True)
             # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
 
-            # self.log.info("Building stage 4")
-            # print_msg("Building stage 4")
-            # self.configure_step4()
-            # self.build_with_prev_stage(self.llvm_obj_dir_stage3, self.llvm_obj_dir_stage4)
-            # # change_dir(self.builddir)
-            # # shutil.rmtree('llvm.obj.3', ignore_errors=True)
-            # # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
-
     def test_step(self):
         """Run Clang tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
-            if self.cfg['bootstrap']:
-                basedir = self.llvm_obj_dir_stage3
-            else:
-                basedir = self.llvm_obj_dir_stage1
+            basedir = self.final_dir
 
             change_dir(basedir)
             orig_path = os.getenv('PATH')
@@ -352,7 +386,7 @@ class EB_LLVMcore(CMakeMake):
             setvar('PATH', os.path.join(basedir, 'bin') + ":" + orig_path)
             setvar('LD_LIBRARY_PATH', lib_path)
 
-            cmd = "make %s check-all" % self.make_parallel_opts
+            cmd = "make -j 1 check-all"
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
             self.log.debug(out)
 
@@ -372,14 +406,29 @@ class EB_LLVMcore(CMakeMake):
             if num_failed > self.cfg['test_suite_max_failed']:
                 raise EasyBuildError("Too many failed tests: %s", num_failed)
 
-
     def install_step(self):
         """Install stage 1 or 3 (if bootsrap) binaries."""
-        if self.cfg['bootstrap']:
-            change_dir(self.llvm_obj_dir_stage3)
-        else:
-            change_dir(self.llvm_obj_dir_stage1)
+        basedir = self.final_dir
+        change_dir(basedir)
+
+        orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
+        lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+
+        # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
+        # e.g. when calling the compiled clang-ast-dump for stage 3
+        lib_path = ':'.join([
+            basedir,
+            os.path.join(basedir, lib_dir_runtime),
+        ])
+
+        _preinstallopts = self.cfg.get('preinstallopts', '')
+        self.cfg.update('preinstallopts', ' '.join([
+            'LD_LIBRARY_PATH=%s:%s' % (lib_path, orig_ld_library_path)
+        ]))
+
         super(EB_LLVMcore, self).install_step()
+
+        self.cfg.update('preinstallopts', _preinstallopts)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
