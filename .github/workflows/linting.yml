@@ -22,7 +22,8 @@ jobs:
     - name: install Python packages
       run: |
         pip install --upgrade pip
-        pip install --upgrade flake8
+        # fix to this version for develop branch (to avoid needing to fix geant4.py)
+        pip install --upgrade flake8<7.1
 
     - name: Run flake8 to verify PEP8-compliance of Python code
       run: flake8
