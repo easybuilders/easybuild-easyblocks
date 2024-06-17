@@ -295,7 +295,7 @@ class EB_OpenFOAM(EasyBlock):
             for dep in self.cfg.dependencies():
                 # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR and GMP.
                 # It may fail to find them, so inject the right settings and paths into the "have_cgal" script.
-                if dep['name'] == 'CGAL' and LooseVersion(dep['version']) >= LooseVersion('5.0')
+                if dep['name'] == 'CGAL' and LooseVersion(dep['version']) >= LooseVersion('5.0'):
                     if get_software_root('MPFR'):
                         have_cgal_script = os.path.join(
                             self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal'
