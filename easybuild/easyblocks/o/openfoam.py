@@ -295,19 +295,22 @@ class EB_OpenFOAM(EasyBlock):
             for dep in self.cfg.dependencies():
                 # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR and GMP.
                 # It may fail to find them, so inject the right settings and paths into the "have_cgal" script.
-                if dep['name'] == 'CGAL' and LooseVersion(dep['version']) >= LooseVersion('5.0'):
-                    have_cgal_script = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal')
-                    eb_cgal_config = '''
-                    # Injected by EasyBuild
-                    HAVE_CGAL=true
-                    HAVE_MPFR=true
-                    CGAL_FLAVOUR=header
-                    CGAL_INC_DIR=${EBROOTCGAL}/include
-                    CGAL_LIB_DIR=${EBROOTCGAL}/lib
-                    MPFR_INC_DIR=${EBROOTMPFR}/include
-                    MPFR_LIB_DIR=${EBROOTMPFR}/lib
-                    '''
-                    apply_regex_substitutions(have_cgal_script, [(r"^(esac)$", r"\1\n" + eb_cgal_config)])
+                if dep['name'] == 'CGAL' and LooseVersion(dep['version']) >= LooseVersion('5.0')
+                    if get_software_root('MPFR'):
+                        have_cgal_script = os.path.join(
+                            self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal'
+                        )
+                        eb_cgal_config = '''
+                        # Injected by EasyBuild
+                        HAVE_CGAL=true
+                        HAVE_MPFR=true
+                        CGAL_FLAVOUR=header
+                        CGAL_INC_DIR=${EBROOTCGAL}/include
+                        CGAL_LIB_DIR=${EBROOTCGAL}/lib
+                        MPFR_INC_DIR=${EBROOTMPFR}/include
+                        MPFR_LIB_DIR=${EBROOTMPFR}/lib
+                        '''
+                        apply_regex_substitutions(have_cgal_script, [(r"^(esac)$", r"\1\n" + eb_cgal_config)])
 
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
