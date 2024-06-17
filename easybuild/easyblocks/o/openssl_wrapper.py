@@ -34,7 +34,7 @@ import re
 try:
     from urllib.parse import urlparse
 except ImportError:
-     from urlparse import urlparse
+    from urlparse import urlparse
 
 from easybuild.tools import LooseVersion
 
