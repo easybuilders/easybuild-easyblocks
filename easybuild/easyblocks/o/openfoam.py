@@ -48,7 +48,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
@@ -292,25 +292,23 @@ class EB_OpenFOAM(EasyBlock):
                         env.setvar("BOOST_ROOT", get_software_root('Boost'))
                     else:
                         env.setvar("%s_ROOT" % depend.upper(), dependloc)
-            for dep in self.cfg.dependencies():
-                # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR and GMP.
-                # It may fail to find them, so inject the right settings and paths into the "have_cgal" script.
-                if dep['name'] == 'CGAL' and LooseVersion(dep['version']) >= LooseVersion('5.0'):
-                    if get_software_root('MPFR'):
-                        have_cgal_script = os.path.join(
-                            self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal'
-                        )
-                        eb_cgal_config = '''
-                        # Injected by EasyBuild
-                        HAVE_CGAL=true
-                        HAVE_MPFR=true
-                        CGAL_FLAVOUR=header
-                        CGAL_INC_DIR=${EBROOTCGAL}/include
-                        CGAL_LIB_DIR=${EBROOTCGAL}/lib
-                        MPFR_INC_DIR=${EBROOTMPFR}/include
-                        MPFR_LIB_DIR=${EBROOTMPFR}/lib
-                        '''
-                        apply_regex_substitutions(have_cgal_script, [(r"^(esac)$", r"\1\n" + eb_cgal_config)])
+
+            if get_software_root('CGAL') and LooseVersion(get_software_version('CGAL')) >= LooseVersion('5.0'):
+                # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR.
+                # It may fail to find it, so inject the right settings and paths into the "have_cgal" script.
+                have_cgal_script = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal')
+                if get_software_root('MPFR') and os.path.exists(have_cgal_script):
+                    eb_cgal_config = textwrap.dedent('''
+                    # Injected by EasyBuild
+                    HAVE_CGAL=true
+                    HAVE_MPFR=true
+                    CGAL_FLAVOUR=header
+                    CGAL_INC_DIR=${EBROOTCGAL}/include
+                    CGAL_LIB_DIR=${EBROOTCGAL}/lib
+                    MPFR_INC_DIR=${EBROOTMPFR}/include
+                    MPFR_LIB_DIR=${EBROOTMPFR}/lib
+                    ''')
+                    write_file(have_cgal_script, eb_cgal_config, append=True)
 
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
