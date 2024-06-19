@@ -3,7 +3,34 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
 
-The latest version of easybuild-easyblocks provides 255 software-specific easyblocks and 43 generic easyblocks.
+The latest version of easybuild-easyblocks provides 259 software-specific easyblocks and 43 generic easyblocks.
+
+
+v4.9.2 (12 June 2024)
+---------------------
+
+update/bugfix release
+
+- 4 new software-specific easyblocks: QuantumESPRESSO with CMake (#3257), AEDT (#3281), optiSLang (#3300), MetalWalls (#3311, #3331)
+- minor enhancements and updates, including:
+  - refactor GAMESS-US easyblock to directly write install.info (#3047)
+  - add ABAQUS license server to generated module (#3277)
+  - allow 'nosource: True' in PythonPackage extensions (#3305)
+  - auto-disable FFTW quad precision on RISC-V (#3314)
+  - use regular 'configure' instead of wrapper script in easyblock for UCX plugins (#3315)
+  - add libjpeg-turbo to include dir for torchvision easyblock (#3322, #3353)
+  - add RISC-V support to custom easyblocks for Clang (#3325), Java (#3323), Mesa (#3324)
+  - add a sanity check for OpenFOAM's 'wmake' to make sure it finds the compiler commands (#3328)
+  - always override the compiler version check for CUDA installations (#3329)
+  - allow version mismatchs between OpenSSL components in host system as long as they fulfill version requirements (#3340)
+  - allow external PRRTE in OpenMPI easyblock (#3347)
+- various bug fixes, including:
+  - don't manipulate setup.py for Python 3.12+ when using alternate sysroot (#3313)
+  - do not run unit tests on Python 3.5 (#3326)
+  - avoid sanity check on the software itself for CargoPythonBundle easyblock (#3341)
+  - fix malformed '$CPATH' for intel-compilers on Debian/Ubuntu (#3346)
+- other changes:
+  - Binary easyblock already adds top level directory to PATH, so no need to do it in the Stata easyblock (#3307)
 
 
 v4.9.1 (5 April 2024)
