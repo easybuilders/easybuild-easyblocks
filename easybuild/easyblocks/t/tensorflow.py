@@ -943,7 +943,12 @@ class EB_TensorFlow(PythonPackage):
         run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
         # run generated 'build_pip_package' script to build the .whl
-        cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
+        cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package"
+        # TF uses the temporary folder, which becomes quite large (~2 GB) so use the build folder explicitely.
+        tmp_dir = os.path.join(self.builddir, 'build-pip')
+        mkdir(tmp_dir)
+        cmd = "TMPDIR='%s' " % tmp_dir
+        cmd += "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
         run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def test_step(self):
@@ -1104,7 +1109,7 @@ class EB_TensorFlow(PythonPackage):
     def install_step(self):
         """Custom install procedure for TensorFlow."""
         # find .whl file that was built, and install it using 'pip install'
-        if ("-rc" in self.version):
+        if "-rc" in self.version:
             whl_version = self.version.replace("-rc", "rc")
         else:
             whl_version = self.version
