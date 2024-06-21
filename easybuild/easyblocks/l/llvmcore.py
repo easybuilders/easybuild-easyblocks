@@ -61,6 +61,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 #     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
 # }
 
+# https://discourse.llvm.org/t/should-buildbots-switch-to-enable-runtimes-instead-of-enable-projects-for-compiler-rt/65042/12
 # cmake
 #   ‘-DCMAKE_PREFIX_PATH=/home/ampandey/rocm-toolchain/rocm-5.6/llvm;/home/ampandey/rocm-toolchain/rocm-5.6’
 #   -DCMAKE_BUILD_TYPE=Release
@@ -100,6 +101,46 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 #   -DLLVM_ENABLE_LIBCXX=OFF
 #   /home/ampandey/rocm-toolchain/build/…/external/llvm-project/llvm
 
+
+# https://github.com/llvm/llvm-project/issues/72108
+# -DCMAKE_BUILD_TYPE="Release" \
+# -DCMAKE_C_FLAGS="-Wno-backend-plugin" \
+# -DCMAKE_CXX_FLAGS="-Wno-backend-plugin" \
+# -DCMAKE_C_COMPILER="clang" \
+# -DCMAKE_CXX_COMPILER="clang++" \
+# -DLLVM_ENABLE_CLASSIC_FLANG=ON \
+# -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld;openmp" \
+# -DLLVM_ENABLE_RUNTIMES="compiler-rt;libcxx;libcxxabi" \
+# -DLLVM_LIBDIR_SUFFIX=64 \
+# -DLLVM_USE_LINKER=lld \
+# -DLLVM_PARALLEL_COMPILE_JOBS="96" \
+# -DLLVM_PARALLEL_LINK_JOBS=96 \
+# -DLLVM_ENABLE_NEW_PASS_MANAGER=ON \
+# -DLLVM_TARGETS_TO_BUILD="X86;BPF;WebAssembly" \
+# -DLLVM_ENABLE_LIBCXX=OFF \
+# -DLLVM_STATIC_LINK_CXX_STDLIB=OFF \
+# -DLLVM_BINUTILS_INCDIR="/usr/include" \
+# -DLLVM_ENABLE_TERMINFO=OFF \
+# -DLLVM_ENABLE_LIBXML2=OFF \
+# -DLLVM_ENABLE_LIBEDIT=OFF \
+# -DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF \
+# -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+# -DCOMPILER_RT_BUILD_XRAY=OFF \
+# -DCOMPILER_RT_BUILD_ORC=OFF \
+# -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
+# -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=OFF \
+# -DOPENMP_ENABLE_LIBOMPTARGET=OFF \
+# -DOPENMP_ENABLE_OMPT_TOOLS=OFF \
+# -DOPENMP_ENABLE_TESTING=OFF \
+# -DCOMPILER_RT_CXX_LIBRARY=libcxx \
+# -DSANITIZER_CXX_ABI=libc++ \
+# -DSANITIZER_CXX_ABI_INTREE=ON \
+# -DSANITIZER_USE_STATIC_CXX_ABI=ON \
+# -DSANITIZER_TEST_CXX=libc++ \
+# -DSANITIZER_TEST_CXX_INTREE=ON \
+# -DSANITIZER_USE_STATIC_TEST_CXX=ON \
+# -DSANITIZER_LIT_USE_LIBCXX=ON \
+
 remove_gcc_opts = {
     # 'LLVM_LIBC_FULL_BUILD': 'On',
     # 'LLVM_LIBC_INCLUDE_SCUDO': 'On',
@@ -119,7 +160,7 @@ remove_gcc_opts = {
     # 'COMPILER_RT_CXX_LIBRARY': 'libcxx',
     'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
     'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
-    # 'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
+    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
     'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
     # 'COMPILER_RT_BUILD_SCUDO_STANDALONE_WITH_LLVM_LIBC': 'On',
     # 'COMPILER_RT_SCUDO_STANDALONE_BUILD_SHARED': 'Off',
@@ -136,6 +177,8 @@ remove_gcc_opts = {
     'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
     # 'COMPILER_RT_HAS_GCC_S_LIB': 'Off',
     # 'CLANG_HAS_GCC_S_LIB': 'Off',
+
+    'OPENMP_ENABLE_OMPT_TOOLS': 'Off',
 }
 
 disable_werror = {
@@ -145,6 +188,7 @@ disable_werror = {
     'LIBC_WNO_ERROR': 'On',
     'LIBCXX_ENABLE_WERROR': 'Off',
     'LIBUNWIND_ENABLE_WERROR': 'Off',
+    'OPENMP_ENABLE_WERROR': 'Off',
     'FLANG_ENABLE_WERROR': 'Off',
 }
 
@@ -203,7 +247,7 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['build_runtimes']:
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         if self.cfg['build_openmp']:
-            self.final_runtimes.append('openmp')
+            self.final_projects.append('openmp')
 
         if LooseVersion(self.version) < LooseVersion('18.1.6'):
             raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
@@ -225,6 +269,7 @@ class EB_LLVMcore(CMakeMake):
             general_opts['LIBUNWIND_ENABLE_SHARED'] = 'OFF'
             general_opts['LIBCXX_ENABLE_STATIC'] = 'ON'
             general_opts['LIBCXXABI_ENABLE_STATIC'] = 'ON'
+            general_opts['LIBUNWIND_ENABLE_STATIC'] = 'ON'
 
         # RTTI
         if self.cfg["enable_rtti"]:
@@ -427,7 +472,7 @@ class EB_LLVMcore(CMakeMake):
         self.add_cmake_opts()
 
         bin_dir = os.path.join(prev_dir, 'bin')
-        prev_lib_dir = os.path.join(prev_dir, 'lib')
+        # prev_lib_dir = os.path.join(prev_dir, 'lib')
         # curr_lib_dir = os.path.join(stage_dir, 'lib')
         lib_dir_runtime = self.get_runtime_lib_path(prev_dir, fail_ok=False)
 
@@ -435,13 +480,16 @@ class EB_LLVMcore(CMakeMake):
         # e.g. when calling the compiled clang-ast-dump for stage 3
         lib_path = ':'.join([
             # curr_lib_dir,
-            # os.path.join(curr_lib_dir, lib_dir_runtime),
+            os.path.join(stage_dir, lib_dir_runtime),
             # prev_lib_dir,
             os.path.join(prev_dir, lib_dir_runtime),
         ])
 
         # Needed for passing the variables to the build command
         setvar('PATH', bin_dir + ":" + orig_path)
+        # if cpath:
+        #     orig_cpath = os.getenv('CPATH')
+        #     setvar('CPATH', os.path.join(prev_dir, 'include', 'c++', 'v1') + ":" + orig_cpath)
         # setvar('LIBRARY_PATH', lib_path + ":" + orig_library_path)
         setvar('LD_LIBRARY_PATH', lib_path + ":" + orig_ld_library_path)
 
@@ -502,6 +550,8 @@ class EB_LLVMcore(CMakeMake):
 
         change_dir(curdir)
         setvar('PATH', orig_path)
+        # if cpath:
+        #     setvar('CPATH', orig_cpath)
         # setvar('LIBRARY_PATH', orig_library_path)
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
@@ -510,21 +560,21 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['bootstrap']:
             self.log.info("Building stage 1")
             print_msg("Building stage 1/3")
-        # change_dir(self.llvm_obj_dir_stage1)
-        # super(EB_LLVMcore, self).build_step(verbose, path)
-        change_dir(self.builddir)
-        print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-        shutil.rmtree('llvm.obj.1', ignore_errors=True)
-        shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
+        change_dir(self.llvm_obj_dir_stage1)
+        super(EB_LLVMcore, self).build_step(verbose, path)
+        # change_dir(self.builddir)
+        # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+        # shutil.rmtree('llvm.obj.1', ignore_errors=True)
+        # shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
             print_msg("Building stage 2/3")
-            # self.configure_step2()
-            # self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            change_dir(self.builddir)
-            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            shutil.rmtree('llvm.obj.2', ignore_errors=True)
-            shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
+            self.configure_step2()
+            self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
+            # change_dir(self.builddir)
+            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            # shutil.rmtree('llvm.obj.2', ignore_errors=True)
+            # shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
 
             self.log.info("Building stage 3")
             print_msg("Building stage 3/3")
