@@ -487,20 +487,8 @@ class EB_LLVMcore(CMakeMake):
 
         # Needed for passing the variables to the build command
         setvar('PATH', bin_dir + ":" + orig_path)
-        # if cpath:
-        #     orig_cpath = os.getenv('CPATH')
-        #     setvar('CPATH', os.path.join(prev_dir, 'include', 'c++', 'v1') + ":" + orig_cpath)
-        # setvar('LIBRARY_PATH', lib_path + ":" + orig_library_path)
         setvar('LD_LIBRARY_PATH', lib_path + ":" + orig_ld_library_path)
 
-        # Needed for passing the variables to the configure command (the environment of configure step is isolated
-        # so the previous `setvar` does not affect it)
-        # _preconfigopts = self.cfg.get('preconfigopts', '')
-        # self.cfg.update('preconfigopts', ' '.join([
-        #     'PATH=%s:%s' % (bin_dir, orig_path),
-        #     'LIBRARY_PATH=%s:%s' % (lib_path, orig_library_path),
-        #     'LD_LIBRARY_PATH=%s:%s' % (lib_path, orig_ld_library_path)
-        # ]))
         # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
         if build_option('rpath'):
             my_toolchain = Toolchain(name='llvm', version='1')
@@ -524,35 +512,17 @@ class EB_LLVMcore(CMakeMake):
             setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
             setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
 
-        # prepend_config = ' '.join([
-        #     'PATH=%s:%s' % (bin_dir, orig_path),
-        #     # 'LIBRARY_PATH=%s:%s' % (lib_path, orig_library_path),
-        #     # 'LD_LIBRARY_PATH=%s:%s' % (lib_path, orig_ld_library_path)
-        # ])
-
         change_dir(stage_dir)
         self.log.debug("Configuring %s", stage_dir)
         cmd = "cmake %s %s" % (self.cfg['configopts'], os.path.join(self.llvm_src_dir, 'llvm'))
         run_cmd(cmd, log_all=True)
-        # super(EB_LLVMcore, self).configure_step(
-        #     builddir=stage_dir,
-        #     srcdir=os.path.join(self.llvm_src_dir, "llvm")
-        #     )
-        # self.cfg.update('preconfigopts', _preconfigopts)
 
-        # change_dir(stage_dir)
-        # self.log.debug("Configuring %s", stage_dir)
-        # cmd = "cmake %s %s" % (self.cfg['configopts'], os.path.join(self.llvm_src_dir, 'llvm'))
-        # run_cmd(cmd, log_all=True)
         self.log.debug("Building %s", stage_dir)
         cmd = "make %s VERBOSE=1" % self.make_parallel_opts
         run_cmd(cmd, log_all=True)
 
         change_dir(curdir)
         setvar('PATH', orig_path)
-        # if cpath:
-        #     setvar('CPATH', orig_cpath)
-        # setvar('LIBRARY_PATH', orig_library_path)
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
     def build_step(self, verbose=False, path=None):
@@ -560,30 +530,30 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['bootstrap']:
             self.log.info("Building stage 1")
             print_msg("Building stage 1/3")
-        change_dir(self.llvm_obj_dir_stage1)
-        super(EB_LLVMcore, self).build_step(verbose, path)
-        # change_dir(self.builddir)
-        # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-        # shutil.rmtree('llvm.obj.1', ignore_errors=True)
-        # shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
+        # change_dir(self.llvm_obj_dir_stage1)
+        # super(EB_LLVMcore, self).build_step(verbose, path)
+        change_dir(self.builddir)
+        print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+        shutil.rmtree('llvm.obj.1', ignore_errors=True)
+        shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
             print_msg("Building stage 2/3")
-            self.configure_step2()
-            self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            # change_dir(self.builddir)
-            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            # shutil.rmtree('llvm.obj.2', ignore_errors=True)
-            # shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
+            # self.configure_step2()
+            # self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
+            change_dir(self.builddir)
+            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            shutil.rmtree('llvm.obj.2', ignore_errors=True)
+            shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
 
             self.log.info("Building stage 3")
             print_msg("Building stage 3/3")
-            self.configure_step3()
-            self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
-            # change_dir(self.builddir)
-            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            # shutil.rmtree('llvm.obj.3', ignore_errors=True)
-            # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
+            # self.configure_step3()
+            # self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
+            change_dir(self.builddir)
+            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            shutil.rmtree('llvm.obj.3', ignore_errors=True)
+            shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
 
     def test_step(self):
         """Run Clang tests on final stage (unless disabled)."""
@@ -592,19 +562,19 @@ class EB_LLVMcore(CMakeMake):
 
             change_dir(basedir)
             orig_path = os.getenv('PATH')
-            # orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
+            orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
             # lib_dir = os.path.join(basedir, 'lib')
-            # lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
-            # lib_path = ':'.join([lib_dir, os.path.join(basedir, lib_dir_runtime), orig_ld_library_path])
+            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+            lib_path = ':'.join([os.path.join(basedir, lib_dir_runtime), orig_ld_library_path])
             setvar('PATH', os.path.join(basedir, 'bin') + ":" + orig_path)
-            # setvar('LD_LIBRARY_PATH', lib_path)
+            setvar('LD_LIBRARY_PATH', lib_path)
 
-            cmd = "make -j 1 check-all"
+            cmd = "make %s check-all" % self.make_parallel_opts
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
             self.log.debug(out)
 
             setvar('PATH', orig_path)
-            # setvar('LD_LIBRARY_PATH', orig_ld_library_path)
+            setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
             rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
             mch = rgx_failed.search(out)
@@ -634,14 +604,12 @@ class EB_LLVMcore(CMakeMake):
             os.path.join(basedir, lib_dir_runtime),
         ])
 
-        _preinstallopts = self. cfg.get('preinstallopts', '')
+        # _preinstallopts = self.cfg.get('preinstallopts', '')
         self.cfg.update('preinstallopts', ' '.join([
             'LD_LIBRARY_PATH=%s:%s' % (lib_path, orig_ld_library_path)
         ]))
 
         super(EB_LLVMcore, self).install_step()
-
-        self.cfg.update('preinstallopts', _preinstallopts)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
