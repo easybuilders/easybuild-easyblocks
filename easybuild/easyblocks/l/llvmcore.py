@@ -32,7 +32,6 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 import glob
 import os
 import re
-import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion, run
@@ -204,6 +203,7 @@ general_opts = {
     # 'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
 }
 
+
 class EB_LLVMcore(CMakeMake):
     """
     Support for building and installing LLVM
@@ -347,7 +347,6 @@ class EB_LLVMcore(CMakeMake):
 
         self._cmakeopts.update(general_opts)
 
-
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
@@ -454,7 +453,7 @@ class EB_LLVMcore(CMakeMake):
     def add_cmake_opts(self):
         """Add LLVM-specific CMake options."""
         base_opts = self._cfgopts.copy()
-        for k,v in self._cmakeopts.items():
+        for k, v in self._cmakeopts.items():
             base_opts.append('-D%s=%s' % (k, v))
         self.cfg['configopts'] = ' '.join(base_opts)
 
@@ -640,7 +639,7 @@ class EB_LLVMcore(CMakeMake):
         matches = glob.glob(glob_pattern)
         if matches:
             directory = os.path.basename(matches[0])
-            res =  os.path.join("lib", directory)
+            res = os.path.join("lib", directory)
         else:
             if not fail_ok:
                 raise EasyBuildError("Could not find runtime library directory")
