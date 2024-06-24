@@ -179,6 +179,9 @@ remove_gcc_opts = {
     # 'CLANG_HAS_GCC_S_LIB': 'Off',
 
     'OPENMP_ENABLE_OMPT_TOOLS': 'Off',
+
+    # Libxml2 from system gets autmatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
+    'LLVM_ENABLE_LIBXML2': 'Off',
 }
 
 disable_werror = {
@@ -235,6 +238,10 @@ class EB_LLVMcore(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
         super(EB_LLVMcore, self).__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('18.1.6'):
+            raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
+
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -244,13 +251,6 @@ class EB_LLVMcore(CMakeMake):
         self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
         self.final_runtimes = []
-        if self.cfg['build_runtimes']:
-            self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
-        if self.cfg['build_openmp']:
-            self.final_projects.append('openmp')
-
-        if LooseVersion(self.version) < LooseVersion('18.1.6'):
-            raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
 
         # Shared
         self.build_shared = self.cfg.get('build_shared_libs', False)
@@ -286,8 +286,13 @@ class EB_LLVMcore(CMakeMake):
                 raise EasyBuildError("Full LLVM build requires building lld")
             if not self.cfg['build_runtimes']:
                 raise EasyBuildError("Full LLVM build requires building runtimes")
+
         if self.cfg['disable_werror']:
             general_opts.update(disable_werror)
+        if self.cfg['build_runtimes']:
+            self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
+        if self.cfg['build_openmp']:
+            self.final_projects.append('openmp')
         if self.cfg['usepolly']:
             self.final_projects.append('polly')
         if self.cfg['build_clang_extras']:
@@ -353,10 +358,21 @@ class EB_LLVMcore(CMakeMake):
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
 
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            self.cfg.update('configopts', '-DLIBOMP_USE_HWLOC=ON')
+            self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
+
+        if 'openmp' in self.final_projects:
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
+
         # Make sure tests are not running with more than `--parallel` tasks
         self._cmakeopts['LLVM_LIT_ARGS'] = '"-j %s"' % self.cfg['parallel']
         if self.cfg['usepolly']:
             self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
+        if not self.cfg['skip_all_tests']:
+            self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
+            self._cmakeopts['LLVM_BUILD_TESTS'] = 'ON'
 
     def configure_step(self):
         """
@@ -399,6 +415,12 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['skip_sanitizer_tests'] and build_option('strict') != run.ERROR:
             self.log.debug("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
+
+        # Remove python bindings tests causing uncaught exception in the build
+        cmakelists_tests = os.path.join(self.llvm_src_dir, 'clang', 'CMakeLists.txt')
+        regex_subs = []
+        regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
+        apply_regex_substitutions(cmakelists_tests, regex_subs)
 
         gcc_prefix = get_software_root('GCCcore')
         # If that doesn't work, try with GCC
@@ -530,30 +552,30 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['bootstrap']:
             self.log.info("Building stage 1")
             print_msg("Building stage 1/3")
-        # change_dir(self.llvm_obj_dir_stage1)
-        # super(EB_LLVMcore, self).build_step(verbose, path)
-        change_dir(self.builddir)
-        print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-        shutil.rmtree('llvm.obj.1', ignore_errors=True)
-        shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
+        change_dir(self.llvm_obj_dir_stage1)
+        super(EB_LLVMcore, self).build_step(verbose, path)
+        # change_dir(self.builddir)
+        # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+        # shutil.rmtree('llvm.obj.1', ignore_errors=True)
+        # shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
             print_msg("Building stage 2/3")
-            # self.configure_step2()
-            # self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            change_dir(self.builddir)
-            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            shutil.rmtree('llvm.obj.2', ignore_errors=True)
-            shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
+            self.configure_step2()
+            self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
+            # change_dir(self.builddir)
+            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            # shutil.rmtree('llvm.obj.2', ignore_errors=True)
+            # shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
 
             self.log.info("Building stage 3")
             print_msg("Building stage 3/3")
-            # self.configure_step3()
-            # self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
-            change_dir(self.builddir)
-            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            shutil.rmtree('llvm.obj.3', ignore_errors=True)
-            shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
+            self.configure_step3()
+            self.build_with_prev_stage(self.llvm_obj_dir_stage2, self.llvm_obj_dir_stage3)
+            # change_dir(self.builddir)
+            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            # shutil.rmtree('llvm.obj.3', ignore_errors=True)
+            # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
 
     def test_step(self):
         """Run Clang tests on final stage (unless disabled)."""
