@@ -307,6 +307,7 @@ class EB_LLVMcore(CMakeMake):
             if self.full_llvm:
                 remove_gcc_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
                 remove_gcc_opts['LLDB_ENABLE_LZMA'] = 'Off'
+                remove_gcc_opts['LLDB_ENABLE_PYTHON'] = 'Off'
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
