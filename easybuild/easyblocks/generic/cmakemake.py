@@ -363,7 +363,8 @@ class CMakeMake(ConfigureMake):
                 if not os.path.exists(path):
                     errors.append(f"Python %s does not exist: %s", path_type, path)
                 elif not os.path.realpath(path).startswith(ebrootpython_path):
-                    errors.append(f"Python %s path '%s' is outside EBROOTPYTHON (%s)", path_type, path, ebrootpython_path)
+                    errors.append(f"Python %s path '%s' is outside EBROOTPYTHON (%s)",
+                                  path_type, path, ebrootpython_path)
 
         if errors:
             # Combine all errors into a single message
