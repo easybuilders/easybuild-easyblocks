@@ -288,6 +288,7 @@ class EB_LLVMcore(CMakeMake):
                 raise EasyBuildError("Full LLVM build requires building lld")
             if not self.cfg['build_runtimes']:
                 raise EasyBuildError("Full LLVM build requires building runtimes")
+            self.log.info("Building LLVM without any GCC dependency")
 
         if self.cfg['disable_werror']:
             general_opts.update(disable_werror)
@@ -403,6 +404,20 @@ class EB_LLVMcore(CMakeMake):
             self.log.info("Initialising for single stage build.")
             self.final_dir = self.llvm_obj_dir_stage1
 
+        xml2_root = get_software_root('libxml2')
+        if xml2_root:
+            if self.full_llvm:
+                self.log.warning("LLVM is being built in `full_llvm` mode, libxml2 will not be used")
+            else:
+                self._cmakeopts['LLVM_ENABLE_LIBXML2'] = 'ON'
+                # self._cmakeopts['LIBXML2_ROOT'] = xml2_root
+
+        lit_root = get_software_root('lit')
+        if not lit_root:
+            if not self.cfg['skip_all_tests']:
+                raise EasyBuildError("Can't find `lit`, needed for running tests-suite")
+
+
         gcc_version = get_software_version('GCCcore')
         if LooseVersion(gcc_version) < LooseVersion('13'):
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
@@ -459,6 +474,7 @@ class EB_LLVMcore(CMakeMake):
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             default_cc = default_cc.replace('.', '')
             general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = 'sm_%s' % default_cc
+            # OLD (pre v16) flags
             general_opts['CLANG_OPENMP_NVPTX_DEFAULT_ARCH'] = 'sm_%s' % default_cc
             general_opts['LIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES'] = ','.join(cuda_cc)
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
