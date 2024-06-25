@@ -32,6 +32,7 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 import glob
 import os
 import re
+import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion, run
@@ -177,7 +178,7 @@ remove_gcc_opts = {
     # 'COMPILER_RT_HAS_GCC_S_LIB': 'Off',
     # 'CLANG_HAS_GCC_S_LIB': 'Off',
 
-    'OPENMP_ENABLE_OMPT_TOOLS': 'Off',
+    # 'OPENMP_ENABLE_OMPT_TOOLS': 'Off',
 
     # Libxml2 from system gets autmatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
     'LLVM_ENABLE_LIBXML2': 'Off',
@@ -246,7 +247,6 @@ class EB_LLVMcore(CMakeMake):
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
-        # self.llvm_obj_dir_stage4 = None
         self.intermediate_projects = ['llvm', 'clang']
         self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
@@ -278,8 +278,10 @@ class EB_LLVMcore(CMakeMake):
             # Does not work with Flang
             # general_opts['LLVM_ENABLE_EH'] = 'ON'
 
+        self.full_llvm = self.cfg['full_llvm']
+
         # Other vustom options
-        if self.cfg['full_llvm']:
+        if self.full_llvm:
             if not self.cfg['bootstrap']:
                 raise EasyBuildError("Full LLVM build irequires bootstrap build")
             if not self.cfg['build_lld']:
@@ -302,6 +304,9 @@ class EB_LLVMcore(CMakeMake):
             self.final_projects.append('lld')
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
+            if self.full_llvm:
+                remove_gcc_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
+                remove_gcc_opts['LLDB_ENABLE_LZMA'] = 'Off'
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
@@ -321,6 +326,7 @@ class EB_LLVMcore(CMakeMake):
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+        self.build_targets = build_targets or []
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
@@ -359,8 +365,9 @@ class EB_LLVMcore(CMakeMake):
 
         hwloc_root = get_software_root('hwloc')
         if hwloc_root:
-            self.cfg.update('configopts', '-DLIBOMP_USE_HWLOC=ON')
-            self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
+            self.log.info("Using %s as hwloc root", hwloc_root)
+            self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
+            self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
         if 'openmp' in self.final_projects:
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
@@ -395,8 +402,6 @@ class EB_LLVMcore(CMakeMake):
             self.log.info("Initialising for single stage build.")
             self.final_dir = self.llvm_obj_dir_stage1
 
-        # return
-
         gcc_version = get_software_version('GCCcore')
         if LooseVersion(gcc_version) < LooseVersion('13'):
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
@@ -404,7 +409,7 @@ class EB_LLVMcore(CMakeMake):
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self._configure_intermediate_build()
-            # if self.cfg['full_llvm']:
+            # if self.full_llvm:
             #     self.intermediate_projects.append('libc')
             #     self.final_projects.append('libc')
         else:
@@ -430,6 +435,46 @@ class EB_LLVMcore(CMakeMake):
             raise EasyBuildError("Can't find GCC or GCCcore to use")
         self._cmakeopts['GCC_INSTALL_PREFIX'] = gcc_prefix
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
+
+        # Disable OpenMP offload support if not building for NVPTX or AMDGPU
+        if 'NVPTX' not in self.build_targets and 'AMDGPU' not in self.build_targets:
+            general_opts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
+
+        # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
+        if 'NVPTX' in self.build_targets:
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            if not cuda_cc:
+                raise EasyBuildError("Can't build Clang with CUDA support "
+                                     "without specifying 'cuda-compute-capabilities'")
+            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
+            if not self.cfg['default_cuda_capability']:
+                print_warning("No default CUDA capability defined! "
+                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
+            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+            default_cc = default_cc.replace('.', '')
+            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = 'sm_%s' % default_cc
+            general_opts['CLANG_OPENMP_NVPTX_DEFAULT_ARCH'] = 'sm_%s' % default_cc
+            general_opts['LIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES'] = ','.join(cuda_cc)
+        # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
+        # using the environment variable which is used as-is and later checked for a falsy value when determining
+        # whether CUDA was found
+        if not get_software_root('CUDA'):
+            setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
+        # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
+        if 'AMDGPU' in self.build_targets:
+            if not get_software_root('ROCR-Runtime'):
+                raise EasyBuildError("Can't build Clang with AMDGPU support "
+                                     "without dependency 'ROCR-Runtime'")
+            ec_amdgfx = self.cfg['amd_gfx_list']
+            if not ec_amdgfx:
+                raise EasyBuildError("Can't build Clang with AMDGPU support "
+                                     "without specifying 'amd_gfx_list'")
+            general_opts['LIBOMPTARGET_AMDGCN_GFXLIST'] = ' '.join(ec_amdgfx)
 
         self._configure_general_build()
 
@@ -457,17 +502,17 @@ class EB_LLVMcore(CMakeMake):
             base_opts.append('-D%s=%s' % (k, v))
         self.cfg['configopts'] = ' '.join(base_opts)
 
-        self.log.debug("-%"*50)
-        self.log.debug("Using %s as configopts", self._cfgopts)
-        self.log.debug("Using %s as cmakeopts", self._cmakeopts)
-        self.log.debug("-%"*50)
+        # self.log.debug("-%"*50)
+        # self.log.debug("Using %s as configopts", self._cfgopts)
+        # self.log.debug("Using %s as cmakeopts", self._cmakeopts)
+        # self.log.debug("-%"*50)
 
     def configure_step2(self):
         """Configure the second stage of the bootstrap."""
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_intermediate_build()
-        if self.cfg['full_llvm']:
+        if self.full_llvm:
             self._cmakeopts.update(remove_gcc_opts)
 
     def configure_step3(self):
@@ -475,7 +520,7 @@ class EB_LLVMcore(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
-        if self.cfg['full_llvm']:
+        if self.full_llvm:
             self._cmakeopts.update(remove_gcc_opts)
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
@@ -493,8 +538,6 @@ class EB_LLVMcore(CMakeMake):
         self.add_cmake_opts()
 
         bin_dir = os.path.join(prev_dir, 'bin')
-        # prev_lib_dir = os.path.join(prev_dir, 'lib')
-        # curr_lib_dir = os.path.join(stage_dir, 'lib')
         lib_dir_runtime = self.get_runtime_lib_path(prev_dir, fail_ok=False)
 
         # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
@@ -551,6 +594,9 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['bootstrap']:
             self.log.info("Building stage 1")
             print_msg("Building stage 1/3")
+        else:
+            self.log.info("Building LLVM")
+            print_msg("Building stage 1/1")
         change_dir(self.llvm_obj_dir_stage1)
         super(EB_LLVMcore, self).build_step(verbose, path)
         # change_dir(self.builddir)
@@ -649,7 +695,7 @@ class EB_LLVMcore(CMakeMake):
         return res
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
-        self.runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+        self.get_runtime_lib_path(self.installdir, fail_ok=False)
         shlib_ext = get_shared_lib_ext()
 
         if self.build_shared:
@@ -675,10 +721,11 @@ class EB_LLVMcore(CMakeMake):
         """
         Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
+        runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
         guesses = super(EB_LLVMcore, self).make_module_req_guess()
         guesses.update({
             'CPATH': [],
-            'LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
-            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
+            'LIBRARY_PATH': ['lib', 'lib64', runtime_lib_path],
+            'LD_LIBRARY_PATH': ['lib', 'lib64', runtime_lib_path],
         })
         return guesses
