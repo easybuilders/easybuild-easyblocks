@@ -454,7 +454,7 @@ class PythonPackage(ExtensionEasyBlock):
 
             # avoid that pip (ab)uses $HOME/.cache/pip
             # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
+            env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
             self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
