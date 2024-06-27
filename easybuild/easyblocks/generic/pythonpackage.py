@@ -422,6 +422,11 @@ class PythonPackage(ExtensionEasyBlock):
         self.use_setup_py = False
         self.determine_install_command()
 
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -451,11 +456,6 @@ class PythonPackage(ExtensionEasyBlock):
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
                 self.cfg.update('installopts', '--no-index')
-
-            # avoid that pip (ab)uses $HOME/.cache/pip
-            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-            env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
-            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
             self.use_setup_py = True
