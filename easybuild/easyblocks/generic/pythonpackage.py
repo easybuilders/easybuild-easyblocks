@@ -426,6 +426,9 @@ class PythonPackage(ExtensionEasyBlock):
         # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
         env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+        # Users or sites may require using a virtualenv for user installations
+        # We need to disable this to be able to install into the modules
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
 
     def determine_install_command(self):
         """
