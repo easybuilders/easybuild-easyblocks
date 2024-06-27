@@ -940,16 +940,19 @@ class EB_TensorFlow(PythonPackage):
             + ['//tensorflow/tools/pip_package:build_pip_package']
         )
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
-
-        # run generated 'build_pip_package' script to build the .whl
-        cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package"
         # TF uses the temporary folder, which becomes quite large (~2 GB) so use the build folder explicitely.
-        tmp_dir = os.path.join(self.builddir, 'build-pip')
-        mkdir(tmp_dir)
-        cmd = "TMPDIR='%s' " % tmp_dir
-        cmd += "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        old_tmpdir = os.environ['TMPDIR']
+        tmpdir = os.path.join(self.builddir, 'tmpdir')
+        mkdir(tmpdir)
+        os.environ['TMPDIR'] = tmpdir
+        try:
+            run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
+
+            # run generated 'build_pip_package' script to build the .whl
+            cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
+            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        finally:
+            os.environ['TMPDIR'] = old_tmpdir
 
     def test_step(self):
         """Run TensorFlow unit tests"""
