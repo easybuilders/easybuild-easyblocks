@@ -35,6 +35,7 @@ import os
 import re
 import stat
 import tempfile
+from contextlib import contextmanager
 from itertools import chain
 
 import easybuild.tools.environment as env
@@ -450,6 +451,18 @@ class EB_TensorFlow(PythonPackage):
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
         self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
         mkdir(self.wrapper_dir)
+
+    @contextmanager
+    def set_tmp_dir(self):
+        # TF uses the temporary folder, which becomes quite large (~2 GB) so use the build folder explicitely.
+        old_tmpdir = os.environ['TMPDIR']
+        tmpdir = os.path.join(self.builddir, 'tmpdir')
+        mkdir(tmpdir)
+        os.environ['TMPDIR'] = tmpdir
+        try:
+            yield tmpdir
+        finally:
+            os.environ['TMPDIR'] = old_tmpdir
 
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
@@ -940,19 +953,12 @@ class EB_TensorFlow(PythonPackage):
             + ['//tensorflow/tools/pip_package:build_pip_package']
         )
 
-        # TF uses the temporary folder, which becomes quite large (~2 GB) so use the build folder explicitely.
-        old_tmpdir = os.environ['TMPDIR']
-        tmpdir = os.path.join(self.builddir, 'tmpdir')
-        mkdir(tmpdir)
-        os.environ['TMPDIR'] = tmpdir
-        try:
+        with self.set_tmp_dir():
             run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
             # run generated 'build_pip_package' script to build the .whl
             cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
             run_cmd(cmd, log_all=True, simple=True, log_ok=True)
-        finally:
-            os.environ['TMPDIR'] = old_tmpdir
 
     def test_step(self):
         """Run TensorFlow unit tests"""
@@ -1075,7 +1081,8 @@ class EB_TensorFlow(PythonPackage):
                 + test_targets
             )
 
-            stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
+            with self.set_tmp_dir():
+                stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
             if ec:
                 fail_msg = 'Tests on %s (cmd: %s) failed with exit code %s and output:\n%s' % (
                     device, cmd, ec, stdouterr)
