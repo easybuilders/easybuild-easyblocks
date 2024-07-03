@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,6 +41,7 @@ import re
 import shutil
 import stat
 import tempfile
+import textwrap
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
@@ -48,7 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
@@ -293,6 +294,23 @@ class EB_OpenFOAM(EasyBlock):
                     else:
                         env.setvar("%s_ROOT" % depend.upper(), dependloc)
 
+            if get_software_root('CGAL') and LooseVersion(get_software_version('CGAL')) >= LooseVersion('5.0'):
+                # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR.
+                # It may fail to find it, so inject the right settings and paths into the "have_cgal" script.
+                have_cgal_script = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal')
+                if get_software_root('MPFR') and os.path.exists(have_cgal_script):
+                    eb_cgal_config = textwrap.dedent('''
+                    # Injected by EasyBuild
+                    HAVE_CGAL=true
+                    HAVE_MPFR=true
+                    CGAL_FLAVOUR=header
+                    CGAL_INC_DIR=${EBROOTCGAL}/include
+                    CGAL_LIB_DIR=${EBROOTCGAL}/lib
+                    MPFR_INC_DIR=${EBROOTMPFR}/include
+                    MPFR_LIB_DIR=${EBROOTMPFR}/lib
+                    ''')
+                    write_file(have_cgal_script, eb_cgal_config, append=True)
+
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
 
@@ -486,6 +504,11 @@ class EB_OpenFOAM(EasyBlock):
             test_foammonitor = "! foamMonitor -h 2>&1 | grep 'not installed'"
             custom_commands.append(' && '.join([load_openfoam_env, test_foammonitor]))
 
+        if self.is_dot_com and self.looseversion >= LooseVersion("2012"):
+            # Make sure that wmake can see the compilers
+            test_wmake_compilers = ["command -V $(wmake -show-cxx)", "command -V $(wmake -show-c)"]
+            custom_commands.append(' && '.join([load_openfoam_env] + test_wmake_compilers))
+
         custom_paths = {
             'files': [os.path.join(self.openfoamdir, 'etc', x) for x in ["bashrc", "cshrc"]] + bins + libs,
             'dirs': dirs,
@@ -495,7 +518,13 @@ class EB_OpenFOAM(EasyBlock):
         # only for recent (>= v6.0) versions of openfoam.org variant
         if self.is_dot_org and self.looseversion >= LooseVersion('6'):
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
-            motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike')
+            if self.looseversion <= LooseVersion('10'):
+                motorbike_path = os.path.join(
+                    openfoamdir_path, 'tutorials', 'incompressible', 'simpleFoam', 'motorBike'
+                )
+            else:
+                motorbike_path = os.path.join(openfoamdir_path, 'tutorials', 'incompressibleFluid',
+                                              'motorBike', 'motorBike')
             if os.path.exists(motorbike_path):
                 test_dir = tempfile.mkdtemp()
 
@@ -503,28 +532,52 @@ class EB_OpenFOAM(EasyBlock):
                     geom_target_dir = 'geometry'
                 else:
                     geom_target_dir = 'triSurface'
+            else:
+                raise EasyBuildError("motorBike tutorial not found at %s", motorbike_path)
 
+            if self.looseversion <= LooseVersion('10'):
                 cmds = [
-                    "cp -a %s %s" % (motorbike_path, test_dir),
-                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                    "source $FOAM_BASH",
-                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
-                    "runApplication surfaceFeatures",
-                    "runApplication blockMesh",
-                    "runApplication decomposePar -copyZero",
-                    "runParallel snappyHexMesh -overwrite",
-                    "runParallel patchSummary",
-                    "runParallel potentialFoam",
-                    "runParallel simpleFoam",
-                    "runApplication reconstructParMesh -constant",
-                    "runApplication reconstructPar -latestTime",
-                    "cd %s" % self.builddir,
-                    "rm -r %s" % test_dir,
+                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                        "chmod -R +w %s" % test_dir,
+                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "source $FOAM_BASH",
+                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                        "runApplication surfaceFeatures",
+                        "runApplication blockMesh",
+                        "runApplication decomposePar -copyZero",
+                        "runParallel snappyHexMesh -overwrite",
+                        "runParallel patchSummary",
+                        "runParallel potentialFoam",
+                        "runParallel simpleFoam",
+                        "runApplication reconstructParMesh -constant",
+                        "runApplication reconstructPar -latestTime",
+                        "cd %s" % self.builddir,
+                        "rm -r %s" % test_dir,
                 ]
-                # all commands need to be run in a single shell command,
-                # because sourcing $FOAM_BASH sets up environment
-                custom_commands.append(' && '.join(cmds))
+            # v11 and above run the motorBike example differently
+            else:
+                cmds = [
+                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                        "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                        "source $FOAM_BASH",
+                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                        "runApplication blockMesh",
+                        "runApplication decomposePar -copyZero",
+                        "find . -type f -iname '*level*' -exec rm {} \\;",
+                        "runParallel renumberMesh -overwrite",
+                        "runParallel potentialFoam -initialiseUBCs",
+                        "runParallel simpleFoam",
+                        "cd %s" % self.builddir,
+                        "rm -r %s" % test_dir,
+                ]
+            # all commands need to be run in a single shell command,
+            # because sourcing $FOAM_BASH sets up environment
+            custom_commands.append(' && '.join(cmds))
 
         super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

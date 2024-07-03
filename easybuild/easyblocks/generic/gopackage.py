@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,6 +65,8 @@ class GoPackage(EasyBlock):
     def configure_step(self):
         """Configure Go package build/install."""
 
+        # Move compiled .a files into builddir, else they pollute $HOME/go
+        env.setvar('GOPATH', self.builddir, verbose=False)
         # enforce use of go modules
         env.setvar('GO111MODULE', 'on', verbose=False)
         # set bin folder

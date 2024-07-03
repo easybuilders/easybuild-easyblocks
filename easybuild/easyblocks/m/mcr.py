@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -81,11 +81,16 @@ class EB_MCR(PackedBinary):
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
-        else:
+        elif LooseVersion(self.version) < LooseVersion('R2024a'):
             config = '\n'.join([
                 "destinationFolder=%s" % self.installdir,
                 "agreeToLicense=Yes",
                 "mode=silent",
+            ])
+        else:
+            config = '\n'.join([
+                "destinationFolder=%s" % self.installdir,
+                "agreeToLicense=yes",
             ])
 
         write_file(configfile, config)

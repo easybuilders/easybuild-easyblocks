@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,7 +55,8 @@ class EB_Libint(CMakeMake):
     def configure_step(self):
         """Add some extra configure options."""
 
-        if LooseVersion(self.version) >= LooseVersion('2.6.0'):
+        self_version = LooseVersion(self.version)
+        if self_version >= '2.6.0':
             # Libint 2.6.0 requires first compiling the Libint compiler,
             # by running configure with appropriate options, followed by 'make export'
             # and unpacking the resulting source tarball;
@@ -88,7 +89,7 @@ class EB_Libint(CMakeMake):
 
         # Libint < 2.7.0 can be configured using configure script,
         # Libint >= 2.7.0 should be configured via cmake
-        if LooseVersion(self.version) < LooseVersion('2.7.0'):
+        if self_version < '2.7.0':
 
             # also build shared libraries (not enabled by default)
             self.cfg.update('configopts', "--enable-shared")
@@ -97,14 +98,16 @@ class EB_Libint(CMakeMake):
                 # Enforce consistency.
                 self.cfg.update('configopts', "--with-pic")
 
-            if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) < LooseVersion('2.1'):
+            if self_version >= '2.0' and self_version < '2.1':
                 # the code in libint is automatically generated and hence it is in some
                 # parts so complex that -O2 or -O3 compiler optimization takes forever
                 self.cfg.update('configopts', "--with-cxx-optflags='-O1'")
 
-            elif LooseVersion(self.version) >= LooseVersion('2.1'):
+            elif self_version >= '2.1' and self_version < '2.6.0':
                 # pass down $CXXFLAGS to --with-cxxgen-optflags configure option;
                 # mainly to avoid warning about it not being set (but $CXXFLAGS is picked up anyway in practice)
+                # However this isn't required/supported anymore in the already generated "source",
+                # see the above creation of the LibInt compiler/library
                 self.cfg.update('configopts', "--with-cxxgen-optflags='%s'" % os.getenv('CXXFLAGS'))
 
             # --enable-fortran is only a known configure option for Libint library, not for Libint compiler,

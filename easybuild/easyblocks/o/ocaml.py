@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2023 Ghent University
+# Copyright 2015-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -86,7 +86,8 @@ class EB_OCaml(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for OCaml."""
         self.cfg['prefix_opt'] = '-prefix '
-        self.cfg.update('configopts', '-cc "%s %s"' % (os.environ['CC'], os.environ['CFLAGS']))
+        if LooseVersion(self.version) < LooseVersion("4.12"):
+            self.cfg.update('configopts', '-cc "%s %s"' % (os.environ['CC'], os.environ['CFLAGS']))
 
         if 'world.opt' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'world.opt')

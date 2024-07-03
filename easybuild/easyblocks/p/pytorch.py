@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2023 Ghent University
+# Copyright 2020-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -217,6 +217,8 @@ class EB_PyTorch(PythonPackage):
         extra_vars['sanity_pip_check'][0] = True
         # Make pip show output of build process as that may often contain errors or important warnings
         extra_vars['pip_verbose'][0] = True
+        # Test as-if pytorch was installed
+        extra_vars['testinstall'][0] = True
 
         return extra_vars
 
@@ -224,8 +226,7 @@ class EB_PyTorch(PythonPackage):
         """Constructor for PyTorch easyblock."""
         super(EB_PyTorch, self).__init__(*args, **kwargs)
         self.options['modulename'] = 'torch'
-        # Test as-if pytorch was installed
-        self.testinstall = True
+
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
 
     def fetch_step(self, skip_checksums=False):

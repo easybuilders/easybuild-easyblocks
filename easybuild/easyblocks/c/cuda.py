@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2023 Ghent University
+# Copyright 2012-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -155,6 +155,14 @@ class EB_CUDA(Binary):
 
         # Use C locale to avoid localized questions and crash on CUDA 10.1
         self.cfg.update('preinstallopts', "export LANG=C && ")
+
+        # As a CUDA recipe gets older and the OS gets updated, it is
+        # likely that the system GCC becomes too new for the CUDA version.
+        # Since in EasyBuild we know/expect that CUDA will only ever get used
+        # as a dependency within the context of a toolchain, we can override
+        # the compiler version check that would cause the installation to
+        # fail.
+        self.cfg.update('installopts', "--override")
 
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
