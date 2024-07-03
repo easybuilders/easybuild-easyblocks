@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -322,7 +322,7 @@ class CMakeMake(ConfigureMake):
         return out
 
     def check_python_paths(self):
-        """Check that there are no detected Python paths outside the EB installed PythonF"""
+        """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""
         if not os.path.exists('CMakeCache.txt'):
             self.log.warning("CMakeCache.txt not found. Python paths checks skipped.")
             return
@@ -338,13 +338,13 @@ class CMakeMake(ConfigureMake):
             "include_dir": [],
             "library": [],
         }
-        PYTHON_RE = re.compile(r"_?(?:Python|PYTHON)\d_(EXECUTABLE|INCLUDE_DIR|LIBRARY)[^=]*=(.*)")
+        python_regex = re.compile(r"_?(?:Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)[^=]*=(.*)")
         for line in cmake_cache.splitlines():
-            match = PYTHON_RE.match(line)
+            match = python_regex.match(line)
             if match:
                 path_type = match[1].lower()
                 path = match[2].strip()
-                self.log.info(f"Python {path_type} path: {path}")
+                self.log.info("Python %s path: %s", path_type, path)
                 python_paths[path_type].append(path)
 
         ebrootpython_path = get_software_root("Python")
@@ -361,14 +361,15 @@ class CMakeMake(ConfigureMake):
                 if path.endswith('-NOTFOUND'):
                     continue
                 if not os.path.exists(path):
-                    errors.append(f"Python {path_type} does not exist: {path}")
+                    errors.append("Python %s does not exist: %s" % (path_type, path))
                 elif not os.path.realpath(path).startswith(ebrootpython_path):
-                    errors.append(f"Python {path_type} path '{path}' is outside EBROOTPYTHON ({ebrootpython_path})")
+                    errors.append("Python %s path '%s' is outside EBROOTPYTHON (%s)" %
+                                  (path_type, path, ebrootpython_path))
 
         if errors:
             # Combine all errors into a single message
             error_message = "\n".join(errors)
-            raise EasyBuildError(f"Python path errors:\n{error_message}")
+            raise EasyBuildError("Python path errors:\n" + error_message)
         self.log.info("Python check successful")
 
     def test_step(self):
