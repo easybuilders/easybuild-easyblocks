@@ -32,7 +32,6 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 import glob
 import os
 import re
-import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion, run
@@ -313,7 +312,6 @@ class EB_LLVMcore(CMakeMake):
             if not self.cfg['skip_all_tests']:
                 raise EasyBuildError("Can't find `lit`, needed for running tests-suite")
 
-
         gcc_version = get_software_version('GCCcore')
         if LooseVersion(gcc_version) < LooseVersion('13'):
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
@@ -512,6 +510,7 @@ class EB_LLVMcore(CMakeMake):
             print_msg("Building stage 1/1")
         change_dir(self.llvm_obj_dir_stage1)
         super(EB_LLVMcore, self).build_step(verbose, path)
+        # import shutil
         # change_dir(self.builddir)
         # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
         # shutil.rmtree('llvm.obj.1', ignore_errors=True)
