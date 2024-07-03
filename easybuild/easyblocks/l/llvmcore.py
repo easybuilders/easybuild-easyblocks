@@ -639,37 +639,51 @@ class EB_LLVMcore(CMakeMake):
             # shutil.rmtree('llvm.obj.3', ignore_errors=True)
             # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
 
+    def _test_step(self, parallel=1):
+        """Run test suite with the specified number of parallel jobs for make."""
+        basedir = self.final_dir
+
+        change_dir(basedir)
+        orig_path = os.getenv('PATH')
+        orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
+        # lib_dir = os.path.join(basedir, 'lib')
+        lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+        lib_path = ':'.join([os.path.join(basedir, lib_dir_runtime), orig_ld_library_path])
+        setvar('PATH', os.path.join(basedir, 'bin') + ":" + orig_path)
+        setvar('LD_LIBRARY_PATH', lib_path)
+
+        cmd = "make -j %s check-all" % parallel
+        (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+        self.log.debug(out)
+
+        setvar('PATH', orig_path)
+        setvar('LD_LIBRARY_PATH', orig_ld_library_path)
+
+        rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
+        mch = rgx_failed.search(out)
+        if mch is None:
+            rgx_passed = re.compile(r'^ +Passed +: +([0-9]+)', flags=re.MULTILINE)
+            mch = rgx_passed.search(out)
+            if mch is None:
+                num_failed = None
+            else:
+                num_failed = 0
+        else:
+            num_failed = int(mch.group(1))
+
+        return num_failed
+
     def test_step(self):
         """Run Clang tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
-            basedir = self.final_dir
+            self.log.info("Running test-suite with parallel jobs")
+            num_failed = self._test_step(parallel=self.cfg['parallel'])
+            if num_failed is None:
+                self.log.warning("Tests with parallel jobs failed, retrying with single job")
+                num_failed = self._test_step(parallel=1)
+            if num_failed is None:
+                raise EasyBuildError("Failed to extract test results from output")
 
-            change_dir(basedir)
-            orig_path = os.getenv('PATH')
-            orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
-            # lib_dir = os.path.join(basedir, 'lib')
-            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
-            lib_path = ':'.join([os.path.join(basedir, lib_dir_runtime), orig_ld_library_path])
-            setvar('PATH', os.path.join(basedir, 'bin') + ":" + orig_path)
-            setvar('LD_LIBRARY_PATH', lib_path)
-
-            cmd = "make %s check-all" % self.make_parallel_opts
-            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
-            self.log.debug(out)
-
-            setvar('PATH', orig_path)
-            setvar('LD_LIBRARY_PATH', orig_ld_library_path)
-
-            rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
-            mch = rgx_failed.search(out)
-            if mch is None:
-                rgx_passed = re.compile(r'^ +Passed +: +([0-9]+)', flags=re.MULTILINE)
-                mch = rgx_passed.search(out)
-                if mch is None:
-                    raise EasyBuildError("Failed to extract test results from output")
-                num_failed = 0
-            else:
-                num_failed = int(mch.group(1))
             if num_failed > self.cfg['test_suite_max_failed']:
                 raise EasyBuildError("Too many failed tests: %s", num_failed)
 
