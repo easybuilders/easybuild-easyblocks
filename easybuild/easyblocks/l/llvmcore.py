@@ -50,100 +50,7 @@ from easybuild.tools.toolchain.toolchain import Toolchain
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
-# remove_gcc_opts = {
-#     'LIBCXX_CXX_ABI': 'libcxxabi',
-#     'LIBCXX_USE_COMPILER_RT': 'On',
-#     'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
-#     'LIBCXXABI_USE_COMPILER_RT': 'On',
-#     'LIBCXX_HAS_GCC_S_LIB': 'Off',
-#     'LIBUNWIND_USE_COMPILER_RT': 'On',
-#     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
-#     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
-# }
-
-# https://discourse.llvm.org/t/should-buildbots-switch-to-enable-runtimes-instead-of-enable-projects-for-compiler-rt/65042/12
-# cmake
-#   ‘-DCMAKE_PREFIX_PATH=/home/ampandey/rocm-toolchain/rocm-5.6/llvm;/home/ampandey/rocm-toolchain/rocm-5.6’
-#   -DCMAKE_BUILD_TYPE=Release
-#   -DCMAKE_VERBOSE_MAKEFILE=1
-#   -DCPACK_GENERATOR=DEB
-#   ‘-DCMAKE_INSTALL_RPATH=$ORIGIN:$ORIGIN/…/lib:$ORIGIN/…/lib64:/opt/rocm-5.6.0-9999/lib:/opt/rocm-5.6.0-9999/lib64:/opt/rocm/lib:/opt/rocm/lib64:$ORIGIN/…/llvm/lib’
-#   -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE
-#   -DROCM_PATCH_VERSION=50600
-#   -DCMAKE_INSTALL_PREFIX=/home/ampandey/rocm-toolchain/rocm-5.6
-#   -DCPACK_PACKAGING_INSTALL_PREFIX=/home/ampandey/rocm-toolchain/rocm-5.6
-#   -DCMAKE_INSTALL_PREFIX=/home/ampandey/rocm-toolchain/rocm-5.6/llvm
-#   ‘-DLLVM_TARGETS_TO_BUILD=AMDGPU;X86’
-#   ‘-DLLVM_ENABLE_PROJECTS=clang;lld;clang-tools-extra’
-#   ‘-DLLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;compiler-rt’
-#   -DLIBCXX_ENABLE_SHARED=OFF
-#   -DLIBCXX_ENABLE_STATIC=ON
-#   -DLIBCXX_INSTALL_LIBRARY=OFF
-#   -DLIBCXX_INSTALL_HEADERS=OFF
-#   -DLIBCXXABI_ENABLE_SHARED=OFF
-#   -DLIBCXXABI_ENABLE_STATIC=ON
-#   -DLIBCXXABI_INSTALL_STATIC_LIBRARY=OFF
-#   -DLLVM_BUILD_DOCS=OFF
-#   -DLLVM_ENABLE_SPHINX=OFF
-#   -DSPHINX_WARNINGS_AS_ERRORS=OFF
-#   -DSPHINX_OUTPUT_MAN=OFF
-#   -DLLVM_ENABLE_ASSERTIONS=1
-#   -DLLVM_ENABLE_Z3_SOLVER=OFF
-#   -DLLVM_ENABLE_ZLIB=ON
-#   -DLLVM_AMDGPU_ALLOW_NPI_TARGETS=ON
-#   -DCLANG_DEFAULT_PIE_ON_LINUX=0
-#   -DCLANG_DEFAULT_LINKER=lld
-#   -DCLANG_DEFAULT_RTLIB=compiler-rt
-#   -DCLANG_DEFAULT_UNWINDLIB=libgcc
-#   -DPACKAGE_VENDOR=AMD
-#   -DLLVM_BUILD_LLVM_DYLIB=OFF
-#   -DLLVM_LINK_LLVM_DYLIB=OFF
-#   -DLLVM_ENABLE_LIBCXX=OFF
-#   /home/ampandey/rocm-toolchain/build/…/external/llvm-project/llvm
-
-
-# https://github.com/llvm/llvm-project/issues/72108
-# -DCMAKE_BUILD_TYPE="Release" \
-# -DCMAKE_C_FLAGS="-Wno-backend-plugin" \
-# -DCMAKE_CXX_FLAGS="-Wno-backend-plugin" \
-# -DCMAKE_C_COMPILER="clang" \
-# -DCMAKE_CXX_COMPILER="clang++" \
-# -DLLVM_ENABLE_CLASSIC_FLANG=ON \
-# -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld;openmp" \
-# -DLLVM_ENABLE_RUNTIMES="compiler-rt;libcxx;libcxxabi" \
-# -DLLVM_LIBDIR_SUFFIX=64 \
-# -DLLVM_USE_LINKER=lld \
-# -DLLVM_PARALLEL_COMPILE_JOBS="96" \
-# -DLLVM_PARALLEL_LINK_JOBS=96 \
-# -DLLVM_ENABLE_NEW_PASS_MANAGER=ON \
-# -DLLVM_TARGETS_TO_BUILD="X86;BPF;WebAssembly" \
-# -DLLVM_ENABLE_LIBCXX=OFF \
-# -DLLVM_STATIC_LINK_CXX_STDLIB=OFF \
-# -DLLVM_BINUTILS_INCDIR="/usr/include" \
-# -DLLVM_ENABLE_TERMINFO=OFF \
-# -DLLVM_ENABLE_LIBXML2=OFF \
-# -DLLVM_ENABLE_LIBEDIT=OFF \
-# -DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF \
-# -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
-# -DCOMPILER_RT_BUILD_XRAY=OFF \
-# -DCOMPILER_RT_BUILD_ORC=OFF \
-# -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
-# -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=OFF \
-# -DOPENMP_ENABLE_LIBOMPTARGET=OFF \
-# -DOPENMP_ENABLE_OMPT_TOOLS=OFF \
-# -DOPENMP_ENABLE_TESTING=OFF \
-# -DCOMPILER_RT_CXX_LIBRARY=libcxx \
-# -DSANITIZER_CXX_ABI=libc++ \
-# -DSANITIZER_CXX_ABI_INTREE=ON \
-# -DSANITIZER_USE_STATIC_CXX_ABI=ON \
-# -DSANITIZER_TEST_CXX=libc++ \
-# -DSANITIZER_TEST_CXX_INTREE=ON \
-# -DSANITIZER_USE_STATIC_TEST_CXX=ON \
-# -DSANITIZER_LIT_USE_LIBCXX=ON \
-
 remove_gcc_opts = {
-    # 'LLVM_LIBC_FULL_BUILD': 'On',
-    # 'LLVM_LIBC_INCLUDE_SCUDO': 'On',
 
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
@@ -154,18 +61,12 @@ remove_gcc_opts = {
     'LIBUNWIND_USE_COMPILER_RT': 'On',
 
     'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
-    # 'SANITIZER_USE_STATIC_CXX_ABI': 'On',
     'COMPILER_RT_USE_LIBCXX': 'On',
     'COMPILER_RT_USE_LLVM_UNWINDER': 'On',
-    # 'COMPILER_RT_CXX_LIBRARY': 'libcxx',
     'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
     'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
     'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
     'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
-    # 'COMPILER_RT_BUILD_SCUDO_STANDALONE_WITH_LLVM_LIBC': 'On',
-    # 'COMPILER_RT_SCUDO_STANDALONE_BUILD_SHARED': 'Off',
-    # Required for building the standalone libatomic (not depending on GCCcore)
-    # 'COMPILER_RT_BUILD_STANDALONE_LIBATOMIC': 'On',
 
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
@@ -175,10 +76,6 @@ remove_gcc_opts = {
     'LIBCXX_HAS_GCC_S_LIB': 'Off',
     'LIBCXXABI_HAS_GCC_S_LIB': 'Off',
     'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
-    # 'COMPILER_RT_HAS_GCC_S_LIB': 'Off',
-    # 'CLANG_HAS_GCC_S_LIB': 'Off',
-
-    # 'OPENMP_ENABLE_OMPT_TOOLS': 'Off',
 
     # Libxml2 from system gets autmatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
     'LLVM_ENABLE_LIBXML2': 'Off',
@@ -201,7 +98,6 @@ general_opts = {
     'LLVM_INSTALL_UTILS': 'ON',
     'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
-    # 'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
 }
 
 
