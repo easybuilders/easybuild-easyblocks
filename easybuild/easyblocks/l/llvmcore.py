@@ -49,8 +49,7 @@ from easybuild.tools.toolchain.toolchain import Toolchain
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
-remove_gcc_opts = {
-
+remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
 
@@ -201,9 +200,9 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
             if self.full_llvm:
-                remove_gcc_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
-                remove_gcc_opts['LLDB_ENABLE_LZMA'] = 'Off'
-                remove_gcc_opts['LLDB_ENABLE_PYTHON'] = 'Off'
+                remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
+                remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'Off'
+                remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'Off'
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
@@ -413,18 +412,13 @@ class EB_LLVMcore(CMakeMake):
             base_opts.append('-D%s=%s' % (k, v))
         self.cfg['configopts'] = ' '.join(base_opts)
 
-        # self.log.debug("-%"*50)
-        # self.log.debug("Using %s as configopts", self._cfgopts)
-        # self.log.debug("Using %s as cmakeopts", self._cmakeopts)
-        # self.log.debug("-%"*50)
-
     def configure_step2(self):
         """Configure the second stage of the bootstrap."""
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_intermediate_build()
         if self.full_llvm:
-            self._cmakeopts.update(remove_gcc_opts)
+            self._cmakeopts.update(remove_gcc_dependency_opts)
 
     def configure_step3(self):
         """Configure the third stage of the bootstrap."""
@@ -432,7 +426,7 @@ class EB_LLVMcore(CMakeMake):
         self._configure_general_build()
         self._configure_final_build()
         if self.full_llvm:
-            self._cmakeopts.update(remove_gcc_opts)
+            self._cmakeopts.update(remove_gcc_dependency_opts)
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
