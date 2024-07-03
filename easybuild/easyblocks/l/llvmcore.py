@@ -32,6 +32,7 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 import glob
 import os
 import re
+import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion, run
@@ -603,6 +604,19 @@ class EB_LLVMcore(CMakeMake):
         ]))
 
         super(EB_LLVMcore, self).install_step()
+
+    def post_install_step(self):
+        """Install python bindings."""
+        super(EB_LLVMcore, self).post_install_step()
+
+        # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
+        if self.cfg['python_bindings'] and self.project_name in ['clang', 'mlir']:
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "llvm", "bindings", "python")
+            python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
+            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
+
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
+            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
