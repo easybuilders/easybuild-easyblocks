@@ -123,6 +123,7 @@ class EB_LLVMcore(CMakeMake):
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_runtimes': [True, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
+            'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
@@ -190,6 +191,9 @@ class EB_LLVMcore(CMakeMake):
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+        if self.cfg['build_openmp_tools']:
+            if not self.cfg['build_openmp']:
+                raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
         if self.cfg['usepolly']:
             self.final_projects.append('polly')
         if self.cfg['build_clang_extras']:
@@ -267,6 +271,8 @@ class EB_LLVMcore(CMakeMake):
 
         if 'openmp' in self.final_projects:
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
+            if not self.cfg['build_openmp_tools']:
+                self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
         # Make sure tests are not running with more than `--parallel` tasks
         self._cmakeopts['LLVM_LIT_ARGS'] = '"-j %s"' % self.cfg['parallel']
