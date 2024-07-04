@@ -53,6 +53,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
+    'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
 
     'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
     'LIBCXXABI_USE_COMPILER_RT': 'On',
@@ -164,6 +165,8 @@ class EB_LLVMcore(CMakeMake):
             general_opts['LIBCXXABI_ENABLE_SHARED'] = 'OFF'
             general_opts['LIBUNWIND_ENABLE_SHARED'] = 'OFF'
             general_opts['LIBCXX_ENABLE_STATIC'] = 'ON'
+            general_opts['LIBCXX_ENABLE_STATIC_ABI_LIBRARY'] = 'ON'
+            general_opts['LIBCXX_ENABLE_ABI_LINKER_SCRIPT'] = 'OFF'
             general_opts['LIBCXXABI_ENABLE_STATIC'] = 'ON'
             general_opts['LIBUNWIND_ENABLE_STATIC'] = 'ON'
 
@@ -632,6 +635,16 @@ class EB_LLVMcore(CMakeMake):
             print_warning("Could not find runtime library directory")
             res = "lib"
 
+        return res
+
+    def banned_linked_shared_libs(self):
+        """Return a list of shared libraries that should not be linked against."""
+        res = []
+        if self.full_llvm:
+            res += ['libstdc++', 'libgcc_s', 'libicuuc']
+        if not self.build_shared:
+            # Libraries should be linked statically
+            res += ['libc++', 'libc++abi', 'libunwind']
         return res
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
