@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2022 Ghent University
+# Copyright 2019-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 """
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, symlink

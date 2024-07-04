@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for building and installing PSI, implemented as an easyblock
 @author: Ward Poelmans (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import shutil

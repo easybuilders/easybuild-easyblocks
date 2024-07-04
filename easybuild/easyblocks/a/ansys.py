@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for installing ANSYS, implemented as an easyblock
 import os
 import re
 import stat
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
@@ -49,14 +49,16 @@ class EB_ANSYS(PackedBinary):
 
     def install_step(self):
         """Custom install procedure for ANSYS."""
-        licserv = self.cfg['license_server']
-        if licserv is None:
-            licserv = os.getenv('EB_ANSYS_LICENSE_SERVER', 'license.example.com')
-        licport = self.cfg['license_server_port']
-        if licport is None:
-            licport = os.getenv('EB_ANSYS_LICENSE_SERVER_PORT', '2325:1055')
+        # Sources (e.g. iso files) may drop the execute permissions
+        adjust_permissions('INSTALL', stat.S_IXUSR)
+        cmd = "./INSTALL -silent -install_dir %s" % self.installdir
+        # E.g. license.example.com or license1.example.com,license2.example.com
+        licserv = self.cfg.get('license_server', os.getenv('EB_ANSYS_LICENSE_SERVER'))
+        # E.g. '2325:1055' or just ':' to use those defaults
+        licport = self.cfg.get('license_server_port', os.getenv('EB_ANSYS_LICENSE_SERVER_PORT'))
+        if licserv is not None and licport is not None:
+            cmd += ' -licserverinfo %s:%s' % (licport, licserv)
 
-        cmd = "./INSTALL -silent -install_dir %s -licserverinfo %s:%s" % (self.installdir, licport, licserv)
         run_cmd(cmd, log_all=True, simple=True)
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)

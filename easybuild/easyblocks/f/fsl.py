@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing FSL, implemented as an easyblock
 import difflib
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock

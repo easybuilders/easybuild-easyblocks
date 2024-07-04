@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Forschungszentrum Juelich GmbH
+# Copyright 2020-2024 Forschungszentrum Juelich GmbH
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -34,7 +34,7 @@ Support for installing AOCC, implemented as an easyblock.
 import os
 import stat
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM

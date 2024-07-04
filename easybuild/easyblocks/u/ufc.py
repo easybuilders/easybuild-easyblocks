@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2022 Ghent University
+# Copyright 2012-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,7 +27,7 @@ EasyBuild support for UFC, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 from easybuild.tools.build_log import EasyBuildError

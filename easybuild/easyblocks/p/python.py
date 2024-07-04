@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ import re
 import fileinput
 import sys
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -195,8 +195,9 @@ class EB_Python(ConfigureMake):
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
+        # Python 3.12 doesn't have setup.py any more
         sysroot = build_option('sysroot')
-        if sysroot:
+        if sysroot and LooseVersion(self.version) < LooseVersion('3.12'):
             sysroot_inc_dirs, sysroot_lib_dirs = [], []
 
             for pattern in ['include*', os.path.join('usr', 'include*')]:
@@ -376,8 +377,6 @@ class EB_Python(ConfigureMake):
             if tcltk_maj_min_ver != '.'.join(tkver.split('.')[:2]):
                 raise EasyBuildError("Tcl and Tk major/minor versions don't match: %s vs %s", tclver, tkver)
 
-            self.cfg.update('configopts', "--with-tcltk-includes='-I%s/include -I%s/include'" % (tcl, tk))
-
             tcl_libdir = os.path.join(tcl, get_software_libdir('Tcl'))
             tk_libdir = os.path.join(tk, get_software_libdir('Tk'))
             tcltk_libs = "-L%(tcl_libdir)s -L%(tk_libdir)s -ltcl%(maj_min_ver)s -ltk%(maj_min_ver)s" % {
@@ -385,7 +384,12 @@ class EB_Python(ConfigureMake):
                 'tk_libdir': tk_libdir,
                 'maj_min_ver': tcltk_maj_min_ver,
             }
-            self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
+            if LooseVersion(self.version) < '3.11':
+                self.cfg.update('configopts', "--with-tcltk-includes='-I%s/include -I%s/include'" % (tcl, tk))
+                self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
+            else:
+                env.setvar('TCLTK_CFLAGS', '-I%s/include -I%s/include' % (tcl, tk))
+                env.setvar('TCLTK_LIBS', tcltk_libs)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
@@ -444,10 +448,13 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).install_step()
 
-        # Create non-versioned, relative symlinks for python and pip
+        # Create non-versioned, relative symlinks for python, python-config and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
         if not os.path.isfile(python_binary_path):
             symlink('python' + self.pyshortver, python_binary_path, use_abspath_source=False)
+        python_config_binary_path = os.path.join(self.installdir, 'bin', 'python-config')
+        if not os.path.isfile(python_config_binary_path):
+            symlink('python' + self.pyshortver + '-config', python_config_binary_path, use_abspath_source=False)
         if self.install_pip:
             pip_binary_path = os.path.join(self.installdir, 'bin', 'pip')
             if not os.path.isfile(pip_binary_path):
@@ -534,7 +541,13 @@ class EB_Python(ConfigureMake):
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
-            'files': [os.path.join('bin', pyver), os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext)],
+            'files': [
+                os.path.join('bin', pyver),
+                os.path.join('bin', 'python'),
+                os.path.join('bin', pyver + '-config'),
+                os.path.join('bin', 'python-config'),
+                os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext),
+            ],
             'dirs': [os.path.join('include', pyver + abiflags), os.path.join('lib', pyver, 'lib-dynload')],
         }
 
@@ -543,6 +556,7 @@ class EB_Python(ConfigureMake):
 
         custom_commands = [
             "python --version",
+            "python-config --help",  # make sure that symlink was created correctly
             "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
             "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
             "python -c 'import readline'",  # make sure readline support was built correctly

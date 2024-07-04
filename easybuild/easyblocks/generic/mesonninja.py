@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,11 +28,17 @@ EasyBuild support for installing software with Meson & Ninja.
 @author: Kenneth Hoste (Ghent University)
 """
 
+from easybuild.tools import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_cmd
+
+DEFAULT_CONFIGURE_CMD = 'meson'
+DEFAULT_BUILD_CMD = 'ninja'
+DEFAULT_INSTALL_CMD = 'ninja'
 
 
 class MesonNinja(EasyBlock):
@@ -45,6 +51,10 @@ class MesonNinja(EasyBlock):
         """Define extra easyconfig parameters specific to MesonNinja."""
         extra_vars = EasyBlock.extra_options(extra_vars)
         extra_vars.update({
+            'build_dir': [None, "build_dir to pass to meson", CUSTOM],
+            'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
+            'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
+            'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
@@ -73,11 +83,21 @@ class MesonNinja(EasyBlock):
         if no_Dlibdir and no_libdir:
             self.cfg.update('configopts', '-Dlibdir=lib')
 
-        cmd = "%(preconfigopts)s meson --prefix %(installdir)s %(configopts)s %(sourcedir)s" % {
+        configure_cmd = self.cfg.get('configure_cmd') or DEFAULT_CONFIGURE_CMD
+        # Meson >= 0.64.0 has a deprecatation warning for running `meson [options]`
+        # instead of `meson setup [options]`
+        if (LooseVersion(get_software_version('Meson')) >= LooseVersion('0.64.0') and
+                configure_cmd == DEFAULT_CONFIGURE_CMD):
+            configure_cmd += ' setup'
+
+        build_dir = self.cfg.get('build_dir') or self.start_dir
+
+        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(source_dir)s" % {
             'configopts': self.cfg['configopts'],
+            'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
-            'sourcedir': self.start_dir,
+            'source_dir': build_dir,
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)
         return out
@@ -86,12 +106,15 @@ class MesonNinja(EasyBlock):
         """
         Build with Ninja.
         """
+        build_cmd = self.cfg.get('build_cmd', DEFAULT_BUILD_CMD)
+
         parallel = ''
         if self.cfg['parallel']:
             parallel = "-j %s" % self.cfg['parallel']
 
-        cmd = "%(prebuildopts)s ninja %(parallel)s %(buildopts)s" % {
+        cmd = "%(prebuildopts)s %(build_cmd)s %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
+            'build_cmd': build_cmd,
             'parallel': parallel,
             'prebuildopts': self.cfg['prebuildopts'],
         }
@@ -111,13 +134,16 @@ class MesonNinja(EasyBlock):
         """
         Install with 'ninja install'.
         """
+        install_cmd = self.cfg.get('install_cmd', DEFAULT_INSTALL_CMD)
+
         parallel = ''
         if self.cfg['parallel']:
             parallel = "-j %s" % self.cfg['parallel']
 
-        cmd = "%(preinstallopts)s ninja %(parallel)s %(installopts)s install" % {
+        cmd = "%(preinstallopts)s %(install_cmd)s %(parallel)s %(installopts)s install" % {
             'installopts': self.cfg['installopts'],
             'parallel': parallel,
+            'install_cmd': install_cmd,
             'preinstallopts': self.cfg['preinstallopts'],
         }
         (out, _) = run_cmd(cmd, log_all=True, simple=False)

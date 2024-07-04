@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import os
 import stat
 import tempfile
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
@@ -55,6 +55,7 @@ class EB_MATLAB(PackedBinary):
         super(EB_MATLAB, self).__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_installer_input.txt')
+        self.outputfile = os.path.join(self.builddir, 'my_installer_output.txt')
 
     @staticmethod
     def extra_options():
@@ -98,12 +99,14 @@ class EB_MATLAB(PackedBinary):
             regagree = re.compile(br"^# agreeToLicense=.*", re.M)
             regmode = re.compile(br"^# mode=.*", re.M)
             reglicpath = re.compile(br"^# licensePath=.*", re.M)
+            regoutfile = re.compile(br"^# outputFile=.*", re.M)
 
             # must use byte-strings here when using Python 3, see above
             config = regdest.sub(b"destinationFolder=%s" % self.installdir.encode('utf-8'), config)
             config = regagree.sub(b"agreeToLicense=Yes", config)
             config = regmode.sub(b"mode=silent", config)
             config = reglicpath.sub(b"licensePath=%s" % licfile.encode('utf-8'), config)
+            config = regoutfile.sub(b"outputFile=%s" % self.outputfile.encode('utf-8'), config)
 
             write_file(self.configfile, config)
 
@@ -159,7 +162,11 @@ class EB_MATLAB(PackedBinary):
 
         keys = self.cfg['key']
         if keys is None:
-            keys = os.getenv('EB_MATLAB_KEY', '00000-00000-00000-00000-00000-00000-00000-00000-00000-00000')
+            try:
+                keys = os.environ['EB_MATLAB_KEY']
+            except KeyError:
+                raise EasyBuildError("The MATLAB install key is not set. This can be set either with the environment "
+                                     "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
         if isinstance(keys, string_type):
             keys = keys.split(',')
 
@@ -184,6 +191,12 @@ class EB_MATLAB(PackedBinary):
             # check installer output for known signs of trouble
             patterns = [
                 "Error: You have entered an invalid File Installation Key",
+                "Not a valid key",
+                "All selected products are already installed",
+                "The application encountered an unexpected error and needs to close",
+                "Error: Unable to write to",
+                "Exiting with status -\\d",
+                "End - Unsuccessful",
             ]
 
             for pattern in patterns:
@@ -191,6 +204,10 @@ class EB_MATLAB(PackedBinary):
                 if regex.search(out):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
                                          regex.pattern, cmd, out)
+                with open(self.outputfile) as f:
+                    if regex.search(f.read()):
+                        raise EasyBuildError("Found error pattern '%s' in output file of installer",
+                                             regex.pattern)
 
     def sanity_check_step(self):
         """Custom sanity check for MATLAB."""
@@ -204,11 +221,6 @@ class EB_MATLAB(PackedBinary):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
         txt = super(EB_MATLAB, self).make_module_extra()
 
-        # make MATLAB runtime available
-        if LooseVersion(self.version) >= LooseVersion('2017a'):
-            for ldlibdir in ['runtime', 'bin', os.path.join('sys', 'os')]:
-                libdir = os.path.join(ldlibdir, 'glnxa64')
-                txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', libdir)
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])
         return txt

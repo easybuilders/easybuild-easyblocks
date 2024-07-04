@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing LAPACK, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 

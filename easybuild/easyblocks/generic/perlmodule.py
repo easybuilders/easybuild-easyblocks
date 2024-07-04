@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,6 +47,7 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Easyconfig parameters specific to Perl modules."""
         extra_vars = {
             'runtest': ['test', "Run unit tests.", CUSTOM],  # overrides default
+            'prefix_opt': [None, "String to use for option to set installation prefix (default is 'PREFIX')", CUSTOM],
         }
         return ExtensionEasyBlock.extra_options(extra_vars)
 
@@ -62,14 +63,20 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
 
+        prefix_opt = self.cfg.get('prefix_opt')
+
         # Perl modules have two possible installation procedures: using Makefile.PL and Build.PL
         # configure, build, test, install
         if os.path.exists('Makefile.PL'):
+
+            if prefix_opt is None:
+                prefix_opt = 'PREFIX'
+
             install_cmd = ' '.join([
                 self.cfg['preconfigopts'],
                 'perl',
                 'Makefile.PL',
-                'PREFIX=%s' % self.installdir,
+                '%s=%s' % (prefix_opt, self.installdir),
                 self.cfg['configopts'],
             ])
             run_cmd(install_cmd)
@@ -79,11 +86,15 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
             ConfigureMake.install_step(self)
 
         elif os.path.exists('Build.PL'):
+
+            if prefix_opt is None:
+                prefix_opt = '--prefix'
+
             install_cmd = ' '.join([
                 self.cfg['preconfigopts'],
                 'perl',
                 'Build.PL',
-                '--prefix',
+                prefix_opt,
                 self.installdir,
                 self.cfg['configopts'],
             ])
@@ -91,8 +102,9 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             run_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
-            if self.cfg['runtest']:
-                run_cmd('perl Build %s' % self.cfg['runtest'])
+            runtest = self.cfg['runtest']
+            if runtest:
+                run_cmd('%s perl Build %s %s' % (self.cfg['pretestopts'], runtest, self.cfg['testopts']))
             run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
     def run(self):

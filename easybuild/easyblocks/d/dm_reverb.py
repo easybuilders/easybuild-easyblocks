@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,7 +94,8 @@ class EB_dm_minus_reverb(PythonPackage):
         # print full compilation commands
         bazel_build_opts += " --subcommands"
 
-        bazel_cmd = "bazel %s build %s %s" % (bazel_opts, bazel_build_opts, bazel_build_pkg)
+        bazel_cmd = "%s bazel %s build %s %s" % (self.cfg['prebuildopts'], bazel_opts, bazel_build_opts,
+                                                 bazel_build_pkg)
 
         return run_cmd(bazel_cmd, log_all=True, simple=True, log_output=True)
 
@@ -121,6 +122,7 @@ class EB_dm_minus_reverb(PythonPackage):
             'installopts': self.cfg['installopts'],
             'loc': whl_path,
             'prefix': self.installdir,
+            'python': self.python_cmd,
         }
 
         return super(EB_dm_minus_reverb, self).install_step(*args, **kwargs)

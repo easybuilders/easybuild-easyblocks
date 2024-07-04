@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for building and installing Qt, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain

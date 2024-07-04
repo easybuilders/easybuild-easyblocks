@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,14 +59,14 @@ class EB_COMSOL(PackedBinary):
     def configure_step(self):
         """Configure COMSOL installation: create license file."""
 
-        default_lic_env_var = 'LMCOMSOL_LICENSE_FILE'
-        lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=[default_lic_env_var],
+        comsol_lic_env_vars = ['EB_COMSOL_LICENSE_FILE', 'LMCOMSOL_LICENSE_FILE']
+        lic_specs, self.license_env_var = find_flexlm_license(custom_env_vars=comsol_lic_env_vars,
                                                               lic_specs=[self.cfg['license_file']])
 
         if lic_specs:
             if self.license_env_var is None:
                 self.log.info("Using COMSOL license specifications from 'license_file': %s", lic_specs)
-                self.license_env_var = default_lic_env_var
+                self.license_env_var = comsol_lic_env_vars[0]
             else:
                 self.log.info("Using COMSOL license specifications from $%s: %s", self.license_env_var, lic_specs)
 
@@ -74,7 +74,7 @@ class EB_COMSOL(PackedBinary):
             env.setvar(self.license_env_var, self.license_file)
         else:
             msg = "No viable license specifications found; "
-            msg += "specify 'license_file', or define $%s" % default_lic_env_var
+            msg += "specify 'license_file', or define %s" % (', '.join('$%s' % x for x in comsol_lic_env_vars))
             raise EasyBuildError(msg)
 
         copy_file(os.path.join(self.start_dir, 'setupconfig.ini'), self.configfile)
@@ -113,6 +113,11 @@ class EB_COMSOL(PackedBinary):
 
         # make sure setup script is executable
         adjust_permissions(setup_script, stat.S_IXUSR)
+
+        # make sure binaries in arch bindir is executable
+        archpath = os.path.join(self.start_dir, 'bin', 'glnxa64')
+        adjust_permissions(os.path.join(archpath, 'inflate'), stat.S_IXUSR)
+        adjust_permissions(os.path.join(archpath, 'setuplauncher'), stat.S_IXUSR)
 
         # make sure $DISPLAY is not defined, which may lead to (hard to trace) problems
         # this is a workaround for not being able to specify --nodisplay to the install scripts

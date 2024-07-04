@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2024 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ EasyBuild support for building and installing the MVAPICH2 MPI library, implemen
 @author: Xavier Besseron (University of Luxembourg)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM

@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2022 Ghent University, Forschungszentrum Juelich
+# Copyright 2016-2024 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing the ParaStationMPI library, implem
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError

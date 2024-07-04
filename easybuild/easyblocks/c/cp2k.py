@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ import glob
 import re
 import os
 import sys
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
@@ -439,6 +439,16 @@ class EB_CP2K(EasyBlock):
             self.log.info("Using Libxc-%s" % cur_libxc_version)
         else:
             self.log.info("libxc module not loaded, so building without libxc support")
+
+        libvori = get_software_root('libvori')
+        if libvori:
+            if LooseVersion(self.version) >= LooseVersion('8.1'):
+                options['LIBS'] += ' -lvori'
+                options['DFLAGS'] += ' -D__LIBVORI'
+            else:
+                raise EasyBuildError("This version of CP2K does not suppport libvori")
+        else:
+            self.log.info("libvori module not loaded, so building without support for Voronoi integration")
 
         return options
 

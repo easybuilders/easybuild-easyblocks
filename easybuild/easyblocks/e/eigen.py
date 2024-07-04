@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2024 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -19,7 +19,7 @@ EasyBuild support for building and installing Eigen, implemented as an easyblock
 
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir, apply_regex_substitutions

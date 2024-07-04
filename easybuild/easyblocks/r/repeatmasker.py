@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -25,7 +25,7 @@
 """
 EasyBuild support for building and installing RepeatMasker, implemented as an easyblock
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball

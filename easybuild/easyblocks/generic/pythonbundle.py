@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,7 +41,8 @@ import easybuild.tools.environment as env
 
 class PythonBundle(Bundle):
     """
-    Bundle of modules: only generate module files, nothing to build/install
+    Bundle of PythonPackages: install Python packages as extensions in a bundle
+    Defines custom sanity checks and module environment
     """
 
     @staticmethod
@@ -61,21 +62,17 @@ class PythonBundle(Bundle):
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
-        prev_enable_templating = self.cfg.enable_templating
-        self.cfg.enable_templating = False
+        with self.cfg.disable_templating():
+            # set default options for extensions according to relevant top-level easyconfig parameters
+            pypkg_keys = PythonPackage.extra_options().keys()
+            for key in pypkg_keys:
+                if key not in self.cfg['exts_default_options']:
+                    self.cfg['exts_default_options'][key] = self.cfg[key]
 
-        # set default options for extensions according to relevant top-level easyconfig parameters
-        pypkg_keys = PythonPackage.extra_options().keys()
-        for key in pypkg_keys:
-            if key not in self.cfg['exts_default_options']:
-                self.cfg['exts_default_options'][key] = self.cfg[key]
+            self.cfg['exts_default_options']['download_dep_fail'] = True
+            self.log.info("Detection of downloaded extension dependencies is enabled")
 
-        self.cfg['exts_default_options']['download_dep_fail'] = True
-        self.log.info("Detection of downloaded extension dependencies is enabled")
-
-        self.cfg.enable_templating = prev_enable_templating
-
-        self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
+            self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.pylibdir = None
         self.all_pylibdirs = []

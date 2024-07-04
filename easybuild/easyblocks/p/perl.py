@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for Perl, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import stat
@@ -75,7 +75,7 @@ class EB_Perl(ConfigureMake):
         configopts = [
             self.cfg['configopts'],
             '-Dcc="{0}"'.format(os.getenv('CC')),
-            '-Dccflags="{0}"'.format(os.getenv('CFLAGS')),
+            '-Dccflags="{0}"'.format(os.getenv('CFLAGS')) if '-Dccflags' not in self.cfg['configopts'] else '',
             '-Dinc_version_list=none',
             '-Dprefix=%(installdir)s',
             # guarantee that scripts are installed in /bin in the installation directory (and not in a guessed path)
@@ -116,7 +116,7 @@ class EB_Perl(ConfigureMake):
         if os.getenv('COLUMNS', None) == '0':
             unset_env_vars(['COLUMNS'])
 
-        cmd = './Configure -de %s' % configopts
+        cmd = '%s ./Configure -de %s' % (self.cfg['preconfigopts'], configopts)
         run_cmd(cmd, log_all=True, simple=True)
 
     def test_step(self):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2022 Ghent University
+# Copyright 2015-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import glob
 import os
 
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.scons import SCons
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
@@ -101,10 +101,15 @@ class EB_Xmipp(SCons):
         # Tell xmipp config that there is no Scipion.
         env.setvar('XMIPP_NOSCIPION', 'True')
         # Initialize the config file and then patch it with the correct values
+        if LooseVersion(self.version) >= LooseVersion('3.20.07'):
+            noask = 'noAsk'
+        else:
+            noask = ''
         cmd = ' '.join([
             self.cfg['preconfigopts'],
             self.xmipp_exe,
             'config',
+            noask,
             self.cfg['configopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
@@ -145,9 +150,13 @@ class EB_Xmipp(SCons):
         if cuda_root:
             params.update({'CUDA_BIN': os.path.join(cuda_root, 'bin')})
             params.update({'CUDA_LIB': os.path.join(cuda_root, 'lib64')})
-            params.update({'NVCC': os.environ['CUDA_CXX']})
+            params.update({'NVCC': os.environ.get('CUDA_CXX', 'nvcc')})
             # Their default for NVCC is to use g++-5, fix that
-            nvcc_flags = '-v --x cu -D_FORCE_INLINES -Xcompiler -fPIC -Wno-deprecated-gpu-targets -std=c++11'
+            nvcc_flags = '-v --x cu -D_FORCE_INLINES -Xcompiler -fPIC -Wno-deprecated-gpu-targets'
+            if LooseVersion(self.version) < LooseVersion('3.22'):
+                nvcc_flags += ' --std=c++11'
+            else:
+                nvcc_flags += ' --std=c++17'
             if LooseVersion(self.version) >= LooseVersion('3.20.07'):
                 nvcc_flags += ' --extended-lambda'
             params.update({'NVCC_CXXFLAGS': nvcc_flags})

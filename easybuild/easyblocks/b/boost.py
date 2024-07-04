@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ EasyBuild support for Boost, implemented as an easyblock
 @author: Michele Dolfi (ETH Zurich)
 @author: Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import fileinput
 import glob
 import os
@@ -53,7 +53,7 @@ from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
+from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, UNKNOWN
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
@@ -326,6 +326,8 @@ class EB_Boost(EasyBlock):
                     lib_mt_suffix += '-a64'
                 elif get_cpu_architecture() == POWER:
                     lib_mt_suffix += '-p64'
+                elif get_cpu_architecture() == RISCV64:
+                    lib_mt_suffix += '-r64'
                 else:
                     lib_mt_suffix += '-x64'
 

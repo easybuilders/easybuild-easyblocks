@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 The Cyprus Institute
+# Copyright 2009-2024 The Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for BamTools, implemented as an easyblock
 @author: Andreas Panteli (The Cyprus Institute)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM

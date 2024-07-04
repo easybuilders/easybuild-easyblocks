@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for SLEPc, implemented as an easyblock
 
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -70,7 +70,7 @@ class EB_SLEPc(ConfigureMake):
             raise EasyBuildError("PETSc module not loaded?")
 
         # set SLEPC_DIR environment variable
-        env.setvar('SLEPC_DIR', self.cfg['start_dir'])
+        env.setvar('SLEPC_DIR', self.cfg['start_dir'].rstrip(os.path.sep))
         self.log.debug('SLEPC_DIR: %s' % os.getenv('SLEPC_DIR'))
 
         # optional dependencies

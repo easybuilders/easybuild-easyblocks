@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -75,9 +75,3 @@ class EB_Stata(PackedBinary):
         regex = re.compile('libpng.*not found', re.M)
         if regex.search(out):
             raise EasyBuildError("Required libpng library for 'stata' is not available")
-
-    def make_module_req_guess(self):
-        """Add top install directory to $PATH for Stata"""
-        guesses = super(EB_Stata, self).make_module_req_guess()
-        guesses['PATH'] = ['']
-        return guesses

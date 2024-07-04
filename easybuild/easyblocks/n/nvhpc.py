@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2022 Bart Oldeman
-# Copyright 2016-2022 Forschungszentrum Juelich
+# Copyright 2015-2024 Bart Oldeman
+# Copyright 2016-2024 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -38,9 +38,10 @@ import fileinput
 import re
 import stat
 import sys
+import tempfile
 import platform
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
@@ -66,6 +67,14 @@ append LDLIBARGS=$library_path;
 # also include the location where libm & co live on Debian-based systems
 # cfr. https://github.com/easybuilders/easybuild-easyblocks/pull/919
 append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
+"""
+
+# contents for minimal example compiled in sanity check, used to catch issue
+# seen in: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+NVHPC_MINIMAL_EXAMPLE = """
+#include <ranges>
+
+int main(){ return 0; }
 """
 
 
@@ -164,7 +173,11 @@ class EB_NVHPC(PackedBinary):
             line = re.sub(r"^PATH=/", r"#PATH=/", line)
             sys.stdout.write(line)
 
-        cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
+        if LooseVersion(self.version) >= LooseVersion('22.9'):
+            bin_subdir = os.path.join(compilers_subdir, "bin")
+            cmd = "%s -x %s" % (makelocalrc_filename, bin_subdir)
+        else:
+            cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
@@ -199,7 +212,18 @@ class EB_NVHPC(PackedBinary):
             'dirs': [os.path.join(prefix, 'compilers', 'bin'), os.path.join(prefix, 'compilers', 'lib'),
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
+
         custom_commands = ["%s -v" % compiler for compiler in compiler_names]
+
+        if LooseVersion(self.version) >= LooseVersion('21'):
+            # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
+            # (as long as system gcc is < 9.0)
+            # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+            tmpdir = tempfile.mkdtemp()
+            write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
+            minimal_compiler_cmd = "cd %s && nvc++ -std=c++20 minimal.cpp -o minimal" % tmpdir
+            custom_commands.append(minimal_compiler_cmd)
+
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ EasyBuild support for building and installing netCDF, implemented as an easybloc
 """
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -141,7 +141,12 @@ class EB_netCDF(CMakeMake):
             'dirs': []
         }
 
-        super(EB_netCDF, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = [
+            "nc-config --help",
+            "ncgen -h" if LooseVersion(self.version) > LooseVersion("4.6.1") else "ncgen -H",
+        ]
+
+        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def set_netcdf_env_vars(log):

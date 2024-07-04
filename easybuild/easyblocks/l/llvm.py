@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Ghent University
+# Copyright 2020-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,14 +26,18 @@
 EasyBuild support for building and installing LLVM, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
+@author: Kenneth Hoste (Ghent University)
 """
+import os
+
 from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import move_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_cpu_architecture
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 
 class EB_LLVM(CMakeMake):
@@ -97,5 +101,24 @@ class EB_LLVM(CMakeMake):
                                  ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
+
+        if LooseVersion(self.version) >= LooseVersion('15.0'):
+            # make sure that CMake modules are available in build directory,
+            # by moving the extracted folder to the expected location
+            cmake_modules_path = os.path.join(self.builddir, 'cmake-%s.src' % self.version)
+            if os.path.exists(cmake_modules_path):
+                move_file(cmake_modules_path, os.path.join(self.builddir, 'cmake'))
+            else:
+                raise EasyBuildError("Failed to find unpacked CMake modules directory at %s", cmake_modules_path)
+
+        if LooseVersion(self.version) >= LooseVersion('16.0'):
+            # make sure that third-party modules are available in build directory,
+            # by moving the extracted folder to the expected location
+            third_party_modules_path = os.path.join(self.builddir, 'third-party-%s.src' % self.version)
+            if os.path.exists(third_party_modules_path):
+                move_file(third_party_modules_path, os.path.join(self.builddir, 'third-party'))
+            else:
+                raise EasyBuildError("Failed to find unpacked 'third-party' modules directory at %s",
+                                     third_party_modules_path)
 
         super(EB_LLVM, self).configure_step()

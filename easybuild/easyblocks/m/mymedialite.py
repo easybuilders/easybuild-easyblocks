@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ EasyBuild support for MyMediaLite, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.run import run_cmd

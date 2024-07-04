@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ EasyBuild support for install the Intel C/C++ compiler suite, implemented as an 
 
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, COMP_ALL
 from easybuild.easyblocks.generic.intelbase import LICENSE_FILE_NAME_2012

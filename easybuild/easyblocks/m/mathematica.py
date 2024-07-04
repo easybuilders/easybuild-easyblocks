@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 @author: Kenneth Hoste (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 
@@ -68,7 +68,7 @@ class EB_Mathematica(Binary):
         install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
         # Starting at V13, Mathematica have renamed their install file...
         if LooseVersion(self.version) >= LooseVersion("13"):
-            install_script_glob = '%s_%s_BNDL_LINUX*.sh' % (self.name, self.version)
+            install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:

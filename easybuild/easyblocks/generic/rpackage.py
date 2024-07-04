@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -134,10 +134,14 @@ class RPackage(ExtensionEasyBlock):
         else:
             prefix = ''
 
-        if self.start_dir:
-            loc = os.path.join(self.ext_dir or os.path.sep, self.start_dir)
-        else:
+        loc = self.start_dir
+        if loc is None:
             loc = self.ext_dir or self.ext_src
+        elif not os.path.isabs(loc):
+            # TODO: deprecated behaviour in framework 4.7.1, remove after 5.0
+            loc = os.path.join(self.ext_dir or os.path.sep, loc)
+            deprecation_msg = "Found relative path in start_dir, please upgrade to easybuild-framework>=4.7.1"
+            self.log.deprecated(deprecation_msg, '5.0')
 
         cmd = ' '.join([
             self.cfg['preinstallopts'],

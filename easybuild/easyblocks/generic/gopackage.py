@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for Go packages, implemented as an EasyBlock
 @author: Pavel Grochal (INUITS)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -65,6 +65,8 @@ class GoPackage(EasyBlock):
     def configure_step(self):
         """Configure Go package build/install."""
 
+        # Move compiled .a files into builddir, else they pollute $HOME/go
+        env.setvar('GOPATH', self.builddir, verbose=False)
         # enforce use of go modules
         env.setvar('GO111MODULE', 'on', verbose=False)
         # set bin folder
@@ -131,6 +133,9 @@ class GoPackage(EasyBlock):
             self.cfg['preinstallopts'],
             'go',
             'install',
+            # print commands as they are executed,
+            # including downloading and installing of package deps as listed in the go.mod file
+            '-x',
             self.cfg['installopts'],
         ])
         run_cmd(cmd, log_all=True, log_ok=True, simple=True)
@@ -146,3 +151,6 @@ class GoPackage(EasyBlock):
         custom_commands = ['%s --help' % self.name.lower()]
 
         super(GoPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def sanity_check_rpath(self, rpath_dirs=None):
+        super(GoPackage, self).sanity_check_rpath(rpath_dirs=rpath_dirs, check_readelf_rpath=False)

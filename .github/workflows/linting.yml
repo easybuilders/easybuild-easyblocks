@@ -1,5 +1,13 @@
 name: Static Analysis
 on: [push, pull_request]
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+concurrency:
+  group: ${{format('{0}:{1}:{2}', github.repository, github.ref, github.workflow)}}
+  cancel-in-progress: true
+
 jobs:
   python-linting:
     runs-on: ubuntu-20.04
@@ -14,7 +22,8 @@ jobs:
     - name: install Python packages
       run: |
         pip install --upgrade pip
-        pip install --upgrade flake8
+        # fix to this version for develop branch (to avoid needing to fix geant4.py)
+        pip install --upgrade "flake8<7.1"
 
     - name: Run flake8 to verify PEP8-compliance of Python code
       run: flake8

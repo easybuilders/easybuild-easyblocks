@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2022 Ghent University
+# Copyright 2012-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ import os
 import re
 import stat
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
@@ -91,6 +91,16 @@ class EB_CUDA(Binary):
 
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
+
+    def fetch_step(self, *args, **kwargs):
+        """Check for EULA acceptance prior to getting sources."""
+        # EULA for CUDA must be accepted via --accept-eula-for EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(
+            name='CUDA',
+            more_info='https://docs.nvidia.com/cuda/eula/index.html'
+        )
+        return super(EB_CUDA, self).fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
@@ -145,6 +155,14 @@ class EB_CUDA(Binary):
 
         # Use C locale to avoid localized questions and crash on CUDA 10.1
         self.cfg.update('preinstallopts', "export LANG=C && ")
+
+        # As a CUDA recipe gets older and the OS gets updated, it is
+        # likely that the system GCC becomes too new for the CUDA version.
+        # Since in EasyBuild we know/expect that CUDA will only ever get used
+        # as a dependency within the context of a toolchain, we can override
+        # the compiler version check that would cause the installation to
+        # fail.
+        self.cfg.update('installopts', "--override")
 
         cmd = "%(preinstallopts)s %(interpreter)s %(script)s %(installopts)s" % {
             'preinstallopts': self.cfg['preinstallopts'],
@@ -234,6 +252,17 @@ class EB_CUDA(Binary):
             raise EasyBuildError("Unable to find 'ldconfig' in $PATH (%s), nor in any of %s", path, sbin_dirs)
 
         stubs_dir = os.path.join(self.installdir, 'lib64', 'stubs')
+
+        # Remove stubs which are not required as the full library is in $EBROOTCUDA/lib64 because this duplication
+        # causes issues (e.g. CMake warnings) when using this module (see $LIBRARY_PATH & $LD_LIBRARY_PATH)
+        for stub_lib in expand_glob_paths([os.path.join(stubs_dir, '*.*')]):
+            real_lib = os.path.join(self.installdir, 'lib64', os.path.basename(stub_lib))
+            if os.path.exists(real_lib):
+                self.log.debug("Removing unnecessary stub library %s", stub_lib)
+                remove_file(stub_lib)
+            else:
+                self.log.debug("Keeping stub library %s", stub_lib)
+
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = ' '.join([ldconfig, '-N', stubs_dir])
         run_cmd(cmd)
@@ -243,7 +272,7 @@ class EB_CUDA(Binary):
         # See e.g. https://github.com/easybuilders/easybuild-easyconfigs/issues/12348
         # Workaround: Create a copy that matches this pattern
         new_stubs_dir = os.path.join(self.installdir, 'stubs')
-        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'))
+        copy_dir(stubs_dir, os.path.join(new_stubs_dir, 'lib64'), symlinks=True)
         # Also create the lib dir as a symlink
         symlink('lib64', os.path.join(new_stubs_dir, 'lib'), use_abspath_source=False)
 

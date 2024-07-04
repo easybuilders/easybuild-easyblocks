@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ EasyBuild support for wxPython, implemented as an easyblock
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
@@ -127,6 +127,9 @@ class EB_wxPython(PythonPackage):
             files.extend([os.path.join('bin', 'wxrc')])
             dirs.extend(['include', 'share'])
             py_bins.extend(['alacarte', 'alamode', 'wrap'])
+        elif LooseVersion(self.version) >= LooseVersion("4.2"):
+            majver = '3.2'  # this is 3.2 in ver 4.2.x
+            py_bins.extend(['slices', 'slicesshell'])
         elif LooseVersion(self.version) >= LooseVersion("4.1"):
             majver = '3.1'  # this is 3.1 in ver 4.1.x
             py_bins.extend(['slices', 'slicesshell'])
