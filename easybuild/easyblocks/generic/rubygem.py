@@ -110,7 +110,7 @@ class RubyGem(ExtensionEasyBlock):
                     self.ext_src = "%s.gem" % self.name.lower()
                 else:
                     raise EasyBuildError("No gem_file specified and no"
-                        " %s.gemspec or %s.gemspec found." % (self.name, self.name.lower()))
+                                         " %s.gemspec or %s.gemspec found." % (self.name, self.name.lower()))
 
     def test_step(self):
         """No separate (standard) test procedure for Ruby Gems."""
