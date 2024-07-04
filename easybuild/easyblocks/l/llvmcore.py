@@ -47,12 +47,30 @@ from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
                                        mkdir, symlink, which)
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import (get_cpu_architecture,
+from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
+                                         X86_64, get_cpu_architecture,
                                          get_shared_lib_ext)
 from easybuild.tools.toolchain.toolchain import Toolchain
 
-from easybuild.easyblocks.clang import CLANG_TARGETS, DEFAULT_TARGETS_MAP
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+
+LLVM_TARGETS = [
+    'AArch64', 'AMDGPU', 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430', 'NVPTX', 'PowerPC',
+    'RISCV', 'Sparc', 'SystemZ', 'VE', 'WebAssembly', 'X86', 'XCore',
+    'all'
+]
+LLVM_EXPERIMENTAL_TARGETS = [
+    'ARC', 'CSKY', 'DirectX', 'M68k', 'SPIRV', 'Xtensa',
+]
+ALL_TARGETS = LLVM_TARGETS + LLVM_EXPERIMENTAL_TARGETS
+
+DEFAULT_TARGETS_MAP = {
+    AARCH32: ['ARM'],
+    AARCH64: ['AArch64'],
+    POWER: ['PowerPC'],
+    RISCV64: ['RISCV'],
+    X86_64: ['X86'],
+}
 
 remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
@@ -116,7 +134,7 @@ class EB_LLVMcore(CMakeMake):
         extra_vars.update({
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
-                                    ', '.join(CLANG_TARGETS), CUSTOM],
+                                    ', '.join(ALL_TARGETS), CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'full_llvm': [True, "Build LLVM without any dependency", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
@@ -230,11 +248,15 @@ class EB_LLVMcore(CMakeMake):
             except KeyError:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
 
-        unknown_targets = [target for target in build_targets if target not in CLANG_TARGETS]
+        unknown_targets = set(build_targets) - set(ALL_TARGETS)
 
         if unknown_targets:
             raise EasyBuildError("Some of the chosen build targets (%s) are not in %s.",
-                                 ', '.join(unknown_targets), ', '.join(CLANG_TARGETS))
+                                 ', '.join(unknown_targets), ', '.join(ALL_TARGETS))
+        exp_targets = set(build_targets) & set(LLVM_EXPERIMENTAL_TARGETS)
+        if exp_targets:
+            self.log.warning("Experimental targets %s are being used.", ', '.join(exp_targets))
+
         self.build_targets = build_targets or []
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
@@ -242,7 +264,7 @@ class EB_LLVMcore(CMakeMake):
         if self.toolchain.options['pic']:
             general_opts['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
-        general_opts['LLVM_TARGETS_TO_BUILD'] = ';'.join(build_targets)
+        general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
@@ -280,7 +302,9 @@ class EB_LLVMcore(CMakeMake):
 
         if 'openmp' in self.final_projects:
             # Disable OpenMP offload support if not building for NVPTX or AMDGPU
-            if 'NVPTX' not in self.build_targets and 'AMDGPU' not in self.build_targets:
+            if any(target in self.build_targets for target in ['NVPTX', 'AMDGPU', 'all']):
+                self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
+            else:
                 self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
@@ -364,7 +388,7 @@ class EB_LLVMcore(CMakeMake):
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
-        if 'NVPTX' in self.build_targets:
+        if 'NVPTX' in self.build_targets or 'all' in self.build_targets:
             # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
             # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
             # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
@@ -390,7 +414,7 @@ class EB_LLVMcore(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
         # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
-        if 'AMDGPU' in self.build_targets:
+        if 'AMDGPU' in self.build_targets or 'all' in self.build_targets:
             if not get_software_root('ROCR-Runtime'):
                 raise EasyBuildError("Can't build Clang with AMDGPU support "
                                      "without dependency 'ROCR-Runtime'")
