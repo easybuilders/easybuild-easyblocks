@@ -25,6 +25,10 @@
 """
 EasyBuild support for building and installing LLVM, implemented as an easyblock
 
+@author: Dmitri Gribenko (National Technical University of Ukraine "KPI")
+@author: Ward Poelmans (Ghent University)
+@author: Alan O'Cais (Juelich Supercomputing Centre)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada, Universite Laval)
 @author: Simon Branford (University of Birmingham)
 @author: Kenneth Hoste (Ghent University)
 @author: Davide Grassano (CECAM HQ - Lausanne)
@@ -127,6 +131,7 @@ class EB_LLVMcore(CMakeMake):
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
         })
