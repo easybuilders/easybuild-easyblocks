@@ -87,7 +87,7 @@ class EB_Tkinter(EB_Python):
         if LooseVersion(self.version) >= LooseVersion('3'):
             tklibdir = "tkinter"
         else:
-            tklivdir = "lib-tk"
+            tklibdir = "lib-tk"
 
         self.tkinter_so_basename = self.get_tkinter_so_basename(False)
         source_pylibdir = os.path.dirname(os.path.join(self.installdir, det_pylibdir()))
