@@ -75,4 +75,3 @@ class EB_Bandicoot(CMakeMake):
             'dirs': ['include/bandicoot_bits'],
         }
         super(EB_Bandicoot, self).sanity_check_step(custom_paths=custom_paths)
-
