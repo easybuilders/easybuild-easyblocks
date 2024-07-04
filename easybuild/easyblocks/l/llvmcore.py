@@ -648,17 +648,134 @@ class EB_LLVMcore(CMakeMake):
         return res
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
-        self.get_runtime_lib_path(self.installdir, fail_ok=False)
-        shlib_ext = get_shared_lib_ext()
+        lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+        shlib_ext = '.' + get_shared_lib_ext()
+
+        resdir_version = self.version.split('.')[0]
+
+        check_files = []
+        check_bin_files = []
+        check_lib_files = []
+        check_inc_files = []
+        check_dirs = ['include/llvm', 'include/llvm-c', 'lib/cmake/llvm']
+        custom_commands = [
+            'llvm-ar --help', 'llvm-ranlib --help', 'llvm-nm --help', 'llvm-objdump --help',
+            'llvm-config --cxxflags', 'clang --help', 'clang++ --help',
+            'bbc --help', 'mlir-tblgen --help', 'flang-new --help',
+        ]
 
         if self.build_shared:
-            if custom_paths is None:
-                custom_paths = {}
-            ptr = custom_paths.setdefault('files', [])
-            for lib in ['LLVM', 'MLIR', 'clang', 'clang-cpp', 'lldb']:
-                ptr.append(os.path.join('lib', 'lib%s.%s' % (lib, shlib_ext)))
+            check_lib_files += ['libLLVM.so']
 
-        return super().sanity_check_step(custom_paths=None, custom_commands=None, extension=False, extra_modules=None)
+        if 'clang' in self.final_projects:
+            check_bin_files += [
+                'clang', 'clang++', 'clang-cpp', 'clang-cl', 'clang-repl', 'hmaptool', 'amdgpu-arch', 'nvptx-arch',
+                'intercept-build', 'scan-build', 'scan-build-py', 'scan-view', 'analyze-build', 'c-index-test',
+                'clang-tblgen',
+            ]
+            check_lib_files += [
+                'libclang.so', 'libclang-cpp.so', 'libclangAST.a', 'libclangCrossTU.a', 'libclangFrontend.a',
+                'libclangInterpreter.a', 'libclangParse.a', 'libclangTooling.a'
+            ]
+            check_dirs += [
+                'lib/cmake/clang', 'include/clang'
+            ]
+        if 'clang-tools-extra' in self.final_projects:
+            check_bin_files += [
+                'clangd', 'clang-tidy', 'clang-pseudo', 'clang-include-fixer', 'clang-query', 'clang-move',
+                'clang-reorder-fields', 'clang-include-cleaner', 'clang-apply-replacements',
+                'clang-change-namespace', 'pp-trace', 'modularize'
+            ]
+            check_lib_files += [
+                'libclangTidy.a', 'libclangQuery.a', 'libclangIncludeFixer.a', 'libclangIncludeCleaner.a',
+            ]
+            check_dirs += ['include/clang-tidy']
+        if 'flang' in self.final_projects:
+            check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
+            check_lib_files += [
+                'libFortranRuntime.a', 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
+                'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranCommon.a', 'libFortranDecimal.a',
+                'libHLFIRDialect.a'
+            ]
+            check_dirs += ['lib/cmake/flang', 'include/flang']
+        if 'lld' in self.final_projects:
+            check_bin_files += ['ld.lld', 'lld', 'lld-link', 'wasm-ld']
+            check_lib_files += [
+                'liblldCOFF.a', 'liblldCommon.a', 'liblldELF.a', 'liblldMachO.a', 'liblldMinGW.a', 'liblldWasm.a'
+            ]
+            check_dirs += ['lib/cmake/lld', 'include/lld']
+        if 'lldb' in self.final_projects:
+            check_bin_files += ['lldb']
+            if self.build_shared:
+                check_lib_files += ['liblldb.so']
+            check_dirs += ['include/lldb']
+        if 'mlir' in self.final_projects:
+            check_bin_files += ['mlir-opt', 'tblgen-to-irdl', 'mlir-pdll']
+            check_lib_files += [
+                'libMLIRIR.a', 'libmlir_async_runtime.so', 'libmlir_arm_runner_utils.so', 'libmlir_c_runner_utils.so',
+                'libmlir_float16_utils.so'
+            ]
+            check_dirs += ['lib/cmake/mlir', 'include/mlir', 'include/mlir-c']
+        if 'compiler-rt' in self.final_runtimes:
+            pth = os.path.join('lib', 'clang', resdir_version, lib_dir_runtime)
+            # check_files += [os.path.join(pth, _) for _ in [
+            #     # This should probably be more finetuned depending on what features of compiler-rt are used
+            #     'libclang_rt.xray.a', 'libclang_rt.fuzzer.a', 'libclang_rt.gwp_asan.a', 'libclang_rt.profile.a',
+            #     'libclang_rt.lsan.a', 'libclang_rt.asan.a', 'libclang_rt.hwasan.a'
+            # ]]
+            # check_dirs += ['include/sanitizer', 'include/fuzzer', 'include/orc', 'include/xray']
+        if 'libunwind' in self.final_runtimes:
+            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libunwind.a']]
+            if self.build_shared:
+                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libunwind.so']]
+            check_inc_files += ['unwind.h', 'libunwind.h', 'mach-o/compact_unwind_encoding.h']
+        if 'libcxx' in self.final_runtimes:
+            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++.a']]
+            if self.build_shared:
+                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++.so']]
+            check_dirs += ['include/c++/v1']
+        if 'libcxxabi' in self.final_runtimes:
+            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++abi.a']]
+            if self.build_shared:
+                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++abi.so']]
+
+        if 'polly' in self.final_projects:
+            check_lib_files += ['libPolly.a', 'libPollyISL.a']
+            if self.build_shared:
+                check_lib_files += ['libPolly.so']
+            check_dirs += ['lib/cmake/polly', 'include/polly']
+            custom_commands += [
+                ' | '.join([
+                    'echo \'int main(int argc, char **argv) { return 0; }\'',
+                    'clang -xc -O3 -mllvm -polly -'
+                ]) + ' && ./a.out && rm -f a.out'
+            ]
+        if 'bolt' in self.final_projects:
+            check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
+            check_lib_files += ['libbolt_rt_instr.a']
+        if 'openmp' in self.final_projects:
+            check_lib_files += ['libomp.so', 'libompd.so']
+        if self.cfg['build_openmp_tools']:
+            check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
+        if self.cfg['python_bindings']:
+            custom_commands += ["python -c 'import clang'"]
+
+        for libso in filter(lambda x: x.endswith('.so'), check_lib_files):
+            libext = libso.replace('.so', shlib_ext)
+            if libext not in check_lib_files:
+                check_lib_files.append(libext)
+            check_lib_files.remove(libso)
+
+        check_files += [os.path.join('bin', _) for _ in check_bin_files]
+        check_files += [os.path.join('lib', _) for _ in check_lib_files]
+        check_files += [os.path.join('include', _) for _ in check_inc_files]
+
+        custom_paths = {
+            'files': check_files,
+            'dirs': check_dirs,
+        }
+
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
