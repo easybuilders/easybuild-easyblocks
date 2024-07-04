@@ -617,13 +617,13 @@ class EB_LLVMcore(CMakeMake):
         super(EB_LLVMcore, self).post_install_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
-        if self.cfg['python_bindings'] and self.project_name in ['clang', 'mlir']:
-            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "llvm", "bindings", "python")
+        if self.cfg['python_bindings']:
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
 
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
-            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
+            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
@@ -645,13 +645,16 @@ class EB_LLVMcore(CMakeMake):
         """Return a list of shared libraries that should not be linked against."""
         res = []
         if self.full_llvm:
+            self.log.info("Checking that no GCC shared libraries are linked against")
             res += ['libstdc++', 'libgcc_s', 'libicuuc']
         if not self.build_shared:
             # Libraries should be linked statically
+            self.log.info("Checking that no shared libraries are linked against in static build")
             res += ['libc++', 'libc++abi', 'libunwind']
         return res
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
+        """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
         shlib_ext = '.' + get_shared_lib_ext()
 
@@ -763,6 +766,7 @@ class EB_LLVMcore(CMakeMake):
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
+            custom_commands += ["python -c 'import mlir'"]
 
         for libso in filter(lambda x: x.endswith('.so'), check_lib_files):
             libext = libso.replace('.so', shlib_ext)
@@ -779,7 +783,7 @@ class EB_LLVMcore(CMakeMake):
             'dirs': check_dirs,
         }
 
-        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super(EB_LLVMcore, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
