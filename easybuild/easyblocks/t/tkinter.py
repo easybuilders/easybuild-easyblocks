@@ -39,7 +39,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy, move_file, remove_dir
+from easybuild.tools.filetools import move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
