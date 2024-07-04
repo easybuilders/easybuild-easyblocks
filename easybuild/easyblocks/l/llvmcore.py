@@ -720,14 +720,14 @@ class EB_LLVMcore(CMakeMake):
                 'libmlir_float16_utils.so'
             ]
             check_dirs += ['lib/cmake/mlir', 'include/mlir', 'include/mlir-c']
-        if 'compiler-rt' in self.final_runtimes:
-            pth = os.path.join('lib', 'clang', resdir_version, lib_dir_runtime)
-            # check_files += [os.path.join(pth, _) for _ in [
-            #     # This should probably be more finetuned depending on what features of compiler-rt are used
-            #     'libclang_rt.xray.a', 'libclang_rt.fuzzer.a', 'libclang_rt.gwp_asan.a', 'libclang_rt.profile.a',
-            #     'libclang_rt.lsan.a', 'libclang_rt.asan.a', 'libclang_rt.hwasan.a'
-            # ]]
-            # check_dirs += ['include/sanitizer', 'include/fuzzer', 'include/orc', 'include/xray']
+        # if 'compiler-rt' in self.final_runtimes:
+        #     pth = os.path.join('lib', 'clang', resdir_version, lib_dir_runtime)
+        #     check_files += [os.path.join(pth, _) for _ in [
+        #         # This should probably be more finetuned depending on what features of compiler-rt are used
+        #         'libclang_rt.xray.a', 'libclang_rt.fuzzer.a', 'libclang_rt.gwp_asan.a', 'libclang_rt.profile.a',
+        #         'libclang_rt.lsan.a', 'libclang_rt.asan.a', 'libclang_rt.hwasan.a'
+        #     ]]
+        #     check_dirs += ['include/sanitizer', 'include/fuzzer', 'include/orc', 'include/xray']
         if 'libunwind' in self.final_runtimes:
             check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libunwind.a']]
             if self.build_shared:
