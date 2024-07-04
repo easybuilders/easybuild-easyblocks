@@ -274,6 +274,9 @@ class EB_LLVMcore(CMakeMake):
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
         if 'openmp' in self.final_projects:
+            # Disable OpenMP offload support if not building for NVPTX or AMDGPU
+            if 'NVPTX' not in self.build_targets and 'AMDGPU' not in self.build_targets:
+                self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
@@ -354,10 +357,6 @@ class EB_LLVMcore(CMakeMake):
             raise EasyBuildError("Can't find GCC or GCCcore to use")
         self._cmakeopts['GCC_INSTALL_PREFIX'] = gcc_prefix
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
-
-        # Disable OpenMP offload support if not building for NVPTX or AMDGPU
-        if 'NVPTX' not in self.build_targets and 'AMDGPU' not in self.build_targets:
-            general_opts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
 
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
         if 'NVPTX' in self.build_targets:
