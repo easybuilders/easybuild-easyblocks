@@ -188,7 +188,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('gast', '2.0.0:'): 'gast_archive',
         ('google.protobuf', '2.0.0:'): 'com_google_protobuf',
         ('keras_applications', '2.0.0:2.2.0'): 'keras_applications_archive',
-        ('opt_einsum', '2.0.0:'): 'opt_einsum_archive',
+        ('opt_einsum', '2.0.0:2.15.0'): 'opt_einsum_archive',
         ('pasta', '2.0.0:'): 'pasta',
         ('six', '2.0.0:'): 'six_archive',  # Part of Python EC
         ('tblib', '2.4.0:'): 'tblib_archive',
@@ -608,6 +608,13 @@ class EB_TensorFlow(PythonPackage):
         # SYCL support removed in 2.4
         if LooseVersion(self.version) < LooseVersion('2.4'):
             config_env_vars['TF_NEED_OPENCL_SYCL'] = '0'
+        # Clang toggle since 2.14.0
+        if LooseVersion(self.version) > LooseVersion('2.13'):
+            config_env_vars['TF_NEED_CLANG'] = '0'
+        # Hermietic python version since 2.14.0
+        if LooseVersion(self.version) > LooseVersion('2.13'):
+            pyver = det_python_version(self.python_cmd)
+            config_env_vars['TF_PYTHON_VERSION'] = '.'.join(pyver.split('.')[:2])
 
         if self._with_cuda:
             cuda_version = get_software_version('CUDA')
