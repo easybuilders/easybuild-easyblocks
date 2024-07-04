@@ -28,6 +28,7 @@ EasyBuild support for building and installing the ParaStationMPI library, implem
 @author: Damian Alvarez (Forschungszentrum Juelich)
 """
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 
 from easybuild.tools import LooseVersion
@@ -58,6 +59,7 @@ class EB_psmpi(EB_MPICH):
             'mpich_opts': [None, "Optional options to configure MPICH", CUSTOM],
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
             'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
+            'cuda': [False, "Enable CUDA awareness", CUSTOM],
         })
         return extra_vars
 
@@ -72,9 +74,19 @@ class EB_psmpi(EB_MPICH):
         comp_opts = {
             toolchain.GCC: 'gcc',
             toolchain.INTELCOMP: 'intel',
-            # TODO: Include PGI as soon as it is available as toolchain
-            # toolchain.PGI: 'pgi',
+            toolchain.PGI: 'pgi',
+            toolchain.NVHPC: 'nvhpc',
         }
+
+        # ParaStationMPI defines its environment through confsets. So these should be unset
+        env_vars = ['CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'FCFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']
+        env.unset_env_vars(env_vars)
+        self.log.info("Unsetting the following variables: " + ' '.join(env_vars))
+
+        # Enable CUDA
+        if self.cfg['cuda']:
+            self.log.info("Enabling CUDA-Awareness...")
+            self.cfg.update('configopts', ' --with-cuda')
 
         # Set confset
         comp_fam = self.toolchain.comp_family()
@@ -99,7 +111,8 @@ class EB_psmpi(EB_MPICH):
             pscom_path = self.cfg['pscom_allin_path'].strip()
             self.cfg.update('configopts', ' --with-pscom-allin="%s"' % pscom_path)
 
-        pscom_flags = 'PSCOM_LDFLAGS=-L{0}/lib PSCOM_CPPFLAGS=-I{0}/include'.format(pscom_path)
+        pscom_flags = 'export PSCOM_LDFLAGS="-L{0}/lib $PSCOM_LDFLAGS" &&'.format(pscom_path)
+        pscom_flags += ' export PSCOM_CPPFLAGS="-I{0}/include $PSCOM_CPPFLAGS" &&'.format(pscom_path)
         self.cfg.update('preconfigopts', pscom_flags)
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
@@ -117,4 +130,6 @@ class EB_psmpi(EB_MPICH):
         # ParaStationMPI < 5.1.1-1 is based on MPICH < 3.1.1.
         use_new_libnames = LooseVersion(self.version) >= LooseVersion('5.1.1-1')
 
-        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames, check_launchers=False)
+        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames,
+                                                check_launchers=False,
+                                                check_static_libs=False)
