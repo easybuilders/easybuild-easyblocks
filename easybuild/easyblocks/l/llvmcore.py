@@ -589,9 +589,11 @@ class EB_LLVMcore(CMakeMake):
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
         if mch is None:
+            self.log.info("Failed to extract number of failed test results from output")
             rgx_passed = re.compile(r'^ +Passed +: +([0-9]+)', flags=re.MULTILINE)
             mch = rgx_passed.search(out)
             if mch is None:
+                self.log.info("Failed to extract number of passed test results from output")
                 num_failed = None
             else:
                 num_failed = 0
@@ -601,7 +603,7 @@ class EB_LLVMcore(CMakeMake):
         return num_failed
 
     def test_step(self):
-        """Run Clang tests on final stage (unless disabled)."""
+        """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
             self.log.info("Running test-suite with parallel jobs")
             num_failed = self._test_step(parallel=self.cfg['parallel'])
@@ -613,6 +615,8 @@ class EB_LLVMcore(CMakeMake):
 
             if num_failed > self.cfg['test_suite_max_failed']:
                 raise EasyBuildError("Too many failed tests: %s", num_failed)
+
+            self.log.info("Test-suite completed with %s failed tests", num_failed)
 
     def install_step(self):
         """Install stage 1 or 3 (if bootsrap) binaries."""
