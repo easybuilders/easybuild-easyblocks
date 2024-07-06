@@ -237,7 +237,9 @@ class EB_WPS(EasyBlock):
         """Build in install dir using compile script."""
         cmd = ' '.join([
             self.cfg['prebuildopts'],
-            './' + self.compile_script,
+            # compile script rely on /bin/csh
+            # Better call csh command to allow tcsh build dependency
+            'csh ' + self.compile_script,
             self.cfg['buildopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
