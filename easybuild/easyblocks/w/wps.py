@@ -239,7 +239,7 @@ class EB_WPS(EasyBlock):
             self.cfg['prebuildopts'],
             # compile script rely on /bin/csh
             # Better call csh command to allow tcsh build dependency
-            'csh ' + self.compile_script,
+            'csh ./' + self.compile_script,
             self.cfg['buildopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
@@ -344,7 +344,7 @@ class EB_WPS(EasyBlock):
                     raise EasyBuildError("Could not find Vtable file to use for testing ungrib")
 
                 # run link_grib.csh script
-                cmd = "%s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
+                cmd = "csh %s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
                 run_cmd(cmd, log_all=True, simple=True)
 
                 # run ungrib.exe
