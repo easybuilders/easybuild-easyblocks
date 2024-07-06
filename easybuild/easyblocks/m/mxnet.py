@@ -252,12 +252,6 @@ class EB_MXNet(MakeCp):
         """Custom variables for MXNet module."""
         txt = super(EB_MXNet, self).make_module_extra(*args, **kwargs)
 
-        for path in self.py_ext.all_pylibdirs:
-            fullpath = os.path.join(self.installdir, path)
-            # only extend $PYTHONPATH with existing, non-empty directories
-            if os.path.exists(fullpath) and os.listdir(fullpath):
-                txt += self.module_generator.prepend_paths('PYTHONPATH', path)
-
         txt += self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
 
         return txt

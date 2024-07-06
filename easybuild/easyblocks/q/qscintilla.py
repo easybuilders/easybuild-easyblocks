@@ -200,14 +200,3 @@ class EB_QScintilla(ConfigureMake):
             custom_commands.append("python -c 'import %s.Qsci'" % self.pyqt_pkg_name)
 
         super(EB_QScintilla, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self):
-        """Custom extra module file entries for QScintilla."""
-        txt = super(EB_QScintilla, self).make_module_extra()
-        python = get_software_root('Python')
-        if python:
-            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
-            else:
-                txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
-        return txt

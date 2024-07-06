@@ -156,15 +156,6 @@ class EB_ESMF(ConfigureMake):
         esmf_mkfile_path = os.path.join(self.installdir, "lib", "esmf.mk")
         txt += self.module_generator.set_environment('ESMFMKFILE', esmf_mkfile_path)
 
-        if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
-        else:
-            python = get_software_version('Python')
-            if python:
-                pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-                pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
-                txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
-
         return txt
 
     def sanity_check_step(self):

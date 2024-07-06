@@ -283,11 +283,4 @@ class EB_NEURON(CMakeMake):
             else:
                 self.log.debug("%s not set: %s" % (var, os.environ.get(var, None)))
 
-        if self.with_python:
-            if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-                txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
-            else:
-                txt += self.module_generator.prepend_paths('PYTHONPATH', [self.pylibdir])
-            # also adds lib/python to PYTHONPATH
-            txt += self.module_generator.prepend_paths('PYTHONPATH', ['lib/python'])
         return txt

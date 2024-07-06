@@ -38,8 +38,6 @@ import stat
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
-from easybuild.easyblocks.python import EBPYTHONPREFIXES
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir
 from easybuild.tools.modules import get_software_root
@@ -149,12 +147,6 @@ class EB_CPLEX(Binary):
 
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
-
-        if self.with_python:
-            if self.multi_python:
-                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
-            else:
-                txt += self.module_generator.prepend_paths('PYTHONPATH', [det_pylibdir()])
 
         self.log.debug("make_module_extra added %s" % txt)
         return txt

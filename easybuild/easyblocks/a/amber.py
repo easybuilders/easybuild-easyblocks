@@ -381,7 +381,5 @@ class EB_Amber(CMakeMake):
         txt = super(EB_Amber, self).make_module_extra()
 
         txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
-        if self.pylibdir:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

@@ -101,10 +101,6 @@ class EB_Gurobi(Tarball):
         txt = super(EB_Gurobi, self).make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
         txt += self.module_generator.set_environment('GRB_LICENSE_FILE', self.license_file)
-
-        if get_software_root('Python'):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
         txt += self.module_generator.prepend_paths('MATLABPATH', 'matlab')
 
         return txt

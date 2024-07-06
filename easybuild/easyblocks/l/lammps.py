@@ -548,19 +548,6 @@ class EB_LAMMPS(CMakeMake):
 
         return super(EB_LAMMPS, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
-    def make_module_extra(self):
-        """Add install path to PYTHONPATH"""
-
-        txt = super(EB_LAMMPS, self).make_module_extra()
-
-        python = get_software_version('Python')
-        if python:
-            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
-
-        return txt
-
 
 def get_cuda_gpu_arch(cuda_cc):
     """Return CUDA gpu ARCH in LAMMPS required format. Example: 'sm_32' """
