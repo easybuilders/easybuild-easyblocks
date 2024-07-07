@@ -151,7 +151,8 @@ class PythonBundle(Bundle):
         # or if we prefer it
         prefer_ebpythonprefixes = build_option('prefer_ebpythonprefixes') and self.cfg['prefer_ebpythonprefixes']
         if self.multi_python or prefer_ebpythonprefixes:
-            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+            if EBPYTHONPREFIXES not in self.module_generator.added_paths_per_key:
+                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
 
             # the temporary module file that is generated before installing extensions
@@ -166,7 +167,8 @@ class PythonBundle(Bundle):
                 ]
 
             for pylibdir in new_pylibdirs:
-                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+                if pylibdir not in self.module_generator.added_paths_per_key['PYTHONPATH']:
+                    txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
 
