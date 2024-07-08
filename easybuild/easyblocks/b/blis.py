@@ -1,3 +1,8 @@
+"""
+Easybuild support for building and installing BLIS, implemented as an easyblock
+
+@author: Pua Cheng Xuan Frederick (National University of Singapore)
+"""        
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.framework.easyconfig import CUSTOM
