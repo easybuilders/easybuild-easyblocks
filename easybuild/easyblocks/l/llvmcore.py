@@ -405,9 +405,9 @@ class EB_LLVMcore(CMakeMake):
             cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
             default_cc = default_cc.replace('.', '')
             general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = 'sm_%s' % default_cc
-            # OLD (pre v16) flags
-            general_opts['CLANG_OPENMP_NVPTX_DEFAULT_ARCH'] = 'sm_%s' % default_cc
-            general_opts['LIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES'] = ','.join(cuda_cc)
+            # # OLD (pre v16) flags
+            # general_opts['CLANG_OPENMP_NVPTX_DEFAULT_ARCH'] = 'sm_%s' % default_cc
+            # general_opts['LIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES'] = ','.join(cuda_cc)
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
         # whether CUDA was found
@@ -566,7 +566,7 @@ class EB_LLVMcore(CMakeMake):
             # shutil.rmtree('llvm.obj.3', ignore_errors=True)
             # shutil.copytree(os.path.join('..', 'llvm.obj.3'), 'llvm.obj.3')
 
-    def _test_step(self, parallel=1):
+    def _para_test_step(self, parallel=1):
         """Run test suite with the specified number of parallel jobs for make."""
         basedir = self.final_dir
 
@@ -606,10 +606,10 @@ class EB_LLVMcore(CMakeMake):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
             self.log.info("Running test-suite with parallel jobs")
-            num_failed = self._test_step(parallel=self.cfg['parallel'])
+            num_failed = self._para_test_step(parallel=self.cfg['parallel'])
             if num_failed is None:
                 self.log.warning("Tests with parallel jobs failed, retrying with single job")
-                num_failed = self._test_step(parallel=1)
+                num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
                 raise EasyBuildError("Failed to extract test results from output")
 
