@@ -30,7 +30,8 @@ class EB_BLIS(ConfigureMake):
 
         if self.cfg['shared_enable']:
             self.cfg.update('configopts', '--enable-shared')
-
+        
+        # arch_name will only be available when archspec is available to easybuild, else arch_name will be unknown
         arch_name = get_cpu_arch_name()
         if arch_name == "a64fx":
             self.cfg.update('configopts', 'CFLAGS="$CFLAGS -DCACHE_SECTOR_SIZE_READONLY"')
