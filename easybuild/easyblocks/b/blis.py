@@ -12,6 +12,7 @@ from easybuild.tools.systemtools import get_cpu_arch_name
 class EB_BLIS(ConfigureMake):
     """Custom easyblock for BLIS"""
 
+    @staticmethod
     def extra_options():
         """Custom easyconfig parameters for BLIS easyblock."""
         extra_vars = {
