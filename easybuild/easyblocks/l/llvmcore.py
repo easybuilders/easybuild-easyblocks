@@ -302,10 +302,11 @@ class EB_LLVMcore(CMakeMake):
 
         if 'openmp' in self.final_projects:
             # Disable OpenMP offload support if not building for NVPTX or AMDGPU
-            if any(target in self.build_targets for target in ['NVPTX', 'AMDGPU', 'all']):
-                self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            else:
-                self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
+            self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
+            # if any(target in self.build_targets for target in ['NVPTX', 'AMDGPU', 'all']):
+            #     self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
+            # else:
+            #     self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'OFF'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
