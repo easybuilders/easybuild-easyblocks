@@ -175,7 +175,10 @@ class EB_NVHPC(PackedBinary):
 
         if LooseVersion(self.version) >= LooseVersion('22.9'):
             bin_subdir = os.path.join(compilers_subdir, "bin")
-            cmd = "%s -x %s" % (makelocalrc_filename, bin_subdir)
+            cmd = "%s -x %s -cuda %s -stdpar %s" % (makelocalrc_filename,
+                                                    bin_subdir,
+                                                    default_cuda_version,
+                                                    default_compute_capability)
         else:
             cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
         run_cmd(cmd, log_all=True, simple=True)
