@@ -429,7 +429,7 @@ class EB_LLVMcore(CMakeMake):
                                          "without specifying 'amd_gfx_list'")
                 gpu_archs += self.amd_gfx
                 self.log.info("Using AMDGPU targets: %s", ', '.join(self.amd_gfx))
-            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = ';'.join(gpu_archs)
+            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
 
         self._configure_general_build()
 
@@ -808,13 +808,13 @@ class EB_LLVMcore(CMakeMake):
             check_lib_files += ['libbolt_rt_instr.a']
         if 'openmp' in self.final_projects:
             check_lib_files += ['libomp.so', 'libompd.so']
-            check_lib_files += ['libomptarget.%s' % shlib_ext, 'libomptarget.rtl.%s.%s' % (arch, shlib_ext)]
+            check_lib_files += ['libomptarget.so', 'libomptarget.rtl.%s.so' % arch]
             if 'NVPTX' in self.cfg['build_targets']:
                 check_lib_files += ['libomptarget.rtl.cuda.so']
                 check_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
             if 'AMDGPU' in self.cfg['build_targets']:
                 check_lib_files += ['libomptarget.rtl.amdgpu.so']
-                check_lib_files += ['llibomptarget-amdgcn-%s.bc' % gfx for gfx in self.amd_gfx]
+                check_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
         if self.cfg['python_bindings']:
