@@ -72,6 +72,12 @@ DEFAULT_TARGETS_MAP = {
     X86_64: ['X86'],
 }
 
+AMDGPU_GFX_SUPPORT = [
+    'gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900', 'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx90c',
+    'gfx940', 'gfx941', 'gfx942', 'gfx1010', 'gfx1030', 'gfx1031', 'gfx1032', 'gfx1033', 'gfx1034',
+    'gfx1035', 'gfx1036', 'gfx1100', 'gfx1101', 'gfx1102', 'gfx1103', 'gfx1150', 'gfx1151'
+]
+
 remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
@@ -132,6 +138,8 @@ class EB_LLVMcore(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
+            'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
+                             ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(ALL_TARGETS), CUSTOM],
@@ -149,7 +157,7 @@ class EB_LLVMcore(CMakeMake):
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
-            'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
+            # 'default_cuda_capability': [None, "Default CUDA capability specified for clang, e.g. '7.5'", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
         })
@@ -388,42 +396,38 @@ class EB_LLVMcore(CMakeMake):
         self._cmakeopts['GCC_INSTALL_PREFIX'] = gcc_prefix
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
-        # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
-        if 'NVPTX' in self.build_targets or 'all' in self.build_targets:
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            if not cuda_cc:
-                raise EasyBuildError("Can't build Clang with CUDA support "
-                                     "without specifying 'cuda-compute-capabilities'")
-            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
-            if not self.cfg['default_cuda_capability']:
-                print_warning("No default CUDA capability defined! "
-                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            default_cc = default_cc.replace('.', '')
-            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = 'sm_%s' % default_cc
-            # # OLD (pre v16) flags
-            # general_opts['CLANG_OPENMP_NVPTX_DEFAULT_ARCH'] = 'sm_%s' % default_cc
-            # general_opts['LIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES'] = ','.join(cuda_cc)
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
         # whether CUDA was found
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
-        # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
-        if 'AMDGPU' in self.build_targets or 'all' in self.build_targets:
-            if not get_software_root('ROCR-Runtime'):
-                raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                     "without dependency 'ROCR-Runtime'")
-            ec_amdgfx = self.cfg['amd_gfx_list']
-            if not ec_amdgfx:
-                raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                     "without specifying 'amd_gfx_list'")
-            general_opts['LIBOMPTARGET_AMDGCN_GFXLIST'] = ' '.join(ec_amdgfx)
+
+        if 'openmp' in self.final_projects:
+            gpu_archs = []
+            # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
+            if 'NVPTX' in self.build_targets or 'all' in self.build_targets:
+                # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+                # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+                # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+                ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+                cfg_cuda_cc = build_option('cuda_compute_capabilities')
+                cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+                if not cuda_cc:
+                    raise EasyBuildError("Can't build Clang with CUDA support "
+                                        "without specifying 'cuda-compute-capabilities'")
+                self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+                gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+            # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
+            if 'AMDGPU' in self.build_targets or 'all' in self.build_targets:
+                if not get_software_root('ROCR-Runtime'):
+                    raise EasyBuildError("Can't build Clang with AMDGPU support "
+                                        "without dependency 'ROCR-Runtime'")
+                self.amd_gfx = self.cfg['amd_gfx_list']
+                if not self.amd_gfx:
+                    raise EasyBuildError("Can't build Clang with AMDGPU support "
+                                        "without specifying 'amd_gfx_list'")
+                gpu_archs += self.amd_gfx
+            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = ';'.join(gpu_archs)
 
         self._configure_general_build()
 
@@ -689,6 +693,17 @@ class EB_LLVMcore(CMakeMake):
 
         resdir_version = self.version.split('.')[0]
 
+        # Detect OpenMP support for CPU architecture
+        arch = get_cpu_architecture()
+        # Check architecture explicitly since Clang uses potentially
+        # different names
+        if arch == X86_64:
+            arch = 'x86_64'
+        elif arch == POWER:
+            arch = 'ppc64'
+        elif arch == AARCH64:
+            arch = 'aarch64'
+
         check_files = []
         check_bin_files = []
         check_lib_files = []
@@ -791,6 +806,13 @@ class EB_LLVMcore(CMakeMake):
             check_lib_files += ['libbolt_rt_instr.a']
         if 'openmp' in self.final_projects:
             check_lib_files += ['libomp.so', 'libompd.so']
+            check_lib_files += ['libomptarget.%s' % shlib_ext, 'libomptarget.rtl.%s.%s' % (arch, shlib_ext)]
+            if 'NVPTX' in self.cfg['build_targets']:
+                check_lib_files += ['libomptarget.rtl.cuda.so']
+                check_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+            if 'AMDGPU' in self.cfg['build_targets']:
+                check_lib_files += ['libomptarget.rtl.amdgpu.so']
+                check_lib_files += ['llibomptarget-amdgcn-%s.bc' % gfx for gfx in self.amd_gfx]
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
         if self.cfg['python_bindings']:
