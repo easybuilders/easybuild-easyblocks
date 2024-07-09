@@ -414,19 +414,21 @@ class EB_LLVMcore(CMakeMake):
                 cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
                 if not cuda_cc:
                     raise EasyBuildError("Can't build Clang with CUDA support "
-                                        "without specifying 'cuda-compute-capabilities'")
+                                         "without specifying 'cuda-compute-capabilities'")
                 self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
                 gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+                self.log.info("Using CUDA compute capabilities: %s", ', '.join(self.cuda_cc))
             # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
             if 'AMDGPU' in self.build_targets or 'all' in self.build_targets:
                 if not get_software_root('ROCR-Runtime'):
                     raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                        "without dependency 'ROCR-Runtime'")
+                                         "without dependency 'ROCR-Runtime'")
                 self.amd_gfx = self.cfg['amd_gfx_list']
                 if not self.amd_gfx:
                     raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                        "without specifying 'amd_gfx_list'")
+                                         "without specifying 'amd_gfx_list'")
                 gpu_archs += self.amd_gfx
+                self.log.info("Using AMDGPU targets: %s", ', '.join(self.amd_gfx))
             general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = ';'.join(gpu_archs)
 
         self._configure_general_build()
