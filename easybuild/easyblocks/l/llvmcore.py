@@ -267,6 +267,34 @@ class EB_LLVMcore(CMakeMake):
 
         self.build_targets = build_targets or []
 
+        self.nvptx_cond = 'NVPTX' in self.build_targets
+        self.amd_cond = 'AMDGPU' in self.build_targets
+        self.all_cond = 'all' in self.build_targets
+        self.cuda_cc = []
+        if self.nvptx_cond or self.all_cond:
+            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
+            cfg_cuda_cc = build_option('cuda_compute_capabilities')
+            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+            if not cuda_cc and self.nvptx_cond:
+                raise EasyBuildError(
+                    "Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'"
+                    )
+            else:
+                self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+
+        self.amd_gfx = []
+        if self.amd_cond or self.all_cond:
+            self.amd_gfx = self.cfg['amd_gfx_list'] or []
+            if not self.amd_gfx and self.amd_cond:
+                raise EasyBuildError(
+                    "Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'"
+                    )
+            else:
+                self.log.info("Using AMDGPU targets: %s", ', '.join(self.amd_gfx))
+
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
         if self.toolchain.options['pic']:
@@ -404,32 +432,10 @@ class EB_LLVMcore(CMakeMake):
 
         if 'openmp' in self.final_projects:
             gpu_archs = []
-            # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
-            if 'NVPTX' in self.build_targets or 'all' in self.build_targets:
-                # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-                # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-                # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-                ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-                cfg_cuda_cc = build_option('cuda_compute_capabilities')
-                cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-                if not cuda_cc:
-                    raise EasyBuildError("Can't build Clang with CUDA support "
-                                         "without specifying 'cuda-compute-capabilities'")
-                self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-                gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
-                self.log.info("Using CUDA compute capabilities: %s", ', '.join(self.cuda_cc))
-            # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
-            if 'AMDGPU' in self.build_targets or 'all' in self.build_targets:
-                if not get_software_root('ROCR-Runtime'):
-                    raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                         "without dependency 'ROCR-Runtime'")
-                self.amd_gfx = self.cfg['amd_gfx_list']
-                if not self.amd_gfx:
-                    raise EasyBuildError("Can't build Clang with AMDGPU support "
-                                         "without specifying 'amd_gfx_list'")
-                gpu_archs += self.amd_gfx
-                self.log.info("Using AMDGPU targets: %s", ', '.join(self.amd_gfx))
-            general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
+            gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc or []]
+            gpu_archs += self.amd_gfx or []
+            if gpu_archs:
+                general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
 
         self._configure_general_build()
 
