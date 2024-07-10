@@ -39,6 +39,7 @@ import re
 import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion, run
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import build_option
@@ -489,11 +490,6 @@ class EB_LLVMcore(CMakeMake):
         # orig_library_path = os.getenv('LIBRARY_PATH')
         orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
 
-        self._cmakeopts['CMAKE_C_COMPILER'] = os.path.join(prev_dir, 'bin/clang')
-        self._cmakeopts['CMAKE_CXX_COMPILER'] = os.path.join(prev_dir, 'bin/clang++')
-        self._cmakeopts['CMAKE_ASM_COMPILER'] = os.path.join(prev_dir, 'bin/clang')
-        self._cmakeopts['CMAKE_ASM_COMPILER_ID'] = 'Clang'
-
         self.add_cmake_opts()
 
         bin_dir = os.path.join(prev_dir, 'bin')
@@ -514,8 +510,14 @@ class EB_LLVMcore(CMakeMake):
 
         # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
         if build_option('rpath'):
-            my_toolchain = Toolchain(name='llvm', version='1')
-            my_toolchain.prepare_rpath_wrappers()
+            my_toolchain = Clang(name='Clang', version='1')
+            my_toolchain.prepare_rpath_wrappers(
+                rpath_include_dirs=[
+                    os.path.join(self.installdir, 'lib'),
+                    os.path.join(self.installdir, 'lib64'),
+                    os.path.join(self.installdir, lib_dir_runtime),
+                    ]
+                )
             self.log.info("Prepared rpath wrappers")
 
             # add symlink for 'opt' to wrapper dir, since Clang expects it in the same directory
@@ -530,10 +532,21 @@ class EB_LLVMcore(CMakeMake):
             # resulting in relocation errors).
             # See https://github.com/easybuilders/easybuild-easyblocks/pull/2799#issuecomment-1270621100
             # Here, we add -Wno-unused-command-line-argument to CXXFLAGS to avoid these warnings alltogether
-            cflags = os.getenv('CFLAGS')
-            cxxflags = os.getenv('CXXFLAGS')
+            cflags = os.getenv('CFLAGS', '')
+            cxxflags = os.getenv('CXXFLAGS', '')
             setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
             setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+
+        # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
+        clang = which('clang')
+        clangxx = which('clang++')
+
+        self._cmakeopts['CMAKE_C_COMPILER'] = clang
+        self._cmakeopts['CMAKE_CXX_COMPILER'] = clangxx
+        self._cmakeopts['CMAKE_ASM_COMPILER'] = clang
+        self._cmakeopts['CMAKE_ASM_COMPILER_ID'] = 'Clang'
+
+        self.add_cmake_opts()
 
         change_dir(stage_dir)
         self.log.debug("Configuring %s", stage_dir)
@@ -558,7 +571,6 @@ class EB_LLVMcore(CMakeMake):
             print_msg("Building stage 1/1")
         change_dir(self.llvm_obj_dir_stage1)
         super(EB_LLVMcore, self).build_step(verbose, path)
-        # import shutil
         # change_dir(self.builddir)
         # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
         # shutil.rmtree('llvm.obj.1', ignore_errors=True)
