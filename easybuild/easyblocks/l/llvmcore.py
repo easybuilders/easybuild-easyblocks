@@ -98,7 +98,7 @@ remove_gcc_dependency_opts = {
 
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
-    'CLANG_DEFAULT_LINKER': 'lld',
+    # 'CLANG_DEFAULT_LINKER': 'lld',
     'CLANG_DEFAULT_UNWINDLIB': 'libunwind',
 
     'LIBCXX_HAS_GCC_S_LIB': 'Off',
@@ -236,6 +236,9 @@ class EB_LLVMcore(CMakeMake):
         if self.cfg['build_lld']:
             self.intermediate_projects.append('lld')
             self.final_projects.append('lld')
+            # This should be the default to make offload multi-stage compilations easier
+            general_opts['CLANG_DEFAULT_LINKER'] = 'lld'
+            general_opts['FLANG_DEFAULT_LINKER'] = 'lld'
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
             if self.full_llvm:
