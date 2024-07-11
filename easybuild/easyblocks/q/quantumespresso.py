@@ -136,6 +136,17 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
 
     def _add_toolchains_opts(self):
         """Enable toolchain options for Quantum ESPRESSO."""
+        comp_fam = self.toolchain.comp_family()
+
+        allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC]
+        if comp_fam not in allowed_toolchains:
+            raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
+
+        # If toolchain is not intel make sure to search for FlexiBLAS in cmake to avoid finding system/site installed
+        # mkl libraries
+        if comp_fam != toolchain.INTELCOMP:
+            self.cfg.update('configopts', '-DBLA_VENDOR="FlexiBLAS"')
+
         self._add_mpi()
         self._add_openmp()
         self._add_cuda()
