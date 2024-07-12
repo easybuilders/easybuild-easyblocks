@@ -441,7 +441,7 @@ class EB_LLVMcore(CMakeMake):
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
-        self._cmakeopts['GCC_INSTALL_PREFIX'] = gcc_prefix
+        general_opts['GCC_INSTALL_PREFIX'] = gcc_prefix
         self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
