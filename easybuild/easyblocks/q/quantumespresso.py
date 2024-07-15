@@ -142,10 +142,19 @@ class EB_QuantumESPRESSOcmake(CMakeMake):
         if comp_fam not in allowed_toolchains:
             raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
 
-        # If toolchain is not intel make sure to search for FlexiBLAS in cmake to avoid finding system/site installed
-        # mkl libraries
-        if comp_fam != toolchain.INTELCOMP:
+        # If toolchain uses FlexiBLAS/OpenBLAS/NVHPC make sure to search for it first in cmake to avoid
+        # finding system/site installed mkl libraries (QE's cmake, as of 7.3.1, tries to detect iMKL first on x86_64
+        # systems without BLA_VENDOR set)
+        # https://gitlab.com/QEF/q-e/-/blob/qe-7.3.1/CMakeLists.txt?ref_type=tags#L415
+        # https://cmake.org/cmake/help/latest/module/FindBLAS.html
+        # Higher level library checks first so that in a FlexiBLAS->OpenBLAS->NVHPC environment, the correct library is
+        # found first
+        if get_software_root('FlexiBLAS'):
             self.cfg.update('configopts', '-DBLA_VENDOR="FlexiBLAS"')
+        elif get_software_root('OpenBLAS'):
+            self.cfg.update('configopts', '-DBLA_VENDOR="OpenBLAS"')
+        elif get_software_root('NVHPC'):
+            self.cfg.update('configopts', '-DBLA_VENDOR="NVHPC"')
 
         self._add_mpi()
         self._add_openmp()
