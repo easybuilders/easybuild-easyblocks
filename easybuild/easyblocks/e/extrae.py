@@ -79,8 +79,6 @@ class EB_Extrae(ConfigureMake):
         # TODO: make this optional dependencies
         self.cfg.update('configopts', "--without-dyninst")
 
-        # Workaround to make MPI tests pass in some platforms
-        self.cfg.update('configopts', "--disable-instrument-dynamic-memory")
 
         # Needed to build in RISC-V architectures
         if get_cpu_architecture() == RISCV64:
