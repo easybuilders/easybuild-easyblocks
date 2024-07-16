@@ -85,7 +85,6 @@ class EB_QuantumESPRESSO(EasyBlock):
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
         self.ebclass = eb(new_ec, *args, **kwargs)
 
-
     class EB_QuantumESPRESSOcmake(CMakeMake):
         """Support for building and installing Quantum ESPRESSO."""
 
@@ -122,7 +121,11 @@ class EB_QuantumESPRESSO(EasyBlock):
                     'Threshold for test suite success rate (does count also allowed failures)',
                     CUSTOM
                     ],
-                'test_suite_max_failed': [0, 'Maximum number of failing tests (does not count allowed failures)', CUSTOM],
+                'test_suite_max_failed': [
+                    0,
+                    'Maximum number of failing tests (does not count allowed failures)',
+                    CUSTOM
+                ],
             }
             return CMakeMake.extra_options(extra_vars)
 
@@ -140,15 +143,17 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC]
             if comp_fam not in allowed_toolchains:
-                raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
+                raise EasyBuildError(
+                    "EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam
+                )
 
             # If toolchain uses FlexiBLAS/OpenBLAS/NVHPC make sure to search for it first in cmake to avoid
-            # finding system/site installed mkl libraries (QE's cmake, as of 7.3.1, tries to detect iMKL first on x86_64
-            # systems without BLA_VENDOR set)
+            # finding system/site installed mkl libraries (QE's cmake, as of 7.3.1, tries to detect iMKL first on
+            # x86_64 ystems without BLA_VENDOR set)
             # https://gitlab.com/QEF/q-e/-/blob/qe-7.3.1/CMakeLists.txt?ref_type=tags#L415
             # https://cmake.org/cmake/help/latest/module/FindBLAS.html
-            # Higher level library checks first so that in a FlexiBLAS->OpenBLAS->NVHPC environment, the correct library is
-            # found first
+            # Higher level library checks first so that in a FlexiBLAS->OpenBLAS->NVHPC environment, the correct
+            # library is found first
             if get_software_root('FlexiBLAS'):
                 self.cfg.update('configopts', '-DBLA_VENDOR="FlexiBLAS"')
             elif get_software_root('OpenBLAS'):
@@ -369,7 +374,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             failures = []  # list of tests that failed, to be logged at the end
 
             # Example output for reported failures:
-            # 635/635 Test #570: system--epw_wfpt-correctness ......................................***Failed    3.52 sec
+            # 635/635 Test #570: system--epw_wfpt-correctness ......................................***Failed  3.52 sec
             self.log.debug('Test suite output:')
             self.log.debug(out)
             for line in out.splitlines():
@@ -434,8 +439,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             if all_cond or pwall_cond or 'ph' in targets:
                 self.check_bins += [
-                    'alpha2f.x', 'dynmat.x', 'fd_ef.x', 'fd.x', 'lambda.x', 'phcg.x', 'postahc.x', 'q2r.x', 'dvscf_q2r.x',
-                    'epa.x', 'fd_ifc.x', 'fqha.x', 'matdyn.x', 'ph.x', 'q2qstar.x'
+                    'alpha2f.x', 'dynmat.x', 'fd_ef.x', 'fd.x', 'lambda.x', 'phcg.x', 'postahc.x', 'q2r.x',
+                    'dvscf_q2r.x', 'epa.x', 'fd_ifc.x', 'fqha.x', 'matdyn.x', 'ph.x', 'q2qstar.x'
                     ]
 
             if all_cond or pwall_cond or 'pp' in targets:
@@ -473,7 +478,6 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             super(EB_QuantumESPRESSOcmake, self).sanity_check_step(custom_paths=custom_paths)
 
-
     # Legacy version of Quantum ESPRESSO easyblock
     # Do not update further
     class EB_QuantumESPRESSOconfig(ConfigureMake):
@@ -509,7 +513,11 @@ class EB_QuantumESPRESSO(EasyBlock):
                     "Threshold for test suite success rate (does count also allowed failures)",
                     CUSTOM
                     ],
-                'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
+                'test_suite_max_failed': [
+                    0,
+                    "Maximum number of failing tests (does not count allowed failures)",
+                    CUSTOM
+                ],
             }
             return ConfigureMake.extra_options(extra_vars)
 
@@ -527,7 +535,9 @@ class EB_QuantumESPRESSO(EasyBlock):
             """Add compiler flags to the build."""
             allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC]
             if comp_fam not in allowed_toolchains:
-                raise EasyBuildError("EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam)
+                raise EasyBuildError(
+                    "EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam
+                )
 
             if LooseVersion(self.version) >= LooseVersion("6.1"):
                 if comp_fam == toolchain.INTELCOMP:
@@ -603,7 +613,9 @@ class EB_QuantumESPRESSO(EasyBlock):
                     self.cfg.update('configopts', '--with-libxc-prefix=%s' % libxc)
                 elif LooseVersion(self.version) >= LooseVersion("6.6"):
                     if LooseVersion(libxc_v) >= LooseVersion("6.0"):
-                        raise EasyBuildError("libxc support for QuantumESPRESSO 6.6 to 6.8 only available for libxc < 6.0")
+                        raise EasyBuildError(
+                            "libxc support for QuantumESPRESSO 6.6 to 6.8 only available for libxc < 6.0"
+                        )
                     if LooseVersion(libxc_v) < LooseVersion("4"):
                         raise EasyBuildError("libxc support for QuantumESPRESSO 6.x only available for libxc >= 4")
                     self.cfg.update('configopts', '--with-libxc=yes')
@@ -876,8 +888,9 @@ class EB_QuantumESPRESSO(EasyBlock):
             # is newer than FoX 4.1.2 which is the latest release.
             # Ake Sandgren, 20180712
             if get_software_root('FoX'):
-                raise EasyBuildError("Found FoX external module, QuantumESPRESSO" +
-                                    "must use the version they include with the source.")
+                raise EasyBuildError(
+                    "Found FoX external module, QuantumESPRESSO must use the version they include with the source."
+                )
 
             self.log.info("List of replacements to perform: %s" % str(self.repls))
 
@@ -901,19 +914,26 @@ class EB_QuantumESPRESSO(EasyBlock):
                     # fix preprocessing directives for .f90 files in make.sys if required
                     if LooseVersion(self.version) < LooseVersion("6.0"):
                         if comp_fam == toolchain.GCC:
-                            line = re.sub(r"^\t\$\(MPIF90\) \$\(F90FLAGS\) -c \$<",
-                                        "\t$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
-                                        "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
-                                        line)
+                            line = re.sub(
+                                r"^\t\$\(MPIF90\) \$\(F90FLAGS\) -c \$<",
+                                "\t$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
+                                "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
+                                line
+                            )
 
                     if LooseVersion(self.version) == LooseVersion("6.6"):
                         # fix order of BEEF_LIBS in QE_LIBS
-                        line = re.sub(r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
-                                    r"QELIBS = $(BEEF_LIBS) \2 \3", line)
+                        line = re.sub(
+                            r"^(QELIBS\s*=[ \t]*)(.*) \$\(BEEF_LIBS\) (.*)$",
+                            r"QELIBS = $(BEEF_LIBS) \2 \3", line
+                            )
 
                         # use FCCPP instead of CPP for Fortran headers
-                        line = re.sub(r"\t\$\(CPP\) \$\(CPPFLAGS\) \$< -o \$\*\.fh",
-                                    "\t$(FCCPP) $(CPPFLAGS) $< -o $*.fh", line)
+                        line = re.sub(
+                            r"\t\$\(CPP\) \$\(CPPFLAGS\) \$< -o \$\*\.fh",
+                            "\t$(FCCPP) $(CPPFLAGS) $< -o $*.fh",
+                            line
+                            )
 
                     sys.stdout.write(line)
             except IOError as err:
@@ -957,17 +977,21 @@ class EB_QuantumESPRESSO(EasyBlock):
                         make_sys_in_path = full_path
                         break
                 if make_sys_in_path is None:
-                    raise EasyBuildError("Failed to find make.sys.in in want directory %s, paths considered: %s",
-                                        wantdir, ', '.join(cand_paths))
+                    raise EasyBuildError(
+                        "Failed to find make.sys.in in want directory %s, paths considered: %s",
+                        wantdir, ', '.join(cand_paths)
+                    )
 
                 try:
                     for line in fileinput.input(make_sys_in_path, inplace=1, backup='.orig.eb'):
                         # fix preprocessing directives for .f90 files in make.sys if required
                         if comp_fam == toolchain.GCC:
-                            line = re.sub("@f90rule@",
-                                        "$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
-                                        "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
-                                        line)
+                            line = re.sub(
+                                "@f90rule@",
+                                "$(CPP) -C $(CPPFLAGS) $< -o $*.F90\n" +
+                                "\t$(MPIF90) $(F90FLAGS) -c $*.F90 -o $*.o",
+                                line
+                            )
 
                         sys.stdout.write(line)
                 except IOError as err:
@@ -1181,10 +1205,11 @@ class EB_QuantumESPRESSO(EasyBlock):
                     bins.extend(["fqha.x", "q2qstar.x"])
 
             if 'pp' in targets or 'pwall' in targets or 'all' in targets:
-                bins.extend(["average.x", "bands.x", "dos.x", "epsilon.x", "initial_state.x",
-                            "plan_avg.x", "plotband.x", "plotproj.x", "plotrho.x", "pmw.x", "pp.x",
-                            "projwfc.x", "sumpdos.x", "pw2wannier90.x", "pw2gw.x",
-                            "wannier_ham.x", "wannier_plot.x"])
+                bins.extend([
+                    "average.x", "bands.x", "dos.x", "epsilon.x", "initial_state.x", "plan_avg.x", "plotband.x",
+                    "plotproj.x", "plotrho.x", "pmw.x", "pp.x", "projwfc.x", "sumpdos.x", "pw2wannier90.x", "pw2gw.x",
+                    "wannier_ham.x", "wannier_plot.x"
+                ])
                 if LooseVersion(self.version) > LooseVersion("5") and LooseVersion(self.version) < LooseVersion("6.4"):
                     bins.extend(["pw2bgw.x", "bgw2pw.x"])
                 elif LooseVersion(self.version) <= LooseVersion("5"):
@@ -1239,9 +1264,10 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             want_bins = []
             if 'want' in targets:
-                want_bins = ["blc2wan.x", "conductor.x", "current.x", "disentangle.x",
-                            "dos.x", "gcube2plt.x", "kgrid.x", "midpoint.x", "plot.x", "sumpdos",
-                            "wannier.x", "wfk2etsf.x"]
+                want_bins = [
+                    "blc2wan.x", "conductor.x", "current.x", "disentangle.x", "dos.x", "gcube2plt.x", "kgrid.x",
+                    "midpoint.x", "plot.x", "sumpdos", "wannier.x", "wfk2etsf.x"
+                ]
                 if LooseVersion(self.version) > LooseVersion("5"):
                     want_bins.extend(["cmplx_bands.x", "decay.x", "sax2qexml.x", "sum_sgm.x"])
 
@@ -1254,9 +1280,10 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             d3q_bins = []
             if 'd3q' in targets:
-                d3q_bins = ['d3_asr3.x', 'd3_lw.x', 'd3_q2r.x',
-                            'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
-                            'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x']
+                d3q_bins = [
+                    'd3_asr3.x', 'd3_lw.x', 'd3_q2r.x', 'd3_qq2rr.x', 'd3q.x', 'd3_r2q.x', 'd3_recenter.x',
+                    'd3_sparse.x', 'd3_sqom.x', 'd3_tk.x'
+                ]
                 if LooseVersion(self.version) < LooseVersion("6.4"):
                     d3q_bins.append('d3_import3py.x')
 
@@ -1266,6 +1293,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             }
 
             super(EB_QuantumESPRESSOconfig, self).sanity_check_step(custom_paths=custom_paths)
+
 
 EB_QuantumESPRESSOconfig = EB_QuantumESPRESSO.EB_QuantumESPRESSOconfig
 EB_QuantumESPRESSOcmake = EB_QuantumESPRESSO.EB_QuantumESPRESSOcmake
