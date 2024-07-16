@@ -79,7 +79,6 @@ class EB_Extrae(ConfigureMake):
         # TODO: make this optional dependencies
         self.cfg.update('configopts', "--without-dyninst")
 
-
         # Needed to build in RISC-V architectures
         if get_cpu_architecture() == RISCV64:
             self.cfg.update('configopts', "--enable-posix-clock")
