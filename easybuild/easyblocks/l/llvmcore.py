@@ -155,6 +155,20 @@ class EB_LLVMcore(CMakeMake):
     Support for building and installing LLVM
     """
 
+    minimal_conflicts = [
+        'bootstrap',
+        'full_llvm',
+        'python_bindings',
+        'build_clang_extras',
+        'build_bolt',
+        'build_lld',
+        'build_lldb',
+        'build_runtimes',
+        'build_openmp',
+        'build_openmp_tools',
+        'usepolly',
+    ]
+
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
@@ -166,6 +180,7 @@ class EB_LLVMcore(CMakeMake):
                                     ', '.join(ALL_TARGETS), CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'full_llvm': [True, "Build LLVM without any dependency", CUSTOM],
+            'minimal': [False, "Build LLVM only", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
@@ -188,7 +203,8 @@ class EB_LLVMcore(CMakeMake):
         """Initialize LLVM-specific variables."""
         super(EB_LLVMcore, self).__init__(*args, **kwargs)
 
-        if LooseVersion(self.version) < LooseVersion('18.1.6'):
+        # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
+        if not self.cfg['minimal'] and LooseVersion(self.version) < LooseVersion('18.1.6'):
             raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
 
         self.llvm_src_dir = None
@@ -197,7 +213,10 @@ class EB_LLVMcore(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.intermediate_projects = ['llvm', 'clang']
         self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
-        self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
+        if not self.cfg['minimal']:
+            self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
+        else:
+            self.final_projects = ['llvm']
         self.final_runtimes = []
 
         # Shared
@@ -229,6 +248,11 @@ class EB_LLVMcore(CMakeMake):
             # general_opts['LLVM_ENABLE_EH'] = 'ON'
 
         self.full_llvm = self.cfg['full_llvm']
+
+        if self.cfg['minimal']:
+            conflicts = [_ for _ in self.minimal_conflicts if self.cfg[_]]
+            if conflicts:
+                raise EasyBuildError("Minimal build conflicts with `%s`", ', '.join(conflicts))
 
         # Other custom options
         if self.full_llvm:
@@ -378,8 +402,9 @@ class EB_LLVMcore(CMakeMake):
         """
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
+        # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
         gcc_version = get_software_version('GCCcore')
-        if LooseVersion(gcc_version) < LooseVersion('13'):
+        if not self.cfg['minimal'] and LooseVersion(gcc_version) < LooseVersion('13'):
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
 
         # Lit is needed for running tests-suite
@@ -514,6 +539,8 @@ class EB_LLVMcore(CMakeMake):
         with _wrap_env(bin_dir, lib_path):
             # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
             if build_option('rpath'):
+                # !!! Should be replaced with ClangFlang (or correct naming) toolchain once available
+                #     as this will only create rpath wrappers for Clang and not Flang
                 my_toolchain = Clang(name='Clang', version='1')
                 my_toolchain.prepare_rpath_wrappers(
                     rpath_include_dirs=[
@@ -601,8 +628,10 @@ class EB_LLVMcore(CMakeMake):
         basedir = self.final_dir
 
         change_dir(basedir)
-        lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
-        lib_path = os.path.join(basedir, lib_dir_runtime)
+        lib_path = ''
+        if self.cfg['build_runtimes']:
+            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+            lib_path = os.path.join(basedir, lib_dir_runtime)
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = "make -j %s check-all" % parallel
             (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
@@ -611,11 +640,10 @@ class EB_LLVMcore(CMakeMake):
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
         if mch is None:
-            self.log.info("Failed to extract number of failed test results from output")
             rgx_passed = re.compile(r'^ +Passed +: +([0-9]+)', flags=re.MULTILINE)
             mch = rgx_passed.search(out)
             if mch is None:
-                self.log.info("Failed to extract number of passed test results from output")
+                self.log.warning("Failed to extract number of failed/passed test results from output")
                 num_failed = None
             else:
                 num_failed = 0
@@ -627,6 +655,7 @@ class EB_LLVMcore(CMakeMake):
     def test_step(self):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
+            max_failed = self.cfg['test_suite_max_failed']
             self.log.info("Running test-suite with parallel jobs")
             num_failed = self._para_test_step(parallel=self.cfg['parallel'])
             if num_failed is None:
@@ -635,30 +664,29 @@ class EB_LLVMcore(CMakeMake):
             if num_failed is None:
                 raise EasyBuildError("Failed to extract test results from output")
 
-            if num_failed > self.cfg['test_suite_max_failed']:
-                raise EasyBuildError("Too many failed tests: %s", num_failed)
+            if num_failed > max_failed:
+                raise EasyBuildError("Too many failed tests: %s (%s allowed)", num_failed, max_failed)
 
-            self.log.info("Test-suite completed with %s failed tests", num_failed)
+            self.log.info("Test-suite completed with %s failed tests (%s allowed)", num_failed, max_failed)
 
     def install_step(self):
-        """Install stage 1 or 3 (if bootsrap) binaries."""
+        """Install stage 1 or 3 (if bootstrap) binaries."""
         basedir = self.final_dir
         change_dir(basedir)
 
-        orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
-        lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+        if self.cfg['build_runtimes']:
+            orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
+            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
 
-        # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
-        # e.g. when calling the compiled clang-ast-dump for stage 3
-        lib_path = ':'.join([
-            basedir,
-            os.path.join(basedir, lib_dir_runtime),
-        ])
+            lib_path = ':'.join([
+                os.path.join(basedir, lib_dir_runtime),
+                orig_ld_library_path
+            ])
 
-        # _preinstallopts = self.cfg.get('preinstallopts', '')
-        self.cfg.update('preinstallopts', ' '.join([
-            'LD_LIBRARY_PATH=%s:%s' % (lib_path, orig_ld_library_path)
-        ]))
+            # _preinstallopts = self.cfg.get('preinstallopts', '')
+            self.cfg.update('preinstallopts', ' '.join([
+                'LD_LIBRARY_PATH=%s' % lib_path
+            ]))
 
         super(EB_LLVMcore, self).install_step()
 
@@ -705,7 +733,8 @@ class EB_LLVMcore(CMakeMake):
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
-        lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+        if self.cfg['build_runtimes']:
+            lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
         shlib_ext = '.' + get_shared_lib_ext()
 
         resdir_version = self.version.split('.')[0]
@@ -727,8 +756,6 @@ class EB_LLVMcore(CMakeMake):
         check_dirs = ['include/llvm', 'include/llvm-c', 'lib/cmake/llvm']
         custom_commands = [
             'llvm-ar --help', 'llvm-ranlib --help', 'llvm-nm --help', 'llvm-objdump --help',
-            'llvm-config --cxxflags', 'clang --help', 'clang++ --help',
-            'bbc --help', 'mlir-tblgen --help', 'flang-new --help',
         ]
 
         if self.build_shared:
@@ -747,6 +774,8 @@ class EB_LLVMcore(CMakeMake):
             check_dirs += [
                 'lib/cmake/clang', 'include/clang'
             ]
+            custom_commands += [ 'llvm-config --cxxflags', 'clang --help', 'clang++ --help']
+
         if 'clang-tools-extra' in self.final_projects:
             check_bin_files += [
                 'clangd', 'clang-tidy', 'clang-pseudo', 'clang-include-fixer', 'clang-query', 'clang-move',
@@ -765,6 +794,7 @@ class EB_LLVMcore(CMakeMake):
                 'libHLFIRDialect.a'
             ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
+            custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
         if 'lld' in self.final_projects:
             check_bin_files += ['ld.lld', 'lld', 'lld-link', 'wasm-ld']
             check_lib_files += [
@@ -866,11 +896,14 @@ class EB_LLVMcore(CMakeMake):
         """
         Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
         """
-        runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+        libs = ['lib', 'lib64']
+        if self.cfg['build_runtimes']:
+            runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+            libs.append(runtime_lib_path)
         guesses = super(EB_LLVMcore, self).make_module_req_guess()
         guesses.update({
             'CPATH': [],
-            'LIBRARY_PATH': ['lib', 'lib64', runtime_lib_path],
-            'LD_LIBRARY_PATH': ['lib', 'lib64', runtime_lib_path],
+            'LIBRARY_PATH': libs,
+            'LD_LIBRARY_PATH': libs,
         })
         return guesses
