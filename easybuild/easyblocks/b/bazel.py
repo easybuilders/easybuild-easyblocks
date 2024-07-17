@@ -164,7 +164,11 @@ class EB_Bazel(EasyBlock):
         # We want to enforce it using the JDK we provided via modules
         # This is required for Power where Bazel does not have a JDK, but requires it for building itself
         # See https://github.com/bazelbuild/bazel/issues/10377
-        bazel_args += ' --host_javabase=@local_jdk//:jdk'
+        if LooseVersion(self.version) >= LooseVersion('7.0'):
+            # Option changed in Bazel 7.x, see https://github.com/bazelbuild/bazel/issues/22789
+            bazel_args += ' --tool_java_runtime_version=local_jdk'
+        else:
+            bazel_args += ' --host_javabase=@local_jdk//:jdk'
 
         # Link C++ libs statically, see https://github.com/bazelbuild/bazel/issues/4137
         static = self.cfg['static']

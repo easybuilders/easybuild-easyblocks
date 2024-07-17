@@ -211,7 +211,9 @@ EULA=accept
             mpi_subdir = self.get_versioned_subdir('mpi')
             bin_dir = os.path.join(mpi_subdir, 'bin')
             include_dir = os.path.join(mpi_subdir, 'include')
-            lib_dir = os.path.join(mpi_subdir, 'lib', 'release')
+            lib_dir = os.path.join(mpi_subdir, 'lib')
+            if impi_ver < LooseVersion('2021.11'):
+                lib_dir = os.path.join(lib_dir, 'release')
 
         elif impi_ver >= LooseVersion('2019'):
             bin_dir = os.path.join('intel64', 'bin')
@@ -288,9 +290,10 @@ EULA=accept
                 mpi_subdir = self.get_versioned_subdir('mpi')
                 lib_dirs = [
                     os.path.join(mpi_subdir, 'lib'),
-                    os.path.join(mpi_subdir, 'lib', 'release'),
                     os.path.join(mpi_subdir, 'libfabric', 'lib'),
                 ]
+                if impi_ver < LooseVersion('2021.11'):
+                    lib_dirs.insert(1, os.path.join(mpi_subdir, 'lib', 'release'))
                 include_dirs = [os.path.join(mpi_subdir, 'include')]
                 path_dirs = [
                     os.path.join(mpi_subdir, 'bin'),
