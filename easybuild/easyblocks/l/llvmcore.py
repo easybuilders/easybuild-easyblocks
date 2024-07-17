@@ -774,7 +774,7 @@ class EB_LLVMcore(CMakeMake):
             check_dirs += [
                 'lib/cmake/clang', 'include/clang'
             ]
-            custom_commands += [ 'llvm-config --cxxflags', 'clang --help', 'clang++ --help']
+            custom_commands += ['llvm-config --cxxflags', 'clang --help', 'clang++ --help']
 
         if 'clang-tools-extra' in self.final_projects:
             check_bin_files += [
