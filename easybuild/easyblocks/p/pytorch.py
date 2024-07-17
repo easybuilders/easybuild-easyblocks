@@ -208,6 +208,8 @@ class EB_PyTorch(PythonPackage):
     def extra_options():
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
+            'build_type': [None, "Build type for CMake, e.g. Release."
+                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
                                 "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
@@ -406,6 +408,23 @@ class EB_PyTorch(PythonPackage):
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
+
+        build_type = self.cfg.get('build_type')
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        else:
+            for name in ('prebuildopts', 'preinstallopts', 'custom_opts'):
+                if '-DCMAKE_BUILD_TYPE=' in self.cfg[name]:
+                    self.log.warning('CMAKE_BUILD_TYPE is set in %s. Ignoring build_type', name)
+                    build_type = None
+        if build_type:
+            if pytorch_version >= '1.2.0':
+                options.append('CMAKE_BUILD_TYPE=' + build_type)
+            else:
+                # Older versions use 2 env variables defaulting to "Release" if none are set
+                build_type = build_type.lower()
+                add_enable_option('DEBUG', build_type == 'debug')
+                add_enable_option('REL_WITH_DEB_INFO', build_type == 'relwithdebinfo')
 
         unique_options = self.cfg['custom_opts']
         for option in options:
