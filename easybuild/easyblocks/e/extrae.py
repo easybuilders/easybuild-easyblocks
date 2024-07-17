@@ -31,7 +31,7 @@ EasyBuild support for building and installing Extrae, implemented as an easybloc
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.modules import get_software_root
 from easybuild.tools import LooseVersion
-from easybuild.tools.systemtools import RISCV64
+from easybuild.tools.systemtools import RISCV64,AARCH64
 from easybuild.tools.systemtools import get_cpu_architecture
 
 
@@ -51,30 +51,35 @@ class EB_Extrae(ConfigureMake):
             deps = {
                 'binutils': ('', '--with-binutils=%s', ''),
                 'Boost': ('', '--with-boost=%s', ''),
-                'libunwind': ('', '--with-unwind=%s', ''),
+                'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': ('--enable-merge-in-trace', '--with-xml=%s', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'zlib': ('','--with-libz=%s', ''),
             }
         else:
             deps = {
                 'binutils': ('', '--with-binutils=%s', ''),
                 'Boost': ('', '--with-boost=%s', ''),
                 'libdwarf': ('', '--with-dwarf=%s', '--without-dwarf'),
-                'libunwind': ('', '--with-unwind=%s', ''),
+                'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': (' --enable-xml --enable-merge-in-trace', '', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
             }
 
         for (dep_name, (with_opts, with_root_opt, without_opt)) in deps.items():
-            dep_root = get_software_root(dep_name)
-            if dep_root:
-                if with_opts:
-                    self.cfg.update('configopts', with_opts)
-                if with_root_opt:
-                    self.cfg.update('configopts', with_root_opt % dep_root)
-            else:
-                if without_opt:
+            # Extrae is not working with libunwind in ARM 
+            if (dep_name == 'libunwind') and (get_cpu_architecture() == AARCH64):
                     self.cfg.update('configopts', without_opt)
+            else:
+                dep_root = get_software_root(dep_name)
+                if dep_root:
+                    if with_opts:
+                        self.cfg.update('configopts', with_opts)
+                    if with_root_opt:
+                        self.cfg.update('configopts', with_root_opt % dep_root)
+                else:
+                    if without_opt:
+                        self.cfg.update('configopts', without_opt)
 
         # TODO: make this optional dependencies
         self.cfg.update('configopts', "--without-dyninst")
