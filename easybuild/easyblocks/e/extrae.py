@@ -31,7 +31,7 @@ EasyBuild support for building and installing Extrae, implemented as an easybloc
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.modules import get_software_root
 from easybuild.tools import LooseVersion
-from easybuild.tools.systemtools import RISCV64,AARCH64
+from easybuild.tools.systemtools import RISCV64, AARCH64
 from easybuild.tools.systemtools import get_cpu_architecture
 
 
@@ -54,7 +54,7 @@ class EB_Extrae(ConfigureMake):
                 'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': ('--enable-merge-in-trace', '--with-xml=%s', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
-                'zlib': ('','--with-libz=%s', ''),
+                'zlib': ('', '--with-libz=%s', ''),
             }
         else:
             deps = {
@@ -67,9 +67,9 @@ class EB_Extrae(ConfigureMake):
             }
 
         for (dep_name, (with_opts, with_root_opt, without_opt)) in deps.items():
-            # Extrae is not working with libunwind in ARM 
+            # Extrae is not working with libunwind in ARM
             if (dep_name == 'libunwind') and (get_cpu_architecture() == AARCH64):
-                    self.cfg.update('configopts', without_opt)
+                self.cfg.update('configopts', without_opt)
             else:
                 dep_root = get_software_root(dep_name)
                 if dep_root:
