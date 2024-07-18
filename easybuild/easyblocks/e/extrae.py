@@ -51,16 +51,17 @@ class EB_Extrae(ConfigureMake):
             deps = {
                 'binutils': ('', '--with-binutils=%s', ''),
                 'Boost': ('', '--with-boost=%s', ''),
-                'libunwind': ('', '--with-unwind=%s', ''),
+                'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': ('--enable-merge-in-trace', '--with-xml=%s', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'zlib': ('', '--with-libz=%s', ''),
             }
         else:
             deps = {
                 'binutils': ('', '--with-binutils=%s', ''),
                 'Boost': ('', '--with-boost=%s', ''),
                 'libdwarf': ('', '--with-dwarf=%s', '--without-dwarf'),
-                'libunwind': ('', '--with-unwind=%s', ''),
+                'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': (' --enable-xml --enable-merge-in-trace', '', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
             }
