@@ -31,7 +31,7 @@ EasyBuild support for building and installing Extrae, implemented as an easybloc
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.modules import get_software_root
 from easybuild.tools import LooseVersion
-from easybuild.tools.systemtools import RISCV64, AARCH64
+from easybuild.tools.systemtools import RISCV64
 from easybuild.tools.systemtools import get_cpu_architecture
 
 
