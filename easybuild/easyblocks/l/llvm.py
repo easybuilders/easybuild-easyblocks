@@ -203,10 +203,6 @@ class EB_LLVM(CMakeMake):
         """Initialize LLVM-specific variables."""
         super(EB_LLVM, self).__init__(*args, **kwargs)
 
-        # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
-        if not self.cfg['minimal'] and LooseVersion(self.version) < LooseVersion('18.1.6'):
-            raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
-
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -402,6 +398,10 @@ class EB_LLVM(CMakeMake):
         """
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
+        # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
+        if not self.cfg['minimal'] and LooseVersion(self.version) < LooseVersion('18.1.6'):
+            raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
+
         # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
         gcc_version = get_software_version('GCCcore')
         if not self.cfg['minimal'] and LooseVersion(gcc_version) < LooseVersion('13'):
