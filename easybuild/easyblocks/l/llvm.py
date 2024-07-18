@@ -189,7 +189,7 @@ class EB_LLVM(CMakeMake):
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
-            'build_runtimes': [True, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
+            'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
