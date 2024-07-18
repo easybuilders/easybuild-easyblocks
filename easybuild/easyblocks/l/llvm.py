@@ -179,7 +179,7 @@ class EB_LLVM(CMakeMake):
             'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
                                     ', '.join(ALL_TARGETS), CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
-            'full_llvm': [True, "Build LLVM without any dependency", CUSTOM],
+            'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
