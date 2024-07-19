@@ -288,6 +288,11 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
+        # Sysroot
+        sysroot = build_option('sysroot')
+        if sysroot:
+            general_opts['DEFAULT_SYSROOT'] = sysroot
+
         # Build targets
         build_targets = self.cfg['build_targets']
         if build_targets is None:
