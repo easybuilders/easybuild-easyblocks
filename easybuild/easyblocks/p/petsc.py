@@ -262,8 +262,11 @@ class EB_PETSc(ConfigureMake):
                         ss_libs = [x if x != "SLIP_LU" else "SPEX" for x in ss_libs]
 
                     suitesparse_inc = os.path.join(suitesparse, "include")
+                    suitesparse_incs = [suitesparse_inc]
                     # SuiteSparse can install its headers into a subdirectory of the include directory instead.
-                    suitesparse_incs = [suitesparse_inc, os.path.join(suitesparse_inc, 'suitesparse')]
+                    suitesparse_inc_subdir = os.path.join(suitesparse_inc, 'suitesparse')
+                    if os.path.exists(suitesparse_inc_subdir):
+                      suitesparse_incs.append(suitesparse_inc_subdir)
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_incs)
 
                     suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower())
