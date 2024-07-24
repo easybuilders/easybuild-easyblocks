@@ -267,6 +267,22 @@ class EB_Python(ConfigureMake):
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
 
+        # The path to ldconfig is hardcoded in cpython.util._findSoname_ldconfig(name) as /sbin/ldconfig.
+        # This is incorrect if a custom sysroot is used
+        if sysroot is not None:
+            # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
+            if LooseVersion(self.version) >= "3.9.1":
+                orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
+            if orig_ld_config_call:
+                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+                orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
+                updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
+                    on_missing_match=ERROR
+                )
+
     def prepare_for_extensions(self):
         """
         Set default class and filter for Python packages
