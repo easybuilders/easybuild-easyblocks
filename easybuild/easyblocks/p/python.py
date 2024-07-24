@@ -207,8 +207,7 @@ class EB_Python(ConfigureMake):
             if orig_gcc_so_name:
                 orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
                 updated_gcc_so_name = (
-                    "os.path.join(os.path.dirname(_findLib_gcc(name)), _get_soname(_findLib_gcc(name)))"
-                    + " or _get_soname(_findLib_ld(name))"
+                    "_findLib_gcc(name) or _findLib_ld(name)"
                 )
                 apply_regex_substitutions(
                     ctypes_util_py,
