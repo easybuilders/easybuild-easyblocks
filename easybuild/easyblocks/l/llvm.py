@@ -292,6 +292,7 @@ class EB_LLVM(CMakeMake):
         sysroot = build_option('sysroot')
         if sysroot:
             general_opts['DEFAULT_SYSROOT'] = sysroot
+            general_opts['CMAKE_SYSROOT'] = sysroot
 
         # Build targets
         build_targets = self.cfg['build_targets']
