@@ -206,6 +206,10 @@ class EB_Python(ConfigureMake):
                 orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
             if orig_gcc_so_name:
                 orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
+                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
+                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
+                # library is influenced by how the library is compiled and linked. For manually built libraries we
+                # may be lacking this field, this approach also solves that problem.
                 updated_gcc_so_name = (
                     "_findLib_gcc(name) or _findLib_ld(name)"
                 )
