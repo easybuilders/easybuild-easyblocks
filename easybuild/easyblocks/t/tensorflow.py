@@ -35,6 +35,7 @@ import os
 import re
 import stat
 import tempfile
+from contextlib import contextmanager
 from itertools import chain
 
 import easybuild.tools.environment as env
@@ -187,7 +188,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('gast', '2.0.0:'): 'gast_archive',
         ('google.protobuf', '2.0.0:'): 'com_google_protobuf',
         ('keras_applications', '2.0.0:2.2.0'): 'keras_applications_archive',
-        ('opt_einsum', '2.0.0:'): 'opt_einsum_archive',
+        ('opt_einsum', '2.0.0:2.15.0'): 'opt_einsum_archive',
         ('pasta', '2.0.0:'): 'pasta',
         ('six', '2.0.0:'): 'six_archive',  # Part of Python EC
         ('tblib', '2.4.0:'): 'tblib_archive',
@@ -451,6 +452,18 @@ class EB_TensorFlow(PythonPackage):
         self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
         mkdir(self.wrapper_dir)
 
+    @contextmanager
+    def set_tmp_dir(self):
+        # TF uses the temporary folder, which becomes quite large (~2 GB) so use the build folder explicitely.
+        old_tmpdir = os.environ['TMPDIR']
+        tmpdir = os.path.join(self.builddir, 'tmpdir')
+        mkdir(tmpdir)
+        os.environ['TMPDIR'] = tmpdir
+        try:
+            yield tmpdir
+        finally:
+            os.environ['TMPDIR'] = old_tmpdir
+
     def configure_step(self):
         """Custom configuration procedure for TensorFlow."""
 
@@ -595,6 +608,13 @@ class EB_TensorFlow(PythonPackage):
         # SYCL support removed in 2.4
         if LooseVersion(self.version) < LooseVersion('2.4'):
             config_env_vars['TF_NEED_OPENCL_SYCL'] = '0'
+        # Clang toggle since 2.14.0
+        if LooseVersion(self.version) > LooseVersion('2.13'):
+            config_env_vars['TF_NEED_CLANG'] = '0'
+        # Hermietic python version since 2.14.0
+        if LooseVersion(self.version) > LooseVersion('2.13'):
+            pyver = det_python_version(self.python_cmd)
+            config_env_vars['TF_PYTHON_VERSION'] = '.'.join(pyver.split('.')[:2])
 
         if self._with_cuda:
             cuda_version = get_software_version('CUDA')
@@ -940,11 +960,12 @@ class EB_TensorFlow(PythonPackage):
             + ['//tensorflow/tools/pip_package:build_pip_package']
         )
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
+        with self.set_tmp_dir():
+            run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
 
-        # run generated 'build_pip_package' script to build the .whl
-        cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            # run generated 'build_pip_package' script to build the .whl
+            cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
+            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
 
     def test_step(self):
         """Run TensorFlow unit tests"""
@@ -1067,7 +1088,8 @@ class EB_TensorFlow(PythonPackage):
                 + test_targets
             )
 
-            stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
+            with self.set_tmp_dir():
+                stdouterr, ec = run_cmd(cmd, log_ok=False, simple=False)
             if ec:
                 fail_msg = 'Tests on %s (cmd: %s) failed with exit code %s and output:\n%s' % (
                     device, cmd, ec, stdouterr)
@@ -1104,7 +1126,7 @@ class EB_TensorFlow(PythonPackage):
     def install_step(self):
         """Custom install procedure for TensorFlow."""
         # find .whl file that was built, and install it using 'pip install'
-        if ("-rc" in self.version):
+        if "-rc" in self.version:
             whl_version = self.version.replace("-rc", "rc")
         else:
             whl_version = self.version
