@@ -146,12 +146,21 @@ class EB_OCaml(ConfigureMake):
             binaries.append('bin/opam')
             dirs.append(OPAM_SUBDIR)
 
+        extension_names = [ext_name for ext_name, _ in self.cfg['exts_list']]
+
+        custom_commands = ["ocaml --help"]
+        if 'ocamlfind' in extension_names:
+            custom_commands.append("ocamlfind list")
+
+        if 'dune' in extension_names:
+            custom_commands.append("dune --version")
+
         custom_paths = {
             'files': binaries,
             'dirs': dirs,
         }
 
-        super(EB_OCaml, self).sanity_check_step(custom_paths=custom_paths)
+        super(EB_OCaml, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """Custom extra paths/variables to define in generated module for OCaml."""
