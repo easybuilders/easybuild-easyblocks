@@ -16,9 +16,9 @@ class EB_BLIS(ConfigureMake):
     def extra_options():
         """Custom easyconfig parameters for BLIS easyblock."""
         extra_vars = {
+            'enable_cblas': [True, "Enable CBLAS", CUSTOM],
+            'enable_shared': [True, "Enable builing shared library", CUSTOM],
             'multi_threading_type': ["openmp", "Type of multithreading to use", CUSTOM],
-            'cblas_enable': [True, "Enable CBLAS", CUSTOM],
-            'shared_enable': [True, "Enable builing shared library", CUSTOM],
         }
 
         return ConfigureMake.extra_options(extra_vars)
