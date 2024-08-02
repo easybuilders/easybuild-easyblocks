@@ -395,7 +395,7 @@ class EB_GCC(ConfigureMake):
         """
         Prepare build environment, track currently active build stage
         """
-        super(EB_GCC, self).prepare_step(*args, **kwargs)
+        ConfigureMake.prepare_step(self, *args, **kwargs)
 
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
