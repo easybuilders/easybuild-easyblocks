@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, log_path
+from easybuild.tools.config import build_option, ERROR, log_path
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -194,6 +194,33 @@ class EB_Python(ConfigureMake):
             # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
             apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
 
+        # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
+        # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
+        # ctypes is using GCC (and therefore LIBRARY_PATH) to figure out the full location but then only returns the
+        # soname, instead let's return the full path in this particular scenario
+        filtered_env_vars = build_option('filter_env_vars') or []
+        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            orig_gcc_so_name = None
+            # Let's do this incrementally since we are going back in time
+            if LooseVersion(self.version) >= "3.9.1":
+                # From 3.9.1 to at least v3.12.4 there is only one match for this line
+                orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
+            if orig_gcc_so_name:
+                orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
+                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
+                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
+                # library is influenced by how the library is compiled and linked. For manually built libraries we
+                # may be lacking this field, this approach also solves that problem.
+                updated_gcc_so_name = (
+                    "_findLib_gcc(name) or _findLib_ld(name)"
+                )
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
+                    on_missing_match=ERROR
+                )
+
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
@@ -246,6 +273,22 @@ class EB_Python(ConfigureMake):
                 regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
+
+        # The path to ldconfig is hardcoded in cpython.util._findSoname_ldconfig(name) as /sbin/ldconfig.
+        # This is incorrect if a custom sysroot is used
+        if sysroot is not None:
+            # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
+            if LooseVersion(self.version) >= "3.9.1":
+                orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
+            if orig_ld_config_call:
+                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+                orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
+                updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
+                    on_missing_match=ERROR
+                )
 
     def prepare_for_extensions(self):
         """

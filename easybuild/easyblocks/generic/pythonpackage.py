@@ -423,6 +423,14 @@ class PythonPackage(ExtensionEasyBlock):
         self.use_setup_py = False
         self.determine_install_command()
 
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+        # Users or sites may require using a virtualenv for user installations
+        # We need to disable this to be able to install into the modules
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -452,11 +460,6 @@ class PythonPackage(ExtensionEasyBlock):
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail', True)):
                 self.py_installopts.append('--no-index')
-
-            # avoid that pip (ab)uses $HOME/.cache/pip
-            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
-            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
             self.use_setup_py = True

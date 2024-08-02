@@ -80,11 +80,16 @@ class EB_MCR(PackedBinary):
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
-        else:
+        elif LooseVersion(self.version) < LooseVersion('R2024a'):
             config = '\n'.join([
                 "destinationFolder=%s" % self.installdir,
                 "agreeToLicense=Yes",
                 "mode=silent",
+            ])
+        else:
+            config = '\n'.join([
+                "destinationFolder=%s" % self.installdir,
+                "agreeToLicense=yes",
             ])
 
         write_file(configfile, config)
