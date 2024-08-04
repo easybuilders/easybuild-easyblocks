@@ -221,7 +221,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'check_files': [None, "List of tests for sanity-check.", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -493,10 +493,10 @@ class EB_LAMMPS(CMakeMake):
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
-        if self.cfg['check_files']:
-            check_files = self.cfg['check_files']
+        if self.cfg['sanity_check_test_inputs']:
+            sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
         else:
-            check_files = [
+            sanity_check_test_inputs = [
                 'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
                 'hugoniostat', 'indent', 'melt', 'min', 'msst',
                 'nemd', 'obstacle', 'pour', 'voronoi',
@@ -508,7 +508,7 @@ class EB_LAMMPS(CMakeMake):
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
-            for check_file in check_files
+            for check_file in sanity_check_test_inputs
         ]
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
