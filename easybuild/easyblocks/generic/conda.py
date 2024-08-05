@@ -30,6 +30,7 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 """
 
 import os
+import platform
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
@@ -38,7 +39,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
 
 
-class Conda(Binary):
+class CondaEnhance(Binary):
     """Support for installing software using 'conda'."""
 
     @staticmethod
@@ -50,21 +51,24 @@ class Conda(Binary):
             'environment_file': [None, "Conda environment.yml file to use with 'conda env create'", CUSTOM],
             'remote_environment': [None, "Remote conda environment to use with 'conda env create'", CUSTOM],
             'requirements': [None, "Requirements specification to pass to 'conda install'", CUSTOM],
+            'use_conda_lock': [False, "Whether to use conda-lock for reproducibility", CUSTOM],
+            'lock_file': [None, "Path to a pre-generated conda-lock file", CUSTOM],
+            'platform': [None, "Platform specified for conda-lock", CUSTOM],
         })
         return extra_vars
 
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
         if self.src:
-            super(Conda, self).extract_step()
+            super(CondaEnhance, self).extract_step()
 
     def install_step(self):
         """Install software using 'conda env create' or 'conda create' & 'conda install'
         (or the 'mamba', etc., equivalent)."""
         if (get_software_root('anaconda2') or get_software_root('miniconda2') or
-                get_software_root('anaconda3') or get_software_root('miniconda3') or
-                get_software_root('miniforge3')):
+                get_software_root('anaconda3') or get_software_root('miniconda3') or get_software_root('miniforge3')):
             conda_cmd = 'conda'
+        # add independent entry for condaEnhance and miniforge (done)
         elif get_software_root('mamba'):
             conda_cmd = 'mamba'
         elif get_software_root('micromamba'):
@@ -72,15 +76,62 @@ class Conda(Binary):
         else:
             raise EasyBuildError("No conda/mamba/micromamba available.")
 
-        # initialize conda environment
-        # setuptools is just a choice, but *something* needs to be there
-        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        def get_conda_lock_platform():
+            system = platform.system().lower()
+            machine = platform.machine().lower()
 
-        if self.cfg['environment_file'] or self.cfg['remote_environment']:
+            platforms = {
+                "linux": {
+                    "x86_64": "linux-64",
+                    "aarch64": "linux-aarch64",
+                    "ppc64le": "linux-ppc64le"
+                },
+                "darwin": {
+                    "x86_64": "osx-64",
+                    "arm64": "osx-arm64"
+                },
+                "windows": {
+                    "x86_64": "win-64",
+                    "amd64": "win-64"
+                }
+            }
+
+            return platforms.get(system, {}).get(machine)
+
+        # initialize conda environment
+        if self.cfg['use_conda_lock']:
+            # install conda-lock
+            cmd = "%s install conda-lock" % conda_cmd
+            run_cmd(cmd, log_all=True, simple=True)
+
+            lock_file = self.cfg['lock_file']
+
+            if not lock_file:
+                # generate lock file
+                platform_name = self.cfg['platform']
+
+                if not platform_name:
+                    platform_name = get_conda_lock_platform()
+
+                cmd = "conda-lock -f %s -p %s" % (
+                    self.cfg['environment_file'], platform_name)
+                run_cmd(cmd, log_all=True, simple=True)
+
+                # the default name for lock_file is 'conda-lock.yml'
+                lock_file = 'conda-lock.yml'
+
+                # ship lock_file in installation
+                super(Binary, self).fetch_sources(sources=[lock_file])
+                self.extract_step()
+
+            # use lock_file to create environment
+            cmd = "%s conda-lock install %s --prefix %s" % (self.cfg['preinstallopts'], lock_file, self.installdir)
+            run_cmd(cmd, log_all=True, simple=True)
+
+        elif self.cfg['environment_file'] or self.cfg['remote_environment']:
 
             if self.cfg['environment_file']:
-                env_spec = '-f ' + self.cfg['environment_file']
+                env_spec = self.cfg['environment_file']
             else:
                 env_spec = self.cfg['remote_environment']
 
@@ -95,7 +146,8 @@ class Conda(Binary):
 
                 install_args = "-y %s " % self.cfg['requirements']
                 if self.cfg['channels']:
-                    install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
+                    install_args += ' '.join('-c ' +
+                                             chan for chan in self.cfg['channels'])
 
                 self.log.info("Installed conda requirements")
 
@@ -109,10 +161,13 @@ class Conda(Binary):
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
-        txt = super(Conda, self).make_module_extra()
-        txt += self.module_generator.set_environment('CONDA_ENV', self.installdir)
-        txt += self.module_generator.set_environment('CONDA_PREFIX', self.installdir)
-        txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
+        txt = super(CondaEnhance, self).make_module_extra()
+        txt += self.module_generator.set_environment(
+            'CONDA_ENV', self.installdir)
+        txt += self.module_generator.set_environment(
+            'CONDA_PREFIX', self.installdir)
+        txt += self.module_generator.set_environment(
+            'CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
 
