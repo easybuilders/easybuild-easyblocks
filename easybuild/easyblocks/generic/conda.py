@@ -39,7 +39,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
 
 
-class CondaEnhance(Binary):
+class Conda(Binary):
     """Support for installing software using 'conda'."""
 
     @staticmethod
@@ -60,7 +60,7 @@ class CondaEnhance(Binary):
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
         if self.src:
-            super(CondaEnhance, self).extract_step()
+            super(Conda, self).extract_step()
 
     def install_step(self):
         """Install software using 'conda env create' or 'conda create' & 'conda install'
@@ -68,7 +68,6 @@ class CondaEnhance(Binary):
         if (get_software_root('anaconda2') or get_software_root('miniconda2') or
                 get_software_root('anaconda3') or get_software_root('miniconda3') or get_software_root('miniforge3')):
             conda_cmd = 'conda'
-        # add independent entry for condaEnhance and miniforge (done)
         elif get_software_root('mamba'):
             conda_cmd = 'mamba'
         elif get_software_root('micromamba'):
@@ -161,7 +160,7 @@ class CondaEnhance(Binary):
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
-        txt = super(CondaEnhance, self).make_module_extra()
+        txt = super(Conda, self).make_module_extra()
         txt += self.module_generator.set_environment(
             'CONDA_ENV', self.installdir)
         txt += self.module_generator.set_environment(
