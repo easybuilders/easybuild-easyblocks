@@ -60,6 +60,8 @@ class EB_psmpi(EB_MPICH):
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
             'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
             'cuda': [False, "Enable CUDA awareness", CUSTOM],
+            'msa': [False, "Enable MSA awareness", CUSTOM],
+            'pmix': [None, "Enable PMIx support", CUSTOM],
         })
         return extra_vars
 
@@ -88,6 +90,10 @@ class EB_psmpi(EB_MPICH):
             self.log.info("Enabling CUDA-Awareness...")
             self.cfg.update('configopts', ' --with-cuda')
 
+        if self.cfg['msa']:
+            self.log.info("Enabling MSA-Awareness...")
+            self.cfg.update('configopts', ' --with-msa-awareness')
+
         # Set confset
         comp_fam = self.toolchain.comp_family()
         if comp_fam in comp_opts:
@@ -103,6 +109,18 @@ class EB_psmpi(EB_MPICH):
         # Add extra mpich options, if any
         if self.cfg['mpich_opts'] is not None:
             self.cfg.update('configopts', ' --with-mpichconf="%s"' % self.cfg['mpich_opts'])
+
+        # Add PMIx support
+        pmix_path = get_software_root('PMIx')
+        # No specific value passed to the option, so automatically determine it judging the dependencies
+        if self.cfg['pmix'] is None and pmix_path:
+            self.cfg.update('configopts', ' --with-pmix="%s"' % pmix_path)
+        # A particular value was added, so act accordingly
+        elif self.cfg['pmix']:
+            if pmix_path:
+                self.cfg.update('configopts', ' --with-pmix="%s"' % pmix_path)
+            else:
+                self.cfg.update('configopts', ' --with-pmix')
 
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
