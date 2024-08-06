@@ -123,6 +123,7 @@ class Cargo(ExtensionEasyBlock):
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
+        self.crates = []  # Define property in case EasyConfig has no 'crates' key
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
