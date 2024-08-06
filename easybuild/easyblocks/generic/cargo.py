@@ -314,13 +314,14 @@ def generate_crate_list(sourcedir):
                 if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
                     crates.append((name, version))
                 else:
-                    # Lock file has revision#revision in the url
+                    # Lock file has #revision in the url
                     url, rev = dep['source'].rsplit('#', maxsplit=1)
                     for prefix in ('registry+', 'git+'):
                         if url.startswith(prefix):
                             url = url[len(prefix):]
-                    # Remove branch name if present
+                    # Remove branch name and revision URL parameters if present
                     url = re.sub(r'\?branch=\w+$', '', url)
+                    url = re.sub(r'\?rev=%s+$' % rev, '', url)
                     crates.append((name, version, url, rev))
         else:
             other_crates.append((name, version))
