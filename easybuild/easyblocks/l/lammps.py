@@ -234,6 +234,7 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
