@@ -100,8 +100,8 @@ class EB_NCL(EasyBlock):
             'FCompiler': os.getenv('F90'),
             'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
             'FcOptions': os.getenv('FFLAGS'),
-            'COptimizeFlag': os.getenv('CFLAGS'),
-            'FOptimizeFlag': os.getenv('FFLAGS'),
+            'COptimizeFlag': os.getenv('COPTS', ''),
+            'FOptimizeFlag': os.getenv('FOPTS', ''),
             'ExtraSysLibraries': os.getenv('LDFLAGS'),
             'CtoFLibraries': ctof_libs,
         }
