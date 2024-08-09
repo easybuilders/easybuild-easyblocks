@@ -76,13 +76,20 @@ class EB_NCL(EasyBlock):
         # adjust config file as needed
         ctof_libs = ''
         ifort = get_software_root('ifort')
+        intel_compilers = get_software_root('intel-compilers')
         if ifort:
-            if os.path.exists('%s/lib/intel64/' % ifort) and os.access('%s/lib/intel64/' % ifort, os.R_OK):
-                ctof_libs += '-lm -L%s/lib/intel64/ -lifcore -lifport' % ifort
+            ifortran_libdir = '%s/lib/intel64/' % ifort
+        elif intel_compilers:
+            ifortran_libdir = '%s/compiler/latest/linux/compiler/lib/intel64_lin/' % intel_compilers
+        else:
+            ifortran_libdir = None
+        if ifortran_libdir:
+            if os.path.exists(ifortran_libdir) and os.access(ifortran_libdir, os.R_OK):
+                ctof_libs += '-lm -L%s -lifcore -lifport' % ifortran_libdir
             else:
                 self.log.warning(
                     "Can't find a libdir for ifortran libraries -lifcore -lifport: "
-                    "%s/lib/intel64 doesn't exist or is not accessible." % ifort
+                    "%s doesn't exist or is not accessible." % ifortran_libdir
                 )
         elif get_software_root('GCC'):
             ctof_libs = '-lgfortran -lm'
