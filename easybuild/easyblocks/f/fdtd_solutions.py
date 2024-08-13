@@ -45,7 +45,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         """
         super(EB_FDTD_underscore_Solutions, self).extract_step()
 
-        rpms = glob.glob(os.path.join(self.src[0]['finalpath'], 'rpm_install_files', 'FDTD-%s*.rpm' % self.version))
+        rpms = glob.glob(os.path.join(self.src[0]['finalpath'], 'rpm_install_files', '*.rpm'))
         if len(rpms) != 1:
             raise EasyBuildError("Incorrect number of RPMs found, was expecting exactly one: %s", rpms)
         cmd = "rpm2cpio %s | cpio -idm " % rpms[0]
@@ -63,8 +63,17 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
 
     def install_step(self):
         """Install FDTD Solutions using copy tree."""
-        fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd')
-        copy_dir(fdtd_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
+
+        top_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd')
+        if not os.path.exists(top_dir):
+            top_dir_glob = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'v[0-9]*')
+            v_dirs = glob.glob(top_dir_glob)
+            if len(v_dirs) == 1:
+                top_dir = v_dirs[0]
+            else:
+                raise EasyBuildError("Failed to isolate top-level directory using %s", top_dir_glob)
+
+        copy_dir(top_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
