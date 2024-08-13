@@ -86,14 +86,21 @@ class EB_ORCA(PackedBinary, MakeCp):
                 (['auto*', 'orca*', 'otool*'], 'bin'),
                 (['*.pdf'], 'share'),
             ]
-            # Version 5 extra files
-            if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-                compoundmethods = (['ORCACompoundMethods'], 'bin')
-                files_to_copy.append(compoundmethods)
-            # Shared builds have additional libraries
-            libs_to_copy = (['liborca*'], 'lib')
-            if all([glob.glob(p) for p in libs_to_copy[0]]):
-                files_to_copy.append(libs_to_copy)
+
+            # Version 6 extra files
+            if LooseVersion(self.version) >= LooseVersion('6.0.0'):
+                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts'], 'bin')])
+
+            else:
+                # Version 5 extra files
+                if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+                    compoundmethods = (['ORCACompoundMethods'], 'bin')
+                    files_to_copy.append(compoundmethods)
+
+                # Shared builds have additional libraries
+                libs_to_copy = (['liborca*'], 'lib')
+                if all([glob.glob(p) for p in libs_to_copy[0]]):
+                    files_to_copy.append(libs_to_copy)
 
             self.cfg['files_to_copy'] = files_to_copy
 
