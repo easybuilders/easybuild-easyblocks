@@ -969,7 +969,7 @@ class PythonPackage(ExtensionEasyBlock):
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
-            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            self.log.info("Detection of downloaded dependencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
                 r'Collecting .*',  # pip
