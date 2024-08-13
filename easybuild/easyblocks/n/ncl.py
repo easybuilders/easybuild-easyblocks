@@ -51,7 +51,7 @@ class EB_NCL(EasyBlock):
         - create Makefile.ini using make and run ymake script to create config file
         - patch config file with correct settings, and add missing config entries
         - create config/Site.local file to avoid interactive install
-        - generate Makefile using config/ymkmf sciprt
+        - generate Makefile using config/ymkmf script
         -
         """
 
