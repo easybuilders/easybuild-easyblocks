@@ -44,7 +44,7 @@ from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -358,7 +358,8 @@ class EB_QuantumESPRESSO(EasyBlock):
                 '--output-on-failure',
             ])
 
-            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            out = res.output
 
             # Example output:
             # 74% tests passed, 124 tests failed out of 481
@@ -1041,7 +1042,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     "cd %s" % test_dir,
                     "sed -i 's|export NETWORK_PSEUDO=.*|export NETWORK_PSEUDO=%s|g' ENVIRONMENT" % pseudo_loc
                 ])
-                run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                run_shell_cmd(cmd, fail_on_error=False)
 
             targets = self.cfg.get('test_suite_targets', [])
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
@@ -1059,7 +1060,8 @@ class EB_QuantumESPRESSO(EasyBlock):
                     pcmd = 'NPROCS=%d' % parallel
 
                 cmd = 'cd %s && %s make run-tests-%s' % (test_dir, pcmd, target)
-                (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                res = run_shell_cmd(cmd, fail_on_error=False)
+                out = res.output
 
                 # Example output:
                 # All done. 2 out of 2 tests passed.
