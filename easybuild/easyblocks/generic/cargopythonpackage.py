@@ -47,10 +47,6 @@ class CargoPythonPackage(PythonPackage, Cargo):  # PythonPackage must come first
 
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Constructor for CargoPythonPackage easyblock."""
-        super().__init__(*args, **kwargs)
-
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
