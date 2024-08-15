@@ -149,8 +149,9 @@ class PythonBundle(Bundle):
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions
         # or if we prefer it
-        prefer_ebpythonprefixes = build_option('prefer_ebpythonprefixes') and self.cfg['prefer_ebpythonprefixes']
-        if self.multi_python or prefer_ebpythonprefixes:
+        use_ebpythonprefixes = get_software_root('Python') and build_option('prefer_ebpythonprefixes') and \
+            self.cfg['prefer_ebpythonprefixes']
+        if self.multi_python or use_ebpythonprefixes:
             if EBPYTHONPREFIXES not in self.module_generator.added_paths_per_key:
                 txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         else:
