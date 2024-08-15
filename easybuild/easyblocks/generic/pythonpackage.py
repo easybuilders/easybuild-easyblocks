@@ -1164,9 +1164,9 @@ class PythonPackage(ExtensionEasyBlock):
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions
         # or if we prefer it
-
-        use_ebpythonprefixes = get_software_root('Python') and build_option('prefer_ebpythonprefixes') and \
-            self.cfg['prefer_ebpythonprefixes']
+        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        use_ebpythonprefixes = 'Python' in runtime_deps and \
+            build_option('prefer_ebpythonprefixes') and self.cfg['prefer_ebpythonprefixes']
         if self.multi_python or use_ebpythonprefixes:
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
         elif self.require_python:
