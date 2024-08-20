@@ -314,7 +314,6 @@ class EB_WIEN2k(EasyBlock):
                     elpa_dir = "%(root)s/include/%(variant)s-%(version)s" % elpa_dict
 
                     qa.extend([
-                        (r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir, '%(number)s'),
                         (r"Do you want to use ELPA\? \(y,N\):", 'y'),
                         (r"Do you want to automatically search for ELPA installations\? \(Y,n\):", 'n'),
                         (r"Please specify the ROOT-path of your ELPA installation \(like /usr/local/elpa/\) "
@@ -325,6 +324,7 @@ class EB_WIEN2k(EasyBlock):
                          elpa_dict['variant']),
                         (r"Please specify the name of your installed ELPA library \(e.g. elpa or elpa_openmp\):",
                          elpa_dict['variant']),
+                        (r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir, '%(number)s'),
                     ])
                 else:
                     qa.append((r"Do you want to use ELPA\? \(y,N\):", 'n'))
