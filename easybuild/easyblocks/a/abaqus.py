@@ -1,3 +1,4 @@
+
 ##
 # Copyright 2009-2024 Ghent University
 #
@@ -123,7 +124,7 @@ class EB_ABAQUS(Binary):
             #   5 [*] Tosca Fluid
             # This uses nextstr to make sure we only match the latest output in the Q&A process;
             # negative lookahead (?!___) is used to exclude ___...___ lines, to avoid matching across questions
-            selectionstr = r"\s*(?P<nr>[-0-9]+) %%s %%s[ \w]*\n((?!%s)(?!___)[\S ]*\n)*%s$" % (nextstr, nextstr)
+            selectionstr = r"\s*(?P<nr>[-0-9]+) %%s %%s[\s\w]*\n((?!%s)(?!___)[\S ]*\n)*%s$" % (nextstr, nextstr)
 
             installed_docs = False  # hard disabled, previous support was actually incomplete
 
