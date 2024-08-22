@@ -71,7 +71,7 @@ class EB_Mathematica(Binary):
             install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
         # At 14.1 we can see first steps of rebranding to Wolfram - installfile is called Wolfram_14.1.0_LIN.sh
         if LooseVersion(self.version) >= LooseVersion("14.1"):
-            install_script_glob= f"Wolfram_{self.version}_LIN.sh"
+            install_script_glob = f"Wolfram_{self.version}_LIN.sh"
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
@@ -84,7 +84,7 @@ class EB_Mathematica(Binary):
                 r"Create directory (y/n)? >": 'y',
                 r"Should the installer attempt to make this change (y/n)? >": 'n',
                 r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
-                f"or press ENTER to select /usr/local/Wolfram/Wolfram/{shortver}: >" : self.installdir,
+                f"or press ENTER to select /usr/local/Wolfram/Wolfram/{shortver}: >": self.installdir,
             }
             no_qa = [
                 r"Now installing.*\n\n.*\[.*\].*",
