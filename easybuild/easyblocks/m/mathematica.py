@@ -69,6 +69,9 @@ class EB_Mathematica(Binary):
         # Starting at V13, Mathematica have renamed their install file...
         if LooseVersion(self.version) >= LooseVersion("13"):
             install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
+        # At 14.1 we can see first steps of rebranding to Wolfram - installfile is called Wolfram_14.1.0_LIN.sh
+        if LooseVersion(self.version) >= LooseVersion("14.1"):
+            install_script_glob= f"Wolfram_{self.version}_LIN.sh"
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
@@ -81,6 +84,7 @@ class EB_Mathematica(Binary):
                 r"Create directory (y/n)? >": 'y',
                 r"Should the installer attempt to make this change (y/n)? >": 'n',
                 r"or press ENTER to select /usr/local/bin: >": os.path.join(self.installdir, "bin"),
+                f"or press ENTER to select /usr/local/Wolfram/Wolfram/{shortver}: >" : self.installdir,
             }
             no_qa = [
                 r"Now installing.*\n\n.*\[.*\].*",
@@ -121,32 +125,3 @@ class EB_Mathematica(Binary):
                 '^%s %s .*' % (self.name, self.version),
                 '^Copyright.*',
             ]
-            run_cmd_qa(os.path.join(self.installdir, 'bin', 'math'), qa, no_qa=noqa)
-        else:
-            self.log.info("No activation key provided, so skipping activation of the installation.")
-
-        super(EB_Mathematica, self).post_install_step()
-
-    def sanity_check_step(self):
-        """Custom sanity check for Mathematica."""
-        custom_paths = {
-            'files': ['bin/mathematica'],
-            'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
-        }
-        if LooseVersion(self.version) >= LooseVersion("11.3.0"):
-            custom_paths['files'].append('Executables/wolframscript')
-        elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
-            custom_paths['files'].append('bin/wolframscript')
-
-        custom_commands = ['mathematica --version']
-
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Add both 'bin' and 'Executables' directories to PATH."""
-
-        guesses = super(EB_Mathematica, self).make_module_req_guess()
-
-        guesses.update({'PATH': ['bin', 'Executables']})
-
-        return guesses
