@@ -65,34 +65,48 @@ class EB_Mathematica(Binary):
         # make sure $DISPLAY is not set (to avoid that installer uses GUI)
         orig_display = os.environ.pop('DISPLAY', None)
 
-        install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
-        # Starting at V13, Mathematica have renamed their install file...
-        if LooseVersion(self.version) >= LooseVersion("13"):
-            install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
-
-        matches = glob.glob(install_script_glob)
-        if len(matches) == 1:
-            install_script = matches[0]
-            cmd = self.cfg['preinstallopts'] + './' + install_script
-            shortver = '.'.join(self.version.split('.')[:2])
-            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
-            qa = [
-                (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
-                 self.installdir),
-                (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
-                (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
-                (r"or press ENTER to select[\s\n]*/usr/local/bin:[\s\n]*>", os.path.join(self.installdir, "bin")),
-            ]
-            no_qa = [
-                r"Now installing.*\n\n.*\[.*\].*",
-            ]
-            run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
+        # At 14.1 we can see first steps of rebranding to Wolfram
+        # eg. 'Wolfram_14.1.0_LIN.sh'
+        if LooseVersion(self.version) >= LooseVersion("14.1"):
+            product_name = 'Wolfram'
+            platform_string_glob = 'LIN'
+        elif LooseVersion(self.version) >= LooseVersion("13"):
+            product_name = self.name
+            platform_string_glob = '*LINUX*'
         else:
-            raise EasyBuildError("Failed to isolate install script using '%s': %s", install_script_glob, matches)
+            product_name = self.name
+            platform_string_glob = 'LINUX*'
+
+        install_script_glob = f"{product_name}_{self.version}_{platform_string_glob}.sh"
+        matches = glob.glob(install_script_glob)
+        if len(matches) != 1:
+            raise EasyBuildError(
+                f"Failed to isolate install script using {install_script_glob}: {matches}")
+
+        install_script = matches[0]
+        cmd = self.cfg['preinstallopts'] + './' + install_script
+        shortver = '.'.join(self.version.split('.')[:2])
+        qa_install_path = os.path.join(
+            '/usr', 'local', 'Wolfram', self.name, shortver)
+        qa = [
+            (fr"Enter the installation directory, or press ENTER to select[\s\n]*{qa_install_path}:[\s\n]*>",
+             self.installdir),
+            (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
+            (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
+            (r"or press ENTER to select[\s\n]*/usr/local/bin:[\s\n]*>",
+             os.path.join(self.installdir, "bin")),
+            (f"or press ENTER to select /usr/local/Wolfram/Wolfram/{shortver}: >", self.installdir,),
+        ]
+        no_qa = [
+            r"Now installing.*\n\n.*\[.*\].*",
+        ]
+        run_shell_cmd(cmd, qa_patterns=qa,
+                      qa_wait_patterns=no_qa, qa_timeout=200)
 
         # add license server configuration file
         # some relevant documentation at http://reference.wolfram.com/mathematica/tutorial/ConfigurationFiles.html
-        mathpass_path = os.path.join(self.installdir, 'Configuration', 'Licensing', 'mathpass')
+        mathpass_path = os.path.join(
+            self.installdir, 'Configuration', 'Licensing', 'mathpass')
         try:
             # append to file, to avoid overwriting anything that might be there
             f = open(mathpass_path, "a")
@@ -101,9 +115,10 @@ class EB_Mathematica(Binary):
             f = open(mathpass_path, "r")
             mathpass_txt = f.read()
             f.close()
-            self.log.info("Updated license file %s: %s" % (mathpass_path, mathpass_txt))
+            self.log.info("Updated license file %s: %s" %
+                          (mathpass_path, mathpass_txt))
         except IOError as err:
-            raise EasyBuildError("Failed to update %s with license server info: %s", mathpass_path, err)
+            raise EasyBuildError(f"Failed to update {mathpass_path} with license server info: {err}") from None
 
         # restore $DISPLAY if required
         if orig_display is not None:
@@ -113,35 +128,49 @@ class EB_Mathematica(Binary):
         """Activate installation by using activation key, if provided."""
         if self.cfg['activation_key']:
             # activation key is printed by using '$ActivationKey' in Mathematica, so no reason to keep it 'secret'
-            self.log.info("Activating installation using provided activation key '%s'." % self.cfg['activation_key'])
+            self.log.info(
+                "Activating installation using provided activation key '%s'." % self.cfg['activation_key'])
             qa = [
-                (r"\(enter return to skip Web Activation\):", self.cfg['activation_key']),
+                (r"\(enter return to skip Web Activation\):",
+                 self.cfg['activation_key']),
                 (r"In\[1\]:= ", 'Quit[]'),
             ]
             no_qa = [
                 '^%s %s .*' % (self.name, self.version),
                 '^Copyright.*',
             ]
-            run_shell_cmd(os.path.join(self.installdir, 'bin', 'math'), qa_patterns=qa, qa_wait_patterns=no_qa)
+            run_shell_cmd(os.path.join(self.installdir, 'bin', 'math'),
+                          qa_patterns=qa, qa_wait_patterns=no_qa)
         else:
-            self.log.info("No activation key provided, so skipping activation of the installation.")
+            self.log.info(
+                "No activation key provided, so skipping activation of the installation.")
 
         super(EB_Mathematica, self).post_install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
-        custom_paths = {
-            'files': ['bin/mathematica'],
-            'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
-        }
+
+        custom_paths = {}
+
+        # in 14.1 we can see rebranding from Mathematica to Wolfram
+        # so GUI launcher is now called "wolframnb"
+        if LooseVersion(self.version) >= LooseVersion("14.1"):
+            app_launcher = 'wolframnb'
+        else:
+            app_launcher = 'mathematica'
+
+        custom_commands = ['echo \'Quit[0]\' | WolframKernel']
+        custom_paths['files'] = [f"bin/{app_launcher}"]
+        custom_paths['dirs'] = ['AddOns', 'Configuration',
+                                'Documentation', 'Executables', 'SystemFiles']
+
         if LooseVersion(self.version) >= LooseVersion("11.3.0"):
             custom_paths['files'].append('Executables/wolframscript')
         elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
             custom_paths['files'].append('bin/wolframscript')
 
-        custom_commands = ['mathematica --version']
-
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super(EB_Mathematica, self).sanity_check_step(
+            custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_req_guess(self):
         """Add both 'bin' and 'Executables' directories to PATH."""
