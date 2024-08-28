@@ -340,10 +340,14 @@ class EB_LLVM(CMakeMake):
         self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
         if 'NVPTX' in self.build_targets and not self.cuda_cc:
             raise EasyBuildError("Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'")
+        if self.cuda_cc and 'NVPTX' not in self.build_targets:
+            print_warning("CUDA compute capabilities specified, but NVPTX not in manually specified build targets.")
 
         self.amd_gfx = amd_gfx_list
         if 'AMDGPU' in self.build_targets and not self.amd_gfx:
             raise EasyBuildError("Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'")
+        if self.amd_gfx and 'AMDGPU' not in self.build_targets:
+            print_warning("`amd_gfx` specified, but AMDGPU not in manually specified build targets.")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
