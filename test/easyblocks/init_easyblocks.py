@@ -183,6 +183,14 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
             if hasattr(mod, fn):
                 tup = (fn, app.__module__, globals()[fn].__module__)
                 self.assertTrue(getattr(mod, fn) is globals()[fn], "%s in %s is imported from %s" % tup)
+
+        # check whether easyblock instance is still using run_cmd or run_cmd_qa
+        for fn in ('run_cmd', 'run_cmd_qa'):
+            error_msg = "%s easyblock is still using %s" % (app.__module__, fn)
+            error_msg += ", should be using run_shell_cmd instead"
+            self.assertFalse(hasattr(mod, fn), error_msg)
+
+        # check whether easyblock instance is using functions that have been renamed
         renamed_functions = [
             ('source_paths', 'source_path'),
             ('get_avail_core_count', 'get_core_count'),
