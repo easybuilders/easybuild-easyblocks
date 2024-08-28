@@ -123,8 +123,10 @@ class EB_ABAQUS(Binary):
             # Allow for selection or deselection of components from lines of the form:
             #   5 [*] Tosca Fluid
             # This uses nextstr to make sure we only match the latest output in the Q&A process;
-            # negative lookahead (?!___) is used to exclude ___...___ lines, to avoid matching across questions
-            selectionstr = r"\s*(?P<nr>[-0-9]+) %%s %%s[\s\w]*\n((?!%s)(?!___)[\S ]*\n)*%s$" % (nextstr, nextstr)
+            # negative lookahead (?!___) is used to exclude ___...___ lines, to avoid matching across questions;
+            # *? to use non-greedy matching in combination with negative lookahead
+            # (to avoid excessive backtracking by regex engine)
+            selectionstr = r"\s*(?P<nr>[-0-9]+) %%s %%s.*\n((?!%s)(?!___).*\n)*?%s" % (nextstr, nextstr)
 
             installed_docs = False  # hard disabled, previous support was actually incomplete
 
@@ -132,7 +134,7 @@ class EB_ABAQUS(Binary):
                 # disable Extended Product Documentation because it has a troublesome Java dependency
                 (selectionstr % (r"\[*\]", "Extended Product Documentation"), '%(nr)s'),
                 # enable all ABAQUS components
-                (selectionstr % (r"\[ \]", "Abaqus.*"), '%(nr)s'),
+                (selectionstr % (r"\[ \]", "Abaqus"), '%(nr)s'),
                 (selectionstr % (r"\[ \]", "Cosimulation Services"), '%(nr)s'),
                 # enable 3DSFlow Solver (used to be called "Abaqus/CFD Solver")
                 (selectionstr % (r"\[ \]", "3DSFlow Solver"), '%(nr)s'),
@@ -146,9 +148,9 @@ class EB_ABAQUS(Binary):
 
             # Disable/enable Tosca
             if self.cfg['with_tosca']:
-                qa.append((selectionstr % (r"\[\ \]", "Tosca.*"), '%(nr)s'))
+                qa.append((selectionstr % (r"\[ \]", "Tosca.*"), '%(nr)s'))
             else:
-                qa.append((selectionstr % (r"\[\\*\]", "Tosca.*"), '%(nr)s'))
+                qa.append((selectionstr % (r"\[\*\]", "Tosca.*"), '%(nr)s'))
 
             qa.extend([
                 # disable CloudView
@@ -182,15 +184,15 @@ class EB_ABAQUS(Binary):
                 (r"Default.*SIMULIA/Tosca.*:", os.path.join(self.installdir, 'tosca')),
                 # paths to STAR-CCM+, FLUENT are requested when Tosca is also installed;
                 # these do not strictly need to be specified at installation time, so we don't
-                (r"STAR-CCM.*\n((?!___)[\S ]*\n)*\nDefault \[\]:", ''),
-                (r"FLUENT.*\n((?!___)[\S ]*\n)*\nDefault \[\]:", ''),
+                (r"STAR-CCM.*\n((?!___).*\n)*?\nDefault \[\]:", ''),
+                (r"FLUENT.*\n((?!___).*\n)*?\nDefault \[\]:", ''),
                 (r"location of your existing ANSA installation.*(\n.*){8}:", ''),
                 (r"FLUENT Path.*(\n.*){7}:", ''),
                 (r"working directory to be used by Tosca Fluid\s*(\n.*)*Default \[/usr/temp\]:\s*", '/tmp'),
                 # License server
                 (r"License Server [0-9]+\s*(\n.*){3}:", 'abaqusfea'),  # bypass value for license server
                 (r"License Server . \(redundant\)\s*(\n.*){3}:", ''),
-                (r"License Server Configuration((?!___).*\n)*" + nextstr, ''),
+                (r"License Server Configuration((?!___).*\n)*?" + nextstr, ''),
                 (r"Please choose an action:", '1'),
             ])
 
