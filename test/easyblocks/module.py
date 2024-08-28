@@ -48,6 +48,8 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.generic.cargopythonbundle import CargoPythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
+from easybuild.easyblocks.elpa import EB_ELPA
+from easybuild.easyblocks.fftw import EB_FFTW
 from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
 from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
@@ -290,8 +292,9 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             os.environ['EBROOTJULIA'] = '/fake/install/prefix/Julia/1.6.7'
             os.environ['EBVERSIONJULIA'] = '1.6.7'
 
-        elif app_class == EB_OpenFOAM:
-            # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
+        # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER;
+        # non-system toolchain must be used for ELPA + FFTW*, because no toolchain options are set for system toolchain
+        if app_class in (EB_ELPA, EB_FFTW, EB_FFTW_period_MPI, EB_OpenFOAM):
             write_file(os.path.join(tmpdir, 'GCC', '4.9.3-2.25'), '\n'.join([
                 '#%Module',
                 'setenv EBROOTGCC %s' % tmpdir,
