@@ -294,9 +294,16 @@ class EB_LLVM(CMakeMake):
             general_opts['DEFAULT_SYSROOT'] = sysroot
             general_opts['CMAKE_SYSROOT'] = sysroot
 
+        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
+        amd_gfx_list = self.cfg['amd_gfx_list'] or []
+
         # Build targets
-        build_targets = self.cfg['build_targets']
-        if build_targets is None:
+        build_targets = self.cfg['build_targets'] or []
+        if not build_targets:
+            self.log.debug("No build targets specified, using default detection")
             deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
             arch = get_cpu_architecture()
             try:
@@ -304,14 +311,16 @@ class EB_LLVM(CMakeMake):
                 # If CUDA is included as a dep, add NVPTX as a target
                 # There are (old) toolchains with CUDA as part of the toolchain
                 cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-                if 'cuda' in deps or cuda_toolchain:
+                if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
                     default_targets += ['NVPTX']
+                    self.log.debug("NVPTX enabled by CUDA dependency/cuda_compute_capabilities")
                 # For AMDGPU support we need ROCR-Runtime and
                 # ROCT-Thunk-Interface, however, since ROCT is a dependency of
                 # ROCR we only check for the ROCR-Runtime here
                 # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-                if 'rocr-runtime' in deps:
+                if 'rocr-runtime' in deps or amd_gfx_list:
                     default_targets += ['AMDGPU']
+                    self.log.debug("AMDGPU enabled by rocr-runtime dependency/amd_gfx_list")
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             except KeyError:
@@ -328,33 +337,13 @@ class EB_LLVM(CMakeMake):
 
         self.build_targets = build_targets or []
 
-        self.nvptx_cond = 'NVPTX' in self.build_targets
-        self.amd_cond = 'AMDGPU' in self.build_targets
-        self.all_cond = 'all' in self.build_targets
-        self.cuda_cc = []
-        if self.nvptx_cond or self.all_cond:
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            if not cuda_cc and self.nvptx_cond:
-                raise EasyBuildError(
-                    "Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'"
-                    )
-            else:
-                self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+        self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
+        if 'NVPTX' in self.build_targets and not self.cuda_cc:
+            raise EasyBuildError("Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'")
 
-        self.amd_gfx = []
-        if self.amd_cond or self.all_cond:
-            self.amd_gfx = self.cfg['amd_gfx_list'] or []
-            if not self.amd_gfx and self.amd_cond:
-                raise EasyBuildError(
-                    "Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'"
-                    )
-            else:
-                self.log.info("Using AMDGPU targets: %s", ', '.join(self.amd_gfx))
+        self.amd_gfx = amd_gfx_list
+        if 'AMDGPU' in self.build_targets and not self.amd_gfx:
+            raise EasyBuildError("Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
