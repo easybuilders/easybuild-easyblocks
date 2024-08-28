@@ -297,9 +297,21 @@ class EB_LLVM(CMakeMake):
         # Build targets
         build_targets = self.cfg['build_targets']
         if build_targets is None:
+            deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
             arch = get_cpu_architecture()
             try:
                 default_targets = DEFAULT_TARGETS_MAP[arch][:]
+                # If CUDA is included as a dep, add NVPTX as a target
+                # There are (old) toolchains with CUDA as part of the toolchain
+                cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+                if 'cuda' in deps or cuda_toolchain:
+                    default_targets += ['NVPTX']
+                # For AMDGPU support we need ROCR-Runtime and
+                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
+                # ROCR we only check for the ROCR-Runtime here
+                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
+                if 'rocr-runtime' in deps:
+                    default_targets += ['AMDGPU']
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
             except KeyError:
