@@ -266,7 +266,7 @@ class EB_PETSc(ConfigureMake):
                     # SuiteSparse can install its headers into a subdirectory of the include directory instead.
                     suitesparse_inc_subdir = os.path.join(suitesparse_inc, 'suitesparse')
                     if os.path.exists(suitesparse_inc_subdir):
-                      suitesparse_incs.append(suitesparse_inc_subdir)
+                        suitesparse_incs.append(suitesparse_inc_subdir)
                     inc_spec = "-include=[%s]" % ','.join(suitesparse_incs)
 
                     suitesparse_libs = [os.path.join(suitesparse, "lib", "lib%s.so" % x.replace("_", "").lower())
