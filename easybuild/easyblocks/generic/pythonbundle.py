@@ -31,7 +31,8 @@ import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
+from easybuild.easyblocks.generic.pythonpackage import (PythonPackage,
+                                                        get_pylibdirs, find_python_cmd_from_ec, run_pip_check)
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
@@ -162,6 +163,13 @@ class PythonBundle(Bundle):
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
 
+        if self.pylibdir is None:
+            # Python attributes not set up yet, happens e.g. with --sanity-check-only
+            # Load module first to get the right python command
+            self.fake_mod_data = self.sanity_check_load_module(extension=kwargs.get('extension', False),
+                                                               extra_modules=kwargs.get('extra_modules', None))
+            self.prepare_python()
+
         # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
         # this is relevant for installations of Python bundles for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
@@ -172,3 +180,24 @@ class PythonBundle(Bundle):
             }
 
         super(Bundle, self).sanity_check_step(*args, **kwargs)
+
+        # After the super-call self.ext_instances is initialized, so we can check the extensions
+        sanity_pip_check = self.cfg['sanity_pip_check']
+        unversioned_packages = set(self.cfg['unversioned_packages'])
+        has_sanity_pip_check_mismatch = False
+        all_unversioned_packages = unversioned_packages.copy()
+        for ext in self.ext_instances:
+            if isinstance(ext, PythonPackage):
+                if ext.cfg['sanity_pip_check'] != sanity_pip_check:
+                    has_sanity_pip_check_mismatch = True
+                all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+
+        if has_sanity_pip_check_mismatch:
+            self.log.deprecated('For bundles of PythonPackage the sanity_pip_check option '
+                                'in the main EasyConfig must be used', '5.0')
+            sanity_pip_check = True  # Either the main set it or any extension enabled it
+        if all_unversioned_packages != unversioned_packages:
+            self.log.deprecated('For bundles of PythonPackage the unversioned_packages option '
+                                'in the main EasyConfig must be used', '5.0')
+        if sanity_pip_check:
+            run_pip_check(self.log, self.python_cmd, all_unversioned_packages)
