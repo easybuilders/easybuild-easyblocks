@@ -253,7 +253,7 @@ class EB_ABAQUS(Binary):
                         raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
                     cwd = change_dir(os.path.join(cwd, subdir, '1'))
-                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=100)
+                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
                     change_dir(cwd)
 
                 # next install Part_SIMULIA_Abaqus_CAE hotfix (ABAQUS versions <= 2020)
