@@ -429,6 +429,8 @@ class PythonPackage(ExtensionEasyBlock):
         # Users or sites may require using a virtualenv for user installations
         # We need to disable this to be able to install into the modules
         env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
+        # Don't let pip connect to PYPI to check for a new version
+        env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
 
     def determine_install_command(self):
         """
