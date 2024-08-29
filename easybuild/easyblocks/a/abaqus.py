@@ -242,7 +242,7 @@ class EB_ABAQUS(Binary):
                         (r"Choose the .*installation directory.*\n.*\n\n.*:", os.path.join(self.installdir, 'sim')),
                         (r"Enter selection \(default: Install\):", ''),
                     ]
-                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=100)
+                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
 
                     # F_CAASIMULIAComputeServicesBuildTime part
                     change_dir(cwd)
@@ -253,7 +253,7 @@ class EB_ABAQUS(Binary):
                         raise EasyBuildError("Failed to find expected subdir for hotfix: %s", subdirs)
 
                     cwd = change_dir(os.path.join(cwd, subdir, '1'))
-                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=100)
+                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
                     change_dir(cwd)
 
                 # next install Part_SIMULIA_Abaqus_CAE hotfix (ABAQUS versions <= 2020)
@@ -276,7 +276,7 @@ class EB_ABAQUS(Binary):
                         (r"\[2\] Continue\n(?:.|\n)*Please choose an action:", '2'),
                     ]
                     no_qa = [r"Please be patient;  it will take a few minutes to complete\.\n(\.)*"]
-                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=100)
+                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
                     change_dir(cwd)
 
                 # install SIMULIA Established Products hotfix (ABAQUS versions > 2020)
@@ -305,7 +305,7 @@ class EB_ABAQUS(Binary):
                         (r"Enter selection \(default: Close\):", ''),
                     ]
 
-                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=100)
+                    run_shell_cmd('./StartTUI.sh', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
                     change_dir(cwd)
 
         # create 'abaqus' symlink for main command, which is not there anymore starting with ABAQUS 2022
