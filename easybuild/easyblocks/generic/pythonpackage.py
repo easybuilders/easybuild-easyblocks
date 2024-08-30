@@ -45,7 +45,7 @@ from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
-from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
+from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
@@ -372,7 +372,7 @@ class PythonPackage(ExtensionEasyBlock):
         if 'source_urls' not in extra_vars:
             # Create a copy so the defaults are not modified by the following line
             src_urls = DEFAULT_CONFIG['source_urls'][:]
-            src_urls[0] = [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE']
+            src_urls[0] = [PYPI_SOURCE]
             extra_vars['source_urls'] = src_urls
 
         return ExtensionEasyBlock.extra_options(extra_vars=extra_vars)
