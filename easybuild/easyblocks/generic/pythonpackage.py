@@ -1066,10 +1066,10 @@ class PythonPackage(ExtensionEasyBlock):
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # since custom actions taken below require that environment is set up properly already
         # (especially when using --sanity-check-only)
-        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
+        if not self.sanity_check_module_loaded:
             extension = self.is_extension or kwargs.get('extension', False)
             extra_modules = kwargs.get('extra_modules', None)
-            self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+            self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/;
