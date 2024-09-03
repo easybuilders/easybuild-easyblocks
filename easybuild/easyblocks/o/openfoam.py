@@ -238,6 +238,18 @@ class EB_OpenFOAM(EasyBlock):
             regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
+        # use relative paths to object files when compiling shared libraries
+        # in order to keep the build command short and to prevent "Argument list too long" errors
+        wmake_makefile_general = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'makefiles', 'general')
+        if os.path.isfile(wmake_makefile_general):
+            objects_relpath_regex = (
+                # $(OBJECTS) is a list of absolute paths to all required object files
+                r'(\$\(LINKLIBSO\) .*) \$\(OBJECTS\)',
+                # we replace the absolute paths by paths relative to the current working directory
+                r'\1 $(subst $(WM_PROJECT_DIR),$(shell realpath --relative-to=$(PWD) $(WM_PROJECT_DIR)),$(OBJECTS))',
+            )
+            apply_regex_substitutions(wmake_makefile_general, [objects_relpath_regex])
+
         # enable verbose build for debug purposes
         # starting with openfoam-extend 3.2, PS1 also needs to be set
         env.setvar("FOAM_VERBOSE", '1')

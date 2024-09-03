@@ -34,6 +34,7 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
+import tempfile
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
@@ -244,6 +245,16 @@ EULA=accept
         if build_option('mpi_tests'):
             if impi_ver >= LooseVersion('2017'):
                 # Add minimal test program to sanity checks
+                if build_option('sanity_check_only'):
+                    # When only running the sanity check we need to manually make sure that
+                    # variables for compilers and parallelism have been set
+                    self.set_parallel()
+                    self.prepare_step(start_dir=False)
+
+                    impi_testexe = os.path.join(tempfile.mkdtemp(), 'mpi_test')
+                else:
+                    impi_testexe = os.path.join(self.builddir, 'mpi_test')
+
                 if impi_ver >= LooseVersion('2021'):
                     impi_testsrc = os.path.join(self.installdir, self.get_versioned_subdir('mpi'))
                     if impi_ver >= LooseVersion('2021.11'):
@@ -252,7 +263,6 @@ EULA=accept
                 else:
                     impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
 
-                impi_testexe = os.path.join(self.builddir, 'mpi_test')
                 self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
                 # Build test program with appropriate compiler from current toolchain
