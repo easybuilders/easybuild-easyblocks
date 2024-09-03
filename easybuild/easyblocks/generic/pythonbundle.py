@@ -110,7 +110,7 @@ class PythonBundle(Bundle):
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
         if python_cmd:
-            self.log.info("Python command being used: %s", self.python_cmd)
+            self.log.info("Python command being used: %s", python_cmd)
         else:
             raise EasyBuildError("Failed to pick Python command to use")
 
