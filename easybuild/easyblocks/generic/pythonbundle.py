@@ -109,8 +109,14 @@ class PythonBundle(Bundle):
 
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
-        self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
-        self.pylibdir = self.all_pylibdirs[0]
+        if python_cmd:
+            self.log.info("Python command being used: %s", self.python_cmd)
+        else:
+            raise EasyBuildError("Failed to pick Python command to use")
+
+        if python_cmd:
+            self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
+            self.pylibdir = self.all_pylibdirs[0]
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
