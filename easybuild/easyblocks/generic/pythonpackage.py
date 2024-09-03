@@ -515,7 +515,15 @@ class PythonPackage(ExtensionEasyBlock):
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
         elif self.require_python:
-            raise EasyBuildError("Failed to pick Python command to use")
+            if req_py_majver is not None or req_py_minver is not None:
+                msg = "Failed to pick Python command that satisfies requirements in the EasyConfigs "
+                msg += "(req_maj_ver = %s, req_min_ver = %s)" % (req_maj_ver, req_min_ver)
+                raise EasyBuildError(
+                    "Failed to pick python command that satisfies requirements in the EasyConfigs "
+                    "(req_maj_ver = %s, req_min_ver = %s)", req_maj_ver, req_min_ver
+                )
+            else:
+                raise EasyBuildError("Failed to pick Python command to use")
         else:
             self.log.warning("No Python command found!")
 
