@@ -112,7 +112,13 @@ class PythonBundle(Bundle):
         if python_cmd:
             self.log.info("Python command being used: %s", python_cmd)
         else:
-            raise EasyBuildError("Failed to pick Python command to use")
+            if req_py_majver is not None or req_py_minver is not None:
+                raise EasyBuildError(
+                    "Failed to pick python command that satisfies requirements in the EasyConfigs "
+                    "(req_py_majver = %s, req_py_minver = %s)", req_py_majver, req_py_minver
+                )
+            else:
+                raise EasyBuildError("Failed to pick Python command to use")
 
         if python_cmd:
             self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
