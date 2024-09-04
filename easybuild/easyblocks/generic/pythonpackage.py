@@ -133,16 +133,16 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
         if max_maj_ver is not None:
             if max_min_ver is None:
                 max_majmin_ver = '%s.0' % max_maj_ver
-             else:
+            else:
                 max_majmin_ver = '%s.%s' % (max_maj_ver, max_min_ver)
 
-             pyver = det_python_version(python_cmd)
+            pyver = det_python_version(python_cmd)
 
-             if LooseVersion(pyver) > LooseVersion(max_majmin_ver)
-                 log.debug("Python version (%s) on the system is newer than the maximum python version "
-                           "specified in the easyconfig %s",
+            if LooseVersion(pyver) > LooseVersion(max_majmin_ver)
+                log.debug("Python version (%s) on the system is newer than the maximum python version "
+                          "specified in the easyconfig %s",
                            pyver, max_majmin_ver)
-                 return False
+                return False
 
         # all check passed
         log.debug("All check passed for Python command '%s'!", python_cmd)
