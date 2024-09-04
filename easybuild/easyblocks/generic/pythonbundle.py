@@ -118,7 +118,7 @@ class PythonBundle(Bundle):
             self.log.info("Python command being used: %s", python_cmd)
         else:
             if (req_py_majver is not None or req_py_minver is not None or 
-                max_py_majver is not None or max_py_minver is not None):
+                    max_py_majver is not None or max_py_minver is not None):
                 raise EasyBuildError(
                     "Failed to pick python command that satisfies requirements in the EasyConfigs "
                     "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
