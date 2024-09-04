@@ -130,11 +130,11 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
                 return False
 
-        if max_maj_ver is not None:
-            if max_min_ver is None:
-                max_majmin_ver = '%s.0' % max_maj_ver
+        if max_py_majver is not None:
+            if max_py_minver is None:
+                max_majmin_ver = '%s.0' % max_py_majver
             else:
-                max_majmin_ver = '%s.%s' % (max_maj_ver, max_min_ver)
+                max_majmin_ver = '%s.%s' % (max_py_majver, max_py_minver)
 
             pyver = det_python_version(python_cmd)
 
