@@ -91,6 +91,10 @@ class PythonBundle(Bundle):
         # when system Python is used, the first 'python' command in $PATH will not be $EBROOTPYTHON/bin/python,
         # since $EBROOTPYTHON is set to just 'Python' in that case
         # (see handling of allow_system_deps in EasyBlock.prepare_step)
+        req_py_majver = None
+        req_py_minver = None
+        max_py_majver = None
+        max_py_minver = None
         if which('python') == os.path.join(python_root, 'bin', 'python'):
             # if we're using a proper Python dependency, let det_pylibdir use 'python' like it does by default
             python_cmd = None
@@ -127,9 +131,8 @@ class PythonBundle(Bundle):
             else:
                 raise EasyBuildError("Failed to pick Python command to use")
 
-        if python_cmd:
-            self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
-            self.pylibdir = self.all_pylibdirs[0]
+        self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
+        self.pylibdir = self.all_pylibdirs[0]
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
