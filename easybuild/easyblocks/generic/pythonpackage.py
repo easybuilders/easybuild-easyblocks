@@ -529,7 +529,6 @@ class PythonPackage(ExtensionEasyBlock):
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
 
-
         if self.python_cmd:
             # set Python lib directories
             self.set_pylibdirs()
