@@ -91,6 +91,8 @@ class PythonBundle(Bundle):
         # when system Python is used, the first 'python' command in $PATH will not be $EBROOTPYTHON/bin/python,
         # since $EBROOTPYTHON is set to just 'Python' in that case
         # (see handling of allow_system_deps in EasyBlock.prepare_step)
+        req_py_majver = None
+        req_py_minver = None
         if which('python') == os.path.join(python_root, 'bin', 'python'):
             # if we're using a proper Python dependency, let det_pylibdir use 'python' like it does by default
             python_cmd = None
