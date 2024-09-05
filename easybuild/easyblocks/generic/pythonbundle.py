@@ -155,6 +155,18 @@ class PythonBundle(Bundle):
 
         return txt
 
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonBundle, self).load_module(*args, **kwargs)
+
+        # Don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
+        # Required here to ensure that it is defined for sanity check commands of the bundle
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
 
