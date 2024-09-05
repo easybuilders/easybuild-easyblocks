@@ -514,8 +514,6 @@ class PythonPackage(ExtensionEasyBlock):
                 python = os.path.join(python_root, 'bin', 'python')
                 self.log.debug("Retaining 'python' command for Python dependency: %s", python)
 
-        req_py_majver = None
-        req_py_minver = None
         if python is None:
             # if no Python version requirements are specified,
             # use major/minor version of Python being used in this EasyBuild session
@@ -534,21 +532,25 @@ class PythonPackage(ExtensionEasyBlock):
             python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
                                      max_py_majver=max_py_majver, max_py_minver=max_py_minver)
 
-        if python:
+            # Check if we have python by now. If not, and if self.require_python, raise a sensible error
+            if python:
+                self.python_cmd = python
+                self.log.info("Python command being used: %s", self.python_cmd)
+            elif self.require_python:
+                if (req_py_majver is not None or req_py_minver is not None
+                        or max_py_majver is not None or max_py_minver is not None):
+                    raise EasyBuildError(
+                        "Failed to pick python command that satisfies requirements in the EasyConfigs "
+                        "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
+                        req_py_majver, req_py_minver, max_py_majver, max_py_minver
+                    )
+                else:
+                    raise EasyBuildError("Failed to pick Python command to use")
+            else:
+                self.log.warning("No Python command found!")
+        else:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        elif self.require_python:
-            if (req_py_majver is not None or req_py_minver is not None
-                    or max_py_majver is not None or max_py_minver is not None):
-                raise EasyBuildError(
-                    "Failed to pick python command that satisfies requirements in the EasyConfigs "
-                    "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
-                    req_py_majver, req_py_minver, max_py_majver, max_py_minver
-                )
-            else:
-                raise EasyBuildError("Failed to pick Python command to use")
-        else:
-            self.log.warning("No Python command found!")
 
         if self.python_cmd:
             # set Python lib directories
