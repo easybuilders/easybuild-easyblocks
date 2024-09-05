@@ -667,11 +667,12 @@ class EB_LLVM(CMakeMake):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
             max_failed = self.cfg['test_suite_max_failed']
-            self.log.info("Running test-suite with parallel jobs")
-            num_failed = self._para_test_step(parallel=self.cfg['parallel'])
-            if num_failed is None:
-                self.log.warning("Tests with parallel jobs failed, retrying with single job")
-                num_failed = self._para_test_step(parallel=1)
+            # self.log.info("Running test-suite with parallel jobs")
+            # num_failed = self._para_test_step(parallel=self.cfg['parallel'])
+            # if num_failed is None:
+            #     self.log.warning("Tests with parallel jobs failed, retrying with single job")
+            #     num_failed = self._para_test_step(parallel=1)
+            num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
                 raise EasyBuildError("Failed to extract test results from output")
 
