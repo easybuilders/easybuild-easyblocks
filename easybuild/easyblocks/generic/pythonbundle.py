@@ -119,7 +119,7 @@ class PythonBundle(Bundle):
                 )
 
         self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
-            self.pylibdir = self.all_pylibdirs[0]
+        self.pylibdir = self.all_pylibdirs[0]
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
