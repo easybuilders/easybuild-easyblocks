@@ -514,6 +514,8 @@ class PythonPackage(ExtensionEasyBlock):
                 python = os.path.join(python_root, 'bin', 'python')
                 self.log.debug("Retaining 'python' command for Python dependency: %s", python)
 
+        req_py_majver = None
+        req_py_minver = None
         if python is None:
             # if no Python version requirements are specified,
             # use major/minor version of Python being used in this EasyBuild session
