@@ -482,6 +482,9 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion < LooseVersion("11"):
                 tools.append("buoyantFoam")
                 tools.append("reactingFoam")
+        if self.looseversion >= LooseVersion('2406'):
+            # built from the plugins
+            tools.append("cartesianMesh")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]
