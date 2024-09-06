@@ -109,6 +109,15 @@ class PythonBundle(Bundle):
 
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
+            # If pick_python_cmd didn't find a (system) Python command, we should raise an error
+            if python_cmd:
+                self.log.info("Python command being used: %s", python_cmd)
+            else:
+                raise EasyBuildError(
+                    "Failed to pick Python command that satisfies requirements in the easyconfig "
+                    "(req_py_majver = %s, req_py_minver = %s)", req_py_majver, req_py_minver
+                )
+
         self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
         self.pylibdir = self.all_pylibdirs[0]
 
