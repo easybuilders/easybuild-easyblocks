@@ -69,7 +69,7 @@ class EB_AOCC(PackedBinary):
 
         # Starting from LLVM v16, the folder naming is based on the major version of clang.
         if LooseVersion(self.clangversion) >= LooseVersion('16.0.0'):
-            self.clangversion = '16' 
+            self.clangversion = '16'
 
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
