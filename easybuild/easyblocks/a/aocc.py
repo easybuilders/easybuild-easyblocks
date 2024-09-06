@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2024 Forschungszentrum Juelich GmbH
+# Copyright 2020-2023 Forschungszentrum Juelich GmbH
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -66,6 +66,10 @@ class EB_AOCC(PackedBinary):
         super(EB_AOCC, self).__init__(*args, **kwargs)
 
         self.clangversion = self.cfg['clangversion']
+
+        # Starting from LLVM v16, the folder naming is based on the major version of clang.
+        if LooseVersion(self.clangversion) >= LooseVersion('16.0.0'):
+            self.clangversion = '16' 
 
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
