@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,6 +36,7 @@ EasyBuild support for building and installing CP2K, implemented as an easyblock
 @author: Alan O'Cais (Forschungszentrum Juelich GmbH)
 @author: Balazs Hajgato (Free University Brussels (VUB))
 @author: O. Baris Malcioglu (Middle East Technical University)
+@author: Bibek Chapagain(Barcelona Supercomputing Center)
 """
 
 import fileinput
@@ -43,7 +44,7 @@ import glob
 import re
 import os
 import sys
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyblock import EasyBlock
@@ -105,7 +106,6 @@ class EB_CP2K(EasyBlock):
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
-            'v2024': [False, "2024 version of CP2K", CUSTOM],
             'gpuver': ['H100', "CUDA gpu version", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -123,12 +123,13 @@ class EB_CP2K(EasyBlock):
         - build Libint wrapper
         - generate Makefile
         """
+        cp2k_version = LooseVersion(self.version)
 
         known_types = ['popt', 'psmp']
         if self.cfg['type'] not in known_types:
             raise EasyBuildError("Unknown build type specified: '%s', known types are %s",
                                  self.cfg['type'], known_types)
-        if self.cfg['v2024'] and self.cfg['type'] == 'popt':
+        if cp2k_version >= LooseVersion('2024') and self.cfg['type'] == 'popt':
             self.cfg['type'] = 'psmp'
             setvar('OMP_NUM_THREADS', '1')
             self.log.debug('In 2023 version popt is psmp with OMP_NUM_THREADS set to 1')
@@ -229,7 +230,7 @@ class EB_CP2K(EasyBlock):
         if elpa:
             options['LIBS'] += ' -lelpa'
             elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'modules')
-            if self.cfg['v2024']:
+            if cp2k_version >= LooseVersion('2024'):
                 options['INCS'] += ' -I%s ' % elpa_inc_dir
             else:
                 options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
@@ -237,7 +238,7 @@ class EB_CP2K(EasyBlock):
                 elpa_ver = ''.join(get_software_version('ELPA').split('.')[:2])
                 options['DFLAGS'] += ' -D__ELPA=%s' % elpa_ver
                 elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'elpa')
-                if self.cfg['v2024']:
+                if cp2k_version >= LooseVersion('2024'):
                     options['INCS'] += ' -I%s ' % elpa_inc_dir
                 else:
                     options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
@@ -247,7 +248,7 @@ class EB_CP2K(EasyBlock):
         # CUDA
         cuda = get_software_root('CUDA')
         if cuda:
-            if self.cfg['v2024']:
+            if cp2k_version >= LooseVersion('2024'):
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
                 options['OFFLOAD_CC'] = 'nvcc'
@@ -326,10 +327,12 @@ class EB_CP2K(EasyBlock):
     def configure_common(self):
         """Common configuration for all toolchains"""
 
+        cp2k_version = LooseVersion(self.version)
+
         # openmp introduces 2 major differences
         # -automatic is default: -noautomatic -auto-scalar
         # some mem-bandwidth optimisation
-        if self.cfg['type'] == 'psmp' or self.cfg['v2024']:
+        if self.cfg['type'] == 'psmp' or cp2k_version >= LooseVersion('2024'):
             self.openmp = self.toolchain.get_flag('openmp')
 
         # determine which opt flags to use
@@ -373,14 +376,14 @@ class EB_CP2K(EasyBlock):
         options = {
             'CC': os.getenv('MPICC'),
             'AR': 'ar -r',
-            'FC': '%s %s' % (os.getenv('MPIF90'), self.openmp),
-            'LD': '%s %s' % (os.getenv('MPIF90'), self.openmp),
+            'FC': '%s' % (os.getenv('MPIF90')),
+            'LD': '%s' % (os.getenv('MPIF90')),
             'FPIC': self.fpic,
             'DFLAGS': ' -D__parallel -D__BLACS -D__SCALAPACK -D__FFTSG %s' % self.cfg['extradflags'],
             'INCS': '',
             'CFLAGS': '-O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) '
                       '$(INCS) $(DFLAGS) %s ' %
-                      self.cfg['extracflags'],
+                      self.cfg['extracflags'], 
             'DEBUG': self.debug,
             'FREE': '',
             'FCFLAGS': '$(FCFLAGS%s) $(INCS)' % optflags,
@@ -438,7 +441,7 @@ class EB_CP2K(EasyBlock):
             options['LIBS'] += ' %s -lstdc++ %s' % (libint_libs, libint_wrapper)
 
             # add Libint include dir to $FCFLAGS
-            if self.cfg['v2024']:
+            if cp2k_version >= LooseVersion('2024'):
                 options['INCS'] += ' -I' + os.path.join(libint, 'include')
             else:
                 options['FCFLAGS'] += ' -I' + os.path.join(libint, 'include')
@@ -468,7 +471,7 @@ class EB_CP2K(EasyBlock):
             else:
                 options['LIBS'] += ' -L%s/lib -lxc' % libxc
 
-            if self.cfg['v2024']:
+            if cp2k_version >= LooseVersion('2024'):
                 options['INCS'] += ' -I%s/include ' % libxc
 
             self.log.info("Using Libxc-%s" % cur_libxc_version)
@@ -568,15 +571,18 @@ class EB_CP2K(EasyBlock):
 
     def configure_GCC_based(self):
         """Configure for GCC based toolchains"""
+        
+        cp2k_version = LooseVersion(self.version)
+
         options = self.configure_common()
-        if self.cfg['v2024']:
+        if cp2k_version >= LooseVersion('2024'):
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
                 'FREE': '-ffree-form -ffree-line-length-none -std=f2008',
             })
             options[
-                'FCFLAGSOPT'] = '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) ' \
-                                '-fmax-stack-var-size=32768'
+                'FCFLAGSOPT'] = '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) '
+                                
         else:
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
@@ -602,6 +608,8 @@ class EB_CP2K(EasyBlock):
 
     def configure_ACML(self, options):
         """Configure for AMD Math Core Library (ACML)"""
+        
+        cp2k_version = LooseVersion(self.version)
 
         openmp_suffix = ''
         if self.openmp:
@@ -614,7 +622,7 @@ class EB_CP2K(EasyBlock):
         blas = os.getenv('LIBBLAS', '')
         blas = blas.replace('gfortran64', 'gfortran64%s' % openmp_suffix)
         options['LIBS'] += ' %s %s %s' % (self.libsmm, os.getenv('LIBSCALAPACK', ''), blas)
-        if self.cfg['v2024']:
+        if cp2k_version >= LooseVersion('2024'):
             options['LDFLAGS'] += ' -L%s/lib ' % self.libsmm_path
             options['INCS'] += ' -I%s/include ' % self.libsmm_path
 
@@ -622,14 +630,19 @@ class EB_CP2K(EasyBlock):
 
     def configure_BLAS_lib(self, options):
         """Configure for BLAS library."""
+        
+        cp2k_version = LooseVersion(self.version)
+
         options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBBLAS', ''))
-        if self.cfg['v2024']:
+        if cp2k_version >= LooseVersion('2024'):
             options['LDFLAGS'] += ' -L%s/lib ' % self.libsmm_path
             options['INCS'] += ' -I%s/include ' % self.libsmm_path
         return options
 
     def configure_MKL(self, options):
         """Configure for Intel Math Kernel Library (MKL)"""
+
+        cp2k_version = LooseVersion(self.version)
 
         options['INTEL_INC'] = '$(MKLROOT)/include'
         options['DFLAGS'] += ' -D__FFTW3'
@@ -661,14 +674,17 @@ class EB_CP2K(EasyBlock):
             options['INTEL_INCF'] = '$(INTEL_INC)/fftw'
             options['LIBS'] = '%s %s' % (os.getenv('LIBFFT', ''), options['LIBS'])
 
-        if self.cfg['v2024']:
+        if cp2k_version >= LooseVersion('2024'):
             options['LDFLAGS'] += ' %s ' % self.libsmm
 
         return options
 
     def configure_FFTW3(self, options):
         """Configure for FFTW3"""
-        if self.cfg['v2024']:
+        
+        cp2k_version = LooseVersion(self.version)
+        
+        if cp2k_version >= LooseVersion('2024'):
             libfft = os.getenv('LIBFFT_MT', '')
             options['LIBS'] += ' -lfftw3_omp -lfftw3'
             options['LDFLAGS'] += ' -L%s ' % os.getenv('FFT_LIB_DIR', '')
