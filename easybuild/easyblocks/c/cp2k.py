@@ -382,7 +382,7 @@ class EB_CP2K(EasyBlock):
             'DFLAGS': ' -D__parallel -D__BLACS -D__SCALAPACK -D__FFTSG %s' % self.cfg['extradflags'],
             'INCS': '',
             'CFLAGS': '-O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) '
-                      '$(INCS) $(DFLAGS) %s ' %
+                      '$(INCS) $(DFLAGS) %s' %
                       self.cfg['extracflags'], 
             'DEBUG': self.debug,
             'FREE': '',
@@ -571,7 +571,6 @@ class EB_CP2K(EasyBlock):
 
     def configure_GCC_based(self):
         """Configure for GCC based toolchains"""
-        
         cp2k_version = LooseVersion(self.version)
 
         options = self.configure_common()
@@ -581,8 +580,8 @@ class EB_CP2K(EasyBlock):
                 'FREE': '-ffree-form -ffree-line-length-none -std=f2008',
             })
             options[
-                'FCFLAGSOPT'] = '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS) '
-                                
+                'FCFLAGSOPT'] = '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp -fPIC $(FREE) $(DFLAGS)'
+
         else:
             options.update({
                 # need this to prevent "Unterminated character constant beginning" errors
@@ -608,7 +607,7 @@ class EB_CP2K(EasyBlock):
 
     def configure_ACML(self, options):
         """Configure for AMD Math Core Library (ACML)"""
-        
+
         cp2k_version = LooseVersion(self.version)
 
         openmp_suffix = ''
@@ -630,7 +629,7 @@ class EB_CP2K(EasyBlock):
 
     def configure_BLAS_lib(self, options):
         """Configure for BLAS library."""
-        
+
         cp2k_version = LooseVersion(self.version)
 
         options['LIBS'] += ' %s %s' % (self.libsmm, os.getenv('LIBBLAS', ''))
@@ -681,9 +680,9 @@ class EB_CP2K(EasyBlock):
 
     def configure_FFTW3(self, options):
         """Configure for FFTW3"""
-        
+
         cp2k_version = LooseVersion(self.version)
-        
+
         if cp2k_version >= LooseVersion('2024'):
             libfft = os.getenv('LIBFFT_MT', '')
             options['LIBS'] += ' -lfftw3_omp -lfftw3'
