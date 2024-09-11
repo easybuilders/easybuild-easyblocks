@@ -650,7 +650,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         if python_cmd is None:
             python_cmd = self.python_cmd
-        det_installed_python_packages(self.log, names_only, python_cmd)
+        return det_installed_python_packages(self.log, names_only, python_cmd)
 
     def using_pip_install(self):
         """
