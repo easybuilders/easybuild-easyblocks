@@ -220,7 +220,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
         if self.cfg['with_python']:
             custom_paths['dirs'].append(os.path.join(self.tbb_subdir, 'python'))
-            custom_commands.extend(['python -c "import tbb"'])
+            custom_commands.extend(['python -s -c "import tbb"'])
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
