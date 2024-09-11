@@ -124,7 +124,7 @@ class EB_Tkinter(EB_Python):
             tkinter = 'tkinter'
         else:
             tkinter = 'Tkinter'
-        custom_commands = ["python -c 'import %s'" % tkinter]
+        custom_commands = ["python -s -c 'import %s'" % tkinter]
 
         if not self.tkinter_so_basename:
             self.tkinter_so_basename = self.get_tkinter_so_basename(True)
