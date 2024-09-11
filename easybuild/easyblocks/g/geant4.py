@@ -413,8 +413,16 @@ class EB_Geant4(CMakeMake):
         bin_files = ["bin/geant4-config"]
         if LooseVersion(self.version) >= LooseVersion("9.5"):
             bin_files.extend(["bin/geant4.sh", "bin/geant4.csh"])
-            lib_files = ["lib64/libG4%s.so" % x for x in ['analysis', 'event', 'GMocren', 'materials',
-                                                          'persistency', 'readout', 'Tree', 'VRML']]
+            libs = ['analysis', 'event', 'GMocren', 'materials', 'readout', 'Tree', 'VRML']
+
+            # G4Persistency library was split up in Geant v11.2,
+            # see https://geant4.web.cern.ch/download/release-notes/notes-v11.2.0.html
+            if LooseVersion(self.version) >= LooseVersion('11.2'):
+                libs.extend(['gdml', 'geomtext', 'mctruth', 'geomtext'])
+            else:
+                libs.append('persistency')
+
+            lib_files = ["lib64/libG4%s.so" % x for x in libs]
             include_dir = 'include/Geant4'
         else:
             # paths for v9.4, untested for prior versions
