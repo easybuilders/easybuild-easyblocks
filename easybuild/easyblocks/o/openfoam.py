@@ -368,6 +368,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
+
+                if self.looseversion >= LooseVersion('2406'):
+                    # Also build the plugins
+                    cmd += ' && %s %s -log' % (self.cfg['prebuildopts'],
+                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
     def det_psubdir(self):
@@ -476,8 +482,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion < LooseVersion("11"):
                 tools.append("buoyantFoam")
                 tools.append("reactingFoam")
+        # modifyMesh is no longer there in OpenFOAM >= 12
         if self.is_dot_org and self.looseversion >= LooseVersion("12"):
             tools.remove("modifyMesh")
+        if self.looseversion >= LooseVersion('2406'):
+            # built from the plugins
+            tools.append("cartesianMesh")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]
