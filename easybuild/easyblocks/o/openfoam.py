@@ -482,6 +482,9 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion < LooseVersion("11"):
                 tools.append("buoyantFoam")
                 tools.append("reactingFoam")
+        # modifyMesh is no longer there in OpenFOAM >= 12
+        if self.is_dot_org and self.looseversion >= LooseVersion("12"):
+            tools.remove("modifyMesh")
         if self.looseversion >= LooseVersion('2406'):
             # built from the plugins
             tools.append("cartesianMesh")
