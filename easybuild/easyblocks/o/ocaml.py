@@ -101,8 +101,6 @@ class EB_OCaml(ConfigureMake):
         """
         super(EB_OCaml, self).install_step()
 
-        fake_mod_data = self.load_fake_module(purge=True)
-
         try:
             all_dirs = os.listdir(self.builddir)
         except OSError as err:
@@ -110,6 +108,9 @@ class EB_OCaml(ConfigureMake):
 
         opam_dirs = [d for d in all_dirs if d.startswith('opam')]
         if len(opam_dirs) == 1:
+            # load temporary module so OCaml installation is available for building & installing opam
+            fake_mod_data = self.load_fake_module()
+
             opam_dir = os.path.join(self.builddir, opam_dirs[0])
             self.log.info("Found unpacked OPAM sources at %s, so installing it.", opam_dir)
             self.with_opam = True
@@ -122,10 +123,10 @@ class EB_OCaml(ConfigureMake):
 
             opam_init_cmd = mk_opam_init_cmd(root=os.path.join(self.installdir, OPAM_SUBDIR))
             run_cmd(opam_init_cmd)
+
+            self.clean_up_fake_module(fake_mod_data)
         else:
             self.log.warning("OPAM sources not found in %s: %s", self.builddir, all_dirs)
-
-        self.clean_up_fake_module(fake_mod_data)
 
     def prepare_for_extensions(self):
         """Set default class and filter for OCaml packages."""
