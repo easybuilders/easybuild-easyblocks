@@ -383,7 +383,7 @@ class EB_CP2K(EasyBlock):
             'INCS': '',
             'CFLAGS': '-O3 -fopenmp -ftree-vectorize -march=native -fno-math-errno -fopenmp -std=c11 $(FPIC) $(DEBUG) '
                       '$(INCS) $(DFLAGS) %s' %
-                      self.cfg['extracflags'], 
+                      self.cfg['extracflags'],
             'DEBUG': self.debug,
             'FREE': '',
             'FCFLAGS': '$(FCFLAGS%s) $(INCS)' % optflags,
