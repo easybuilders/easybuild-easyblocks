@@ -477,8 +477,22 @@ class EB_LLVM(CMakeMake):
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
-        general_opts['GCC_INSTALL_PREFIX'] = gcc_prefix
-        self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
+        if LooseVersion(self.version) < LooseVersion('18'):
+            self.log.debug("Using GCC_INSTALL_PREFIX")
+            general_opts['GCC_INSTALL_PREFIX'] = gcc_prefix
+        else:
+            # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
+            self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
+            arch = get_cpu_architecture()
+            pattern = os.path.join(gcc_prefix, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
+            matches = glob.glob(pattern)
+            if not matches:
+                raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
+            gcc_prefix = os.path.abspath(matches[0])
+            general_opts['RUNTIMES_CMAKE_ARGS'] = (
+                '"-DCMAKE_C_FLAGS=--gcc-install-dir=%s;-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s"'
+                ) % (gcc_prefix, gcc_prefix)
+        self.log.debug("Using %s as the gcc install location", gcc_prefix)
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
