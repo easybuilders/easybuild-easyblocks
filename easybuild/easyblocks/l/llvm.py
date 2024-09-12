@@ -477,7 +477,9 @@ class EB_LLVM(CMakeMake):
         # If that doesn't work either, print error and exit
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
-        if LooseVersion(self.version) < LooseVersion('18'):
+        # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
+        # https://github.com/llvm/llvm-project/pull/87360
+        if LooseVersion(self.version) < LooseVersion('19'):
             self.log.debug("Using GCC_INSTALL_PREFIX")
             general_opts['GCC_INSTALL_PREFIX'] = gcc_prefix
         else:
@@ -492,6 +494,7 @@ class EB_LLVM(CMakeMake):
             general_opts['RUNTIMES_CMAKE_ARGS'] = (
                 '"-DCMAKE_C_FLAGS=--gcc-install-dir=%s;-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s"'
                 ) % (gcc_prefix, gcc_prefix)
+        self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", gcc_prefix)
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
@@ -729,6 +732,14 @@ class EB_LLVM(CMakeMake):
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
+        if LooseVersion(self.version) >= LooseVersion('18'):
+            bin_dir = os.path.join(self.installdir, 'bin')
+            prefix_str = '--gcc-install-dir=%s' % self.gcc_prefix
+            # Tested in LLVM 18.1.8 flang-new automatically picks up the `flang.cfg` file not `flang-new.cfg`
+            for comp in ['clang', 'clang++', 'flang']:
+                with open(os.path.join(bin_dir, '%s.cfg' % comp), 'w') as f:
+                    f.write(prefix_str)
+
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
         arch = get_cpu_architecture()
@@ -757,6 +768,20 @@ class EB_LLVM(CMakeMake):
             res += ['libc++', 'libc++abi', 'libunwind']
         return res
 
+    def _sanity_check_gcc_prefix(self, compilers):
+        """Check if the GCC prefix is correct."""
+        if LooseVersion(self.version) >= LooseVersion('18'):
+            rgx = re.compile('Selected GCC installation: (.*)')
+            for comp in compilers:
+                cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
+                out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                mch = rgx.search(out)
+                if mch is None:
+                    raise EasyBuildError("Failed to extract GCC installation path from output of `%s`", cmd)
+                gcc_prefix = mch.group(1)
+                if gcc_prefix != self.gcc_prefix:
+                    raise EasyBuildError("GCC installation path in `%s` does not match expected path", cmd)
+
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
         if self.cfg['build_runtimes']:
@@ -783,7 +808,7 @@ class EB_LLVM(CMakeMake):
         custom_commands = [
             'llvm-ar --help', 'llvm-ranlib --help', 'llvm-nm --help', 'llvm-objdump --help',
         ]
-
+        gcc_prefix_compilers = []
         if self.build_shared:
             check_lib_files += ['libLLVM.so']
 
@@ -801,6 +826,7 @@ class EB_LLVM(CMakeMake):
                 'lib/cmake/clang', 'include/clang'
             ]
             custom_commands += ['llvm-config --cxxflags', 'clang --help', 'clang++ --help']
+            gcc_prefix_compilers += ['clang', 'clang++']
 
         if 'clang-tools-extra' in self.final_projects:
             check_bin_files += [
@@ -821,6 +847,8 @@ class EB_LLVM(CMakeMake):
             ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
             custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
+            gcc_prefix_compilers += ['flang-new']
+
         if 'lld' in self.final_projects:
             check_bin_files += ['ld.lld', 'lld', 'lld-link', 'wasm-ld']
             check_lib_files += [
@@ -905,6 +933,8 @@ class EB_LLVM(CMakeMake):
             'files': check_files,
             'dirs': check_dirs,
         }
+
+        self._sanity_check_gcc_prefix(gcc_prefix_compilers)
 
         return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
