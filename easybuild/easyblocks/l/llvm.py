@@ -195,6 +195,7 @@ class EB_LLVM(CMakeMake):
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
+            'debug_tests': [True, "Enable verbose output for tests", CUSTOM],
         })
 
         return extra_vars
@@ -214,6 +215,7 @@ class EB_LLVM(CMakeMake):
         else:
             self.final_projects = ['llvm']
         self.final_runtimes = []
+        self.gcc_prefix = None
 
         # Shared
         self.build_shared = self.cfg.get('build_shared_libs', False)
@@ -348,7 +350,6 @@ class EB_LLVM(CMakeMake):
             raise EasyBuildError("Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'")
         if self.amd_gfx and 'AMDGPU' not in self.build_targets:
             print_warning("`amd_gfx` specified, but AMDGPU not in manually specified build targets.")
-
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
         if self.toolchain.options['pic']:
@@ -398,12 +399,52 @@ class EB_LLVM(CMakeMake):
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
         # Make sure tests are not running with more than `--parallel` tasks
-        self._cmakeopts['LLVM_LIT_ARGS'] = '"-j %s"' % self.cfg['parallel']
+        parallel = self.cfg['parallel']
+        if not build_option('mpi_tests'):
+            parallel = 1
+        lit_args = ['-j %s' % parallel]
+        if self.cfg['debug_tests']:
+            lit_args += ['-v']
+        self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
         if self.cfg['usepolly']:
             self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
         if not self.cfg['skip_all_tests']:
             self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
             self._cmakeopts['LLVM_BUILD_TESTS'] = 'ON'
+
+    def _set_gcc_prefix(self):
+        """Set the GCC prefix for the build."""
+        if self.gcc_prefix is None:
+            arch = get_cpu_architecture()
+            gcc_root = get_software_root('GCCcore')
+            gcc_version = get_software_version('GCCcore')
+            # If that doesn't work, try with GCC
+            if gcc_root is None:
+                gcc_root = get_software_root('GCC')
+                gcc_version = get_software_version('GCC')
+            # If that doesn't work either, print error and exit
+            if gcc_root is None:
+                raise EasyBuildError("Can't find GCC or GCCcore to use")
+
+            pattern = os.path.join(gcc_root, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
+            matches = glob.glob(pattern)
+            if not matches:
+                raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
+            gcc_prefix = os.path.abspath(matches[0])
+
+            # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
+            # https://github.com/llvm/llvm-project/pull/87360
+            if LooseVersion(self.version) < LooseVersion('19'):
+                self.log.debug("Using GCC_INSTALL_PREFIX")
+                general_opts['GCC_INSTALL_PREFIX'] = gcc_root
+            else:
+                # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
+                self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
+                general_opts['RUNTIMES_CMAKE_ARGS'] = (
+                    '"-DCMAKE_C_FLAGS=--gcc-install-dir=%s;-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s"'
+                    ) % (gcc_prefix, gcc_prefix)
+            self.gcc_prefix = gcc_prefix
+        self.log.debug("Using %s as the gcc install location", gcc_prefix)
 
     def configure_step(self):
         """
@@ -470,32 +511,7 @@ class EB_LLVM(CMakeMake):
         regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
         apply_regex_substitutions(cmakelists_tests, regex_subs)
 
-        gcc_prefix = get_software_root('GCCcore')
-        # If that doesn't work, try with GCC
-        if gcc_prefix is None:
-            gcc_prefix = get_software_root('GCC')
-        # If that doesn't work either, print error and exit
-        if gcc_prefix is None:
-            raise EasyBuildError("Can't find GCC or GCCcore to use")
-        # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
-        # https://github.com/llvm/llvm-project/pull/87360
-        if LooseVersion(self.version) < LooseVersion('19'):
-            self.log.debug("Using GCC_INSTALL_PREFIX")
-            general_opts['GCC_INSTALL_PREFIX'] = gcc_prefix
-        else:
-            # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
-            self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
-            arch = get_cpu_architecture()
-            pattern = os.path.join(gcc_prefix, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
-            matches = glob.glob(pattern)
-            if not matches:
-                raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
-            gcc_prefix = os.path.abspath(matches[0])
-            general_opts['RUNTIMES_CMAKE_ARGS'] = (
-                '"-DCMAKE_C_FLAGS=--gcc-install-dir=%s;-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s"'
-                ) % (gcc_prefix, gcc_prefix)
-        self.gcc_prefix = gcc_prefix
-        self.log.debug("Using %s as the gcc install location", gcc_prefix)
+        self._set_gcc_prefix()
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
@@ -732,7 +748,7 @@ class EB_LLVM(CMakeMake):
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
-        if LooseVersion(self.version) >= LooseVersion('18'):
+        if LooseVersion(self.version) >= LooseVersion('19'):
             bin_dir = os.path.join(self.installdir, 'bin')
             prefix_str = '--gcc-install-dir=%s' % self.gcc_prefix
             # Tested in LLVM 18.1.8 flang-new automatically picks up the `flang.cfg` file not `flang-new.cfg`
@@ -770,17 +786,21 @@ class EB_LLVM(CMakeMake):
 
     def _sanity_check_gcc_prefix(self, compilers):
         """Check if the GCC prefix is correct."""
-        if LooseVersion(self.version) >= LooseVersion('18'):
+        if LooseVersion(self.version) >= LooseVersion('19'):
+            self._set_gcc_prefix()  # Ensure GCC prefix is set in case of module/sanity-only
             rgx = re.compile('Selected GCC installation: (.*)')
             for comp in compilers:
                 cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
                 out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
                 mch = rgx.search(out)
                 if mch is None:
+                    self.log.debug(out)
                     raise EasyBuildError("Failed to extract GCC installation path from output of `%s`", cmd)
                 gcc_prefix = mch.group(1)
                 if gcc_prefix != self.gcc_prefix:
-                    raise EasyBuildError("GCC installation path in `%s` does not match expected path", cmd)
+                    raise EasyBuildError(
+                        "GCC installation path `%s` does not match expected path `%s`", gcc_prefix, self.gcc_prefix
+                        )
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
