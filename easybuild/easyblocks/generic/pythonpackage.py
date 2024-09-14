@@ -422,6 +422,16 @@ class PythonPackage(ExtensionEasyBlock):
         self.use_setup_py = False
         self.determine_install_command()
 
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+        # Users or sites may require using a virtualenv for user installations
+        # We need to disable this to be able to install into the modules
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
+        # Don't let pip connect to PYPI to check for a new version
+        env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -451,11 +461,6 @@ class PythonPackage(ExtensionEasyBlock):
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
                 self.cfg.update('installopts', '--no-index')
-
-            # avoid that pip (ab)uses $HOME/.cache/pip
-            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
-            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
             self.use_setup_py = True
@@ -506,13 +511,23 @@ class PythonPackage(ExtensionEasyBlock):
             # if using system Python, go hunting for a 'python' command that satisfies the requirements
             python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
-        if python:
+            # Check if we have Python by now. If not, and if self.require_python, raise a sensible error
+            if python:
+                self.python_cmd = python
+                self.log.info("Python command being used: %s", self.python_cmd)
+            elif self.require_python:
+                if req_py_majver is not None or req_py_minver is not None:
+                    raise EasyBuildError(
+                        "Failed to pick Python command that satisfies requirements in the easyconfig "
+                        "(req_py_majver = %s, req_py_minver = %s)", req_py_majver, req_py_minver
+                    )
+                else:
+                    raise EasyBuildError("Failed to pick Python command to use")
+            else:
+                self.log.warning("No Python command found!")
+        else:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        elif self.require_python:
-            raise EasyBuildError("Failed to pick Python command to use")
-        else:
-            self.log.warning("No Python command found!")
 
         if self.python_cmd:
             # set Python lib directories
@@ -966,7 +981,7 @@ class PythonPackage(ExtensionEasyBlock):
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
-            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            self.log.info("Detection of downloaded dependencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
                 r'Collecting .*',  # pip

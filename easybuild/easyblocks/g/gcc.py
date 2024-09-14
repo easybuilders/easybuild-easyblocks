@@ -366,6 +366,70 @@ class EB_GCC(ConfigureMake):
             'versions': versions
         }
 
+    def map_nvptx_capability(self):
+        """
+        Convert PTX ISA architecture passed via EasyBuild configs to a version which is understood by GCC.
+        Valid architecture strings include 'sm_30', 'sm_35', 'sm_53', 'sm_70', 'sm_75', 'sm_80'.
+        (as of GCC 14.1.0). Some additional architectures may be mapped.
+        See: https://github.com/gcc-mirror/gcc/commit/de0ef04419e90eacf0d1ddb265552a1b08c18d4b
+
+        As this list is updated regularly, try to parse the GCC source file (gcc/config/nvptx/nvptx.opt)
+        and extract the supported architectures and their mapping. Based on the result, determine the lowest
+        architecture required to support all 'cuda_compute_capabilities' and return this value.
+        """
+        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+        architecture_mappings_file = os.path.join(self.cfg['start_dir'], 'gcc', 'config', 'nvptx', 'nvptx.opt')
+        architecture_mappings_flag = "march-map="
+        architecture_mappings_replacement = "misa=,"
+
+        # Determine which compute capabilities are configured. If there are none, return immediately.
+        if cuda_cc_list is None:
+            return None
+        cuda_sm_list = [f"sm_{cc.replace('.', '')}" for cc in cuda_cc_list]
+
+        if not os.path.exists(architecture_mappings_file):
+            warn_msg = f"Tried to parse nvptx.opt but file {architecture_mappings_file} was not found. " \
+                       "Please check the path and update the EasyBlock if necessary!"
+            self.log.warning(warn_msg)
+            return None
+
+        # We want to read the mappings found in the GCC sources and create a map for this.
+        # We're searching for the following pattern:
+        # march-map=sm_32
+        # Target RejectNegative Alias(misa=,sm_30)
+        gcc_architecture_mappings = {}
+        file_content = read_file(architecture_mappings_file).splitlines()
+        for line_idx, line in enumerate(file_content):
+            line = line.strip()
+            if line.startswith(architecture_mappings_flag):
+                key = line.split('=')[1]
+                # Mapped architecture can be found in the following line
+                line = file_content[line_idx + 1]
+                if architecture_mappings_replacement not in line:
+                    warn_msg = "Tried to parse nvptx.opt but failed to extract mapped architectures! " \
+                                f"Expected to find substring '{architecture_mappings_replacement}' in " \
+                                f"line {line_idx + 1} but found '{line}'. Choosing default of GCC."
+                    self.log.warning(warn_msg)
+                    # Bail out, since results of mapping cannot be trusted
+                    return None
+                value = line.split(architecture_mappings_replacement)[1].rstrip(')')
+                gcc_architecture_mappings[key] = value
+        self.log.info(f"Available architecture mappings in GCC {self.version}:\n {str(gcc_architecture_mappings)}")
+
+        # Map compute capabilities to GCC ones
+        # If no compute capability can be mapped, stick to default of GCC and return None
+        gcc_cc = [gcc_architecture_mappings[cc] if cc in gcc_architecture_mappings else None for cc in cuda_sm_list]
+        self.log.info(f"Mapped architectures: {str(cuda_sm_list)} -> {str(gcc_cc)}")
+        if any(cc is None for cc in gcc_cc):
+            self.log.info("At least one architecture could not be mapped. Choosing default of GCC.")
+            return None
+
+        # Get the lowest architecture mapping and return it
+        sorted_gcc_cc = sorted(gcc_cc)
+        self.log.info("Choosing first architecture in sorted list as default nvptx "
+                      f"architecture: {str(sorted_gcc_cc)}")
+        return sorted_gcc_cc[0]
+
     def run_configure_cmd(self, cmd):
         """
         Run a configure command, with some extra checking (e.g. for unrecognized options).
@@ -544,6 +608,10 @@ class EB_GCC(ConfigureMake):
                         self.create_dir("build-nvptx-gcc")
                         target = 'nvptx-none'
                         self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                        if LooseVersion(self.version) >= LooseVersion('13.1.0'):
+                            cuda_cc = self.map_nvptx_capability()
+                            if cuda_cc:
+                                self.cfg.update('configopts', f'--with-arch={cuda_cc}')
                     else:
                         # compile AMD GCN target compiler
                         self.create_dir("build-amdgcn-gcc")

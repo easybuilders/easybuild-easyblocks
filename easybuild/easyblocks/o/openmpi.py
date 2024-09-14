@@ -243,7 +243,11 @@ class EB_OpenMPI(ConfigureMake):
                 if build_option('mpi_tests'):
                     params.update({'nr_ranks': ranks, 'cmd': test_exe})
                     # Allow oversubscription for this test (in case of hyperthreading)
-                    custom_commands.append("OMPI_MCA_rmaps_base_oversubscribe=1 " + mpi_cmd_tmpl % params)
+                    if LooseVersion(self.version) >= '5.0':
+                        extra_env = "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
+                    else:
+                        extra_env = "OMPI_MCA_rmaps_base_oversubscribe=1"
+                    custom_commands.append(extra_env + " " + mpi_cmd_tmpl % params)
                     # Run with 1 process which may trigger other bugs
                     # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
                     params['nr_ranks'] = 1

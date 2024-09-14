@@ -41,6 +41,7 @@ import re
 import shutil
 import stat
 import tempfile
+import textwrap
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
@@ -48,7 +49,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd, run_cmd_qa
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
@@ -237,6 +238,18 @@ class EB_OpenFOAM(EasyBlock):
             regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
             apply_regex_substitutions(fullpath, regex_subs)
 
+        # use relative paths to object files when compiling shared libraries
+        # in order to keep the build command short and to prevent "Argument list too long" errors
+        wmake_makefile_general = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'makefiles', 'general')
+        if os.path.isfile(wmake_makefile_general):
+            objects_relpath_regex = (
+                # $(OBJECTS) is a list of absolute paths to all required object files
+                r'(\$\(LINKLIBSO\) .*) \$\(OBJECTS\)',
+                # we replace the absolute paths by paths relative to the current working directory
+                r'\1 $(subst $(WM_PROJECT_DIR),$(shell realpath --relative-to=$(PWD) $(WM_PROJECT_DIR)),$(OBJECTS))',
+            )
+            apply_regex_substitutions(wmake_makefile_general, [objects_relpath_regex])
+
         # enable verbose build for debug purposes
         # starting with openfoam-extend 3.2, PS1 also needs to be set
         env.setvar("FOAM_VERBOSE", '1')
@@ -293,6 +306,23 @@ class EB_OpenFOAM(EasyBlock):
                     else:
                         env.setvar("%s_ROOT" % depend.upper(), dependloc)
 
+            if get_software_root('CGAL') and LooseVersion(get_software_version('CGAL')) >= LooseVersion('5.0'):
+                # CGAL >= 5.x is header-only, but when using it OpenFOAM still needs MPFR.
+                # It may fail to find it, so inject the right settings and paths into the "have_cgal" script.
+                have_cgal_script = os.path.join(self.builddir, self.openfoamdir, 'wmake', 'scripts', 'have_cgal')
+                if get_software_root('MPFR') and os.path.exists(have_cgal_script):
+                    eb_cgal_config = textwrap.dedent('''
+                    # Injected by EasyBuild
+                    HAVE_CGAL=true
+                    HAVE_MPFR=true
+                    CGAL_FLAVOUR=header
+                    CGAL_INC_DIR=${EBROOTCGAL}/include
+                    CGAL_LIB_DIR=${EBROOTCGAL}/lib
+                    MPFR_INC_DIR=${EBROOTMPFR}/include
+                    MPFR_LIB_DIR=${EBROOTMPFR}/lib
+                    ''')
+                    write_file(have_cgal_script, eb_cgal_config, append=True)
+
     def build_step(self):
         """Build OpenFOAM using make after sourcing script to set environment."""
 
@@ -338,6 +368,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
+
+                if self.looseversion >= LooseVersion('2406'):
+                    # Also build the plugins
+                    cmd += ' && %s %s -log' % (self.cfg['prebuildopts'],
+                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
     def det_psubdir(self):
@@ -446,6 +482,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion < LooseVersion("11"):
                 tools.append("buoyantFoam")
                 tools.append("reactingFoam")
+        # modifyMesh is no longer there in OpenFOAM >= 12
+        if self.is_dot_org and self.looseversion >= LooseVersion("12"):
+            tools.remove("modifyMesh")
+        if self.looseversion >= LooseVersion('2406'):
+            # built from the plugins
+            tools.append("cartesianMesh")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]

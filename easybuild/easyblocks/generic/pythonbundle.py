@@ -109,6 +109,15 @@ class PythonBundle(Bundle):
 
             python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
 
+            # If pick_python_cmd didn't find a (system) Python command, we should raise an error
+            if python_cmd:
+                self.log.info("Python command being used: %s", python_cmd)
+            else:
+                raise EasyBuildError(
+                    "Failed to pick Python command that satisfies requirements in the easyconfig "
+                    "(req_py_majver = %s, req_py_minver = %s)", req_py_majver, req_py_minver
+                )
+
         self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
         self.pylibdir = self.all_pylibdirs[0]
 
@@ -154,6 +163,18 @@ class PythonBundle(Bundle):
                 txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
 
         return txt
+
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonBundle, self).load_module(*args, **kwargs)
+
+        # Don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
+        # Required here to ensure that it is defined for sanity check commands of the bundle
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
