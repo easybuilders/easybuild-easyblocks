@@ -85,6 +85,10 @@ class Bundle(EasyBlock):
             if self.cfg['patches']:
                 raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
+        # copy EasyConfig instance before we make changes to it
+        # (like adding component sources to top-level sources easyconfig parameter)
+        self.cfg = self.cfg.copy()
+
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
 
