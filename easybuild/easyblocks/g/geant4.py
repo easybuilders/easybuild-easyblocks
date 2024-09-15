@@ -34,8 +34,9 @@ Geant4 support, implemented as an easyblock.
 
 import os
 
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 
 
 class EB_Geant4(CMakeMake):
@@ -100,8 +101,16 @@ class EB_Geant4(CMakeMake):
         Custom sanity check for Geant4
         """
         bin_files = ["bin/geant4-config", "bin/geant4.sh", "bin/geant4.csh"]
-        lib_files = ["lib64/libG4%s.so" % x for x in ['analysis', 'event', 'GMocren', 'materials',
-                                                      'persistency', 'readout', 'Tree', 'VRML']]
+        libs = ['analysis', 'event', 'GMocren', 'materials', 'readout', 'Tree', 'VRML']
+
+        # G4Persistency library was split up in Geant v11.2,
+        # see https://geant4.web.cern.ch/download/release-notes/notes-v11.2.0.html
+        if LooseVersion(self.version) >= LooseVersion('11.2'):
+            libs.extend(['gdml', 'geomtext', 'mctruth', 'geomtext'])
+        else:
+            libs.append('persistency')
+
+        lib_files = ["lib64/libG4%s.so" % x for x in libs]
         include_dir = 'include/Geant4'
 
         custom_paths = {

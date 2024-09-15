@@ -41,6 +41,7 @@ from easybuild.easyblocks.generic.configuremake import check_config_guess, obtai
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import mkdir, copy_file
 from easybuild.tools.run import run_shell_cmd, parse_log_for_error
 
@@ -274,6 +275,11 @@ class RPackage(ExtensionEasyBlock):
 
         :return: Shell command to run + string to pass to stdin.
         """
+
+        # set $R_LIBS_USER to non-existing path in build directory,
+        # to avoid picking up on R packages installed in home directory of current user
+        # (from ~/R/x86_64-pc-linux-gnu-library/<version>)
+        setvar('R_LIBS_USER', os.path.join(self.builddir, 'r_libs'))
 
         # determine location
         if isinstance(self.master, EB_R):
