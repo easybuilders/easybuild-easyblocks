@@ -94,6 +94,6 @@ class JuliaBundle(Bundle, JuliaPackage):
         super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self, *args, **kwargs):
-        """Custom module environement from JuliaPackage"""
+        """Custom module environment from JuliaPackage"""
         mod = super(JuliaBundle, self).make_module_extra(*args, **kwargs)
         return mod

@@ -92,7 +92,10 @@ class EB_psmpi(EB_MPICH):
 
         if self.cfg['msa']:
             self.log.info("Enabling MSA-Awareness...")
-            self.cfg.update('configopts', ' --with-msa-awareness')
+            if LooseVersion(self.version) >= LooseVersion('5.10.0-1'):
+                self.cfg.update('configopts', ' --enable-msa-awareness')
+            else:
+                self.cfg.update('configopts', ' --with-msa-awareness')
 
         # Set confset
         comp_fam = self.toolchain.comp_family()
@@ -104,7 +107,10 @@ class EB_psmpi(EB_MPICH):
 
         # Enable threading, if necessary
         if self.cfg['threaded']:
-            self.cfg.update('configopts', ' --with-threading')
+            if LooseVersion(self.version) >= LooseVersion('5.10.0-1'):
+                self.cfg.update('configopts', ' --enable-threading')
+            else:
+                self.cfg.update('configopts', ' --with-threading')
 
         # Add extra mpich options, if any
         if self.cfg['mpich_opts'] is not None:
