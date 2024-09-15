@@ -34,8 +34,9 @@ Geant4 support, implemented as an easyblock.
 
 import os
 
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 
 
 class EB_Geant4(CMakeMake):
