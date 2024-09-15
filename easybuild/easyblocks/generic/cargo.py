@@ -151,6 +151,9 @@ class Cargo(ExtensionEasyBlock):
                     'filename': self.crate_src_filename(crate, version),
                 })
 
+        # copy EasyConfig instance before we make changes to it
+        self.cfg = self.cfg.copy()
+
         self.cfg.update('sources', sources)
 
     @property
