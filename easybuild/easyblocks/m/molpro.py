@@ -32,6 +32,7 @@ import shutil
 import re
 from easybuild.tools import LooseVersion
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyblock import EasyBlock
@@ -62,7 +63,6 @@ class EB_Molpro(ConfigureMake, Binary):
         super(EB_Molpro, self).__init__(*args, **kwargs)
 
         self.full_prefix = ''  # no None, to make easyblock compatible with --module-only
-        self.orig_launcher = None
 
         self.cleanup_token_symlink = False
         self.license_token = os.path.join(os.path.expanduser('~'), '.molpro', 'token')
@@ -103,6 +103,13 @@ class EB_Molpro(ConfigureMake, Binary):
                     self.cfg.update('configopts', "-mpp -mppbase %s" % os.environ['MPI_INC_DIR'])
                 else:
                     raise EasyBuildError("$MPI_INC_DIR not defined")
+                if self.toolchain.mpi_family() == toolchain.OPENMPI:
+                    self.cfg.update('configopts', "-openmpi")
+                # There is currently (v2012.1.52) no -intel-mpi option, only
+                # a -intel-mpi-lsf option, so nothing to do in that case.
+                elif self.toolchain.mpi_family() != toolchain.INTELMPI:
+                    raise EasyBuildError("Failed to find out which MPI toolchain is in use: %s"
+                                         % self.toolchain.mpi_family())
             else:
                 self.cfg.update('configopts', "-%s -%s" % (os.environ['CC'], os.environ['F90']))
 
@@ -128,15 +135,6 @@ class EB_Molpro(ConfigureMake, Binary):
             cfgfile = os.path.join(self.cfg['start_dir'], 'CONFIG')
             cfgtxt = read_file(cfgfile)
 
-            # determine original LAUNCHER value
-            launcher_regex = re.compile('^LAUNCHER=(.*)$', re.M)
-            res = launcher_regex.search(cfgtxt)
-            if res:
-                self.orig_launcher = res.group(1)
-                self.log.debug("Found original value for LAUNCHER: %s", self.orig_launcher)
-            else:
-                raise EasyBuildError("Failed to determine LAUNCHER value")
-
             # determine full installation prefix
             prefix_regex = re.compile('^PREFIX=(.*)$', re.M)
             res = prefix_regex.search(cfgtxt)
@@ -146,13 +144,13 @@ class EB_Molpro(ConfigureMake, Binary):
             else:
                 raise EasyBuildError("Failed to determine full installation prefix")
 
-            # determine MPI launcher command that can be used during build/test
-            # obtain command with specific number of cores (required by mpi_cmd_for), then replace that number with '%n'
-            launcher = self.toolchain.mpi_cmd_for('%x', self.cfg['parallel'])
-            launcher = launcher.replace(' %s' % self.cfg['parallel'], ' %n')
+            # patch CONFIG file to change COPT3 to -O2, intel core
+            # dumps at -O3 on some of the files.
+            apply_regex_substitutions(cfgfile, [(r"^(COPT3\s*=\s*).*$", r"\1-O2")])
+            apply_regex_substitutions(cfgfile, [(r"^(FOPT3\s*=\s*).*$", r"\1-O2")])
 
-            # patch CONFIG file to change LAUNCHER definition, in order to avoid having to start mpd
-            apply_regex_substitutions(cfgfile, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % launcher)])
+            # Turn on VERBOSE build
+            apply_regex_substitutions(cfgfile, [(r"^(VERBOSE\s*=\s*).*$", r"\1")])
 
             # reread CONFIG and log contents
             cfgtxt = read_file(cfgfile)
@@ -224,11 +222,6 @@ class EB_Molpro(ConfigureMake, Binary):
                 run_cmd("make tuning")
 
             super(EB_Molpro, self).install_step()
-
-            # put original LAUNCHER definition back in place in bin/molpro that got installed,
-            # since the value used during installation point to temporary files
-            molpro_path = os.path.join(self.full_prefix, 'bin', 'molpro')
-            apply_regex_substitutions(molpro_path, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % self.orig_launcher)])
 
         if self.cleanup_token_symlink:
             try:
