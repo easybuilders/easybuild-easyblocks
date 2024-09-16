@@ -383,7 +383,7 @@ class EB_GCC(ConfigureMake):
         architecture_mappings_replacement = "misa=,"
 
         # Determine which compute capabilities are configured. If there are none, return immediately.
-        if cuda_cc_list is None:
+        if not cuda_cc_list:
             return None
         cuda_sm_list = [f"sm_{cc.replace('.', '')}" for cc in cuda_cc_list]
 
