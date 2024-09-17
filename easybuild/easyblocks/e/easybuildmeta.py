@@ -133,7 +133,10 @@ class EB_EasyBuildMeta(PythonPackage):
         try:
             subdirs = os.listdir(self.builddir)
             for pkg in self.easybuild_pkgs:
-                seldirs = [x for x in subdirs if x.startswith(pkg)]
+                # also consider "normalized" package name, with dashes ('-') replaced by underscores ('_'),
+                # which is being enforced by recent versions of setuptools (>= 69.0.3?)
+                pkg_norm = pkg.replace('-', '_')
+                seldirs = [x for x in subdirs if x.startswith(pkg) or x.startswith(pkg_norm)]
                 if len(seldirs) != 1:
                     # setuptools is optional since it may be available in the OS;
                     # vsc-install and vsc-base sources are optional,

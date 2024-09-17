@@ -131,34 +131,35 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
-        # Populate sources from "crates" list of tuples (only once)
-        if self.cfg['crates']:
-            # Move 'crates' list from easyconfig parameter to property,
-            # to avoid that creates are processed into 'sources' easyconfig parameter again
-            # when easyblock is initialized again using the same parsed easyconfig
-            # (for example when check_sha256_checksums function is called, like in easyconfigs test suite)
-            self.crates = self.cfg['crates']
-            self.cfg['crates'] = []
-            sources = []
-            for crate_info in self.crates:
-                if len(crate_info) == 2:
-                    sources.append({
-                        'download_filename': self.crate_download_filename(*crate_info),
-                        'filename': self.crate_src_filename(*crate_info),
-                        'source_urls': [CRATESIO_SOURCE],
-                        'alt_location': 'crates.io',
-                    })
-                else:
-                    crate, version, repo, rev = crate_info
-                    url, repo_name = repo.rsplit('/', maxsplit=1)
-                    if repo_name.endswith('.git'):
-                        repo_name = repo_name[:-4]
-                    sources.append({
-                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
-                        'filename': self.crate_src_filename(crate, version),
-                    })
+        # Populate sources from "crates" list of tuples
+        sources = []
+        for crate_info in self.crates:
+            if len(crate_info) == 2:
+                sources.append({
+                    'download_filename': self.crate_download_filename(*crate_info),
+                    'filename': self.crate_src_filename(*crate_info),
+                    'source_urls': [CRATESIO_SOURCE],
+                    'alt_location': 'crates.io',
+                })
+            else:
+                crate, version, repo, rev = crate_info
+                url, repo_name = repo.rsplit('/', maxsplit=1)
+                if repo_name.endswith('.git'):
+                    repo_name = repo_name[:-4]
+                sources.append({
+                    'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
+                    'filename': self.crate_src_filename(crate, version),
+                })
 
-            self.cfg.update('sources', sources)
+        # copy EasyConfig instance before we make changes to it
+        self.cfg = self.cfg.copy()
+
+        self.cfg.update('sources', sources)
+
+    @property
+    def crates(self):
+        """Return the crates as defined in the EasyConfig"""
+        return self.cfg['crates']
 
     def extract_step(self):
         """
@@ -314,13 +315,14 @@ def generate_crate_list(sourcedir):
                 if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
                     crates.append((name, version))
                 else:
-                    # Lock file has revision#revision in the url
+                    # Lock file has #revision in the url
                     url, rev = dep['source'].rsplit('#', maxsplit=1)
                     for prefix in ('registry+', 'git+'):
                         if url.startswith(prefix):
                             url = url[len(prefix):]
-                    # Remove branch name if present
+                    # Remove branch name and revision URL parameters if present
                     url = re.sub(r'\?branch=\w+$', '', url)
+                    url = re.sub(r'\?rev=%s+$' % rev, '', url)
                     crates.append((name, version, url, rev))
         else:
             other_crates.append((name, version))

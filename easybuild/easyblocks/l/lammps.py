@@ -221,6 +221,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -233,6 +234,7 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -469,7 +471,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-stable_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -492,11 +494,14 @@ class EB_LAMMPS(CMakeMake):
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
-        check_files = [
-            'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-            'hugoniostat', 'indent', 'melt', 'min', 'msst',
-            'nemd', 'obstacle', 'pour', 'voronoi',
-        ]
+        if self.cfg['sanity_check_test_inputs']:
+            sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
+        else:
+            sanity_check_test_inputs = [
+                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
+                'hugoniostat', 'indent', 'melt', 'min', 'msst',
+                'nemd', 'obstacle', 'pour', 'voronoi',
+            ]
 
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
@@ -504,7 +509,7 @@ class EB_LAMMPS(CMakeMake):
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
-            for check_file in check_files
+            for check_file in sanity_check_test_inputs
         ]
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021

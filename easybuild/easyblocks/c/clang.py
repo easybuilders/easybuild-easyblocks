@@ -49,13 +49,13 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 from easybuild.tools.environment import setvar
 
 # List of all possible build targets for Clang
 CLANG_TARGETS = ["all", "AArch64", "AMDGPU", "ARM", "CppBackend", "Hexagon", "Mips",
-                 "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "Sparc",
+                 "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "RISCV", "Sparc",
                  "SystemZ", "X86", "XCore"]
 
 # Mapping of EasyBuild CPU architecture names to list of default LLVM target names
@@ -63,6 +63,7 @@ DEFAULT_TARGETS_MAP = {
     AARCH32: ['ARM'],
     AARCH64: ['AArch64'],
     POWER: ['PowerPC'],
+    RISCV64: ['RISCV'],
     X86_64: ['X86'],
 }
 

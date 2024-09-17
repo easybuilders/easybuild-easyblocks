@@ -53,6 +53,10 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
         self.check_for_sources = False  # make Bundle allow sources (as crates are treated as sources)
         super(CargoPythonBundle, self).__init__(*args, **kwargs)
 
+        # Cargo inherits from ExtensionEasyBlock, thus EB treats the software itself as an extension
+        # Setting modulename to False to ensure that sanity checks are performed on the extensions only
+        self.options = {'modulename': False}
+
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
