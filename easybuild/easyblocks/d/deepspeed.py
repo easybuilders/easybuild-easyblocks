@@ -1,4 +1,5 @@
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
 
@@ -50,7 +51,7 @@ class EB_DeepSpeed(PythonPackage):
         # http://www.deepspeed.ai/tutorials/advanced-install/#pre-install-deepspeed-ops
         # > DeepSpeed will only install any ops that are compatible with your machine
         env.setvar('DS_BUILD_OPTS', '1')
-        
+
         # These have bothersome dependencies
         env.setvar('DS_BUILD_SPARSE_ATTN', '0')  # requires PyTorch<2.0, triton==1.0.0
         env.setvar('DS_BUILD_EVOFORMER_ATTN', '0')  # requires PyTorch<2.0, triton==1.0.0
