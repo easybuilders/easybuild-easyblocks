@@ -31,7 +31,6 @@ EasyBuild support for installing Gurobi, implemented as an easyblock
 """
 import os
 
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
