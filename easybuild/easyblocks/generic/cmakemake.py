@@ -102,7 +102,8 @@ class CMakeMake(ConfigureMake):
             'build_shared_libs': [None, "Build shared library (instead of static library)"
                                         "None can be used to add no flag (usually results in static library)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release."
-                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
+                                 "Defaults to 'Release', 'RelWithDebInfo' or 'Debug' depending on "
+                                 "toolchainopts[debug,noopt]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
@@ -148,7 +149,12 @@ class CMakeMake(ConfigureMake):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+                build_type = 'Debug'
+            elif self.toolchain.options.get('debug', None):
+                build_type = 'RelWithDebInfo'
+            else:
+                build_type = 'Release'
         return build_type
 
     def prepend_config_opts(self, config_opts):
