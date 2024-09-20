@@ -31,10 +31,10 @@ import os
 import sys
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, pick_python_cmd
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
+from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
@@ -151,10 +151,11 @@ class PythonBundle(Bundle):
         # or if we prefer it
         runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
         use_ebpythonprefixes = 'Python' in runtime_deps and \
-            build_option('prefer_ebpythonprefixes') and self.cfg['prefer_ebpythonprefixes']
+            build_option('prefer_python_search_path') == EBPYTHONPREFIXES and not self.cfg['force_pythonpath']
         if self.multi_python or use_ebpythonprefixes:
-            if EBPYTHONPREFIXES not in self.module_generator.added_paths_per_key:
-                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+            path = ''  # EBPYTHONPREFIXES are relative to the install dir
+            if path not in self.module_generator.added_paths_per_key[EBPYTHONPREFIXES]:
+                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, path)
         else:
 
             # the temporary module file that is generated before installing extensions
@@ -169,8 +170,8 @@ class PythonBundle(Bundle):
                 ]
 
             for pylibdir in new_pylibdirs:
-                if pylibdir not in self.module_generator.added_paths_per_key['PYTHONPATH']:
-                    txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+                if pylibdir not in self.module_generator.added_paths_per_key[PYTHONPATH]:
+                    txt += self.module_generator.prepend_paths(PYTHONPATH, pylibdir)
 
         return txt
 

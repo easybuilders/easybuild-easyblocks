@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, log_path
+from easybuild.tools.config import build_option, ERROR, log_path, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -58,8 +58,6 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
-
-EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
 
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
@@ -643,6 +641,6 @@ class EB_Python(ConfigureMake):
         txt = super(EB_Python, self).make_module_extra()
 
         if self.cfg.get('ebpythonprefixes'):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
+            txt += self.module_generator.prepend_paths(PYTHONPATH, self.pythonpath)
 
         return txt
