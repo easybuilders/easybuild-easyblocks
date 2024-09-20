@@ -53,11 +53,39 @@ class MesonNinja(EasyBlock):
         extra_vars.update({
             'build_dir': [None, "build_dir to pass to meson", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
+            'build_type': [None, "Build type for meson, e.g. release."
+                                 "Defaults to 'release', 'debugoptimized' or 'debug' depending on "
+                                 "toolchainopts[debug,noopt]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
+
+    @property
+    def build_type(self):
+        """Build type set in the EasyConfig with default determined by toolchainopts"""
+        build_type = self.cfg.get('build_type')
+        # While we do set optimization and debug flag separately, build scripts may be adding additional
+        # defines and flags based on the build_type as well so we pick the closest match.
+        if build_type is None:
+            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+                build_type = 'debug'
+            elif self.toolchain.options.get('debug', None):
+                build_type = 'debugoptimized'
+            else:
+                build_type = 'release'
+        return build_type
+
+    @property
+    def optimization(self):
+        """Optimization level"""
+        if self.toolchain.options.get('noopt', False):
+            return 0
+        elif self.toolchain.options.get('lowopt', False):
+            return 1
+        else:
+            return 2
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -92,12 +120,16 @@ class MesonNinja(EasyBlock):
 
         build_dir = self.cfg.get('build_dir') or self.start_dir
 
-        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(source_dir)s" % {
+        cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s --buildtype %(buildtype)s %(configopts)s "
+               "--optimization %(optimization)s --debug %(debug)s %(source_dir)s") % {
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
             'source_dir': build_dir,
+            'buildtype': self.build_type(),
+            'optimization': self.optimizatoin(),
+            'debug': self.toolchain.options.get('debug', False),
         }
         res = run_shell_cmd(cmd)
         return res.output
