@@ -6,10 +6,25 @@ These release notes can also be consulted at http://easybuild.readthedocs.org/en
 The latest version of easybuild-easyblocks provides 259 software-specific easyblocks and 43 generic easyblocks.
 
 
+v4.9.4 (22 september 2024)
+--------------------------
+
+update/bugfix release
+
+- various enhancements, including:
+  - allow Python bundles and packages to specify a maximum Python version for the system toolchain (#3431)
+  - copy EasyConfig instance in constructor of Bundle and Cargo easyblocks before making changes to it (#3448)
+  - fix crash in GCC easyblock when cuda-compute-capabilities EasyBuild configuration option is not set (#3449)
+- various bug fixes, including:
+  - ignore Python from virtualenvs in GROMACS configure via -DPython3_FIND_VIRTUALENV=STANDARD (#3283)
+  - enhance custom easyblock for NCCL: add licence to NCCL installation (#3451)
+
+
 v4.9.3 (14 September 2024)
 --------------------------
 
 update/bugfix release
+
 - minor updates, including:
   - update custom easyblock for Tensorflow for versions 2.14 + 2.15 (#3303)
   - add support for versions >= 2024a to MCR easyblock (#3369)

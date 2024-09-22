@@ -231,6 +231,8 @@ class ModuleOnlyTest(TestCase):
         self.assertTrue(pick_python_cmd(2) is not None)
         self.assertTrue(pick_python_cmd(2, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
+        self.assertTrue(pick_python_cmd(2, 6, 123, 456) is not None)
+        self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
 
 
 def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt='', tmpdir=None):
