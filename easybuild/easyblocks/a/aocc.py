@@ -73,6 +73,9 @@ class EB_AOCC(PackedBinary):
             '3.0.0': '12.0.0',
             '3.1.0': '12.0.0',
             '3.2.0': '13.0.0',
+            '4.0.0': '14.0.6',
+            '4.1.0': '16.0.3',
+            '4.2.0': '16.0.3',
         }
 
         if self.version in map_aocc_to_clang_ver:
@@ -138,16 +141,22 @@ class EB_AOCC(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for AOCC, based on sanity check for Clang."""
+
+        # Clang v16+ only use the major version number for the resource dir
+        resdir_version = self.clangversion
+        if LooseVersion(self.clangversion) >= LooseVersion('16.0.0'):
+            resdir_version = LooseVersion(self.clangversion).version[0]
+
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
                 'bin/clang', 'bin/clang++', 'bin/flang', 'bin/lld', 'bin/llvm-ar', 'bin/llvm-as', 'bin/llvm-config',
                 'bin/llvm-link', 'bin/llvm-nm', 'bin/llvm-symbolizer', 'bin/opt', 'bin/scan-build', 'bin/scan-view',
-                'include/clang-c/Index.h', 'include/llvm-c/Core.h', 'lib/clang/%s/include/omp.h' % self.clangversion,
-                'lib/clang/%s/include/stddef.h' % self.clangversion, 'lib/libclang.%s' % shlib_ext,
+                'include/clang-c/Index.h', 'include/llvm-c/Core.h', 'lib/clang/%s/include/omp.h' % resdir_version,
+                'lib/clang/%s/include/stddef.h' % resdir_version, 'lib/libclang.%s' % shlib_ext,
                 'lib/libomp.%s' % shlib_ext,
             ],
-            'dirs': ['include/llvm', 'lib/clang/%s/lib' % self.clangversion, 'lib32'],
+            'dirs': ['include/llvm', 'lib/clang/%s/lib' % resdir_version, 'lib32'],
         }
 
         custom_commands = [
