@@ -104,7 +104,12 @@ class PythonBundle(Bundle):
             if req_py_minver is None:
                 req_py_minver = sys.version_info[1]
 
-            python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
+            # Get the max_py_majver and max_py_minver from the config
+            max_py_majver = self.cfg['max_py_majver']
+            max_py_minver = self.cfg['max_py_minver']
+
+            python_cmd = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
+                                         max_py_majver=max_py_majver, max_py_minver=max_py_minver)
 
             # If pick_python_cmd didn't find a (system) Python command, we should raise an error
             if python_cmd:
@@ -112,7 +117,8 @@ class PythonBundle(Bundle):
             else:
                 raise EasyBuildError(
                     "Failed to pick Python command that satisfies requirements in the easyconfig "
-                    "(req_py_majver = %s, req_py_minver = %s)", req_py_majver, req_py_minver
+                    "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
+                    req_py_majver, req_py_minver, max_py_majver, max_py_minver
                 )
 
         self.all_pylibdirs = get_pylibdirs(python_cmd=python_cmd)
