@@ -494,7 +494,7 @@ class PythonPackage(ExtensionEasyBlock):
         env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
         # Users or sites may require using a virtualenv for user installations
-        # We need to disable this to be able to install into the modules
+        # We need to disable this to be able to install into the module
         env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
         # Don't let pip connect to PYPI to check for a new version
         env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
@@ -974,6 +974,7 @@ class PythonPackage(ExtensionEasyBlock):
         # required here to ensure that it is defined for stand-alone installations,
         # because the environment is reset to the initial environment right before loading the module
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false', verbose=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """
@@ -997,6 +998,7 @@ class PythonPackage(ExtensionEasyBlock):
         # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
         # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false', verbose=False)
 
         if self.cfg.get('download_dep_fail', True):
             self.log.info("Detection of downloaded depdenencies enabled, checking output of installation command...")

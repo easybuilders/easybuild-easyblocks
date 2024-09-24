@@ -159,6 +159,8 @@ class PythonBundle(Bundle):
         # Required here to ensure that it is defined for sanity check commands of the bundle
         # because the environment is reset to the initial environment right before loading the module
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        # Set (again) in case the module changes it
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false', verbose=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
