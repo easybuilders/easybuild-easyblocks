@@ -367,9 +367,7 @@ class EB_CP2K(EasyBlock):
         if not mpi2:
             raise EasyBuildError("CP2K needs MPI-2, no known MPI-2 supporting library loaded?")
 
-        cppflags = os.getenv('CPPFLAGS')
         ldflags = os.getenv('LDFLAGS')
-        cflags = os.getenv('CFLAGS')
         fflags = os.getenv('FFLAGS')
         fflags_lowopt = re.sub('-O[0-9]', '-O1', fflags)
 
