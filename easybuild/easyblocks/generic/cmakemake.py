@@ -284,6 +284,10 @@ class CMakeMake(ConfigureMake):
         # disable CMake user package repository
         options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
 
+        # ensure CMake uses PATH to determine python without prioritizing a virtualenv
+        # necessary to pick up on the correct python version when `eb` is run from a virtualenv
+        options['Python3_FIND_VIRTUALENV'] = 'STANDARD'
+
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
             if boost_root:
