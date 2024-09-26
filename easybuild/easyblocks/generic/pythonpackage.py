@@ -42,7 +42,7 @@ from distutils.sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
-from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES, set_py_env_vars
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
@@ -189,8 +189,8 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
         # Python 3.12 removed distutils but has a core sysconfig module which is similar
         pathname = 'platlib' if plat_specific else 'purelib'
-        vars = {'platbase': prefix, 'base': prefix}
-        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars)
+        vars_param = {'platbase': prefix, 'base': prefix}
+        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars_param)
     else:
         args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
         pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
@@ -438,15 +438,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.use_setup_py = False
         self.determine_install_command()
 
-        # avoid that pip (ab)uses $HOME/.cache/pip
-        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-        env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
-        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
-        # Users or sites may require using a virtualenv for user installations
-        # We need to disable this to be able to install into the module
-        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
-        # Don't let pip connect to PYPI to check for a new version
-        env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
+        set_py_env_vars(self.log)
 
     def determine_install_command(self):
         """
@@ -734,9 +726,7 @@ class PythonPackage(ExtensionEasyBlock):
     def configure_step(self):
         """Configure Python package build/install."""
 
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        set_py_env_vars(self.log)
 
         if self.python_cmd is None:
             self.prepare_python()
@@ -969,17 +959,14 @@ class PythonPackage(ExtensionEasyBlock):
                         step_method(self)()
 
     def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file for this software.
+
+        Required here to ensure the variables are also defined for stand-alone installations,
+        because the environment is reset to the initial environment right before loading the module.
         """
-        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
 
         super(PythonPackage, self).load_module(*args, **kwargs)
-
-        # don't add user site directory to sys.path (equivalent to python -s),
-        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
-        # required here to ensure that it is defined for stand-alone installations,
-        # because the environment is reset to the initial environment right before loading the module
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false', verbose=False)
+        set_py_env_vars(self.log)
 
     def sanity_check_step(self, *args, **kwargs):
         """
@@ -996,14 +983,9 @@ class PythonPackage(ExtensionEasyBlock):
             extra_modules = kwargs.get('extra_modules', None)
             self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
 
-        # don't add user site directory to sys.path (equivalent to python -s)
-        # see https://www.python.org/dev/peps/pep-0370/;
-        # must be set here to ensure that it is defined when running sanity check for extensions,
-        # since load_module is not called for every extension,
-        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
+        # Must be called here since load_module is not called for every extension,
         # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false', verbose=False)
+        set_py_env_vars(self.log)
 
         if self.cfg.get('download_dep_fail', False):
             self.log.info("Detection of downloaded dependencies enabled, checking output of installation command...")
