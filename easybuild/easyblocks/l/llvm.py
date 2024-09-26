@@ -746,7 +746,10 @@ class EB_LLVM(CMakeMake):
             shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
 
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
-            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
+            try:
+                shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
+            except FileExistsError:
+                pass
 
         if LooseVersion(self.version) >= LooseVersion('19'):
             bin_dir = os.path.join(self.installdir, 'bin')
