@@ -207,6 +207,15 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
                              cmd, prefix, out, ec)
 
     pylibdir = txt[len(prefix):]
+
+    # Ubuntu 24.04: the pylibdir has a leading local/, which causes issues later
+    # e.g. when symlinking <installdir>/local/* to <installdir>/*
+    # we can safely strip this to get a working installation
+    local = 'local/'
+    if pylibdir.startswith(local):
+        log.info("Removing leading /local from determined pylibdir: %s" % pylibdir)
+        pylibdir = pylibdir[len(local):]
+
     log.debug("Determined pylibdir using '%s': %s", cmd, pylibdir)
     return pylibdir
 
