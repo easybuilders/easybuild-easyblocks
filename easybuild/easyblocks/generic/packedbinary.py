@@ -33,6 +33,7 @@ import shutil
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.run import run_cmd
 
 
 class PackedBinary(Binary, EasyBlock):
@@ -46,6 +47,12 @@ class PackedBinary(Binary, EasyBlock):
 
     def install_step(self):
         """Copy all unpacked source directories to install directory, one-by-one."""
+        cmd = self.cfg['preinstallopts']
+        if cmd:
+            self.log.info("Running preinstallopts of %s using command '%s'..." % (self.name, cmd))
+            run_cmd(cmd, log_all=True, simple=True)
+            self.cfg['preinstallopts'] = None
+
         try:
             os.chdir(self.builddir)
             for src in os.listdir(self.builddir):
