@@ -121,7 +121,7 @@ class MesonNinja(EasyBlock):
         build_dir = self.cfg.get('build_dir') or self.start_dir
 
         cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s --buildtype %(buildtype)s %(configopts)s "
-               "--optimization %(optimization)s --debug %(debug)s %(source_dir)s") % {
+               "--optimization %(optimization)s %(debug)s %(source_dir)s") % {
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
@@ -129,7 +129,7 @@ class MesonNinja(EasyBlock):
             'source_dir': build_dir,
             'buildtype': self.build_type,
             'optimization': self.optimization,
-            'debug': self.toolchain.options.get('debug', False),
+            'debug': '--debug' if self.toolchain.options.get('debug', False) else '',
         }
         res = run_shell_cmd(cmd)
         return res.output
