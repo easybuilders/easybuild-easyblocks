@@ -128,7 +128,7 @@ class MesonNinja(EasyBlock):
             'preconfigopts': self.cfg['preconfigopts'],
             'source_dir': build_dir,
             'buildtype': self.build_type(),
-            'optimization': self.optimizatoin(),
+            'optimization': self.optimization(),
             'debug': self.toolchain.options.get('debug', False),
         }
         res = run_shell_cmd(cmd)
