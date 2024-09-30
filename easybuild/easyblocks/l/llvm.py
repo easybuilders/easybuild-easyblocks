@@ -194,6 +194,8 @@ class EB_LLVM(CMakeMake):
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
+            'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
+            'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'debug_tests': [True, "Enable verbose output for tests", CUSTOM],
         })
 
@@ -404,7 +406,14 @@ class EB_LLVM(CMakeMake):
         lit_args = ['-j %s' % parallel]
         if self.cfg['debug_tests']:
             lit_args += ['-v']
+        timeout_single = self.cfg['test_suite_timeout_single']
+        if timeout_single:
+            lit_args += ['--timeout', str(timeout_single)]
+        timeout_total = self.cfg['test_suite_timeout_total']
+        if timeout_total:
+            lit_args += ['--max-time', str(timeout_total)]
         self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
+
         if self.cfg['usepolly']:
             self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
         if not self.cfg['skip_all_tests']:
@@ -693,6 +702,15 @@ class EB_LLVM(CMakeMake):
                 num_failed = 0
         else:
             num_failed = int(mch.group(1))
+
+        if num_failed is not None:
+            num_timed_out = 0
+            rgx_timed_out = re.compile(r'^ +Timed Out +: +([0-9]+)', flags=re.MULTILINE)
+            mch = rgx_timed_out.search(out)
+            if mch is not None:
+                num_timed_out = int(mch.group(1))
+                self.log.info("Tests timed out: %s", num_timed_out)
+            num_failed += num_timed_out
 
         return num_failed
 
