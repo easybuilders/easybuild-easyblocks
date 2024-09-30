@@ -147,11 +147,16 @@ class PythonBundle(Bundle):
         txt = super(Bundle, self).make_module_extra(*args, **kwargs)
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
-        # if this Python package was installed for multiple Python versions
-        # or if we prefer it
+        # if this Python package was installed for multiple Python versions, or if we prefer it
+        use_ebpythonprefixes = False
         runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
-        use_ebpythonprefixes = 'Python' in runtime_deps and \
-            build_option('prefer_python_search_path') == EBPYTHONPREFIXES and not self.cfg['force_pythonpath']
+
+        if 'Python' in runtime_deps:
+            self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
+            if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
+                self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
+                use_ebpythonprefixes = True
+
         if self.multi_python or use_ebpythonprefixes:
             path = ''  # EBPYTHONPREFIXES are relative to the install dir
             if path not in self.module_generator.added_paths_per_key[EBPYTHONPREFIXES]:
