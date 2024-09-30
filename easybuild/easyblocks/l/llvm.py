@@ -37,7 +37,6 @@ import contextlib
 import glob
 import os
 import re
-import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
@@ -46,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
-                                       mkdir, symlink, which)
+                                       copy_dir, mkdir, symlink, which)
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
@@ -124,7 +123,7 @@ disable_werror = {
 
 general_opts = {
     # If EB is launched from a venv, avoid giving priority to the venv's python
-    'Python3_FIND_VIRTUALENV': 'STANDARD',
+    # 'Python3_FIND_VIRTUALENV': 'STANDARD',
     'LLVM_INSTALL_UTILS': 'ON',
     'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
@@ -644,6 +643,7 @@ class EB_LLVM(CMakeMake):
             print_msg("Building stage 1/1")
         change_dir(self.llvm_obj_dir_stage1)
         super(EB_LLVM, self).build_step(verbose, path)
+        # import shutil
         # change_dir(self.builddir)
         # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
         # shutil.rmtree('llvm.obj.1', ignore_errors=True)
@@ -743,13 +743,10 @@ class EB_LLVM(CMakeMake):
         if self.cfg['python_bindings']:
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "clang", "bindings", "python")
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
-            shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
+            copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
             python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
-            try:
-                shutil.copytree(python_bindings_source_dir, python_bindins_target_dir)
-            except FileExistsError:
-                pass
+            copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
         if LooseVersion(self.version) >= LooseVersion('19'):
             bin_dir = os.path.join(self.installdir, 'bin')
