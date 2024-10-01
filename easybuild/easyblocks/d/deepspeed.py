@@ -28,6 +28,7 @@ EasyBuild support for building and installing DeepSpeed, implemented as an easyb
 author: Viktor Rehnberg (Chalmers University of Technology)
 """
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 import easybuild.tools.environment as env
@@ -43,6 +44,9 @@ class EB_DeepSpeed(PythonPackage):
         extra_vars['use_pip'][0] = True
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
+
+        # Add DeepSpeed specific vars
+        extra_vars['ds_build_opts_to_skip'] = [[], "For <val> in list will set DS_BUILD_<val>=0 (default: [])", CUSTOM]
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -81,10 +85,21 @@ class EB_DeepSpeed(PythonPackage):
         # > DeepSpeed will only install any ops that are compatible with your machine
         env.setvar('DS_BUILD_OPTS', '1')
 
-        # These have bothersome dependencies
-        env.setvar('DS_BUILD_SPARSE_ATTN', '0')  # requires PyTorch<2.0, triton==1.0.0
-        env.setvar('DS_BUILD_EVOFORMER_ATTN', '0')  # requires PyTorch<2.0, triton==1.0.0
-        env.setvar('DS_BUILD_CUTLASS_OPS', '0')  # requires dskernels
-        env.setvar('DS_BUILD_RAGGED_DEVICE_OPS', '0')  # requires dskernels
+        # Some may be problematic for different reasons, these are specified in the easyconfig
+        for opt in self.cfg['ds_build_opts_to_skip']:
+            env.setvar('DS_BUILD_{}'.format(opt), '0')
 
         super().configure_step()
+
+    def sanity_check_step(self):
+        '''Custom sanity check for DeepSpeed.'''
+        custom_paths = {
+            'files': ['bin/deepspeed'],
+            'dirs': [],
+        }
+        custom_commands = [
+            'deepspeed --help',
+            'python -m deepspeed.env_report',
+        ]
+        
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
