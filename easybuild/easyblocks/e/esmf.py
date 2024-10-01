@@ -148,7 +148,7 @@ class EB_ESMF(ConfigureMake):
             run_shell_cmd(cmd)
 
     def make_module_extra(self):
-        """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
+        """Set $ESMFMKFILE environment variable"""
         txt = super(EB_ESMF, self).make_module_extra()
 
         # set environment variable ESMFMKFILE
