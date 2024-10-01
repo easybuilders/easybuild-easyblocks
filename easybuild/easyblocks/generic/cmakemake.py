@@ -289,10 +289,10 @@ class CMakeMake(ConfigureMake):
         if python_root:
             python_version = LooseVersion(get_software_version('Python'))
             python_exe = os.path.join(python_root, 'bin', 'python')
-            options['Python_EXECUTABLE'] = python_exe
-            # This is needed if someone is still using `find_package(PythonInterp ...)` in their CMakeLists.txt
+            # This is required for (deprecated) `find_package(PythonInterp ...)`
             options['PYTHON_EXECUTABLE'] = python_exe
             # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
+            options['Python_EXECUTABLE'] = python_exe
             if python_version >= "3":
                 options['Python3_EXECUTABLE'] = python_exe
             else:
