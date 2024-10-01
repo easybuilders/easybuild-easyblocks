@@ -56,6 +56,8 @@ class MesonNinja(EasyBlock):
             'build_type': [None, "Build type for meson, e.g. release."
                                  "Defaults to 'release', 'debugoptimized' or 'debug' depending on "
                                  "toolchainopts[debug,noopt]", CUSTOM],
+            'ndebug': [True, "Sets -Db_ndebug which in turn defines NDEBUG for C/C++ builds."
+                             "This disabled costly asserts in code, typical for production.", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
@@ -69,9 +71,9 @@ class MesonNinja(EasyBlock):
         # While we do set optimization and debug flag separately, build scripts may be adding additional
         # defines and flags based on the build_type as well so we pick the closest match.
         if build_type is None:
-            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+            if self.toolchain.options.get('noopt', False):  # also implies debug but is the closest match
                 build_type = 'debug'
-            elif self.toolchain.options.get('debug', None):
+            elif self.toolchain.options.get('debug', False):
                 build_type = 'debugoptimized'
             else:
                 build_type = 'release'
@@ -121,15 +123,16 @@ class MesonNinja(EasyBlock):
         build_dir = self.cfg.get('build_dir') or self.start_dir
 
         cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s --buildtype %(buildtype)s %(configopts)s "
-               "--optimization %(optimization)s %(debug)s %(source_dir)s") % {
+               "--optimization %(optimization)s %(debug)s -Db_ndebug=%(ndebug)s %(source_dir)s") % {
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
-            'source_dir': build_dir,
             'buildtype': self.build_type,
             'optimization': self.optimization,
             'debug': '--debug' if self.toolchain.options.get('debug', False) else '',
+            'ndebug': str(self.cfg.get('ndebug')).lower(),
+            'source_dir': build_dir,
         }
         res = run_shell_cmd(cmd)
         return res.output
@@ -144,7 +147,7 @@ class MesonNinja(EasyBlock):
         if self.cfg['parallel']:
             parallel = "-j %s" % self.cfg['parallel']
 
-        cmd = "%(prebuildopts)s %(build_cmd)s %(parallel)s %(buildopts)s" % {
+        cmd = "%(prebuildopts)s %(build_cmd)s -v %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
             'build_cmd': build_cmd,
             'parallel': parallel,
