@@ -354,8 +354,9 @@ class EB_GROMACS(CMakeMake):
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
 
-            # disable GUI tools
-            self.cfg.update('configopts', "-DGMX_X11=OFF")
+            if gromacs_version < '2023':
+                # disable GUI tools, removed in v2023
+                self.cfg.update('configopts', "-DGMX_X11=OFF")
 
             # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
             # it does not make sense for Cray, because OPTARCH is defined by the Cray Toolchain
