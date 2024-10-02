@@ -101,5 +101,5 @@ class EB_DeepSpeed(PythonPackage):
             'deepspeed --help',
             'python -m deepspeed.env_report',
         ]
-        
+
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
