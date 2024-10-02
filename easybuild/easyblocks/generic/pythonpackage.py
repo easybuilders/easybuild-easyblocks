@@ -42,13 +42,13 @@ from sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
-from easybuild.easyblocks.python import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.config import build_option
+from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
@@ -1162,15 +1162,27 @@ class PythonPackage(ExtensionEasyBlock):
         txt = ''
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
-        # if this Python package was installed for multiple Python versions
-        if self.multi_python:
-            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+        # if this Python package was installed for multiple Python versions, or if we prefer it;
+        # note: although EasyBuild framework also has logic for this in EasyBlock.make_module_extra,
+        # we retain full control here, since the logic is slightly different
+        use_ebpythonprefixes = False
+        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+
+        if 'Python' in runtime_deps:
+            self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
+            if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
+                self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
+                use_ebpythonprefixes = True
+
+        if self.multi_python or use_ebpythonprefixes:
+            path = ''  # EBPYTHONPREFIXES are relative to the install dir
+            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, path)
         elif self.require_python:
             self.set_pylibdirs()
             for path in self.all_pylibdirs:
                 fullpath = os.path.join(self.installdir, path)
                 # only extend $PYTHONPATH with existing, non-empty directories
                 if os.path.exists(fullpath) and os.listdir(fullpath):
-                    txt += self.module_generator.prepend_paths('PYTHONPATH', path)
+                    txt += self.module_generator.prepend_paths(PYTHONPATH, path)
 
         return super(PythonPackage, self).make_module_extra(txt, *args, **kwargs)

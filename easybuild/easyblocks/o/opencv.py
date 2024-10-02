@@ -248,7 +248,4 @@ class EB_OpenCV(CMakeMake):
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
 
-        if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
-
         return txt
