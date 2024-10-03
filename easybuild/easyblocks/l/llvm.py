@@ -123,7 +123,7 @@ disable_werror = {
 
 general_opts = {
     # If EB is launched from a venv, avoid giving priority to the venv's python
-    # 'Python3_FIND_VIRTUALENV': 'STANDARD',
+    'Python3_FIND_VIRTUALENV': 'STANDARD',
     'LLVM_INSTALL_UTILS': 'ON',
     'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
