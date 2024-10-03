@@ -217,6 +217,7 @@ class EB_LLVM(CMakeMake):
             self.final_projects = ['llvm']
         self.final_runtimes = []
         self.gcc_prefix = None
+        self.runtimes_cmake_args = []
 
         # Shared
         self.build_shared = self.cfg.get('build_shared_libs', False)
@@ -377,6 +378,9 @@ class EB_LLVM(CMakeMake):
 
         self._cmakeopts.update(general_opts)
 
+        if self.runtimes_cmake_args:
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(self.runtimes_cmake_args)
+
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
@@ -448,9 +452,11 @@ class EB_LLVM(CMakeMake):
             else:
                 # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
                 self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
-                general_opts['RUNTIMES_CMAKE_ARGS'] = (
-                    '"-DCMAKE_C_FLAGS=--gcc-install-dir=%s;-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s"'
-                    ) % (gcc_prefix, gcc_prefix)
+                self.runtimes_cmake_args += [
+                    '-DCMAKE_C_FLAGS=--gcc-install-dir=%s' % gcc_prefix,
+                    '-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s' % gcc_prefix
+                ]
+
             self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", gcc_prefix)
 
@@ -499,6 +505,16 @@ class EB_LLVM(CMakeMake):
             else:
                 general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
                 # general_opts['LIBXML2_ROOT'] = xml2_root
+
+        python_root = get_software_root('Python')
+        if python_root:
+            python_bin = os.path.join(python_root, 'bin', 'python')
+            general_opts['Python_EXECUTABLE'] = python_bin
+            general_opts['Python3_EXECUTABLE'] = python_bin
+            self.runtimes_cmake_args += [
+                '-DPython_EXECUTABLE=%s' % python_bin,
+                '-DPython3_EXECUTABLE=%s' % python_bin
+            ]
 
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
