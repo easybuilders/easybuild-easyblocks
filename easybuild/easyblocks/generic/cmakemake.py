@@ -336,6 +336,22 @@ class CMakeMake(ConfigureMake):
 
         return out
 
+    def set_cmake_env_vars_python(self):
+        """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
+        Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
+        build and no option is provided to set custom CMake variables.
+        """
+        if LooseVersion(self.cmake_version) < '3.12':
+            raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
+        python_root = get_software_root('Python')
+        if python_root:
+            python_version = LooseVersion(get_software_version('Python'))
+            setvar('Python_ROOT_DIR', python_root)
+            if python_version >= "3":
+                setvar('Python3_ROOT_DIR', python_root)
+            else:
+                setvar('Python2_ROOT_DIR', python_root)
+
     def test_step(self):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
