@@ -479,6 +479,11 @@ class EB_LLVM(CMakeMake):
             if not self.cfg['skip_all_tests']:
                 raise EasyBuildError("Can't find `lit`, needed for running tests-suite")
 
+        if not self.cfg['skip_all_tests'] and (self.cfg['test_suite_timeout_single'] or self.cfg['test_suite_timeout_total']):
+            psutil_root = get_software_root('psutil')
+            if not psutil_root:
+                raise EasyBuildError("Can't find `psutil`, needed for running tests-suite with timeout")
+
         # Parallel build
         self.make_parallel_opts = ""
         if self.cfg['parallel']:
