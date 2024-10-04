@@ -316,6 +316,8 @@ class CMakeMake(ConfigureMake):
                 options['BOOST_ROOT'] = boost_root
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
 
+        self.cmake_options = options
+
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             self.prepend_config_opts(options)
             command = ' '.join([
