@@ -65,17 +65,25 @@ class Conda(Binary):
                 get_software_root('anaconda3') or get_software_root('miniconda3') or
                 get_software_root('miniforge3')):
             conda_cmd = 'conda'
-        elif get_software_root('mamba'):
-            conda_cmd = 'mamba'
         elif get_software_root('micromamba'):
             conda_cmd = 'micromamba'
+        elif get_software_root('mamba'):
+            conda_cmd = 'mamba'
         else:
-            raise EasyBuildError("No conda/mamba/micromamba available.")
+            raise EasyBuildError("No conda/micromamba/mamba available.")
 
-        # initialize conda environment
+        # initialize conda environment, except for micromamba
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        force = '--force'
+        if conda_cmd == 'micromamba':
+            force = ''
+            try:
+                os.rmdir(self.installdir)
+            except BaseException:
+                raise EasyBuildError("Could not remove %s as required for Micromamba" % self.installdir)
+        else:
+            cmd = "%s config --add create_default_packages setuptools" % conda_cmd
+            run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
 
@@ -85,8 +93,8 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         env_spec, self.installdir)
+            cmd = "%s %s env create %s %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                    force, env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
@@ -99,8 +107,8 @@ class Conda(Binary):
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        self.installdir, install_args)
+            cmd = "%s %s create %s -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                   force, self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
 
         # clean up
