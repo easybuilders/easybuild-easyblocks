@@ -45,7 +45,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -63,7 +63,8 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        cmd_res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
+        out = cmd_res.output
         res = regex.search(out)
         if res:
             cmake_version = res.group('version')
@@ -101,10 +102,12 @@ class CMakeMake(ConfigureMake):
             'build_shared_libs': [None, "Build shared library (instead of static library)"
                                         "None can be used to add no flag (usually results in static library)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release."
-                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
+                                 "Defaults to 'Release', 'RelWithDebInfo' or 'Debug' depending on "
+                                 "toolchainopts[debug,noopt]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
+            'install_libdir': ['lib', "Subdirectory to use for library installation files", CUSTOM],
             'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
@@ -146,7 +149,12 @@ class CMakeMake(ConfigureMake):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+                build_type = 'Debug'
+            elif self.toolchain.options.get('debug', None):
+                build_type = 'RelWithDebInfo'
+            else:
+                build_type = 'Release'
         return build_type
 
     def prepend_config_opts(self, config_opts):
@@ -200,12 +208,24 @@ class CMakeMake(ConfigureMake):
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
-                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+                self.log.info("CMAKE_BUILD_TYPE is set in configopts. Ignoring 'build_type' easyconfig parameter.")
         else:
             options['CMAKE_BUILD_TYPE'] = self.build_type
 
+        # Set installation directory for libraries
+        # any CMAKE_INSTALL_DIR[:PATH] setting defined in 'configopts' has precedence over 'install_libdir'
+        if self.cfg['install_libdir'] is not None:
+            cmake_install_dir_pattern = re.compile(r"-DCMAKE_INSTALL_LIBDIR(:PATH)?=[^\s]")
+            if cmake_install_dir_pattern.search(self.cfg['configopts']):
+                self.log.info(
+                    "CMAKE_INSTALL_LIBDIR is set in configopts. Ignoring 'install_libdir' easyconfig parameter."
+                )
+            else:
+                # set CMAKE_INSTALL_LIBDIR including its type to PATH, otherwise CMake can silently ignore it
+                options['CMAKE_INSTALL_LIBDIR:PATH'] = self.cfg['install_libdir']
+
         # Add -fPIC flag if necessary
-        if self.toolchain.options['pic']:
+        if self.toolchain.options.get('pic', False):
             options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         if self.cfg['generator']:
@@ -231,7 +251,7 @@ class CMakeMake(ConfigureMake):
             # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
             # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
             if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
-                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+                print_warning('Ignoring BUILD_SHARED_LIBS setting in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         # If the cache does not exist CMake reads the environment variables
@@ -316,9 +336,9 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        res = run_shell_cmd(command)
 
-        return out
+        return res.output
 
     def test_step(self):
         """CMake specific test setup"""
