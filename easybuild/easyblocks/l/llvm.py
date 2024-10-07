@@ -1006,7 +1006,9 @@ class EB_LLVM(CMakeMake):
             'dirs': check_dirs,
         }
 
-        self._sanity_check_gcc_prefix(gcc_prefix_compilers)
+        # Required for `clang -v` to work if linked to LLVM runtimes
+        with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
+            self._sanity_check_gcc_prefix(gcc_prefix_compilers)
 
         return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
