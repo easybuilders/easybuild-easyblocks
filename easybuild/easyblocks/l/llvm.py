@@ -270,6 +270,11 @@ class EB_LLVM(CMakeMake):
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+            # LLVM 19 added a new runtime target for explicit offloading
+            # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
+                self.final_runtimes.append('offload')
         if self.cfg['build_openmp_tools']:
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
@@ -899,7 +904,10 @@ class EB_LLVM(CMakeMake):
             ]
             check_dirs += ['include/clang-tidy']
         if 'flang' in self.final_projects:
-            check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
+            if LooseVersion(self.version) < LooseVersion('19'):
+                check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
+            else:
+                check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
                 'libFortranRuntime.a', 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
                 'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranCommon.a', 'libFortranDecimal.a',
@@ -965,14 +973,18 @@ class EB_LLVM(CMakeMake):
             check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
             check_lib_files += ['libbolt_rt_instr.a']
         if 'openmp' in self.final_projects:
-            check_lib_files += ['libomp.so', 'libompd.so']
-            check_lib_files += ['libomptarget.so', 'libomptarget.rtl.%s.so' % arch]
-            if 'NVPTX' in self.cfg['build_targets']:
-                check_lib_files += ['libomptarget.rtl.cuda.so']
-                check_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
-            if 'AMDGPU' in self.cfg['build_targets']:
-                check_lib_files += ['libomptarget.rtl.amdgpu.so']
-                check_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+            if LooseVersion(self.version) < LooseVersion('19'):
+                check_lib_files += ['libomp.so', 'libompd.so']
+            else:
+                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libomp.so', 'libompd.so']]
+            if LooseVersion(self.version) < LooseVersion('19') or 'offload' in self.final_projects:
+                check_lib_files += ['libomptarget.so', 'libomptarget.rtl.%s.so' % arch]
+                if 'NVPTX' in self.cfg['build_targets']:
+                    check_lib_files += ['libomptarget.rtl.cuda.so']
+                    check_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                if 'AMDGPU' in self.cfg['build_targets']:
+                    check_lib_files += ['libomptarget.rtl.amdgpu.so']
+                    check_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
         if self.cfg['python_bindings']:
