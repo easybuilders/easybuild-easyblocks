@@ -74,6 +74,9 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances for components
         self.comp_cfgs = []
 
+        # list of EasyBlocks for components
+        self.comp_blocks = []
+
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
 
@@ -199,6 +202,7 @@ class Bundle(EasyBlock):
                 self.cfg.update('patches', comp_cfg['patches'])
 
             self.comp_cfgs.append(comp_cfg)
+            self.comp_blocks.append(comp_cfg.easyblock(comp_cfg))
 
         self.cfg.update('checksums', checksums_patches)
 
@@ -247,13 +251,11 @@ class Bundle(EasyBlock):
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
-        for idx, cfg in enumerate(self.comp_cfgs):
+        for idx, (cfg, comp) in enumerate(zip(self.comp_cfgs, self.comp_blocks)):
 
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
-
-            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
@@ -323,6 +325,41 @@ class Bundle(EasyBlock):
 
             # close log for this component
             comp.close_log()
+
+    def make_module_req_guess(self):
+        """
+        Set module requirements from all comppnents, e.g. $PATH, etc.
+        During the install step, we only set these requirements temporarily.
+        Later on when building the module, those paths are not considered.
+        Therefore, iterate through all the components again and gather
+        the requirements.
+
+        Do not remove duplicates or check for existance of folders,
+        as this is done in the generic EasyBlock while creating
+        the modulefile already.
+        """
+        # Start with the paths from the generic EasyBlock.
+        # If not added here, they might be missing entirely and fail sanity checks.
+        final_reqs = super(Bundle, self).make_module_req_guess()
+
+        for cfg, comp in zip(self.comp_cfgs, self.comp_blocks):
+            self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
+            reqs = comp.make_module_req_guess()
+
+            if not reqs or not isinstance(reqs, dict):
+                self.log.warning("Expected requirements to be a dict but is not. Therefore, this component is skipped.")
+                continue
+
+            for key, value in sorted(reqs.items()):
+                if isinstance(reqs, string_type):
+                    self.log.warning("Hoisting string value %s into a list before iterating over it", value)
+                    value = [value]
+                if key not in final_reqs:
+                    final_reqs[key] = value
+                else:
+                    final_reqs[key] += value
+
+        return final_reqs
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
