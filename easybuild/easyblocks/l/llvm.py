@@ -458,7 +458,7 @@ class EB_LLVM(CMakeMake):
                 ]
 
             self.gcc_prefix = gcc_prefix
-        self.log.debug("Using %s as the gcc install location", gcc_prefix)
+        self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
 
     def configure_step(self):
         """
