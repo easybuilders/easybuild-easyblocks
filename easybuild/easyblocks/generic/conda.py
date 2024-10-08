@@ -30,13 +30,15 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 """
 
 import os
+import yaml
+
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
-
+import easybuild.tools.systemtools as st
 
 class Conda(Binary):
     """Support for installing software using 'conda'."""
@@ -50,6 +52,8 @@ class Conda(Binary):
             'environment_file': [None, "Conda environment.yml file to use with 'conda env create'", CUSTOM],
             'remote_environment': [None, "Remote conda environment to use with 'conda env create'", CUSTOM],
             'requirements': [None, "Requirements specification to pass to 'conda install'", CUSTOM],
+            'use_conda_lock': [False, "Whether to use conda-lock for reproducibility", CUSTOM],
+            'provided_lock_file_name': [None, "Provided lock file name", CUSTOM],
         })
         return extra_vars
 
@@ -62,8 +66,7 @@ class Conda(Binary):
         """Install software using 'conda env create' or 'conda create' & 'conda install'
         (or the 'mamba', etc., equivalent)."""
         if (get_software_root('anaconda2') or get_software_root('miniconda2') or
-                get_software_root('anaconda3') or get_software_root('miniconda3') or
-                get_software_root('miniforge3')):
+                get_software_root('anaconda3') or get_software_root('miniconda3') or get_software_root('miniforge3')):
             conda_cmd = 'conda'
         elif get_software_root('mamba'):
             conda_cmd = 'mamba'
@@ -71,13 +74,120 @@ class Conda(Binary):
             conda_cmd = 'micromamba'
         else:
             raise EasyBuildError("No conda/mamba/micromamba available.")
-
+        
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = "%s config --add create_default_packages setuptools" % conda_cmd
         run_cmd(cmd, log_all=True, simple=True)
 
-        if self.cfg['environment_file'] or self.cfg['remote_environment']:
+        def get_system_platform_name():
+            system = st.get_system_info()['os_type'].lower()
+            machine = st.get_system_info()['cpu_arch'].lower()
+
+            platforms = {
+                "linux": {
+                    "x86_64": "linux-64",
+                    "aarch64": "linux-aarch64",
+                    "ppc64le": "linux-ppc64le",
+                    "s390x": "linux-s390x"
+                },
+                "darwin": {
+                    "x86_64": "osx-64",
+                    "arm64": "osx-arm64"
+                },
+                "windows": {
+                    "x86_64": "win-64",
+                    "amd64": "win-64",
+                    "arm64": "win-arm64",
+                    "x86": "win-32"
+                },
+                "zos": {
+                    "z": "zos-z"
+                }
+            }
+
+            return platforms.get(system, {}).get(machine)
+        
+        def check_lock_file_type(lock_file):
+            _, ext = os.path.splitext(lock_file)
+            if ext == ".lock":
+                return "single"
+            elif ext in [".yml", ".yaml"]:
+                return "multi"
+            else:
+                raise EasyBuildError("The provided file is not a lock file")
+
+        def verify_lock_file_platform(lock_file, platform_name):
+
+            file_type = check_lock_file_type(lock_file)
+
+            if file_type == "multi":
+            # for a multi-platform lock file like conda-lock.yml
+                with open(lock_file, 'r') as f:
+                    lock_data = yaml.safe_load(f)
+                    return platform_name in lock_data.get('metadata', []).get('platforms',[])
+            else:
+            # for a single-platform rendered lock file like conda-linux64.lock
+                with open(lock_file, 'r') as f:
+                    for line in f:
+                        if line.startswith("# platform:"):
+                            return line.split(":", 1)[1].strip() == platform_name
+
+
+        if self.cfg['use_conda_lock']:
+            lock_file =  self.cfg['provided_lock_file_name']        
+            platform_name = get_system_platform_name()
+
+            # the default name for rendered lock_file is 'conda-<platform>.lock'
+            platform_rendered_lock_file='conda-{}.lock'.format(platform_name)      
+
+            if not lock_file:
+                # install conda-lock
+                cmd = "%s install conda-lock" % conda_cmd
+                run_cmd(cmd, log_all=True, simple=True)
+
+                # ship environment file in installation
+                super(Binary, self).fetch_sources(sources=[self.cfg['environment_file']])
+                self.extract_step()
+
+                # generate lock file and render
+                cmd = "conda-lock -f %s -p %s && conda-lock render -p %s" % (
+                    self.cfg['environment_file'], platform_name, platform_name)
+                run_cmd(cmd, log_all=True, simple=True)
+
+            
+            else:
+
+                lock_file_type = check_lock_file_type(lock_file)
+
+                # ship lock_file in installation
+                super(Binary, self).fetch_sources(sources=[lock_file])
+                self.extract_step()
+                
+                # verify that a lock file for the current platform has been provided
+                if not verify_lock_file_platform(lock_file,platform_name):
+                    raise EasyBuildError("The provided lock file does not match this platform")
+
+
+                if lock_file_type == "multi":
+
+                    # install conda-lock
+                    cmd = "%s install conda-lock" % conda_cmd
+                    run_cmd(cmd, log_all=True, simple=True)
+                    
+                    # render
+                    cmd = "conda-lock render -p %s %s" % (platform_name, lock_file)
+                    run_cmd(cmd, log_all=True, simple=True)
+                else:
+
+                    platform_rendered_lock_file=lock_file                
+
+
+            # use lock_file to create environment
+            cmd = "%s %s create --file %s -p %s -y" % (self.cfg['preinstallopts'],conda_cmd, platform_rendered_lock_file, self.installdir)
+            run_cmd(cmd, log_all=True, simple=True)
+
+        elif self.cfg['environment_file'] or self.cfg['remote_environment']:
 
             if self.cfg['environment_file']:
                 env_spec = '-f ' + self.cfg['environment_file']
