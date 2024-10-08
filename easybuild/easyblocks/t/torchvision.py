@@ -111,7 +111,7 @@ class EB_torchvision(PythonPackage):
                 "    scores = torch.randn(1).to('cuda')",
                 "    print(torchvision.ops.nms(boxes, scores, 0.5))",
             ])
-            custom_commands.append('python -c "%s"' % python_code)
+            custom_commands.append('python -s -c "%s"' % python_code)
 
         if get_software_root('libjpeg-turbo'):
             # check if torchvision was built with libjpeg support
@@ -121,6 +121,6 @@ class EB_torchvision(PythonPackage):
                 "image_tensor = torch.zeros(1, 1, 1, dtype=torch.uint8)",
                 "print(torchvision.io.image.encode_jpeg(image_tensor))",
             ])
-            custom_commands.append('python -c "%s"' % python_code)
+            custom_commands.append('python -s -c "%s"' % python_code)
 
         return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

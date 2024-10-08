@@ -92,7 +92,7 @@ class EB_Gurobi(Tarball):
         ]
 
         if get_software_root('Python'):
-            custom_commands.append("python -c 'import gurobipy'")
+            custom_commands.append("python -s -c 'import gurobipy'")
 
         super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 

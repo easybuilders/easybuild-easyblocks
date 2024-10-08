@@ -57,5 +57,5 @@ class EB_cryptography(PythonPackage):
         if success:
             # Check module added in v0.7 leading to issue #9446 (see above)
             if LooseVersion(self.version) >= LooseVersion("0.7"):
-                run_cmd("python -c 'from cryptography.hazmat.bindings.openssl import binding'")
+                run_cmd("python -s -c 'from cryptography.hazmat.bindings.openssl import binding'")
         return success, fail_msg

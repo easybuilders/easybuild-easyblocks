@@ -118,10 +118,10 @@ class EB_numexpr(PythonPackage):
 
         # if Intel MKL is available, make sure VML is used
         if self.imkl_root:
-            custom_commands.append("python -c 'import numexpr; assert(numexpr.use_vml)'")
+            custom_commands.append("python -s -c 'import numexpr; assert(numexpr.use_vml)'")
 
             # for sufficiently recent versions of numexpr, also do a more extensive check for VML support
             if LooseVersion(self.version) >= LooseVersion('2.7.3'):
-                custom_commands.append("""python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
+                custom_commands.append("""python -s -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
 
         return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)

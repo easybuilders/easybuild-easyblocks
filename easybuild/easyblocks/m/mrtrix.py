@@ -120,6 +120,6 @@ class EB_MRtrix(EasyBlock):
 
         custom_commands = []
         if LooseVersion(self.version) >= LooseVersion('3.0'):
-            custom_commands.append("python -c 'import mrtrix3'")
+            custom_commands.append("python -s -c 'import mrtrix3'")
 
         super(EB_MRtrix, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -251,7 +251,7 @@ class EB_NEURON(CMakeMake):
             self.log.info("Skipping MPI testing of NEURON since MPI testing is disabled")
 
         if self.with_python:
-            cmd = "python -c 'import neuron; neuron.test()'"
+            cmd = "python -s -c 'import neuron; neuron.test()'"
             (out, ec) = run_cmd(cmd, simple=False, log_all=True, log_output=True)
 
         # cleanup
