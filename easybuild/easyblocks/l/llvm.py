@@ -977,7 +977,7 @@ class EB_LLVM(CMakeMake):
                 check_lib_files += ['libomp.so', 'libompd.so']
             else:
                 check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libomp.so', 'libompd.so']]
-            if LooseVersion(self.version) < LooseVersion('19') or 'offload' in self.final_projects:
+            if LooseVersion(self.version) < LooseVersion('19') or 'offload' in self.final_runtimes:
                 check_lib_files += ['libomptarget.so', 'libomptarget.rtl.%s.so' % arch]
                 if 'NVPTX' in self.cfg['build_targets']:
                     check_lib_files += ['libomptarget.rtl.cuda.so']
