@@ -110,13 +110,13 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 log.debug(f"Python command '{python_cmd}' not available through $PATH")
                 return False
 
+        pyver = det_python_version(python_cmd)
+
         if req_maj_ver is not None:
             if req_min_ver is None:
                 req_majmin_ver = '%s.0' % req_maj_ver
             else:
                 req_majmin_ver = '%s.%s' % (req_maj_ver, req_min_ver)
-
-            pyver = det_python_version(python_cmd)
 
             # (strict) check for major version
             maj_ver = pyver.split('.')[0]
@@ -134,8 +134,6 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 max_majmin_ver = '%s.0' % max_py_majver
             else:
                 max_majmin_ver = '%s.%s' % (max_py_majver, max_py_minver)
-
-            pyver = det_python_version(python_cmd)
 
             if LooseVersion(pyver) > LooseVersion(max_majmin_ver):
                 log.debug("Python version (%s) on the system is newer than the maximum supported "
@@ -172,6 +170,51 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                       f"(maj: {req_maj_ver}, min: {req_min_ver}), moving on")
 
     return res
+
+
+def find_python_cmd(log, req_py_majver, req_py_minver, max_py_majver, max_py_minver, required):
+    """Return an appropriate python command to use.
+
+    When python is a dependency use the full path to that.
+    Else use req_py_maj/minver (defaulting to the Python being used in this EasyBuild session) to select one.
+    If no (matching) python command is found and raise an Error or log a warning depending on the required argument.
+    """
+    python = None
+    python_root = get_software_root('Python')
+    # keep in mind that Python may be listed as an allowed system dependency,
+    # so just checking Python root is not sufficient
+    if python_root:
+        bin_python = os.path.join(python_root, 'bin', 'python')
+        if os.path.exists(bin_python) and os.path.samefile(which('python'), bin_python):
+            # if Python is listed as a (build) dependency, use 'python' command provided that way
+            python = bin_python
+            log.debug("Retaining 'python' command for Python dependency: " + python)
+
+    if python is None:
+        # if no Python version requirements are specified,
+        # use major/minor version of Python being used in this EasyBuild session
+        if req_py_majver is None:
+            req_py_majver = sys.version_info[0]
+        if req_py_minver is None:
+            req_py_minver = sys.version_info[1]
+        # if using system Python, go hunting for a 'python' command that satisfies the requirements
+        python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
+                                 max_py_majver=max_py_majver, max_py_minver=max_py_minver)
+
+    if python:
+        log.info("Python command being used: " + python)
+    elif required:
+        if all(v is None for v in (req_py_majver, req_py_minver, max_py_majver, max_py_minver)):
+            error_msg = "Failed to pick Python command to use"
+        else:
+            error_msg = (f"Failed to pick Python command that satisfies requirements in the easyconfig: "
+                         f"req_py_majver = {req_py_majver}, req_py_minver = {req_py_minver}")
+            if max_py_majver is not None:
+                error_msg += f"max_py_majver = {max_py_majver}, max_py_minver = {max_py_minver}"
+        raise EasyBuildError(error_msg)
+    else:
+        log.warning("No Python command found!")
+    return python
 
 
 def det_pylibdir(plat_specific=False, python_cmd=None):
@@ -503,55 +546,11 @@ class PythonPackage(ExtensionEasyBlock):
     def prepare_python(self):
         """Python-specific preparations."""
 
-        # pick 'python' command to use
-        python = None
-        python_root = get_software_root('Python')
-        # keep in mind that Python may be listed as an allowed system dependency,
-        # so just checking Python root is not sufficient
-        if python_root:
-            bin_python = os.path.join(python_root, 'bin', 'python')
-            if os.path.exists(bin_python) and os.path.samefile(which('python'), bin_python):
-                # if Python is listed as a (build) dependency, use 'python' command provided that way
-                python = os.path.join(python_root, 'bin', 'python')
-                self.log.debug("Retaining 'python' command for Python dependency: %s", python)
-
-        if python is None:
-            # if no Python version requirements are specified,
-            # use major/minor version of Python being used in this EasyBuild session
-            req_py_majver = self.cfg['req_py_majver']
-            if req_py_majver is None:
-                req_py_majver = sys.version_info[0]
-            req_py_minver = self.cfg['req_py_minver']
-            if req_py_minver is None:
-                req_py_minver = sys.version_info[1]
-
-            # Get the max_py_majver and max_py_minver from the config
-            max_py_majver = self.cfg['max_py_majver']
-            max_py_minver = self.cfg['max_py_minver']
-
-            # if using system Python, go hunting for a 'python' command that satisfies the requirements
-            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
-                                     max_py_majver=max_py_majver, max_py_minver=max_py_minver)
-
-            # Check if we have Python by now. If not, and if self.require_python, raise a sensible error
-            if python:
-                self.python_cmd = python
-                self.log.info("Python command being used: %s", self.python_cmd)
-            elif self.require_python:
-                if (req_py_majver is not None or req_py_minver is not None
-                        or max_py_majver is not None or max_py_minver is not None):
-                    raise EasyBuildError(
-                        "Failed to pick Python command that satisfies requirements in the easyconfig "
-                        "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
-                        req_py_majver, req_py_minver, max_py_majver, max_py_minver
-                    )
-                else:
-                    raise EasyBuildError("Failed to pick Python command to use")
-            else:
-                self.log.warning("No Python command found!")
-        else:
-            self.python_cmd = python
-            self.log.info("Python command being used: %s", self.python_cmd)
+        self.python_cmd = find_python_cmd(self.log,
+                                          self.cfg['req_py_majver'], self.cfg['req_py_minver'],
+                                          max_py_majver=self.cfg['max_py_majver'],
+                                          max_py_minver=self.cfg['max_py_minver'],
+                                          required=self.require_python)
 
         if self.python_cmd:
             # set Python lib directories
