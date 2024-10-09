@@ -194,8 +194,9 @@ def find_python_cmd(log, req_py_majver, req_py_minver, max_py_majver, max_py_min
         # if no Python version requirements are specified,
         # use major/minor version of Python being used in this EasyBuild session
         if req_py_majver is None:
+            if req_py_minver is not None:
+                raise EasyBuildError("'req_py_majver' must be specified when 'req_py_minver' is set!")
             req_py_majver = sys.version_info[0]
-        if req_py_minver is None:
             req_py_minver = sys.version_info[1]
         # if using system Python, go hunting for a 'python' command that satisfies the requirements
         python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
