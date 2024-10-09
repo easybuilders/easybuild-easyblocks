@@ -285,18 +285,7 @@ class CMakeMake(ConfigureMake):
         options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
 
         # ensure CMake uses EB python, not system or virtualenv python
-        python_root = get_software_root('Python')
-        if python_root:
-            python_version = LooseVersion(get_software_version('Python'))
-            python_exe = os.path.join(python_root, 'bin', 'python')
-            # This is required for (deprecated) `find_package(PythonInterp ...)`
-            options['PYTHON_EXECUTABLE'] = python_exe
-            # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
-            options['Python_EXECUTABLE'] = python_exe
-            if python_version >= "3":
-                options['Python3_EXECUTABLE'] = python_exe
-            else:
-                options['Python2_EXECUTABLE'] = python_exe
+        options.update(self._get_cmake_python_config())
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
@@ -336,7 +325,33 @@ class CMakeMake(ConfigureMake):
 
         return out
 
-    def set_cmake_env_vars_python(self):
+    def _get_cmake_python_config(self):
+        """Get the CMake configuration options for Python hints."""
+        options = {}
+        python_root = get_software_root('Python')
+        if python_root:
+            python_version = LooseVersion(get_software_version('Python'))
+            python_exe = os.path.join(python_root, 'bin', 'python')
+            # This is required for (deprecated) `find_package(PythonInterp ...)`
+            options['PYTHON_EXECUTABLE'] = python_exe
+            # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
+            options['Python_EXECUTABLE'] = python_exe
+            if python_version >= "3":
+                options['Python3_EXECUTABLE'] = python_exe
+            else:
+                options['Python2_EXECUTABLE'] = python_exe
+        return options
+
+    def get_cmake_python_config_dict(self):
+        """Get a dictionary with the CMake configuration options for Python hints."""
+        return self._get_cmake_python_config()
+
+    def get_cmake_python_config_str(self):
+        """Get a string with the CMake configuration options for Python hints."""
+        options = self._get_cmake_python_config()
+        return ' '.join(['-D%s=%s' % (key, value) for key, value in options.items()])
+
+    def set_cmake_python_env_hints(self):
         """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
         Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
         build and no option is provided to set custom CMake variables.
