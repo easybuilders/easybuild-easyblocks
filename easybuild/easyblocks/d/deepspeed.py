@@ -83,7 +83,7 @@ class EB_DeepSpeed(PythonPackage):
         # By default prebuild all opts with a few exceptions
         # http://www.deepspeed.ai/tutorials/advanced-install/#pre-install-deepspeed-ops
         # > DeepSpeed will only install any ops that are compatible with your machine
-        env.setvar('DS_BUILD_OPTS', '1')
+        env.setvar('DS_BUILD_OPS', '1')
 
         # Some may be problematic for different reasons, these are specified in the easyconfig
         for opt in self.cfg['ds_build_opts_to_skip']:
