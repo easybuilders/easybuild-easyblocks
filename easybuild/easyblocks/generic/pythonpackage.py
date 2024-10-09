@@ -110,7 +110,7 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 log.debug(f"Python command '{python_cmd}' not available through $PATH")
                 return False
 
-        pyver = det_python_version(python_cmd)
+        pyver = LooseVersion(det_python_version(python_cmd))
 
         if req_maj_ver is not None:
             if req_min_ver is None:
@@ -119,26 +119,28 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 req_majmin_ver = '%s.%s' % (req_maj_ver, req_min_ver)
 
             # (strict) check for major version
-            maj_ver = pyver.split('.')[0]
-            if maj_ver != str(req_maj_ver):
+            maj_ver = pyver.version[0]
+            if maj_ver != req_maj_ver:
                 log.debug(f"Major Python version does not match: {maj_ver} vs {req_maj_ver}")
                 return False
 
             # check for minimal minor version
-            if LooseVersion(pyver) < LooseVersion(req_majmin_ver):
+            if pyver < req_majmin_ver:
                 log.debug(f"Minimal requirement for minor Python version not satisfied: {pyver} vs {req_majmin_ver}")
                 return False
 
         if max_py_majver is not None:
             if max_py_minver is None:
-                max_majmin_ver = '%s.0' % max_py_majver
+                max_ver = int(max_py_majver)
+                tested_pyver = pyver.version[0]
             else:
-                max_majmin_ver = '%s.%s' % (max_py_majver, max_py_minver)
+                max_ver = LooseVersion('%s.%s' % (max_py_majver, max_py_minver))
+                # Make sure we test only until the minor version, because 3.9.3 > 3.9 but we want to allow this
+                tested_pyver = '.'.join(str(v) for v in pyver.version[:2])
 
-            if LooseVersion(pyver) > LooseVersion(max_majmin_ver):
-                log.debug("Python version (%s) on the system is newer than the maximum supported "
-                          "Python version specified in the easyconfig (%s)",
-                          pyver, max_majmin_ver)
+            if tested_pyver > max_ver:
+                log.debug(f"Python version ({pyver}) on the system is newer than the maximum supported "
+                          f"Python version specified in the easyconfig ({max_ver})")
                 return False
 
         # all check passed

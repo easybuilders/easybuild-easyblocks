@@ -233,12 +233,20 @@ class ModuleOnlyTest(TestCase):
         tmpdir = tempfile.mkdtemp()
         for cmd in ('python2', 'python2.6'):
             install_fake_command(cmd, "#!/bin/bash\n echo 2.6.4", tmpdir)
-        self.assertTrue(pick_python_cmd() is not None)
-        self.assertTrue(pick_python_cmd(3) is not None)
-        self.assertTrue(pick_python_cmd(3, 6) is not None)
-        self.assertTrue(pick_python_cmd(123, 456) is None)
-        self.assertTrue(pick_python_cmd(3, 6, 123, 456) is not None)
-        self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
+        self.assertIsNotNone(pick_python_cmd())
+        self.assertIsNotNone(pick_python_cmd(3))
+        self.assertIsNotNone(pick_python_cmd(3, 6))
+        self.assertIsNone(pick_python_cmd(123, 456))
+        self.assertIsNotNone(pick_python_cmd(2, 6, 123, 456))
+        self.assertIsNotNone(pick_python_cmd(2, 6, 2))
+        self.assertIsNone(pick_python_cmd(2, 6, 1, 1))
+        maj_ver, min_ver = sys.version_info[0:2]
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver + 1))
+        self.assertIsNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver - 1))
+        self.assertIsNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver - 1))
 
 
 def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt='', tmpdir=None):
