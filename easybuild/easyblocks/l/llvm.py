@@ -400,7 +400,6 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts.update(general_opts)
         self._add_cmake_runtime_args()
 
-
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
