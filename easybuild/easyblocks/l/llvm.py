@@ -217,7 +217,12 @@ class EB_LLVM(CMakeMake):
             self.final_projects = ['llvm']
         self.final_runtimes = []
         self.gcc_prefix = None
-        self.runtimes_cmake_args = []
+        self.runtimes_cmake_args = {
+            'CMAKE_C_FLAGS': [],
+            'CMAKE_CXX_FLAGS': [],
+            'CMAKE_EXE_LINKER_FLAGS': [],
+            }
+        # self._added_librt = None
 
         # Shared
         self.build_shared = self.cfg.get('build_shared_libs', False)
@@ -368,6 +373,17 @@ class EB_LLVM(CMakeMake):
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
         self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
 
+    def _add_cmake_runtime_args(self):
+        """Generate the value for `RUNTIMES_CMAKE_ARGS` and add it to the cmake options."""
+        if self.runtimes_cmake_args:
+            tmp_list = []
+            for key, val in self.runtimes_cmake_args.items():
+                if isinstance(val, list):
+                    val = ' '.join(val)
+                if val:
+                    tmp_list += ['-D%s=%s' % (key, val)]
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(tmp_list)
+
     def _configure_general_build(self):
         """General configuration step for LLVM."""
         self._cmakeopts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
@@ -382,9 +398,8 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LLVM_Z3_INSTALL_DIR'] = z3_root
 
         self._cmakeopts.update(general_opts)
+        self._add_cmake_runtime_args()
 
-        if self.runtimes_cmake_args:
-            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(self.runtimes_cmake_args)
 
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
@@ -457,10 +472,8 @@ class EB_LLVM(CMakeMake):
             else:
                 # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
                 self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
-                self.runtimes_cmake_args += [
-                    '-DCMAKE_C_FLAGS=--gcc-install-dir=%s' % gcc_prefix,
-                    '-DCMAKE_CXX_FLAGS=--gcc-install-dir=%s' % gcc_prefix
-                ]
+                self.runtimes_cmake_args['CMAKE_C_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
+                self.runtimes_cmake_args['CMAKE_CXX_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
 
             self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
@@ -522,10 +535,8 @@ class EB_LLVM(CMakeMake):
             python_bin = os.path.join(python_root, 'bin', 'python')
             general_opts['Python_EXECUTABLE'] = python_bin
             general_opts['Python3_EXECUTABLE'] = python_bin
-            self.runtimes_cmake_args += [
-                '-DPython_EXECUTABLE=%s' % python_bin,
-                '-DPython3_EXECUTABLE=%s' % python_bin
-            ]
+            self.runtimes_cmake_args['Python_EXECUTABLE'] = python_bin
+            self.runtimes_cmake_args['Python3_EXECUTABLE'] = python_bin
 
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
@@ -646,6 +657,17 @@ class EB_LLVM(CMakeMake):
                 cxxflags = os.getenv('CXXFLAGS', '')
                 setvar('CFLAGS', "%s %s" % (cflags, '-Wno-unused-command-line-argument'))
                 setvar('CXXFLAGS', "%s %s" % (cxxflags, '-Wno-unused-command-line-argument'))
+
+            if self.full_llvm:
+                # See  https://github.com/llvm/llvm-project/issues/111667
+                to_add = '--unwindlib=none'
+                # for flags in ['CMAKE_C_FLAGS', 'CMAKE_CXX_FLAGS']:
+                for flags in ['CMAKE_EXE_LINKER_FLAGS']:
+                    ptr = self.runtimes_cmake_args[flags]
+                    if to_add not in ptr:
+                        ptr.append(to_add)
+
+                self._add_cmake_runtime_args()
 
             # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
             clang = which('clang')
@@ -973,18 +995,29 @@ class EB_LLVM(CMakeMake):
             check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
             check_lib_files += ['libbolt_rt_instr.a']
         if 'openmp' in self.final_projects:
+            omp_lib_files = []
+            omp_lib_files += ['libomp.so', 'libompd.so']
+            # Judging from the build process/logs of LLVM 19, the omptarget plugins (rtl.<device>.so) are now built
+            # as static libraries and linked into the libomptarget.so shared library
+            omp_lib_files += ['libomptarget.so']
             if LooseVersion(self.version) < LooseVersion('19'):
-                check_lib_files += ['libomp.so', 'libompd.so']
+                ['libomptarget.rtl.%s.so' % arch]
+            if 'NVPTX' in self.cfg['build_targets']:
+                if LooseVersion(self.version) < LooseVersion('19'):
+                    omp_lib_files += ['libomptarget.rtl.cuda.so']
+                omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+            if 'AMDGPU' in self.cfg['build_targets']:
+                if LooseVersion(self.version) < LooseVersion('19'):
+                    omp_lib_files += ['libomptarget.rtl.amdgpu.so']
+                omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+
+            if LooseVersion(self.version) < LooseVersion('19'):
+                # Before LLVM 19, omp related libraries are installed under `ROOT/lib``
+                check_lib_files += omp_lib_files
             else:
-                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libomp.so', 'libompd.so']]
-            if LooseVersion(self.version) < LooseVersion('19') or 'offload' in self.final_runtimes:
-                check_lib_files += ['libomptarget.so', 'libomptarget.rtl.%s.so' % arch]
-                if 'NVPTX' in self.cfg['build_targets']:
-                    check_lib_files += ['libomptarget.rtl.cuda.so']
-                    check_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
-                if 'AMDGPU' in self.cfg['build_targets']:
-                    check_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    check_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+                check_files += [os.path.join(lib_dir_runtime, _) for _ in omp_lib_files]
+
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
         if self.cfg['python_bindings']:
