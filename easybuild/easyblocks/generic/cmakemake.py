@@ -225,7 +225,7 @@ class CMakeMake(ConfigureMake):
                 options['CMAKE_INSTALL_LIBDIR:PATH'] = self.cfg['install_libdir']
 
         # Add -fPIC flag if necessary
-        if self.toolchain.options['pic']:
+        if self.toolchain.options.get('pic', False):
             options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         if self.cfg['generator']:
