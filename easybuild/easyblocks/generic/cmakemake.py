@@ -92,7 +92,8 @@ def setup_cmake_env_python_hints(cmake_version):
     Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
     build and no option is provided to set custom CMake variables.
     """
-    cmake_version = det_cmake_version()
+    if cmake_version is None:
+        cmake_version = det_cmake_version()
     if LooseVersion(cmake_version) < '3.12':
         raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
     python_root = get_software_root('Python')
