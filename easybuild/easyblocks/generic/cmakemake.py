@@ -87,7 +87,7 @@ def setup_cmake_env(tc):
     setvar("CMAKE_LIBRARY_PATH", library_paths)
 
 
-def setup_cmake_env_python_hints(cmake_version):
+def setup_cmake_env_python_hints(cmake_version=None):
     """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
     Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
     build and no option is provided to set custom CMake variables.
