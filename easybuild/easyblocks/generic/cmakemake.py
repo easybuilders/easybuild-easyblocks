@@ -105,8 +105,8 @@ def setup_cmake_env_python_hints(cmake_version):
             setvar('Python2_ROOT_DIR', python_root)
 
 
-def _get_cmake_python_config():
-    """Get the CMake configuration options for Python hints."""
+def get_cmake_python_config_dict():
+    """Get a dictionary with the CMake configuration options for Python hints."""
     options = {}
     python_root = get_software_root('Python')
     if python_root:
@@ -123,14 +123,9 @@ def _get_cmake_python_config():
     return options
 
 
-def get_cmake_python_config_dict():
-    """Get a dictionary with the CMake configuration options for Python hints."""
-    return _get_cmake_python_config()
-
-
 def get_cmake_python_config_str():
     """Get a string with the CMake configuration options for Python hints."""
-    options = _get_cmake_python_config()
+    options = get_cmake_python_config_dict()
     return ' '.join(['-D%s=%s' % (key, value) for key, value in options.items()])
 
 
@@ -327,7 +322,7 @@ class CMakeMake(ConfigureMake):
         options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
 
         # ensure CMake uses EB python, not system or virtualenv python
-        options.update(self._get_cmake_python_config())
+        options.update(get_cmake_python_config_dict())
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
