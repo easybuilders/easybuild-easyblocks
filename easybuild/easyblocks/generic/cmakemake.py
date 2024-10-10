@@ -86,6 +86,49 @@ def setup_cmake_env(tc):
     setvar("CMAKE_INCLUDE_PATH", include_paths)
     setvar("CMAKE_LIBRARY_PATH", library_paths)
 
+def setup_cmake_env_python_hints(cmake_version):
+    """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
+    Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
+    build and no option is provided to set custom CMake variables.
+    """
+    cmake_version = det_cmake_version()
+    if LooseVersion(cmake_version) < '3.12':
+        raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        setvar('Python_ROOT_DIR', python_root)
+        if python_version >= "3":
+            setvar('Python3_ROOT_DIR', python_root)
+        else:
+            setvar('Python2_ROOT_DIR', python_root)
+
+def _get_cmake_python_config():
+    """Get the CMake configuration options for Python hints."""
+    options = {}
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        python_exe = os.path.join(python_root, 'bin', 'python')
+        # This is required for (deprecated) `find_package(PythonInterp ...)`
+        options['PYTHON_EXECUTABLE'] = python_exe
+        # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
+        options['Python_EXECUTABLE'] = python_exe
+        if python_version >= "3":
+            options['Python3_EXECUTABLE'] = python_exe
+        else:
+            options['Python2_EXECUTABLE'] = python_exe
+    return options
+
+def get_cmake_python_config_dict():
+    """Get a dictionary with the CMake configuration options for Python hints."""
+    return _get_cmake_python_config()
+
+def get_cmake_python_config_str():
+    """Get a string with the CMake configuration options for Python hints."""
+    options = _get_cmake_python_config()
+    return ' '.join(['-D%s=%s' % (key, value) for key, value in options.items()])
+
 
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
@@ -273,11 +316,6 @@ class CMakeMake(ConfigureMake):
             # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
-        # make sure that newer CMAKE picks python based on location, not just the newest python
-        # Avoids issues like e.g. https://github.com/EESSI/software-layer/pull/370#issuecomment-1785594932
-        if LooseVersion(self.cmake_version) >= '3.15':
-            options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
-
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 
@@ -324,48 +362,6 @@ class CMakeMake(ConfigureMake):
         (out, _) = run_cmd(command, log_all=True, simple=False)
 
         return out
-
-    def _get_cmake_python_config(self):
-        """Get the CMake configuration options for Python hints."""
-        options = {}
-        python_root = get_software_root('Python')
-        if python_root:
-            python_version = LooseVersion(get_software_version('Python'))
-            python_exe = os.path.join(python_root, 'bin', 'python')
-            # This is required for (deprecated) `find_package(PythonInterp ...)`
-            options['PYTHON_EXECUTABLE'] = python_exe
-            # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
-            options['Python_EXECUTABLE'] = python_exe
-            if python_version >= "3":
-                options['Python3_EXECUTABLE'] = python_exe
-            else:
-                options['Python2_EXECUTABLE'] = python_exe
-        return options
-
-    def get_cmake_python_config_dict(self):
-        """Get a dictionary with the CMake configuration options for Python hints."""
-        return self._get_cmake_python_config()
-
-    def get_cmake_python_config_str(self):
-        """Get a string with the CMake configuration options for Python hints."""
-        options = self._get_cmake_python_config()
-        return ' '.join(['-D%s=%s' % (key, value) for key, value in options.items()])
-
-    def set_cmake_python_env_hints(self):
-        """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
-        Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
-        build and no option is provided to set custom CMake variables.
-        """
-        if LooseVersion(self.cmake_version) < '3.12':
-            raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
-        python_root = get_software_root('Python')
-        if python_root:
-            python_version = LooseVersion(get_software_version('Python'))
-            setvar('Python_ROOT_DIR', python_root)
-            if python_version >= "3":
-                setvar('Python3_ROOT_DIR', python_root)
-            else:
-                setvar('Python2_ROOT_DIR', python_root)
 
     def test_step(self):
         """CMake specific test setup"""
