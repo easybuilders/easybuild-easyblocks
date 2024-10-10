@@ -80,4 +80,4 @@ class EB_Rmpi(RPackage):
         """
         self.prepare_rmpi_configureargs()
         # it might be needed to get the R cmd and run it with mympirun...
-        super(EB_Rmpi, self).install_extension_async(*args, **kwargs)
+        return super(EB_Rmpi, self).install_extension_async(*args, **kwargs)
