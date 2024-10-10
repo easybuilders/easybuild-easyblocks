@@ -46,7 +46,7 @@ class EB_DeepSpeed(PythonPackage):
         extra_vars['sanity_pip_check'][0] = True
 
         # Add DeepSpeed specific vars
-        extra_vars['ds_build_opts_to_skip'] = [[], "For <val> in list will set DS_BUILD_<val>=0 (default: [])", CUSTOM]
+        extra_vars['ds_build_ops_to_skip'] = [[], "For <val> in list will set DS_BUILD_<val>=0 (default: [])", CUSTOM]
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -80,13 +80,13 @@ class EB_DeepSpeed(PythonPackage):
                 # specify CUDA compute capabilities via $TORCH_CUDA_ARCH_LIST
                 env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(self.cuda_compute_capabilities))
 
-        # By default prebuild all opts with a few exceptions
+        # By default prebuild all ops with a few exceptions
         # http://www.deepspeed.ai/tutorials/advanced-install/#pre-install-deepspeed-ops
         # > DeepSpeed will only install any ops that are compatible with your machine
         env.setvar('DS_BUILD_OPS', '1')
 
         # Some may be problematic for different reasons, these are specified in the easyconfig
-        for opt in self.cfg['ds_build_opts_to_skip']:
+        for opt in self.cfg['ds_build_ops_to_skip']:
             env.setvar('DS_BUILD_{}'.format(opt), '0')
 
         super().configure_step()
@@ -100,6 +100,7 @@ class EB_DeepSpeed(PythonPackage):
         custom_commands = [
             'deepspeed --help',
             'python -m deepspeed.env_report',
+            '[ "$(ds_report | grep -c "[NO]")" -eq "{:d}" ]'.format(len(self.cfg['ds_build_ops_to_skip']))
         ]
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
