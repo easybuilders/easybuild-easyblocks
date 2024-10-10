@@ -54,8 +54,7 @@ class MesonNinja(EasyBlock):
             'build_dir': [None, "build_dir to pass to meson", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'build_type': [None, "Build type for meson, e.g. release."
-                                 "Defaults to 'release', 'debugoptimized' or 'debug' depending on "
-                                 "toolchainopts[debug,noopt]", CUSTOM],
+                                 "Replaces use of toolchain options debug, noopt, lowopt", CUSTOM],
             'ndebug': [True, "Sets -Db_ndebug which in turn defines NDEBUG for C/C++ builds."
                              "This disabled costly asserts in code, typical for production.", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
@@ -63,21 +62,6 @@ class MesonNinja(EasyBlock):
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
-
-    @property
-    def build_type(self):
-        """Build type set in the EasyConfig with default determined by toolchainopts"""
-        build_type = self.cfg.get('build_type')
-        # While we do set optimization and debug flag separately, build scripts may be adding additional
-        # defines and flags based on the build_type as well so we pick the closest match.
-        if build_type is None:
-            if self.toolchain.options.get('noopt', False):  # also implies debug but is the closest match
-                build_type = 'debug'
-            elif self.toolchain.options.get('debug', False):
-                build_type = 'debugoptimized'
-            else:
-                build_type = 'release'
-        return build_type
 
     @property
     def optimization(self):
@@ -122,15 +106,22 @@ class MesonNinja(EasyBlock):
 
         build_dir = self.cfg.get('build_dir') or self.start_dir
 
-        cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s --buildtype %(buildtype)s %(configopts)s "
-               "--optimization %(optimization)s %(debug)s -Db_ndebug=%(ndebug)s %(source_dir)s") % {
+        # Build type is either specified directly or via --optimization and --debug flags.
+        if self.cfg['build_type'] is not None:
+            build_type = '--buildtype=' + self.cfg['build_type']
+        else:
+            build_type = '--optimization=%(optimization)s %(debug)s' % {
+                'optimization': self.optimization,
+                'debug': '--debug' if self.toolchain.options.get('debug', False) else '',
+            }
+
+        cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(build_type)s %(configopts)s "
+               "-Db_ndebug=%(ndebug)s %(source_dir)s") % {
+            'build_type': build_type,
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
-            'buildtype': self.build_type,
-            'optimization': self.optimization,
-            'debug': '--debug' if self.toolchain.options.get('debug', False) else '',
             'ndebug': str(self.cfg.get('ndebug')).lower(),
             'source_dir': build_dir,
         }
