@@ -88,9 +88,10 @@ def setup_cmake_env(tc):
 
 
 def setup_cmake_env_python_hints(cmake_version=None):
-    """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
-    Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
-    build and no option is provided to set custom CMake variables.
+    """Set environment variables as hints for CMake to prefer the Python module, if loaded.
+    Useful when there is no way to specify arguments for CMake directly,
+    e.g. when CMake is called from within another build system.
+    Otherwise get_cmake_python_config_[str/dict] should be used instead.
     """
     if cmake_version is None:
         cmake_version = det_cmake_version()
@@ -107,7 +108,7 @@ def setup_cmake_env_python_hints(cmake_version=None):
 
 
 def get_cmake_python_config_dict():
-    """Get a dictionary with the CMake configuration options for Python hints."""
+    """Get a dictionary with CMake configuration options for finding Python if loaded as a module."""
     options = {}
     python_root = get_software_root('Python')
     if python_root:
@@ -125,9 +126,11 @@ def get_cmake_python_config_dict():
 
 
 def get_cmake_python_config_str():
-    """Get a string with the CMake configuration options for Python hints."""
+    """Get CMake configuration arguments for finding Python if loaded as a module.
+    This string is intended to be passed to the invocation of `cmake`.
+    """
     options = get_cmake_python_config_dict()
-    return ' '.join(['-D%s=%s' % (key, value) for key, value in options.items()])
+    return ' '.join('-D%s=%s' % (key, value) for key, value in options.items())
 
 
 class CMakeMake(ConfigureMake):
