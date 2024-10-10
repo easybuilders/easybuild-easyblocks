@@ -100,7 +100,7 @@ class EB_DeepSpeed(PythonPackage):
         custom_commands = [
             'deepspeed --help',
             'python -m deepspeed.env_report',
-            '[ "$(ds_report | grep -c "\[NO\]")" -eq "{:d}" ]'.format(len(self.cfg['ds_build_ops_to_skip']))
+            '[ "$(ds_report | grep -c "\\[NO\\]")" -eq "{:d}" ]'.format(len(self.cfg['ds_build_ops_to_skip']))
         ]
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
