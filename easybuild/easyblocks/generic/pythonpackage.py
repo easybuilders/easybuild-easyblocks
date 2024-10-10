@@ -102,12 +102,12 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
         # check whether specified Python command is available
         if os.path.isabs(python_cmd):
             if not os.path.isfile(python_cmd):
-                log.debug("Python command '%s' does not exist", python_cmd)
+                log.debug(f"Python command '{python_cmd}' does not exist")
                 return False
         else:
             python_cmd_path = which(python_cmd)
             if python_cmd_path is None:
-                log.debug("Python command '%s' not available through $PATH", python_cmd)
+                log.debug(f"Python command '{python_cmd}' not available through $PATH")
                 return False
 
         if req_maj_ver is not None:
@@ -121,12 +121,12 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
             # (strict) check for major version
             maj_ver = pyver.split('.')[0]
             if maj_ver != str(req_maj_ver):
-                log.debug("Major Python version does not match: %s vs %s", maj_ver, req_maj_ver)
+                log.debug(f"Major Python version does not match: {maj_ver} vs {req_maj_ver}")
                 return False
 
             # check for minimal minor version
             if LooseVersion(pyver) < LooseVersion(req_majmin_ver):
-                log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
+                log.debug(f"Minimal requirement for minor Python version not satisfied: {pyver} vs {req_majmin_ver}")
                 return False
 
         if max_py_majver is not None:
@@ -144,32 +144,32 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_
                 return False
 
         # all check passed
-        log.debug("All check passed for Python command '%s'!", python_cmd)
+        log.debug(f"All check passed for Python command '{python_cmd}'!")
         return True
 
     # compose list of 'python' commands to consider
     python_cmds = ['python']
     if req_maj_ver:
-        python_cmds.append('python%s' % req_maj_ver)
+        python_cmds.append(f'python{req_maj_ver}')
         if req_min_ver:
-            python_cmds.append('python%s.%s' % (req_maj_ver, req_min_ver))
+            python_cmds.append(f'python{req_maj_ver}.{req_min_ver}')
     python_cmds.append(sys.executable)
-    log.debug("Considering Python commands: %s", ', '.join(python_cmds))
+    log.debug("Considering Python commands: " + ', '.join(python_cmds))
 
     # try and find a 'python' command that satisfies the requirements
     res = None
     for python_cmd in python_cmds:
         if check_python_cmd(python_cmd):
-            log.debug("Python command '%s' satisfies version requirements!", python_cmd)
+            log.debug(f"Python command '{python_cmd}' satisfies version requirements!")
             if os.path.isabs(python_cmd):
                 res = python_cmd
             else:
                 res = which(python_cmd)
-            log.debug("Absolute path to retained Python command: %s", res)
+            log.debug("Absolute path to retained Python command: " + res)
             break
         else:
-            log.debug("Python command '%s' does not satisfy version requirements (maj: %s, min: %s), moving on",
-                      python_cmd, req_maj_ver, req_min_ver)
+            log.debug(f"Python command '{python_cmd}' does not satisfy version requirements "
+                      f"(maj: {req_maj_ver}, min: {req_min_ver}), moving on")
 
     return res
 
@@ -188,8 +188,8 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
         # Python 3.12 removed distutils but has a core sysconfig module which is similar
         pathname = 'platlib' if plat_specific else 'purelib'
-        vars = {'platbase': prefix, 'base': prefix}
-        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars)
+        vars_param = {'platbase': prefix, 'base': prefix}
+        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars_param)
     else:
         args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
         pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
