@@ -31,7 +31,7 @@ import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
@@ -82,10 +82,7 @@ class PythonBundle(Bundle):
 
         if get_software_root('Python') is None:
             raise EasyBuildError("Python not included as dependency!")
-        self.python_cmd = find_python_cmd(self.log, self.cfg['req_py_majver'], self.cfg['req_py_minver'],
-                                          max_py_majver=self.cfg['max_py_majver'],
-                                          max_py_minver=self.cfg['max_py_minver'],
-                                          required=True)
+        self.python_cmd = find_python_cmd_from_ec(self.log, self.cfg, required=True)
 
         self.all_pylibdirs = get_pylibdirs(python_cmd=self.python_cmd)
         self.pylibdir = self.all_pylibdirs[0]

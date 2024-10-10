@@ -217,6 +217,15 @@ def find_python_cmd(log, req_py_majver, req_py_minver, max_py_majver, max_py_min
     return python
 
 
+def find_python_cmd_from_ec(log, cfg, required):
+    """Find a python command using the constraints specified in the EasyConfig"""
+    return find_python_cmd(log,
+                           cfg['req_py_majver'], cfg['req_py_minver'],
+                           max_py_majver=cfg['max_py_majver'],
+                           max_py_minver=cfg['max_py_minver'],
+                           required=required)
+
+
 def det_pylibdir(plat_specific=False, python_cmd=None):
     """Determine Python library directory."""
     log = fancylogger.getLogger('det_pylibdir', fname=False)
@@ -546,11 +555,7 @@ class PythonPackage(ExtensionEasyBlock):
     def prepare_python(self):
         """Python-specific preparations."""
 
-        self.python_cmd = find_python_cmd(self.log,
-                                          self.cfg['req_py_majver'], self.cfg['req_py_minver'],
-                                          max_py_majver=self.cfg['max_py_majver'],
-                                          max_py_minver=self.cfg['max_py_minver'],
-                                          required=self.require_python)
+        self.python_cmd = find_python_cmd_from_ec(self.log, self.cfg, self.require_python)
 
         if self.python_cmd:
             # set Python lib directories
