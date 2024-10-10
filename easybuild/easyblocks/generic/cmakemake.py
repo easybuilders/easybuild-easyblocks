@@ -86,6 +86,7 @@ def setup_cmake_env(tc):
     setvar("CMAKE_INCLUDE_PATH", include_paths)
     setvar("CMAKE_LIBRARY_PATH", library_paths)
 
+
 def setup_cmake_env_python_hints(cmake_version):
     """Convenience function to set CMake hints for FindPython[_2/3] as environment variables.
     Needed to avoid wrong Python being picked up by CMake when not called directly by EasyBuild but as step in a
@@ -102,6 +103,7 @@ def setup_cmake_env_python_hints(cmake_version):
             setvar('Python3_ROOT_DIR', python_root)
         else:
             setvar('Python2_ROOT_DIR', python_root)
+
 
 def _get_cmake_python_config():
     """Get the CMake configuration options for Python hints."""
@@ -120,9 +122,11 @@ def _get_cmake_python_config():
             options['Python2_EXECUTABLE'] = python_exe
     return options
 
+
 def get_cmake_python_config_dict():
     """Get a dictionary with the CMake configuration options for Python hints."""
     return _get_cmake_python_config()
+
 
 def get_cmake_python_config_str():
     """Get a string with the CMake configuration options for Python hints."""
