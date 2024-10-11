@@ -54,7 +54,7 @@ class MesonNinja(EasyBlock):
             'build_dir': [None, "build_dir to pass to meson", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
             'build_type': [None, "Build type for meson, e.g. release."
-                                 "Replaces use of toolchain options debug, noopt, lowopt", CUSTOM],
+                                 "Replaces use of toolchain options debug, noopt, lowopt, opt", CUSTOM],
             'ndebug': [True, "Sets -Db_ndebug which in turn defines NDEBUG for C/C++ builds."
                              "This disabled costly asserts in code, typical for production.", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
@@ -70,6 +70,8 @@ class MesonNinja(EasyBlock):
             return 0
         elif self.toolchain.options.get('lowopt', False):
             return 1
+        elif self.toolchain.options.get('opt', False):
+            return 3
         else:
             return 2
 
