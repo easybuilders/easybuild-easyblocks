@@ -356,6 +356,7 @@ class CMakeMake(ConfigureMake):
         for line in cmake_cache.splitlines():
             match = python_regex.match(line)
             if match:
+                self.log.debug("Python related CMake cache line found: " + line)
                 path_type = match[1].lower()
                 path = match[2].strip()
                 self.log.info("Python %s path: %s", path_type, path)
@@ -375,7 +376,7 @@ class CMakeMake(ConfigureMake):
                 if path.endswith('-NOTFOUND'):
                     continue
                 if not os.path.exists(path):
-                    errors.append("Python %s does not exist: %s" % (path_type, path))
+                    errors.append("Python %s path does not exist: %s" % (path_type, path))
                 elif not os.path.realpath(path).startswith(ebrootpython_path):
                     errors.append("Python %s path '%s' is outside EBROOTPYTHON (%s)" %
                                   (path_type, path, ebrootpython_path))
