@@ -352,7 +352,7 @@ class CMakeMake(ConfigureMake):
             "include_dir": [],
             "library": [],
         }
-        python_regex = re.compile(r"_?(?:Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)[^=]*=(.*)")
+        python_regex = re.compile(r"_?(?:Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(.*)")
         for line in cmake_cache.splitlines():
             match = python_regex.match(line)
             if match:
