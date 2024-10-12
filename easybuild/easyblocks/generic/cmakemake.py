@@ -352,13 +352,13 @@ class CMakeMake(ConfigureMake):
             "include_dir": [],
             "library": [],
         }
-        python_regex = re.compile(r"_?(?:Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(.*)")
+        python_regex = re.compile(r"_?(Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(.*)")
         for line in cmake_cache.splitlines():
             match = python_regex.match(line)
             if match:
                 self.log.debug("Python related CMake cache line found: " + line)
-                path_type = match[1].lower()
-                path = match[2].strip()
+                path_type = match[2].lower()
+                path = match[4].strip()
                 self.log.info("Python %s path: %s", path_type, path)
                 python_paths[path_type].append(path)
 
