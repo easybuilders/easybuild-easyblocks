@@ -352,13 +352,16 @@ class CMakeMake(ConfigureMake):
             "include_dir": [],
             "library": [],
         }
-        python_regex = re.compile(r"_?(Python|PYTHON)\d?_(EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(.*)")
+        python_regex = re.compile(r"_?(Python|PYTHON)\d?_(?P<type>EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(?P<value>.*)")
+        cmake_false_expressions = {'', '0', 'OFF', 'NO', 'FALSE', 'N', 'IGNORE', 'NOTFOUND'}
         for line in cmake_cache.splitlines():
             match = python_regex.match(line)
             if match:
                 self.log.debug("Python related CMake cache line found: " + line)
-                path_type = match[2].lower()
-                path = match[4].strip()
+                path_type = match['type'].lower()
+                path = match['value'].strip()
+                if path.endswith('-NOTFOUND') or path.upper() in cmake_false_expressions:
+                    continue
                 self.log.info("Python %s path: %s", path_type, path)
                 python_paths[path_type].append(path)
 
@@ -373,8 +376,6 @@ class CMakeMake(ConfigureMake):
         errors = []
         for path_type, paths in python_paths.items():
             for path in paths:
-                if path.endswith('-NOTFOUND'):
-                    continue
                 if not os.path.exists(path):
                     errors.append("Python %s path does not exist: %s" % (path_type, path))
                 elif not os.path.realpath(path).startswith(ebrootpython_path):
