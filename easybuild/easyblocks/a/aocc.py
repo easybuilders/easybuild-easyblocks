@@ -35,6 +35,7 @@ import glob
 import os
 import re
 import stat
+import tempfile
 
 from easybuild.tools import LooseVersion
 
@@ -52,6 +53,18 @@ WRAPPER_TEMPLATE = """#!/bin/sh
 # Patch argv[0] to the actual compiler so that the correct driver is used internally
 (exec -a "%(actual_compiler_name)s" %(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@")
 """
+
+AOCC_MINIMAL_CPP_EXAMPLE = """
+#include <iostream>
+
+int main(){ std::cout << "It works!" << std::endl; }
+"""
+
+AOCC_MINIMAL_FORTRAN_EXAMPLE = """
+program main
+end program main
+"""
+
 
 class EB_AOCC(PackedBinary):
     """
@@ -261,6 +274,17 @@ class EB_AOCC(PackedBinary):
         ]
 
         self._sanity_check_gcc_prefix()
+
+        # Check if clang++ can actually compile programs. This can fail if the wrong driver is picked up by LLVM.
+        tmpdir = tempfile.mkdtemp()
+        write_file(os.path.join(tmpdir, 'minimal.cpp'), AOCC_MINIMAL_CPP_EXAMPLE)
+        minimal_cpp_compiler_cmd = "cd %s && clang++ minimal.cpp -o minimal_cpp" % tmpdir
+        custom_commands.append(minimal_cpp_compiler_cmd)
+        # Check if flang can actually compile programs. This can fail if the wrong driver is picked up by LLVM.
+        write_file(os.path.join(tmpdir, 'minimal.f90'), AOCC_MINIMAL_FORTRAN_EXAMPLE)
+        minimal_f90_compiler_cmd = "cd %s && flang minimal.f90 -o minimal_f90" % tmpdir
+        custom_commands.append(minimal_f90_compiler_cmd)
+
         super(EB_AOCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
