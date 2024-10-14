@@ -170,7 +170,7 @@ class EB_SuiteSparse(ConfigureMake):
 
             if LooseVersion(self.version) >= LooseVersion('5.1.2'):
                 # v5.0.0 until v5.1.2 has no CMAKE_OPTIONS to set, patches are needed
-                self.cfg.update('preinstallopts', 'CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=%s"' % self.installdir)
+                self.cfg.update('installopts', 'CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=%s"' % self.installdir)
 
             # set METIS library
             if parmetis or metis:
