@@ -34,7 +34,6 @@ import glob
 import os
 import re
 import tempfile
-import textwrap
 import copy
 from easybuild.tools import LooseVersion
 
