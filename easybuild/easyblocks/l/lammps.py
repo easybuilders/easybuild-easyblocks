@@ -175,7 +175,7 @@ def translate_lammps_version(version, path=""):
         raise ValueError("Version %s does not have (at least) 3 elements" % version)
     try:
         return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
-    except:
+    except ValueError:
         # avoid failing miserably under --module-only --force
         if os.path.exists(path) and os.listdir(path):
             with open("%ssrc/version.h" % (path)) as file:
@@ -184,7 +184,7 @@ def translate_lammps_version(version, path=""):
             regex = r'\d+ \S+ \d+'
             result = re.search(regex, lines[0])
             gen_version = result.group()
-            items = [x for x in re.split('\s', gen_version) if x]
+            items = [x for x in re.split('(\\s)', gen_version) if x]
             return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
         else:
             raise ValueError("Version %s cannot be generated" % version)
@@ -203,9 +203,8 @@ class EB_LAMMPS(CMakeMake):
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
-
     def update_kokkos_cpu_mapping(self):
-
+        """Add new kokkos_cpu_mapping to the list based on in which version they were added to LAMMPS"""
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
             self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
@@ -213,7 +212,6 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
             self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
-
 
     @staticmethod
     def extra_options(**kwargs):
@@ -228,7 +226,6 @@ class EB_LAMMPS(CMakeMake):
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
-
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -260,7 +257,6 @@ class EB_LAMMPS(CMakeMake):
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
-
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
