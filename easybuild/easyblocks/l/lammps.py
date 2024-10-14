@@ -154,18 +154,18 @@ KOKKOS_GPU_ARCH_TABLE = {
 ref_version = '29Sep2021'
 
 
-def translate_lammps_version(version):
+def generate_cur_version(items):
+    """Generate computer readable version"""
+    
+
+
+def translate_lammps_version(version, path=""):
     """Translate the LAMMPS version into something that can be used in a comparison"""
-    items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) < 3:
-        raise ValueError("Version %s does not have (at least) 3 elements" % version)
     month_map = {
        "JAN": '01',
        "FEB": '02',
        "MAR": '03',
        "APR": '04',
-       "MAY": '05',
-       "JUN": '06',
        "JUL": '07',
        "AUG": '08',
        "SEP": '09',
@@ -173,7 +173,28 @@ def translate_lammps_version(version):
        "NOV": '11',
        "DEC": '12'
     }
-    return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    # create a function that does the split and returns cur_version
+    # Than this can simply be tried once if the first one fails than it goes looking in the lammps file
+    # If I just do a try and except than I also get rit of the stupid len check 
+    # because this one is already not doing a very good check since a previous update of the EasyBlock
+    items = [x for x in re.split('(\\d+)', version) if x]
+    if len(items) < 3:
+        raise ValueError("Version %s does not have (at least) 3 elements" % version)
+    try:
+        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    except:
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(path) and os.listdir(path):
+            with open("%ssrc/version.h" % (path)) as file:
+                file_contents = file.read()
+            lines = re.split('\n', file_contents)
+            regex = r'\d+ \S+ \d+'
+            result = re.search(regex, lines[0])
+            gen_version = result.group()
+            items = [x for x in re.split('\s', gen_version) if x]
+            return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+        else:
+            raise ValueError("Version %s cannot be generated" % version)
 
 
 class EB_LAMMPS(CMakeMake):
@@ -185,13 +206,51 @@ class EB_LAMMPS(CMakeMake):
         """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
         super(EB_LAMMPS, self).__init__(*args, **kwargs)
 
+        # DEBUG
+        print("I don't know if this exhists: ", dir(self.start_dir))
+        # DEBUG
+
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
+
+    def update_kokkos_cpu_mapping(self):
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+
+    @staticmethod
+    def extra_options(**kwargs):
+        """Custom easyconfig parameters for LAMMPS"""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
+            'kokkos': [True, "Enable kokkos build.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for LAMMPS."""
+        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
+
+        # DEBUG
+        print("Is there anything more here in the prepare step: ", self.start_dir)
+
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
-            self.cur_version = translate_lammps_version(self.version)
+            self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
         else:
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
@@ -211,20 +270,11 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
+        # DEBUG
 
-    @staticmethod
-    def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
-            'kokkos': [True, "Enable kokkos build.", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-        })
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
+        # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
+        if self.cfg['kokkos'] and self.cuda:
+            env.unset_env_vars(['LIBS'])
 
     def update_kokkos_cpu_mapping(self):
 
@@ -236,16 +286,12 @@ class EB_LAMMPS(CMakeMake):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
             self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
 
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for LAMMPS."""
-        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
-
-        # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
-        if self.cfg['kokkos'] and self.cuda:
-            env.unset_env_vars(['LIBS'])
-
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
+
+        # DEBUG
+        print("Is there anything more here in the configure step: ", dir(self))
+        # DEBUG
 
         if not get_software_root('VTK'):
             if self.cfg['user_packages']:
@@ -471,7 +517,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*%s' % (self.name.lower(), self.version))
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -670,3 +716,4 @@ def get_cpu_arch():
     if ec:
         raise EasyBuildError("Failed to determine CPU architecture: %s", out)
     return out.strip()
+
