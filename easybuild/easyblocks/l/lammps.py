@@ -34,6 +34,7 @@ import glob
 import os
 import re
 import tempfile
+import textwrap
 import copy
 from easybuild.tools import LooseVersion
 
@@ -46,6 +47,7 @@ from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -579,7 +581,14 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
 
     processor_arch = None
 
-    if kokkos_arch:
+    if build_option('optarch') == OPTARCH_GENERIC:
+        processor_arch = 'EASYBUILD_GENERIC'
+        warning_msg = "Generic build requested, so setting CPU ARCH to "
+        warning_msg += "custom value EASYBUILD_GENERIC to prevent CPU optimizations."
+        if kokkos_arch:
+            warning_msg += " The specified kokkos_arch (%s) will be ignored." % kokkos_arch
+        print_warning(warning_msg)
+    elif kokkos_arch:
         if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
             warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
             warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
