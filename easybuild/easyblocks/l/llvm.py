@@ -148,6 +148,52 @@ def _wrap_env(path="", ld_path=""):
         setvar('PATH', orig_path)
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
+def get_gcc_prefix():
+    """Get the GCC prefix for the build."""
+    arch = get_cpu_architecture()
+    gcc_root = get_software_root('GCCcore')
+    gcc_version = get_software_version('GCCcore')
+    # If that doesn't work, try with GCC
+    if gcc_root is None:
+        gcc_root = get_software_root('GCC')
+        gcc_version = get_software_version('GCC')
+    # If that doesn't work either, print error and exit
+    if gcc_root is None:
+        raise EasyBuildError("Can't find GCC or GCCcore to use")
+
+    pattern = os.path.join(gcc_root, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
+    matches = glob.glob(pattern)
+    if not matches:
+        raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
+    gcc_prefix = os.path.abspath(matches[0])
+
+    return gcc_root, gcc_prefix
+
+
+def create_compiler_config_file(compilers, gcc_prefix, installdir):
+    """Create a config file for the compiler to point to the correct GCC installation."""
+    bin_dir = os.path.join(installdir, 'bin')
+    prefix_str = '--gcc-install-dir=%s' % gcc_prefix
+    for comp in compilers:
+        with open(os.path.join(bin_dir, '%s.cfg' % comp), 'w') as f:
+            f.write(prefix_str)
+
+
+def sanity_check_gcc_prefix(compilers, gcc_prefix, installdir):
+    """Check if the GCC prefix of the compiler is correct"""
+    rgx = re.compile('Selected GCC installation: (.*)')
+    for comp in compilers:
+        cmd = "%s -v" % os.path.join(installdir, 'bin', comp)
+        out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+        mch = rgx.search(out)
+        if mch is None:
+            raise EasyBuildError("Failed to extract GCC installation path from output of `%s`: %s", cmd, out)
+        check_prefix = mch.group(1)
+        if check_prefix != gcc_prefix:
+            raise EasyBuildError(
+                "GCC installation path `%s` does not match expected path `%s`", check_prefix, gcc_prefix
+                )
+
 
 class EB_LLVM(CMakeMake):
     """
@@ -446,22 +492,7 @@ class EB_LLVM(CMakeMake):
     def _set_gcc_prefix(self):
         """Set the GCC prefix for the build."""
         if self.gcc_prefix is None:
-            arch = get_cpu_architecture()
-            gcc_root = get_software_root('GCCcore')
-            gcc_version = get_software_version('GCCcore')
-            # If that doesn't work, try with GCC
-            if gcc_root is None:
-                gcc_root = get_software_root('GCC')
-                gcc_version = get_software_version('GCC')
-            # If that doesn't work either, print error and exit
-            if gcc_root is None:
-                raise EasyBuildError("Can't find GCC or GCCcore to use")
-
-            pattern = os.path.join(gcc_root, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
-            matches = glob.glob(pattern)
-            if not matches:
-                raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
-            gcc_prefix = os.path.abspath(matches[0])
+            gcc_root, gcc_prefix = get_gcc_prefix()
 
             # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
             # https://github.com/llvm/llvm-project/pull/87360
@@ -815,12 +846,9 @@ class EB_LLVM(CMakeMake):
             copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
         if LooseVersion(self.version) >= LooseVersion('19'):
-            bin_dir = os.path.join(self.installdir, 'bin')
-            prefix_str = '--gcc-install-dir=%s' % self.gcc_prefix
-            # Tested in LLVM 18.1.8 flang-new automatically picks up the `flang.cfg` file not `flang-new.cfg`
-            for comp in ['clang', 'clang++', 'flang']:
-                with open(os.path.join(bin_dir, '%s.cfg' % comp), 'w') as f:
-                    f.write(prefix_str)
+            # For GCC aware installation create config files in order to point to the correct GCC installation
+            # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
+            create_compiler_config_file(['clang', 'clang++', 'flang'], self.gcc_prefix, self.installdir)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
@@ -849,24 +877,6 @@ class EB_LLVM(CMakeMake):
             self.log.info("Checking that no shared libraries are linked against in static build")
             res += ['libc++', 'libc++abi', 'libunwind']
         return res
-
-    def _sanity_check_gcc_prefix(self, compilers):
-        """Check if the GCC prefix is correct."""
-        if LooseVersion(self.version) >= LooseVersion('19'):
-            self._set_gcc_prefix()  # Ensure GCC prefix is set in case of module/sanity-only
-            rgx = re.compile('Selected GCC installation: (.*)')
-            for comp in compilers:
-                cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
-                out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
-                mch = rgx.search(out)
-                if mch is None:
-                    self.log.debug(out)
-                    raise EasyBuildError("Failed to extract GCC installation path from output of `%s`", cmd)
-                gcc_prefix = mch.group(1)
-                if gcc_prefix != self.gcc_prefix:
-                    raise EasyBuildError(
-                        "GCC installation path `%s` does not match expected path `%s`", gcc_prefix, self.gcc_prefix
-                        )
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
@@ -1040,7 +1050,7 @@ class EB_LLVM(CMakeMake):
 
         # Required for `clang -v` to work if linked to LLVM runtimes
         with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
-            self._sanity_check_gcc_prefix(gcc_prefix_compilers)
+            sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
 
         return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
