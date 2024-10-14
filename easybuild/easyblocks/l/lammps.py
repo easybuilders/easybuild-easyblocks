@@ -38,6 +38,7 @@ import copy
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
+import easybuild.tools.systemtools as systemtools
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
@@ -45,7 +46,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -581,9 +582,16 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
     processor_arch = None
 
     if build_option('optarch') == OPTARCH_GENERIC:
-        processor_arch = 'EASYBUILD_GENERIC'
-        warning_msg = "Generic build requested, so setting CPU ARCH to "
-        warning_msg += "custom value EASYBUILD_GENERIC to prevent CPU optimizations."
+        # For generic Arm builds we use an existing target;
+        # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+        # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+        # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+        if get_cpu_architecture() == systemtools.AARCH64:
+            processor_arch = 'ARMV80'
+        else:
+            processor_arch = 'EASYBUILD_GENERIC'
+
+        warning_msg = "Generic build requested, setting CPU ARCH to %s." % processor_arch
         if kokkos_arch:
             warning_msg += " The specified kokkos_arch (%s) will be ignored." % kokkos_arch
         print_warning(warning_msg)
