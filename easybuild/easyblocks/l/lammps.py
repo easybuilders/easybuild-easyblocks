@@ -154,11 +154,6 @@ KOKKOS_GPU_ARCH_TABLE = {
 ref_version = '29Sep2021'
 
 
-def generate_cur_version(items):
-    """Generate computer readable version"""
-    
-
-
 def translate_lammps_version(version, path=""):
     """Translate the LAMMPS version into something that can be used in a comparison"""
     month_map = {
@@ -166,6 +161,8 @@ def translate_lammps_version(version, path=""):
        "FEB": '02',
        "MAR": '03',
        "APR": '04',
+       "MAY": '05',
+       "JUN": '06',
        "JUL": '07',
        "AUG": '08',
        "SEP": '09',
@@ -173,10 +170,6 @@ def translate_lammps_version(version, path=""):
        "NOV": '11',
        "DEC": '12'
     }
-    # create a function that does the split and returns cur_version
-    # Than this can simply be tried once if the first one fails than it goes looking in the lammps file
-    # If I just do a try and except than I also get rit of the stupid len check 
-    # because this one is already not doing a very good check since a previous update of the EasyBlock
     items = [x for x in re.split('(\\d+)', version) if x]
     if len(items) < 3:
         raise ValueError("Version %s does not have (at least) 3 elements" % version)
