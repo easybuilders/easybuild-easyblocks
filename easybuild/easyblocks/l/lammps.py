@@ -261,15 +261,6 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
 
-    def update_kokkos_cpu_mapping(self):
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
-            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""
