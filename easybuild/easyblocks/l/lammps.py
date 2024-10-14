@@ -175,7 +175,7 @@ def translate_lammps_version(version, path=""):
         raise ValueError("Version %s does not have (at least) 3 elements" % version)
     try:
         return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
-    except ValueError:
+    except KeyError:
         # avoid failing miserably under --module-only --force
         if os.path.exists(path) and os.listdir(path):
             with open("%ssrc/version.h" % (path)) as file:
