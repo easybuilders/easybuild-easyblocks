@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, log_path
+from easybuild.tools.config import build_option, ERROR
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -145,7 +145,7 @@ class EB_Python(ConfigureMake):
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
         # Used for EBPYTHONPREFIXES handler script
-        self.pythonpath = os.path.join(log_path(), 'python')
+        self.pythonpath = os.path.join('easybuild', 'python')
 
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
