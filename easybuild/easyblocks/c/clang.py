@@ -750,7 +750,7 @@ class EB_Clang(CMakeMake):
 
         if self.cfg['python_bindings']:
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
-            custom_commands.extend(["python -c 'import clang'"])
+            custom_commands.extend(["python -s -c 'import clang'"])
 
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

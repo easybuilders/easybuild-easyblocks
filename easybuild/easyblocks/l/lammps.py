@@ -425,7 +425,7 @@ class EB_LAMMPS(CMakeMake):
         python_dir = get_software_root('Python')
         if python_dir:
             # Find the Python .so lib
-            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
+            cmd = 'python -s -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
             (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not python_lib:
                 raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
@@ -433,7 +433,7 @@ class EB_LAMMPS(CMakeMake):
             if not python_lib_path:
                 raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
             # and the path to the Python include folder
-            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
+            cmd = 'python -s -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
             (python_include_dir, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
             if not python_include_dir:
                 raise EasyBuildError("Failed to determine Python include dir: %s", python_include_dir)
@@ -516,7 +516,7 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
             custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
 
-        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
+        custom_commands = ["""python -s -c '%s'""" % cmd for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
@@ -666,7 +666,7 @@ def get_cpu_arch():
 
     :return: returns detected cpu architecture
     """
-    out, ec = run_cmd("python -c 'from archspec.cpu import host; print(host())'", simple=False)
+    out, ec = run_cmd("python -s -c 'from archspec.cpu import host; print(host())'", simple=False)
     if ec:
         raise EasyBuildError("Failed to determine CPU architecture: %s", out)
     return out.strip()

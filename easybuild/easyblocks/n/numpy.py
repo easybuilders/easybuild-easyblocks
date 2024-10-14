@@ -360,7 +360,7 @@ class EB_numpy(FortranPythonPackage):
                 "blas_found = numpy_build_deps['blas']['found']",
                 "assert blas_found",
             ])
-            custom_commands.append('python -c "%s"' % blas_check_pytxt)
+            custom_commands.append('python -s -c "%s"' % blas_check_pytxt)
 
             # if FlexiBLAS is used, make sure we are linking to it
             # (rather than directly to a backend library like OpenBLAS or Intel MKL)
@@ -372,7 +372,7 @@ class EB_numpy(FortranPythonPackage):
                     "blas_name = numpy_build_deps['blas']['name']",
                     "assert blas_name == 'flexiblas', 'BLAS library should be flexiblas, found %s' % blas_name",
                 ])
-                custom_commands.append('python -c "%s"' % blas_check_pytxt)
+                custom_commands.append('python -s -c "%s"' % blas_check_pytxt)
 
         elif LooseVersion(self.version) >= LooseVersion('1.10'):
             # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
@@ -383,10 +383,10 @@ class EB_numpy(FortranPythonPackage):
                 "blas_ok = 'HAVE_CBLAS' in dict(numpy.__config__.blas_opt_info['define_macros'])",
                 "sys.exit((1, 0)[blas_ok])",
             ])
-            custom_commands.append('python -c "%s"' % blas_check_pytxt)
+            custom_commands.append('python -s -c "%s"' % blas_check_pytxt)
         else:
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
-            custom_commands.append("python -c 'import numpy.core._dotblas'")
+            custom_commands.append("python -s -c 'import numpy.core._dotblas'")
 
         return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

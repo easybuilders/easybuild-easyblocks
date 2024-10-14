@@ -173,7 +173,7 @@ class EB_CPLEX(Binary):
         custom_commands = []
 
         if self.with_python:
-            custom_commands.append("python -c 'import cplex'")
-            custom_commands.append("python -c 'import docplex'")
+            custom_commands.append("python -s -c 'import cplex'")
+            custom_commands.append("python -s -c 'import docplex'")
 
         super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
