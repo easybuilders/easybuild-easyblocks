@@ -31,7 +31,9 @@ Support for installing AOCC, implemented as an easyblock.
 @author: Sebastian Achilles (Forschungszentrum Juelich GmbH)
 """
 
+import glob
 import os
+import re
 import stat
 
 from easybuild.tools import LooseVersion
@@ -40,14 +42,15 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, move_file, write_file
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
 
 %(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@"
 """
-
 
 class EB_AOCC(PackedBinary):
     """
@@ -66,6 +69,7 @@ class EB_AOCC(PackedBinary):
         super(EB_AOCC, self).__init__(*args, **kwargs)
 
         self.clangversion = self.cfg['clangversion']
+        self.gcc_prefix = None
 
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
@@ -76,6 +80,7 @@ class EB_AOCC(PackedBinary):
             '4.0.0': '14.0.6',
             '4.1.0': '16.0.3',
             '4.2.0': '16.0.3',
+            '5.0.0': '17.0.6',
         }
 
         if self.version in map_aocc_to_clang_ver:
@@ -88,6 +93,96 @@ class EB_AOCC(PackedBinary):
                 "- extend `map_aocc_to_clang_ver` in the easyblock;",
             ]
             raise EasyBuildError('\n'.join(error_lines))
+
+    def _create_compiler_wrappers(self, compilers_to_wrap):
+        if not compilers_to_wrap:
+            return
+
+        orig_compiler_tmpl = '%s/%s.orig'
+
+        def create_wrapper(wrapper_comp):
+            """Create for a particular compiler, with a particular name"""
+            wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
+            write_file(wrapper_f, WRAPPER_TEMPLATE % {'compiler_name': orig_compiler_tmpl %
+                                                      (os.path.join(self.installdir, 'bin'), wrapper_comp)})
+            perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
+            adjust_permissions(wrapper_f, perms)
+
+        # Rename original compilers and prepare wrappers to pick up GCCcore as GCC toolchain for the compilers
+        for comp in compilers_to_wrap:
+            actual_compiler = os.path.join(self.installdir, 'bin', comp)
+            if os.path.isfile(actual_compiler):
+                move_file(actual_compiler, orig_compiler_tmpl % (os.path.join(self.installdir, 'bin'), comp))
+            else:
+                err_str = "Tried to move '%s' to '%s', but it does not exist!"
+                raise EasyBuildError(err_str, actual_compiler, '%s.orig' % actual_compiler)
+
+            if not os.path.exists(actual_compiler):
+                create_wrapper(comp)
+                self.log.info("Wrapper for %s successfully created", comp)
+            else:
+                err_str = "Creating wrapper for '%s' not possible, since original compiler was not renamed!"
+                raise EasyBuildError(err_str, actual_compiler)
+
+    def _create_compiler_config_files(self, compilers_to_add_config_file):
+        if not compilers_to_add_config_file:
+            return
+
+        # For each of the compiler suites, add a .cfg file which points to the correct GCCcore as the GCC toolchain.
+        # We need the GCC prefix for this.
+        self._set_gcc_prefix()
+        bin_dir = os.path.join(self.installdir, 'bin')
+        prefix_str = '--gcc-install-dir=%s' % self.gcc_prefix
+        for comp in compilers_to_add_config_file:
+            with open(os.path.join(bin_dir, '%s.cfg' % comp), 'w') as f:
+                f.write(prefix_str)
+
+    def _sanity_check_gcc_prefix(self):
+        """Check if the GCC prefix is correct."""
+        compilers_to_check = [
+            'clang',
+            'clang++',
+            'clang-%s' % LooseVersion(self.clangversion).version[0],
+            'clang-cpp',
+            'flang',
+        ]
+
+        # Set prefix if not done during installation.
+        self._set_gcc_prefix()
+        rgx = re.compile('Selected GCC installation: (.*)')
+        for comp in compilers_to_check:
+            cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
+            out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            mch = rgx.search(out)
+            if mch is None:
+                self.log.debug(out)
+                raise EasyBuildError("Failed to extract GCC installation path from output of `%s`", cmd)
+            gcc_prefix = mch.group(1)
+            if gcc_prefix != self.gcc_prefix:
+                raise EasyBuildError(
+                    "GCC installation path `%s` does not match expected path `%s`", gcc_prefix, self.gcc_prefix
+                    )
+
+    def _set_gcc_prefix(self):
+        """Set the GCC prefix for the build."""
+        if not self.gcc_prefix:
+            arch = get_cpu_architecture()
+            gcc_root = get_software_root('GCCcore')
+            gcc_version = get_software_version('GCCcore')
+            # If that doesn't work, try with GCC
+            if gcc_root is None:
+                gcc_root = get_software_root('GCC')
+                gcc_version = get_software_version('GCC')
+            # If that doesn't work either, print error and exit
+            if gcc_root is None:
+                raise EasyBuildError("Can't find GCC or GCCcore to use")
+
+            pattern = os.path.join(gcc_root, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
+            matches = glob.glob(pattern)
+            if not matches:
+                raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
+            self.gcc_prefix = os.path.abspath(matches[0])
+            self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
 
     def install_step(self):
         # EULA for AOCC must be accepted via --accept-eula-for EasyBuild configuration option,
@@ -102,41 +197,36 @@ class EB_AOCC(PackedBinary):
         super(EB_AOCC, self).install_step()
 
     def post_install_step(self):
-        """Create wrappers for the compilers to make sure compilers picks up GCCcore as GCC toolchain"""
+        """
+        For AOCC <5.0.0:
+        Create wrappers for the compilers to make sure compilers picks up GCCcore as GCC toolchain.
+        For AOCC >= 5.0.0:
+        Create [compiler-name].cfg files to point the compiler to the correct GCCcore as GCC toolchain.
+        For compilers not supporting this option, wrap the compilers using the old method.
+        """
+        compilers_to_wrap = []
+        compilers_to_add_config_files = []
 
-        orig_compiler_tmpl = '%s.orig'
+        if LooseVersion(self.version) < LooseVersion("5.0.0"):
+            compilers_to_wrap += [
+                'clang',
+                'clang++',
+                'clang-%s' % LooseVersion(self.clangversion).version[0],
+                'clang-cpp',
+                'flang',
+            ]
+        else:
+            compilers_to_add_config_files += [
+                'clang',
+                'clang++',
+                'clang-cpp'
+            ]
+            compilers_to_wrap += [
+                'flang'
+            ]
 
-        def create_wrapper(wrapper_comp):
-            """Create for a particular compiler, with a particular name"""
-            wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
-            write_file(wrapper_f, WRAPPER_TEMPLATE % {'compiler_name': orig_compiler_tmpl % wrapper_comp})
-            perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
-            adjust_permissions(wrapper_f, perms)
-
-        compilers_to_wrap = [
-            'clang',
-            'clang++',
-            'clang-%s' % LooseVersion(self.clangversion).version[0],
-            'clang-cpp',
-            'flang',
-        ]
-
-        # Rename original compilers and prepare wrappers to pick up GCCcore as GCC toolchain for the compilers
-        for comp in compilers_to_wrap:
-            actual_compiler = os.path.join(self.installdir, 'bin', comp)
-            if os.path.isfile(actual_compiler):
-                move_file(actual_compiler, orig_compiler_tmpl % actual_compiler)
-            else:
-                err_str = "Tried to move '%s' to '%s', but it does not exist!"
-                raise EasyBuildError(err_str, actual_compiler, '%s.orig' % actual_compiler)
-
-            if not os.path.exists(actual_compiler):
-                create_wrapper(comp)
-                self.log.info("Wrapper for %s successfully created", comp)
-            else:
-                err_str = "Creating wrapper for '%s' not possible, since original compiler was not renamed!"
-                raise EasyBuildError(err_str, actual_compiler)
-
+        self._create_compiler_config_files(compilers_to_add_config_files)
+        self._create_compiler_wrappers(compilers_to_wrap)
         super(EB_AOCC, self).post_install_step()
 
     def sanity_check_step(self):
@@ -167,6 +257,8 @@ class EB_AOCC(PackedBinary):
             "flang --help",
             "llvm-config --cxxflags",
         ]
+
+        self._sanity_check_gcc_prefix()
         super(EB_AOCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
