@@ -148,6 +148,7 @@ def _wrap_env(path="", ld_path=""):
         setvar('PATH', orig_path)
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
+
 def get_gcc_prefix():
     """Get the GCC prefix for the build."""
     arch = get_cpu_architecture()
