@@ -199,10 +199,6 @@ class EB_LAMMPS(CMakeMake):
         """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
         super(EB_LAMMPS, self).__init__(*args, **kwargs)
 
-        # DEBUG
-        print("I don't know if this exhists: ", dir(self.start_dir))
-        # DEBUG
-
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
@@ -238,9 +234,6 @@ class EB_LAMMPS(CMakeMake):
         """Custom prepare step for LAMMPS."""
         super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
-        # DEBUG
-        print("Is there anything more here in the prepare step: ", self.start_dir)
-
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
             self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
@@ -263,7 +256,6 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
-        # DEBUG
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -709,4 +701,3 @@ def get_cpu_arch():
     if ec:
         raise EasyBuildError("Failed to determine CPU architecture: %s", out)
     return out.strip()
-
