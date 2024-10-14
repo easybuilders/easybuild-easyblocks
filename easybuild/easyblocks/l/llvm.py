@@ -881,6 +881,7 @@ class EB_LLVM(CMakeMake):
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
+        lib_dir_runtime = None
         if self.cfg['build_runtimes']:
             lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
         shlib_ext = '.' + get_shared_lib_ext()
@@ -1049,8 +1050,11 @@ class EB_LLVM(CMakeMake):
             'dirs': check_dirs,
         }
 
-        # Required for `clang -v` to work if linked to LLVM runtimes
-        with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
+        if lib_dir_runtime:
+            # Required for `clang -v` to work if linked to LLVM runtimes
+            with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
+                sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+        else:
             sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
 
         return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
