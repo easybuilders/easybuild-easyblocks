@@ -49,7 +49,8 @@ from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
 
-%(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@"
+# Patch argv[0] to the actual compiler so that the correct driver is used internally
+(exec -a "%(actual_compiler_name)s" %(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@")
 """
 
 class EB_AOCC(PackedBinary):
@@ -104,7 +105,8 @@ class EB_AOCC(PackedBinary):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
             write_file(wrapper_f, WRAPPER_TEMPLATE % {'compiler_name': orig_compiler_tmpl %
-                                                      (os.path.join(self.installdir, 'bin'), wrapper_comp)})
+                                                      (os.path.join(self.installdir, 'bin'), wrapper_comp),
+                                                      'actual_compiler_name': wrapper_comp})
             perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
             adjust_permissions(wrapper_f, perms)
 
