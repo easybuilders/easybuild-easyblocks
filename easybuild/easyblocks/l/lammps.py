@@ -184,7 +184,7 @@ def translate_lammps_version(version, path=""):
             regex = r'\d+ \S+ \d+'
             result = re.search(regex, lines[0])
             gen_version = result.group()
-            items = [x for x in re.split('(\\s)', gen_version) if x]
+            items = [x for x in re.split(' ', gen_version) if x]
             return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
         else:
             raise ValueError("Version %s cannot be generated" % version)
