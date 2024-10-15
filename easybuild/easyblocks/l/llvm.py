@@ -215,6 +215,8 @@ class EB_LLVM(CMakeMake):
         'usepolly',
     ]
 
+    cfg_compilers = ['clang', 'clang++', 'flang']
+
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
@@ -700,6 +702,7 @@ class EB_LLVM(CMakeMake):
 
                 self._add_cmake_runtime_args()
 
+
             # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
             clang = which('clang')
             clangxx = which('clang++')
@@ -719,6 +722,12 @@ class EB_LLVM(CMakeMake):
             self.log.debug("Building %s", stage_dir)
             cmd = "make %s VERBOSE=1" % self.make_parallel_opts
             run_cmd(cmd, log_all=True)
+
+            # Also runs of the intermediate step compilers should be made aware of the GCC installation
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                self._set_gcc_prefix()
+                # Does not matter if flang is not built, the config file will not be used
+                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, stage_dir)
 
         change_dir(curdir)
 
@@ -849,7 +858,8 @@ class EB_LLVM(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('19'):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
-            create_compiler_config_file(['clang', 'clang++', 'flang'], self.gcc_prefix, self.installdir)
+            self._set_gcc_prefix()
+            create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
