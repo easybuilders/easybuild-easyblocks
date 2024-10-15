@@ -702,7 +702,6 @@ class EB_LLVM(CMakeMake):
 
                 self._add_cmake_runtime_args()
 
-
             # determine full path to clang/clang++ (which may be wrapper scripts in case of RPATH linking)
             clang = which('clang')
             clangxx = which('clang++')
