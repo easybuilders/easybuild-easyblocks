@@ -711,6 +711,11 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['CMAKE_ASM_COMPILER'] = clang
             self._cmakeopts['CMAKE_ASM_COMPILER_ID'] = 'Clang'
 
+            # Also runs of the intermediate step compilers should be made aware of the GCC installation
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                self._set_gcc_prefix()
+                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
+
             self.add_cmake_opts()
 
             change_dir(stage_dir)
@@ -721,12 +726,6 @@ class EB_LLVM(CMakeMake):
             self.log.debug("Building %s", stage_dir)
             cmd = "make %s VERBOSE=1" % self.make_parallel_opts
             run_cmd(cmd, log_all=True)
-
-            # Also runs of the intermediate step compilers should be made aware of the GCC installation
-            if LooseVersion(self.version) >= LooseVersion('19'):
-                self._set_gcc_prefix()
-                # Does not matter if flang is not built, the config file will not be used
-                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, stage_dir)
 
         change_dir(curdir)
 
@@ -805,6 +804,10 @@ class EB_LLVM(CMakeMake):
     def test_step(self):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
+            # Also runs of test suite compilers should be made aware of the GCC installation
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                self._set_gcc_prefix()
+                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
             max_failed = self.cfg['test_suite_max_failed']
             # self.log.info("Running test-suite with parallel jobs")
             # num_failed = self._para_test_step(parallel=self.cfg['parallel'])
