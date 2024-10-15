@@ -220,29 +220,8 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
-    def configure_step(self, srcdir=None, builddir=None):
-        """Configure build using cmake"""
-
-        setup_cmake_env(self.toolchain)
-
-        if builddir is None and self.cfg.get('separate_build_dir', True):
-            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
-            builddir = self.separate_build_dir
-
-        if builddir:
-            mkdir(builddir, parents=True)
-            change_dir(builddir)
-            default_srcdir = self.cfg['start_dir']
-        else:
-            default_srcdir = '.'
-
-        if srcdir is None:
-            if self.cfg.get('srcdir', None) is not None:
-                # Note that the join returns srcdir if it is absolute
-                srcdir = os.path.join(default_srcdir, self.cfg['srcdir'])
-            else:
-                srcdir = default_srcdir
-
+    def get_config_opts(self, cache_exists=False):
+        """Get the CMake configuration options"""
         install_target = self.installdir
         install_target_subdir = self.cfg.get('install_target_subdir')
         if install_target_subdir:
@@ -280,11 +259,6 @@ class CMakeMake(ConfigureMake):
         if self.toolchain.options.get('pic', False):
             options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
-        if self.cfg['generator']:
-            generator = '-G "%s"' % self.cfg['generator']
-        else:
-            generator = ''
-
         # pass --sysroot value down to CMake,
         # and enable using absolute paths to compiler commands to avoid
         # that CMake picks up compiler from sysroot rather than toolchain compiler...
@@ -294,20 +268,11 @@ class CMakeMake(ConfigureMake):
             self.log.info("Using absolute path to compiler commands because of alterate sysroot %s", sysroot)
             self.cfg['abs_path_compilers'] = True
 
-        # Set flag for shared libs if requested
-        # Not adding one allows the project to choose a default
+        # This can be safely set here as well as the one set in the `configopts` will take precedence
         build_shared_libs = self.cfg.get('build_shared_libs')
         if build_shared_libs is not None:
-            # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
-            # This is to allow self.lib_ext to be determined correctly.
-            # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
-            # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
-            if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
-                print_warning('Ignoring BUILD_SHARED_LIBS setting in configopts because build_shared_libs is set')
-            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
+            options['BUILD_SHARED_LIBS'] = 'ON' if build_shared_libs else 'OFF'
 
-        # If the cache does not exist CMake reads the environment variables
-        cache_exists = os.path.exists('CMakeCache.txt')
         env_to_options = dict()
 
         # Setting compilers is not required unless we want absolute paths
@@ -385,10 +350,63 @@ class CMakeMake(ConfigureMake):
                 options['BOOST_ROOT'] = boost_root
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
 
-        self.cmake_options = options
+        return options
+
+
+    def configure_step(self, srcdir=None, builddir=None):
+        """Configure build using cmake"""
+
+        setup_cmake_env(self.toolchain)
+
+        if builddir is None and self.cfg.get('separate_build_dir', True):
+            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
+            builddir = self.separate_build_dir
+
+        if builddir:
+            mkdir(builddir, parents=True)
+            change_dir(builddir)
+            default_srcdir = self.cfg['start_dir']
+        else:
+            default_srcdir = '.'
+
+        if srcdir is None:
+            if self.cfg.get('srcdir', None) is not None:
+                # Note that the join returns srcdir if it is absolute
+                srcdir = os.path.join(default_srcdir, self.cfg['srcdir'])
+            else:
+                srcdir = default_srcdir
+
+        if self.cfg['generator']:
+            generator = '-G "%s"' % self.cfg['generator']
+        else:
+            generator = ''
+
+        # Set flag for shared libs if requested
+        # Not adding one allows the project to choose a default
+        build_shared_libs = self.cfg.get('build_shared_libs')
+        if build_shared_libs is not None:
+            # Contrary to other options build_shared_libs takes precedence over configopts which may be unexpected.
+            # This is to allow self.lib_ext to be determined correctly.
+            # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
+            # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
+            if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
+                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+            self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
+            
+        # If the cache does not exist CMake reads the environment variables
+        cache_exists = os.path.exists('CMakeCache.txt')
+
+        # Setting compilers is not required unless we want absolute paths
+        if not (self.cfg.get('abs_path_compilers', False) or cache_exists):
+            # Set the variable which CMake uses to init the compiler using F90 for backward compatibility
+            fc = os.getenv('F90')
+            if fc:
+                setvar('FC', fc)
+
+        self.cmake_options = self.get_config_opts(cache_exists=cache_exists)
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
-            self.prepend_config_opts(options)
+            self.prepend_config_opts(self.cmake_options)
             command = ' '.join([
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
