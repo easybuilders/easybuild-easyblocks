@@ -347,7 +347,6 @@ class CMakeMake(ConfigureMake):
 
         return options
 
-
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
 
@@ -387,7 +386,7 @@ class CMakeMake(ConfigureMake):
             if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
                 print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
-            
+
         # If the cache does not exist CMake reads the environment variables
         cache_exists = os.path.exists('CMakeCache.txt')
 
