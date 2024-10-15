@@ -282,11 +282,6 @@ class CMakeMake(ConfigureMake):
                 'CXX': 'CMAKE_CXX_COMPILER',
                 'F90': 'CMAKE_Fortran_COMPILER',
             })
-        else:
-            # Set the variable which CMake uses to init the compiler using F90 for backward compatibility
-            fc = os.getenv('F90')
-            if fc:
-                setvar('FC', fc)
 
         # Flags are read from environment variables already since at least CMake 2.8.0
         if LooseVersion(self.cmake_version) < LooseVersion('2.8.0') or cache_exists:
