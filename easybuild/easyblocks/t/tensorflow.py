@@ -40,6 +40,7 @@ from itertools import chain
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.framework.easyconfig import CUSTOM
@@ -51,7 +52,7 @@ from easybuild.tools.filetools import is_readable, read_file, symlink, which, wr
 from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
-from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR, Toolchain
 
 
 CPU_DEVICE = 'cpu'
@@ -80,6 +81,49 @@ export PATH=$(echo $PATH | tr ':' '\n' | grep -v "^%(wrapper_dir)s$" | tr '\n' '
 """
 
 KNOWN_BINUTILS = ('ar', 'as', 'dwp', 'ld', 'ld.bfd', 'ld.gold', 'nm', 'objcopy', 'objdump', 'strip')
+
+
+_log = fancylogger.getLogger('easyblocks.tensorflow')
+
+
+def det_binutils_bin_path():
+    """
+    Determine location where binutils' ld command is installed.
+
+    This may be an RPATH wrapper script (when EasyBuild is configured with --rpath).
+    In that case, symlinks for all binutils commands are collectively created in a new directory.
+    """
+    ld_path = which('ld', on_error=ERROR)
+    binutils_bin_path = os.path.dirname(ld_path)
+    if Toolchain.is_rpath_wrapper(ld_path):
+        # binutils binaries may be expected to all be in a single path,
+        # but newer EasyBuild puts each in its own subfolder;
+        # This new layout is: <prefix>/RPATH_WRAPPERS_SUBDIR/<util>_folder/<util>
+        rpath_wrapper_root = os.path.dirname(os.path.dirname(ld_path))
+        if os.path.basename(rpath_wrapper_root) == RPATH_WRAPPERS_SUBDIR:
+            # Add symlinks to each binutils binary into a single folder
+            new_rpath_wrapper_dir = os.path.join(tempfile.mkdtemp(), RPATH_WRAPPERS_SUBDIR)
+            binutils_root = get_software_root('binutils')
+            if binutils_root:
+                _log.debug("Using binutils dependency at %s to gather binutils files.", binutils_root)
+                binutils_files = next(os.walk(os.path.join(binutils_root, 'bin')))[2]
+            else:
+                # binutils might be filtered (--filter-deps), so recursively gather files in the rpath wrapper dir
+                binutils_files = {f for (_, _, files) in os.walk(rpath_wrapper_root) for f in files}
+                # And add known ones
+                binutils_files.update(KNOWN_BINUTILS)
+            _log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils (%s) to %s.",
+                      ld_path, ', '.join(binutils_files), new_rpath_wrapper_dir)
+            mkdir(new_rpath_wrapper_dir)
+            for file in binutils_files:
+                # use `which` to take rpath wrappers where available
+                # Ignore missing ones if binutils was filtered (in which case we used a heuristic)
+                path = which(file, on_error=ERROR if binutils_root else WARN)
+                if path:
+                    symlink(path, os.path.join(new_rpath_wrapper_dir, file))
+            binutils_bin_path = new_rpath_wrapper_dir
+
+    return binutils_bin_path
 
 
 def split_tf_libs_txt(valid_libs_txt):
@@ -477,36 +521,7 @@ class EB_TensorFlow(PythonPackage):
             bazel_max = 64 if get_bazel_version() < '3.0.0' else 128
             self.cfg['parallel'] = min(self.cfg['parallel'], bazel_max)
 
-        # determine location where binutils' ld command is installed
-        # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
-        ld_path = which('ld', on_error=ERROR)
-        self.binutils_bin_path = os.path.dirname(ld_path)
-        if self.toolchain.is_rpath_wrapper(ld_path):
-            # TF expects all binutils binaries in a single path but newer EB puts each in its own subfolder
-            # This new layout is: <prefix>/RPATH_WRAPPERS_SUBDIR/<util>_folder/<util>
-            rpath_wrapper_root = os.path.dirname(os.path.dirname(ld_path))
-            if os.path.basename(rpath_wrapper_root) == RPATH_WRAPPERS_SUBDIR:
-                # Add symlinks to each binutils binary into a single folder
-                new_rpath_wrapper_dir = os.path.join(self.wrapper_dir, RPATH_WRAPPERS_SUBDIR)
-                binutils_root = get_software_root('binutils')
-                if binutils_root:
-                    self.log.debug("Using binutils dependency at %s to gather binutils files.", binutils_root)
-                    binutils_files = next(os.walk(os.path.join(binutils_root, 'bin')))[2]
-                else:
-                    # binutils might be filtered (--filter-deps), so recursively gather files in the rpath wrapper dir
-                    binutils_files = {f for (_, _, files) in os.walk(rpath_wrapper_root) for f in files}
-                    # And add known ones
-                    binutils_files.update(KNOWN_BINUTILS)
-                self.log.info("Found %s to be an rpath wrapper. Adding symlinks for binutils (%s) to %s.",
-                              ld_path, ', '.join(binutils_files), new_rpath_wrapper_dir)
-                mkdir(new_rpath_wrapper_dir)
-                for file in binutils_files:
-                    # use `which` to take rpath wrappers where available
-                    # Ignore missing ones if binutils was filtered (in which case we used a heuristic)
-                    path = which(file, on_error=ERROR if binutils_root else WARN)
-                    if path:
-                        symlink(path, os.path.join(new_rpath_wrapper_dir, file))
-                self.binutils_bin_path = new_rpath_wrapper_dir
+        self.binutils_bin_path = det_binutils_bin_path()
 
         # filter out paths from CPATH and LIBRARY_PATH. This is needed since bazel will pull some dependencies that
         # might conflict with dependencies on the system and/or installed with EB. For example: protobuf
