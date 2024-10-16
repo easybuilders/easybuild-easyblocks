@@ -41,6 +41,7 @@ import easybuild.easyblocks.generic.pythonpackage as pythonpackage
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
+from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
 from easybuild.framework.easyconfig.easyconfig import process_easyconfig
 from easybuild.tools import config
@@ -51,6 +52,7 @@ from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remo
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.py2vs3 import StringIO
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 class EasyBlockSpecificTest(TestCase):
@@ -358,6 +360,54 @@ class EasyBlockSpecificTest(TestCase):
         self.assertEqual(sorted(os.listdir(lib64_path)), ['site-packages'])
         self.assertTrue(os.path.isdir(lib64_site_path))
         self.assertFalse(os.path.islink(lib64_site_path))
+
+    def test_det_binutils_bin_path(self):
+        """Test det_binutils_bin_path provided by TensorFlow easyblock."""
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertTrue(os.path.join(binutils_bin_path, 'ld'))
+        self.assertFalse(RPATH_WRAPPERS_SUBDIR in binutils_bin_path)
+
+        wrappers_dir = os.path.join(self.tmpdir, 'fake_wrappers', RPATH_WRAPPERS_SUBDIR)
+
+        # put fake wrappers in place for a couple of binutils command
+        binutils_cmds = ('as', 'ld', 'nm', 'objdump')
+        for cmd in binutils_cmds:
+            wrapper_dir = os.path.join(wrappers_dir, '%s.wrapper' % cmd)
+            os.environ['PATH'] = wrapper_dir + ':' + os.getenv('PATH')
+            wrapper = os.path.join(wrapper_dir, cmd)
+            wrapper_txt = "CMD=%s; rpath_args.py $CMD" % cmd
+            write_file(wrapper, wrapper_txt)
+            adjust_permissions(wrapper, stat.S_IXUSR)
+
+        # if $EBROOTBINUTILS is set, binutils commands to consider is determined by contents of $EBROOTBINUTILS/bin
+        binutils_root = os.path.join(self.tmpdir, 'binutils_root')
+        for cmd in binutils_cmds[:2]:
+            cmd_path = os.path.join(binutils_root, 'bin', cmd)
+            write_file(cmd_path, '#!/bin/bash\necho %s' % cmd)
+            adjust_permissions(cmd_path, stat.S_IXUSR)
+        os.environ['EBROOTBINUTILS'] = binutils_root
+
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertEqual(os.path.basename(binutils_bin_path), RPATH_WRAPPERS_SUBDIR)
+        self.assertEqual(sorted(os.listdir(binutils_bin_path)), ['as', 'ld'])
+        for cmd in binutils_cmds[:2]:
+            cmd_path = os.path.join(binutils_bin_path, cmd)
+            self.assertTrue(os.path.islink(cmd_path))
+            expected_target = os.path.join(wrappers_dir, '%s.wrapper' % cmd, cmd)
+            self.assertEqual(os.path.realpath(cmd_path), os.path.realpath(expected_target))
+
+        del os.environ['EBROOTBINUTILS']
+
+        # if $EBROOTBINUTILS is not set, a pre-defined list of known binutils commands is used (KNOWN_BINUTILS constant)
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertEqual(os.path.basename(binutils_bin_path), RPATH_WRAPPERS_SUBDIR)
+        found_cmds = os.listdir(binutils_bin_path)
+        self.assertTrue(all(x in found_cmds for x in binutils_cmds))
+        for cmd in binutils_cmds:
+            cmd_path = os.path.join(binutils_bin_path, cmd)
+            self.assertTrue(os.path.islink(cmd_path))
+            expected_target = os.path.join(wrappers_dir, '%s.wrapper' % cmd, cmd)
+            self.assertEqual(os.path.realpath(cmd_path), os.path.realpath(expected_target))
 
 
 def suite():
