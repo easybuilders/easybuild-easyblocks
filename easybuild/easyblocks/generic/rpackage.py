@@ -223,7 +223,7 @@ class RPackage(ExtensionEasyBlock):
 
         if self._required_deps is None:
             if self.src:
-                cmd = "tar --wildcards --extract --file %s --to-stdout '*/DESCRIPTION'" % self.src
+                cmd = "tar --wildcards --extract --file %s --to-stdout '*DESCRIPTION'" % self.src
                 res = run_shell_cmd(cmd, hidden=True)
 
                 # lines that start with whitespace are merged with line above
