@@ -44,7 +44,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, move_file, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 
 # Wrapper script definition
@@ -170,10 +170,10 @@ class EB_AOCC(PackedBinary):
         rgx = re.compile('Selected GCC installation: (.*)')
         for comp in compilers_to_check:
             cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
-            out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
-            mch = rgx.search(out)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            mch = rgx.search(res.output)
             if mch is None:
-                self.log.debug(out)
+                self.log.debug(res.output)
                 raise EasyBuildError("Failed to extract GCC installation path from output of `%s`", cmd)
             gcc_prefix = mch.group(1)
             if gcc_prefix != self.gcc_prefix:
