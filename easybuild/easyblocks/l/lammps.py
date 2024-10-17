@@ -154,11 +154,8 @@ KOKKOS_GPU_ARCH_TABLE = {
 ref_version = '29Sep2021'
 
 
-def translate_lammps_version(version):
+def translate_lammps_version(version, path=""):
     """Translate the LAMMPS version into something that can be used in a comparison"""
-    items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) < 3:
-        raise ValueError("Version %s does not have (at least) 3 elements" % version)
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -173,7 +170,24 @@ def translate_lammps_version(version):
        "NOV": '11',
        "DEC": '12'
     }
-    return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    items = [x for x in re.split('(\\d+)', version) if x]
+    if len(items) < 3:
+        raise ValueError("Version %s does not have (at least) 3 elements" % version)
+    try:
+        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    except KeyError:
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(path) and os.listdir(path):
+            with open("%ssrc/version.h" % (path)) as file:
+                file_contents = file.read()
+            lines = re.split('\n', file_contents)
+            regex = r'\d+ \S+ \d+'
+            result = re.search(regex, lines[0])
+            gen_version = result.group()
+            items = [x for x in re.split(' ', gen_version) if x]
+            return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+        else:
+            raise ValueError("Version %s cannot be generated" % version)
 
 
 class EB_LAMMPS(CMakeMake):
@@ -189,9 +203,37 @@ class EB_LAMMPS(CMakeMake):
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
+    def update_kokkos_cpu_mapping(self):
+        """Add new kokkos_cpu_mapping to the list based on in which version they were added to LAMMPS"""
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+    @staticmethod
+    def extra_options(**kwargs):
+        """Custom easyconfig parameters for LAMMPS"""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
+            'kokkos': [True, "Enable kokkos build.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for LAMMPS."""
+        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
+
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
-            self.cur_version = translate_lammps_version(self.version)
+            self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
         else:
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
@@ -211,34 +253,6 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
-
-    @staticmethod
-    def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
-            'kokkos': [True, "Enable kokkos build.", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-        })
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
-    def update_kokkos_cpu_mapping(self):
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
-            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
-
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for LAMMPS."""
-        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -471,7 +485,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*%s' % (self.name.lower(), self.version))
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
