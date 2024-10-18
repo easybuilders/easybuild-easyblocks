@@ -586,7 +586,7 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
         # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
         # For other architectures we set a custom/non-existent type, which will disable all optimizations,
         # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
-        if get_cpu_architecture() == systemtools.AARCH64:
+        if get_cpu_architecture() == AARCH64:
             processor_arch = 'ARMV80'
         else:
             processor_arch = 'EASYBUILD_GENERIC'
