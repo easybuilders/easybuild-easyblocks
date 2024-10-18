@@ -1062,6 +1062,7 @@ class EB_LLVM(CMakeMake):
             'dirs': check_dirs,
         }
 
+        self._set_gcc_prefix()
         if lib_dir_runtime:
             # Required for `clang -v` to work if linked to LLVM runtimes
             with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
