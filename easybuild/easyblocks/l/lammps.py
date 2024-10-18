@@ -38,7 +38,6 @@ import copy
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
-import easybuild.tools.systemtools as systemtools
 import easybuild.tools.toolchain as toolchain
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
