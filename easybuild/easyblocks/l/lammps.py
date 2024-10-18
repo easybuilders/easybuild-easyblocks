@@ -590,10 +590,11 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
         else:
             processor_arch = 'EASYBUILD_GENERIC'
 
-        warning_msg = "Generic build requested, setting CPU ARCH to %s." % processor_arch
+        self.log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
         if kokkos_arch:
-            warning_msg += " The specified kokkos_arch (%s) will be ignored." % kokkos_arch
-        print_warning(warning_msg)
+            msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
+            msg += "because a generic build was requested (via --optarch=GENERIC)"
+            print_warning(msg)
     elif kokkos_arch:
         if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
             warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
