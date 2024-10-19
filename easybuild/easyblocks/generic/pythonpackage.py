@@ -1029,15 +1029,15 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
 
-        # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths,
+        # Use directory usually containg the python packages by default
         # but only for stand-alone installations, not for extensions;
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        if not self.is_extension and not self.cfg['sanity_check_paths'] and kwargs.get('custom_paths') is None:
-            self.cfg['sanity_check_paths'] = {
+        if not self.is_extension:
+            kwargs.setdefault('custom_paths', {
                 'files': [],
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
-            }
+            })
 
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:
