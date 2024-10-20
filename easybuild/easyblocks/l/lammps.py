@@ -39,13 +39,15 @@ from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -152,6 +154,8 @@ KOKKOS_GPU_ARCH_TABLE = {
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
 ref_version = '29Sep2021'
+
+_log = fancylogger.getLogger('easyblocks.lammps')
 
 
 def translate_lammps_version(version):
@@ -582,7 +586,22 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
 
     processor_arch = None
 
-    if kokkos_arch:
+    if build_option('optarch') == OPTARCH_GENERIC:
+        # For generic Arm builds we use an existing target;
+        # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+        # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+        # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+        if get_cpu_architecture() == AARCH64:
+            processor_arch = 'ARMV80'
+        else:
+            processor_arch = 'EASYBUILD_GENERIC'
+
+        _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
+        if kokkos_arch:
+            msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
+            msg += "because a generic build was requested (via --optarch=GENERIC)"
+            print_warning(msg)
+    elif kokkos_arch:
         if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
             warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
             warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
