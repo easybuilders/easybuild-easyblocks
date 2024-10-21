@@ -49,8 +49,7 @@ class EB_ESMF(ConfigureMake):
     def extra_options():
         """Custom easyconfig parameters for ESMF"""
         extra_vars = {
-            'disable_lapack': [False, 'Disable external LAPACK - True or False', CUSTOM],
-            'external_pio': [False, 'Use external ParallelIO instead of internal - True or False', CUSTOM]
+            'disable_lapack': [False, 'Disable external LAPACK - True or False', CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -127,29 +126,38 @@ class EB_ESMF(ConfigureMake):
                         netcdf_libs.append('-lnetcdf_c++')
                 env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
 
-        if self.cfg['external_pio']:
-            if LooseVersion(self.version) >= LooseVersion('8.4.0'):
-                pio = get_software_root('ParallelIO')
-                if pio:
-                    if LooseVersion(get_software_version('ParallelIO')) >= LooseVersion('2.5.9'):
+        # Get dependencies
+        deps = self.cfg.dependencies()
+        pio_in_deps = False
+        for dep in deps:
+            if dep['name'] == 'ParallelIO':
+                pio_in_deps = True
+                pio_version = dep['version']
+
+        # If build with ParallelIO
+        if pio_in_deps:
+            if LooseVersion(self.version) <= LooseVersion('8.4.0'):
+                msg = "External PIO is not supported for EMSF versions < 8.4.0"
+                raise EasyBuildError(msg)
+            else:
+                if pio_version <= LooseVersion('2.5.9'):
+                    msg = "ParallelIO version requested: (%s) is less than required (2.5.10)"
+                    raise EasyBuildError(msg, get_software_version('ParallelIO'))
+                else:
+                    # Check if pnetcdf is in deps:
+                    pnetcdf_in_deps = False
+                    for dep in deps:
+                        if dep['name'] == 'PnetCDF':
+                            pnetcdf_in_deps = True
+                    if not pnetcdf_in_deps:
+                        msg = "ParallelIO is in dependencies but PnetCDF is not"
+                        raise EasyBuildError(msg)
+                    else:
+                        pio = get_software_root('ParallelIO')
                         env.setvar('ESMF_PIO', 'external')
                         env.setvar('ESMF_PIO_INCLUDE', pio + '/include')
                         env.setvar('ESMF_PIO_LIBPATH', pio + '/lib')
-                        pnetcdf = get_software_root('PnetCDF')
-                        if pnetcdf:
-                            env.setvar('ESMF_PNETCDF', 'pnetcdf-config')
-                        else:
-                            msg = "external_pio is specified but PnetCDF is not found"
-                            raise EasyBuildError(msg)
-                    else:
-                        msg = "ParallelIO version (%s) is less than required (2.5.9) for external_pio option"
-                        raise EasyBuildError(msg, get_software_version('ParallelIO'))
-                else:
-                    msg = "external_pio is specified but no ParallelIO provided"
-                    raise EasyBuildError(msg)
-            else:
-                msg = "External PIO is not supported for EMSF versions < 8.4.0"
-                raise EasyBuildError(msg)
+                        env.setvar('ESMF_PNETCDF', 'pnetcdf-config')
 
         # 'make info' provides useful debug info
         cmd = "make info"
