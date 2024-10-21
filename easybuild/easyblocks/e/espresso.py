@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2024 Uni.Lu/LCSB, NTUA
 # Authors::   Josh Berryman <the.real.josh.berryman@gmail.com>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$

@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2023 Ghent University
-# Copyright 2019-2023 Micael Oliveira
+# Copyright 2009-2024 Ghent University
+# Copyright 2019-2024 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2013-2023 CaSToRC, The Cyprus Institute
+# Copyright:: Copyright 2013-2024 CaSToRC, The Cyprus Institute
 # Authors::   George Tsouloupas <g.tsouloupas@cyi.ac.cy>
 # License::   MIT/GPL
 # $Id$
@@ -17,7 +17,7 @@ import glob
 import os
 import re
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.makecp import MakeCp

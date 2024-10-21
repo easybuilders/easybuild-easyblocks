@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for building and installing Qt, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -39,7 +39,7 @@ from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_cmd_qa
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
-from easybuild.tools.systemtools import AARCH64, POWER
+from easybuild.tools.systemtools import AARCH64, POWER, RISCV64
 
 
 class EB_Qt(ConfigureMake):
@@ -73,7 +73,7 @@ class EB_Qt(ConfigureMake):
         # if no platform is specified, try to derive it based on compiler in toolchain
         elif comp_fam in [toolchain.GCC]:  # @UndefinedVariable
             myarch = get_cpu_architecture()
-            if myarch == AARCH64:
+            if myarch in [AARCH64, RISCV64]:
                 platform = 'linux-g++'
             else:
                 platform = 'linux-g++-64'

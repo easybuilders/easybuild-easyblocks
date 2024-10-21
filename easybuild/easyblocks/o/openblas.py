@@ -7,13 +7,15 @@ EasyBuild support for building and installing OpenBLAS, implemented as an easybl
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import ERROR
+from easybuild.tools.config import ERROR, build_option
 from easybuild.tools.run import run_cmd, check_log_for_errors
+from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+import easybuild.tools.environment as env
 
 LAPACK_TEST_TARGET = 'lapack-test'
 TARGET = 'TARGET'
@@ -43,9 +45,9 @@ class EB_OpenBLAS(ConfigureMake):
             'BINARY': '64',
             'CC': os.getenv('CC'),
             'FC': os.getenv('FC'),
+            'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
-            'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:
@@ -59,6 +61,23 @@ class EB_OpenBLAS(ConfigureMake):
             print_warning("OpenBLAS 0.3.5 and lower have known issues on POWER systems")
             default_opts[TARGET] = 'POWER8'
 
+        # special care must be taken when performing a generic build of OpenBLAS
+        if build_option('optarch') == OPTARCH_GENERIC:
+            default_opts['DYNAMIC_ARCH'] = '1'
+
+            if get_cpu_architecture() == AARCH64:
+                # when building for aarch64/generic, we also need to set TARGET=ARMV8 to make sure
+                # that the driver parts of OpenBLAS are compiled generically;
+                # see also https://github.com/OpenMathLib/OpenBLAS/issues/4945
+                default_opts[TARGET] = 'ARMV8'
+
+                # use -mtune=generic rather than -mcpu=generic in $CFLAGS for aarch64/generic,
+                # because -mcpu=generic implies a particular -march=armv* which clashes with those used by OpenBLAS
+                # when building with DYNAMIC_ARCH=1
+                cflags = os.getenv('CFLAGS').replace('-mcpu=generic', '-mtune=generic')
+                self.log.info("Replaced -mcpu=generic with -mtune=generic in $CFLAGS")
+                env.setvar('CFLAGS', cflags)
+
         for key in sorted(default_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
                 if '%s=' % key not in self.cfg[opts_key]:
@@ -70,10 +89,13 @@ class EB_OpenBLAS(ConfigureMake):
         """ Custom build step excluding the tests """
 
         # Equivalent to `make all` without the tests
-        build_parts = ['libs', 'netlib']
-        for buildopt in self.cfg['buildopts'].split():
-            if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
-                build_parts += ['re_lapack']
+        build_parts = []
+        if LooseVersion(self.version) < LooseVersion('0.3.23'):
+            build_parts += ['libs', 'netlib']
+            for buildopt in self.cfg['buildopts'].split():
+                if 'BUILD_RELAPACK' in buildopt and '1' in buildopt:
+                    build_parts += ['re_lapack']
+        # just shared is necessary and sufficient with 0.3.23 + xianyi/OpenBLAS#3983
         build_parts += ['shared']
 
         # Pass CFLAGS through command line to avoid redefinitions (issue xianyi/OpenBLAS#818)

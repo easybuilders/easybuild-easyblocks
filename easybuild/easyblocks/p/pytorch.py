@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2023 Ghent University
+# Copyright 2020-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,9 +30,10 @@ EasyBuild support for building and installing PyTorch, implemented as an easyblo
 
 import os
 import re
+import sys
 import tempfile
 import easybuild.tools.environment as env
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -42,6 +43,164 @@ from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 
+if sys.version_info >= (3, 9):
+    from typing import NamedTuple
+    FailedTestNames = NamedTuple('FailedTestNames', [('error', list[str]), ('fail', list[str])])
+    TestSuiteResult = NamedTuple('TestSuiteResult', [('name', str), ('summary', str)])
+    TestResult = NamedTuple('TestResult', [('test_cnt', int),
+                                           ('error_cnt', int),
+                                           ('failure_cnt', int),
+                                           ('failed_suites', list[TestSuiteResult])])
+else:
+    from collections import namedtuple
+    FailedTestNames = namedtuple('FailedTestNames', ('error', 'fail'))
+    TestSuiteResult = namedtuple('TestSuiteResult', ('name', 'summary'))
+    TestResult = namedtuple('TestResult', ('test_cnt', 'error_cnt', 'failure_cnt', 'failed_suites'))
+
+
+def find_failed_test_names(tests_out):
+    """Find failed names of failed test cases in the output of the test step
+
+    Return sorted list of names in FailedTestNames tuple
+    """
+    # patterns like
+    # === FAIL: test_add_scalar_relu (quantization.core.test_quantized_op.TestQuantizedOps) ===
+    # --- ERROR: test_all_to_all_group_cuda (__main__.TestDistBackendWithSpawn) ---
+    regex = r"^[=-]+\n(FAIL|ERROR): (test_.*?)\s\(.*\n[=-]+\n"
+    failed_test_cases = re.findall(regex, tests_out, re.M)
+    # And patterns like:
+    # FAILED test_ops_gradients.py::TestGradientsCPU::test_fn_grad_linalg_det_singular_cpu_complex128 - [snip]
+    # FAILED [22.8699s] test_sparse_csr.py::TestSparseCompressedCPU::test_invalid_input_csr_large_cpu - [snip]
+    # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
+    regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
+    failed_test_cases.extend(re.findall(regex, tests_out, re.M))
+    return FailedTestNames(error=sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR'),
+                           fail=sorted(m[1] for m in failed_test_cases if m[0] != 'ERROR'))
+
+
+def parse_test_log(tests_out):
+    """Parse the test output and return result as TestResult tuple"""
+
+    def get_count_for_pattern(regex, text):
+        """Match the regexp containing a single group and return the integer value of the matched group.
+            Return zero if no or more than 1 match was found and warn for the latter case
+        """
+        match = re.findall(regex, text)
+        if len(match) == 1:
+            return int(match[0])
+        elif len(match) > 1:
+            # Shouldn't happen, but means something went wrong with the regular expressions.
+            # Throw warning, as the build might be fine, no need to error on this.
+            warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
+            warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
+            print_warning(warn_msg)
+        return 0
+
+    failure_cnt = 0
+    error_cnt = 0
+    failed_suites = []
+
+    # Remove empty lines to make RegExs below simpler
+    tests_out = re.sub(r'^[ \t]*\n', '', tests_out, flags=re.MULTILINE)
+
+    # Grep for patterns like:
+    # Ran 219 tests in 67.325s
+    #
+    # FAILED (errors=10, skipped=190, expected failures=6)
+    # test_fx failed!
+    regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n"
+             r"FAILED \((?P<failure_summary>.*)\)$\n"
+             r"(?:^(?:(?!failed!).)*$\n){0,5}"
+             r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+
+    for m in re.finditer(regex, tests_out, re.M):
+        # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
+        failure_summary = m.group('failure_summary')
+        total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
+        failed_suites.append(
+            TestSuiteResult(test_suite, "{total} total tests, {failure_summary}".format(
+                total=total, failure_summary=failure_summary))
+        )
+        failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
+        error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
+
+    # Grep for patterns like:
+    # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
+    # test_quantization failed!
+    # OR:
+    # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
+    #
+    # FINISHED PRINTING LOG FILE
+    # test_quantization failed!
+    # OR:
+    # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 63.43s (01:03:43) =========
+    # If in CI, skip info is located in the xml test reports, please either go to s3 or the hud to download them
+    #
+    # FINISHED PRINTING LOG FILE of test_ops_gradients (/tmp/vsc40023/easybuil...)
+    #
+    # test_quantization failed!
+
+    regex = (
+        r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
+        r"(?:.*skip info is located in the xml test reports.*\n)?"
+        r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
+        r"(?P<failed_test_suite_name>.*) failed!$"
+    )
+
+    for m in re.finditer(regex, tests_out, re.M):
+        # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
+        failure_summary = m.group('failure_summary')
+        test_suite = m.group('failed_test_suite_name')
+        failed_suites.append(TestSuiteResult(test_suite, failure_summary))
+        failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
+        error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
+
+    # Grep for patterns like:
+    # AssertionError: 2 unit test(s) failed:
+    #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_debug_detail
+    #         DistributedDataParallelTest.test_find_unused_parameters_kwarg_grad_is_view_debug_detail
+    #
+    # FINISHED PRINTING LOG FILE of distributed/test_c10d_nccl (<snip>)
+    #
+    # distributed/test_c10d_nccl failed!
+
+    regex = (
+        r"^AssertionError: (?P<failure_summary>[0-9]+ unit test\(s\) failed):\n"
+        r"(\s+.*\n)+"
+        r"(((?!failed!).)*\n){0,5}"
+        r"(?P<failed_test_suite_name>.*) failed!$"
+    )
+
+    for m in re.finditer(regex, tests_out, re.M):
+        # E.g. '2 unit test(s) failed'
+        failure_summary = m.group('failure_summary')
+        test_suite = m.group('failed_test_suite_name')
+        failed_suites.append(TestSuiteResult(test_suite, failure_summary))
+        failure_cnt += get_count_for_pattern(r"([0-9]+) unit test\(s\) failed", failure_summary)
+
+    # Collect total number of tests
+
+    # Pattern for tests ran with unittest like:
+    # Ran 3 tests in 0.387s
+    regex = r"^Ran (?P<test_cnt>[0-9]+) tests in"
+    test_cnt = sum(int(hit) for hit in re.findall(regex, tests_out, re.M))
+    # Pattern for tests ran with pytest like:
+    # ============ 286 passed, 18 skipped, 2 xfailed in 38.71s ============
+    regex = r"=+ (?P<summary>.*) in \d+.* =+\n"
+    count_patterns = [re.compile(r"([0-9]+) " + reason) for reason in [
+        "failed",
+        "passed",
+        "skipped",
+        "deselected",
+        "xfailed",
+        "xpassed",
+    ]]
+    for m in re.finditer(regex, tests_out, re.M):
+        test_cnt += sum(get_count_for_pattern(p, m.group("summary")) for p in count_patterns)
+
+    return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt, failed_suites=failed_suites)
+
+
 class EB_PyTorch(PythonPackage):
     """Support for building/installing PyTorch."""
 
@@ -49,6 +208,8 @@ class EB_PyTorch(PythonPackage):
     def extra_options():
         extra_vars = PythonPackage.extra_options()
         extra_vars.update({
+            'build_type': [None, "Build type for CMake, e.g. Release."
+                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
             'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
                                 "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
@@ -56,6 +217,10 @@ class EB_PyTorch(PythonPackage):
         })
         extra_vars['download_dep_fail'][0] = True
         extra_vars['sanity_pip_check'][0] = True
+        # Make pip show output of build process as that may often contain errors or important warnings
+        extra_vars['pip_verbose'][0] = True
+        # Test as-if pytorch was installed
+        extra_vars['testinstall'][0] = True
 
         return extra_vars
 
@@ -63,8 +228,7 @@ class EB_PyTorch(PythonPackage):
         """Constructor for PyTorch easyblock."""
         super(EB_PyTorch, self).__init__(*args, **kwargs)
         self.options['modulename'] = 'torch'
-        # Test as-if pytorch was installed
-        self.testinstall = True
+
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
 
     def fetch_step(self, skip_checksums=False):
@@ -114,6 +278,7 @@ class EB_PyTorch(PythonPackage):
             ('USE_SYSTEM_FXDIV=1', None, '1.6.0:'),
             ('USE_SYSTEM_BENCHMARK=1', None, '1.6.0:'),  # Google Benchmark
             ('USE_SYSTEM_ONNX=1', None, '1.6.0:'),
+            ('USE_SYSTEM_PYBIND11=1', 'pybind11', '1.10.0:'),
             ('USE_SYSTEM_XNNPACK=1', None, '1.6.0:'),
         )
         return [(enable_opt, dep_name) for enable_opt, dep_name, version_range in available_libs
@@ -144,9 +309,12 @@ class EB_PyTorch(PythonPackage):
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
+        def add_enable_option(name, enabled):
+            """Add `name=0` or `name=1` depending on enabled"""
+            options.append('%s=%s' % (name, '1' if enabled else '0'))
+
         # enable verbose mode when --debug is used (to show compiler commands)
-        if build_option('debug'):
-            options.append('VERBOSE=1')
+        add_enable_option('VERBOSE', build_option('debug'))
 
         # Restrict parallelism
         options.append('MAX_JOBS=%s' % self.cfg['parallel'])
@@ -223,15 +391,40 @@ class EB_PyTorch(PythonPackage):
             # Disable CUDA
             options.append('USE_CUDA=0')
 
+        if pytorch_version >= '2.0':
+            add_enable_option('USE_ROCM', get_software_root('ROCm'))
+        elif pytorch_version >= 'v1.10.0':
+            add_enable_option('USE_MAGMA', get_software_root('magma'))
+
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
             # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
             if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
                 options.append('USE_BREAKPAD=0')
+            # FBGEMM requires AVX512, so not available on PPC
+            if pytorch_version >= 'v1.10.0':
+                options.append('USE_FBGEMM=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         options.append('USE_METAL=0')
+
+        build_type = self.cfg.get('build_type')
+        if build_type is None:
+            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+        else:
+            for name in ('prebuildopts', 'preinstallopts', 'custom_opts'):
+                if '-DCMAKE_BUILD_TYPE=' in self.cfg[name]:
+                    self.log.warning('CMAKE_BUILD_TYPE is set in %s. Ignoring build_type', name)
+                    build_type = None
+        if build_type:
+            if pytorch_version >= '1.2.0':
+                options.append('CMAKE_BUILD_TYPE=' + build_type)
+            else:
+                # Older versions use 2 env variables defaulting to "Release" if none are set
+                build_type = build_type.lower()
+                add_enable_option('DEBUG', build_type == 'debug')
+                add_enable_option('REL_WITH_DEB_INFO', build_type == 'relwithdebinfo')
 
         unique_options = self.cfg['custom_opts']
         for option in options:
@@ -279,89 +472,49 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = test_result
 
-        def get_count_for_pattern(regex, text):
-            """Match the regexp containing a single group and return the integer value of the matched group.
-               Return zero if no or more than 1 match was found and warn for the latter case
-            """
-            match = re.findall(regex, text)
-            if len(match) == 1:
-                return int(match[0])
-            elif len(match) > 1:
-                # Shouldn't happen, but means something went wrong with the regular expressions.
-                # Throw warning, as the build might be fine, no need to error on this.
-                warn_msg = "Error in counting the number of test failures in the output of the PyTorch test suite.\n"
-                warn_msg += "Please check the EasyBuild log to verify the number of failures (if any) was acceptable."
-                print_warning(warn_msg)
-            return 0
+        # Show failed subtests to aid in debugging failures
+        failed_test_names = find_failed_test_names(tests_out)
+        if failed_test_names.error or failed_test_names.fail:
+            msg = []
+            if failed_test_names.error:
+                msg.append("Found %d individual tests that exited with an error: %s"
+                           % (len(failed_test_names.error), ', '.join(failed_test_names.error)))
+            if failed_test_names.fail:
+                msg.append("Found %d individual tests with failed assertions: %s"
+                           % (len(failed_test_names.fail), ', '.join(failed_test_names.fail)))
+            self.log.warning("\n".join(msg))
 
         # Create clear summary report
-        failure_report = ""
-        failure_cnt = 0
-        error_cnt = 0
-        failed_test_suites = []
-
-        # Grep for patterns like:
-        # Ran 219 tests in 67.325s
-        #
-        # FAILED (errors=10, skipped=190, expected failures=6)
-        # test_fx failed!
-        regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n\n"
-                 r"FAILED \((?P<failure_summary>.*)\)$\n"
-                 r"(?:^(?:(?!failed!).)*$\n)*"
-                 r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
-
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
-            failure_summary = m.group('failure_summary')
-            total, test_suite = m.group('test_cnt', 'failed_test_suite_name')
-            failure_report += "{test_suite} ({total} total tests, {failure_summary})\n".format(
-                    test_suite=test_suite, total=total, failure_summary=failure_summary
-                )
-            failure_cnt += get_count_for_pattern(r"(?<!expected )failures=([0-9]+)", failure_summary)
-            error_cnt += get_count_for_pattern(r"errors=([0-9]+)", failure_summary)
-            failed_test_suites.append(test_suite)
-
-        # Grep for patterns like:
-        # ===================== 2 failed, 128 passed, 2 skipped, 2 warnings in 3.43s =====================
-        regex = r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* =+$\n(?P<failed_test_suite_name>.*) failed!$"
-
-        for m in re.finditer(regex, tests_out, re.M):
-            # E.g. '2 failed, 128 passed, 2 skipped, 2 warnings'
-            failure_summary = m.group('failure_summary')
-            test_suite = m.group('failed_test_suite_name')
-            failure_report += "{test_suite} ({failure_summary})\n".format(
-                    test_suite=test_suite, failure_summary=failure_summary
-                )
-            failure_cnt += get_count_for_pattern(r"([0-9]+) failed", failure_summary)
-            error_cnt += get_count_for_pattern(r"([0-9]+) error", failure_summary)
-            failed_test_suites.append(test_suite)
-
-        # Make the names unique and sorted
-        failed_test_suites = sorted(set(failed_test_suites))
+        test_result = parse_test_log(tests_out)
+        failure_report = ['%s (%s)' % (suite.name, suite.summary) for suite in test_result.failed_suites]
+        failed_test_suites = set(suite.name for suite in test_result.failed_suites)
         # Gather all failed tests suites in case we missed any (e.g. when it exited due to syntax errors)
-        # Also unique and sorted to be able to compare the lists below
-        all_failed_test_suites = sorted(set(
+        # Also unique to be able to compare the lists below
+        all_failed_test_suites = set(
             re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: \w+)?\s*$", tests_out, re.M)
-        ))
+        )
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
-            failure_report_save = failure_report
-            failure_report = 'Failed tests (suites/files):\n'
-            failure_report += '\n'.join('* %s' % t for t in all_failed_test_suites)
-            if failure_report_save:
-                failure_report += '\n' + failure_report_save
+            failure_report = ['Failed tests (suites/files):'] + failure_report
+            # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
+            failure_report.extend('+ %s' % t for t in sorted(all_failed_test_suites - failed_test_suites))
+            # Test suites not included in the catch-all regexp but counted. Should be empty.
+            failure_report.extend('? %s' % t for t in sorted(failed_test_suites - all_failed_test_suites))
+
+        failure_report = '\n'.join(failure_report)
 
         # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = failure_cnt + error_cnt
-        test_cnt = sum(int(hit) for hit in re.findall(r"^Ran (?P<test_cnt>[0-9]+) tests in", tests_out, re.M))
+        failed_test_cnt = test_result.failure_cnt + test_result.error_cnt
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']
 
-            failure_or_failures = 'failure' if failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if error_cnt == 1 else 'errors'
+            failure_or_failures = 'failure' if test_result.failure_cnt == 1 else 'failures'
+            error_or_errors = 'error' if test_result.error_cnt == 1 else 'errors'
             msg = "%d test %s, %d test %s (out of %d):\n" % (
-                failure_cnt, failure_or_failures, error_cnt, error_or_errors, test_cnt
+                test_result.failure_cnt, failure_or_failures,
+                test_result.error_cnt, error_or_errors,
+                test_result.test_cnt
             )
             msg += failure_report
 
@@ -387,7 +540,7 @@ class EB_PyTorch(PythonPackage):
                     raise EasyBuildError("Too many failed tests (%d), maximum allowed is %d",
                                          failed_test_cnt, max_failed_tests)
         elif failure_report:
-            raise EasyBuildError("Test command had non-zero exit code (%s)!\n%s", tests_ec, failure_report)
+            raise EasyBuildError("Test ended with failures! Exit code: %s\n%s", tests_ec, failure_report)
         elif tests_ec:
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
@@ -418,4 +571,24 @@ class EB_PyTorch(PythonPackage):
         guesses['CMAKE_PREFIX_PATH'] = [os.path.join(self.pylibdir, 'torch')]
         # Required to dynamically load libcaffe2_nvrtc.so
         guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
+        # important when RPATH linking is enabled
+        guesses['LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
         return guesses
+
+
+if __name__ == '__main__':
+    arg = sys.argv[1]
+    if not os.path.isfile(arg):
+        raise RuntimeError('Expected a test result file to parse, got: ' + arg)
+    with open(arg, 'r') as f:
+        content = f.read()
+    m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
+    if m:
+        content = content[m.end():]
+        # Heuristic for next possible text added by EasyBuild
+        m = re.search(r'^== \d+-\d+-\d+ .* (pytorch\.py|EasyBuild)', content)
+        if m:
+            content = content[:m.start()]
+
+    print("Failed test names: ", find_failed_test_names(content))
+    print("Test result: ", parse_test_log(content))

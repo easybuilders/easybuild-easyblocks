@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2024 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ EasyBuild support for building and installing the MPICH MPI library and derivati
 @author: Xavier Besseron (University of Luxembourg)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -134,7 +134,7 @@ class EB_MPICH(ConfigureMake):
 
     # make and make install are default
 
-    def sanity_check_step(self, custom_paths=None, use_new_libnames=None, check_launchers=True):
+    def sanity_check_step(self, custom_paths=None, use_new_libnames=None, check_launchers=True, check_static_libs=True):
         """
         Custom sanity check for MPICH
         """
@@ -160,7 +160,10 @@ class EB_MPICH(ConfigureMake):
 
         bins = [os.path.join('bin', x) for x in binaries]
         headers = [os.path.join('include', x) for x in ['mpi.h', 'mpicxx.h', 'mpif.h']]
-        libs_fn = ['lib%s.%s' % (libname, e) for libname in libnames for e in ['a', shlib_ext]]
+        lib_exts = [shlib_ext]
+        if check_static_libs:
+            lib_exts.append('a')
+        libs_fn = ['lib%s.%s' % (lib, e) for lib in libnames for e in lib_exts]
         libs = [(os.path.join('lib', lib), os.path.join('lib64', lib)) for lib in libs_fn]
 
         custom_paths.setdefault('dirs', []).extend(['bin', 'include', ('lib', 'lib64')])

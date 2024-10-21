@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import os
 import re
 import sys
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from distutils.sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import mkdir, remove_dir, which
+from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.py2vs3 import string_type, subprocess_popen_text
 from easybuild.tools.run import run_cmd
@@ -64,6 +64,17 @@ PIP_INSTALL_CMD = "%(python)s -m pip install --prefix=%(prefix)s %(installopts)s
 SETUP_PY_INSTALL_CMD = "%(python)s setup.py %(install_target)s --prefix=%(prefix)s %(installopts)s"
 UNKNOWN = 'UNKNOWN'
 
+# Python installation schemes, see https://docs.python.org/3/library/sysconfig.html#installation-paths;
+# posix_prefix is the default upstream installation scheme (and the want to want)
+PY_INSTALL_SCHEME_POSIX_PREFIX = 'posix_prefix'
+# posix_local is custom installation scheme on Debian/Ubuntu which implies additional action,
+# see https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+PY_INSTALL_SCHEME_POSIX_LOCAL = 'posix_local'
+PY_INSTALL_SCHEMES = [
+    PY_INSTALL_SCHEME_POSIX_PREFIX,
+    PY_INSTALL_SCHEME_POSIX_LOCAL,
+]
+
 
 def det_python_version(python_cmd):
     """Determine version of specified 'python' command."""
@@ -72,7 +83,7 @@ def det_python_version(python_cmd):
     return out.strip()
 
 
-def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
+def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_py_minver=None):
     """
     Pick 'python' command to use, based on specified version requirements.
     If the major version is specified, it must be an exact match (==).
@@ -119,6 +130,20 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
                 log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
                 return False
 
+        if max_py_majver is not None:
+            if max_py_minver is None:
+                max_majmin_ver = '%s.0' % max_py_majver
+            else:
+                max_majmin_ver = '%s.%s' % (max_py_majver, max_py_minver)
+
+            pyver = det_python_version(python_cmd)
+
+            if LooseVersion(pyver) > LooseVersion(max_majmin_ver):
+                log.debug("Python version (%s) on the system is newer than the maximum supported "
+                          "Python version specified in the easyconfig (%s)",
+                          pyver, max_majmin_ver)
+                return False
+
         # all check passed
         log.debug("All check passed for Python command '%s'!", python_cmd)
         return True
@@ -161,9 +186,15 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
     # determine Python lib dir via distutils
     # use run_cmd, we can to talk to the active Python, not the system Python running EasyBuild
     prefix = '/tmp/'
-    args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
-    pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
-    cmd = "%s -c '%s'" % (python_cmd, pycode)
+    if LooseVersion(det_python_version(python_cmd)) >= LooseVersion('3.12'):
+        # Python 3.12 removed distutils but has a core sysconfig module which is similar
+        pathname = 'platlib' if plat_specific else 'purelib'
+        vars = {'platbase': prefix, 'base': prefix}
+        pycode = 'import sysconfig; print(sysconfig.get_path("%s", vars=%s))' % (pathname, vars)
+    else:
+        args = 'plat_specific=%s, prefix="%s"' % (plat_specific, prefix)
+        pycode = "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(%s))" % args
+    cmd = "%s -c '%s'" % (python_cmd, pycode.replace("'", '"'))
 
     log.debug("Determining Python library directory using command '%s'", cmd)
 
@@ -176,6 +207,15 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
                              cmd, prefix, out, ec)
 
     pylibdir = txt[len(prefix):]
+
+    # Ubuntu 24.04: the pylibdir has a leading local/, which causes issues later
+    # e.g. when symlinking <installdir>/local/* to <installdir>/*
+    # we can safely strip this to get a working installation
+    local = 'local/'
+    if pylibdir.startswith(local):
+        log.info("Removing leading /local from determined pylibdir: %s" % pylibdir)
+        pylibdir = pylibdir[len(local):]
+
     log.debug("Determined pylibdir using '%s': %s", cmd, pylibdir)
     return pylibdir
 
@@ -224,6 +264,88 @@ def det_pip_version(python_cmd='python'):
     return pip_version
 
 
+def det_py_install_scheme(python_cmd='python'):
+    """
+    Try to determine active installation scheme used by Python.
+    """
+    # default installation scheme is 'posix_prefix',
+    # see also https://docs.python.org/3/library/sysconfig.html#installation-paths;
+    # on Debian/Ubuntu, we may be getting 'posix_local' as custom installation scheme,
+    # which injects /local as a subdirectory and cause trouble
+    # (see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976)
+
+    log = fancylogger.getLogger('det_py_install_scheme', fname=False)
+
+    # sysconfig._get_default_scheme was renamed to sysconfig.get_default_scheme in Python 3.10
+    pyver = det_python_version(python_cmd)
+    if LooseVersion(pyver) >= LooseVersion('3.10'):
+        get_default_scheme = 'get_default_scheme'
+    else:
+        get_default_scheme = '_get_default_scheme'
+
+    cmd = "%s -c 'import sysconfig; print(sysconfig.%s())'" % (python_cmd, get_default_scheme)
+    log.debug("Determining active Python installation scheme with: %s", cmd)
+    out, _ = run_cmd(cmd, verbose=False, simple=False, trace=False)
+    py_install_scheme = out.strip()
+
+    if py_install_scheme in PY_INSTALL_SCHEMES:
+        log.info("Active Python installation scheme: %s", py_install_scheme)
+    else:
+        log.warning("Unknown Python installation scheme: %s", py_install_scheme)
+
+    return py_install_scheme
+
+
+def handle_local_py_install_scheme(install_dir):
+    """
+    Handle situation in which 'posix_local' installation scheme was used,
+    which implies that <prefix>/local/' rather than <prefix>/ was used as installation prefix...
+    """
+    # see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+
+    log = fancylogger.getLogger('handle_local_py_install_scheme', fname=False)
+
+    install_dir_local = os.path.join(install_dir, 'local')
+    if os.path.exists(install_dir_local):
+        subdirs = os.listdir(install_dir)
+        log.info("Found 'local' subdirectory in installation prefix %s: %s", install_dir, subdirs)
+
+        local_subdirs = os.listdir(install_dir_local)
+        log.info("Subdirectories of %s: %s", install_dir_local, local_subdirs)
+
+        # symlink subdirectories of <prefix>/local directly into <prefix>
+        cwd = change_dir(install_dir)
+        for local_subdir in local_subdirs:
+            srcpath = os.path.join('local', local_subdir)
+            symlink(srcpath, os.path.join(install_dir, local_subdir), use_abspath_source=False)
+        change_dir(cwd)
+
+
+def symlink_dist_site_packages(install_dir, pylibdirs):
+    """
+    Symlink site-packages to dist-packages if only the latter is available in the specified directories.
+    """
+    # in some situations, for example when the default installation scheme is not the upstream default posix_prefix,
+    # as is the case in Ubuntu 22.04 (cfr. https://github.com/easybuilders/easybuild-easyblocks/issues/2976),
+    # Python packages may get installed in <prefix>/.../dist-packages rather than <prefix>/.../site-packages;
+    # we try to determine all possible paths in get_pylibdirs but we still may get it wrong,
+    # mostly because distutils.sysconfig.get_python_lib(..., prefix=...) isn't correct when posix_prefix
+    # is not the active installation scheme;
+    # so taking the coward way out: just symlink site-packages to dist-packages if only latter is available
+    dist_pkgs = 'dist-packages'
+    for pylibdir in pylibdirs:
+        dist_pkgs_path = os.path.join(install_dir, os.path.dirname(pylibdir), dist_pkgs)
+        site_pkgs_path = os.path.join(os.path.dirname(dist_pkgs_path), 'site-packages')
+
+        # site-packages may be there as empty directory (see mkdir loop in install_step);
+        # just remove it if that's the case so we can symlink to dist-packages
+        if os.path.exists(site_pkgs_path) and not os.listdir(site_pkgs_path):
+            remove_dir(site_pkgs_path)
+
+        if os.path.exists(dist_pkgs_path) and not os.path.exists(site_pkgs_path):
+            symlink(dist_pkgs, site_pkgs_path, use_abspath_source=False)
+
+
 class PythonPackage(ExtensionEasyBlock):
     """Builds and installs a Python package, and provides a dedicated module file."""
 
@@ -245,8 +367,12 @@ class PythonPackage(ExtensionEasyBlock):
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
+            'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
+                                  "Enabled by default if the EB option --debug is used.", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'max_py_majver': [None, "Maximum major Python version (only relevant when using system Python)", CUSTOM],
+            'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
                                         "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
@@ -321,6 +447,16 @@ class PythonPackage(ExtensionEasyBlock):
         self.use_setup_py = False
         self.determine_install_command()
 
+        # avoid that pip (ab)uses $HOME/.cache/pip
+        # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+        env.setvar('XDG_CACHE_HOME', os.path.join(self.builddir, 'xdg-cache-home'))
+        self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
+        # Users or sites may require using a virtualenv for user installations
+        # We need to disable this to be able to install into the modules
+        env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
+        # Don't let pip connect to PYPI to check for a new version
+        env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -328,7 +464,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.cfg.get('use_pip', False) or self.cfg.get('use_pip_editable', False):
             self.install_cmd = PIP_INSTALL_CMD
 
-            if build_option('debug'):
+            pip_verbose = self.cfg.get('pip_verbose', None)
+            if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.cfg.update('installopts', '--verbose')
 
             # don't auto-install dependencies with pip unless use_pip_for_deps=True
@@ -349,11 +486,6 @@ class PythonPackage(ExtensionEasyBlock):
             pip_no_index = self.cfg.get('pip_no_index', None)
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail')):
                 self.cfg.update('installopts', '--no-index')
-
-            # avoid that pip (ab)uses $HOME/.cache/pip
-            # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
-            env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
-            self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
         else:
             self.use_setup_py = True
@@ -401,16 +533,33 @@ class PythonPackage(ExtensionEasyBlock):
             if req_py_minver is None:
                 req_py_minver = sys.version_info[1]
 
-            # if using system Python, go hunting for a 'python' command that satisfies the requirements
-            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
+            # Get the max_py_majver and max_py_minver from the config
+            max_py_majver = self.cfg['max_py_majver']
+            max_py_minver = self.cfg['max_py_minver']
 
-        if python:
+            # if using system Python, go hunting for a 'python' command that satisfies the requirements
+            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
+                                     max_py_majver=max_py_majver, max_py_minver=max_py_minver)
+
+            # Check if we have Python by now. If not, and if self.require_python, raise a sensible error
+            if python:
+                self.python_cmd = python
+                self.log.info("Python command being used: %s", self.python_cmd)
+            elif self.require_python:
+                if (req_py_majver is not None or req_py_minver is not None
+                        or max_py_majver is not None or max_py_minver is not None):
+                    raise EasyBuildError(
+                        "Failed to pick Python command that satisfies requirements in the easyconfig "
+                        "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
+                        req_py_majver, req_py_minver, max_py_majver, max_py_minver
+                    )
+                else:
+                    raise EasyBuildError("Failed to pick Python command to use")
+            else:
+                self.log.warning("No Python command found!")
+        else:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        elif self.require_python:
-            raise EasyBuildError("Failed to pick Python command to use")
-        else:
-            self.log.warning("No Python command found!")
 
         if self.python_cmd:
             # set Python lib directories
@@ -469,11 +618,32 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             return pkgs
 
+    def using_pip_install(self):
+        """
+        Check whether 'pip install --prefix' is being used to install Python packages.
+        """
+        if self.install_cmd.startswith(PIP_INSTALL_CMD):
+            self.log.debug("Using 'pip install' for installing Python packages: %s" % self.install_cmd)
+            return True
+        else:
+            self.log.debug("Not using 'pip install' for installing Python packages (install command template: %s)",
+                           self.install_cmd)
+            return False
+
+    def using_local_py_install_scheme(self):
+        """
+        Determine whether the custom 'posix_local' Python installation scheme is actually used.
+        This requires that 'pip install --prefix' is used, since the active Python installation scheme
+        doesn't matter when using 'python setup.py install --prefix'.
+        """
+        # see also  https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+        py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
+        return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
+
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
-        using_pip = self.install_cmd.startswith(PIP_INSTALL_CMD)
-        if using_pip:
+        if self.using_pip_install():
 
             pip_version = det_pip_version(python_cmd=self.python_cmd)
             if pip_version:
@@ -500,7 +670,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         loc = self.cfg.get('install_src')
         if not loc:
-            if self._should_unpack_source():
+            if self._should_unpack_source() or not self.src:
                 # specify current directory
                 loc = '.'
             elif isinstance(self.src, string_type):
@@ -510,7 +680,7 @@ class PythonPackage(ExtensionEasyBlock):
                 # otherwise, self.src is a list of dicts, one element per source file
                 loc = self.src[0]['path']
 
-        if using_pip:
+        if self.using_pip_install():
             extras = self.cfg.get('use_pip_extras')
             if extras:
                 loc += '[%s]' % extras
@@ -538,6 +708,22 @@ class PythonPackage(ExtensionEasyBlock):
         ])
 
         return ' '.join(cmd)
+
+    def py_post_install_shenanigans(self, install_dir):
+        """
+        Run post-installation shenanigans on specified installation directory, incl:
+        * dealing with 'local' subdirectory in install directory in case 'posix_local' installation scheme was used;
+        * symlinking site-packages to dist-packages if only the former is available;
+        """
+        if self.using_local_py_install_scheme():
+            self.log.debug("Looks like the active Python installation scheme injected a 'local' subdirectory...")
+            handle_local_py_install_scheme(install_dir)
+        else:
+            self.log.debug("Looks like active Python installation scheme did not inject a 'local' subdirectory, good!")
+
+        py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
+        if py_install_scheme != PY_INSTALL_SCHEME_POSIX_PREFIX:
+            symlink_dist_site_packages(install_dir, self.all_pylibdirs)
 
     def extract_step(self):
         """Unpack source files, unless instructed otherwise."""
@@ -658,7 +844,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         if self.cfg['runtest'] and self.testcmd is not None:
             extrapath = ""
-            testinstalldir = None
+            test_installdir = None
 
             out, ec = (None, None)
 
@@ -666,20 +852,31 @@ class PythonPackage(ExtensionEasyBlock):
                 # install in test directory and export PYTHONPATH
 
                 try:
-                    testinstalldir = tempfile.mkdtemp()
+                    test_installdir = tempfile.mkdtemp()
+
+                    # if posix_local is the active installation scheme there will be
+                    # a 'local' subdirectory in the specified prefix;
+                    if self.using_local_py_install_scheme():
+                        actual_installdir = os.path.join(test_installdir, 'local')
+                    else:
+                        actual_installdir = test_installdir
+
+                    self.log.debug("Pre-creating subdirectories in %s: %s", actual_installdir, self.all_pylibdirs)
                     for pylibdir in self.all_pylibdirs:
-                        mkdir(os.path.join(testinstalldir, pylibdir), parents=True)
+                        mkdir(os.path.join(actual_installdir, pylibdir), parents=True)
                 except OSError as err:
                     raise EasyBuildError("Failed to create test install dir: %s", err)
 
                 # print Python search path (just debugging purposes)
                 run_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, verbose=False, trace=False)
 
-                abs_pylibdirs = [os.path.join(testinstalldir, pylibdir) for pylibdir in self.all_pylibdirs]
+                abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
-                cmd = self.compose_install_command(testinstalldir, extrapath=extrapath)
+                cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
                 run_cmd(cmd, log_all=True, simple=True, verbose=False)
+
+                self.py_post_install_shenanigans(test_installdir)
 
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
@@ -697,8 +894,8 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_cmd(cmd, log_all=True, simple=True)
 
-            if testinstalldir:
-                remove_dir(testinstalldir)
+            if test_installdir:
+                remove_dir(test_installdir)
 
             if return_output_ec:
                 return (out, ec)
@@ -706,12 +903,21 @@ class PythonPackage(ExtensionEasyBlock):
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
 
+        # if posix_local is the active installation scheme there will be
+        # a 'local' subdirectory in the specified prefix;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/issues/2976
+        if self.using_local_py_install_scheme():
+            actual_installdir = os.path.join(self.installdir, 'local')
+        else:
+            actual_installdir = self.installdir
+
         # create expected directories
-        abs_pylibdirs = [os.path.join(self.installdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
+        self.log.debug("Pre-creating subdirectories %s in %s...", abs_pylibdirs, actual_installdir)
         for pylibdir in abs_pylibdirs:
             mkdir(pylibdir, parents=True)
 
-        abs_bindir = os.path.join(self.installdir, 'bin')
+        abs_bindir = os.path.join(actual_installdir, 'bin')
 
         # set PYTHONPATH and PATH as expected
         old_values = dict()
@@ -731,6 +937,8 @@ class PythonPackage(ExtensionEasyBlock):
         # (for iterated installations over multiply Python versions)
         self.install_cmd_output += out
 
+        self.py_post_install_shenanigans(self.installdir)
+
         # fix shebangs if specified
         self.fix_shebang()
 
@@ -743,9 +951,6 @@ class PythonPackage(ExtensionEasyBlock):
     def run(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
 
-        if not self.src:
-            raise EasyBuildError("No source found for Python package %s, required for installation. (src: %s)",
-                                 self.name, self.src)
         # we unpack unless explicitly told otherwise
         kwargs.setdefault('unpack_src', self._should_unpack_source())
         super(PythonPackage, self).run(*args, **kwargs)
@@ -808,7 +1013,7 @@ class PythonPackage(ExtensionEasyBlock):
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
-            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            self.log.info("Detection of downloaded dependencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
                 r'Collecting .*',  # pip
@@ -922,6 +1127,12 @@ class PythonPackage(ExtensionEasyBlock):
                                          pip_version)
             else:
                 raise EasyBuildError("Failed to determine pip version!")
+
+        # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
+        # and let ExtensionEasyBlock do its job
+        if 'Python' in self.cfg["multi_deps"] and self.fake_mod_data:
+            self.clean_up_fake_module(self.fake_mod_data)
+            self.sanity_check_module_loaded = False
 
         parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
 

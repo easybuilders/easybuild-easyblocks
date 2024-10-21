@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,9 +32,9 @@ EasyBuild support for ABAQUS, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
 import glob
 import os
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -366,3 +366,12 @@ class EB_ABAQUS(Binary):
         })
 
         return guesses
+
+    def make_module_extra(self):
+        """Add LM_LICENSE_FILE path if specified"""
+        txt = super(EB_ABAQUS, self).make_module_extra()
+        license_file = os.getenv('EB_ABAQUS_LICENSE_FILE', None)
+        if license_file is not None:
+            txt += self.module_generator.prepend_paths('ABAQUSLM_LICENSE_FILE', [license_file], allow_abs=True)
+
+        return txt

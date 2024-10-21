@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,7 @@ EasyBuild support for building and installing WPS, implemented as an easyblock
 import os
 import re
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -237,7 +237,9 @@ class EB_WPS(EasyBlock):
         """Build in install dir using compile script."""
         cmd = ' '.join([
             self.cfg['prebuildopts'],
-            './' + self.compile_script,
+            # compile script rely on /bin/csh
+            # Better call csh command to allow tcsh build dependency
+            'csh ./' + self.compile_script,
             self.cfg['buildopts'],
         ])
         run_cmd(cmd, log_all=True, simple=True)
@@ -342,7 +344,7 @@ class EB_WPS(EasyBlock):
                     raise EasyBuildError("Could not find Vtable file to use for testing ungrib")
 
                 # run link_grib.csh script
-                cmd = "%s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
+                cmd = "csh %s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
                 run_cmd(cmd, log_all=True, simple=True)
 
                 # run ungrib.exe

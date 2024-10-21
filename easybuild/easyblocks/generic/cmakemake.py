@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2024 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,10 +36,10 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 import glob
 import re
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
@@ -87,6 +87,52 @@ def setup_cmake_env(tc):
     setvar("CMAKE_LIBRARY_PATH", library_paths)
 
 
+def setup_cmake_env_python_hints(cmake_version=None):
+    """Set environment variables as hints for CMake to prefer the Python module, if loaded.
+    Useful when there is no way to specify arguments for CMake directly,
+    e.g. when CMake is called from within another build system.
+    Otherwise get_cmake_python_config_[str/dict] should be used instead.
+    """
+    if cmake_version is None:
+        cmake_version = det_cmake_version()
+    if LooseVersion(cmake_version) < '3.12':
+        raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        setvar('Python_ROOT_DIR', python_root)
+        if python_version >= "3":
+            setvar('Python3_ROOT_DIR', python_root)
+        else:
+            setvar('Python2_ROOT_DIR', python_root)
+
+
+def get_cmake_python_config_dict():
+    """Get a dictionary with CMake configuration options for finding Python if loaded as a module."""
+    options = {}
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        python_exe = os.path.join(python_root, 'bin', 'python')
+        # This is required for (deprecated) `find_package(PythonInterp ...)`
+        options['PYTHON_EXECUTABLE'] = python_exe
+        # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
+        options['Python_EXECUTABLE'] = python_exe
+        if python_version >= "3":
+            options['Python3_EXECUTABLE'] = python_exe
+        else:
+            options['Python2_EXECUTABLE'] = python_exe
+    return options
+
+
+def get_cmake_python_config_str():
+    """Get CMake configuration arguments for finding Python if loaded as a module.
+    This string is intended to be passed to the invocation of `cmake`.
+    """
+    options = get_cmake_python_config_dict()
+    return ' '.join('-D%s=%s' % (key, value) for key, value in options.items())
+
+
 class CMakeMake(ConfigureMake):
     """Support for configuring build with CMake instead of traditional configure script"""
 
@@ -105,6 +151,7 @@ class CMakeMake(ConfigureMake):
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
+            'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
@@ -114,6 +161,7 @@ class CMakeMake(ConfigureMake):
         """Constructor for CMakeMake easyblock"""
         super(CMakeMake, self).__init__(*args, **kwargs)
         self._lib_ext = None
+        self._cmake_version = None
         self.separate_build_dir = None
 
     @property
@@ -130,6 +178,14 @@ class CMakeMake(ConfigureMake):
     @lib_ext.setter
     def lib_ext(self, value):
         self._lib_ext = value
+
+    @property
+    def cmake_version(self):
+        """Return the used CMake version, caching the value for reuse"""
+        if self._cmake_version is None:
+            self._cmake_version = det_cmake_version()
+            self.log.debug('Determined CMake version: %s', self._cmake_version)
+        return self._cmake_version
 
     @property
     def build_type(self):
@@ -241,10 +297,8 @@ class CMakeMake(ConfigureMake):
             if fc:
                 setvar('FC', fc)
 
-        cmake_version = det_cmake_version()
-
         # Flags are read from environment variables already since at least CMake 2.8.0
-        if LooseVersion(cmake_version) < LooseVersion('2.8.0') or cache_exists:
+        if LooseVersion(self.cmake_version) < LooseVersion('2.8.0') or cache_exists:
             env_to_options.update({
                 'CFLAGS': 'CMAKE_C_FLAGS',
                 'CXXFLAGS': 'CMAKE_CXX_FLAGS',
@@ -259,9 +313,10 @@ class CMakeMake(ConfigureMake):
                     self.log.info("Using absolute path to compiler command: %s", value)
                 options[option] = value
 
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.cmake_version) < LooseVersion('3.5.0'):
             # instruct CMake not to fiddle with RPATH when --rpath is used, since it will undo stuff on install...
-            # https://github.com/LLNL/spack/blob/0f6a5cd38538e8969d11bd2167f11060b1f53b43/lib/spack/spack/build_environment.py#L416
+            # this is only required for CMake < 3.5.0, since newer version are more careful w.r.t. RPATH,
+            # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
         # show what CMake is doing by default
@@ -269,6 +324,9 @@ class CMakeMake(ConfigureMake):
 
         # disable CMake user package repository
         options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
+
+        # ensure CMake uses EB python, not system or virtualenv python
+        options.update(get_cmake_python_config_dict())
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
@@ -287,6 +345,8 @@ class CMakeMake(ConfigureMake):
                 # - instruct CMake to not search for Boost headers/libraries in other places
                 options['BOOST_ROOT'] = boost_root
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
+
+        self.cmake_options = options
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             self.prepend_config_opts(options)
@@ -310,4 +370,12 @@ class CMakeMake(ConfigureMake):
         """CMake specific test setup"""
         # When using ctest for tests (default) then show verbose output if a test fails
         setvar('CTEST_OUTPUT_ON_FAILURE', 'True')
+        # Handle `runtest = True` if `test_cmd` has not been set
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
+            self.cfg['test_cmd'] = test_cmd
+
         super(CMakeMake, self).test_step()

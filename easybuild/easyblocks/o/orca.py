@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2023 Vrije Universiteit Brussel
+# Copyright 2021-2024 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for ORCA, implemented as an easyblock
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
@@ -86,14 +86,21 @@ class EB_ORCA(PackedBinary, MakeCp):
                 (['auto*', 'orca*', 'otool*'], 'bin'),
                 (['*.pdf'], 'share'),
             ]
-            # Version 5 extra files
-            if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-                compoundmethods = (['ORCACompoundMethods'], 'bin')
-                files_to_copy.append(compoundmethods)
-            # Shared builds have additional libraries
-            libs_to_copy = (['liborca*'], 'lib')
-            if all([glob.glob(p) for p in libs_to_copy[0]]):
-                files_to_copy.append(libs_to_copy)
+
+            # Version 6 extra files
+            if LooseVersion(self.version) >= LooseVersion('6.0.0'):
+                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts'], 'bin')])
+
+            else:
+                # Version 5 extra files
+                if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+                    compoundmethods = (['ORCACompoundMethods'], 'bin')
+                    files_to_copy.append(compoundmethods)
+
+                # Shared builds have additional libraries
+                libs_to_copy = (['liborca*'], 'lib')
+                if all([glob.glob(p) for p in libs_to_copy[0]]):
+                    files_to_copy.append(libs_to_copy)
 
             self.cfg['files_to_copy'] = files_to_copy
 
