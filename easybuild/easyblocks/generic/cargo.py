@@ -37,10 +37,10 @@ import easybuild.tools.systemtools as systemtools
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.filetools import extract_file, change_dir
+from easybuild.tools.filetools import extract_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import compute_checksum, mkdir, write_file
+from easybuild.tools.filetools import compute_checksum, mkdir, move_file, read_file, write_file
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
@@ -54,14 +54,74 @@ replace-with = "vendored-sources"
 
 """
 
-CONFIG_TOML_PATCH_GIT = """
-[patch."{repo}"]
-{crates}
+CONFIG_TOML_SOURCE_GIT = """
+[source."{url}?rev={rev}"]
+git = "{url}"
+rev = "{rev}"
+replace-with = "vendored-sources"
+
 """
-CONFIG_TOML_PATCH_GIT_CRATES = """{0} = {{ path = "{1}" }}
+
+CONFIG_TOML_SOURCE_GIT_WORKSPACE = """
+[source."real-{url}?rev={rev}"]
+directory = "{workspace_dir}"
+
+[source."{url}?rev={rev}"]
+git = "{url}"
+rev = "{rev}"
+replace-with = "real-{url}?rev={rev}"
+
 """
 
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{chksum}"}}'
+
+
+def get_workspace_members(crate_dir):
+    """Find all members of a cargo workspace in crate_dir.
+
+    (Minimally) parse the Cargo.toml file.
+    If it is a workspace return all members (subfolder names).
+    Otherwise return a list with just the crate_dir.
+    """
+    cargo_toml = os.path.join(crate_dir, 'Cargo.toml')
+
+    # We are looking for this:
+    # [workspace]
+    # members = [
+    # "reqwest-middleware",
+    # "reqwest-tracing",
+    # "reqwest-retry",
+    # ]
+
+    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
+    try:
+        start_idx = lines.index('[workspace]')
+    except ValueError:
+        return [crate_dir]
+    # Find "members = [" and concatenate the value, stop at end of section or file
+    member_str = None
+    for line in lines[start_idx + 1:]:
+        if line.startswith('#'):
+            continue  # Skip comments
+        if re.match(r'\[\w+\]', line):
+            break
+        if member_str is None:
+            m = re.match(r'members\s+=\s+\[', line)
+            if m:
+                member_str = line[m.end():]
+        elif line.endswith(']'):
+            member_str += line[:-1].strip()
+            break
+        else:
+            member_str += line
+    # Split at commas after removing possibly trailing ones and remove the quotes
+    members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
+    # Sanity check that we didn't pick up anything unexpected
+    invalid_members = [member for member in members if not re.match(r'(\w|-)+', member)]
+    if invalid_members:
+        raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
+                             cargo_toml, ', '.join(invalid_members))
+    return [os.path.join(crate_dir, m) for m in members]
 
 
 class Cargo(ExtensionEasyBlock):
@@ -122,7 +182,6 @@ class Cargo(ExtensionEasyBlock):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
-        self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
@@ -165,67 +224,112 @@ class Cargo(ExtensionEasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
-        mkdir(self.vendor_dir)
+        vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
+        mkdir(vendor_dir)
+        # Sources from git repositories might contain multiple crates/folders in a so-called "workspace".
+        # If we put such a workspace into the vendor folder, cargo fails with
+        # "found a virtual manifest at [...]Cargo.toml instead of a package manifest".
+        # Hence we put those in a separate folder and only move "regular" crates into the vendor folder.
+        git_vendor_dir = os.path.join(vendor_dir, 'easybuild_vendor_git')
+        mkdir(git_vendor_dir)
 
         vendor_crates = {self.crate_src_filename(*crate): crate for crate in self.crates}
-        git_sources = {crate[2]: [] for crate in self.crates if len(crate) == 4}
+        # Track git sources for building the cargo config and avoiding duplicated folders
+        git_sources = {}
 
         for src in self.src:
-            extraction_dir = self.builddir
+            # Check for git crates, `git_key` will be set to a true-ish value for those
+            try:
+                crate_name, _, git_repo, rev = vendor_crates[src['name']]
+            except (ValueError, KeyError):
+                git_key = None
+            else:
+                git_key = (git_repo, rev)
+                self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
+                               crate_name, src['name'], git_repo, rev)
+                # Do a sanity check that sources for the same repo and revision are the same
+                try:
+                    previous_source = git_sources[git_key]
+                except KeyError:
+                    git_sources[git_key] = src
+                else:
+                    previous_checksum = previous_source['checksum']
+                    current_checksum = src['checksum']
+                    if previous_checksum and current_checksum and previous_checksum != current_checksum:
+                        raise EasyBuildError("Sources for the same git repository need to be identical."
+                                             "Mismatch found for %s rev %s in %s vs %s",
+                                             git_repo, rev, previous_source['name'], src['name'])
+                    self.log.info("Source %s already extracted to %s by %s. Skipping extraction.",
+                                  src["name"], src["finalpath"], previous_source["name"])
+                    continue
+
+            is_vendor_crate = src['name'] in vendor_crates
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
-            if src['name'] in vendor_crates:
-                extraction_dir = self.vendor_dir
+            if is_vendor_crate:
+                extraction_dir = git_vendor_dir if git_key else vendor_dir
+            else:
+                extraction_dir = self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
-            crate_dir = None
             src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                                    extra_options=self.cfg['unpack_options'], change_into_dir=False)
             new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
 
-            if len(new_extracted_dirs) == 1:
-                # Expected crate tarball with 1 folder
-                crate_dir = new_extracted_dirs.pop()
-                src_dir = os.path.join(extraction_dir, crate_dir)
-                self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-            elif len(new_extracted_dirs) == 0:
+            if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
+            # Expected crate tarball with 1 folder
             # TODO: properly handle case with multiple extracted folders
             # this is currently in a grey area, might still be used by cargo
+            if len(new_extracted_dirs) == 1:
+                src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
+                self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
 
-            change_dir(src_dir)
-            self.src[self.src.index(src)]['finalpath'] = src_dir
+                if is_vendor_crate and self.cfg['offline']:
+                    # For git sources determine the folders that contain crates by possibly splitting up workspaces
+                    if git_key:
+                        crate_dirs = get_workspace_members(src_dir)
+                    else:
+                        # Non-git sources have only the single crate/folder
+                        crate_dirs = [src_dir]
+                    # Create checksum file for extracted sources required by vendored sources
+                    chksum = compute_checksum(src['path'], checksum_type='sha256')
+                    for crate_dir in crate_dirs:
+                        self.log.info('creating .cargo-checksums.json file for %s', os.path.basename(crate_dir))
+                        chkfile = os.path.join(src_dir, crate_dir, '.cargo-checksum.json')
+                        write_file(chkfile, CARGO_CHECKSUM_JSON.format(chksum=chksum))
+                    # Move non-workspace git crates to the vendor folder
+                    if git_key and len(crate_dirs) == 1:
+                        src_dir = os.path.join(vendor_dir, os.path.basename(crate_dirs[0]))
+                        move_file(crate_dirs[0], src_dir)
 
-            if self.cfg['offline'] and crate_dir:
-                # Create checksum file for extracted sources required by vendored crates.io sources
-                self.log.info('creating .cargo-checksums.json file for : %s', crate_dir)
-                chksum = compute_checksum(src['path'], checksum_type='sha256')
-                chkfile = os.path.join(extraction_dir, crate_dir, '.cargo-checksum.json')
-                write_file(chkfile, CARGO_CHECKSUM_JSON.format(chksum=chksum))
-                # Add path to extracted sources for any crate from a git repo
-                try:
-                    crate_name, _, crate_repo, _ = vendor_crates[src['name']]
-                except (ValueError, KeyError):
-                    pass
-                else:
-                    self.log.debug("Sources of %s belong to git repo: %s", src['name'], crate_repo)
-                    git_src_dir = (crate_name, src_dir)
-                    git_sources[crate_repo].append(git_src_dir)
+            src['finalpath'] = src_dir
 
         if self.cfg['offline']:
             self.log.info("Setting vendored crates dir for offline operation")
             config_toml = os.path.join(self.cargo_home, 'config.toml')
             # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-            # because the rust source subdirectories might differ with python packages
             self.log.debug("Writting config.toml entry for vendored crates from crate.io")
-            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir), append=True)
+            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=vendor_dir), append=True)
 
-            # also vendor sources from other git sources (could be many crates for one git source)
-            for git_repo, repo_crates in git_sources.items():
-                self.log.debug("Writting config.toml entry for git repo: %s", git_repo)
-                config_crates = ''.join([CONFIG_TOML_PATCH_GIT_CRATES.format(*crate) for crate in repo_crates])
-                write_file(config_toml, CONFIG_TOML_PATCH_GIT.format(repo=git_repo, crates=config_crates), append=True)
+            # Tell cargo about the vendored git sources to avoid it failing with:
+            # Unable to update https://github.com/[...]
+            # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
+            for (git_repo, rev), src in git_sources.items():
+                self.log.debug("Writting config.toml entry for git repo: %s rev %s", git_repo, rev)
+                src_dir = src['finalpath']
+                if os.path.dirname(src_dir) == vendor_dir:
+                    # Non-workspace sources are in vendor_dir
+                    write_file(config_toml,
+                               CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev),
+                               append=True)
+                else:
+                    # Workspace sources stay in their own separate folder.
+                    # We cannot have a `directory = "<dir>"` entry where a folder containing a workspace is inside
+                    write_file(config_toml,
+                               CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
+                               append=True)
 
             # Use environment variable since it would also be passed along to builds triggered via python packages
             env.setvar('CARGO_NET_OFFLINE', 'true')
