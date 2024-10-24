@@ -436,19 +436,6 @@ class EB_LLVM(CMakeMake):
 
     def _configure_general_build(self):
         """General configuration step for LLVM."""
-        self._cmakeopts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
-
-        # If on risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
-        # to errors during compilation of `offload.tools.kernelreplay`` due to the inclusion of LLVMSupport (19.x)
-        self._cmakeopts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
-        self._cmakeopts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
-
-        z3_root = get_software_root("Z3")
-        if z3_root:
-            self.log.info("Using %s as Z3 root", z3_root)
-            self._cmakeopts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
-            self._cmakeopts['LLVM_Z3_INSTALL_DIR'] = z3_root
-
         self._cmakeopts.update(general_opts)
         self._add_cmake_runtime_args()
 
@@ -557,6 +544,9 @@ class EB_LLVM(CMakeMake):
             self.log.info("Initialising for single stage build.")
             self.final_dir = self.llvm_obj_dir_stage1
 
+        general_opts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
+
+        # Dependencies based persistent options (should be reused across stages)
         # Libxml2
         xml2_root = get_software_root('libxml2')
         if xml2_root:
@@ -565,6 +555,20 @@ class EB_LLVM(CMakeMake):
             else:
                 general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
                 # general_opts['LIBXML2_ROOT'] = xml2_root
+
+
+        # If `ON`, risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
+        # to errors during compilation of `offload.tools.kernelreplay` due to the inclusion of LLVMSupport (19.x)
+        general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
+        general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
+        # Should not use system SWIG if present
+        general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
+
+        z3_root = get_software_root("Z3")
+        if z3_root:
+            self.log.info("Using %s as Z3 root", z3_root)
+            general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
+            general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
 
         python_root = get_software_root('Python')
         if python_root:
