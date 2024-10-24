@@ -82,7 +82,7 @@ remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
-    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the 
+    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the
     # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
     'LIBCXX_HAS_ATOMIC_LIB': 'NO',
 
