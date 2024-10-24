@@ -52,7 +52,7 @@ from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
                                          X86_64, get_cpu_architecture,
                                          get_shared_lib_ext)
 
-from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.generic.cmakemake import CMakeMake, get_cmake_python_config_dict
 
 LLVM_TARGETS = [
     'AArch64', 'AMDGPU', 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430', 'NVPTX', 'PowerPC',
@@ -82,7 +82,9 @@ remove_gcc_dependency_opts = {
     'LIBCXX_USE_COMPILER_RT': 'On',
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
-    'LIBCXX_HAS_ATOMIC_LIB': 'NO',  # Needed as libatomic could not be present on the system
+    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the 
+    # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
+    'LIBCXX_HAS_ATOMIC_LIB': 'NO',
 
     'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
     'LIBCXXABI_USE_COMPILER_RT': 'On',
@@ -107,7 +109,7 @@ remove_gcc_dependency_opts = {
     'LIBCXXABI_HAS_GCC_S_LIB': 'Off',
     'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
 
-    # Libxml2 from system gets autmatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
+    # Libxml2 from system gets automatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
     'LLVM_ENABLE_LIBXML2': 'Off',
 }
 
@@ -556,7 +558,6 @@ class EB_LLVM(CMakeMake):
                 general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
                 # general_opts['LIBXML2_ROOT'] = xml2_root
 
-
         # If `ON`, risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of `offload.tools.kernelreplay` due to the inclusion of LLVMSupport (19.x)
         general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
@@ -570,13 +571,9 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
             general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
 
-        python_root = get_software_root('Python')
-        if python_root:
-            python_bin = os.path.join(python_root, 'bin', 'python')
-            general_opts['Python_EXECUTABLE'] = python_bin
-            general_opts['Python3_EXECUTABLE'] = python_bin
-            self.runtimes_cmake_args['Python_EXECUTABLE'] = python_bin
-            self.runtimes_cmake_args['Python3_EXECUTABLE'] = python_bin
+        python_opts = get_cmake_python_config_dict()
+        general_opts.update(python_opts)
+        self.runtimes_cmake_args.update(python_opts)
 
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
