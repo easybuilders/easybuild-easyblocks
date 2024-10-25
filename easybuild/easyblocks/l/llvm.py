@@ -314,7 +314,7 @@ class EB_LLVM(CMakeMake):
         # Other custom options
         if self.full_llvm:
             if not self.cfg['bootstrap']:
-                raise EasyBuildError("Full LLVM build irequires bootstrap build")
+                raise EasyBuildError("Full LLVM build requires bootstrap build")
             if not self.cfg['build_lld']:
                 raise EasyBuildError("Full LLVM build requires building lld")
             if not self.cfg['build_runtimes']:
@@ -585,7 +585,7 @@ class EB_LLVM(CMakeMake):
             self._configure_final_build()
 
         if self.cfg['skip_sanitizer_tests'] and build_option('strict') != run.ERROR:
-            self.log.debug("Disabling the sanitizer tests")
+            self.log.info("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
 
         # Remove python bindings tests causing uncaught exception in the build
@@ -610,8 +610,8 @@ class EB_LLVM(CMakeMake):
                 general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
 
         self._configure_general_build()
-
         self.add_cmake_opts()
+
         super(EB_LLVM, self).configure_step(
             builddir=self.llvm_obj_dir_stage1,
             srcdir=os.path.join(self.llvm_src_dir, "llvm")
