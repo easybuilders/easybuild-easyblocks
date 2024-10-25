@@ -1021,6 +1021,7 @@ class EB_LLVM(CMakeMake):
         if 'bolt' in self.final_projects:
             check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
             check_lib_files += ['libbolt_rt_instr.a']
+            custom_commands += ['llvm-bolt --help']
         if 'openmp' in self.final_projects:
             omp_lib_files = []
             omp_lib_files += ['libomp.so', 'libompd.so']
