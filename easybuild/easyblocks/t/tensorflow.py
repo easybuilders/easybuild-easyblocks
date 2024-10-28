@@ -562,6 +562,13 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
+        # add path to libnccl.so.2 directory provided by NCCL when both sysroot
+        # and RPATH are used (such as in EESSI)
+        if build_option('sysroot') and self.toolchain.use_rpath:
+            libpaths = self.system_libs_info[2]
+            libpaths.append(os.path.join(nccl_root, 'lib'))
+            self.system_libs_info[2] = libpaths
+
         self._with_cuda = bool(cuda_root)
 
         config_env_vars = {
