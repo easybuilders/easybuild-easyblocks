@@ -274,6 +274,7 @@ class EB_LLVM(CMakeMake):
             'CMAKE_CXX_FLAGS': [],
             'CMAKE_EXE_LINKER_FLAGS': [],
             }
+        self.offload_targets = ['host']
         # self._added_librt = None
 
         # Shared
@@ -372,25 +373,27 @@ class EB_LLVM(CMakeMake):
             self.log.debug("No build targets specified, using default detection")
             deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
             arch = get_cpu_architecture()
-            try:
-                default_targets = DEFAULT_TARGETS_MAP[arch][:]
-                # If CUDA is included as a dep, add NVPTX as a target
-                # There are (old) toolchains with CUDA as part of the toolchain
-                cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-                if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
-                    default_targets += ['NVPTX']
-                    self.log.debug("NVPTX enabled by CUDA dependency/cuda_compute_capabilities")
-                # For AMDGPU support we need ROCR-Runtime and
-                # ROCT-Thunk-Interface, however, since ROCT is a dependency of
-                # ROCR we only check for the ROCR-Runtime here
-                # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-                if 'rocr-runtime' in deps or amd_gfx_list:
-                    default_targets += ['AMDGPU']
-                    self.log.debug("AMDGPU enabled by rocr-runtime dependency/amd_gfx_list")
-                self.cfg['build_targets'] = build_targets = default_targets
-                self.log.debug("Using %s as default build targets for CPU architecture %s.", default_targets, arch)
-            except KeyError:
+            if arch not in DEFAULT_TARGETS_MAP:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
+            build_targets += DEFAULT_TARGETS_MAP[arch]
+
+            # If CUDA is included as a dep, add NVPTX as a target
+            # There are (old) toolchains with CUDA as part of the toolchain
+            cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
+            if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
+                build_targets += ['NVPTX']
+                self.offload_targets += ['cuda']  # Used for LLVM >= 19
+                self.log.debug("NVPTX enabled by CUDA dependency/cuda_compute_capabilities")
+            # For AMDGPU support we need ROCR-Runtime and
+            # ROCT-Thunk-Interface, however, since ROCT is a dependency of
+            # ROCR we only check for the ROCR-Runtime here
+            # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
+            if 'rocr-runtime' in deps or amd_gfx_list:
+                build_targets += ['AMDGPU']
+                self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
+                self.log.debug("AMDGPU enabled by rocr-runtime dependency/amd_gfx_list")
+            self.cfg['build_targets'] = build_targets
+            self.log.debug("Using %s as default build targets for CPU architecture %s.", build_targets, arch)
 
         unknown_targets = set(build_targets) - set(ALL_TARGETS)
 
@@ -458,6 +461,8 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
         if 'openmp' in self.final_projects:
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = ';'.join(self.offload_targets)
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
