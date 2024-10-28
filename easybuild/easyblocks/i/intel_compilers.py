@@ -106,7 +106,9 @@ class EB_intel_minus_compilers(IntelBase):
         ]
         bindir = os.path.join(self.compilers_subdir, 'bin')
         oneapi_compiler_paths = [os.path.join(bindir, x) for x in oneapi_compiler_cmds]
-        if LooseVersion(self.version) >= LooseVersion('2024'):
+        if LooseVersion(self.version) >= LooseVersion('2025'):
+            classic_compiler_cmds = []
+        elif LooseVersion(self.version) >= LooseVersion('2024'):
             classic_compiler_cmds = ['ifort']
             classic_bindir = bindir
         else:
