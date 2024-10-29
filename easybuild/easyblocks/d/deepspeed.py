@@ -28,6 +28,7 @@ EasyBuild support for building and installing DeepSpeed, implemented as an easyb
 author: Viktor Rehnberg (Chalmers University of Technology)
 """
 import os
+import re
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
