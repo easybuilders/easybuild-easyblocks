@@ -35,8 +35,6 @@ implemented as an easyblock.
 import glob
 import os
 
-from easybuild.tools import LooseVersion
-
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import LooseVersion
