@@ -57,10 +57,13 @@ class EB_Score_minus_P(ConfigureMake):
             # Let configure scripts specifically check for yes|no instead of *yes*|*no*,
             # to prevent errors for certain dependencies installed in a path that includes "yes" or "no"
             # see https://gitlab.com/score-p/scorep/-/issues/1008
-            yes_no_regex = (r'\*yes\*\|\*no\*', r'yes,\*\|no,\*\|\*,yes\|\*,no')
+            yes_no_regex = [
+                (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
+                (r'_lib}\${with_', '_lib},${with_'),
+            ]
             configure_scripts = glob.glob(os.path.join(self.start_dir, 'build-*', 'configure'))
             for configure_script in configure_scripts:
-                apply_regex_substitutions(configure_script, [yes_no_regex])
+                apply_regex_substitutions(configure_script, yes_no_regex)
 
         # Remove some settings from the environment, as they interfere with
         # Score-P's configure magic...
