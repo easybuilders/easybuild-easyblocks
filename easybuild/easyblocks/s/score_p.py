@@ -61,6 +61,7 @@ class EB_Score_minus_P(ConfigureMake):
                 (r'_lib}\${with_', '_lib},${with_'),
             ]
             configure_scripts = [
+                os.path.join(self.start_dir, 'build-backend', 'configure'),
                 os.path.join(self.start_dir, 'build-mpi', 'configure'),
                 os.path.join(self.start_dir, 'build-shmem', 'configure'),
             ]
