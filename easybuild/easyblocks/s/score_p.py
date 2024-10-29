@@ -32,7 +32,6 @@ implemented as an easyblock.
 @author: Alexander Grund (TU Dresden)
 @author: Christian Feld (Juelich Supercomputing Centre)
 """
-import glob
 import os
 
 import easybuild.tools.toolchain as toolchain
@@ -61,7 +60,10 @@ class EB_Score_minus_P(ConfigureMake):
                 (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
                 (r'_lib}\${with_', '_lib},${with_'),
             ]
-            configure_scripts = glob.glob(os.path.join(self.start_dir, 'build-*', 'configure'))
+            configure_scripts = [
+                os.path.join(self.start_dir, 'build-mpi', 'configure'),
+                os.path.join(self.start_dir, 'build-shmem', 'configure'),
+            ]
             for configure_script in configure_scripts:
                 apply_regex_substitutions(configure_script, yes_no_regex)
 
