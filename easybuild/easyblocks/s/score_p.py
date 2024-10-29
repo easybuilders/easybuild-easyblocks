@@ -53,9 +53,8 @@ class EB_Score_minus_P(ConfigureMake):
         """Configure the build, set configure options for compiler, MPI and dependencies."""
 
         if LooseVersion(self.version) >= LooseVersion('8.0') and LooseVersion(self.version) < LooseVersion('8.5'):
-            # Let configure scripts specifically check for yes|no instead of *yes*|*no*,
-            # to prevent errors for certain dependencies installed in a path that includes "yes" or "no"
-            # see https://gitlab.com/score-p/scorep/-/issues/1008
+            # Fix an issue where the configure script would fail if certain dependencies are installed in a path
+            # that includes "yes" or "no", see https://gitlab.com/score-p/scorep/-/issues/1008.
             yes_no_regex = [
                 (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
                 (r'_lib}\${with_', '_lib},${with_'),
