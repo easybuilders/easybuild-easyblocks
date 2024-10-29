@@ -565,9 +565,11 @@ class EB_TensorFlow(PythonPackage):
         # add path to libnccl.so.2 directory provided by NCCL when both sysroot
         # and RPATH are used (such as in EESSI)
         if build_option('sysroot') and self.toolchain.use_rpath:
-            libpaths = self.system_libs_info[2]
-            libpaths.append(os.path.join(nccl_root, 'lib'))
-            self.system_libs_info[2] = libpaths
+            system_libs_info_as_list = list(self.system_libs_info)
+            new_libpaths = system_libs_info_as_list[2]
+            new_libpaths.append(os.path.join(nccl_root, 'lib'))
+            system_libs_info_as_list[2] = new_libpaths
+            self.system_libs_info = tuple(system_libs_info_as_list)
 
         self._with_cuda = bool(cuda_root)
 
