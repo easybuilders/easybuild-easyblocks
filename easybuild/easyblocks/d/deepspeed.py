@@ -94,16 +94,6 @@ class EB_DeepSpeed(PythonPackage):
 
         super().configure_step()
 
-    def install_step(self):
-        '''Regular Python install step + fix_shebang for executables.'''
-        super().install_step(self)
-        # Fix shebang in Python files, see https://github.com/microsoft/DeepSpeed/issues/6664
-        for exe in os.listdir(os.path.join(self.install_dir, "bin")):
-            with open(exe) as f:
-                shebang = next(f)
-            if re.match("^#!.*python.*", shebang):
-                self.fix_shebang(exe)
-
     def sanity_check_step(self):
         '''Custom sanity check for DeepSpeed.'''
         custom_paths = {
@@ -115,5 +105,4 @@ class EB_DeepSpeed(PythonPackage):
             'python -m deepspeed.env_report',
             '[ "$(ds_report | grep -c "\\[NO\\]")" -eq "{:d}" ]'.format(len(self.cfg['ds_build_ops_to_skip']))
         ]
-
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
