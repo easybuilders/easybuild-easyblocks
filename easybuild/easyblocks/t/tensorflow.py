@@ -562,15 +562,6 @@ class EB_TensorFlow(PythonPackage):
         tensorrt_root = get_software_root('TensorRT')
         nccl_root = get_software_root('NCCL')
 
-        # add path to libnccl.so.2 directory provided by NCCL when both sysroot
-        # and RPATH are used (such as in EESSI)
-        if build_option('sysroot') and self.toolchain.use_rpath:
-            system_libs_info_as_list = list(self.system_libs_info)
-            new_libpaths = system_libs_info_as_list[2]
-            new_libpaths.append(os.path.join(nccl_root, 'lib'))
-            system_libs_info_as_list[2] = new_libpaths
-            self.system_libs_info = tuple(system_libs_info_as_list)
-
         self._with_cuda = bool(cuda_root)
 
         config_env_vars = {
@@ -710,6 +701,7 @@ class EB_TensorFlow(PythonPackage):
                 })
             else:
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
+
             if nccl_root:
                 nccl_version = get_software_version('NCCL')
                 # Ignore the PKG_REVISION identifier if it exists (i.e., report 2.4.6 for 2.4.6-1 or 2.4.6-2)
@@ -717,6 +709,14 @@ class EB_TensorFlow(PythonPackage):
                 config_env_vars.update({
                     'NCCL_INSTALL_PATH': nccl_root,
                 })
+
+                # add path to libnccl.so.2 directory provided by NCCL when both sysroot
+                # and RPATH are used (such as in EESSI)
+                if build_option('sysroot') and self.toolchain.use_rpath:
+                    system_libs_info_as_list = list(self.system_libs_info)
+                    system_libs_info_as_list[2].append(os.path.join(nccl_root, get_software_libdir('NCCL')))
+                    self.system_libs_info = tuple(system_libs_info_as_list)
+
             else:
                 nccl_version = '1.3'  # Use simple downloadable version
             config_env_vars.update({
