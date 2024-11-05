@@ -29,7 +29,6 @@ EasyBuild support for Bandicoot, implemented as an easyblock
 @author: Tanmoy Chakraborty (University of Warwick)
 """
 import os
-from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
@@ -60,7 +59,7 @@ class EB_Bandicoot(CMakeMake):
         """Custom sanity check for Bandicoot."""
 
         custom_paths = {
-            'files': ['include/bandicoot', os.path.join(libdir, 'libbandicoot.%s' % get_shared_lib_ext())],
+            'files': ['include/bandicoot', os.path.join(libd, 'libbandicoot.%s' % get_shared_lib_ext())],
             'dirs': ['include/bandicoot_bits'],
         }
         super(EB_Bandicoot, self).sanity_check_step(custom_paths=custom_paths)
