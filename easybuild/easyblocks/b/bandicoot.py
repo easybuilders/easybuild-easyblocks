@@ -39,13 +39,6 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_Bandicoot(CMakeMake):
     """Support for building Bandicoot."""
 
-    @staticmethod
-    def extra_options():
-        """Extra easyconfig parameters for Bandicoot."""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
     def configure_step(self):
         """Set some extra environment variables before configuring."""
 
@@ -65,10 +58,6 @@ class EB_Bandicoot(CMakeMake):
 
     def sanity_check_step(self):
         """Custom sanity check for Bandicoot."""
-        if LooseVersion(self.version) < LooseVersion('7.950.1'):
-            libdir = 'lib'
-        else:
-            libdir = 'lib64'
 
         custom_paths = {
             'files': ['include/bandicoot', os.path.join(libdir, 'libbandicoot.%s' % get_shared_lib_ext())],
