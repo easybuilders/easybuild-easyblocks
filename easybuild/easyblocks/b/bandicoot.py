@@ -54,7 +54,7 @@ class EB_Bandicoot(CMakeMake):
             raise EasyBuildError("Dependency module Boost not loaded?")
 
         self.cfg.update('configopts', "-DBoost_DIR=%s" % boost)
-        self.cfg.update('configopts', "-DBOOST_INCLUDEDIR=%s/include" % boost)
+        self.cfg.update('configopts', "-DBOOST_INCLUDEDIR=%s" % os.path.join(boost, 'include'))
         self.cfg.update('configopts', "-DBoost_DEBUG=ON -DBOOST_ROOT=%s" % boost)
 
         self.cfg.update('configopts', '-DBLAS_LIBRARY:PATH="%s"' % os.getenv('LIBBLAS'))
