@@ -59,7 +59,7 @@ class EB_Bandicoot(CMakeMake):
         """Custom sanity check for Bandicoot."""
 
         custom_paths = {
-            'files': ['include/bandicoot', os.path.join(lib, 'libbandicoot.%s' % get_shared_lib_ext())],
+            'files': ['include/bandicoot', os.path.join('lib64', 'libbandicoot.%s' % get_shared_lib_ext())],
             'dirs': ['include/bandicoot_bits'],
         }
         super(EB_Bandicoot, self).sanity_check_step(custom_paths=custom_paths)
