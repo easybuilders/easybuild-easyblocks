@@ -93,7 +93,13 @@ class EB_NAMD(MakeCp):
 
         self.charm_dir = self.charm_tarballs[0][:-4]
 
-        charm_config = os.path.join(self.charm_dir, 'src', 'scripts', 'configure')
+        # NAMD-3.0 depends on charm-8.0.0 that uses Automake. The 'configure' file was
+        # removed in favour of 'configure.ac'
+        configure_file_name = 'configure'
+        if LooseVersion(self.version) >= LooseVersion('3.0'):
+            configure_file_name = 'configure.ac'
+
+        charm_config = os.path.join(self.charm_dir, 'src', 'scripts', configure_file_name)
         apply_regex_substitutions(charm_config, [(r'SHELL=/bin/csh', 'SHELL=$(which csh)')])
 
         for csh_script in [os.path.join('plugins', 'import_tree'), os.path.join('psfgen', 'import_tree'),
@@ -134,7 +140,10 @@ class EB_NAMD(MakeCp):
         self.namd_arch = '%s-%s' % (self.cfg['namd_basearch'], namd_comp)
         self.log.info("Completed NAMD target architecture: %s", self.namd_arch)
 
-        cmd = "./build charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
+        build_cmd = './build'
+
+        cmd = "%(build_cmd)s charm++ %(arch)s %(opts)s --with-numa -j%(parallel)s '%(cxxflags)s'" % {
+            'build_cmd': build_cmd,
             'arch': self.cfg['charm_arch'],
             'cxxflags': os.environ['CXXFLAGS'] + ' -DMPICH_IGNORE_CXX_SEEK ' + self.cfg['charm_extra_cxxflags'],
             'opts': self.cfg['charm_opts'],
