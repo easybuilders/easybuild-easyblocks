@@ -293,7 +293,12 @@ def generate_crate_list(sourcedir):
     import toml
 
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
-    cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
+
+    try:
+        cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
+    except FileNotFoundError as err:
+        print("\nNo Cargo.lock file found. Generate one with 'cargo generate-lockfile'\n")
+        raise err
 
     try:
         app_name = cargo_toml['package']['name']

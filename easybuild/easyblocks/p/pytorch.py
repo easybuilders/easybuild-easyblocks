@@ -581,6 +581,8 @@ class EB_PyTorch(PythonPackage):
         guesses['CMAKE_PREFIX_PATH'] = [os.path.join(self.pylibdir, 'torch')]
         # Required to dynamically load libcaffe2_nvrtc.so
         guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
+        # important when RPATH linking is enabled
+        guesses['LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
         return guesses
 
 
