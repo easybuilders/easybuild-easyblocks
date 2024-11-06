@@ -413,6 +413,9 @@ class PythonPackage(ExtensionEasyBlock):
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [True, "Fail if downloaded dependencies are detected", CUSTOM],
+            'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
+                                                  "to '#!/usr/bin/env python' (glob patterns supported) "
+                                                  "(default: ['bin/*'])", CUSTOM]
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
