@@ -63,6 +63,8 @@ class EB_GROMACS(CMakeMake):
         extra_vars.update({
             'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " +
                                  "default is to build double precision unless CUDA is enabled", CUSTOM],
+            'single_precision': [None, "Build with single precision enabled (-DGMX_DOUBLE=OFF), " +
+                                 "default is to build single precision", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -744,9 +746,14 @@ class EB_GROMACS(CMakeMake):
                 'mpi': 'install'
             }
 
-        precisions = ['single']
+        precisions = []
+        if self.cfg.get('single_precision') is None or self.cfg.get('single_precision'):
+            precisions.append('single')
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
+
+        if precisions == []:
+            raise EasyBuildError("No precision selected. At least one of single/double_precision must be unset or True")
 
         mpitypes = ['nompi']
         if self.toolchain.options.get('usempi', None):
