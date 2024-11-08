@@ -71,11 +71,8 @@ class Bundle(EasyBlock):
         self.altroot = None
         self.altversion = None
 
-        # list of EasyConfig instances for components
-        self.comp_cfgs = []
-
-        # list of EasyBlocks for components
-        self.comp_blocks = []
+        # list of EasyConfig instances and their EasyBlocks for components
+        self.comp_instances = []
 
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
@@ -201,8 +198,7 @@ class Bundle(EasyBlock):
             if comp_cfg['patches']:
                 self.cfg.update('patches', comp_cfg['patches'])
 
-            self.comp_cfgs.append(comp_cfg)
-            self.comp_blocks.append(comp_cfg.easyblock(comp_cfg))
+            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg)))
 
         self.cfg.update('checksums', checksums_patches)
 
@@ -221,7 +217,7 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super(Bundle, self).check_checksums()
 
-        for comp in self.comp_cfgs:
+        for comp, _ in self.comp_instances:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
 
         return checksum_issues
@@ -251,7 +247,7 @@ class Bundle(EasyBlock):
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
-        for idx, (cfg, comp) in enumerate(zip(self.comp_cfgs, self.comp_blocks)):
+        for idx, (cfg, comp) in enumerate(self.comp_instances):
 
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
@@ -342,22 +338,19 @@ class Bundle(EasyBlock):
         # If not added here, they might be missing entirely and fail sanity checks.
         final_reqs = super(Bundle, self).make_module_req_guess()
 
-        for cfg, comp in zip(self.comp_cfgs, self.comp_blocks):
+        for cfg, comp in self.comp_instances:
             self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
             reqs = comp.make_module_req_guess()
 
-            if not reqs or not isinstance(reqs, dict):
-                self.log.warning("Expected requirements to be a dict but is not. Therefore, this component is skipped.")
-                continue
-
-            for key, value in sorted(reqs.items()):
-                if isinstance(reqs, string_type):
-                    self.log.warning("Hoisting string value %s into a list before iterating over it", value)
-                    value = [value]
-                if key not in final_reqs:
-                    final_reqs[key] = value
-                else:
+            try:
+                for key, value in sorted(reqs.items()):
+                    if isinstance(reqs, string_type):
+                        value = [value]
+                    final_reqs.setdefault(key, [])
                     final_reqs[key] += value
+            except AttributeError:
+                raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
+                                     cfg['name'], cfg['version'])
 
         return final_reqs
 
