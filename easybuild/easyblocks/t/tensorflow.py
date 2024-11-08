@@ -709,16 +709,6 @@ class EB_TensorFlow(PythonPackage):
                 config_env_vars.update({
                     'NCCL_INSTALL_PATH': nccl_root,
                 })
-
-                # add absolute path to libnccl.so.2 directory provided by NCCL
-                # when LD_LIBRARY_PATH is filtered and LIBRARY_PATH is not
-                # filtered, e.g., in an environment such as EESSI
-                filtered_env_vars = build_option('filter_env_vars') or []
-                if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-                    system_libs_info_as_list = list(self.system_libs_info)
-                    system_libs_info_as_list[2].append(os.path.join(nccl_root, get_software_libdir('NCCL')))
-                    self.system_libs_info = tuple(system_libs_info_as_list)
-
             else:
                 nccl_version = '1.3'  # Use simple downloadable version
             config_env_vars.update({
@@ -894,6 +884,16 @@ class EB_TensorFlow(PythonPackage):
 
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
+
+        # add absolute path to libnccl.so.2 directory provided by NCCL
+        # when LD_LIBRARY_PATH is filtered and LIBRARY_PATH is not
+        # filtered, e.g., in an environment such as EESSI
+        nccl_root = get_software_root('NCCL')
+        if nccl_root:
+            filtered_env_vars = build_option('filter_env_vars') or []
+            if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+                libpaths.append(os.path.join(nccl_root, get_software_libdir('NCCL')))
+
         if cpaths:
             action_env['CPATH'] = ':'.join(cpaths)
         if libpaths:
