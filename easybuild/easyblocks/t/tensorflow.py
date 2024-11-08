@@ -886,8 +886,8 @@ class EB_TensorFlow(PythonPackage):
         cpaths, libpaths = self.system_libs_info[1:]
 
         # add absolute path to libnccl.so.2 directory provided by NCCL
-        # when LD_LIBRARY_PATH is filtered and LIBRARY_PATH is not
-        # filtered, e.g., in an environment such as EESSI
+        # when LD_LIBRARY_PATH is filtered and LIBRARY_PATH is not filtered.
+        # E.g. in an environment such as EESSI.
         nccl_root = get_software_root('NCCL')
         if nccl_root:
             filtered_env_vars = build_option('filter_env_vars') or []
