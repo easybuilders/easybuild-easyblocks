@@ -31,6 +31,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Jasper Grimm (University of York)
+@author: Jan Andre Reuter (Juelich Supercomputing Centre)
 """
 import copy
 import os
