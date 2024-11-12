@@ -28,6 +28,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 @author: Davide Grassano (CECAM, EPFL)
+@author: Jan Reuter (Juelich Supercomputing Centre)
 """
 
 import fileinput
@@ -84,6 +85,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         # Required to avoid CMakeMake default extra_opts to override the ConfigMake ones
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
+        # Disable log file for nested EasyBlock
+        kwargs['logfile'] = self.logfile
         self.ebclass = eb(new_ec, *args, **kwargs)
 
     class EB_QuantumESPRESSOcmake(CMakeMake):
