@@ -124,12 +124,13 @@ class GoPackage(EasyBlock):
                 opt_level = None
 
         if microarch and opt_level is None:
-            warn_msg = f"Unknown --optarch setting given for Go architecture ({microarch}): {optarch}."
+            warn_msg = f"Unknown optarch setting given for Go architecture ({microarch}): {optarch}."
             warn_msg += f" Building '{self.name}' with auto-detection in Go."
             self.log.warning(warn_msg)
             print_warning(warn_msg)
             return None
 
+        self.log.debug(f"Setting 'optarch={optarch}' converted to Go environment variable '{microarch}:{opt_level}'")
         return (microarch, opt_level)
 
     def prepare_step(self, *args, **kwargs):
