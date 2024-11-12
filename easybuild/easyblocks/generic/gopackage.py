@@ -26,6 +26,7 @@
 EasyBuild support for Go packages, implemented as an EasyBlock
 
 @author: Pavel Grochal (INUITS)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 from easybuild.tools import LooseVersion
@@ -33,9 +34,12 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.systemtools import AARCH32, AARCH64, X86_64, get_cpu_architecture
 from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 class GoPackage(EasyBlock):
@@ -51,6 +55,82 @@ class GoPackage(EasyBlock):
             'forced_deps': [None, "Force specific version of Go package, when building non-native module", CUSTOM],
         })
         return extra_vars
+
+    def go_microarch_opt(self):
+        """
+        Microarchitecture optimization support
+        see https://go.dev/wiki/MinimumRequirements#architectures
+        """
+        if LooseVersion(get_software_version('Go')) < LooseVersion("1.18"):
+            self.log.debug("Go version %s does not support microarchitecture optimization", self.version)
+            return None
+
+        optarch = build_option('optarch') or ''
+        if isinstance(optarch, dict):
+            # optarch specified by compiler family
+            optarch = optarch.get(self.toolchain.comp_family(), '')
+        optarch = optarch.upper()
+
+        microarch = None
+        opt_level = None
+
+        if get_cpu_architecture() == AARCH32:
+            # default to VFPv1, default if cross compiling
+            microarch = "GOARM"
+            opt_level = "6"
+            if 'VFPV3' in optarch:
+                # use VFPv3; usually Cortex-A cores
+                opt_level = "7"
+            elif 'VFP' in optarch:
+                # use VFPv1 only; usually ARM11 or better (VFPv2 or better is also supported)
+                opt_level = "6"
+            elif optarch == OPTARCH_GENERIC:
+                opt_level = "5"
+            elif optarch:
+                opt_level = None
+
+        elif get_cpu_architecture() == AARCH64:
+            if LooseVersion(get_software_version('Go')) < LooseVersion("1.23"):
+                self.log.debug(
+                    "Go version %s does not support microarchitecture optimization for %s", self.version, AARCH64
+                )
+                return None
+
+            # default to v8.0, default in Go for AARCH64
+            microarch = "GOARM64"
+            opt_level = "v8.0"
+            # Allowed values are v8.{0-9} and v9.{0-5}. This may be followed by an option specifying extensions
+            # implemented by target hardware. Example: GOARM64=v8.0,lse
+            if optarch.startswith("v8.") or optarch.startswith("v9."):
+                opt_level = optarch
+            elif optarch == OPTARCH_GENERIC:
+                opt_level = "v8.0"
+            elif optarch:
+                opt_level = None
+
+        elif get_cpu_architecture() == X86_64:
+            # default to x86-64-v3 with AVX2
+            microarch = "GOAMD64"
+            opt_level = "v3"
+            if optarch.endswith("V4") or 'AVX512' in optarch:
+                opt_level = "v4"
+            elif optarch.endswith("V3") or 'AVX' in optarch:
+                opt_level = "v3"
+            elif optarch.endswith("V2") or 'SSE4' in optarch or 'SSE3' in optarch:
+                opt_level = "v2"
+            elif optarch == OPTARCH_GENERIC or optarch.endswith("V1"):
+                opt_level = "v1"
+            elif optarch:
+                opt_level = None
+
+        if microarch and opt_level is None:
+            warn_msg = f"Unknown --optarch setting given for Go architecture ({microarch}): {optarch}."
+            warn_msg += f" Building '{self.name}' with auto-detection in Go."
+            self.log.warning(warn_msg)
+            print_warning(warn_msg)
+            return None
+
+        return (microarch, opt_level)
 
     def prepare_step(self, *args, **kwargs):
         """Go-specific preparations."""
@@ -71,6 +151,10 @@ class GoPackage(EasyBlock):
         env.setvar('GO111MODULE', 'on', verbose=False)
         # set bin folder
         env.setvar('GOBIN', os.path.join(self.installdir, 'bin'), verbose=False)
+        # microarchitecture
+        microarch = self.go_microarch_opt()
+        if microarch is not None:
+            env.setvar(*microarch, verbose=False)
 
         # creates log entries for go being used, for debugging
         run_shell_cmd("go version", hidden=True)
