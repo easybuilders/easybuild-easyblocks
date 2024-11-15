@@ -199,7 +199,7 @@ class Bundle(EasyBlock):
             if comp_cfg['patches']:
                 self.cfg.update('patches', comp_cfg['patches'])
 
-            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg)))
+            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
 
         self.cfg.update('checksums', checksums_patches)
 
@@ -319,9 +319,6 @@ class Bundle(EasyBlock):
                         else:
                             new_val = path
                         env.setvar(envvar, new_val)
-
-            # close log for this component
-            comp.close_log()
 
     def make_module_req_guess(self):
         """
