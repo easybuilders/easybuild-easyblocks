@@ -163,6 +163,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
             custom_paths=custom_paths,
             custom_commands=custom_commands
         )
+
     def make_module_extra(self):
         """Extra statements specific to STAR-CCM+ to include in generated module file."""
         if self.starccm_subdir is None or self.starview_subdir is None:
