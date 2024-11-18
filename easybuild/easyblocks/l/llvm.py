@@ -575,6 +575,8 @@ class EB_LLVM(CMakeMake):
             self.log.info("Using %s as Z3 root", z3_root)
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
             general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
+        else:
+            general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
