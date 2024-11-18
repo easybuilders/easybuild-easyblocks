@@ -29,11 +29,12 @@ EasyBuild support for building and installing STAR-CCM+, implemented as an easyb
 """
 import os
 import tempfile
+import stat
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, find_glob_pattern
+from easybuild.tools.filetools import change_dir, find_glob_pattern, adjust_permissions, copy_file
 from easybuild.tools.run import run_cmd
 
 
@@ -46,6 +47,26 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         self.starccm_subdir = None
         self.starview_subdir = None
 
+    # adding an extract_step to support Siemens distributions with extension .aol
+    def extract_step(self):
+        # Siemens distributions are tarballs or executables with .aol extension
+        if self.src[0]['name'].endswith('.aol'):
+            self.aol_install = True
+        else:
+            self.aol_install = False
+
+        if self.aol_install:
+            # required for correctly guessing start directory
+            self.src[0]['finalpath'] = self.builddir
+
+            # copy the .aol to build dir
+            for source in self.src:
+                dst = os.path.join(self.builddir, source['name'])
+                copy_file(source['path'], dst)
+                adjust_permissions(dst, stat.S_IRWXU, add=True)
+        else:
+            EasyBlock.extract_step(self)
+
     def configure_step(self):
         """No configuration procedure for STAR-CCM+."""
         pass
@@ -56,8 +77,12 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
     def install_step(self):
         """Custom install procedure for STAR-CCM+."""
+        
+        if self.aol_install:
+            install_script_pattern = "./STAR-CCM+*.aol"
+        else:
+            install_script_pattern = "./STAR-CCM+%s_*.sh" % self.version
 
-        install_script_pattern = "./STAR-CCM+%s_*.sh" % self.version
         if self.dry_run:
             install_script = install_script_pattern
         else:
@@ -69,15 +94,33 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         env.setvar('IATEMPDIR', tempfile.mkdtemp())
 
-        cmd = ' '.join([
-            self.cfg['preinstallopts'],
-            install_script,
-            "-i silent",
-            "-DINSTALLDIR=%s" % self.installdir,
-            "-DINSTALLFLEX=false",
-            "-DADDSYSTEMPATH=false",
-            self.cfg['installopts'],
-        ])
+        # argument -DINSTALLFLEX is -DINSTALL_LICENSING for the .aol installer 
+        if self.aol_install:
+            cmd = ' '.join([
+                self.cfg['preinstallopts'],
+                # The install_script installs also the Siemens Installer Program (SIP) 
+                # under $HOME, this is not need to run STAR-CCM+
+                'HOME=%s' % self.builddir,
+                install_script,
+                "-i silent",
+                # for some reason the installation directory's name cannot be the version
+                # So using builddir and then moving to installdir
+                "-DINSTALLDIR=%s" % self.builddir,
+                "-DINSTALL_LICENSING=false",
+                "-DADDSYSTEMPATH=false",
+                self.cfg['installopts'],
+                "&& mv %s/%s %s" % (self.builddir, self.version, self.installdir),
+            ])
+        else:
+            cmd = ' '.join([
+                self.cfg['preinstallopts'],
+                install_script,
+                "-i silent",
+                "-DINSTALLDIR=%s" % self.installdir,
+                "-DINSTALLFLEX=false",
+                "-DADDSYSTEMPATH=false",
+                self.cfg['installopts'],
+            ])
 
         # ignore exit code of command, since there's always a non-zero exit if $CHECK_DISK_SPACE is set to OFF;
         # rely on sanity check to catch problems with the installation
@@ -115,8 +158,11 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                       os.path.join(self.installdir, self.starview_subdir, 'bin', 'starview+')],
             'dirs': [],
         }
-        super(EB_STAR_minus_CCM_plus_, self).sanity_check_step(custom_paths=custom_paths)
-
+        custom_commands = ["starccm+ --help 2>&1 | grep 'Usage: '"]
+        super(EB_STAR_minus_CCM_plus_, self).sanity_check_step(
+            custom_paths=custom_paths,
+            custom_commands=custom_commands
+        )
     def make_module_extra(self):
         """Extra statements specific to STAR-CCM+ to include in generated module file."""
         if self.starccm_subdir is None or self.starview_subdir is None:
