@@ -77,7 +77,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
     def install_step(self):
         """Custom install procedure for STAR-CCM+."""
-        
+
         if self.aol_install:
             install_script_pattern = "./STAR-CCM+*.aol"
         else:
@@ -94,11 +94,11 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         env.setvar('IATEMPDIR', tempfile.mkdtemp())
 
-        # argument -DINSTALLFLEX is -DINSTALL_LICENSING for the .aol installer 
+        # argument -DINSTALLFLEX is -DINSTALL_LICENSING for the .aol installer
         if self.aol_install:
             cmd = ' '.join([
                 self.cfg['preinstallopts'],
-                # The install_script installs also the Siemens Installer Program (SIP) 
+                # The install_script installs also the Siemens Installer Program (SIP)
                 # under $HOME, this is not need to run STAR-CCM+
                 'HOME=%s' % self.builddir,
                 install_script,
