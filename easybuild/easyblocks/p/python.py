@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, log_path, PYTHONPATH, EBPYTHONPREFIXES
+from easybuild.tools.config import build_option, ERROR, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -142,8 +142,8 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        # Used for EBPYTHONPREFIXES handler script
-        self.pythonpath = os.path.join(log_path(), 'python')
+        # Path of the directory used to store the EBPYTHONPREFIXES handler script, relative to the install directory
+        self.python_script_dir_relative_path = os.path.join('etc', 'python')
 
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
@@ -504,7 +504,8 @@ class EB_Python(ConfigureMake):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg.get('ebpythonprefixes'):
-            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
+            write_file(os.path.join(self.installdir, self.python_script_dir_relative_path, 'sitecustomize.py'),
+                       SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
@@ -641,6 +642,6 @@ class EB_Python(ConfigureMake):
         txt = super(EB_Python, self).make_module_extra()
 
         if self.cfg.get('ebpythonprefixes'):
-            txt += self.module_generator.prepend_paths(PYTHONPATH, self.pythonpath)
+            txt += self.module_generator.prepend_paths(PYTHONPATH, self.python_script_dir_relative_path)
 
         return txt
