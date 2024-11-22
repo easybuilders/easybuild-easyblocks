@@ -643,6 +643,6 @@ class EB_Python(ConfigureMake):
             new_dir = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
             old_dir = os.path.join(log_path(), 'python')
             if not os.path.exists(os.path.join(self.installdir, new_dir, 'sitecustomize.py')):
-                txt += self.module_generator.prepend_paths(PYTHONPATH, os.path.join(self.installdir, old_dir))
+                txt += self.module_generator.prepend_paths(PYTHONPATH, old_dir)
 
         return txt
