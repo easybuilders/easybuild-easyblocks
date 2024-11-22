@@ -142,9 +142,6 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        # Used for EBPYTHONPREFIXES handler script
-        self.pythonpath = os.path.join(log_path(), 'python')
-
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
             'source_urls': [PYPI_SOURCE],
@@ -504,7 +501,8 @@ class EB_Python(ConfigureMake):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg.get('ebpythonprefixes'):
-            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
+            site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+            write_file(os.path.join(self.installdir, site_packages_path, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
@@ -640,7 +638,16 @@ class EB_Python(ConfigureMake):
         """Add path to sitecustomize.py to $PYTHONPATH"""
         txt = super(EB_Python, self).make_module_extra()
 
+        # Legacy support for existing installations doing "--rebuild --module-only"
         if self.cfg.get('ebpythonprefixes'):
-            txt += self.module_generator.prepend_paths(PYTHONPATH, self.pythonpath)
+            new_dir = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+            old_dir = os.path.join(log_path(), 'python')
+            if not os.path.exists(os.path.join(self.installdir, new_dir, 'sitecustomize.py')):
+                if not os.path.exists(os.path.join(self.installdir, old_dir, 'sitecustomize.py')):
+                    raise EasyBuildError("sitecustomize.py is missing from installation.")
+                else:
+                    txt += self.module_generator.prepend_paths(PYTHONPATH, os.path.join(self.installdir, old_dir))
+
+
 
         return txt
