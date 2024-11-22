@@ -41,6 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.utilities import nub
 
 
 class Bundle(EasyBlock):
@@ -305,20 +306,22 @@ class Bundle(EasyBlock):
                 else:
                     comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
 
-            # update environment to ensure stuff provided by former components can be picked up by latter components
-            # once the installation is finalised, this is handled by the generated module
-            reqs = comp.make_module_req_guess()
-            for envvar in reqs:
-                curr_val = os.getenv(envvar, '')
-                curr_paths = curr_val.split(os.pathsep)
-                for subdir in reqs[envvar]:
-                    path = os.path.join(self.installdir, subdir)
-                    if path not in curr_paths:
-                        if curr_val:
-                            new_val = '%s:%s' % (path, curr_val)
-                        else:
-                            new_val = path
-                        env.setvar(envvar, new_val)
+            # Update current environment with component environment to ensure stuff provided
+            # by this component can be picked up by installation of subsequent components
+            # - this is a stripped down version of EasyBlock.make_module_req for fake modules
+            # - once bundle installation is complete, this is handled by the generated module as usual
+            for mod_envar, mod_paths in comp.module_load_environment.items():
+                # expand glob patterns in module load environment to existing absolute paths
+                mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False, fake=True)]
+                mod_expand = nub(mod_expand)
+                mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
+                # prepend to current environment variable if new stuff added to installation
+                curr_env = os.getenv(mod_envar, '')
+                curr_paths = [path for path in curr_env.split(os.pathsep) if path]
+                new_paths = nub(mod_expand + curr_paths)
+                new_env = os.pathsep.join(new_paths)
+                if new_env and new_env != curr_env:
+                    env.setvar(mod_envar, new_env)
 
             # close log for this component
             comp.close_log()
