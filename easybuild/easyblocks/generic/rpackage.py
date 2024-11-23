@@ -192,7 +192,7 @@ class RPackage(ExtensionEasyBlock):
                 errors.append([line, r.groups()])
 
         if errors:
-            self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join([x[0] for x in res]))
+            self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join([x[0] for x in errors]))
             self.handle_installation_errors()
             cmd = "R -q --no-save"
             stdin = """
