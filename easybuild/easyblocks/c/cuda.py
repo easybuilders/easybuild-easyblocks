@@ -43,7 +43,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import IGNORE
+from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
 from easybuild.tools.run import run_cmd, run_cmd_qa
@@ -356,10 +356,18 @@ class EB_CUDA(Binary):
             lib_path.append(os.path.join('nvvm', 'lib64'))
             inc_path.append(os.path.join('nvvm', 'include'))
 
+        library_path = ['lib64', os.path.join('stubs', 'lib64')]
+        # add lib_path entries to library_path when LD_LIBRARY_PATH is filtered
+        # and LIBRARY_PATH is not filtered.
+        # E.g. in an environment such as EESSI.
+        filtered_env_vars = build_option('filter_env_vars') or []
+        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            library_path += lib_path
+
         guesses.update({
             'CPATH': inc_path,
             'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
+            'LIBRARY_PATH': library_path,
             'PATH': bin_path,
             'PKG_CONFIG_PATH': ['pkgconfig'],
         })
