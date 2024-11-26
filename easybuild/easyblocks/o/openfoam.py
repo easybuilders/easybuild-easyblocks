@@ -372,7 +372,7 @@ class EB_OpenFOAM(EasyBlock):
                 if self.looseversion >= LooseVersion('2406'):
                     # Also build the plugins
                     cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
-                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+                                                    os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
 
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
