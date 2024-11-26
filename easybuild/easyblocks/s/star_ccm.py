@@ -59,7 +59,6 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         """Custom install procedure for STAR-CCM+."""
 
         loose_ver = LooseVersion(self.version)
-        local_ver = 2410
 
         # New installer and new versioning for the installer.
         # It uses 24xx instead of 19.xx.xxx. Ignore version in pattern search.
