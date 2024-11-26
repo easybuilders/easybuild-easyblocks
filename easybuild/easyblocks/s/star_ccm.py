@@ -32,6 +32,7 @@ import tempfile
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.tools import LooseVersion
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, find_glob_pattern
 from easybuild.tools.run import run_cmd
@@ -57,7 +58,16 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
     def install_step(self):
         """Custom install procedure for STAR-CCM+."""
 
-        install_script_pattern = "./STAR-CCM+%s_*.sh" % self.version
+        loose_ver = LooseVersion(self.version)
+        local_ver = 2410
+
+        # New installer and new versioning for the installer.
+        # It uses 24xx instead of 19.xx.xxx. Ignore version in pattern search.
+        if loose_ver >= LooseVersion('19.06.008'):
+            install_script_pattern = "./STAR-CCM+*.aol"
+        else:
+            install_script_pattern = "./STAR-CCM+%s_*.sh" % self.version
+
         if self.dry_run:
             install_script = install_script_pattern
         else:
@@ -69,13 +79,21 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         env.setvar('IATEMPDIR', tempfile.mkdtemp())
 
+        if loose_ver >= LooseVersion('19.06.008'):
+            other_install_opts = ' '.join([
+                "-DINSTALL_LICENSING=false",
+                "-DPRODUCTEXCELLENCEPROGRAM=decline",
+            ])
+        else:
+            other_install_opts = "-DINSTALLFLEX=false"
+
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             install_script,
             "-i silent",
             "-DINSTALLDIR=%s" % self.installdir,
-            "-DINSTALLFLEX=false",
             "-DADDSYSTEMPATH=false",
+            other_install_opts,
             self.cfg['installopts'],
         ])
 
