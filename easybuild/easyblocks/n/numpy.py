@@ -204,9 +204,7 @@ class EB_numpy(FortranPythonPackage):
             'includes': includes,
         }
 
-        numpy_version = LooseVersion(self.version)
-
-        if numpy_version < '1.26':
+        if LooseVersion(self.version) < LooseVersion('1.26'):
             # NumPy detects the required math by trying to link a minimal code containing a call to `log(0.)`.
             # The first try is without any libraries, which works with `gcc -fno-math-errno` (our optimization default)
             # because the call gets removed due to not having any effect. So it concludes that `-lm` is not required.
