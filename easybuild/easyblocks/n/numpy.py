@@ -204,6 +204,17 @@ class EB_numpy(FortranPythonPackage):
             'includes': includes,
         }
 
+        numpy_version = LooseVersion(self.version)
+
+        if numpy_version < '1.26':
+            # NumPy detects the required math by trying to link a minimal code containing a call to `log(0.)`.
+            # The first try is without any libraries, which works with `gcc -fno-math-errno` (our optimization default)
+            # because the call gets removed due to not having any effect. So it concludes that `-lm` is not required.
+            # This then fails to detect availability of functions such as `acosh` which do not get removed in the same
+            # way and so less exact replacements are used instead which e.g. fail the tests on PPC.
+            # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
+            env.setvar('MATHLIB', 'm')
+
         super(EB_numpy, self).configure_step()
 
         if LooseVersion(self.version) < LooseVersion('1.21'):
