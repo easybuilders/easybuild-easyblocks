@@ -95,7 +95,7 @@ class EB_WRF(EasyBlock):
 
         wrfdir = os.path.join(self.builddir, self.wrfsubdir)
 
-        set_netcdf_env_vars(self.log)            
+        set_netcdf_env_vars(self.log)
         netcdf_fortran = get_software_root('NETCDFMINFORTRAN')
         if netcdf_fortran:
             env.setvar('NETCDFF', netcdf_fortran)
