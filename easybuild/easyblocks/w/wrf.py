@@ -95,10 +95,8 @@ class EB_WRF(EasyBlock):
 
         wrfdir = os.path.join(self.builddir, self.wrfsubdir)
 
+        # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
-        netcdf_fortran = get_software_root('NETCDFMINFORTRAN')
-        if netcdf_fortran:
-            env.setvar('NETCDFF', netcdf_fortran)
 
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
