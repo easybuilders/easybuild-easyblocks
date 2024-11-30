@@ -328,6 +328,11 @@ class CMakeMake(ConfigureMake):
         # ensure CMake uses EB python, not system or virtualenv python
         options.update(get_cmake_python_config_dict())
 
+        # pass the preferred host compiler to the CUDA compiler
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            self.cfg.update('preconfigopts', 'CUDAHOSTCXX=%s' % which(os.getenv('CXX', 'g++')))
+
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
             if boost_root:
