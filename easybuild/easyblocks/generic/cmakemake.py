@@ -332,7 +332,7 @@ class CMakeMake(ConfigureMake):
         cuda_root = get_software_root('CUDA')
         if cuda_root:
             options['CMAKE_CUDA_HOST_COMPILER'] = which(os.getenv('CXX', 'g++'))
-            options['CMAKE_CUDA_COMPILER'] = 'nvcc'
+            options['CMAKE_CUDA_COMPILER'] = which('nvcc')
             cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
             if cuda_cc:
                 options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
