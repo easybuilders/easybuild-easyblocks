@@ -322,15 +322,15 @@ class Bundle(EasyBlock):
 
     def make_module_req_guess(self):
         """
-        Set module requirements from all comppnents, e.g. $PATH, etc.
+        Set module requirements from all components, e.g. $PATH, etc.
         During the install step, we only set these requirements temporarily.
         Later on when building the module, those paths are not considered.
         Therefore, iterate through all the components again and gather
         the requirements.
 
-        Do not remove duplicates or check for existance of folders,
+        Do not remove duplicates or check for existence of folders,
         as this is done in the generic EasyBlock while creating
-        the modulefile already.
+        the module file already.
         """
         # Start with the paths from the generic EasyBlock.
         # If not added here, they might be missing entirely and fail sanity checks.
@@ -342,10 +342,10 @@ class Bundle(EasyBlock):
 
             try:
                 for key, value in sorted(reqs.items()):
-                    if isinstance(reqs, string_type):
+                    if isinstance(value, string_type):
                         value = [value]
                     final_reqs.setdefault(key, [])
-                    final_reqs[key] += value
+                    final_reqs[key].append(value)
             except AttributeError:
                 raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
                                      cfg['name'], cfg['version'])
