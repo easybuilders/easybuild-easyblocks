@@ -340,6 +340,9 @@ class Bundle(EasyBlock):
             self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
             reqs = comp.make_module_req_guess()
 
+            # Try-except block to fail with an easily understandable error message.
+            # This should only trigger when an EasyBlock returns non-dict module requirements
+            # for make_module_req_guess() which should then be fixed in the components EasyBlock.
             try:
                 for key, value in sorted(reqs.items()):
                     if isinstance(value, string_type):
