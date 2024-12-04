@@ -348,11 +348,11 @@ class EB_imkl(IntelBase):
             if res.exit_code:
                 raise EasyBuildError("Building FlexiBLAS-compatible library (cmd: %s) failed", cmd)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         Install group libraries and interfaces (if desired).
         """
-        super(EB_imkl, self).post_install_step()
+        super(EB_imkl, self).post_processing_step()
 
         # extract examples
         examples_subdir = os.path.join(self.installdir, self.mkl_basedir, self.examples_subdir)

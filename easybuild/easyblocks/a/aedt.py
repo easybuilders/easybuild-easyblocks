@@ -71,7 +71,7 @@ class EB_AEDT(PackedBinary):
         ])
         run_shell_cmd("./Linux/AnsysEM/Disk1/InstData/setup.exe %s" % options)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Disable OS check and set LC_ALL/LANG for runtime"""
         if not self.subdir:
             self._set_subdir()

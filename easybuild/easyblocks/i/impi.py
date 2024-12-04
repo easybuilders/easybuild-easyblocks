@@ -164,9 +164,9 @@ EULA=accept
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
-        super(EB_impi, self).post_install_step()
+        super(EB_impi, self).post_processing_step()
 
         impiver = LooseVersion(self.version)
 
