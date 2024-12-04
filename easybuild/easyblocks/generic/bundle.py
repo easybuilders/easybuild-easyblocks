@@ -348,7 +348,7 @@ class Bundle(EasyBlock):
                     if isinstance(value, string_type):
                         value = [value]
                     final_reqs.setdefault(key, [])
-                    final_reqs[key].append(value)
+                    final_reqs[key].extend(value)
             except AttributeError:
                 raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
                                      cfg['name'], cfg['version'])
