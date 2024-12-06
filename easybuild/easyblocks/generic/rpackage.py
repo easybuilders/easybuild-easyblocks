@@ -183,7 +183,7 @@ class RPackage(ExtensionEasyBlock):
         """
         Check output of installation command, and clean up installation if needed.
         """
-        errors = re.findall(r"^ERROR:.*", output, flags=re.I|re.M)
+        errors = re.findall(r"^ERROR:.*", output, flags=re.I | re.M)
 
         if errors:
             self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join(errors))
