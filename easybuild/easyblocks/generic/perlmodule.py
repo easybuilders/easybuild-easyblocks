@@ -139,15 +139,14 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_PERL_MODULES, *args, **kwargs)
 
-    def make_module_step(self, *args, **kwargs):
-        """
-        Custom paths to look for with PERL*LIB
-        """
-        perl_lib_var = f"PERL{get_major_perl_version()}LIB"
+    def make_module_req_guess(self):
+        """Customized dictionary of paths to look for with PERL*LIB."""
+        majver = get_major_perl_version()
         sitearchsuffix = get_site_suffix('sitearch')
         sitelibsuffix = get_site_suffix('sitelib')
-        setattr(self.module_load_environment, perl_lib_var, ['', sitearchsuffix, sitelibsuffix])
-        self.log.debug(f"MODVAR: {perl_lib_var} - " + str(getattr(self.module_load_environment, perl_lib_var)))
 
-        return super().make_module_step(*args, **kwargs)
-
+        guesses = super(PerlModule, self).make_module_req_guess()
+        guesses.update({
+            "PERL%sLIB" % majver: ['', sitearchsuffix, sitelibsuffix],
+        })
+        return guesses
