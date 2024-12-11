@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES, SEARCH_PATH_LIB_DIRS
+from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
@@ -1148,30 +1148,27 @@ class PythonPackage(ExtensionEasyBlock):
 
         return (parent_success and success, parent_fail_msg + fail_msg)
 
-    def make_module_step(self, *args, **kwargs):
+    def make_module_req_guess(self):
         """
-        Define list of subdirectories in search paths of module load environment
+        Define list of subdirectories to consider for updating path-like environment variables ($PATH, etc.).
         """
+        guesses = super(PythonPackage, self).make_module_req_guess()
+
         # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
         # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
-        for env_var in ['LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            search_paths = getattr(self.module_load_environment, env_var)
-            for lib_dir in SEARCH_PATH_LIB_DIRS:
+        for envvar in ['LD_LIBRARY_PATH', 'LIBRARY_PATH']:
+            newlist = []
+            for subdir in guesses[envvar]:
                 # only subdirectories that contain one or more files/libraries should be retained
-                install_lib_dir = os.path.join(self.installdir, lib_dir)
-                try:
-                    lib_files = [os.path.isfile(os.path.join(install_lib_dir, x)) for x in os.listdir(install_lib_dir)]
-                except FileNotFoundError:
-                    lib_files = []
+                fullpath = os.path.join(self.installdir, subdir)
+                if os.path.exists(fullpath):
+                    if any([os.path.isfile(os.path.join(fullpath, x)) for x in os.listdir(fullpath)]):
+                        newlist.append(subdir)
+            self.log.debug("Only retaining %s subdirs from %s for $%s (others don't provide any libraries)",
+                           newlist, guesses[envvar], envvar)
+            guesses[envvar] = newlist
 
-                if any(lib_files):
-                    search_paths.append(lib_dir)
-                else:
-                    search_paths.remove(lib_dir)
-
-            self.log.debug(f"Directories retained in module load environment for ${env_var}: [{search_paths}]")
-
-        return super().make_module_step(*args, **kwargs)
+        return guesses
 
     def make_module_extra(self, *args, **kwargs):
         """Add install path to PYTHONPATH"""
