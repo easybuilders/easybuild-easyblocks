@@ -198,7 +198,7 @@ def get_major_perl_version():
     Returns the major verson of the perl binary in the current path
     """
     cmd = "perl -MConfig -e 'print $Config::Config{PERL_API_REVISION}'"
-    res = run_shell_cmd(cmd, hidden=True)
+    res = run_shell_cmd(cmd)
     return res.output
 
 
@@ -212,7 +212,7 @@ def get_site_suffix(tag):
     """
     perl_cmd = 'my $a = $Config::Config{"%s"}; $a =~ s/($Config::Config{"siteprefix"})//; print $a' % tag
     cmd = "perl -MConfig -e '%s'" % perl_cmd
-    res = run_shell_cmd(cmd, hidden=True)
+    res = run_shell_cmd(cmd)
     sitesuffix = res.output
     # obtained value usually contains leading '/', so strip it off
     return sitesuffix.lstrip(os.path.sep)
