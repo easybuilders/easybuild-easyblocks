@@ -1012,7 +1012,7 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
 
-        # Use directory usually containg the python packages by default
+        # Use directory usually containing the python packages by default
         # but only for stand-alone installations, not for extensions;
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
