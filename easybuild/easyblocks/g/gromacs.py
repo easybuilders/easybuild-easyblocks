@@ -244,6 +244,11 @@ class EB_GROMACS(CMakeMake):
             # version of GROMACS. Just prepare first part of cmd here
             plumed_cmd = "plumed-patch -p -e %s" % engine
 
+        # Enable hwloc support if it's listed as dependency
+        if get_software_root('hwloc'):
+            self.cfg.update('configopts', '-DGMX_HWLOC=ON')
+            self.cfg.update('configopts', '-DHWLOC_DIR=%s' % get_software_root('hwloc'))
+
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
         # The GMX_VERSION_STRING_OF_FORK feature is available since 2020.
