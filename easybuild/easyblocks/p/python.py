@@ -478,6 +478,10 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).build_step(*args, **kwargs)
 
+    @property
+    def site_packages_path(self):
+        return os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
 
@@ -501,8 +505,7 @@ class EB_Python(ConfigureMake):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg.get('ebpythonprefixes'):
-            site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
-            write_file(os.path.join(self.installdir, site_packages_path, 'sitecustomize.py'), SITECUSTOMIZE)
+            write_file(os.path.join(self.installdir, self.site_packages_path, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
@@ -523,8 +526,7 @@ class EB_Python(ConfigureMake):
     def _sanity_check_ebpythonprefixes(self):
         """Check that EBPYTHONPREFIXES works"""
         temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
-        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
-        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        temp_site_packages_path = os.path.join(temp_prefix, self.site_packages_path)
         mkdir(temp_site_packages_path, parents=True)  # Must exist
         res = run_shell_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
         out = res.output.strip()
@@ -532,7 +534,7 @@ class EB_Python(ConfigureMake):
         if not out.startswith('[') or not out.endswith(']'):
             raise EasyBuildError("Unexpected output for sys.path: %s", out)
         paths = eval(out)
-        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        base_site_packages_path = os.path.join(self.installdir, self.site_packages_path)
         try:
             base_prefix_idx = paths.index(base_site_packages_path)
         except ValueError:
@@ -633,16 +635,3 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self, *args, **kwargs):
-        """Add path to sitecustomize.py to $PYTHONPATH"""
-        txt = super(EB_Python, self).make_module_extra()
-
-        # Legacy support for existing installations doing "--rebuild --module-only"
-        if self.cfg.get('ebpythonprefixes'):
-            new_dir = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
-            old_dir = os.path.join(log_path(), 'python')
-            if not os.path.exists(os.path.join(self.installdir, new_dir, 'sitecustomize.py')):
-                txt += self.module_generator.prepend_paths(PYTHONPATH, old_dir)
-
-        return txt
