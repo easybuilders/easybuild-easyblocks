@@ -245,7 +245,7 @@ class EB_GROMACS(CMakeMake):
             plumed_cmd = "plumed-patch -p -e %s" % engine
 
         # Enable hwloc support if it's listed as dependency
-        if get_software_root('hwloc'):
+        if get_software_root('hwloc') and gromacs_version >= '2016':
             self.cfg.update('configopts', '-DGMX_HWLOC=ON')
             self.cfg.update('configopts', '-DHWLOC_DIR=%s' % get_software_root('hwloc'))
 
