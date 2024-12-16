@@ -204,9 +204,9 @@ class EB_GROMACS(CMakeMake):
                         "cuda_cc_semicolon_sep").replace('.', '')
                     self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
 
-                # Enable HeFFTe support for multi-GPU FFT support if it's listed as a dependency
+                # Enable HeFFTe support for multi-GPU FFT support (added in v2023) if it's listed as a dependency
                 heffte_root = get_software_root('HeFFTe')
-                if heffte_root:
+                if gromacs_version >= '2023' and heffte_root:
                     self.cfg.update('configopts', '-DGMX_USE_HEFFTE=ON')
                     self.cfg.update('configopts', '-DHeffte_ROOT=%s' % heffte_root)
             else:
