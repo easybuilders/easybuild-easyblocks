@@ -52,6 +52,7 @@ from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
 class EB_impi(IntelBase):
     """
     Support for installing Intel MPI library
+    - minimum version suported: 2018.x
     """
     @staticmethod
     def extra_options():
@@ -67,11 +68,8 @@ class EB_impi(IntelBase):
         return IntelBase.extra_options(extra_vars)
 
     def prepare_step(self, *args, **kwargs):
-        if LooseVersion(self.version) >= LooseVersion('2017.2.174'):
-            kwargs['requires_runtime_license'] = False
-            super(EB_impi, self).prepare_step(*args, **kwargs)
-        else:
-            super(EB_impi, self).prepare_step(*args, **kwargs)
+        kwargs['requires_runtime_license'] = False
+        super(EB_impi, self).prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -83,57 +81,12 @@ class EB_impi(IntelBase):
 
         if impiver >= LooseVersion('2021'):
             super(EB_impi, self).install_step()
-
-        elif impiver >= LooseVersion('4.0.1'):
-            # impi starting from version 4.0.1.x uses standard installation procedure.
-
-            silent_cfg_names_map = {}
-
-            if impiver < LooseVersion('4.1.1'):
-                # since impi v4.1.1, silent.cfg has been slightly changed to be 'more standard'
-                silent_cfg_names_map.update({
-                    'activation_name': ACTIVATION_NAME_2012,
-                    'license_file_name': LICENSE_FILE_NAME_2012,
-                })
-
-            super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
-
-            # impi v4.1.1 and v5.0.1 installers create impi/<version> subdir, so stuff needs to be moved afterwards
-            if impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
-                super(EB_impi, self).move_after_install()
         else:
-            # impi up until version 4.0.0.x uses custom installation procedure.
-            silent = """[mpi]
-INSTALLDIR=%(ins)s
-LICENSEPATH=%(lic)s
-INSTALLMODE=NONRPM
-INSTALLUSER=NONROOT
-UPDATE_LD_SO_CONF=NO
-PROCEED_WITHOUT_PYTHON=yes
-AUTOMOUNTED_CLUSTER=yes
-EULA=accept
-[mpi-rt]
-INSTALLDIR=%(ins)s
-LICENSEPATH=%(lic)s
-INSTALLMODE=NONRPM
-INSTALLUSER=NONROOT
-UPDATE_LD_SO_CONF=NO
-PROCEED_WITHOUT_PYTHON=yes
-AUTOMOUNTED_CLUSTER=yes
-EULA=accept
-
-""" % {'lic': self.license_file, 'ins': self.installdir}
-
-            # already in correct directory
-            silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-            write_file(silentcfg, silent)
-            self.log.debug("Contents of %s: %s", silentcfg, silent)
-
-            tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
-            mkdir(tmpdir, parents=True)
-
-            cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
-            run_shell_cmd(cmd)
+            # impi starting from version 4.0.1.x uses standard installation procedure.
+            silent_cfg_names_map = {}
+            super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
+            # since v5.0.1 installers create impi/<version> subdir, so stuff needs to be moved afterwards
+            super(EB_impi, self).move_after_install()
 
         # recompile libfabric (if requested)
         # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
@@ -152,9 +105,9 @@ EULA=accept
                         make += ' -j %d' % self.cfg['parallel']
 
                     cmds = [
-                        './configure --prefix=%s %s' % (libfabric_installpath, self.cfg['libfabric_configopts']),
+                        f"./configure --prefix={libfabric_installpath} {self.cfg['libfabric_configopts']}",
                         make,
-                        'make install'
+                        "make install",
                     ]
                     for cmd in cmds:
                         run_shell_cmd(cmd)
@@ -172,12 +125,8 @@ EULA=accept
 
         if impiver >= LooseVersion('2021'):
             self.log.info("No post-install action for impi v%s", self.version)
-
-        elif impiver == LooseVersion('4.1.1.036') or impiver >= LooseVersion('5.0.1.035'):
-            if impiver >= LooseVersion('2018.0.128'):
-                script_paths = [os.path.join('intel64', 'bin')]
-            else:
-                script_paths = [os.path.join('intel64', 'bin'), os.path.join('mic', 'bin')]
+        else:
+            script_paths = [os.path.join('intel64', 'bin')]
             # fix broken env scripts after the move
             regex_subs = [(r"^setenv I_MPI_ROOT.*", r"setenv I_MPI_ROOT %s" % self.installdir)]
             for script in [os.path.join(script_path, 'mpivars.csh') for script_path in script_paths]:
@@ -202,9 +151,7 @@ EULA=accept
 
         suff = '64'
 
-        mpi_mods = ['mpi.mod']
-        if impi_ver > LooseVersion('4.0'):
-            mpi_mods.extend(['mpi_base.mod', 'mpi_constants.mod', 'mpi_sizeofs.mod'])
+        mpi_mods = ['mpi.mod', 'mpi_base.mod', 'mpi_constants.mod', 'mpi_sizeofs.mod']
 
         if impi_ver >= LooseVersion('2021'):
             mpi_subdir = self.get_versioned_subdir('mpi')
@@ -213,7 +160,6 @@ EULA=accept
             lib_dir = os.path.join(mpi_subdir, 'lib')
             if impi_ver < LooseVersion('2021.11'):
                 lib_dir = os.path.join(lib_dir, 'release')
-
         elif impi_ver >= LooseVersion('2019'):
             bin_dir = os.path.join('intel64', 'bin')
             include_dir = os.path.join('intel64', 'include')
@@ -241,39 +187,38 @@ EULA=accept
         custom_commands = []
 
         if build_option('mpi_tests'):
-            if impi_ver >= LooseVersion('2017'):
-                # Add minimal test program to sanity checks
-                if build_option('sanity_check_only'):
-                    # When only running the sanity check we need to manually make sure that
-                    # variables for compilers and parallelism have been set
-                    self.set_parallel()
-                    self.prepare_step(start_dir=False)
+            # Add minimal test program to sanity checks
+            if build_option('sanity_check_only'):
+                # When only running the sanity check we need to manually make sure that
+                # variables for compilers and parallelism have been set
+                self.set_parallel()
+                self.prepare_step(start_dir=False)
 
-                    impi_testexe = os.path.join(tempfile.mkdtemp(), 'mpi_test')
-                else:
-                    impi_testexe = os.path.join(self.builddir, 'mpi_test')
+                impi_testexe = os.path.join(tempfile.mkdtemp(), 'mpi_test')
+            else:
+                impi_testexe = os.path.join(self.builddir, 'mpi_test')
 
-                if impi_ver >= LooseVersion('2021'):
-                    impi_testsrc = os.path.join(self.installdir, self.get_versioned_subdir('mpi'))
-                    if impi_ver >= LooseVersion('2021.11'):
-                        impi_testsrc = os.path.join(impi_testsrc, 'opt', 'mpi')
-                    impi_testsrc = os.path.join(impi_testsrc, 'test', 'test.c')
-                else:
-                    impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
+            if impi_ver >= LooseVersion('2021'):
+                impi_testsrc = os.path.join(self.installdir, self.get_versioned_subdir('mpi'))
+                if impi_ver >= LooseVersion('2021.11'):
+                    impi_testsrc = os.path.join(impi_testsrc, 'opt', 'mpi')
+                impi_testsrc = os.path.join(impi_testsrc, 'test', 'test.c')
+            else:
+                impi_testsrc = os.path.join(self.installdir, 'test', 'test.c')
 
-                self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
+            self.log.info("Adding minimal MPI test program to sanity checks: %s", impi_testsrc)
 
-                # Build test program with appropriate compiler from current toolchain
-                build_cmd = "mpicc -cc=%s %s -o %s" % (os.getenv('CC'), impi_testsrc, impi_testexe)
+            # Build test program with appropriate compiler from current toolchain
+            build_cmd = "mpicc -cc=%s %s -o %s" % (os.getenv('CC'), impi_testsrc, impi_testexe)
 
-                # Execute test program with appropriate MPI executable for target toolchain
-                params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
-                mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
+            # Execute test program with appropriate MPI executable for target toolchain
+            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
 
-                custom_commands.extend([
-                    build_cmd,  # build test program
-                    mpi_cmd_tmpl % params,  # run test program
-                ])
+            custom_commands.extend([
+                build_cmd,  # build test program
+                mpi_cmd_tmpl % params,  # run test program
+            ])
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
