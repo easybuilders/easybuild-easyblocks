@@ -37,6 +37,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_20
 class EB_Inspector(IntelBase):
     """
     Support for installing Intel Inspector
+    - minimum version suported: 2020.x
     """
 
     def __init__(self, *args, **kwargs):
@@ -46,9 +47,7 @@ class EB_Inspector(IntelBase):
         # recent versions of Inspector are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2013_update7') and loosever < LooseVersion('2017'):
-            self.subdir = 'inspector_xe'
-        elif loosever >= LooseVersion('2017') and loosever < LooseVersion('2021'):
+        if loosever < LooseVersion('2021'):
             self.subdir = 'inspector'
         elif loosever >= LooseVersion('2021'):
             self.subdir = os.path.join('inspector', 'latest')
@@ -56,22 +55,6 @@ class EB_Inspector(IntelBase):
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
         super(EB_Inspector, self).make_installdir(dontcreate=True)
-
-    def install_step(self):
-        """
-        Actual installation
-        - create silent cfg file
-        - execute command
-        """
-        silent_cfg_names_map = None
-
-        if LooseVersion(self.version) <= LooseVersion('2013_update6'):
-            silent_cfg_names_map = {
-                'activation_name': ACTIVATION_NAME_2012,
-                'license_file_name': LICENSE_FILE_NAME_2012,
-            }
-
-        super(EB_Inspector, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
 
     def make_module_req_guess(self):
         """Find reasonable paths for Inspector"""
