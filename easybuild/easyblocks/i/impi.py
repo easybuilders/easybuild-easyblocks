@@ -201,8 +201,6 @@ EULA=accept
         impi_ver = LooseVersion(self.version)
 
         suff = '64'
-        if self.cfg['m32']:
-            suff = ''
 
         mpi_mods = ['mpi.mod']
         if impi_ver > LooseVersion('4.0'):
@@ -284,65 +282,56 @@ EULA=accept
         A dictionary of possible directories to look for
         """
         guesses = super(EB_impi, self).make_module_req_guess()
-        if self.cfg['m32']:
-            lib_dirs = ['lib', 'lib/ia32', 'ia32/lib']
-            guesses.update({
-                'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
-                'LD_LIBRARY_PATH': lib_dirs,
-                'LIBRARY_PATH': lib_dirs,
-                'MIC_LD_LIBRARY_PATH': ['mic/lib'],
-            })
-        else:
-            manpath = 'man'
+        manpath = 'man'
 
-            impi_ver = LooseVersion(self.version)
-            if impi_ver >= LooseVersion('2021'):
-                mpi_subdir = self.get_versioned_subdir('mpi')
-                lib_dirs = [
-                    os.path.join(mpi_subdir, 'lib'),
-                    os.path.join(mpi_subdir, 'libfabric', 'lib'),
-                ]
-                if impi_ver < LooseVersion('2021.11'):
-                    lib_dirs.insert(1, os.path.join(mpi_subdir, 'lib', 'release'))
-                include_dirs = [os.path.join(mpi_subdir, 'include')]
-                path_dirs = [
-                    os.path.join(mpi_subdir, 'bin'),
-                    os.path.join(mpi_subdir, 'libfabric', 'bin'),
-                ]
-                if impi_ver >= LooseVersion('2021.11'):
-                    manpath = os.path.join(mpi_subdir, 'share', 'man')
-                else:
-                    manpath = os.path.join(mpi_subdir, 'man')
-
-                if self.cfg['ofi_internal']:
-                    libfabric_dir = os.path.join(mpi_subdir, 'libfabric')
-                    lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
-                    path_dirs.append(os.path.join(libfabric_dir, 'bin'))
-                    guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
-
-            elif impi_ver >= LooseVersion('2019'):
-                # The "release" library is default in v2019. Give it precedence over intel64/lib.
-                # (remember paths are *prepended*, so the last path in the list has highest priority)
-                lib_dirs = [os.path.join('intel64', x) for x in ['lib', os.path.join('lib', 'release')]]
-                include_dirs = [os.path.join('intel64', 'include')]
-                path_dirs = [os.path.join('intel64', 'bin')]
-                if self.cfg['ofi_internal']:
-                    lib_dirs.append(os.path.join('intel64', 'libfabric', 'lib'))
-                    path_dirs.append(os.path.join('intel64', 'libfabric', 'bin'))
-                    guesses['FI_PROVIDER_PATH'] = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
+        impi_ver = LooseVersion(self.version)
+        if impi_ver >= LooseVersion('2021'):
+            mpi_subdir = self.get_versioned_subdir('mpi')
+            lib_dirs = [
+                os.path.join(mpi_subdir, 'lib'),
+                os.path.join(mpi_subdir, 'libfabric', 'lib'),
+            ]
+            if impi_ver < LooseVersion('2021.11'):
+                lib_dirs.insert(1, os.path.join(mpi_subdir, 'lib', 'release'))
+            include_dirs = [os.path.join(mpi_subdir, 'include')]
+            path_dirs = [
+                os.path.join(mpi_subdir, 'bin'),
+                os.path.join(mpi_subdir, 'libfabric', 'bin'),
+            ]
+            if impi_ver >= LooseVersion('2021.11'):
+                manpath = os.path.join(mpi_subdir, 'share', 'man')
             else:
-                lib_dirs = [os.path.join('lib', 'em64t'), 'lib64']
-                include_dirs = ['include64']
-                path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
-                guesses['MIC_LD_LIBRARY_PATH'] = [os.path.join('mic', 'lib')]
+                manpath = os.path.join(mpi_subdir, 'man')
 
-            guesses.update({
-                'PATH': path_dirs,
-                'LD_LIBRARY_PATH': lib_dirs,
-                'LIBRARY_PATH': lib_dirs,
-                'MANPATH': [manpath],
-                'CPATH': include_dirs,
-            })
+            if self.cfg['ofi_internal']:
+                libfabric_dir = os.path.join(mpi_subdir, 'libfabric')
+                lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
+                path_dirs.append(os.path.join(libfabric_dir, 'bin'))
+                guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
+
+        elif impi_ver >= LooseVersion('2019'):
+            # The "release" library is default in v2019. Give it precedence over intel64/lib.
+            # (remember paths are *prepended*, so the last path in the list has highest priority)
+            lib_dirs = [os.path.join('intel64', x) for x in ['lib', os.path.join('lib', 'release')]]
+            include_dirs = [os.path.join('intel64', 'include')]
+            path_dirs = [os.path.join('intel64', 'bin')]
+            if self.cfg['ofi_internal']:
+                lib_dirs.append(os.path.join('intel64', 'libfabric', 'lib'))
+                path_dirs.append(os.path.join('intel64', 'libfabric', 'bin'))
+                guesses['FI_PROVIDER_PATH'] = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
+        else:
+            lib_dirs = [os.path.join('lib', 'em64t'), 'lib64']
+            include_dirs = ['include64']
+            path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
+            guesses['MIC_LD_LIBRARY_PATH'] = [os.path.join('mic', 'lib')]
+
+        guesses.update({
+            'PATH': path_dirs,
+            'LD_LIBRARY_PATH': lib_dirs,
+            'LIBRARY_PATH': lib_dirs,
+            'MANPATH': [manpath],
+            'CPATH': include_dirs,
+        })
 
         return guesses
 

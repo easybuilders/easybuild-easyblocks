@@ -160,16 +160,10 @@ EULA=accept
                 'VT_SLIB_DIR': ['itac/lib_s%s' % preferredmpi]
             })
 
-        if self.cfg['m32']:
-            guesses.update({
-                'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib'],
-            })
-        else:
-            guesses.update({
-                'PATH': ['bin', 'bin/intel64', 'bin64'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
-            })
+        guesses.update({
+            'PATH': ['bin', 'bin/intel64', 'bin64'],
+            'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
+        })
         return guesses
 
     def make_module_extra(self):

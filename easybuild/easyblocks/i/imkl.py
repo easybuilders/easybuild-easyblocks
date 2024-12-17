@@ -181,10 +181,7 @@ class EB_imkl(IntelBase):
             inttarget = 'libintel64'
         else:
             intsubdir = 'interfaces'
-            if self.cfg['m32']:
-                inttarget = 'lib32'
-            else:
-                inttarget = 'libem64t'
+            inttarget = 'libem64t'
 
         cmd = "make -f makefile %s" % inttarget
 
@@ -259,12 +256,12 @@ class EB_imkl(IntelBase):
                     buildopts.append('mpi=%s' % self.mpi_spec)
 
             precflags = ['']
-            if lib.startswith('fftw2x') and not self.cfg['m32']:
+            if lib.startswith('fftw2x'):
                 # build both single and double precision variants
                 precflags = ['PRECISION=MKL_DOUBLE', 'PRECISION=MKL_SINGLE']
 
             intflags = ['']
-            if lib in self.cdftlibs and not self.cfg['m32']:
+            if lib in self.cdftlibs:
                 # build both 32-bit and 64-bit interfaces
                 intflags = ['interface=lp64', 'interface=ilp64']
 
@@ -367,34 +364,21 @@ class EB_imkl(IntelBase):
 
         shlib_ext = get_shared_lib_ext()
 
-        if self.cfg['m32']:
-            extra = {
-                'libmkl.%s' % shlib_ext: 'GROUP (-lmkl_intel -lmkl_intel_thread -lmkl_core)',
-                'libmkl_em64t.a': 'GROUP (libmkl_intel.a libmkl_intel_thread.a libmkl_core.a)',
-                'libmkl_solver.a': 'GROUP (libmkl_solver.a)',
-                'libmkl_scalapack.a': 'GROUP (libmkl_scalapack_core.a)',
-                'libmkl_lapack.a': 'GROUP (libmkl_intel.a libmkl_intel_thread.a libmkl_core.a)',
-                'libmkl_cdft.a': 'GROUP (libmkl_cdft_core.a)'
-            }
-        else:
-            extra = {
-                'libmkl.%s' % shlib_ext: 'GROUP (-lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core)',
-                'libmkl_em64t.a': 'GROUP (libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a)',
-                'libmkl_solver.a': 'GROUP (libmkl_solver_lp64.a)',
-                'libmkl_scalapack.a': 'GROUP (libmkl_scalapack_lp64.a)',
-                'libmkl_lapack.a': 'GROUP (libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a)',
-                'libmkl_cdft.a': 'GROUP (libmkl_cdft_core.a)'
-            }
+        extra = {
+            'libmkl.%s' % shlib_ext: 'GROUP (-lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core)',
+            'libmkl_em64t.a': 'GROUP (libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a)',
+            'libmkl_solver.a': 'GROUP (libmkl_solver_lp64.a)',
+            'libmkl_scalapack.a': 'GROUP (libmkl_scalapack_lp64.a)',
+            'libmkl_lapack.a': 'GROUP (libmkl_intel_lp64.a libmkl_intel_thread.a libmkl_core.a)',
+            'libmkl_cdft.a': 'GROUP (libmkl_cdft_core.a)'
+        }
 
         loosever = LooseVersion(self.version)
 
         if loosever >= LooseVersion('10.3'):
             libsubdir = os.path.join(self.mkl_basedir, 'lib', 'intel64')
         else:
-            if self.cfg['m32']:
-                libsubdir = os.path.join('lib', '32')
-            else:
-                libsubdir = os.path.join('lib', 'em64t')
+            libsubdir = os.path.join('lib', 'em64t')
 
         libdir = os.path.join(self.installdir, libsubdir)
         for fil, txt in extra.items():
@@ -434,15 +418,11 @@ class EB_imkl(IntelBase):
         libs = ['libfftw%s%s%s.a' % (fftwver, compsuff, pic) for fftwver in fftw_vers for pic in pics]
 
         if self.cdftlibs:
-            fftw_cdft_vers = ['2x_cdft_DOUBLE']
-            if not self.cfg['m32']:
-                fftw_cdft_vers.append('2x_cdft_SINGLE')
+            fftw_cdft_vers = ['2x_cdft_DOUBLE', '2x_cdft_SINGLE']
             if ver >= LooseVersion('10.3'):
                 fftw_cdft_vers.append('3x_cdft')
             if ver >= LooseVersion('11.0.2'):
-                bits = ['_lp64']
-                if not self.cfg['m32']:
-                    bits.append('_ilp64')
+                bits = ['_lp64', '_ilp64']
             else:
                 # no bits suffix in cdft libs before imkl v11.0.2
                 bits = ['']
@@ -467,9 +447,6 @@ class EB_imkl(IntelBase):
         if self.cfg['flexiblas']:
             libs += [os.path.join('flexiblas', 'libflexiblas_imkl_%s.so' % thread)
                      for thread in ['gnu_thread', 'intel_thread', 'sequential']]
-
-        if ver >= LooseVersion('10.3') and self.cfg['m32']:
-            raise EasyBuildError("Sanity check for 32-bit not implemented yet for IMKL v%s (>= 10.3)", self.version)
 
         if ver >= LooseVersion('10.3'):
             mkldirs = [
@@ -500,11 +477,8 @@ class EB_imkl(IntelBase):
                 mkldirs += [os.path.join('lib', 'intel64')]
 
         else:
-            if self.cfg['m32']:
-                lib_subdir = '32'
-            else:
-                lib_subdir = 'em64t'
-                libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
+            lib_subdir = 'em64t'
+            libs += [lib % {'suff': suff} for lib in extralibs for suff in ['lp64', 'ilp64']]
 
             mklfiles = [
                 os.path.join('lib', lib_subdir, 'libmkl.%s' % shlib_ext),
@@ -527,68 +501,56 @@ class EB_imkl(IntelBase):
         guesses = super(EB_imkl, self).make_module_req_guess()
 
         if LooseVersion(self.version) >= LooseVersion('10.3'):
-            if self.cfg['m32']:
-                raise EasyBuildError("32-bit not supported yet for IMKL v%s (>= 10.3)", self.version)
+            if LooseVersion(self.version) >= LooseVersion('2021'):
+                compiler_subdir = os.path.join(self.get_versioned_subdir('compiler'), self.compiler_libdir)
+                pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
+                                   os.path.join(self.mkl_basedir, 'lib', 'pkgconfig')]
             else:
-                if LooseVersion(self.version) >= LooseVersion('2021'):
-                    compiler_subdir = os.path.join(self.get_versioned_subdir('compiler'), self.compiler_libdir)
-                    pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
-                                       os.path.join(self.mkl_basedir, 'lib', 'pkgconfig')]
-                else:
-                    compiler_subdir = os.path.join('lib', 'intel64')
-                    pkg_config_path = [os.path.join(self.mkl_basedir, 'bin', 'pkgconfig')]
-                    guesses['MANPATH'] = ['man', os.path.join('man', 'en_US')]
-                    if LooseVersion(self.version) >= LooseVersion('11.0'):
-                        if LooseVersion(self.version) >= LooseVersion('11.3'):
-                            guesses['MIC_LD_LIBRARY_PATH'] = [
-                                os.path.join('lib', 'intel64_lin_mic'),
-                                os.path.join(self.mkl_basedir, 'lib', 'mic'),
-                            ]
-                        elif LooseVersion(self.version) >= LooseVersion('11.1'):
-                            guesses['MIC_LD_LIBRARY_PATH'] = [
-                                os.path.join('lib', 'mic'),
-                                os.path.join(self.mkl_basedir, 'lib', 'mic'),
-                            ]
-                        else:
-                            guesses['MIC_LD_LIBRARY_PATH'] = [
-                                os.path.join('compiler', 'lib', 'mic'),
-                                os.path.join(self.mkl_basedir, 'lib', 'mic'),
-                            ]
-                library_path = [
-                    compiler_subdir,
-                    os.path.join(self.mkl_basedir, 'lib', 'intel64'),
-                ]
-                cpath = [
-                    os.path.join(self.mkl_basedir, 'include'),
-                    os.path.join(self.mkl_basedir, 'include', 'fftw'),
-                ]
-                cmake_prefix_path = [self.mkl_basedir]
-                guesses.update({
-                    'PATH': [],
-                    'LD_LIBRARY_PATH': library_path,
-                    'LIBRARY_PATH': library_path,
-                    'CPATH': cpath,
-                    'CMAKE_PREFIX_PATH': cmake_prefix_path,
-                    'PKG_CONFIG_PATH': pkg_config_path,
-                })
-                if self.cfg['flexiblas']:
-                    guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join(library_path[1], 'flexiblas')
+                compiler_subdir = os.path.join('lib', 'intel64')
+                pkg_config_path = [os.path.join(self.mkl_basedir, 'bin', 'pkgconfig')]
+                guesses['MANPATH'] = ['man', os.path.join('man', 'en_US')]
+                if LooseVersion(self.version) >= LooseVersion('11.0'):
+                    if LooseVersion(self.version) >= LooseVersion('11.3'):
+                        guesses['MIC_LD_LIBRARY_PATH'] = [
+                            os.path.join('lib', 'intel64_lin_mic'),
+                            os.path.join(self.mkl_basedir, 'lib', 'mic'),
+                        ]
+                    elif LooseVersion(self.version) >= LooseVersion('11.1'):
+                        guesses['MIC_LD_LIBRARY_PATH'] = [
+                            os.path.join('lib', 'mic'),
+                            os.path.join(self.mkl_basedir, 'lib', 'mic'),
+                        ]
+                    else:
+                        guesses['MIC_LD_LIBRARY_PATH'] = [
+                            os.path.join('compiler', 'lib', 'mic'),
+                            os.path.join(self.mkl_basedir, 'lib', 'mic'),
+                        ]
+            library_path = [
+                compiler_subdir,
+                os.path.join(self.mkl_basedir, 'lib', 'intel64'),
+            ]
+            cpath = [
+                os.path.join(self.mkl_basedir, 'include'),
+                os.path.join(self.mkl_basedir, 'include', 'fftw'),
+            ]
+            cmake_prefix_path = [self.mkl_basedir]
+            guesses.update({
+                'PATH': [],
+                'LD_LIBRARY_PATH': library_path,
+                'LIBRARY_PATH': library_path,
+                'CPATH': cpath,
+                'CMAKE_PREFIX_PATH': cmake_prefix_path,
+                'PKG_CONFIG_PATH': pkg_config_path,
+            })
+            if self.cfg['flexiblas']:
+                guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join(library_path[1], 'flexiblas')
         else:
-            if self.cfg['m32']:
-                guesses.update({
-                    'PATH': ['bin', 'bin/ia32', 'tbb/bin/ia32'],
-                    'LD_LIBRARY_PATH': ['lib', 'lib/32'],
-                    'LIBRARY_PATH': ['lib', 'lib/32'],
-                    'MANPATH': ['man', 'share/man', 'man/en_US'],
-                })
-
-            else:
-                guesses.update({
-                    'PATH': ['bin', 'bin/intel64', 'tbb/bin/em64t'],
-                    'LD_LIBRARY_PATH': ['lib', 'lib/em64t'],
-                    'LIBRARY_PATH': ['lib', 'lib/em64t'],
-                    'MANPATH': ['man', 'share/man', 'man/en_US'],
-                })
+            guesses.update({
+                'PATH': ['bin', 'bin/intel64', 'tbb/bin/em64t'],
+                'LD_LIBRARY_PATH': ['lib', 'lib/em64t'],
+                'LIBRARY_PATH': ['lib', 'lib/em64t'],
+                'MANPATH': ['man', 'share/man', 'man/en_US'],
+            })
         return guesses
 
     def make_module_extra(self):

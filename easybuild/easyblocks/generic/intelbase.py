@@ -136,12 +136,7 @@ class IntelBase(EasyBlock):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
 
         guesses = super(IntelBase, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
-        else:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-
+        guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
         guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
@@ -155,13 +150,8 @@ class IntelBase(EasyBlock):
 
     def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""
-        if self.cfg['m32']:
-            files = [os.path.join('bin32', b) for b in binaries]
-            dirs = ['lib32', 'include']
-        else:
-            files = [os.path.join('bin64', b) for b in binaries]
-            dirs = ['lib64', 'include']
-
+        files = [os.path.join('bin64', b) for b in binaries]
+        dirs = ['lib64', 'include']
         custom_paths = {
             'files': [os.path.join(self.subdir, f) for f in files],
             'dirs': [os.path.join(self.subdir, d) for d in dirs],
@@ -181,7 +171,6 @@ class IntelBase(EasyBlock):
             # used to be True, but False since SL5.6/SL6
             # disables TMP_PATH env and command line option
             'usetmppath': [False, "Use temporary path for installation", CUSTOM],
-            'm32': [False, "Enable 32-bit toolchain", CUSTOM],
             'components': [None, "List of components to install", CUSTOM],
         })
 

@@ -165,59 +165,52 @@ class EB_icc(IntelBase):
             'TBBROOT': ['tbb'],
         })
 
-        if self.cfg['m32']:
-            # 32-bit toolchain
-            guesses['PATH'].extend(['bin/ia32', 'tbb/bin/ia32'])
-            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
-            guesses['LD_LIBRARY_PATH'].append('lib/ia32')
+        # 64-bit toolkit
+        guesses['PATH'].extend([
+            'bin/intel64',
+            'debugger/gdb/intel64/bin',
+            'ipp/bin/intel64',
+            'mpi/intel64/bin',
+            'tbb/bin/emt64',
+            'tbb/bin/intel64',
+        ])
+
+        # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
+        guesses['LD_LIBRARY_PATH'].extend([
+            'compiler/lib/intel64',
+            'debugger/ipt/intel64/lib',
+            'ipp/lib/intel64',
+            'mkl/lib/intel64',
+            'mpi/intel64',
+            'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
+        ])
+
+        if LooseVersion(self.version) < LooseVersion('2016'):
+            prefix = 'composer_xe_%s' % self.version
+            # for some older versions, name of subdirectory is slightly different
+            if not os.path.isdir(os.path.join(self.installdir, prefix)):
+                cand_prefix = 'composerxe-%s' % self.version
+                if os.path.isdir(os.path.join(self.installdir, cand_prefix)):
+                    prefix = cand_prefix
+
+            # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
+            if LooseVersion(self.version) >= LooseVersion('2015'):
+                self.debuggerpath = os.path.join(prefix, 'debugger')
 
         else:
-            # 64-bit toolkit
-            guesses['PATH'].extend([
-                'bin/intel64',
-                'debugger/gdb/intel64/bin',
-                'ipp/bin/intel64',
-                'mpi/intel64/bin',
-                'tbb/bin/emt64',
-                'tbb/bin/intel64',
-            ])
+            # new directory layout for Intel Parallel Studio XE 2016
+            # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
+            prefix = self.comp_libs_subdir
+            # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
+            self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
 
-            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
             guesses['LD_LIBRARY_PATH'].extend([
-                'compiler/lib/intel64',
-                'debugger/ipt/intel64/lib',
-                'ipp/lib/intel64',
-                'mkl/lib/intel64',
-                'mpi/intel64',
-                'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
+                os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
+                'daal/lib/intel64_lin',
             ])
 
-            if LooseVersion(self.version) < LooseVersion('2016'):
-                prefix = 'composer_xe_%s' % self.version
-                # for some older versions, name of subdirectory is slightly different
-                if not os.path.isdir(os.path.join(self.installdir, prefix)):
-                    cand_prefix = 'composerxe-%s' % self.version
-                    if os.path.isdir(os.path.join(self.installdir, cand_prefix)):
-                        prefix = cand_prefix
-
-                # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
-                if LooseVersion(self.version) >= LooseVersion('2015'):
-                    self.debuggerpath = os.path.join(prefix, 'debugger')
-
-            else:
-                # new directory layout for Intel Parallel Studio XE 2016
-                # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
-                prefix = self.comp_libs_subdir
-                # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
-                self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
-
-                guesses['LD_LIBRARY_PATH'].extend([
-                    os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
-                    'daal/lib/intel64_lin',
-                ])
-
-            # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
-            guesses['LD_LIBRARY_PATH'].append('lib/intel64')
+        # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
+        guesses['LD_LIBRARY_PATH'].append('lib/intel64')
 
         guesses['LIBRARY_PATH'] = guesses['LD_LIBRARY_PATH']
 
