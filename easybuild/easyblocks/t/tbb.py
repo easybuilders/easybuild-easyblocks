@@ -34,7 +34,6 @@ EasyBuild support for installing the Intel Threading Building Blocks (TBB) libra
 @author: Simon Branford (University of Birmingham)
 """
 
-import glob
 import os
 import shutil
 from easybuild.tools import LooseVersion
