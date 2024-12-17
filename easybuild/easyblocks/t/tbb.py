@@ -63,18 +63,17 @@ def get_tbb_gccprefix(libpath):
     # TBB directory structure
     # https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Linux_OS.html
     tbb_gccprefix = 'gcc4.4'  # gcc version 4.4 or higher that may or may not support exception_ptr
-    if gccversion:
-        gccversion = LooseVersion(gccversion)
-        if gccversion >= LooseVersion("4.1") and gccversion < LooseVersion("4.4"):
-            tbb_gccprefix = 'gcc4.1'  # gcc version number between 4.1 and 4.4 that do not support exception_ptr
-        elif os.path.isdir(os.path.join(libpath, 'gcc4.8')) and gccversion >= LooseVersion("4.8"):
-            tbb_gccprefix = 'gcc4.8'
+    if os.path.isdir(os.path.join(libpath, 'gcc4.8')) and LooseVersion(gccversion) >= LooseVersion("4.8"):
+        tbb_gccprefix = 'gcc4.8'
 
     return tbb_gccprefix
 
 
 class EB_tbb(IntelBase, ConfigureMake):
-    """EasyBlock for tbb, threading building blocks"""
+    """
+    EasyBlock for tbb, threading building blocks
+    - minimum version suported: 2020.x
+    """
 
     @staticmethod
     def extra_options():
@@ -149,42 +148,15 @@ class EB_tbb(IntelBase, ConfigureMake):
         install_tbb_lib_path = os.path.join(self.installdir, 'tbb', 'lib')
 
         if self.toolchain.is_system_toolchain():
-            silent_cfg_names_map = None
-            silent_cfg_extras = None
-
-            if LooseVersion(self.version) < LooseVersion('4.2'):
-                silent_cfg_names_map = {
-                    'activation_name': ACTIVATION_NAME_2012,
-                    'license_file_name': LICENSE_FILE_NAME_2012,
-                }
-
-            elif LooseVersion(self.version) < LooseVersion('4.4'):
-                silent_cfg_names_map = {
-                    'install_mode_name': INSTALL_MODE_NAME_2015,
-                    'install_mode': INSTALL_MODE_2015,
-                }
-
             # In case of TBB 4.4.x and newer we have to specify ARCH_SELECTED in silent.cfg
-            if LooseVersion(self.version) >= LooseVersion('4.4'):
-                silent_cfg_extras = {
-                    'ARCH_SELECTED': self.arch.upper()
-                }
-
-            IntelBase.install_step(self, silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
+            silent_cfg_extras = {
+                'ARCH_SELECTED': self.arch.upper()
+            }
+            IntelBase.install_step(self, silent_cfg_extras=silent_cfg_extras)
 
             # determine libdir
-            libpath = os.path.join(self.installdir, 'tbb', 'libs', 'intel64')
-            if LooseVersion(self.version) < LooseVersion('4.1.0'):
-                libglob = os.path.join(libpath, 'cc*libc*_kernel*')
-                libs = sorted(glob.glob(libglob), key=LooseVersion)
-                if libs:
-                    # take the last one, should be ordered by cc version
-                    # we're only interested in the last bit
-                    libpath = libs[-1]
-                else:
-                    raise EasyBuildError("No libs found using %s in %s", libglob, self.installdir)
-            else:
-                libpath = os.path.join(libpath, get_tbb_gccprefix(libpath))
+            libpath_parent = os.path.join(self.installdir, 'tbb', 'libs', 'intel64')
+            libpath = os.path.join(libpath_parent, get_tbb_gccprefix(libpath_parent))
 
             # applications go looking into tbb/lib so we move what's in there to tbb/libs
             shutil.move(install_tbb_lib_path, os.path.join(self.installdir, 'tbb', 'libs'))
@@ -206,7 +178,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         symlink(os.path.relpath(root_lib_path, os.path.dirname(libpath)), libpath, use_abspath_source=False)
 
         # Install CMake config files if possible
-        if self._has_cmake() and LooseVersion(self.version) >= LooseVersion('2020.0'):
+        if self._has_cmake():
             cmake_install_dir = os.path.join(root_lib_path, 'cmake', 'TBB')
             cmd = [
                 'cmake',
