@@ -32,8 +32,6 @@ EasyBuild support for installing the Intel Trace Analyzer and Collector (ITAC), 
 @author: Jens Timmerman (Ghent University)
 """
 
-import os
-
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
