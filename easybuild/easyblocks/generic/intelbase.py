@@ -166,11 +166,6 @@ class IntelBase(EasyBlock):
             'serial_number': [None, "Serial number for the product", CUSTOM],
             'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
                                          CUSTOM],
-            # 'usetmppath':
-            # workaround for older SL5 version (5.5 and earlier)
-            # used to be True, but False since SL5.6/SL6
-            # disables TMP_PATH env and command line option
-            'usetmppath': [False, "Use temporary path for installation", CUSTOM],
             'components': [None, "List of components to install", CUSTOM],
         })
 
@@ -393,15 +388,6 @@ class IntelBase(EasyBlock):
         write_file(silentcfg, silent)
         self.log.debug("Contents of %s:\n%s", silentcfg, silent)
 
-        # workaround for mktmp: create tmp dir and use it
-        tmpdir = os.path.join(self.cfg['start_dir'], 'mytmpdir')
-        mkdir(tmpdir, parents=True)
-
-        tmppathopt = ''
-        if self.cfg['usetmppath']:
-            env.setvar('TMP_PATH', tmpdir)
-            tmppathopt = "-t %s" % tmpdir
-
         # set some extra env variables
         env.setvar('LOCAL_INSTALL_VERBOSE', '1')
         env.setvar('VERBOSE_MODE', '1')
@@ -412,7 +398,6 @@ class IntelBase(EasyBlock):
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             './install.sh',
-            tmppathopt,
             '-s ' + silentcfg,
             self.cfg['installopts'],
         ])
