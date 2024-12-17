@@ -31,7 +31,7 @@ EasyBuild support for installing Intel Inspector, implemented as an easyblock
 import os
 from easybuild.tools import LooseVersion
 
-from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.easyblocks.generic.intelbase import IntelBase
 
 
 class EB_Inspector(IntelBase):

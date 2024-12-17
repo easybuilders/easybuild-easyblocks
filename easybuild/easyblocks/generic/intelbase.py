@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
-from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
+from easybuild.tools.filetools import read_file, remove_file, write_file
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -68,20 +68,14 @@ ACTIVATION_TYPES = [
 
 # silent.cfg parameter name for type of license activation (cfr. options listed above)
 ACTIVATION_NAME = 'ACTIVATION_TYPE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
-ACTIVATION_NAME_2012 = 'ACTIVATION'  # previous activation type parameter used in older versions
 # silent.cfg parameter name for install prefix
 INSTALL_DIR_NAME = 'PSET_INSTALL_DIR'
 # silent.cfg parameter name for install mode
 INSTALL_MODE_NAME = 'PSET_MODE'
-# Older (2015 and previous) silent.cfg parameter name for install mode
-INSTALL_MODE_NAME_2015 = 'INSTALL_MODE'
-# Install mode for 2016 version
+# Install mode since 2016 version
 INSTALL_MODE = 'install'
-# Install mode for 2015 and older versions
-INSTALL_MODE_2015 = 'NONRPM'
 # silent.cfg parameter name for license file/server specification
 LICENSE_FILE_NAME = 'ACTIVATION_LICENSE_FILE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
-LICENSE_FILE_NAME_2012 = 'PSET_LICENSE_FILE'  # previous license file parameter used in older versions
 LICENSE_SERIAL_NUMBER = 'ACTIVATION_SERIAL_NUMBER'
 
 COMP_ALL = 'ALL'
@@ -358,8 +352,8 @@ class IntelBase(EasyBlock):
         ]) % {
             'install_dir_name': silent_cfg_names_map.get('install_dir_name', INSTALL_DIR_NAME),
             'install_dir': silent_cfg_names_map.get('install_dir', self.installdir),
-            'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE_2015),
-            'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME_2015),
+            'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE),
+            'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME),
         }
 
         if self.install_components is not None:

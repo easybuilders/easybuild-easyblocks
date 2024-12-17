@@ -34,7 +34,6 @@ EasyBuild support for installing the Intel Fortran compiler suite, implemented a
 """
 
 import os
-from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport

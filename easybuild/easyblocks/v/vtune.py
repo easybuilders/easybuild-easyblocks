@@ -31,7 +31,7 @@ EasyBuild support for installing Intel VTune, implemented as an easyblock
 from easybuild.tools import LooseVersion
 import os
 
-from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.easyblocks.generic.intelbase import IntelBase
 
 
 class EB_VTune(IntelBase):
