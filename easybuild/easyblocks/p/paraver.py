@@ -61,6 +61,8 @@ class EB_Paraver(ConfigureMake):
         wxwidgets = get_software_root('wxWidgets')
         if wxwidgets:
             wx_config = os.path.join(wxwidgets, 'bin', 'wx-config')
+        else:
+            raise EasyBuildError("wxWidgets is not available as a dependency")
 
         # determine value to pass to --with-wxpropgrid (library name)
         wxpropgrid = None
