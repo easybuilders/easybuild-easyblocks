@@ -237,6 +237,9 @@ def suite():
         elif easyblock_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, version='1.1')
+        elif easyblock_fn == 'paraver.py':
+            # custom easyblock for Paraver requires version >= 4.7
+            innertest = make_inner_test(easyblock, version='4.8')
         elif easyblock_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             innertest = make_inner_test(easyblock, name='torchvision', deps=[('PyTorch', '1.12.1')])
