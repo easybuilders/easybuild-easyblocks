@@ -228,6 +228,10 @@ def suite():
         elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif easyblock_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
+                              'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+            # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
+            innertest = make_inner_test(easyblock, version='9999.9')
         elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
