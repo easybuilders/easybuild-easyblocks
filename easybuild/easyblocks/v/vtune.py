@@ -32,6 +32,7 @@ from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_VTune(IntelBase):
@@ -47,6 +48,11 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
+        if loosever < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
         if loosever >= LooseVersion('2024'):
             self.subdir = os.path.join('vtune', '.'.join([str(loosever.version[0]), str(loosever.version[1])]))
         elif loosever >= LooseVersion('2021'):

@@ -32,6 +32,7 @@ import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_Inspector(IntelBase):
@@ -44,9 +45,14 @@ class EB_Inspector(IntelBase):
         """Easyblock constructor; define class variables."""
         super(EB_Inspector, self).__init__(*args, **kwargs)
 
+        loosever = LooseVersion(self.version)
+        if loosever < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
         # recent versions of Inspector are installed to a subdirectory
         self.subdir = ''
-        loosever = LooseVersion(self.version)
         if loosever < LooseVersion('2021'):
             self.subdir = 'inspector'
         elif loosever >= LooseVersion('2021'):

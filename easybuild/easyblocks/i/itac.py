@@ -53,6 +53,15 @@ class EB_itac(IntelBase):
         }
         return IntelBase.extra_options(extra_vars)
 
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('2019'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
+            )
+
     def prepare_step(self, *args, **kwargs):
         """
         Custom prepare step for itac: don't require runtime license for oneAPI versions (>= 2021)

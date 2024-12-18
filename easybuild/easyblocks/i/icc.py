@@ -40,6 +40,7 @@ from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, COMP_ALL
 from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -58,7 +59,7 @@ def get_icc_version():
 class EB_icc(IntelBase):
     """
     Support for installing icc
-    - minimum version suported: 2020.x
+    - minimum version suported: 2020.0
     """
 
     def __init__(self, *args, **kwargs):
@@ -73,7 +74,12 @@ class EB_icc(IntelBase):
         # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
         # which results in deriving the actual compiler version
         # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
-        if re.match(r'^[0-9]+.*', self.version) and LooseVersion(self.version) >= LooseVersion('2020'):
+        if re.match(r'^[0-9]+.*', self.version):
+
+            if LooseVersion(self.version) < LooseVersion('2020'):
+                raise EasyBuildError(
+                    f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+                )
 
             self.comp_libs_subdir = os.path.join(f'compilers_and_libraries_{self.version}', 'linux')
 

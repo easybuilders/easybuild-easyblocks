@@ -37,15 +37,26 @@ import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport
+from easybuild.tools import LooseVersion
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ifort(EB_icc, IntelBase):
     """
     Class that can be used to install ifort
-    - minimum version suported: 2020.x
+    - minimum version suported: 2020.0
     - will fail for all older versions (due to newer silent installer)
     """
+
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
 
     def sanity_check_step(self):
         """Custom sanity check paths for ifort."""

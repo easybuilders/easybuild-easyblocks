@@ -86,6 +86,11 @@ class EB_tbb(IntelBase, ConfigureMake):
         """Initialisation of custom class variables for tbb"""
         super(EB_tbb, self).__init__(*args, **kwargs)
 
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
         platform_name = get_platform_name()
         myarch = get_cpu_architecture()
         if platform_name.startswith('x86_64'):

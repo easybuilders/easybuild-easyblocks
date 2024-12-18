@@ -79,6 +79,11 @@ class EB_impi(IntelBase):
         """
         impiver = LooseVersion(self.version)
 
+        if impiver < LooseVersion('2018'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2018.0."
+            )
+
         if impiver >= LooseVersion('2021'):
             super(EB_impi, self).install_step()
         else:

@@ -34,6 +34,7 @@ import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_Advisor(IntelBase):
@@ -45,6 +46,12 @@ class EB_Advisor(IntelBase):
     def __init__(self, *args, **kwargs):
         """Constructor, initialize class variables."""
         super(EB_Advisor, self).__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
         if LooseVersion(self.version) < LooseVersion('2021'):
             self.subdir = 'advisor'
         else:

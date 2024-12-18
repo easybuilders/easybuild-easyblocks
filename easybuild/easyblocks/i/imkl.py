@@ -73,6 +73,10 @@ class EB_imkl(IntelBase):
     def __init__(self, *args, **kwargs):
         """Constructor for imkl easyblock."""
         super(EB_imkl, self).__init__(*args, **kwargs)
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
 
         # make sure $MKLROOT isn't set, it's known to cause problems with the installation
         self.cfg.update('unwanted_env_vars', ['MKLROOT'])
