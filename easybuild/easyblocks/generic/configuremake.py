@@ -197,7 +197,7 @@ class ConfigureMake(EasyBlock):
             'test_cmd': [None, "Test command to use ('runtest' value is appended, default: '%s')" % DEFAULT_TEST_CMD,
                          CUSTOM],
             'unrecognized_configure_options': [ERROR,
-                                               "Action to do when unrecognized arguments passed to ./configure are"
+                                               "Action to do when unrecognized options passed to ./configure are"
                                                " detected, defaults to aborting the build. Can be set to '" + WARN +
                                                "' or '" + IGNORE + "' (NOT RECOMMENDED! It might hide actual errors"
                                                " e.g. misspelling of intended or changed options)", CUSTOM],
