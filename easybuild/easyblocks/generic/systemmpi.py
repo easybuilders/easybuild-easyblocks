@@ -221,7 +221,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
         pass
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Do nothing."""
         pass
 

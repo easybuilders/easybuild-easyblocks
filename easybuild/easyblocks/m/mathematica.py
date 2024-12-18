@@ -109,7 +109,7 @@ class EB_Mathematica(Binary):
         if orig_display is not None:
             os.environ['DISPLAY'] = orig_display
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Activate installation by using activation key, if provided."""
         if self.cfg['activation_key']:
             # activation key is printed by using '$ActivationKey' in Mathematica, so no reason to keep it 'secret'
@@ -126,7 +126,7 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
-        super(EB_Mathematica, self).post_install_step()
+        super(EB_Mathematica, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""

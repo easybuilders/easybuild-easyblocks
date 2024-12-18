@@ -218,7 +218,7 @@ class EB_CUDA(Binary):
                 self.log.debug("Running patch %s", patch['name'])
                 run_shell_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         Create wrappers for the specified host compilers, generate the appropriate stub symlinks,
         and create version independent pkgconfig files
@@ -288,7 +288,7 @@ class EB_CUDA(Binary):
                 symlink(pc_file, link, use_abspath_source=False)
             change_dir(cwd)
 
-        super(EB_CUDA, self).post_install_step()
+        super(EB_CUDA, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
