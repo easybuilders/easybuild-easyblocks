@@ -88,7 +88,7 @@ class EB_Paraver(ConfigureMake):
         super(EB_Paraver, self).configure_step()
 
     def build_step(self):
-        """Custom build procedure for Paraver: skip 'make' for recent versions."""
+        """No build ('make') required for recent versions."""
         pass
 
     def sanity_check_step(self):
