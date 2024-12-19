@@ -79,9 +79,9 @@ class Bundle(EasyBlock):
         check_for_sources = getattr(self, 'check_for_sources', True)
         # list of sources for bundle itself *must* be empty (unless overridden by subclass)
         if check_for_sources:
-            if self.cfg['sources']:
+            if self.cfg.get_ref('sources'):
                 raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
-            if self.cfg['patches']:
+            if self.cfg.get_ref('patches'):
                 raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # copy EasyConfig instance before we make changes to it
@@ -187,28 +187,30 @@ class Bundle(EasyBlock):
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            if comp_cfg['checksums']:
-                src_cnt = len(comp_cfg['sources'])
+            comp_checksums = comp_cfg.get_ref('checksums')
+            if comp_checksums:
+                src_cnt = len(comp_sources)
 
                 # add per-component checksums for sources to list of checksums
-                self.cfg.update('checksums', comp_cfg['checksums'][:src_cnt])
+                self.cfg.update('checksums', comp_checksums[:src_cnt])
 
                 # add per-component checksums for patches to list of checksums for patches
-                checksums_patches.extend(comp_cfg['checksums'][src_cnt:])
+                checksums_patches.extend(comp_checksums[src_cnt:])
 
-            if comp_cfg['patches']:
-                self.cfg.update('patches', comp_cfg['patches'])
+            comp_patches = comp_cfg.get_ref('patches')
+            if comp_patches:
+                self.cfg.update('patches', comp_patches)
 
             self.comp_cfgs.append(comp_cfg)
 
         self.cfg.update('checksums', checksums_patches)
 
-        self.cfg.enable_templating = True
-
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
+        self.cfg.enable_templating = True
 
     def check_checksums(self):
         """
