@@ -833,7 +833,7 @@ class PythonPackage(ExtensionEasyBlock):
 
             if not build_cmd:
                 build_cmd = 'build'  # Default value for setup.py
-            build_cmd = self.python_cmd + ' setup.py ' + build_cmd
+            build_cmd = f"{self.python_cmd} setup.py {build_cmd}"
 
         if build_cmd:
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
