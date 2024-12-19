@@ -164,24 +164,26 @@ class Bundle(EasyBlock):
             comp_cfg.enable_templating = True
 
             # 'sources' is strictly required
-            if comp_cfg['sources']:
+            comp_sources = comp_cfg.get_ref('sources')
+            if comp_sources:
                 # If per-component source URLs are provided, attach them directly to the relevant sources
-                if comp_cfg['source_urls']:
-                    for source in comp_cfg['sources']:
+                comp_source_urls = comp_cfg.get_ref('source_urls')
+                if comp_source_urls:
+                    for source in comp_sources:
                         if isinstance(source, str):
-                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_cfg['source_urls']}])
+                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_source_urls[:]}])
                         elif isinstance(source, dict):
                             # Update source_urls in the 'source' dict to use the one for the components
                             # (if it doesn't already exist)
                             if 'source_urls' not in source:
-                                source['source_urls'] = comp_cfg['source_urls']
+                                source['source_urls'] = comp_source_urls[:]
                             self.cfg.update('sources', [source])
                         else:
                             raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
                                                  "process it.", source, comp_cfg['name'])
                 else:
                     # add component sources to list of sources
-                    self.cfg.update('sources', comp_cfg['sources'])
+                    self.cfg.update('sources', comp_sources)
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
