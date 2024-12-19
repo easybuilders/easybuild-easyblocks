@@ -156,6 +156,7 @@ class EB_GCC(ConfigureMake):
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
             'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
             'withamdgcn': [False, "Build GCC with AMD GCN offload support", CUSTOM],
+            'with_cxx_backtrace': [False, "Build GCC with enabled stack trace for C++23", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -642,6 +643,10 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --enable-lto"
         else:
             self.configopts += " --disable-lto"
+
+        # enable builind of libstdc++_libbacktrace 
+        if self.cfg['with_cxx_backtrace']:
+            self.configopts += " --enable-libstdcxx-backtrace"
 
         # configure for a release build
         self.configopts += " --enable-checking=release "
