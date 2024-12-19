@@ -160,14 +160,18 @@ class Bundle(EasyBlock):
             for key in comp_specs:
                 comp_cfg[key] = comp_specs[key]
 
-            # enable resolving of templates for component-specific EasyConfig instance
+            # enable resolving of templates for component-specific EasyConfig instance,
+            # but don't require that all template values can be resolved at this point;
+            # this is important to ensure that template values like %(name)s and %(version)s
+            # are correctly resolved with the component name/version before values are copied over to self.cfg
             comp_cfg.enable_templating = True
+            comp_cfg.expect_resolved_template_values = False
 
             # 'sources' is strictly required
-            comp_sources = comp_cfg.get_ref('sources')
+            comp_sources = comp_cfg['sources']
             if comp_sources:
                 # If per-component source URLs are provided, attach them directly to the relevant sources
-                comp_source_urls = comp_cfg.get_ref('source_urls')
+                comp_source_urls = comp_cfg['source_urls']
                 if comp_source_urls:
                     for source in comp_sources:
                         if isinstance(source, str):
@@ -187,7 +191,7 @@ class Bundle(EasyBlock):
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            comp_checksums = comp_cfg.get_ref('checksums')
+            comp_checksums = comp_cfg['checksums']
             if comp_checksums:
                 src_cnt = len(comp_sources)
 
@@ -197,9 +201,11 @@ class Bundle(EasyBlock):
                 # add per-component checksums for patches to list of checksums for patches
                 checksums_patches.extend(comp_checksums[src_cnt:])
 
-            comp_patches = comp_cfg.get_ref('patches')
+            comp_patches = comp_cfg['patches']
             if comp_patches:
                 self.cfg.update('patches', comp_patches)
+
+            comp_cfg.expect_resolved_template_values = True
 
             self.comp_cfgs.append(comp_cfg)
 
@@ -274,6 +280,7 @@ class Bundle(EasyBlock):
             comp.src = []
 
             # find match entries in self.src for this component
+            comp.cfg.expect_resolved_template_values = False
             for source in comp.cfg['sources']:
                 if isinstance(source, str):
                     comp_src_fn = source
@@ -297,6 +304,7 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
+            comp.cfg.expect_resolved_template_values = True
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
