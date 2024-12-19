@@ -818,7 +818,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def build_step(self):
         """Build Python package using setup.py"""
-        build_cmd = self.cfg['buildcmd']
+        build_cmd = self.cfg.get_ref('buildcmd')
         if self.use_setup_py:
 
             if get_software_root('CMake'):
