@@ -818,7 +818,11 @@ class PythonPackage(ExtensionEasyBlock):
 
     def build_step(self):
         """Build Python package using setup.py"""
-        build_cmd = self.cfg.get_ref('buildcmd')
+
+        # inject extra '%(python)s' template value before getting value of 'buildcmd' custom easyconfig parameter
+        self.cfg.template_values['python'] = self.python_cmd
+        build_cmd = self.cfg['buildcmd']
+
         if self.use_setup_py:
 
             if get_software_root('CMake'):
@@ -829,10 +833,9 @@ class PythonPackage(ExtensionEasyBlock):
 
             if not build_cmd:
                 build_cmd = 'build'  # Default value for setup.py
-            build_cmd = '%(python)s setup.py ' + build_cmd
+            build_cmd = self.python_cmd + ' setup.py ' + build_cmd
 
         if build_cmd:
-            build_cmd = build_cmd % {'python': self.python_cmd}
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
             res = run_shell_cmd(cmd)
 
