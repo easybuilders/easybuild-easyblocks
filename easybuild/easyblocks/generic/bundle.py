@@ -79,9 +79,9 @@ class Bundle(EasyBlock):
         check_for_sources = getattr(self, 'check_for_sources', True)
         # list of sources for bundle itself *must* be empty (unless overridden by subclass)
         if check_for_sources:
-            if self.cfg['sources']:
+            if self.cfg.get_ref('sources'):
                 raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
-            if self.cfg['patches']:
+            if self.cfg.get_ref('patches'):
                 raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # copy EasyConfig instance before we make changes to it
@@ -160,53 +160,63 @@ class Bundle(EasyBlock):
             for key in comp_specs:
                 comp_cfg[key] = comp_specs[key]
 
-            # enable resolving of templates for component-specific EasyConfig instance
+            # enable resolving of templates for component-specific EasyConfig instance,
+            # but don't require that all template values can be resolved at this point;
+            # this is important to ensure that template values like %(name)s and %(version)s
+            # are correctly resolved with the component name/version before values are copied over to self.cfg
             comp_cfg.enable_templating = True
+            comp_cfg.expect_resolved_template_values = False
 
             # 'sources' is strictly required
-            if comp_cfg['sources']:
+            comp_sources = comp_cfg['sources']
+            if comp_sources:
                 # If per-component source URLs are provided, attach them directly to the relevant sources
-                if comp_cfg['source_urls']:
-                    for source in comp_cfg['sources']:
+                comp_source_urls = comp_cfg['source_urls']
+                if comp_source_urls:
+                    for source in comp_sources:
                         if isinstance(source, str):
-                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_cfg['source_urls']}])
+                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_source_urls[:]}])
                         elif isinstance(source, dict):
                             # Update source_urls in the 'source' dict to use the one for the components
                             # (if it doesn't already exist)
                             if 'source_urls' not in source:
-                                source['source_urls'] = comp_cfg['source_urls']
+                                source['source_urls'] = comp_source_urls[:]
                             self.cfg.update('sources', [source])
                         else:
                             raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
                                                  "process it.", source, comp_cfg['name'])
                 else:
                     # add component sources to list of sources
-                    self.cfg.update('sources', comp_cfg['sources'])
+                    self.cfg.update('sources', comp_sources)
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            if comp_cfg['checksums']:
-                src_cnt = len(comp_cfg['sources'])
+            comp_checksums = comp_cfg['checksums']
+            if comp_checksums:
+                src_cnt = len(comp_sources)
 
                 # add per-component checksums for sources to list of checksums
-                self.cfg.update('checksums', comp_cfg['checksums'][:src_cnt])
+                self.cfg.update('checksums', comp_checksums[:src_cnt])
 
                 # add per-component checksums for patches to list of checksums for patches
-                checksums_patches.extend(comp_cfg['checksums'][src_cnt:])
+                checksums_patches.extend(comp_checksums[src_cnt:])
 
-            if comp_cfg['patches']:
-                self.cfg.update('patches', comp_cfg['patches'])
+            comp_patches = comp_cfg['patches']
+            if comp_patches:
+                self.cfg.update('patches', comp_patches)
+
+            comp_cfg.expect_resolved_template_values = True
 
             self.comp_cfgs.append(comp_cfg)
 
         self.cfg.update('checksums', checksums_patches)
 
-        self.cfg.enable_templating = True
-
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
+        self.cfg.enable_templating = True
 
     def check_checksums(self):
         """
@@ -270,6 +280,7 @@ class Bundle(EasyBlock):
             comp.src = []
 
             # find match entries in self.src for this component
+            comp.cfg.expect_resolved_template_values = False
             for source in comp.cfg['sources']:
                 if isinstance(source, str):
                     comp_src_fn = source
@@ -293,6 +304,7 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
+            comp.cfg.expect_resolved_template_values = True
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
