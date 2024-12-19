@@ -644,7 +644,7 @@ class EB_GCC(ConfigureMake):
         else:
             self.configopts += " --disable-lto"
 
-        # enable builind of libstdc++_libbacktrace 
+        # enable builind of libstdc++_libbacktrace
         if self.cfg['with_cxx_backtrace']:
             self.configopts += " --enable-libstdcxx-backtrace"
 
