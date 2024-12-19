@@ -546,12 +546,13 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.use_setup_py = True
             self.install_cmd = SETUP_PY_INSTALL_CMD
+            install_target = self.cfg.get_ref('install_target')
 
-            if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+            if install_target == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
                 self.py_installopts.append('--no-deps')
             if self.cfg.get('zipped_egg', False):
-                if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+                if install_target == EASY_INSTALL_TARGET:
                     self.py_installopts.append('--zip-ok')
                 else:
                     raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
