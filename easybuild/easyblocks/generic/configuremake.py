@@ -338,8 +338,8 @@ class ConfigureMake(EasyBlock):
             raise EasyBuildError('Invalid value for `unrecognized_configure_options`: %s. Must be one of: ',
                                  action, ', '.join(valid_actions))
         if action != IGNORE:
-            unrecognized_options_str = "^configure: WARNING: unrecognized options:"
-            unrecognized_options = re.findall(rf"{unrecognized_options_str}.*", res.output, flags=re.I | re.M)
+            unrecognized_options_str = 'configure: WARNING: unrecognized options:'
+            unrecognized_options = re.findall(rf"^{unrecognized_options_str}.*", res.output, flags=re.I | re.M)
             # Keep only unique options (remove the warning string and strip whitespace)
             unrecognized_options = nub(x.split(unrecognized_options_str)[-1].strip() for x in unrecognized_options)
             if unrecognized_options:
