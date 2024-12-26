@@ -356,7 +356,7 @@ class Bundle(EasyBlock):
             # for make_module_req_guess() which should then be fixed in the components EasyBlock.
             try:
                 for key, value in sorted(reqs.items()):
-                    if isinstance(value, string_type):
+                    if isinstance(value, str):
                         value = [value]
                     final_reqs.setdefault(key, [])
                     final_reqs[key].extend(value)
