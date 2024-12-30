@@ -87,12 +87,12 @@ class EB_Java(PackedBinary):
         else:
             PackedBinary.install_step(self)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         Custom post-installation step:
         - ensure correct glibc is used when installing into custom sysroot and using RPATH
         """
-        super(EB_Java, self).post_install_step()
+        super(EB_Java, self).post_processing_step()
 
         # patch binaries and libraries when using alternate sysroot in combination with RPATH
         sysroot = build_option('sysroot')

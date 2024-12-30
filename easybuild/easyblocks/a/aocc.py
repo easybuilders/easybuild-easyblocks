@@ -214,7 +214,7 @@ class EB_AOCC(PackedBinary):
 
         super(EB_AOCC, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         For AOCC <5.0.0:
         Create wrappers for the compilers to make sure compilers picks up GCCcore as GCC toolchain.
@@ -245,7 +245,7 @@ class EB_AOCC(PackedBinary):
 
         self._create_compiler_config_files(compilers_to_add_config_files)
         self._create_compiler_wrappers(compilers_to_wrap)
-        super(EB_AOCC, self).post_install_step()
+        super(EB_AOCC, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for AOCC, based on sanity check for Clang."""

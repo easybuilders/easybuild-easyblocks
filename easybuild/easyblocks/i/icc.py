@@ -39,7 +39,7 @@ import re
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, COMP_ALL
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext

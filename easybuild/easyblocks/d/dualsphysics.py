@@ -90,9 +90,9 @@ class EB_DualSPHysics(CMakeMakeCp):
         ]
         super(EB_DualSPHysics, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post-installation step: ensure rpath is patched into binaries/libraries if configured."""
-        super(EB_DualSPHysics, self).post_install_step()
+        super(EB_DualSPHysics, self).post_processing_step()
 
         if build_option('rpath'):
             # only the compiled binary (e.g. DualSPHysics5.0CPU_linux64) is rpath'd, the precompiled libraries

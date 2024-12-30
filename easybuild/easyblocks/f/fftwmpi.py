@@ -59,7 +59,7 @@ class EB_FFTW_period_MPI(EB_FFTW):
         if not fftw_root:
             raise EasyBuildError("Required FFTW dependency is missing!")
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post install step for FFTW.MPI"""
 
         # remove everything except include files that are already in non-MPI FFTW dependency.
@@ -68,7 +68,7 @@ class EB_FFTW_period_MPI(EB_FFTW):
                glob.glob(os.path.join(self.installdir, 'lib*/pkgconfig')) +
                glob.glob(os.path.join(self.installdir, 'lib*/cmake')) +
                [os.path.join(self.installdir, p) for p in ['bin', 'share']])
-        super(EB_FFTW_period_MPI, self).post_install_step()
+        super(EB_FFTW_period_MPI, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for FFTW.MPI: check if all libraries/headers for MPI interfaces are there."""
