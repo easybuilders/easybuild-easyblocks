@@ -40,7 +40,7 @@ from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, COMP_ALL
 from easybuild.easyblocks.generic.intelbase import LICENSE_FILE_NAME_2012
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 

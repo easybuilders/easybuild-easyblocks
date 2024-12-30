@@ -31,7 +31,7 @@ import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.run import run_shell_cmd
 
