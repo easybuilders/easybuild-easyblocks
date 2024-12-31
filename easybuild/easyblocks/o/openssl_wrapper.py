@@ -29,12 +29,7 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 """
 import os
 import re
-
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    # fallback for Python 2.7, should be removed for EasyBuild >= 5.0
-    from urlparse import urlparse
+from urllib.parse import urlparse
 
 from easybuild.tools import LooseVersion
 
