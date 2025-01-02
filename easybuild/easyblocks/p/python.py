@@ -124,7 +124,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
-            'install_pip': [False,
+            'install_pip': [True,
                             "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
                             "of pip and setuptools into Python. You _must_ then use pip for upgrading "
                             "pip & setuptools by installing newer versions as extensions!",
