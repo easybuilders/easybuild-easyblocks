@@ -473,7 +473,7 @@ def suite():
             innertest = make_inner_test(easyblock, name='Paraver', version='4.8')
         elif eb_fn in ['python.py', 'tkinter.py']:
             # custom easyblock for Python (ensurepip) requires version >= 3.4.0
-            innertest = make_inner_test(easyblock, version='3.4.0')
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='3.4.0')
         elif eb_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             extra_txt = "dependencies = [('PyTorch', '1.12.1')]"
