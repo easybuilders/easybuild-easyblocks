@@ -109,7 +109,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                 "-DINSTALL_LICENSING=false",
                 "-DADDSYSTEMPATH=false",
                 self.cfg['installopts'],
-                "&& mv %s/%s %s" % (self.builddir, self.version, self.installdir),
+                "&& mv %s/%s* %s" % (self.builddir, self.version, self.installdir),
             ])
         else:
             cmd = ' '.join([
