@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2024 Ghent University
-# Copyright 2015-2024 Stanford University
+# Copyright 2009-2025 Ghent University
+# Copyright 2015-2025 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
