@@ -134,41 +134,36 @@ class EB_intel_minus_compilers(IntelBase):
         super(EB_intel_minus_compilers, self).sanity_check_step(custom_paths=custom_paths,
                                                                 custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        Paths to consider for prepend-paths statements in module file
+        Set paths for module load environment based on the actual installation files
         """
-        libdirs = [
-            'lib',
-            os.path.join('lib', 'x64'),
-            os.path.join('compiler', 'lib', 'intel64_lin'),
+        tbb_lib_prefix = os.path.join(self.tbb_subdir, 'lib', 'intel64')
+        tbb_lib_gccdir = get_tbb_gccprefix(os.path.join(self.installdir, tbb_lib_prefix))
+
+        self.module_load_environment.PATH = [os.path.join(self.compilers_subdir, path) for path in (
+            'bin',
+            os.path.join('bin', 'intel64'),
+        )]
+        self.module_load_environment.LD_LIBRARY_PATH = [
+            os.path.join(self.compilers_subdir, 'lib'),
+            os.path.join(self.compilers_subdir, 'lib', 'x64'),
+            os.path.join(self.compilers_subdir, 'compiler', 'lib', 'intel64_lin'),
+            os.path.join(tbb_lib_prefix, tbb_lib_gccdir),
         ]
-        libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
-        tbb_subdir = self.tbb_subdir
-        tbb_libsubdir = os.path.join(tbb_subdir, 'lib', 'intel64')
-        libdirs.append(os.path.join(tbb_libsubdir,
-                                    get_tbb_gccprefix(os.path.join(self.installdir, tbb_libsubdir))))
-        guesses = {
-            'PATH': [
-                os.path.join(self.compilers_subdir, 'bin'),
-                os.path.join(self.compilers_subdir, 'bin', 'intel64'),
-            ],
-            'LD_LIBRARY_PATH': libdirs,
-            'LIBRARY_PATH': libdirs,
-            'MANPATH': [
-                os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
-                os.path.join(self.compilers_subdir, 'share', 'man'),
-            ],
-            'OCL_ICD_FILENAMES': [
-                os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
-                os.path.join(self.compilers_subdir, 'lib', 'libintelocl.so'),
-            ],
-            'CPATH': [
-                os.path.join(tbb_subdir, 'include'),
-            ],
-            'TBBROOT': [tbb_subdir],
-        }
-        return guesses
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
+        self.module_load_environment.CPATH = [os.path.join(self.tbb_subdir, 'include')]
+        self.module_load_environment.MANPATH = [
+            os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
+            os.path.join(self.compilers_subdir, 'share', 'man'),
+        ]
+        self.module_load_environment.OCL_ICD_FILENAMES = [os.path.join(self.compilers_subdir, path) for path in (
+            os.path.join('lib', 'x64', 'libintelocl.so'),
+            os.path.join('lib', 'libintelocl.so'),
+        )]
+        self.module_load_environment.TBBROOT = [self.tbb_subdir]
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Additional custom variables for intel-compiler"""
