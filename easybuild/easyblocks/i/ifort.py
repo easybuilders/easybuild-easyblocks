@@ -58,6 +58,10 @@ class EB_ifort(EB_icc, IntelBase):
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
             )
 
+        # define list of subdirectories in search paths of module load environment
+        # add additional paths to those of ICC only needed for separate ifort installations
+        self.module_load_environment.CPATH.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
+
     def sanity_check_step(self):
         """Custom sanity check paths for ifort."""
         shlib_ext = get_shared_lib_ext()
@@ -84,12 +88,3 @@ class EB_ifort(EB_icc, IntelBase):
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
-        """
-        Additional paths to consider for prepend-paths statements in module file
-        """
-        guesses = super(EB_ifort, self).make_module_req_guess()
-        # This enables the creation of fortran 2008 bindings in MPI
-        guesses['CPATH'].append('include')
-
-        return guesses
