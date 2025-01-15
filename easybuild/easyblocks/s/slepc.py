@@ -112,7 +112,7 @@ class EB_SLEPc(ConfigureMake):
 
         # SLEPc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
-            self.cfg['parallel'] = None
+            self.cfg.parallel = 1
 
     def make_module_req_guess(self):
         """Specify correct LD_LIBRARY_PATH and CPATH for SLEPc installation."""

@@ -88,7 +88,7 @@ class EB_jaxlib(PythonPackage):
 
         # Passed to the build command of bazel
         bazel_options = [
-            '--jobs=%s' % self.cfg['parallel'],
+            f'--jobs={self.cfg.parallel}',
             '--subcommands',
             '--action_env=PYTHONPATH',
             '--action_env=EBPYTHONPREFIXES',

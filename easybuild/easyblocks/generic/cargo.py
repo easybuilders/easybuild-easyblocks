@@ -356,8 +356,8 @@ class Cargo(ExtensionEasyBlock):
     def build_step(self):
         """Build with cargo"""
         parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel > 1:
+            parallel = f"-j {self.cfg.parallel}"
 
         tests = ''
         if self.cfg['enable_tests']:

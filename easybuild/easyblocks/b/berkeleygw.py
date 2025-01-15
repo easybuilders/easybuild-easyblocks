@@ -62,7 +62,7 @@ class EB_BerkeleyGW(ConfigureMake):
     def build_step(self):
         """Custom build step for BerkeleyGW."""
 
-        self.cfg['parallel'] = 1
+        self.cfg.parallel = 1
 
         self.cfg['buildopts'] = 'all-flavors'
 

@@ -218,11 +218,8 @@ class EB_PSI(CMakeMake):
             if self.cfg['runtest']:
                 paracmd = ''
                 # Run ctest parallel, but limit to maximum 4 jobs (in case of slow disks)
-                if self.cfg['parallel']:
-                    if self.cfg['parallel'] > 4:
-                        paracmd = '-j 4'
-                    else:
-                        paracmd = "-j %s" % self.cfg['parallel']
+                if self.cfg.parallel > 1:
+                    paracmd = f"-j {min(4, self.cfg.parallel)}"
                 cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
                 run_shell_cmd(cmd)
         else:

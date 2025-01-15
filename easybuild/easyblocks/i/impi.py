@@ -106,8 +106,8 @@ class EB_impi(IntelBase):
                     libfabric_installpath = os.path.join(self.installdir, 'intel64', 'libfabric')
 
                     make = 'make'
-                    if self.cfg['parallel']:
-                        make += ' -j %d' % self.cfg['parallel']
+                    if self.cfg.parallel > 1:
+                        make += f' -j {self.cfg.parallel}'
 
                     cmds = [
                         f"./configure --prefix={libfabric_installpath} {self.cfg['libfabric_configopts']}",
@@ -217,7 +217,7 @@ class EB_impi(IntelBase):
             build_cmd = "mpicc -cc=%s %s -o %s" % (os.getenv('CC'), impi_testsrc, impi_testexe)
 
             # Execute test program with appropriate MPI executable for target toolchain
-            params = {'nr_ranks': self.cfg['parallel'], 'cmd': impi_testexe}
+            params = {'nr_ranks': self.cfg.parallel, 'cmd': impi_testexe}
             mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.INTELMPI, params, mpi_version=self.version)
 
             custom_commands.extend([

@@ -91,7 +91,7 @@ class EB_dm_minus_reverb(PythonPackage):
         # use JDK from EB
         bazel_build_opts += " --host_javabase=@local_jdk//:jdk"
         # explicitly set the number of processes
-        bazel_build_opts += " --jobs=%d" % self.cfg['parallel']
+        bazel_build_opts += f" --jobs={self.cfg.parallel}"
         # print full compilation commands
         bazel_build_opts += " --subcommands"
 

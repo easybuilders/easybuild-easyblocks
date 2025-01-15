@@ -85,7 +85,7 @@ class EB_tensorflow_minus_compression(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         self.target_opts.extend(['--subcommands', '--verbose_failures'])
 
-        self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
+        self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
         # include install location of Python packages in $PYTHONPATH,
         # and specify that value of $PYTHONPATH should be passed down into Bazel build environment,

@@ -102,9 +102,7 @@ class EB_ParMETIS(EasyBlock):
     def build_step(self):
         """Build ParMETIS (and METIS) using build_step."""
 
-        paracmd = ''
-        if self.cfg['parallel']:
-            paracmd = "-j %s" % self.cfg['parallel']
+        paracmd = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
         self.cfg.update('buildopts', 'LIBDIR=""')
 

@@ -56,9 +56,7 @@ class SCons(EasyBlock):
         Build with SCons
         """
 
-        par = ''
-        if self.cfg['parallel']:
-            par = "-j %s" % self.cfg['parallel']
+        par = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
         cmd = "%(prebuildopts)s scons %(par)s %(buildopts)s %(prefix)s" % {
             'buildopts': self.cfg['buildopts'],

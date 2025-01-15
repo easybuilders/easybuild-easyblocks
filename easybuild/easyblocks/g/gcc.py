@@ -733,8 +733,8 @@ class EB_GCC(ConfigureMake):
 
             # make and install stage 1 build of GCC
             paracmd = ''
-            if self.cfg['parallel']:
-                paracmd = "-j %s" % self.cfg['parallel']
+            if self.cfg.parallel > 1:
+                paracmd = f"-j {self.cfg.parallel}"
 
             cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
             run_shell_cmd(cmd)

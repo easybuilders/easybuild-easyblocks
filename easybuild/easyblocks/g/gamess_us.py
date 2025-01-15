@@ -427,11 +427,11 @@ class EB_GAMESS_minus_US(EasyBlock):
                     return
 
                 # MPI builds can only run tests that support parallel execution
-                if int(self.cfg['parallel']) < 2:
+                if self.cfg.parallel < 2:
                     self.log.info("Skipping testing of GAMESS-US as MPI tests need at least 2 CPU cores to run")
                     return
 
-                test_procs = str(self.cfg['parallel'])
+                test_procs = str(self.cfg.parallel)
                 target_tests = [exam for exam in target_tests if exam[0] not in GAMESS_SERIAL_TESTS]
 
                 if self.toolchain.mpi_family() == toolchain.INTELMPI:

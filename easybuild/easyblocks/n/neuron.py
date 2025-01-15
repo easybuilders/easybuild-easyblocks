@@ -225,7 +225,7 @@ class EB_NEURON(CMakeMake):
             self.log.info("Validation of NEURON demo OK!")
 
         if build_option('mpi_tests'):
-            nproc = self.cfg['parallel']
+            nproc = self.cfg.parallel
             try:
                 cwd = os.getcwd()
                 os.chdir(os.path.join(self.cfg['start_dir'], 'src', 'parallel'))

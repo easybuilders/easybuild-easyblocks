@@ -293,12 +293,12 @@ class EB_GROMACS(CMakeMake):
                 mpi_numprocs = self.cfg.get('mpi_numprocs', 0)
                 if mpi_numprocs == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s",
-                                  self.cfg['parallel'])
-                    mpi_numprocs = self.cfg['parallel']
+                                  self.cfg.parallel)
+                    mpi_numprocs = self.cfg.parallel
 
-                elif mpi_numprocs > self.cfg['parallel']:
+                elif mpi_numprocs > self.cfg.parallel:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     mpi_numprocs, self.cfg['parallel'])
+                                     mpi_numprocs, self.cfg.parallel)
 
                 mpiexec = self.cfg.get('mpiexec')
                 if mpiexec:
@@ -505,7 +505,7 @@ class EB_GROMACS(CMakeMake):
 
                 # run 'make check' or whatever the easyconfig specifies
                 # in parallel since it involves more compilation
-                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
+                self.cfg.update('runtest', f"-j {self.cfg.parallel}")
                 super(EB_GROMACS, self).test_step()
 
                 if build_option('rpath'):
@@ -529,7 +529,7 @@ class EB_GROMACS(CMakeMake):
             self.log.info("skipping install step")
         else:
             # run 'make install' in parallel since it involves more compilation
-            self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
+            self.cfg.update('installopts', f"-j {self.cfg.parallel}")
             super(EB_GROMACS, self).install_step()
 
     def extensions_step(self, fetch=False):

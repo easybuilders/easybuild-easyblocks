@@ -473,7 +473,7 @@ class EB_TensorFlow(PythonPackage):
         if self.cfg['maxparallel'] is None:
             # Seemingly Bazel around 3.x got better, so double the max there
             bazel_max = 64 if get_bazel_version() < '3.0.0' else 128
-            self.cfg['parallel'] = min(self.cfg['parallel'], bazel_max)
+            self.cfg.parallel = min(self.cfg.parallel, bazel_max)
 
         # determine location where binutils' ld command is installed
         # note that this may be an RPATH wrapper script (when EasyBuild is configured with --rpath)
@@ -867,7 +867,7 @@ class EB_TensorFlow(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         self.target_opts.extend(['--subcommands', '--verbose_failures'])
 
-        self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
+        self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
         if self.toolchain.options.get('pic', None):
             self.target_opts.append('--copt="-fPIC"')
@@ -982,7 +982,7 @@ class EB_TensorFlow(PythonPackage):
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
 
         # determine number of cores/GPUs to use for tests
-        max_num_test_jobs = int(self.cfg['test_max_parallel'] or self.cfg['parallel'])
+        max_num_test_jobs = self.cfg['test_max_parallel'] or self.cfg.parallel
         if self._with_cuda:
             if not which('nvidia-smi', on_error=IGNORE):
                 print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')

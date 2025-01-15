@@ -85,11 +85,7 @@ class EB_AOMP(Binary):
             'AOMP_APPLY_ROCM_PATCHES=0',
             'AOMP_STANDALONE_BUILD=1',
         ]
-        if self.cfg['parallel']:
-            install_options.append(
-                'NUM_THREADS={!s}'.format(self.cfg['parallel']))
-        else:
-            install_options.append('NUM_THREADS=1')
+        install_options.append(f'NUM_THREADS={self.cfg.parallel}')
         # Check if CUDA is loaded and alternatively build CUDA backend
         if get_software_root('CUDA') or get_software_root('CUDAcore'):
             cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
