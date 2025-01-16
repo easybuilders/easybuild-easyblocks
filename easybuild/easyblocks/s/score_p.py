@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
-
 
 class EB_Score_minus_P(ConfigureMake):
     """
@@ -174,14 +173,19 @@ class EB_Score_minus_P(ConfigureMake):
             'Qt6': ['--with-qt=%s/bin'],
             'SIONlib': ['--with-sionlib=%s/bin'],
         }
-        for (dep_name, dep_opts) in deps.items():
-            dep_root = get_software_root(dep_name)
-            if dep_root:
-                for dep_opt in dep_opts:
-                    try:
-                        dep_opt = dep_opt % dep_root
-                    except TypeError:
-                        pass  # Ignore substitution error when there is nothing to substitute
-                    self.cfg.update('configopts', dep_opt)
+
+        # Go through all dependencies of passed EasyConfig to determine which flags to pass
+        # explicitly to configure.
+        ec_explicit_deps = [dep for dep in self.cfg.all_dependencies if dep['name'] in deps.keys()]
+        for dep in ec_explicit_deps:
+            dep_root = get_software_root(dep['name'])
+            configure_opts = deps[dep['name']]
+            for configure_opt in configure_opts:
+                try:
+                    configure_opt = configure_opt % dep_root
+                except TypeError:
+                    # Ignore substitution error when there is nothing to substitute
+                    pass
+                self.cfg.update('configopts', configure_opt)
 
         super(EB_Score_minus_P, self).configure_step(*args, **kwargs)
