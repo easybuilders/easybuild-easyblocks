@@ -106,9 +106,9 @@ class Rpm(Binary):
         self.rebuild_rpm = False
 
         # Add common PATH/LD_LIBRARY_PATH paths found in RPMs to module load environment
-        self.module_load_environment.PATH = ['usr/bin', 'sbin', 'usr/sbin']
-        self.module_load_environment.LD_LIBRARY_PATH = ['usr/lib', 'usr/lib64']
-        self.module_load_environment.MANPATH = ['usr/share/man']
+        self.module_load_environment.PATH = [os.path.join('usr', 'bin'), 'sbin', os.path.join('usr', 'sbin')]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join('usr', 'lib'), os.path.join('usr', 'lib64')]
+        self.module_load_environment.MANPATH = [os.path.join('usr', 'share', 'man')]
 
     @staticmethod
     def extra_options(extra_vars=None):
