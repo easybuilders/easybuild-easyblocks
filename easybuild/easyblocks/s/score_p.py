@@ -43,6 +43,7 @@ from easybuild.tools.environment import unset_env_vars
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
 
+
 class EB_Score_minus_P(ConfigureMake):
     """
     Support for building and installing software using the Score-P configuration style (e.g., Cube, OTF2, Scalasca,
