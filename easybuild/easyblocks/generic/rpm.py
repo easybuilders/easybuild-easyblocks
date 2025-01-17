@@ -105,6 +105,11 @@ class Rpm(Binary):
 
         self.rebuild_rpm = False
 
+        # Add common PATH/LD_LIBRARY_PATH paths found in RPMs to module load environment
+        self.module_load_environment.PATH = ['usr/bin', 'sbin', 'usr/sbin']
+        self.module_load_environment.LD_LIBRARY_PATH = ['usr/lib', 'usr/lib64']
+        self.module_load_environment.MANPATH = ['usr/share/man']
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to RPMs."""
@@ -232,16 +237,3 @@ class Rpm(Binary):
                 symlink(realdirs[0], os.path.join(self.installdir, os.path.basename(path)))
             else:
                 self.log.debug("No match found for symlink glob %s." % path)
-
-    def make_module_req_guess(self):
-        """Add common PATH/LD_LIBRARY_PATH paths found in RPMs to list of guesses."""
-
-        guesses = super(Rpm, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': guesses.get('PATH', []) + ['usr/bin', 'sbin', 'usr/sbin'],
-            'LD_LIBRARY_PATH': guesses.get('LD_LIBRARY_PATH', []) + ['usr/lib', 'usr/lib64'],
-            'MANPATH': guesses.get('MANPATH', []) + ['usr/share/man'],
-        })
-
-        return guesses
