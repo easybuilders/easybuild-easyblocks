@@ -87,7 +87,7 @@ class Conda(Binary):
 
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
+        cmd = f"{conda_cmd} config --add create_default_packages setuptools"
         run_shell_cmd(cmd)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
@@ -98,26 +98,26 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         env_spec, self.installdir)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} env create "
+            cmd += f"--force {env_spec} -p {self.installdir}"
             run_shell_cmd(cmd)
 
         else:
 
             if self.cfg['requirements']:
 
-                install_args = "-y %s " % self.cfg['requirements']
+                install_args = f"-y {self.cfg['requirements']} "
                 if self.cfg['channels']:
                     install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        self.installdir, install_args)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} create "
+            cmd += f"--force -y -p {self.installdir} {install_args}"
             run_shell_cmd(cmd)
 
         # clean up
-        cmd = "%s clean -ya" % conda_cmd
+        cmd = f"{conda_cmd} clean -ya"
         run_shell_cmd(cmd)
 
     def make_module_extra(self):
