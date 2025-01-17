@@ -53,6 +53,19 @@ class Conda(Binary):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        # Set common search paths used by conda to module load environment
+        # LD_LIBRARY_PATH issue discusses here:
+        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
+        self.module_load_environment.PATH = ['bin', 'sbin']
+        self.module_load_environment.MANPATH = ['man', os.path.join('share', 'man')]
+        self.module_load_environment.PKG_CONFIG_PATH = [
+            os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']
+        ]
+
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
         if self.src:
@@ -115,15 +128,3 @@ class Conda(Binary):
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        """
-        # LD_LIBRARY_PATH issue discusses here
-        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        return {
-            'PATH': ['bin', 'sbin'],
-            'MANPATH': ['man', os.path.join('share', 'man')],
-            'PKG_CONFIG_PATH': [os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']],
-        }
