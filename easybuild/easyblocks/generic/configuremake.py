@@ -335,7 +335,7 @@ class ConfigureMake(EasyBlock):
         valid_actions = (ERROR, WARN, IGNORE)
         # Always verify the EC param
         if action not in valid_actions:
-            raise EasyBuildError('Invalid value for `unrecognized_configure_options`: %s. Must be one of: ',
+            raise EasyBuildError("Invalid value for 'unrecognized_configure_options': %s. Must be one of: %s",
                                  action, ', '.join(valid_actions))
         if action != IGNORE:
             unrecognized_options_str = 'configure: WARNING: unrecognized options:'
