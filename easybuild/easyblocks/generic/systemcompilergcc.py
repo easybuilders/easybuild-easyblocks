@@ -59,4 +59,3 @@ class SystemCompilerGCC(SystemCompiler, EB_GCC):
         # use GCC compiler class to generate standalone module
         if self.cfg['generate_standalone_module']:
             self.compiler_class = EB_GCC
-
