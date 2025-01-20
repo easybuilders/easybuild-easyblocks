@@ -38,9 +38,9 @@ import os
 import re
 from easybuild.tools import LooseVersion
 
-from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, COMP_ALL
-from easybuild.easyblocks.generic.intelbase import LICENSE_FILE_NAME_2012
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.generic.intelbase import IntelBase, COMP_ALL
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -57,10 +57,9 @@ def get_icc_version():
 
 
 class EB_icc(IntelBase):
-    """Support for installing icc
-
-    - tested with 11.1.046
-        - will fail for all older versions (due to newer silent installer)
+    """
+    Support for installing icc
+    - minimum version suported: 2020.0
     """
 
     def __init__(self, *args, **kwargs):
@@ -75,60 +74,38 @@ class EB_icc(IntelBase):
         # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
         # which results in deriving the actual compiler version
         # comparing a non-version like 'system' with an actual version like '2016' fails with TypeError in Python 3.x
-        if re.match(r'^[0-9]+.*', self.version) and LooseVersion(self.version) >= LooseVersion('2016'):
+        if re.match(r'^[0-9]+.*', self.version):
 
-            self.comp_libs_subdir = os.path.join('compilers_and_libraries_%s' % self.version, 'linux')
+            if LooseVersion(self.version) < LooseVersion('2020'):
+                raise EasyBuildError(
+                    f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+                )
+
+            self.comp_libs_subdir = os.path.join(f'compilers_and_libraries_{self.version}', 'linux')
 
             if self.cfg['components'] is None:
                 # we need to use 'ALL' by default,
                 # using 'DEFAULTS' results in key things not being installed (e.g. bin/icc)
                 self.cfg['components'] = [COMP_ALL]
-                self.log.debug("Nothing specified for components, but required for version 2016, using %s instead",
-                               self.cfg['components'])
-
-    def install_step(self):
-        """
-        Actual installation
-        - create silent cfg file
-        - execute command
-        """
-        silent_cfg_names_map = None
-
-        if LooseVersion(self.version) < LooseVersion('2013_sp1'):
-            # since icc v2013_sp1, silent.cfg has been slightly changed to be 'more standard'
-
-            silent_cfg_names_map = {
-                'activation_name': ACTIVATION_NAME_2012,
-                'license_file_name': LICENSE_FILE_NAME_2012,
-            }
-
-        super(EB_icc, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
+                self.log.debug(
+                    f"Missing components specification, required for version {self.version}. "
+                    f"Using {self.cfg['components']} instead."
+                )
 
     def sanity_check_step(self):
         """Custom sanity check paths for icc."""
 
-        binprefix = 'bin/intel64'
-        libprefix = 'lib/intel64'
-        if LooseVersion(self.version) >= LooseVersion('2011'):
-            if LooseVersion(self.version) <= LooseVersion('2011.3.174'):
-                binprefix = 'bin'
-            elif LooseVersion(self.version) >= LooseVersion('2013_sp1'):
-                binprefix = 'bin'
-            else:
-                libprefix = 'compiler/lib/intel64'
-
+        binprefix = 'bin'
         binfiles = ['icc', 'icpc']
-        if LooseVersion(self.version) < LooseVersion('2014'):
-            binfiles += ['idb']
-
         binaries = [os.path.join(binprefix, f) for f in binfiles]
-        libraries = [os.path.join(libprefix, 'lib%s' % lib) for lib in ['iomp5.a', 'iomp5.%s' % get_shared_lib_ext()]]
-        sanity_check_files = binaries + libraries
-        if LooseVersion(self.version) > LooseVersion('2015'):
-            sanity_check_files.append('include/omp.h')
+
+        libprefix = 'lib/intel64'
+        libraries = [os.path.join(libprefix, f'lib{lib}') for lib in ['iomp5.a', f'iomp5.{get_shared_lib_ext()}']]
+
+        headers = ['include/omp.h']
 
         custom_paths = {
-            'files': sanity_check_files,
+            'files': binaries + libraries + headers,
             'dirs': [],
         }
 
@@ -165,59 +142,39 @@ class EB_icc(IntelBase):
             'TBBROOT': ['tbb'],
         })
 
-        if self.cfg['m32']:
-            # 32-bit toolchain
-            guesses['PATH'].extend(['bin/ia32', 'tbb/bin/ia32'])
-            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
-            guesses['LD_LIBRARY_PATH'].append('lib/ia32')
+        # 64-bit toolkit
+        guesses['PATH'].extend([
+            'bin/intel64',
+            'debugger/gdb/intel64/bin',
+            'ipp/bin/intel64',
+            'mpi/intel64/bin',
+            'tbb/bin/emt64',
+            'tbb/bin/intel64',
+        ])
 
-        else:
-            # 64-bit toolkit
-            guesses['PATH'].extend([
-                'bin/intel64',
-                'debugger/gdb/intel64/bin',
-                'ipp/bin/intel64',
-                'mpi/intel64/bin',
-                'tbb/bin/emt64',
-                'tbb/bin/intel64',
-            ])
+        # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
+        guesses['LD_LIBRARY_PATH'].extend([
+            'compiler/lib/intel64',
+            'debugger/ipt/intel64/lib',
+            'ipp/lib/intel64',
+            'mkl/lib/intel64',
+            'mpi/intel64',
+            'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
+        ])
 
-            # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
-            guesses['LD_LIBRARY_PATH'].extend([
-                'compiler/lib/intel64',
-                'debugger/ipt/intel64/lib',
-                'ipp/lib/intel64',
-                'mkl/lib/intel64',
-                'mpi/intel64',
-                'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
-            ])
+        # new directory layout since Intel Parallel Studio XE 2016
+        # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
+        prefix = self.comp_libs_subdir
+        # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
+        self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
 
-            if LooseVersion(self.version) < LooseVersion('2016'):
-                prefix = 'composer_xe_%s' % self.version
-                # for some older versions, name of subdirectory is slightly different
-                if not os.path.isdir(os.path.join(self.installdir, prefix)):
-                    cand_prefix = 'composerxe-%s' % self.version
-                    if os.path.isdir(os.path.join(self.installdir, cand_prefix)):
-                        prefix = cand_prefix
+        guesses['LD_LIBRARY_PATH'].extend([
+            os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
+            'daal/lib/intel64_lin',
+        ])
 
-                # debugger is dependent on $INTEL_PYTHONHOME since version 2015 and newer
-                if LooseVersion(self.version) >= LooseVersion('2015'):
-                    self.debuggerpath = os.path.join(prefix, 'debugger')
-
-            else:
-                # new directory layout for Intel Parallel Studio XE 2016
-                # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
-                prefix = self.comp_libs_subdir
-                # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
-                self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
-
-                guesses['LD_LIBRARY_PATH'].extend([
-                    os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
-                    'daal/lib/intel64_lin',
-                ])
-
-            # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
-            guesses['LD_LIBRARY_PATH'].append('lib/intel64')
+        # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
+        guesses['LD_LIBRARY_PATH'].append('lib/intel64')
 
         guesses['LIBRARY_PATH'] = guesses['LD_LIBRARY_PATH']
 

@@ -76,7 +76,7 @@ class EB_Hadoop(Tarball):
         else:
             super(EB_Hadoop, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """After the install, copy the extra native libraries into place."""
         for native_library, lib_path in self.cfg['extra_native_libs']:
             lib_root = get_software_root(native_library)

@@ -349,6 +349,19 @@ class CMakeMake(ConfigureMake):
         # ensure CMake uses EB python, not system or virtualenv python
         options.update(get_cmake_python_config_dict())
 
+        # pass the preferred host compiler, CUDA compiler, and CUDA architectures to the CUDA compiler
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            options['CMAKE_CUDA_HOST_COMPILER'] = which(os.getenv('CXX', 'g++'))
+            options['CMAKE_CUDA_COMPILER'] = which('nvcc')
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            if cuda_cc:
+                options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
+            else:
+                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                     'cuda_compute_capabilities easyconfig parameter or via '
+                                     '--cuda-compute-capabilities')
+
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
             if boost_root:

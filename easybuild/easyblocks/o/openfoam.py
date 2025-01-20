@@ -340,7 +340,7 @@ class EB_OpenFOAM(EasyBlock):
             cleancmd = "wcleanAll"
 
         # make directly in install directory
-        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s %(makecmd)s" % {
+        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s bash %(makecmd)s" % {
             'precmd': precmd,
             'cleancmd': cleancmd,
             'prebuildopts': self.cfg['prebuildopts'],
@@ -371,8 +371,8 @@ class EB_OpenFOAM(EasyBlock):
 
                 if self.looseversion >= LooseVersion('2406'):
                     # Also build the plugins
-                    cmd += ' && %s %s -log' % (self.cfg['prebuildopts'],
-                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+                    cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
+                                                    os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
 
             run_shell_cmd(cmd_tmpl % cmd)
 
