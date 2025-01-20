@@ -317,24 +317,42 @@ class Bundle(EasyBlock):
                 else:
                     comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
 
-            # Update current environment with component environment to ensure stuff provided
-            # by this component can be picked up by installation of subsequent components
-            # - this is a stripped down version of EasyBlock.make_module_req for fake modules
-            # - once bundle installation is complete, this is handled by the generated module as usual
-            for mod_envar, mod_paths in comp.module_load_environment.items():
-                # expand glob patterns in module load environment to existing absolute paths
-                mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False, fake=True)]
-                mod_expand = nub(mod_expand)
-                mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
-                # prepend to current environment variable if new stuff added to installation
-                curr_env = os.getenv(mod_envar, '')
-                curr_paths = [path for path in curr_env.split(os.pathsep) if path]
-                new_paths = nub(mod_expand + curr_paths)
-                new_env = os.pathsep.join(new_paths)
-                if new_env and new_env != curr_env:
-                    env.setvar(mod_envar, new_env)
+            if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
+                depr_msg = f"Easyblock used to install component {comp.name} still uses make_module_req_guess"
+                self.log.deprecated(depr_msg, '6.0')
+                # update environment to ensure stuff provided by former components can be picked up by latter components
+                # once the installation is finalised, this is handled by the generated module
+                reqs = comp.make_module_req_guess()
+                for envvar in reqs:
+                    curr_val = os.getenv(envvar, '')
+                    curr_paths = curr_val.split(os.pathsep)
+                    for subdir in reqs[envvar]:
+                        path = os.path.join(self.installdir, subdir)
+                        if path not in curr_paths:
+                            if curr_val:
+                                new_val = '%s:%s' % (path, curr_val)
+                            else:
+                                new_val = path
+                            env.setvar(envvar, new_val)
+            else:
+                # Update current environment with component environment to ensure stuff provided
+                # by this component can be picked up by installation of subsequent components
+                # - this is a stripped down version of EasyBlock.make_module_req for fake modules
+                # - once bundle installation is complete, this is handled by the generated module as usual
+                for mod_envar, mod_paths in comp.module_load_environment.items():
+                    # expand glob patterns in module load environment to existing absolute paths
+                    mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False)]
+                    mod_expand = nub(mod_expand)
+                    mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
+                    # prepend to current environment variable if new stuff added to installation
+                    curr_env = os.getenv(mod_envar, '')
+                    curr_paths = [path for path in curr_env.split(os.pathsep) if path]
+                    new_paths = nub(mod_expand + curr_paths)
+                    new_env = os.pathsep.join(new_paths)
+                    if new_env and new_env != curr_env:
+                        env.setvar(mod_envar, new_env)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
         Set module requirements from all components, e.g. $PATH, etc.
         During the install step, we only set these requirements temporarily.
@@ -346,28 +364,37 @@ class Bundle(EasyBlock):
         as this is done in the generic EasyBlock while creating
         the module file already.
         """
-        # Start with the paths from the generic EasyBlock.
-        # If not added here, they might be missing entirely and fail sanity checks.
-        final_reqs = super(Bundle, self).make_module_req_guess()
-
         for cfg, comp in self.comp_instances:
             self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
-            reqs = comp.make_module_req_guess()
 
-            # Try-except block to fail with an easily understandable error message.
-            # This should only trigger when an EasyBlock returns non-dict module requirements
-            # for make_module_req_guess() which should then be fixed in the components EasyBlock.
-            try:
-                for key, value in sorted(reqs.items()):
-                    if isinstance(value, str):
-                        value = [value]
-                    final_reqs.setdefault(key, [])
-                    final_reqs[key].extend(value)
-            except AttributeError:
-                raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
-                                     cfg['name'], cfg['version'])
+            # take into account that easyblock used for component may not be migrated yet to module_load_environment
+            if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
 
-        return final_reqs
+                depr_msg = f"Easyblock used to install component {cfg['name']} still uses make_module_req_guess"
+                self.log.deprecated(depr_msg, '6.0')
+
+                reqs = comp.make_module_req_guess()
+
+                # Try-except block to fail with an easily understandable error message.
+                # This should only trigger when an EasyBlock returns non-dict module requirements
+                # for make_module_req_guess() which should then be fixed in the components EasyBlock.
+                try:
+                    for key, value in sorted(reqs.items()):
+                        if key in self.module_load_environment:
+                            getattr(self.module_load_environment, key).extend(value)
+                        else:
+                            setattr(self.module_load_environment, key, value)
+                except AttributeError:
+                    raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
+                                         cfg['name'], cfg['version'])
+            else:
+                for env_var_name, env_var_val in comp.module_load_environment.items():
+                    if env_var_name in self.module_load_environment:
+                        getattr(self.module_load_environment, env_var_name).extend(env_var_val)
+                    else:
+                        setattr(self.module_load_environment, env_var_name, env_var_val)
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
