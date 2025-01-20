@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2025 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
