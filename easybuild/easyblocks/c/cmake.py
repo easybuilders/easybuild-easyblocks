@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2024 Alexander Grund
+# Copyright 2020-2025 Alexander Grund
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
