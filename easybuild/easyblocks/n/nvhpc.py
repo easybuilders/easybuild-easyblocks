@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2024 Bart Oldeman
-# Copyright 2016-2024 Forschungszentrum Juelich
+# Copyright 2015-2025 Bart Oldeman
+# Copyright 2016-2025 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.

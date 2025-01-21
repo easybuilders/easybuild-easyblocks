@@ -1,6 +1,6 @@
 ##
-# Copyright 2013-2024 Dmitri Gribenko
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Dmitri Gribenko
+# Copyright 2013-2025 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -612,9 +612,9 @@ class EB_Clang(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Install python bindings."""
-        super(EB_Clang, self).post_install_step()
+        super(EB_Clang, self).post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -221,7 +221,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """Custom implementation of make installdir: do nothing, do not touch system MPI directories and files."""
         pass
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Do nothing."""
         pass
 

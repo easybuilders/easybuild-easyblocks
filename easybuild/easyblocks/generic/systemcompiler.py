@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -270,7 +270,7 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
             extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
         return extras
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """Do nothing."""
         pass
 

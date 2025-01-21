@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -228,6 +228,10 @@ def suite():
         elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif easyblock_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
+                              'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+            # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
+            innertest = make_inner_test(easyblock, version='9999.9')
         elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
@@ -237,6 +241,12 @@ def suite():
         elif easyblock_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, version='1.1')
+        elif easyblock_fn == 'paraver.py':
+            # custom easyblock for Paraver requires version >= 4.7
+            innertest = make_inner_test(easyblock, version='4.8')
+        elif easyblock_fn in ['python.py', 'tkinter.py']:
+            # custom easyblock for Python (ensurepip) requires version >= 3.4.0
+            innertest = make_inner_test(easyblock, version='3.4.0')
         elif easyblock_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             innertest = make_inner_test(easyblock, name='torchvision', deps=[('PyTorch', '1.12.1')])

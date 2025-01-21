@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Jasper Grimm (University of York)
+@author: Jan Andre Reuter (Juelich Supercomputing Centre)
 """
 import copy
 import os
@@ -71,8 +72,8 @@ class Bundle(EasyBlock):
         self.altroot = None
         self.altversion = None
 
-        # list of EasyConfig instances for components
-        self.comp_cfgs = []
+        # list of EasyConfig instances and their EasyBlocks for components
+        self.comp_instances = []
 
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
@@ -80,9 +81,9 @@ class Bundle(EasyBlock):
         check_for_sources = getattr(self, 'check_for_sources', True)
         # list of sources for bundle itself *must* be empty (unless overridden by subclass)
         if check_for_sources:
-            if self.cfg['sources']:
+            if self.cfg.get_ref('sources'):
                 raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
-            if self.cfg['patches']:
+            if self.cfg.get_ref('patches'):
                 raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
 
         # copy EasyConfig instance before we make changes to it
@@ -161,53 +162,63 @@ class Bundle(EasyBlock):
             for key in comp_specs:
                 comp_cfg[key] = comp_specs[key]
 
-            # enable resolving of templates for component-specific EasyConfig instance
+            # enable resolving of templates for component-specific EasyConfig instance,
+            # but don't require that all template values can be resolved at this point;
+            # this is important to ensure that template values like %(name)s and %(version)s
+            # are correctly resolved with the component name/version before values are copied over to self.cfg
             comp_cfg.enable_templating = True
+            comp_cfg.expect_resolved_template_values = False
 
             # 'sources' is strictly required
-            if comp_cfg['sources']:
+            comp_sources = comp_cfg['sources']
+            if comp_sources:
                 # If per-component source URLs are provided, attach them directly to the relevant sources
-                if comp_cfg['source_urls']:
-                    for source in comp_cfg['sources']:
+                comp_source_urls = comp_cfg['source_urls']
+                if comp_source_urls:
+                    for source in comp_sources:
                         if isinstance(source, str):
-                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_cfg['source_urls']}])
+                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_source_urls[:]}])
                         elif isinstance(source, dict):
                             # Update source_urls in the 'source' dict to use the one for the components
                             # (if it doesn't already exist)
                             if 'source_urls' not in source:
-                                source['source_urls'] = comp_cfg['source_urls']
+                                source['source_urls'] = comp_source_urls[:]
                             self.cfg.update('sources', [source])
                         else:
                             raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
                                                  "process it.", source, comp_cfg['name'])
                 else:
                     # add component sources to list of sources
-                    self.cfg.update('sources', comp_cfg['sources'])
+                    self.cfg.update('sources', comp_sources)
             else:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            if comp_cfg['checksums']:
-                src_cnt = len(comp_cfg['sources'])
+            comp_checksums = comp_cfg['checksums']
+            if comp_checksums:
+                src_cnt = len(comp_sources)
 
                 # add per-component checksums for sources to list of checksums
-                self.cfg.update('checksums', comp_cfg['checksums'][:src_cnt])
+                self.cfg.update('checksums', comp_checksums[:src_cnt])
 
                 # add per-component checksums for patches to list of checksums for patches
-                checksums_patches.extend(comp_cfg['checksums'][src_cnt:])
+                checksums_patches.extend(comp_checksums[src_cnt:])
 
-            if comp_cfg['patches']:
-                self.cfg.update('patches', comp_cfg['patches'])
+            comp_patches = comp_cfg['patches']
+            if comp_patches:
+                self.cfg.update('patches', comp_patches)
 
-            self.comp_cfgs.append(comp_cfg)
+            comp_cfg.expect_resolved_template_values = True
+
+            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
 
         self.cfg.update('checksums', checksums_patches)
-
-        self.cfg.enable_templating = True
 
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
+        self.cfg.enable_templating = True
 
     def check_checksums(self):
         """
@@ -217,7 +228,7 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super(Bundle, self).check_checksums()
 
-        for comp in self.comp_cfgs:
+        for comp, _ in self.comp_instances:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
 
         return checksum_issues
@@ -247,13 +258,11 @@ class Bundle(EasyBlock):
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
-        for idx, cfg in enumerate(self.comp_cfgs):
+        for idx, (cfg, comp) in enumerate(self.comp_instances):
 
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
-
-            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
@@ -271,6 +280,7 @@ class Bundle(EasyBlock):
             comp.src = []
 
             # find match entries in self.src for this component
+            comp.cfg.expect_resolved_template_values = False
             for source in comp.cfg['sources']:
                 if isinstance(source, str):
                     comp_src_fn = source
@@ -294,6 +304,7 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
+            comp.cfg.expect_resolved_template_values = True
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
@@ -306,25 +317,84 @@ class Bundle(EasyBlock):
                 else:
                     comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
 
-            # Update current environment with component environment to ensure stuff provided
-            # by this component can be picked up by installation of subsequent components
-            # - this is a stripped down version of EasyBlock.make_module_req for fake modules
-            # - once bundle installation is complete, this is handled by the generated module as usual
-            for mod_envar, mod_paths in comp.module_load_environment.items():
-                # expand glob patterns in module load environment to existing absolute paths
-                mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False, fake=True)]
-                mod_expand = nub(mod_expand)
-                mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
-                # prepend to current environment variable if new stuff added to installation
-                curr_env = os.getenv(mod_envar, '')
-                curr_paths = [path for path in curr_env.split(os.pathsep) if path]
-                new_paths = nub(mod_expand + curr_paths)
-                new_env = os.pathsep.join(new_paths)
-                if new_env and new_env != curr_env:
-                    env.setvar(mod_envar, new_env)
+            if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
+                depr_msg = f"Easyblock used to install component {comp.name} still uses make_module_req_guess"
+                self.log.deprecated(depr_msg, '6.0')
+                # update environment to ensure stuff provided by former components can be picked up by latter components
+                # once the installation is finalised, this is handled by the generated module
+                reqs = comp.make_module_req_guess()
+                for envvar in reqs:
+                    curr_val = os.getenv(envvar, '')
+                    curr_paths = curr_val.split(os.pathsep)
+                    for subdir in reqs[envvar]:
+                        path = os.path.join(self.installdir, subdir)
+                        if path not in curr_paths:
+                            if curr_val:
+                                new_val = '%s:%s' % (path, curr_val)
+                            else:
+                                new_val = path
+                            env.setvar(envvar, new_val)
+            else:
+                # Update current environment with component environment to ensure stuff provided
+                # by this component can be picked up by installation of subsequent components
+                # - this is a stripped down version of EasyBlock.make_module_req for fake modules
+                # - once bundle installation is complete, this is handled by the generated module as usual
+                for mod_envar, mod_paths in comp.module_load_environment.items():
+                    # expand glob patterns in module load environment to existing absolute paths
+                    mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False)]
+                    mod_expand = nub(mod_expand)
+                    mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
+                    # prepend to current environment variable if new stuff added to installation
+                    curr_env = os.getenv(mod_envar, '')
+                    curr_paths = [path for path in curr_env.split(os.pathsep) if path]
+                    new_paths = nub(mod_expand + curr_paths)
+                    new_env = os.pathsep.join(new_paths)
+                    if new_env and new_env != curr_env:
+                        env.setvar(mod_envar, new_env)
 
-            # close log for this component
-            comp.close_log()
+    def make_module_step(self, *args, **kwargs):
+        """
+        Set module requirements from all components, e.g. $PATH, etc.
+        During the install step, we only set these requirements temporarily.
+        Later on when building the module, those paths are not considered.
+        Therefore, iterate through all the components again and gather
+        the requirements.
+
+        Do not remove duplicates or check for existence of folders,
+        as this is done in the generic EasyBlock while creating
+        the module file already.
+        """
+        for cfg, comp in self.comp_instances:
+            self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
+
+            # take into account that easyblock used for component may not be migrated yet to module_load_environment
+            if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
+
+                depr_msg = f"Easyblock used to install component {cfg['name']} still uses make_module_req_guess"
+                self.log.deprecated(depr_msg, '6.0')
+
+                reqs = comp.make_module_req_guess()
+
+                # Try-except block to fail with an easily understandable error message.
+                # This should only trigger when an EasyBlock returns non-dict module requirements
+                # for make_module_req_guess() which should then be fixed in the components EasyBlock.
+                try:
+                    for key, value in sorted(reqs.items()):
+                        if key in self.module_load_environment:
+                            getattr(self.module_load_environment, key).extend(value)
+                        else:
+                            setattr(self.module_load_environment, key, value)
+                except AttributeError:
+                    raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
+                                         cfg['name'], cfg['version'])
+            else:
+                for env_var_name, env_var_val in comp.module_load_environment.items():
+                    if env_var_name in self.module_load_environment:
+                        getattr(self.module_load_environment, env_var_name).extend(env_var_val)
+                    else:
+                        setattr(self.module_load_environment, env_var_name, env_var_val)
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""

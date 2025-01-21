@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -133,8 +133,8 @@ class EB_AOMP(Binary):
         # Only build selected components
         self.cfg['installopts'] = 'select ' + ' '.join(components)
 
-    def post_install_step(self):
-        super(EB_AOMP, self).post_install_step()
+    def post_processing_step(self):
+        super(EB_AOMP, self).post_processing_step()
         # The install script will create a symbolic link as the install
         # directory, this creates problems for EB as it won't remove the
         # symlink. To remedy this we remove the link here and rename the actual

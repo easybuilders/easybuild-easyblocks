@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -413,6 +413,9 @@ class PythonPackage(ExtensionEasyBlock):
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [True, "Fail if downloaded dependencies are detected", CUSTOM],
+            'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
+                                                  "to '#!/usr/bin/env python' (glob patterns supported) "
+                                                  "(default: ['bin/*'])", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
@@ -543,12 +546,13 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.use_setup_py = True
             self.install_cmd = SETUP_PY_INSTALL_CMD
+            install_target = self.cfg.get_ref('install_target')
 
-            if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+            if install_target == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
                 self.py_installopts.append('--no-deps')
             if self.cfg.get('zipped_egg', False):
-                if self.cfg['install_target'] == EASY_INSTALL_TARGET:
+                if install_target == EASY_INSTALL_TARGET:
                     self.py_installopts.append('--zip-ok')
                 else:
                     raise EasyBuildError("Installing zipped eggs requires using easy_install or pip")
@@ -814,7 +818,11 @@ class PythonPackage(ExtensionEasyBlock):
 
     def build_step(self):
         """Build Python package using setup.py"""
+
+        # inject extra '%(python)s' template value before getting value of 'buildcmd' custom easyconfig parameter
+        self.cfg.template_values['python'] = self.python_cmd
         build_cmd = self.cfg['buildcmd']
+
         if self.use_setup_py:
 
             if get_software_root('CMake'):
@@ -825,10 +833,9 @@ class PythonPackage(ExtensionEasyBlock):
 
             if not build_cmd:
                 build_cmd = 'build'  # Default value for setup.py
-            build_cmd = '%(python)s setup.py ' + build_cmd
+            build_cmd = f"{self.python_cmd} setup.py {build_cmd}"
 
         if build_cmd:
-            build_cmd = build_cmd % {'python': self.python_cmd}
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
             res = run_shell_cmd(cmd)
 

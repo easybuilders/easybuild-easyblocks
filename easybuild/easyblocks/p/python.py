@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,7 +45,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, log_path, PYTHONPATH, EBPYTHONPREFIXES
+from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -124,7 +124,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
-            'install_pip': [False,
+            'install_pip': [True,
                             "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
                             "of pip and setuptools into Python. You _must_ then use pip for upgrading "
                             "pip & setuptools by installing newer versions as extensions!",
@@ -141,9 +141,6 @@ class EB_Python(ConfigureMake):
         super(EB_Python, self).__init__(*args, **kwargs)
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
-
-        # Used for EBPYTHONPREFIXES handler script
-        self.pythonpath = os.path.join(log_path(), 'python')
 
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
@@ -481,6 +478,10 @@ class EB_Python(ConfigureMake):
 
         super(EB_Python, self).build_step(*args, **kwargs)
 
+    @property
+    def site_packages_path(self):
+        return os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
 
@@ -504,7 +505,7 @@ class EB_Python(ConfigureMake):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg.get('ebpythonprefixes'):
-            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
+            write_file(os.path.join(self.installdir, self.site_packages_path, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
@@ -525,8 +526,7 @@ class EB_Python(ConfigureMake):
     def _sanity_check_ebpythonprefixes(self):
         """Check that EBPYTHONPREFIXES works"""
         temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
-        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
-        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        temp_site_packages_path = os.path.join(temp_prefix, self.site_packages_path)
         mkdir(temp_site_packages_path, parents=True)  # Must exist
         res = run_shell_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
         out = res.output.strip()
@@ -534,7 +534,7 @@ class EB_Python(ConfigureMake):
         if not out.startswith('[') or not out.endswith(']'):
             raise EasyBuildError("Unexpected output for sys.path: %s", out)
         paths = eval(out)
-        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        base_site_packages_path = os.path.join(self.installdir, self.site_packages_path)
         try:
             base_prefix_idx = paths.index(base_site_packages_path)
         except ValueError:
@@ -635,12 +635,3 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self, *args, **kwargs):
-        """Add path to sitecustomize.py to $PYTHONPATH"""
-        txt = super(EB_Python, self).make_module_extra()
-
-        if self.cfg.get('ebpythonprefixes'):
-            txt += self.module_generator.prepend_paths(PYTHONPATH, self.pythonpath)
-
-        return txt

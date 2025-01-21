@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -64,9 +64,9 @@ class EB_imkl_minus_FFTW(EB_imkl):
         # bypass extra module variables for imkl
         return super(EB_imkl, self).make_module_extra()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post install step for imkl-FFTW"""
-        # bypass post_install_step of imkl easyblock
+        # bypass post_processing_step of imkl easyblock
         pass
 
     def sanity_check_step(self):
