@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES, SEARCH_PATH_LIB_DIRS
+from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
