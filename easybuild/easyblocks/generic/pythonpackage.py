@@ -513,6 +513,11 @@ class PythonPackage(ExtensionEasyBlock):
         # Don't let pip connect to PYPI to check for a new version
         env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
 
+        # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
+        # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
+        self.module_load_environment.LD_LIBRARY_PATH.type = "PATH_WITH_TOP_FILES"
+        self.module_load_environment.LIBRARY_PATH.type = "PATH_WITH_TOP_FILES"
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -1150,31 +1155,6 @@ class PythonPackage(ExtensionEasyBlock):
             parent_fail_msg += ', '
 
         return (parent_success and success, parent_fail_msg + fail_msg)
-
-    def make_module_step(self, *args, **kwargs):
-        """
-        Define list of subdirectories in search paths of module load environment
-        """
-        # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
-        # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
-        for env_var in ['LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            search_paths = getattr(self.module_load_environment, env_var)
-            for lib_dir in SEARCH_PATH_LIB_DIRS:
-                # only subdirectories that contain one or more files/libraries should be retained
-                install_lib_dir = os.path.join(self.installdir, lib_dir)
-                try:
-                    lib_files = [os.path.isfile(os.path.join(install_lib_dir, x)) for x in os.listdir(install_lib_dir)]
-                except FileNotFoundError:
-                    lib_files = []
-
-                if any(lib_files):
-                    search_paths.append(lib_dir)
-                else:
-                    search_paths.remove(lib_dir)
-
-            self.log.debug(f"Directories retained in module load environment for ${env_var}: [{search_paths}]")
-
-        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """Add install path to PYTHONPATH"""
