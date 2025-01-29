@@ -113,7 +113,7 @@ class EB_Java(PackedBinary):
 
         # If using sysroot AND rpath, add list of library paths in sysroot to consider for adding to RPATH section
         if sysroot and self.toolchain.use_rpath:
-            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'lib*'))
+            sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
             sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
             sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
             if sysroot_lib_paths:
@@ -160,9 +160,9 @@ class EB_Java(PackedBinary):
                             if elf_interp is not None:
                                 out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
                                 self.log.debug("ELF interpreter for %s: %s" % (path, out))
-    
+
                                 run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
-    
+
                                 out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
                                 self.log.debug("ELF interpreter for %s: %s" % (path, out))
 
@@ -171,17 +171,17 @@ class EB_Java(PackedBinary):
                                 out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 curr_rpath = out.strip()
                                 self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
-    
+
                                 new_rpath = ':'.join([curr_rpath] + extra_rpaths)
                                 # note: it's important to wrap the new RPATH value in single quotes,
                                 # to avoid magic values like $ORIGIN being resolved by the shell
                                 run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
-    
+
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
-    
+
                                 run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
-    
+
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
 
@@ -203,23 +203,23 @@ class EB_Java(PackedBinary):
                             out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             curr_rpath = out.strip()
                             self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
-    
+
                             new_rpath = ':'.join([curr_rpath] + extra_rpaths)
                             # note: it's important to wrap the new RPATH value in single quotes,
                             # to avoid magic values like $ORIGIN being resolved by the shell
                             run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
-    
+
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
-    
+
                             run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
-    
+
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in libraries: %s", err)
-   
+
 
     def sanity_check_step(self):
         """Custom sanity check for Java."""
