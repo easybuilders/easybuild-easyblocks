@@ -220,7 +220,6 @@ class EB_Java(PackedBinary):
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in libraries: %s", err)
 
-
     def sanity_check_step(self):
         """Custom sanity check for Java."""
         custom_paths = {
