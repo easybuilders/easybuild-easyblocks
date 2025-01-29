@@ -105,13 +105,13 @@ class EB_Java(PackedBinary):
             if not which('patchelf'):
                 error_msg = "patchelf not found via $PATH, required to patch RPATH section in binaries/libraries"
                 raise EasyBuildError(error_msg)
+            # Some libraries, e.g. libjvm.so, are located in $EBROOTJAVA/lib/server, so let's add $ORIGIN/../lib/server
+            extra_rpaths += ['$ORIGIN/../lib/server']
             # Get LIBRARY_PATH as a list and add it to the extra paths to be added to RPATH
             library_path = os.environ.get('LIBRARY_PATH', '').split(':')
             if library_path:
                 self.log.info("List of library paths from LIBRARY_PATH to be added to RPATH section: %s", library_path)
                 extra_rpaths += library_path
-            # Some libraries, e.g. libjvm.so, are located in $EBROOTJAVA/lib/server, so let's add $ORIGIN/../lib/server
-            extra_rpaths += ['$ORIGIN/../lib/server']
 
         # If using sysroot AND rpath, add list of library paths in sysroot to consider for adding to RPATH section
         if sysroot and self.toolchain.use_rpath:
