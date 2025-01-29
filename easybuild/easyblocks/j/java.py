@@ -111,7 +111,7 @@ class EB_Java(PackedBinary):
                 self.log.info("List of library paths from LIBRARY_PATH to be added to RPATH section: %s", library_path)
                 extra_rpaths += library_path
             # Some libraries, e.g. libjvm.so, are located in $EBROOTJAVA/lib/server, so let's add $ORIGIN/../lib/server
-            extra_paths += ['$ORIGIN/../lib/server']
+            extra_rpaths += ['$ORIGIN/../lib/server']
 
         # If using sysroot AND rpath, add list of library paths in sysroot to consider for adding to RPATH section
         if sysroot and self.toolchain.use_rpath:
