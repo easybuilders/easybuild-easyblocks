@@ -90,47 +90,63 @@ class EB_Java(PackedBinary):
     def post_install_step(self):
         """
         Custom post-installation step:
+        - ensure relevant paths from LIBRARY_PATH are added to RPATH if using RPATH support
         - ensure correct glibc is used when installing into custom sysroot and using RPATH
         """
         super(EB_Java, self).post_install_step()
 
-        # patch binaries and libraries when using alternate sysroot in combination with RPATH
+        # Get sysroot for later
         sysroot = build_option('sysroot')
-        if sysroot and self.toolchain.use_rpath:
+
+        extra_rpaths = []
+        # get relevant LIBRARY_PATH entries to add to RPATH if RPATH support is enabled:
+        if self.toolchain.use_rpath:
+            # Fail early if patchelf isn't found - we need it
             if not which('patchelf'):
                 error_msg = "patchelf not found via $PATH, required to patch RPATH section in binaries/libraries"
                 raise EasyBuildError(error_msg)
+            # Get LIBRARY_PATH as a list and add it to the extra paths to be added to RPATH
+            library_path = os.environ.get('LIBRARY_PATH', '').split(':')
+            if library_path:
+                self.log.info("List of library paths from LIBRARY_PATH to be added to RPATH section: %s", library_path)
+                extra_rpaths += library_path
 
+        # If using sysroot AND rpath, add list of library paths in sysroot to consider for adding to RPATH section
+        if sysroot and self.toolchain.use_rpath:
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
+            if sysroot_lib_paths:
+                self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
+                extra_rpaths += sysroot_lib_paths
+
+        # If using sysroot, locate ELF interpreter
+        elf_interp = None
+        if sysroot:
+            # find path to ELF interpreter
+            for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
+                res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
+                self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
+                if res:
+                    # if there are multiple hits, make sure they resolve to the same paths,
+                    # but keep using the symbolic link, not the resolved path!
+                    real_paths = nub([os.path.realpath(x) for x in res])
+                    if len(real_paths) == 1:
+                        elf_interp = res[0]
+                        self.log.info("ELF interpreter found at %s", elf_interp)
+                        break
+                    else:
+                        raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
+
+            if elf_interp is None:
+                raise EasyBuildError("Failed to isolate ELF interpreter!")
+
+        # Now that we have collected additional RPATHS and elf interpeter, set/add them (when relevant)
+        if extra_rpaths or elf_interp is not None:
             try:
-                # list of paths in sysroot to consider for adding to RPATH section
-                sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
-                if sysroot_lib_paths:
-                    self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
-
-                # find path to ELF interpreter
-                elf_interp = None
-
-                for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
-                    res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
-                    self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
-                    if res:
-                        # if there are multiple hits, make sure they resolve to the same paths,
-                        # but keep using the symbolic link, not the resolved path!
-                        real_paths = nub([os.path.realpath(x) for x in res])
-                        if len(real_paths) == 1:
-                            elf_interp = res[0]
-                            self.log.info("ELF interpreter found at %s", elf_interp)
-                            break
-                        else:
-                            raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
-
-                if elf_interp is None:
-                    raise EasyBuildError("Failed to isolate ELF interpreter!")
-
                 module_guesses = self.make_module_req_guess()
 
+                # Set ELF interpreter and/or add to RPATH of binaries
                 bindirs = [os.path.join(self.installdir, bindir) for bindir in module_guesses['PATH'] if
                            os.path.exists(os.path.join(self.installdir, bindir))]
                 # Make sure these are unique real paths
@@ -140,32 +156,41 @@ class EB_Java(PackedBinary):
                         path = os.path.join(bindir, path)
                         out, _ = run_cmd("file %s" % path, trace=False)
                         if "dynamically linked" in out:
+                            # Set ELF interpreter if needed
+                            if elf_interp is not None:
+                                out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                                self.log.debug("ELF interpreter for %s: %s" % (path, out))
+    
+                                run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
+    
+                                out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                                self.log.debug("ELF interpreter for %s: %s" % (path, out))
 
-                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
+                            # Add to RPATH if needed
+                            if extra_rpaths:
+                                out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                curr_rpath = out.strip()
+                                self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
+    
+                                new_rpath = ':'.join([curr_rpath] + extra_rpaths)
+                                # note: it's important to wrap the new RPATH value in single quotes,
+                                # to avoid magic values like $ORIGIN being resolved by the shell
+                                run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
+    
+                                curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+    
+                                run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
+    
+                                curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
 
-                            run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
+            except OSError as err:
+                raise EasyBuildError("Failed to patch RPATH or ELF interpreter section in binaries: %s", err)
 
-                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
-
-                            out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            curr_rpath = out.strip()
-                            self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
-
-                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
-                            # note: it's important to wrap the new RPATH value in single quotes,
-                            # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
-
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
-
-                            run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
-
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
-
+        # Add to RPATH of libraries
+        if extra_rpaths:
+            try:
                 libdirs = [os.path.join(self.installdir, libdir) for libdir in module_guesses['LIBRARY_PATH'] if
                            os.path.exists(os.path.join(self.installdir, libdir))]
                 # Make sure these are unique real paths
@@ -178,22 +203,23 @@ class EB_Java(PackedBinary):
                             out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             curr_rpath = out.strip()
                             self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
-
-                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
+    
+                            new_rpath = ':'.join([curr_rpath] + extra_rpaths)
                             # note: it's important to wrap the new RPATH value in single quotes,
                             # to avoid magic values like $ORIGIN being resolved by the shell
                             run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
-
+    
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
-
+    
                             run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
-
+    
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
 
             except OSError as err:
-                raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
+                raise EasyBuildError("Failed to patch RPATH section in libraries: %s", err)
+   
 
     def sanity_check_step(self):
         """Custom sanity check for Java."""
