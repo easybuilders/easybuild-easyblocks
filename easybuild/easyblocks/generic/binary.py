@@ -186,9 +186,11 @@ class Binary(EasyBlock):
         extra_rpaths = []
         extra_rpaths_from_option = self.cfg.get('extra_rpaths', None)
         if extra_rpaths_from_option:
+            self.log.debug("Extra paths to be added to RPATH, specified through extra_rpaths: %s",
+                           extra_rpaths_from_option)
             # Replace any $EBROOT* variables by their value
             pattern = r"(\$EBROOT[^/]+)(.*)"
-            
+
             # Modify the list in place
             for i, path in enumerate(extra_rpaths_from_option):
                 match = re.match(pattern, path)
@@ -200,8 +202,14 @@ class Binary(EasyBlock):
                         raise EasyBuildError("An environment variable '%s' was used in the 'extra_rpaths' option, "
                                              "but could not be resolved because it was not found in the environment ",
                                              env_var)
+                    self.log.debug("Resolved environment variable %s in extra_rpaths path to %s", env_var, env_value)
                     # Only replace the $EBROOT* part, keep the rest
-                    extra_rpaths_from_option[i] = env_value + rest_of_path
+                    new_path = env_value + rest_of_path
+                    self.log.debug("Replacing %s with %s", extra_rpaths_from_option[i], new_path)
+                    extra_rpaths_from_option[i] = new_path
+
+            self.log.log("Extra paths to be added to RPATH, specified through extra_rpaths "
+                         "(after replacing environment variables): %s", extra_rpaths_from_option)
 
             extra_rpaths += extra_rpaths_from_option
 
@@ -220,8 +228,12 @@ class Binary(EasyBlock):
                 sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
                 sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
                 if sysroot_lib_paths:
-                    self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
+                    self.log.info("List of library paths in sysroot %s to add to RPATH section: %s", sysroot,
+                                  sysroot_lib_paths)
                     extra_rpaths += sysroot_lib_paths
+
+        self.log.log("Full list of paths to be added to RPATH: %s", extra_rpaths)
+        return extra_rpaths
 
     def post_install_step(self, rpath_dirs=None):
         """
