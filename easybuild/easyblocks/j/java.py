@@ -194,7 +194,7 @@ class EB_Java(PackedBinary):
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
 
-                                run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
+                                run_cmd("patchelf --force-rpath --shrink-rpath %s" % path, trace=False)
 
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
@@ -226,7 +226,7 @@ class EB_Java(PackedBinary):
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
 
-                            run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
+                            run_cmd("patchelf --force-rpath --shrink-rpath %s" % shlib, trace=False)
 
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
