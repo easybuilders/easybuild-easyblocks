@@ -32,15 +32,18 @@ General EasyBuild support for software with a binary installer
 @author: Jens Timmerman (Ghent University)
 """
 
+import glob
 import shutil
 import os
 import stat
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyblock import EasyBlock, DEFAULT_BIN_LIB_SUBDIRS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
+from easybuild.tools.config import build_option
+from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir, which
 from easybuild.tools.run import run_cmd
+from easybuild.tools.utilities import nub
 
 PREPEND_TO_PATH_DEFAULT = ['']
 
@@ -220,7 +223,7 @@ class Binary(EasyBlock):
                     self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
                     extra_rpaths += sysroot_lib_paths
 
-    def post_install_step(self):
+    def post_install_step(self, rpath_dirs=None):
         """
         - Copy installation to actual installation directory in case of a staged installation
         - If using sysroot: ensure correct interpreter is used and (if also using RPATH) ensure
@@ -254,18 +257,19 @@ class Binary(EasyBlock):
 
         # Get ELF interpreter
         if patch_interpreter:
-            elf_interp = _get_elf_interpreter_from_sysroot()
+            elf_interp = self._get_elf_interpreter_from_sysroot()
 
         # Determine the paths needed to be added to RPATH
+        extra_rpaths = []
         if add_library_path_to_rpath or add_sysroot_libdirs_to_rpath:
-            extra_rpaths = _determine_extra_rpaths(add_library_path_to_rpath, add_sysroot_libdirs_to_rpath)
+            extra_rpaths = self._determine_extra_rpaths(add_library_path_to_rpath, add_sysroot_libdirs_to_rpath)
 
         # Get directories to loop over for patching files
         if rpath_dirs is None:
             rpath_dirs = self.cfg['bin_lib_subdirs'] or self.bin_lib_subdirs()
 
         if not rpath_dirs:
-            rpath_dirs = EasyBlock.DEFAULT_BIN_LIB_SUBDIRS
+            rpath_dirs = DEFAULT_BIN_LIB_SUBDIRS
             self.log.info("Using default subdirectories for binaries/libraries to verify RPATH linking: %s",
                           rpath_dirs)
         else:
