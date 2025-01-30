@@ -33,6 +33,7 @@ import os
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.run import run_cmd
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
@@ -72,6 +73,15 @@ class Conda(Binary):
         else:
             raise EasyBuildError("No conda/mamba/micromamba available.")
 
+        # Identify conda version
+        cmd = "%s --version" % conda_cmd
+        (output, _) = run_cmd(cmd, log_all=True)
+
+        conda_version = output.split(' ')[1]
+        if LooseVersion(conda_version) >= LooseVersion('24.3'):
+            force = '--yes'
+        else:
+            force = '--force'
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = "%s config --add create_default_packages setuptools" % conda_cmd
@@ -85,8 +95,8 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         env_spec, self.installdir)
+            cmd = "%s %s env create %s %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                         force, env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
@@ -99,8 +109,8 @@ class Conda(Binary):
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        self.installdir, install_args)
+            cmd = "%s %s create %s -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
+                                                        force, self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
 
         # clean up
