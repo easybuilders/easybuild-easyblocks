@@ -186,6 +186,8 @@ class Binary(EasyBlock):
         # TODO: make sure this function ignores anything in filter_rpath_sanity_libs
         extra_rpaths = []
         extra_rpaths_from_option = self.cfg.get('extra_rpaths', None)
+        if not isinstance(extra_rpaths_from_option, list):
+            raise EasyBuildError("extra_rpaths option should be a list (got '%s')", extra_rpaths_from_option)
         if extra_rpaths_from_option:
             self.log.debug("Extra paths to be added to RPATH, specified through extra_rpaths: %s",
                            extra_rpaths_from_option)
@@ -193,10 +195,13 @@ class Binary(EasyBlock):
             pattern = r"(\$EBROOT[^/]+)(.*)"
 
             # Modify the list in place
+            self.log.debug("Resolving any environment variables in extra_rpaths")
             for i, path in enumerate(extra_rpaths_from_option):
+                self.log.debug("Matching '%s' with pattern '%s'", path, pattern)
                 match = re.match(pattern, path)
                 if match:
-                    env_var = match.group(1) 
+                    env_var = match.group(1)
+                    self.log.debug("Found environment variable in extra_paths: %s", env_var)
                     rest_of_path = match.group(2)
                     env_value = os.environ.get(env_var, None)
                     if env_value is None:
