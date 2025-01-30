@@ -261,7 +261,6 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 
-
         # Check for patchelf if we plan to patch either rpath or interpreter
         sysroot = build_option('sysroot')
         add_library_path_to_rpath = self.toolchain.use_rpath and self.cfg.get('patch_rpaths', False)
@@ -338,7 +337,9 @@ class Binary(EasyBlock):
 
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
-                                # TODO: make sure that after the shrink _SOME_ RPATH is left, otherwise the sanity check complains
+                                # Potential TODO: should we make sure that after the shrink _SOME_ RPATH is left?
+                                # Otherwise the sanity check may fail. However, our current case (Java) doesn't
+                                # show this, so we'll postpone implementing this until we have a concrete use case.
 
         except OSError as err:
             raise EasyBuildError("Failed to patch RPATH or ELF interpreter section in binaries: %s", err)
