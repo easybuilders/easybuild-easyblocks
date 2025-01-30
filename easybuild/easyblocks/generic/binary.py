@@ -157,7 +157,7 @@ class Binary(EasyBlock):
         # find path to ELF interpreter
         for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
             res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
-            self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res
+            self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
 
             if res:
                 # if there are multiple hits, make sure they resolve to the same paths,
@@ -175,13 +175,13 @@ class Binary(EasyBlock):
         else:
             return elf_interp
 
-    def _determine_extra_rpaths(self, add_library_path_to_rpath, add_sysroot_libdirs_to_rpath)
+    def _determine_extra_rpaths(self, add_library_path_to_rpath, add_sysroot_libdirs_to_rpath):
         """
         Determine the additional paths to be added to the RPATH and return these as a list
         """
         # TODO: make sure this function ignores anything in filter_rpath_sanity_libs
         extra_rpaths = []
-        extra_rpaths_from_option = self.cfg.get('extra_rpaths', None):
+        extra_rpaths_from_option = self.cfg.get('extra_rpaths', None)
         if extra_rpaths_from_option:
             # Replace any $EBROOT* variables by their value
             pattern = r"(\$EBROOT[^/]+)(.*)"
@@ -213,12 +213,12 @@ class Binary(EasyBlock):
         # Then, add paths from sysroot to the extra RPATH
         if add_sysroot_libdirs_to_rpath:
             if sysroot and self.toolchain.use_rpath:
-            sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
-            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
-            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
-            if sysroot_lib_paths:
-                self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
-                extra_rpaths += sysroot_lib_paths
+                sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
+                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
+                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
+                if sysroot_lib_paths:
+                    self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
+                    extra_rpaths += sysroot_lib_paths
 
     def post_install_step(self):
         """
