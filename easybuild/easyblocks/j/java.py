@@ -64,7 +64,7 @@ class EB_Java(PackedBinary):
             'patch_interpreter': [True, "Whether or not to use patchelf to patch the interpreter in executables when "
                                          "sysroot is used", CUSTOM],
         })
-      return extra_vars
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """ Init the Java easyblock adding a new jdkarch template var """
