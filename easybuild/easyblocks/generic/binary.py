@@ -224,6 +224,7 @@ class Binary(EasyBlock):
 
         # Then, add paths from sysroot to the extra RPATH
         if add_sysroot_libdirs_to_rpath:
+            sysroot = build_option('sysroot')
             sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
             sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
             sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
@@ -232,7 +233,7 @@ class Binary(EasyBlock):
                               sysroot_lib_paths)
                 extra_rpaths += sysroot_lib_paths
 
-        self.log.log("Full list of paths to be added to RPATH: %s", extra_rpaths)
+        self.log.info("Full list of paths to be added to RPATH: %s", extra_rpaths)
         return extra_rpaths
 
     def post_install_step(self, rpath_dirs=None):
