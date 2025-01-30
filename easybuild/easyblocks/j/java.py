@@ -47,6 +47,14 @@ class EB_Java(PackedBinary):
     Use the PackedBinary easyblock and set some extra paths.
     """
 
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to Java easyblock."""
+        extra_vars = PackedBinary.extra_options(extra_vars)
+        extra_vars.update({
+            'run_rpath_sanity_check': [False, "Whether or not to run the RPATH sanity check", CUSTOM]
+        })
+
     def __init__(self, *args, **kwargs):
         """ Init the Java easyblock adding a new jdkarch template var """
         myarch = get_cpu_architecture()
@@ -235,6 +243,8 @@ class EB_Java(PackedBinary):
         ]
 
         super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+
 
     def make_module_extra(self):
         """
