@@ -57,12 +57,13 @@ class EB_Java(PackedBinary):
             # patchelf for Java
             'run_rpath_sanity_check': [True, "Whether or not to run the RPATH sanity check", CUSTOM],
             'patch_rpaths': [True, "Whether or not to use patchelf to add relevant dirs (from LIBRARY_PATH or, "
-                                    "if sysroot is enabled, from default libdirs in the sysroot) to RPATH", CUSTOM],
-            'extra_rpaths': [['%(installdir)s/lib/server'], "List of directories to add to the RPATH, aside from the "
-                                   "default ones added by patch_rpaths. Any $EBROOT* environment variables will be "
-                                   "replaced by their respective values before setting the RPATH.", CUSTOM],
+                                   "if sysroot is enabled, from default libdirs in the sysroot) to RPATH", CUSTOM],
+            'extra_rpaths': [['%(installdir)s/lib/server'],
+                             "List of directories to add to the RPATH, aside from the "
+                             "default ones added by patch_rpaths. Any $EBROOT* environment variables will be "
+                             "replaced by their respective values before setting the RPATH.", CUSTOM],
             'patch_interpreter': [True, "Whether or not to use patchelf to patch the interpreter in executables when "
-                                         "sysroot is used", CUSTOM],
+                                        "sysroot is used", CUSTOM],
             # Also patch shared libraries in lib/server by default
             'bin_lib_subdirs': [['bin', 'lib', 'lib/server', 'lib64', 'lib64/server'],
                                 "List of subdirectories for binaries and libraries, which is used "
