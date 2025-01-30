@@ -35,6 +35,7 @@ General EasyBuild support for software with a binary installer
 import glob
 import shutil
 import os
+import re
 import stat
 
 from easybuild.framework.easyblock import EasyBlock, DEFAULT_BIN_LIB_SUBDIRS
@@ -208,8 +209,8 @@ class Binary(EasyBlock):
                     self.log.debug("Replacing %s with %s", extra_rpaths_from_option[i], new_path)
                     extra_rpaths_from_option[i] = new_path
 
-            self.log.log("Extra paths to be added to RPATH, specified through extra_rpaths "
-                         "(after replacing environment variables): %s", extra_rpaths_from_option)
+            self.log.info("Extra paths to be added to RPATH, specified through extra_rpaths "
+                          "(after replacing environment variables): %s", extra_rpaths_from_option)
 
             extra_rpaths += extra_rpaths_from_option
 
@@ -223,14 +224,13 @@ class Binary(EasyBlock):
 
         # Then, add paths from sysroot to the extra RPATH
         if add_sysroot_libdirs_to_rpath:
-            if sysroot and self.toolchain.use_rpath:
-                sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
-                if sysroot_lib_paths:
-                    self.log.info("List of library paths in sysroot %s to add to RPATH section: %s", sysroot,
-                                  sysroot_lib_paths)
-                    extra_rpaths += sysroot_lib_paths
+            sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
+            if sysroot_lib_paths:
+                self.log.info("List of library paths in sysroot %s to add to RPATH section: %s", sysroot,
+                              sysroot_lib_paths)
+                extra_rpaths += sysroot_lib_paths
 
         self.log.log("Full list of paths to be added to RPATH: %s", extra_rpaths)
         return extra_rpaths
@@ -258,10 +258,17 @@ class Binary(EasyBlock):
 
         # Check for patchelf if we plan to patch either rpath or interpreter
         sysroot = build_option('sysroot')
-        add_library_path_to_rpath = self.toolchain.use_rpath and self.cfg.get('patch_rpath', False)
-        add_sysroot_libdirs_to_rpath = sysroot and self.cfg.get('patch_rpath', False)
+        add_library_path_to_rpath = self.toolchain.use_rpath and self.cfg.get('patch_rpaths', False)
+        if add_library_path_to_rpath:
+            self.log.debug("Adding the content of LIBRARY_PATH to RPATH: enabled")
+        add_sysroot_libdirs_to_rpath = sysroot and self.cfg.get('patch_rpaths', False)
+        if add_sysroot_libdirs_to_rpath:
+            self.log.debug("Adding the the sysroot libdirs to RPATH: enabled")
         patch_interpreter = sysroot and self.cfg.get('patch_interpreter', False)
+        if patch_interpreter:
+            self.log.debug("Patching the interpreter for a custom sysroot: enabled")
         if add_library_path_to_rpath or add_sysroot_libdirs_to_rpath or patch_interpreter:
+            self.log.info("Patching interpreter and/or additional RPATHs in ELF headers of binaries/libraries")
             # Fail early if patchelf isn't found - we need it
             if not which('patchelf'):
                 error_msg = "patchelf not found via $PATH, required to patch RPATH section in binaries/libraries"
@@ -282,10 +289,10 @@ class Binary(EasyBlock):
 
         if not rpath_dirs:
             rpath_dirs = DEFAULT_BIN_LIB_SUBDIRS
-            self.log.info("Using default subdirectories for binaries/libraries to verify RPATH linking: %s",
+            self.log.info("Using default subdirectories for binaries/libraries to patch RPATHs and interpreter: %s",
                           rpath_dirs)
         else:
-            self.log.info("Using specified subdirectories for binaries/libraries to verify RPATH linking: %s",
+            self.log.info("Using specified subdirectories for binaries/libraries to patch RPATHs and interpreter: %s",
                           rpath_dirs)
 
         # Loop over all dirs in bin_lib_subdirs to patch all dynamically linked files
