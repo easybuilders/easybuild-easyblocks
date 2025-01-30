@@ -28,7 +28,6 @@ EasyBlock for installing Java, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Kenneth Hoste (Ghent University)
 """
-import glob
 import os
 import stat
 
@@ -36,11 +35,9 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir, which
+from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture, get_shared_lib_ext
-from easybuild.tools.utilities import nub
+from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture
 
 
 class EB_Java(PackedBinary):
