@@ -248,8 +248,6 @@ class EB_Java(PackedBinary):
 
         super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-
-
     def make_module_extra(self):
         """
         Set $JAVA_HOME to installation directory
