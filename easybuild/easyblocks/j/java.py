@@ -213,6 +213,15 @@ class EB_Java(PackedBinary):
                 for libdir in libdirs:
                     for path, _, filenames in os.walk(libdir):
                         shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
+                        # For some reason, Java has some dynamically linked executables in the libdir
+                        # (jexec and jspawnhelper)
+                        # We'll find those and any other dynamically linked exes in the libdir to make sure their
+                        # RPATH is also patched
+                        for filename in filenames:
+                            out, _ = run_cmd("file %s" % os.path.join(path, filename), trace=False)
+                            if "dynamically linked" in out:
+                                # this is a dynamically linked exe in the libdir, so patch RPATH here too
+                                shlibs.append(filename)
                         for shlib in shlibs:
                             out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             curr_rpath = out.strip()
