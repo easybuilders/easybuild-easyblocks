@@ -157,9 +157,9 @@ class Binary(EasyBlock):
         if self.cfg.get('run_rpath_sanity_check', False):
             super(Binary, self).sanity_check_rpath()
         else:
-           self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)"
-                         " and run_rpath_sanity_check is False",
-                         self.__class__.__name__)
+            self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)"
+                          " and run_rpath_sanity_check is False",
+                          self.__class__.__name__)
 
     def make_module_extra(self):
         """Add the specified directories to the PATH."""

@@ -32,6 +32,7 @@ import glob
 import os
 import stat
 
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
@@ -52,7 +53,9 @@ class EB_Java(PackedBinary):
         """Extra easyconfig parameters specific to Java easyblock."""
         extra_vars = PackedBinary.extra_options(extra_vars)
         extra_vars.update({
-            'run_rpath_sanity_check': [False, "Whether or not to run the RPATH sanity check", CUSTOM]
+            # Overwrite the default value for run_rpath_sanity_check to True, since we have RPATH patching with
+            # patchelf for Java
+            'run_rpath_sanity_check': [True, "Whether or not to run the RPATH sanity check", CUSTOM]
         })
 
     def __init__(self, *args, **kwargs):
