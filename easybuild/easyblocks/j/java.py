@@ -189,7 +189,7 @@ class EB_Java(PackedBinary):
                                 new_rpath = ':'.join([curr_rpath] + extra_rpaths)
                                 # note: it's important to wrap the new RPATH value in single quotes,
                                 # to avoid magic values like $ORIGIN being resolved by the shell
-                                run_cmd("patchelf --set-rpath --force-rpath '%s' %s" % (new_rpath, path), trace=False)
+                                run_cmd("patchelf --force-rpath --set-rpath '%s' %s" % (new_rpath, path), trace=False)
 
                                 curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
                                 self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
@@ -221,7 +221,7 @@ class EB_Java(PackedBinary):
                             new_rpath = ':'.join([curr_rpath] + extra_rpaths)
                             # note: it's important to wrap the new RPATH value in single quotes,
                             # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_cmd("patchelf --set-rpath --force-rpath '%s' %s" % (new_rpath, shlib), trace=False)
+                            run_cmd("patchelf --force-rpath --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
 
                             curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
                             self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
