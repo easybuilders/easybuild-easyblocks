@@ -155,7 +155,7 @@ class Binary(EasyBlock):
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         if self.cfg.get('run_rpath_sanity_check', False):
-            super(Binary, self).sanity_check_rpath()
+            return super(Binary, self).sanity_check_rpath()
         else:
             self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)"
                           " and run_rpath_sanity_check is False",
