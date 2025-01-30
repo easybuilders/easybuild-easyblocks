@@ -65,6 +65,11 @@ class Binary(EasyBlock):
             'prepend_to_path': [PREPEND_TO_PATH_DEFAULT, "Prepend the given directories (relative to install-dir) to "
                                                          "the environment variable PATH in the module file. Default "
                                                          "is the install-dir itself.", CUSTOM],
+            # We should start moving away from skipping the RPATH sanity check and towards patching RPATHS
+            # using patchelf, see e.g. https://github.com/easybuilders/easybuild-easyblocks/pull/3571
+            # The option run_rpath_sanity_check supports a gradual transition where binary installs that properly
+            # patch the RPATH can start running the sanity check
+            'run_rpath_sanity_check': [False, "Whether or not to run the RPATH sanity check", CUSTOM]
         })
         return extra_vars
 
@@ -149,8 +154,12 @@ class Binary(EasyBlock):
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
-        self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)",
-                      self.__class__.__name__)
+        if self.cfg.get('run_rpath_sanity_check', False):
+            super(Binary, self).sanity_check_rpath()
+        else:
+           self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)"
+                         " and run_rpath_sanity_check is False",
+                         self.__class__.__name__)
 
     def make_module_extra(self):
         """Add the specified directories to the PATH."""
