@@ -55,8 +55,7 @@ class EB_Java(PackedBinary):
         extra_vars.update({
             # Overwrite the default value for run_rpath_sanity_check to True, since we have RPATH patching with
             # patchelf for Java
-            'run_rpath_sanity_check': [True, "Whether or not to run the RPATH sanity check", CUSTOM]
-
+            'run_rpath_sanity_check': [True, "Whether or not to run the RPATH sanity check", CUSTOM],
             'patch_rpaths': [True, "Whether or not to use patchelf to add relevant dirs (from LIBRARY_PATH or, "
                                     "if sysroot is enabled, from default libdirs in the sysroot) to RPATH", CUSTOM],
             'extra_rpaths': ['$EBROOTJAVA/lib/server', "List of directories to add to the RPATH, aside from the "
